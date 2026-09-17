@@ -49,7 +49,7 @@
     $all('#main-nav button').forEach((b) => b.classList.toggle('active', b.dataset.nav === screen));
     const renderer = { home: renderHome, 'new-lesson': renderNewLesson, lessons: renderLessons,
       'lesson-detail': () => renderLessonDetail(App.currentLessonId), stats: renderStats,
-      'exam-setup': renderExamSetup, settings: () => {} }[screen];
+      'exam-setup': renderExamSetup, settings: renderSettingsScreen }[screen];
     if (renderer) renderer();
     window.scrollTo(0, 0);
   }
@@ -57,14 +57,19 @@
   // ---------------------------------------------------------------
   // ACCUEIL
   // ---------------------------------------------------------------
-  function reviewableItems() { return Store.getAllItems().filter((it) => it.en); }
+  // Un item sans traduction n'est pas révisable : la réponse affichée après clic doit toujours
+  // être la traduction exacte, jamais un champ vide. Il reste visible/éditable dans sa leçon,
+  // juste absent des sessions de révision tant qu'il n'est pas complété.
+  function reviewableItems() { return Store.getAllItems().filter((it) => it.en && it.fr); }
 
   function renderHome() {
     $('#home-date').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     $('#home-streak').textContent = `🔥 ${Store.getSettings().streak} jour(s)`;
 
     const items = reviewableItems();
-    const due = items.filter((it) => SRS.isDue(it));
+    // Un mot déjà "solide" ne compte plus comme "à faire" : il ne sera plus proposé par la
+    // révision nulle et ennuyeuse (voir startSmartReview).
+    const due = items.filter((it) => SRS.isDue(it) && it.masteryLevel < 3);
     $('#home-due-count').textContent = due.length;
 
     const durWrap = $('#quick-durations');
@@ -283,7 +288,7 @@
   }
 
   function masteryBadge(it) {
-    const labels = ['Nouveau', 'Reconnu', 'Mémorisé', 'Maîtrisé', 'Solide'];
+    const labels = ['Nouveau', 'Reconnu', 'Mémorisé', 'Solide'];
     return `<div class="sub" style="margin:-4px 0 8px 6px">Niveau : ${labels[it.masteryLevel] || 'Nouveau'}</div>`;
   }
 
@@ -327,7 +332,7 @@
   }
 
   function startExamSession(lessonId, minutes) {
-    const pool = lessonId ? Store.getItemsByLesson(lessonId).filter((i) => i.en) : reviewableItems();
+    const pool = lessonId ? Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr) : reviewableItems();
     if (!pool.length) { toast('Aucun élément à réviser dans cette sélection.'); return; }
     const target = Math.max(6, Math.round(minutes * 2.2));
     const ranked = pool.slice().sort((a, b) => examScore(b) - examScore(a));
@@ -339,33 +344,36 @@
     const impWeight = { essential: 3, important: 1.5, secondary: 0.5 }[it.importance] || 1;
     const diff = SRS.difficultyFactor(it);
     const recentlyWrong = SRS.SKILLS.some((k) => it.skills[k].lastResult === false && Date.now() - (it.skills[k].lastDate || 0) < 3 * 86400000) ? 2 : 0;
-    return impWeight * 2 + diff * 4 + (4 - it.masteryLevel) * 0.6 + recentlyWrong;
+    return impWeight * 2 + diff * 4 + (3 - it.masteryLevel) * 0.6 + recentlyWrong;
   }
 
   // ---------------------------------------------------------------
-  // RÉVISION INTELLIGENTE / RAPIDE / PAR LEÇON
+  // RÉVISION NULLE ET ENNUYEUSE / RAPIDE / PAR LEÇON
   // ---------------------------------------------------------------
   function smartScore(it, now) {
     const due = SRS.nextDue(it);
     const overdue = Math.max(0, now - due) / 3600000; // heures de retard
     const impWeight = { essential: 2, important: 1, secondary: 0.4 }[it.importance] || 1;
     const diff = SRS.difficultyFactor(it);
-    return overdue * 0.6 + diff * 3 + impWeight + (4 - it.masteryLevel) * 0.4;
+    return overdue * 0.6 + diff * 3 + impWeight + (3 - it.masteryLevel) * 0.4;
   }
 
   function startSmartReview(minutes, mode) {
-    const pool = reviewableItems();
-    if (!pool.length) { toast('Importe une leçon pour commencer à réviser !'); return; }
+    // Un mot validé à répétition (niveau "solide" : plusieurs succès dans les deux sens, avec
+    // des intervalles longs) n'a plus rien à faire ici — cette révision se concentre sur ce qui
+    // n'est pas encore acquis, pas sur ce qu'on sait déjà par cœur.
+    const pool = reviewableItems().filter((it) => it.masteryLevel < 3);
+    if (!pool.length) { toast('Tout est déjà bien maîtrisé — rien à revoir ici pour l\'instant !'); return; }
     const now = Date.now();
     const target = Math.max(6, Math.round(minutes * 2.2));
     const ranked = pool.slice().sort((a, b) => smartScore(b, now) - smartScore(a, now));
     const selected = capNewItems(ranked, target);
-    startSession(selected, pool, target, mode, mode === 'smart' ? 'Révision intelligente' : `Révision rapide (${minutes} min)`);
+    startSession(selected, pool, target, mode, mode === 'smart' ? 'Révision nulle et ennuyeuse' : `Révision rapide (${minutes} min)`);
   }
 
   function startLessonReview(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    let pool = Store.getItemsByLesson(lessonId).filter((i) => i.en);
+    let pool = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr);
     if (App.lessonFilterEssentialOnly) pool = pool.filter((i) => i.importance === 'essential');
     if (!pool.length) { toast('Aucun élément révisable dans cette leçon.'); return; }
     const target = Math.max(8, Math.min(pool.length * 2, 40));
@@ -380,7 +388,7 @@
   // ---------------------------------------------------------------
   function startTestBlanc(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    const pool = Store.getItemsByLesson(lessonId).filter((i) => i.en);
+    const pool = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr);
     if (pool.length < 3) { toast('Pas assez d\'éléments pour un test blanc (minimum 3).'); return; }
     const target = Math.min(20, Math.max(8, pool.length));
     startSession(Exercises.shuffle(pool).slice(0, target), pool, target, 'test', lesson.title);
@@ -398,7 +406,7 @@
   }
 
   function categoryForKind(kind, item) {
-    if (kind === 'translation') return 'traduction';
+    if (item && item.type === 'example_sentence') return 'traduction';
     if (item && (item.type === 'expression' || item.type === 'phrasal_verb')) return 'expressions';
     return 'vocabulaire';
   }
@@ -427,20 +435,26 @@
     if (!correct && step.item) {
       s.wrongItems.push(step.item);
       const already = s.requeued[step.item.id] || 0;
-      if (already < 1 && s.queue.length < s.index + 8) {
-        const pos = Math.min(s.queue.length, s.index + 3 + Math.floor(Math.random() * 3));
+      if (already < 1) {
+        // Un vrai temps doit s'écouler avant de revoir ce mot : au moins MIN_GAP autres
+        // questions entre les deux, jamais collé à une autre occurrence déjà prévue.
+        const MIN_GAP = 6;
+        let pos = s.index + MIN_GAP + Math.floor(Math.random() * 4);
+        let attempts = 0;
+        while (attempts < 10 && s.queue.slice(Math.max(0, pos - 3), pos + 3).some((st) => st.item && st.item.id === step.item.id)) {
+          pos += 3;
+          attempts++;
+        }
+        pos = Math.min(pos, s.queue.length);
         const altDirection = step.direction === 'en_fr' ? 'fr_en' : 'en_fr';
-        s.queue.splice(pos, 0, Exercises.genActiveRecall(step.item, altDirection));
+        s.queue.splice(pos, 0, Exercises.genFlashcard(step.item, altDirection));
         s.requeued[step.item.id] = already + 1;
       }
     }
   }
 
   function skillNameForKind(kind, direction) {
-    if (kind === 'listening') return 'listening';
-    if (kind === 'translation') return 'fr_en';
-    if (direction === 'fr_en') return 'fr_en';
-    return 'en_fr';
+    return direction === 'fr_en' ? 'fr_en' : 'en_fr';
   }
 
   function renderSessionStep() {
@@ -454,12 +468,7 @@
     step.skillName = skillNameForKind(step.kind, step.direction);
     const body = $('#session-body');
     body.innerHTML = '';
-    const renderers = {
-      flashcard: renderFlashcard, recall: renderRecall, translation: renderTranslation,
-      listening: renderListening, visual: renderVisualEx,
-      matching: renderMatching, note: renderNote,
-      verbforms: renderVerbForms,
-    };
+    const renderers = { flashcard: renderFlashcard, note: renderNote };
     (renderers[step.kind] || renderNote)(body, step);
   }
 
@@ -467,32 +476,19 @@
 
   function kindTag(label) { return `<div class="exercise-kind-tag">${label}</div>`; }
 
-  // Qu'on ait juste ou faux, la bonne réponse doit toujours être affichée (indispensable
-  // notamment avec la case "je sais déjà" : on doit pouvoir vérifier qu'on avait bien raison).
-  function feedbackHTML(correct, correctAnswer, tip, close) {
-    const cls = correct ? 'good' : 'bad';
-    const head = correct
-      ? (close ? `✅ Correct (à l'orthographe près) — Réponse : ${esc(correctAnswer)}` : `✅ Correct ! Réponse : ${esc(correctAnswer)}`)
-      : `❌ La bonne réponse : ${esc(correctAnswer)}`;
-    return `<div class="feedback-box ${cls}">${head}${tip ? `<div class="tip">💡 ${esc(tip)}</div>` : ''}</div>`;
-  }
-
-  function continueButton(container) {
-    const b = document.createElement('button');
-    b.className = 'btn primary';
-    b.textContent = 'Continuer →';
-    b.style.marginTop = '10px';
-    b.onclick = nextStep;
-    container.appendChild(b);
-    b.focus();
-  }
-
-  // --- Flashcard ---
+  // --- Flashcard (seul type d'exercice) ---
+  // On révèle la réponse, puis on s'auto-évalue (❌/😐/✅). Le choix reste modifiable — on peut
+  // cliquer une autre pastille pour changer d'avis — tant qu'on n'a pas cliqué "Continuer",
+  // qui est le seul moment où le résultat est vraiment enregistré.
   function renderFlashcard(body, step) {
     body.innerHTML = `<div class="exercise-card">
       ${kindTag('🃏 Flashcard')}
       <div class="exercise-prompt">${esc(step.front)}</div>
-      <div id="fc-back" hidden><div class="exercise-answer">${esc(step.back)}</div></div>
+      <div id="fc-back" hidden>
+        <div class="exercise-answer">${esc(step.back)}</div>
+        ${mnemonicFor(step.item) ? `<div class="feedback-box good tip" style="background:var(--accent-soft);color:var(--accent)">⚠️ ${esc(mnemonicFor(step.item))}</div>` : ''}
+        ${usageNoteHTML(step.item)}
+      </div>
       <div class="exercise-actions" id="fc-actions">
         <button class="btn primary" id="fc-reveal">Afficher la réponse</button>
       </div>
@@ -503,16 +499,20 @@
         <button data-r="no" title="Je ne savais pas">❌</button>
         <button data-r="mid" title="J'ai hésité">😐</button>
         <button data-r="yes" title="Je savais">✅</button>
-      </div>`;
-      $all('#fc-actions button').forEach((b) => b.onclick = () => {
-        const r = b.dataset.r;
-        $('#fc-actions').innerHTML = '';
-        recordResult(step, r !== 'no', { hesitant: r === 'mid' });
-        const box = document.createElement('div');
-        box.innerHTML = feedbackHTML(r !== 'no', step.back, r==='no' ? mnemonicFor(step.item) : null, false);
-        $('#session-body').appendChild(box);
-        continueButton($('#session-body'));
+      </div>
+      <button class="btn primary" id="fc-continue" style="margin-top:10px" disabled>Continuer →</button>`;
+      let selected = null;
+      const rateButtons = $all('#fc-actions [data-r]');
+      const continueBtn = document.getElementById('fc-continue');
+      rateButtons.forEach((b) => b.onclick = () => {
+        selected = b.dataset.r;
+        rateButtons.forEach((x) => x.classList.toggle('picked', x === b));
+        continueBtn.disabled = false;
       });
+      continueBtn.onclick = () => {
+        recordResult(step, selected !== 'no', { hesitant: selected === 'mid' });
+        nextStep();
+      };
     };
   }
 
@@ -521,69 +521,20 @@
     return item.mnemonicTip || (item.visual ? item.visual.mnemonic : null);
   }
 
-  // --- Rappel actif ---
-  // Case à cocher présente sur tous les exercices à réponse tapée : permet de dire "je sais"
-  // sans avoir à écrire le mot, plutôt que de forcer la frappe à chaque fois.
-  function knowCheckboxHTML() {
-    return `<label class="know-toggle"><input type="checkbox" id="know-cb"> Je sais déjà (sans écrire)</label>`;
-  }
-  function isKnowChecked() {
-    const cb = document.getElementById('know-cb');
-    return !!(cb && cb.checked);
-  }
-
-  function renderRecall(body, step) {
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag(step.direction === 'fr_en' ? '🧠 Rappel actif — Français → Anglais' : '🧠 Rappel actif — Anglais → Français')}
-      <div class="exercise-prompt">${esc(step.prompt)}</div>
-      <input type="text" class="exercise-input" id="recall-input" autocomplete="off" placeholder="Tape ta réponse...">
-      ${knowCheckboxHTML()}
-      <div class="exercise-actions"><button class="btn primary" id="recall-submit">Valider</button></div>
+  // Précision d'usage affichée au dos de la carte : une vraie phrase de la leçon si elle existe,
+  // sinon un exemple généré (clairement présenté comme tel) — pour vraiment aider à retenir le
+  // mot, plutôt que le gadget "découpe le mot en syllabes" qui a été supprimé.
+  function usageNoteHTML(item) {
+    if (!item) return '';
+    const ex = Exercises.getUsageExample(item);
+    if (!ex) return '';
+    const label = ex.fromLesson ? '📖 Dans la leçon' : '📖 Exemple';
+    return `<div class="feedback-box good tip" style="background:var(--accent-soft);color:var(--accent);text-align:center;">
+      <div style="font-size:.75em;text-transform:uppercase;letter-spacing:.03em;opacity:.8;">${label}</div>
+      ${esc(ex.en)}<br>${esc(ex.fr)}
     </div>`;
-    const submit = () => {
-      const val = $('#recall-input').value;
-      const res = isKnowChecked() ? { correct: true, close: false, closestMatch: step.answer } : Exercises.checkAnswer(val, step.answer);
-      recordResult(step, res.correct);
-      $('#recall-input').disabled = true;
-      $('#recall-submit').remove();
-      const box = document.createElement('div');
-      box.innerHTML = feedbackHTML(res.correct, res.closestMatch || step.answer, !res.correct ? mnemonicFor(step.item) : null, res.close);
-      $('.exercise-card').appendChild(box);
-      continueButton($('.exercise-card'));
-    };
-    $('#recall-submit').onclick = submit;
-    $('#recall-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    $('#recall-input').focus();
   }
 
-  // --- Traduction ---
-  function renderTranslation(body, step) {
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag('✍️ Traduction')}
-      <div class="exercise-sub">Traduis en anglais :</div>
-      <div class="exercise-prompt">${esc(step.prompt)}</div>
-      <input type="text" class="exercise-input" id="tr-input" autocomplete="off" placeholder="Your translation...">
-      ${knowCheckboxHTML()}
-      <div class="exercise-actions"><button class="btn primary" id="tr-submit">Valider</button></div>
-    </div>`;
-    const submit = () => {
-      const val = $('#tr-input').value;
-      const res = isKnowChecked() ? { correct: true, ratio: 1 } : Exercises.checkSentence(val, step.answer);
-      recordResult(step, res.correct);
-      $('#tr-input').disabled = true;
-      $('#tr-submit').remove();
-      const tip = !res.correct ? `Compare mot à mot avec ta phrase pour voir la différence.` : null;
-      const box = document.createElement('div');
-      box.innerHTML = feedbackHTML(res.correct, step.answer, tip, false);
-      $('.exercise-card').appendChild(box);
-      continueButton($('.exercise-card'));
-    };
-    $('#tr-submit').onclick = submit;
-    $('#tr-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    $('#tr-input').focus();
-  }
-
-  // --- Écoute ---
   function speak(text) {
     try {
       const u = new SpeechSynthesisUtterance(text);
@@ -592,97 +543,6 @@
       global.speechSynthesis.cancel();
       global.speechSynthesis.speak(u);
     } catch (e) { /* synthèse vocale indisponible */ }
-  }
-
-  function renderListening(body, step) {
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag('👂 Prononciation')}
-      <button class="speak-btn" id="ls-speak">🔊</button>
-      <div class="exercise-sub">Écoute et écris le mot que tu entends.</div>
-      <input type="text" class="exercise-input" id="ls-input" autocomplete="off">
-      ${knowCheckboxHTML()}
-      <div class="exercise-actions"><button class="btn primary" id="ls-submit">Valider</button></div>
-    </div>`;
-    speak(step.textToSpeak);
-    $('#ls-speak').onclick = () => speak(step.textToSpeak);
-    const submit = () => {
-      const res = isKnowChecked() ? { correct: true, close: false } : Exercises.checkAnswer($('#ls-input').value, step.answer);
-      recordResult(step, res.correct);
-      $('#ls-input').disabled = true;
-      $('#ls-submit').remove();
-      const box = document.createElement('div');
-      box.innerHTML = feedbackHTML(res.correct, step.answer, null, res.close);
-      $('.exercise-card').appendChild(box);
-      continueButton($('.exercise-card'));
-    };
-    $('#ls-submit').onclick = submit;
-    $('#ls-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    $('#ls-input').focus();
-  }
-
-  // --- Mémoire visuelle ---
-  function renderVisualEx(body, step) {
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag('🖼️ Mémoire visuelle')}
-      <div class="exercise-emoji">${step.emoji}</div>
-      <div class="exercise-sub">Quel est le mot anglais ?</div>
-      <input type="text" class="exercise-input" id="vi-input" autocomplete="off">
-      ${knowCheckboxHTML()}
-      <div class="exercise-actions"><button class="btn primary" id="vi-submit">Valider</button></div>
-    </div>`;
-    const submit = () => {
-      const res = isKnowChecked() ? { correct: true, close: false } : Exercises.checkAnswer($('#vi-input').value, step.answer);
-      recordResult(step, res.correct);
-      $('#vi-input').disabled = true;
-      $('#vi-submit').remove();
-      const box = document.createElement('div');
-      box.innerHTML = feedbackHTML(res.correct, step.answer, null, res.close);
-      $('.exercise-card').appendChild(box);
-      continueButton($('.exercise-card'));
-    };
-    $('#vi-submit').onclick = submit;
-    $('#vi-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    $('#vi-input').focus();
-  }
-
-  // --- Association ---
-  function renderMatching(body, step) {
-    let selectedLeft = null, matchedCount = 0;
-    const leftItems = step.leftShuffled.map((id) => step.pairs.find((p) => p.id === id));
-    const rightItems = step.rightShuffled.map((id) => step.pairs.find((p) => p.id === id));
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag('🧩 Association')}
-      <div class="matching-grid">
-        <div class="matching-col" id="match-left">${leftItems.map((p) => `<div class="match-card" data-id="${p.id}">${esc(p.en)}</div>`).join('')}</div>
-        <div class="matching-col" id="match-right">${rightItems.map((p) => `<div class="match-card" data-id="${p.id}">${esc(p.fr)}</div>`).join('')}</div>
-      </div>
-    </div>`;
-    $all('#match-left .match-card').forEach((el) => el.onclick = () => {
-      if (el.classList.contains('matched')) return;
-      $all('#match-left .match-card').forEach((x) => x.classList.remove('selected'));
-      el.classList.add('selected');
-      selectedLeft = el.dataset.id;
-    });
-    $all('#match-right .match-card').forEach((el) => el.onclick = () => {
-      if (el.classList.contains('matched') || !selectedLeft) return;
-      const leftEl = $(`#match-left [data-id="${selectedLeft}"]`);
-      if (selectedLeft === el.dataset.id) {
-        el.classList.add('matched'); leftEl.classList.add('matched');
-        el.classList.remove('selected'); leftEl.classList.remove('selected');
-        matchedCount++;
-        selectedLeft = null;
-        if (matchedCount === leftItems.length) {
-          recordResult(step, true);
-          const box = document.createElement('div');
-          box.innerHTML = feedbackHTML(true, 'Toutes les paires trouvées !', null, false);
-          $('.exercise-card').appendChild(box);
-          continueButton($('.exercise-card'));
-        }
-      } else {
-        el.classList.add('wrong-flash');
-        setTimeout(() => el.classList.remove('wrong-flash'), 400);
-      }
-    });
   }
 
   // --- Note (règle de grammaire / culture) ---
@@ -695,45 +555,6 @@
       <div class="exercise-actions"><button class="btn primary" id="note-ok">J'ai compris</button></div>
     </div>`;
     $('#note-ok').onclick = () => { App.session.total++; App.session.correct++; nextStep(); };
-  }
-
-  // --- Formes d'une famille de mots (verbe irrégulier, comparatif irrégulier) ---
-  function renderVerbForms(body, step) {
-    body.innerHTML = `<div class="exercise-card">
-      ${kindTag({ irregular_comparative: '📶 Comparatif irrégulier', irregular_plural: '🔢 Pluriel irrégulier' }[step.item.type] || '🔁 Verbe irrégulier')}
-      <div class="exercise-sub">Retrouve les 3 formes pour : <b>${esc(step.meaning)}</b></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px;">
-        ${step.labels.map((l, i) => `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-          <label style="font-size:.72em;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;">${esc(l)}</label>
-          <input type="text" class="exercise-input vf-input" data-idx="${i}" style="max-width:150px;margin-top:0;" autocomplete="off" autocapitalize="off">
-        </div>`).join('')}
-      </div>
-      ${knowCheckboxHTML()}
-      <div class="exercise-actions"><button class="btn primary" id="vf-submit">Valider</button></div>
-    </div>`;
-    const submit = () => {
-      const know = isKnowChecked();
-      const inputs = $all('.vf-input');
-      const results = inputs.map((inp, i) => {
-        const res = know ? { correct: true } : Exercises.checkAnswer(inp.value, step.forms[i]);
-        inp.disabled = true;
-        inp.style.borderColor = res.correct ? 'var(--good)' : 'var(--bad)';
-        return res.correct;
-      });
-      const allCorrect = results.every(Boolean);
-      recordResult(step, allCorrect);
-      $('#vf-submit').remove();
-      const box = document.createElement('div');
-      box.innerHTML = feedbackHTML(allCorrect, step.forms.join('  →  '), !allCorrect ? mnemonicFor(step.item) : null, false);
-      $('.exercise-card').appendChild(box);
-      continueButton($('.exercise-card'));
-    };
-    $('#vf-submit').onclick = submit;
-    const vfInputs = $all('.vf-input');
-    vfInputs.forEach((inp, i) => inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { const next = vfInputs[i + 1]; if (next) next.focus(); else submit(); }
-    }));
-    if (vfInputs[0]) vfInputs[0].focus();
   }
 
   // ---------------------------------------------------------------
@@ -783,7 +604,7 @@
   // ---------------------------------------------------------------
   function startLearnMode(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    const items = Store.getItemsByLesson(lessonId).filter((i) => i.en)
+    const items = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr)
       .sort((a, b) => ({essential:0,important:1,secondary:2}[a.importance] - {essential:0,important:1,secondary:2}[b.importance]));
     if (!items.length) { toast('Aucun mot à apprendre dans cette leçon.'); return; }
     const groups = [];
@@ -811,9 +632,8 @@
         : `<div class="exercise-prompt">${esc(word.en)}</div>`}
       <div class="exercise-answer">${esc(word.fr)}</div>
       <button class="speak-btn" id="learn-speak">🔊</button>
-      ${!word.forms && word.example ? `<div class="exercise-sub">Ex : ${esc(word.example.en)}<br>${esc(word.example.fr)}</div>` : ''}
-      ${!word.forms && !word.example && Exercises.getExampleSentence(word) ? `<div class="exercise-sub">Ex : ${esc(Exercises.getExampleSentence(word).en)}</div>` : ''}
-      ${mnemonicFor(word) ? `<div class="feedback-box good tip" style="background:var(--accent-soft);color:var(--accent)">💡 ${esc(mnemonicFor(word))}</div>` : ''}
+      ${mnemonicFor(word) ? `<div class="feedback-box good tip" style="background:var(--accent-soft);color:var(--accent)">⚠️ ${esc(mnemonicFor(word))}</div>` : ''}
+      ${usageNoteHTML(word)}
       <div class="exercise-actions"><button class="btn primary" id="learn-next">${L.wordIndex + 1 < group.length ? 'Mot suivant →' : 'Passer au petit test →'}</button></div>
     </div>`;
     const speakWord = () => {
@@ -892,6 +712,106 @@
   // ---------------------------------------------------------------
   // RÉGLAGES
   // ---------------------------------------------------------------
+  const KEYBIND_LABELS = {
+    reveal: 'Afficher la réponse (flashcard)',
+    continue: 'Passer à la question suivante',
+    rateWrong: 'Flashcard — ❌ je ne savais pas',
+    rateMid: 'Flashcard — 😐 j\'ai hésité',
+    rateRight: 'Flashcard — ✅ je savais',
+    quit: 'Quitter la session',
+  };
+  const DEFAULT_KEYBINDS = { reveal: ' ', continue: 'Enter', rateWrong: '1', rateMid: '2', rateRight: '3', quit: 'Escape' };
+
+  function keyDisplayName(k) {
+    if (!k) return '—';
+    if (k === ' ') return 'Espace';
+    if (k === 'Enter') return 'Entrée';
+    if (k === 'Escape') return 'Échap';
+    if (k.length === 1) return k.toUpperCase();
+    return k;
+  }
+
+  function renderKeybindsSettings() {
+    const kb = Object.assign({}, DEFAULT_KEYBINDS, Store.getSettings().keybinds || {});
+    const wrap = $('#keybinds-list');
+    if (!wrap) return;
+    wrap.innerHTML = Object.keys(KEYBIND_LABELS).map((action) => `
+      <div class="keybind-row">
+        <span>${esc(KEYBIND_LABELS[action])}</span>
+        <button class="btn small keybind-key" data-action="${action}">${esc(keyDisplayName(kb[action]))}</button>
+      </div>`).join('');
+    $all('.keybind-key', wrap).forEach((btn) => {
+      btn.onclick = () => {
+        const action = btn.dataset.action;
+        const original = btn.textContent;
+        btn.textContent = 'Appuie sur une touche… (Échap pour annuler)';
+        const capture = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          document.removeEventListener('keydown', capture, true);
+          if (e.key !== 'Escape') {
+            const keybinds = Object.assign({}, Store.getSettings().keybinds || DEFAULT_KEYBINDS, { [action]: e.key });
+            Store.updateSettings({ keybinds });
+          }
+          renderKeybindsSettings();
+        };
+        document.addEventListener('keydown', capture, true);
+      };
+    });
+  }
+
+  // Multiplicateur d'intervalle de répétition espacée (comme Anki) : >1 espace davantage les
+  // révisions, <1 les rapproche. Lu directement par SRS.applyResult à chaque réponse.
+  function renderIntervalMultiplierSetting() {
+    const input = $('#interval-multiplier');
+    const label = $('#interval-multiplier-value');
+    if (!input) return;
+    const current = Store.getSettings().intervalMultiplier || 1;
+    input.value = current;
+    label.textContent = current.toFixed(2).replace(/\.?0+$/, '') + '×';
+    input.oninput = () => {
+      const v = parseFloat(input.value);
+      label.textContent = v.toFixed(2).replace(/\.?0+$/, '') + '×';
+      Store.updateSettings({ intervalMultiplier: v });
+    };
+  }
+
+  function renderSettingsScreen() {
+    renderKeybindsSettings();
+    renderIntervalMultiplierSetting();
+  }
+
+  // Raccourcis actifs uniquement pendant une session de révision. On ne consulte jamais la
+  // souris : la question suivante n'arrive QUE quand l'utilisateur le décide (clic ou touche).
+  function matchesKey(eventKey, bound) {
+    if (!bound) return false;
+    return eventKey.toLowerCase() === bound.toLowerCase();
+  }
+
+  function bindSessionKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      const sessionScreen = document.getElementById('screen-session');
+      if (!sessionScreen || !sessionScreen.classList.contains('active')) return;
+      const kb = Object.assign({}, DEFAULT_KEYBINDS, Store.getSettings().keybinds || {});
+      if (matchesKey(e.key, kb.quit)) {
+        e.preventDefault();
+        const quitBtn = document.getElementById('btn-quit-session');
+        if (quitBtn) quitBtn.click();
+        return;
+      }
+      const revealBtn = document.getElementById('fc-reveal');
+      if (revealBtn && matchesKey(e.key, kb.reveal)) { e.preventDefault(); revealBtn.click(); return; }
+      const rateButtons = $all('.self-rate-row button');
+      if (rateButtons.length >= 3) {
+        if (matchesKey(e.key, kb.rateWrong)) { e.preventDefault(); rateButtons[0].click(); return; }
+        if (matchesKey(e.key, kb.rateMid)) { e.preventDefault(); rateButtons[1].click(); return; }
+        if (matchesKey(e.key, kb.rateRight)) { e.preventDefault(); rateButtons[2].click(); return; }
+      }
+      const contBtn = $all('#session-body button').find((b) => b.textContent.includes('Continuer'));
+      if (contBtn && matchesKey(e.key, kb.continue)) { e.preventDefault(); contBtn.click(); }
+    });
+  }
+
   function bindSettings() {
     $('#btn-export').onclick = () => {
       const blob = new Blob([Store.exportJSON()], { type: 'application/json' });
@@ -899,6 +819,11 @@
       a.href = URL.createObjectURL(blob);
       a.download = 'revision-anglais-export.json';
       a.click();
+    };
+    $('#btn-reset-keybinds').onclick = () => {
+      Store.updateSettings({ keybinds: Object.assign({}, DEFAULT_KEYBINDS) });
+      renderKeybindsSettings();
+      toast('Raccourcis réinitialisés.');
     };
     $('#btn-reset').onclick = () => {
       if (confirm('Tout supprimer (leçons, progression, statistiques) ? Cette action est irréversible.')) {
@@ -917,6 +842,7 @@
     $('#btn-quit-session').onclick = () => { if (confirm('Quitter la session en cours ?')) { App.session = null; go('home'); } };
     bindNewLessonButtons();
     bindSettings();
+    bindSessionKeyboardShortcuts();
     Store.touchDailyStreak();
     go('home');
   }

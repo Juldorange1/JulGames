@@ -18,6 +18,17 @@
         dailyGoal: 20,
         streak: 0,
         lastActiveDay: null,
+        // Multiplicateur de la répétition espacée (comme le "interval modifier" d'Anki) :
+        // 1 = normal, >1 espace davantage les révisions, <1 les rapproche.
+        intervalMultiplier: 1,
+        keybinds: {
+          reveal: ' ',      // afficher la réponse (flashcard)
+          continue: 'Enter', // passer à la question suivante une fois la correction affichée
+          rateWrong: '1',   // flashcard : je ne savais pas
+          rateMid: '2',     // flashcard : j'ai hésité
+          rateRight: '3',   // flashcard : je savais
+          quit: 'Escape',   // quitter la session
+        },
       },
       createdAt: Date.now(),
     };
@@ -33,11 +44,13 @@
       if (!parsed || typeof parsed !== 'object') return emptyState();
       // fusion défensive avec les valeurs par défaut si un champ manque
       const base = emptyState();
+      const mergedSettings = Object.assign({}, base.settings, parsed.settings || {});
+      mergedSettings.keybinds = Object.assign({}, base.settings.keybinds, (parsed.settings && parsed.settings.keybinds) || {});
       return Object.assign(base, parsed, {
         lessons: parsed.lessons || {},
         items: parsed.items || {},
         sessions: parsed.sessions || [],
-        settings: Object.assign(base.settings, parsed.settings || {}),
+        settings: mergedSettings,
       });
     } catch (e) {
       console.warn('Lecture localStorage impossible, réinitialisation.', e);

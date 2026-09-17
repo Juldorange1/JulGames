@@ -12,7 +12,7 @@
     const items = Store.getAllItems();
     const out = { total: items.length, learned: 0, inProgress: 0, difficult: 0, learnedToday: 0, reviewedToday: 0 };
     items.forEach((it) => {
-      if (it.masteryLevel >= 4) out.learned++;
+      if (it.masteryLevel >= 3) out.learned++;
       else if (it.masteryLevel > 0) out.inProgress++;
       const diff = SRS.difficultyFactor(it);
       if (diff > 0.45 && (it.skills.en_fr.reps + it.skills.fr_en.reps) >= 2) out.difficult++;
@@ -20,7 +20,7 @@
       SRS.SKILLS.forEach((k) => {
         if (isToday(it.skills[k].lastDate)) { out.reviewedToday++; reviewedTodayForThisItem = true; }
       });
-      if (it.masteryLevel >= 4 && reviewedTodayForThisItem) out.learnedToday++;
+      if (it.masteryLevel >= 3 && reviewedTodayForThisItem) out.learnedToday++;
     });
     return out;
   }
@@ -45,7 +45,10 @@
         add('expressions', it.skills.en_fr);
         add('expressions', it.skills.fr_en);
       }
-      add('traduction', it.skills.listening); // approx : la traduction utilise phrase + rappel
+      if (it.type === 'example_sentence') {
+        add('traduction', it.skills.en_fr);
+        add('traduction', it.skills.fr_en);
+      }
     });
     const result = {};
     Object.keys(buckets).forEach((k) => {
@@ -72,7 +75,7 @@
   function lessonProgress(lessonId) {
     const items = Store.getItemsByLesson(lessonId);
     if (!items.length) return 0;
-    const sum = items.reduce((acc, it) => acc + it.masteryLevel / 4, 0);
+    const sum = items.reduce((acc, it) => acc + it.masteryLevel / 3, 0);
     return Math.round((sum / items.length) * 100);
   }
 

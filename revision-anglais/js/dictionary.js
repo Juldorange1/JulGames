@@ -8,6 +8,10 @@
   'use strict';
 
   const DICTIONARY = {
+    // --- Mots de base ---
+    hello: 'bonjour / salut', goodbye: 'au revoir', please: "s'il te plaît", sorry: 'désolé',
+    yes: 'oui', thanks: 'merci',
+
     // --- Vie quotidienne / objets ---
     apple: 'pomme', book: 'livre', computer: 'ordinateur', phone: 'téléphone', car: 'voiture',
     house: 'maison', home: 'maison', tree: 'arbre', water: 'eau', money: 'argent', job: 'travail / emploi',
@@ -78,6 +82,45 @@
     'to apologize': "s'excuser", 'to warn': 'avertir', 'to advise': 'conseiller',
     'to suggest': 'suggérer', 'to refuse': 'refuser', 'to accept': 'accepter',
     'to allow': 'permettre', 'to prevent': 'empêcher', 'to reduce': 'réduire', 'to increase': 'augmenter',
+    'to expect': "s'attendre à", 'to assess': 'évaluer', 'to upgrade': 'améliorer / mettre à niveau',
+    'to approve': 'approuver', 'to belong to': 'appartenir à', 'to look like': 'ressembler à',
+
+    // --- Chambre / objets personnels / lecture ---
+    pillow: 'oreiller', cushion: 'coussin', brand: 'marque', copybook: 'cahier',
+    sneakers: 'baskets', trainers: 'baskets', comics: 'bandes dessinées', manga: 'manga',
+    novels: 'roman', textbooks: 'manuels scolaires', bookshelf: 'étagère à livres',
+    colourful: 'coloré', bedroom: 'chambre', belonging: 'affaire personnelle / possession',
+    messy: 'en désordre', screen: 'écran',
+
+    // --- Personnes / société / opinion ---
+    teenager: 'adolescent', society: 'société', population: 'population', notion: 'notion',
+    expectation: 'attente', skill: 'compétence', opinion: 'opinion', whose: 'dont / à qui',
+    different: 'différent', quite: 'plutôt / assez',
+    'green-eyed': "vert de jalousie (l'expression complète « the green-eyed monster » désigne la jalousie)",
+    monster: 'monstre',
+    'i can see': 'je peux voir / on voit', 'a lot of': 'beaucoup de', 'there is': 'il y a',
+    'there are': 'il y a', 'in my opinion': 'à mon avis', 'according to me': 'selon moi',
+    'to my mind': 'à mon avis', because: 'parce que', 'for example': 'par exemple',
+    'such as': 'tel que / comme',
+
+    energetic: 'énergique', enthusiastic: 'enthousiaste',
+
+    // --- Animaux / nature / activités de plein air ---
+    moose: 'orignal / élan', salmon: 'saumon', beluga: 'béluga', eagle: 'aigle',
+    'bald eagle': 'pygargue à tête blanche', goldfish: 'poisson rouge',
+    climbing: 'escalade', hiking: 'randonnée', camping: 'camping',
+
+    // --- Modaux / nombres ---
+    must: 'devoir (obligation)', may: 'pouvoir (permission / possibilité)',
+    might: 'pourrait (possibilité)', million: 'million', billion: 'milliard',
+    trillion: 'mille milliards', lenient: 'indulgent / clément',
+
+    // --- Nourriture ---
+    'fast food': 'restauration rapide', 'junk food': 'malbouffe', unhealthy: 'mauvais pour la santé',
+    outlet: "magasin d'usine / point de vente", diner: 'restaurant routier (US)',
+    'food truck': 'camion de restauration ambulant', boring: 'ennuyeux', fat: 'graisse / gros',
+    sugar: 'sucre', salt: 'sel', gravy: 'sauce (jus de viande)', 'a slice': 'une tranche',
+    dessert: 'dessert', sand: 'sable',
   };
 
   // Clés multi-mots, les plus longues d'abord (pour matcher "pencil case" avant "pencil").
@@ -90,11 +133,29 @@
     if (k.startsWith('to ')) BARE_VERB_INDEX[k.slice(3)] = DICTIONARY[k];
   });
 
-  // Retourne {fr, isVerb} ou null. isVerb=true si le mot n'a été trouvé que via sa forme "to ...".
+  const SINGLE_WORD_KEYS = Object.keys(DICTIONARY).filter((k) => !k.includes(' '));
+  const BARE_VERB_KEYS = Object.keys(BARE_VERB_INDEX);
+
+  // Retourne {fr, isVerb, corrected} ou null. isVerb=true si le mot n'a été trouvé que via sa
+  // forme "to ...". `corrected` (présent seulement en cas de faute tolérée) donne l'orthographe
+  // reconnue, ex: lookup("achieave") -> {fr:'atteindre / accomplir', corrected:'achieve', ...}
+  // (pas un vrai exemple du dico mais illustre le principe — cf. js/fuzzy.js pour la tolérance).
   function lookup(word) {
     const w = (word || '').toLowerCase();
     if (DICTIONARY[w]) return { fr: DICTIONARY[w], isVerb: false };
     if (BARE_VERB_INDEX[w]) return { fr: BARE_VERB_INDEX[w], isVerb: true };
+    // Seuil plus bas (5 lettres) qu'ailleurs dans l'appli : ici le mot est déjà confirmé comme
+    // du vocabulaire de la leçon (présenté avec une traduction, ou extrait comme mot à apprendre),
+    // et la table est petite/contrôlée, donc le risque de confusion entre deux mots est plus
+    // faible — mais pas nul (ex: "form"/"farm" à 4 lettres sont à 1 lettre d'écart), d'où le
+    // seuil à 5 et pas plus bas. findClosestMatch refuse de toute façon toute correspondance
+    // ambiguë (deux mots différents à égale distance).
+    if (w.length >= 5) {
+      const wordMatch = Fuzzy.findClosestMatch(w, SINGLE_WORD_KEYS, 5);
+      if (wordMatch) return { fr: DICTIONARY[wordMatch], isVerb: false, corrected: wordMatch };
+      const verbMatch = Fuzzy.findClosestMatch(w, BARE_VERB_KEYS, 5);
+      if (verbMatch) return { fr: BARE_VERB_INDEX[verbMatch], isVerb: true, corrected: verbMatch };
+    }
     return null;
   }
 

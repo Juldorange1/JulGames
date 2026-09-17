@@ -13,7 +13,9 @@
   *{box-sizing:border-box;}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
     font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;align-items:center;
-    padding:16px;gap:12px;}
+    padding:16px;gap:12px;
+    user-select:none;-webkit-user-select:none;}
+  input, textarea{user-select:text;-webkit-user-select:text;}
   h1{font-size:1.6em;margin:0;}
   a.back{color:var(--sub);text-decoration:none;font-size:.85em;}
   a.back:hover{color:var(--accent);}
@@ -160,8 +162,9 @@
         <button id="fillCeiling" title="Remplit le plafond (en haut) sur la hauteur choisie, comme pour le sol">Plafond plein</button>
         <label title="Nombre de cases de hauteur remplies par 'Plafond plein' (le plafond reste modifiable case par case ensuite, comme le sol)">Hauteur plafond</label>
         <input type="number" id="ceilingHeightInput" min="1" max="4" value="1">
-        <label title="Longueur totale du niveau (nombre de cases horizontales que le joueur doit parcourir)">Longueur</label>
-        <span id="lenDisplay" style="min-width:76px;text-align:center;font-size:.85em;">150 cases</span>
+        <label title="Longueur totale du niveau (nombre de cases horizontales que le joueur doit parcourir) — modifiable directement ici pour une valeur précise">Longueur</label>
+        <input type="number" id="lenInput" min="20" max="5000" value="150" style="width:64px;">
+        <span style="font-size:.75em;color:var(--sub);">cases</span>
         <label title="Durée totale estimée pour parcourir le niveau (tient compte des portails de vitesse)">Durée</label>
         <span id="durationDisplay" style="min-width:50px;text-align:center;font-size:.85em;">—</span>
         <button id="extendLevel" title="Ajoute 20 cases VIDES à la fin du niveau, pour avoir plus de place pour construire (n'affecte pas ce qui existe déjà)">+20 cases</button>
@@ -339,6 +342,29 @@
         <span id="volumeVal" style="min-width:40px;text-align:right;">25%</span>
       </div>
 
+      <h2 style="margin-top:20px;">👻 Traînée du personnage pendant la partie</h2>
+      <p class="desc">Affiche en direct, pendant que vous jouez, la trace des dernières hitboxes de votre personnage (rouge normalement, blanc à l'instant d'un clic, violet tant qu'il est maintenu).</p>
+      <div class="kb-row">
+        <span>Activer la traînée</span>
+        <input type="checkbox" id="trailEnabledCheckbox">
+      </div>
+      <div class="kb-row">
+        <label for="trailDurationInput" title="Durée pendant laquelle chaque image de la traînée reste visible avant de s'estomper">Durée avant disparition</label>
+        <input type="number" id="trailDurationInput" min="100" max="5000" step="50" value="800" style="width:80px;">
+        <span style="font-size:.75em;color:var(--sub);">ms</span>
+      </div>
+      <div class="kb-row">
+        <label for="trailStyleSelect" title="Hitbox : contour exact du personnage à chaque image. Fluide : une simple ligne continue et lisse, sans forme de hitbox.">Style</label>
+        <select id="trailStyleSelect">
+          <option value="hitbox">Hitbox (contour exact)</option>
+          <option value="fluid">Fluide (ligne continue)</option>
+        </select>
+      </div>
+      <div class="kb-row">
+        <label for="trailColorInput" title="Couleur de la traînée (utilisée telle quelle en style fluide ; sert de couleur au repos en style hitbox, le blanc/violet du clic restent inchangés)">Couleur</label>
+        <input type="color" id="trailColorInput" value="#ff1919" style="width:60px;">
+      </div>
+
       <h2 style="margin-top:20px;">🏆 Difficultés Geometry Dash — équivalence en points</h2>
       <p class="desc">Quand vous cliquez sur "🔍 Analyser", l'IA donne une note de difficulté en points (0 et au-delà, sans limite supérieure — plus c'est haut, plus c'est dur). Voici à quoi ça correspond dans l'échelle officielle de Geometry Dash.</p>
       <div id="difficultyTable"></div>
@@ -362,6 +388,7 @@ const fsWrap = document.getElementById('fsWrap');
 const STORE_KEY = 'geodash_levels_v1';
 const KEYBIND_STORE_KEY = 'geodash_keybinds_v1';
 const VOLUME_STORE_KEY = 'geodash_music_volume_v1';
+const TRAIL_STORE_KEY = 'geodash_live_trail_v1';
 
 const PORTAL_INFO = {
   mode_cube:   {label:'CUBE',  color:'#7bd4ff', kind:'mode', value:'cube'},
@@ -759,6 +786,29 @@ document.getElementById('ceilingHeightInput').addEventListener('change', e=>{
   v = Math.max(1, Math.min(4, v));
   e.target.value = v;
   level.ceilingHeight = v;
+});
+// applique une longueur EXACTE (pas seulement par pas de 20) : réutilisé par le champ de
+// saisie directe, avec la même confirmation que -20 cases si ça supprime des objets posés.
+function setExactLength(newLen){
+  newLen = Math.max(20, Math.min(5000, Math.round(newLen)));
+  if(newLen === level.length) return;
+  if(newLen < level.length){
+    const hasObjectsBeyond = [...level.objects.keys()].some(k=>parseInt(k.split(',')[0],10) >= newLen);
+    if(hasObjectsBeyond && !confirm('Réduire la longueur va supprimer définitivement tout ce qui est posé au-delà de '+newLen+' cases. Continuer ?')) return;
+    for(const k of [...level.objects.keys()]){
+      const c = parseInt(k.split(',')[0],10);
+      if(c >= newLen) level.objects.delete(k);
+    }
+  }
+  level.length = newLen;
+  clearAnalysisMarkers();
+  refreshCheckpointSelect();
+}
+document.getElementById('lenInput').addEventListener('change', e=>{
+  let v = parseInt(e.target.value, 10);
+  if(!Number.isFinite(v)) v = level.length;
+  setExactLength(v);
+  e.target.value = level.length;
 });
 document.getElementById('extendLevel').addEventListener('click', ()=>{
   level.length += 20;
@@ -1197,6 +1247,46 @@ function drawPlayer(){
   ctx.restore();
 }
 
+// rouge par défaut ; blanc à l'instant précis où on clique (front montant de l'appui) ; violet
+// tant qu'on continue de le maintenir ensuite — `alphaMult` permet en plus de faire disparaître
+// progressivement les images les plus anciennes de la traînée live pendant la partie.
+// style "hitbox" : couleur de base configurable (le rouge par défaut) pour les images sans
+// appui ; blanc à l'instant précis du clic et violet tant qu'il est maintenu restent fixes,
+// car ils codent une information précise (le timing) qu'une couleur perso rendrait illisible.
+function trailColorFor(f, alphaMult){
+  if(!f.held){ const c = hexToRgb(trailColor); return 'rgba('+c.r+','+c.g+','+c.b+','+(0.5*alphaMult)+')'; }
+  return f.edge ? 'rgba(255,255,255,'+(0.85*alphaMult)+')' : 'rgba(190,60,255,'+(0.75*alphaMult)+')';
+}
+function strokeHitboxOutlineAt(f, alphaMult){
+  ctx.strokeStyle = trailColorFor(f, alphaMult);
+  const shape = hitboxShapeAt(f.mode, f.x+f.w/2, f.y+f.h/2, f.w, f.h);
+  ctx.beginPath();
+  if(shape.type==='circle'){
+    ctx.arc(shape.cx, shape.cy, shape.r, 0, Math.PI*2);
+  } else if(shape.type==='ellipse'){
+    ctx.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI*2);
+  } else {
+    ctx.moveTo(shape.pts[0].x, shape.pts[0].y);
+    for(let j=1;j<shape.pts.length;j++) ctx.lineTo(shape.pts[j].x, shape.pts[j].y);
+    ctx.closePath();
+  }
+  ctx.stroke();
+}
+// style "fluide" : une seule ligne continue passant par le centre du personnage à chaque
+// image (pas sa silhouette), dans la couleur choisie — un rendu plus discret/esthétique que
+// la précision fonctionnelle du style "hitbox", pour qui préfère une simple traînée sobre.
+function drawFluidTrail(frames, alphaAt){
+  const c = hexToRgb(trailColor);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for(let i=1;i<frames.length;i++){
+    const a = frames[i-1], b = frames[i];
+    ctx.strokeStyle = 'rgba('+c.r+','+c.g+','+c.b+','+alphaAt(i)+')';
+    ctx.beginPath();
+    ctx.moveTo(a.x+a.w/2, a.y+a.h/2);
+    ctx.lineTo(b.x+b.w/2, b.y+b.h/2);
+    ctx.stroke();
+  }
+}
 function render(){
   ctx.clearRect(0,0,cv.width,cv.height);
   // ciel (espace écran, non affecté par le zoom/défilement)
@@ -1246,27 +1336,14 @@ function render(){
     }
   }
 
-  // trajectoire du dernier essai : la hitbox EXACTE du personnage à chaque image, pas une
-  // simple ligne — on voit ainsi précisément où le corps est réellement passé
+  // trajectoire du dernier essai : par défaut la hitbox EXACTE du personnage à chaque image
+  // (rouge/blanc/violet selon le timing des appuis), ou une simple ligne fluide dans la
+  // couleur choisie si ce style est sélectionné dans les Paramètres.
   if(mode==='edit' && lastRunPath.length>0){
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,25,25,0.5)';
     ctx.lineWidth = Math.max(0.75, 1/zoom);
-    for(let i=0;i<lastRunPath.length;i+=2){
-      const f = lastRunPath[i];
-      const shape = hitboxShapeAt(f.mode, f.x+f.w/2, f.y+f.h/2, f.w, f.h);
-      ctx.beginPath();
-      if(shape.type==='circle'){
-        ctx.arc(shape.cx, shape.cy, shape.r, 0, Math.PI*2);
-      } else if(shape.type==='ellipse'){
-        ctx.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI*2);
-      } else {
-        ctx.moveTo(shape.pts[0].x, shape.pts[0].y);
-        for(let j=1;j<shape.pts.length;j++) ctx.lineTo(shape.pts[j].x, shape.pts[j].y);
-        ctx.closePath();
-      }
-      ctx.stroke();
-    }
+    if(trailStyle==='fluid') drawFluidTrail(lastRunPath, ()=>0.8);
+    else for(let i=0;i<lastRunPath.length;i+=2) strokeHitboxOutlineAt(lastRunPath[i], 1);
     ctx.restore();
   }
 
@@ -1337,6 +1414,28 @@ function render(){
     ctx.restore();
   }
 
+  // traînée LIVE pendant la partie (optionnelle, réglable dans les Paramètres) : même code
+  // couleur que le tracé de l'éditeur (rouge/blanc/violet), mais qui s'estompe avec l'âge de
+  // chaque image plutôt que de rester affichée en entier après coup.
+  if(mode==='play' && trailLiveEnabled && lastRunPath.length>0){
+    const durFrames = Math.max(1, Math.round(trailLiveDurationMs/MS_PER_FRAME));
+    const start = Math.max(0, lastRunPath.length-durFrames);
+    ctx.save();
+    ctx.lineWidth = Math.max(0.75, 1/zoom);
+    if(trailStyle==='fluid'){
+      drawFluidTrail(lastRunPath.slice(start), (i)=>{
+        const age = (lastRunPath.length-start)-1-i;
+        return Math.max(0, 1-age/durFrames);
+      });
+    } else {
+      for(let i=start;i<lastRunPath.length;i++){
+        const age = lastRunPath.length-1-i; // 0 = image la plus récente
+        strokeHitboxOutlineAt(lastRunPath[i], Math.max(0, 1-age/durFrames));
+      }
+    }
+    ctx.restore();
+  }
+
   if(mode==='play' || mode==='dead' || mode==='win') drawPlayer();
 
   ctx.restore();
@@ -1347,8 +1446,9 @@ function render(){
     hud.textContent = pct+'%  —  '+ (PORTAL_INFO['mode_'+player.mode]?PORTAL_INFO['mode_'+player.mode].label:player.mode);
   } else {
     hud.textContent = 'Édition — '+level.length+' cases';
-    const ld = document.getElementById('lenDisplay');
-    if(ld) ld.textContent = level.length+' cases';
+    const ld = document.getElementById('lenInput');
+    // ne pas écraser ce que l'utilisateur est en train de taper dans le champ
+    if(ld && document.activeElement!==ld) ld.value = level.length;
     const dd = document.getElementById('durationDisplay');
     if(dd) dd.textContent = formatLevelDuration();
   }
@@ -1990,9 +2090,11 @@ function physicsStep(held, pe, dt){
 }
 
 function update(){
-  const r = physicsStep(isHeld(), pressedEdge);
+  const held = isHeld();
+  const edge = pressedEdge;
+  const r = physicsStep(held, pressedEdge);
   pressedEdge = false;
-  lastRunPath.push({x:player.x, y:player.y, w:player.w, h:player.h, mode:player.mode});
+  lastRunPath.push({x:player.x, y:player.y, w:player.w, h:player.h, mode:player.mode, held, edge});
   if(r.dead){ die(); return; }
   scrollX = Math.max(0, player.x - 220);
   if(r.won){ win(); return; }
@@ -2046,7 +2148,12 @@ function searchStateKey(p, heldPrev){
 function reconstructPath(state){
   const rev = [];
   let cur = state;
-  while(cur){ rev.push({x:cur.p.x, y:cur.p.y, w:cur.p.w, h:cur.p.h, mode:cur.p.mode}); cur = cur.parent; }
+  while(cur){
+    const parentHeld = cur.parent ? cur.parent.heldPrev : false;
+    const edge = cur.heldPrev && !parentHeld; // premier instant de CET appui précis (vs maintien)
+    rev.push({x:cur.p.x, y:cur.p.y, w:cur.p.w, h:cur.p.h, mode:cur.p.mode, held:cur.heldPrev, edge});
+    cur = cur.parent;
+  }
   return rev.reverse();
 }
 // un humain ne peut pas cliquer indéfiniment vite : on limite l'IA à 10 cps (clics par
@@ -2696,6 +2803,36 @@ function loadVolume(){
 }
 let musicVolume = loadVolume();
 function saveVolume(){ localStorage.setItem(VOLUME_STORE_KEY, String(musicVolume)); }
+// traînée live pendant la partie : désactivée par défaut (fonctionnalité optionnelle à
+// activer), durée réglable avant que chaque image de la traînée ne s'estompe et disparaisse.
+// Deux styles : "hitbox" (silhouette exacte du personnage à chaque image, avec le codage
+// rouge/blanc/violet qui montre le timing des appuis) ou "fluide" (une simple ligne continue,
+// dans UNE seule couleur configurable, qui ne représente pas la forme du personnage).
+function loadTrailSettings(){
+  try{
+    const s = JSON.parse(localStorage.getItem(TRAIL_STORE_KEY));
+    return {
+      enabled: !!(s && s.enabled),
+      durationMs: (s && Number.isFinite(s.durationMs)) ? Math.max(100, Math.min(5000, s.durationMs)) : 800,
+      style: (s && s.style==='fluid') ? 'fluid' : 'hitbox',
+      color: (s && /^#[0-9a-fA-F]{6}$/.test(s.color)) ? s.color : '#ff1919',
+    };
+  } catch(e){ return { enabled:false, durationMs:800, style:'hitbox', color:'#ff1919' }; }
+}
+let trailLiveSettings = loadTrailSettings();
+let trailLiveEnabled = trailLiveSettings.enabled;
+let trailLiveDurationMs = trailLiveSettings.durationMs;
+let trailStyle = trailLiveSettings.style;
+let trailColor = trailLiveSettings.color;
+function saveTrailSettings(){
+  localStorage.setItem(TRAIL_STORE_KEY, JSON.stringify({
+    enabled:trailLiveEnabled, durationMs:trailLiveDurationMs, style:trailStyle, color:trailColor,
+  }));
+}
+function hexToRgb(hex){
+  const n = parseInt(hex.slice(1), 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
 function playLevelMusic(){
   if(spotifyController){ spotifyController.setVolume(musicVolume); spotifyController.seek(0); spotifyController.play(); }
 }
@@ -2882,6 +3019,10 @@ document.getElementById('openSettings').addEventListener('click', ()=>{
   const vSlider = document.getElementById('volumeSlider');
   vSlider.value = Math.round(musicVolume*100);
   document.getElementById('volumeVal').textContent = vSlider.value+'%';
+  document.getElementById('trailEnabledCheckbox').checked = trailLiveEnabled;
+  document.getElementById('trailDurationInput').value = trailLiveDurationMs;
+  document.getElementById('trailStyleSelect').value = trailStyle;
+  document.getElementById('trailColorInput').value = trailColor;
   document.getElementById('settingsModal').style.display = 'flex';
 });
 document.getElementById('volumeSlider').addEventListener('input', e=>{
@@ -2889,6 +3030,26 @@ document.getElementById('volumeSlider').addEventListener('input', e=>{
   document.getElementById('volumeVal').textContent = e.target.value+'%';
   saveVolume();
   if(spotifyController) spotifyController.setVolume(musicVolume);
+});
+document.getElementById('trailEnabledCheckbox').addEventListener('change', e=>{
+  trailLiveEnabled = e.target.checked;
+  saveTrailSettings();
+});
+document.getElementById('trailDurationInput').addEventListener('change', e=>{
+  let v = parseInt(e.target.value, 10);
+  if(!Number.isFinite(v)) v = 800;
+  v = Math.max(100, Math.min(5000, v));
+  e.target.value = v;
+  trailLiveDurationMs = v;
+  saveTrailSettings();
+});
+document.getElementById('trailStyleSelect').addEventListener('change', e=>{
+  trailStyle = (e.target.value==='fluid') ? 'fluid' : 'hitbox';
+  saveTrailSettings();
+});
+document.getElementById('trailColorInput').addEventListener('input', e=>{
+  trailColor = e.target.value;
+  saveTrailSettings();
 });
 document.getElementById('closeSettings').addEventListener('click', ()=>{
   document.getElementById('settingsModal').style.display = 'none';

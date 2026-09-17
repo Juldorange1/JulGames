@@ -92,13 +92,6 @@
     return null;
   }
 
-  // Découpe grossière en "syllabes" pour une astuce de mémorisation par blocs.
-  function chunk(word) {
-    const w = (word || '').replace(/^to\s+/, '');
-    const parts = w.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$)?/gi) || [w];
-    return parts.filter(Boolean).join(' · ');
-  }
-
   function buildVisual(item) {
     const norm = normalize(item.en);
     const emoji = findEmoji(item.en);
@@ -109,11 +102,10 @@
     if (FALSE_FRIENDS[norm]) {
       return { emoji: '⚠️', kind: 'false_friend', mnemonic: FALSE_FRIENDS[norm] };
     }
-    return {
-      emoji: icon,
-      kind: 'association',
-      mnemonic: `Découpe le mot pour le retenir : ${chunk(item.en)} — répète-le 3 fois à voix haute en pensant à « ${item.fr} ».`,
-    };
+    // Pas d'astuce générique bidon (type "découpe le mot en syllabes") : mieux vaut ne rien
+    // afficher qu'une technique inventée sans rapport avec le sens réel du mot. La vraie
+    // précision utile vient d'ailleurs : exemple d'usage en contexte (voir Exercises.getUsageNote).
+    return { emoji: icon, kind: 'association', mnemonic: null };
   }
 
   function getFalseFriendTip(en) {

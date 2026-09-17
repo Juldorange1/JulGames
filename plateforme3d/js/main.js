@@ -241,6 +241,15 @@
     // emplacement principal (voir AS.Storage.getMainLevelFor) — null pour un
     // niveau personnel joué/testé depuis l'éditeur ou le menu.
     mainDifficulty: null,
+    // Vrai seulement si la partie en cours a été lancée par "Tester le
+    // niveau" depuis l'éditeur (pas depuis l'écran titre) — détermine où
+    // "Quitter" ramène (voir quitBtn/returnToEditorFromTest).
+    fromEditor: false,
+    // Position réelle (hitbox) du joueur, un point par image, pendant un
+    // niveau personnel — affichée en rouge dans l'éditeur au retour d'un
+    // test (voir returnToEditorFromTest), avec le même rendu que la
+    // trajectoire du bot d'analyse (AS.Editor.showAnalysisTrail).
+    testTrajectory: [],
   };
 
   const hintByCheckpoint = [
@@ -258,6 +267,7 @@
   // Sélection de difficulté (écran titre)
   // ---------------------------------------------------------------------
   const saved = AS.Storage.load();
+  AS.I18n.apply();
   difficulty = saved.settings.difficulty || 'court-1';
   document.querySelectorAll('.diff-btn').forEach((btn) => {
     btn.classList.toggle('selected', btn.dataset.diff === difficulty);
@@ -301,7 +311,7 @@
       const levelEl = document.querySelector('[data-diff-level="' + k + '"]');
       if (levelEl) {
         const mainLevel = AS.Storage.getMainLevelFor(k);
-        levelEl.textContent = mainLevel ? mainLevel.name : 'Aucun niveau';
+        levelEl.textContent = mainLevel ? mainLevel.name : AS.I18n.t('diff.none');
       }
     });
     renderTitleLevels();
@@ -373,9 +383,87 @@
   // ---------------------------------------------------------------------
   $('controlsBtn').addEventListener('click', () => {
     AS.Keybinds.buildUI($('keybindList'));
+    AS.Keybinds.buildEditorUI($('editorKeybindList'));
     syncVolumeUI();
     buildSkinPickerUI();
+    $('languageSelect').value = AS.Storage.getLanguage();
     $('controlsScreen').hidden = false;
+  });
+  $('languageSelect').addEventListener('change', () => {
+    AS.Storage.setLanguage($('languageSelect').value);
+    AS.I18n.apply();
+    renderTitleRecords();
+    AS.Keybinds.buildUI($('keybindList'));
+    AS.Keybinds.buildEditorUI($('editorKeybindList'));
+  });
+
+  // ---------------------------------------------------------------------
+  // Écran Règles — TOUT ce qui règle l'équilibrage du jeu ET de l'éditeur,
+  // en un seul endroit (voir AS.Storage.getRules/setRule/resetRules et
+  // AS.World.applyRules). Des nombres libres (pas de glissière bornée) :
+  // aucune limite artificielle sur ce qu'on peut taper ici.
+  // ---------------------------------------------------------------------
+  const RULE_FIELDS = [
+    { section: 'Déplacement', key: 'maxSpeed', label: 'Vitesse de course max', step: 0.2 },
+    { key: 'boostMaxSpeed', label: 'Vitesse sur pad de vitesse', step: 0.5 },
+    { section: 'Saut', key: 'jumpVel', label: 'Puissance du saut', step: 0.2 },
+    { key: 'doubleJumpVel', label: 'Puissance du double saut', step: 0.2 },
+    { section: 'Mur (wall-jump)', key: 'wallJumpVelY', label: 'Poussée verticale', step: 0.2 },
+    { key: 'wallJumpPush', label: 'Poussée horizontale', step: 0.2 },
+    { section: 'Dash', key: 'dashSpeed', label: 'Vitesse', step: 0.5 },
+    { key: 'dashDuration', label: 'Durée (s)', step: 0.01 },
+    { key: 'dashCharges', label: 'Charges', step: 1 },
+    { section: 'Gravité (valeurs négatives)', key: 'gravityRise', label: 'En montée', step: 1 },
+    { key: 'gravityFall', label: 'En chute', step: 1 },
+    { section: 'Glace', key: 'iceAccel', label: 'Accélération', step: 0.5 },
+    { key: 'iceFriction', label: 'Adhérence (plus haut = moins glissant)', step: 0.2 },
+    { section: 'Éditeur — bornes des glissières par bloc', key: 'bounceForceMin', label: 'Rebond — force min', step: 0.5 },
+    { key: 'bounceForceMax', label: 'Rebond — force max', step: 0.5 },
+    { key: 'crumbleTimeMin', label: 'Fragile — temps min (s)', step: 0.05 },
+    { key: 'crumbleTimeMax', label: 'Fragile — temps max (s)', step: 0.1 },
+    { key: 'moverSpeedMin', label: 'Plateforme mobile — vitesse min', step: 0.05 },
+    { key: 'moverSpeedMax', label: 'Plateforme mobile — vitesse max', step: 0.5 },
+    { section: 'Éditeur — caméra', key: 'cameraMaxDist', label: 'Distance de vue max', step: 10 },
+  ];
+  function buildRulesUI() {
+    const body = $('rulesBody');
+    body.innerHTML = '';
+    const rules = AS.Storage.getRules();
+    RULE_FIELDS.forEach((f) => {
+      if (f.section) {
+        const h = document.createElement('h3');
+        h.className = 'settings-subhead';
+        h.textContent = f.section;
+        body.appendChild(h);
+      }
+      const row = document.createElement('div');
+      row.className = 'settings-row';
+      const label = document.createElement('label');
+      label.textContent = f.label;
+      label.setAttribute('for', 'rule_' + f.key);
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = 'rule_' + f.key;
+      input.step = f.step;
+      input.value = rules[f.key];
+      input.addEventListener('change', () => {
+        const v = parseFloat(input.value);
+        if (!isFinite(v)) return;
+        AS.Storage.setRule(f.key, v);
+      });
+      row.appendChild(label);
+      row.appendChild(input);
+      body.appendChild(row);
+    });
+  }
+  $('rulesBtn').addEventListener('click', () => {
+    buildRulesUI();
+    $('rulesScreen').hidden = false;
+  });
+  $('closeRulesBtn').addEventListener('click', () => { $('rulesScreen').hidden = true; });
+  $('resetRulesBtn').addEventListener('click', () => {
+    AS.Storage.resetRules();
+    buildRulesUI();
   });
 
   // Sélecteur de skin : tous les skins partagent la même hitbox, seule
@@ -407,6 +495,10 @@
   $('resetKeybindsBtn').addEventListener('click', () => {
     AS.Storage.resetKeybinds();
     AS.Keybinds.buildUI($('keybindList'));
+  });
+  $('resetEditorKeybindsBtn').addEventListener('click', () => {
+    AS.Storage.resetEditorKeybinds();
+    AS.Keybinds.buildEditorUI($('editorKeybindList'));
   });
 
   function syncVolumeUI() {
@@ -449,20 +541,52 @@
   });
   $('respawnBtn').addEventListener('click', () => {
     player.respawn(state.lastCheckpointPos);
+    // Nouvel essai : la trajectoire affichée au retour dans l'éditeur ne
+    // doit montrer que CELUI-CI, pas l'empiler avec les tentatives ratées
+    // précédentes (voir updateGame/returnToEditorFromTest).
+    if (state.customLevel) state.testTrajectory = [];
     appState = 'playing';
     $('pauseScreen').hidden = true;
   });
-  $('quitBtn').addEventListener('click', () => backToMenu());
+  $('quitBtn').addEventListener('click', () => {
+    if (state.customLevel && state.fromEditor) returnToEditorFromTest();
+    else backToMenu();
+  });
+
+  // Blocs à utiliser pour rejouer/revenir sur le niveau personnel en cours :
+  // l'état EN MÉMOIRE de l'éditeur (édits pas forcément sauvegardés
+  // compris) si la partie vient bien de là, sinon la version sauvegardée
+  // (l'éditeur n'a peut-être jamais chargé ce niveau cette session — ex.
+  // lancé directement depuis "Mes niveaux créés" à l'écran titre).
+  function currentTestBlocks() {
+    if (state.fromEditor) return AS.Editor.exportBlocks();
+    const levels = AS.Storage.loadLevels();
+    const saved = state.customLevelName && levels[state.customLevelName];
+    return saved ? saved.blocks : AS.Editor.exportBlocks();
+  }
+
+  function returnToEditorFromTest() {
+    $('hud').hidden = true;
+    $('pauseScreen').hidden = true;
+    $('finishScreen').hidden = true;
+    if (state.fromEditor) openEditor();
+    else openEditor(state.customLevelName);
+    if (state.testTrajectory.length) {
+      // showPlayerTrail (pas showAnalysisTrail) : cette trajectoire ne doit
+      // disparaître qu'au clic explicite sur "Effacer la trajectoire",
+      // jamais toute seule en modifiant le niveau (voir editor.js).
+      AS.Editor.showPlayerTrail(state.testTrajectory);
+      $('editorAnalysisBody').innerHTML = '<div class="editor-analysis-line">Trajectoire (en rouge) de ton dernier essai.</div>';
+      $('editorAnalysis').hidden = false;
+    }
+  }
 
   $('finishReplayBtn').addEventListener('click', () => {
     $('finishScreen').hidden = true;
-    if (state.customLevel) startCustomLevel(AS.Editor.exportBlocks(), state.customLevelName, state.customLevelBackground, state.customLevelTheme);
+    if (state.customLevel) startCustomLevel(currentTestBlocks(), state.customLevelName, state.customLevelBackground, state.customLevelTheme, state.fromEditor);
     else startGame(difficulty);
   });
-  $('finishEditorBtn').addEventListener('click', () => {
-    $('finishScreen').hidden = true;
-    openEditor();
-  });
+  $('finishEditorBtn').addEventListener('click', () => returnToEditorFromTest());
   $('finishMenuBtn').addEventListener('click', () => {
     $('finishScreen').hidden = true;
     backToMenu();
@@ -574,8 +698,31 @@
       $('editorLevelSelect').value = loadName;
     }
     syncMainSlotUI(loadName || AS.Editor.currentLevelName);
+    refreshTestFromSelect();
     appState = 'editor';
   }
+
+  // Liste "Tester depuis" (Départ + un choix par checkpoint posé) : reflète
+  // toujours le niveau actuellement en mémoire dans l'éditeur — rafraîchie
+  // à l'ouverture de l'éditeur et à chaque modification de blocs (voir
+  // l'évènement 'as:editor-changed' émis par editor.js).
+  function refreshTestFromSelect() {
+    const sel = $('editorTestFromSelect');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Départ</option>';
+    let cpCount = 0;
+    AS.Editor.exportBlocks().forEach((b) => {
+      if (b.type !== 'checkpoint') return;
+      const opt = document.createElement('option');
+      opt.value = String(cpCount);
+      opt.textContent = 'Checkpoint ' + (cpCount + 1);
+      sel.appendChild(opt);
+      cpCount++;
+    });
+    if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+  document.addEventListener('as:editor-changed', refreshTestFromSelect);
 
   // Reflète dans le sélecteur la difficulté principale actuellement assignée
   // au niveau `name` (ou aucune sélection si le niveau n'a jamais été
@@ -654,7 +801,9 @@
     if (!AS.Editor.hasSpawn()) { AS.Hud.toast('Place un bloc "Départ" avant de tester.'); return; }
     if (!AS.Editor.hasFinish()) AS.Hud.toast('Pas de bloc "Arrivée" — test lancé quand même');
     $('editorScreen').hidden = true;
-    startCustomLevel(AS.Editor.exportBlocks(), AS.Editor.currentLevelName || '', AS.Editor.currentBackground, AS.Editor.currentTheme);
+    const cpSel = $('editorTestFromSelect').value;
+    const startCp = cpSel === '' ? null : parseInt(cpSel, 10);
+    startCustomLevel(AS.Editor.exportBlocks(), AS.Editor.currentLevelName || '', AS.Editor.currentBackground, AS.Editor.currentTheme, true, startCp);
   });
 
   $('editorAnalyzeBtn').addEventListener('click', () => {
@@ -702,7 +851,7 @@
 
   $('editorQuitBtn').addEventListener('click', () => backToMenu());
 
-  function startCustomLevel(blocks, name, background, theme) {
+  function startCustomLevel(blocks, name, background, theme, fromEditor, startCheckpointIndex) {
     AS.Editor.close();
     scene = new THREE.Scene();
     level = AS.World.buildCustom(scene, blocks, theme);
@@ -712,18 +861,39 @@
 
     abilities = { doubleJump: true, wallJump: true, dash: true };
 
-    state.checkpointIndex = 0;
-    state.lastCheckpointPos = level.spawn.clone();
+    // Test depuis un checkpoint précis (voir editorTestFromSelect) plutôt
+    // que systématiquement depuis le Départ : pratique pour retravailler
+    // une section sans se retaper tout ce qui précède à chaque essai.
+    const hasStartCp = startCheckpointIndex != null && level.checkpoints[startCheckpointIndex];
+    const startPos = hasStartCp ? level.checkpoints[startCheckpointIndex].pos.clone() : level.spawn.clone();
+    if (hasStartCp) {
+      // Ce checkpoint (et ceux qui le précèdent) comptent déjà comme
+      // activés : sinon rien ne les distinguerait visuellement, et un
+      // retour en arrière fortuit vers l'un d'eux le "activerait" pour la
+      // première fois au lieu de simplement y respawn.
+      level.triggers.forEach((t) => {
+        if (t.type !== 'checkpoint' || t.index > startCheckpointIndex) return;
+        t.activated = true;
+        const cp = level.checkpoints[t.index];
+        cp.flagMat.color.setHex(0x3fa0ff);
+        cp.flagMat.emissive.setHex(0x113355);
+      });
+    }
+
+    state.checkpointIndex = hasStartCp ? startCheckpointIndex : 0;
+    state.lastCheckpointPos = startPos.clone();
     state.finished = false;
     state.customLevel = true;
     state.customLevelName = name;
     state.customLevelTheme = theme;
     state.customLevelBackground = background;
     state.mainDifficulty = null;
+    state.fromEditor = !!fromEditor;
+    state.testTrajectory = [];
     state.zoneStart = performance.now();
     bursts = [];
 
-    player = new AS.Player(level, level.spawn, abilities);
+    player = new AS.Player(level, startPos, abilities);
     tpCam = new AS.FixedCamera(camera, level.collidables);
     playerMesh = buildPlayerMesh(AS.Storage.getSkin());
     scene.add(playerMesh);
@@ -786,6 +956,19 @@
         t.done = true;
         AS.Hud.toast('🔍 Passage secret découvert !');
       } else if (t.type === 'finish' && !state.finished) {
+        // Contact EXACT avec le pavé de la plateforme d'arrivée (pas une
+        // simple proximité au rayon généreux utilisé ci-dessus pour le
+        // premier tri) : chevauchement horizontal (rayon du joueur) et
+        // vertical (pieds/tête) avec son volume réel — la partie se
+        // termine pile à l'instant où le joueur la touche, ni avant, ni
+        // après.
+        const half = t.half;
+        const touching = !half || (
+          Math.abs(p.x - t.pos.x) <= half.x + player.radius &&
+          Math.abs(p.z - t.pos.z) <= half.z + player.radius &&
+          p.y <= t.pos.y + half.y && p.y + player.height >= t.pos.y - half.y
+        );
+        if (!touching) continue;
         state.finished = true;
         const ms = performance.now() - state.zoneStart;
         $('finishTime').textContent = AS.Hud.fmtTime(ms);
@@ -825,7 +1008,7 @@
       } else if (st === 'shaking') {
         c.userData.crumbleT += dt;
         c.position.x += Math.sin(performance.now() * 0.09) * 0.004;
-        if (c.userData.crumbleT > 0.45) {
+        if (c.userData.crumbleT > (c.userData.crumbleTime != null ? c.userData.crumbleTime : 0.45)) {
           c.userData.crumbleState = 'gone';
           c.userData.crumbleT = 0;
           c.userData.disabled = true;
@@ -880,6 +1063,13 @@
   function updateGame(dt) {
     const input = buildInput();
     player.update(dt, input);
+
+    // Trace de la hitbox réellement parcourue, pour l'afficher en rouge au
+    // retour dans l'éditeur (voir returnToEditorFromTest) — plafonnée pour
+    // ne pas grossir indéfiniment sur une très longue session de test.
+    if (state.customLevel && state.testTrajectory.length < 20000) {
+      state.testTrajectory.push(player.position.clone());
+    }
 
     for (const m of level.movers) m.update(dt);
     updateCrumbles(dt);
@@ -1001,6 +1191,7 @@
 
     if (player.dead) {
       player.respawn(state.lastCheckpointPos);
+      if (state.customLevel) state.testTrajectory = [];
       AS.Hud.toast('Retour au dernier checkpoint');
     }
 
@@ -1022,7 +1213,7 @@
   // Petit crochet de debug (lecture seule + avance manuelle d'une image) —
   // pratique en développement, sans effet sur le déroulement normal du jeu.
   window.__AS_DEBUG__ = {
-    getState: () => ({ appState, difficulty, checkpointIndex: state.checkpointIndex, customLevel: state.customLevel }),
+    getState: () => ({ appState, difficulty, checkpointIndex: state.checkpointIndex, customLevel: state.customLevel, testTrajectoryLength: state.testTrajectory.length }),
     getPlayer: () => player,
     getLevel: () => level,
     getPlayerMesh: () => playerMesh,

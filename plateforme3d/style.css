@@ -262,6 +262,23 @@ html, body {
 .controls-actions { display: flex; gap: 10px; margin-top: 16px; }
 
 .keybind-list { display: flex; flex-direction: column; gap: 8px; }
+.settings-subhead {
+  font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #8fa0c4; margin: 18px 0 8px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 4px; margin-bottom: 4px;
+}
+.settings-row label { font-size: 0.88rem; color: #dfe6f5; }
+.settings-row select, .settings-row input[type=number] {
+  padding: 6px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.2);
+  color: #eef2fb; font-family: inherit; font-size: 0.85rem;
+}
+.settings-row input[type=number] { width: 6.5em; text-align: right; }
+.settings-row label { flex: 1 1 auto; min-width: 0; }
 
 .skin-picker {
   display: flex; gap: 10px; padding: 10px 4px 4px;
@@ -462,6 +479,14 @@ html, body {
 }
 .editor-panel h2 { margin: 0; font-size: 1.2rem; }
 .editor-hint { font-size: 0.72rem; color: #93a3c4; line-height: 1.5; margin: 0; }
+.editor-tool-group { display: flex; gap: 8px; margin-bottom: 8px; }
+.editor-tool-group[hidden] { display: none; }
+.editor-tool-btn { flex: 1; padding: 8px; font-size: 0.8rem; }
+.editor-tool-btn.selected { border-color: var(--accent); background: rgba(110,231,255,0.14); color: #fff; }
+.editor-speed-control { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.editor-speed-control[hidden] { display: none; }
+.editor-speed-control label { font-size: 0.75rem; color: #c4cee3; }
+.editor-speed-control input[type=range] { width: 100%; accent-color: var(--accent); }
 .editor-section {
   display: flex; flex-direction: column; gap: 6px;
   padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
@@ -475,6 +500,7 @@ html, body {
 .editor-row { display: flex; gap: 8px; }
 .editor-row .btn-ghost, .editor-row .btn-play { flex: 1; }
 .editor-actions { display: flex; flex-direction: column; gap: 8px; }
+.editor-testfrom-label { font-size: 0.7rem; letter-spacing: 0.08em; color: #8fa0c4; text-transform: uppercase; margin-bottom: -4px; }
 .editor-section[hidden] { display: none; }
 
 .editor-palette { display: flex; flex-direction: column; gap: 10px; }

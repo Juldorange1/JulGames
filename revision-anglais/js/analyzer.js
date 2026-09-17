@@ -8,11 +8,32 @@
     'sur','au','aux','ce','cette','ces','on','nous','vous','ils','elles','il','elle','je','tu','plus','très',
     'bien','comme','quand','si','alors','ainsi','entre','sans','sous','chez']);
 
-  const ENGLISH_STOPWORDS = new Set(['the','a','an','is','are','to','of','in','on','at','for','with','and','or',
-    'but','so','because','that','which','who','where','when','if','then','so','not','it','this','these','those',
-    'he','she','they','we','you','i','be','have','has','had','will','would','can','could','should','must']);
+  // Mots grammaticaux ("function words") : jamais extraits comme vocabulaire à part entière —
+  // trop basiques/fréquents pour être "un mot de la leçon à apprendre", et ça fausserait le
+  // score anglais/français des lignes si on les ratait.
+  // Remarque : "must"/"may"/"might"/"whose"/"because" sont volontairement ABSENTS de cette
+  // liste bien qu'ils soient grammaticaux, car ce sont aussi des points de vocabulaire
+  // explicitement enseignés (modaux, pronom relatif, connecteur) qu'une leçon peut lister
+  // comme mots à apprendre — les exclure ferait perdre ces mots-là silencieusement.
+  const ENGLISH_STOPWORDS = new Set(['the','a','an','is','are','was','were','been','being','to','of','in','on',
+    'at','for','with','and','or','but','so','that','which','who','whom','what','where','when',
+    'why','how','if','then','not','no','nor','it','its','this','these','those','he','she','they','we','you','i',
+    'me','him','her','us','them','my','your','his','our','their','mine','yours','hers','ours','theirs',
+    'myself','yourself','himself','herself','itself','ourselves','themselves',
+    'be','am','do','does','did','done','doing','having','have','has','had','will','would','shall','should',
+    'can','could','ought',
+    'about','above','across','after','again','against','along','among','around','before','behind','below',
+    'beneath','beside','between','beyond','by','down','during','except','from','further','inside','into',
+    'near','off','out','outside','over','through','throughout','toward','towards','under','underneath','until',
+    'up','upon','within','without',
+    'although','though','unless','while','whereas','either','neither',
+    'there','here','than','too','also','very','just','only','own','same','such','other','another','some','any',
+    'every','each','both','few','all']);
 
   const ADJ_SUFFIXES = ['ful','less','ous','ive','able','ible','ish'];
+  // Noms courants qui se terminent par un suffixe d'adjectif par coïncidence (pas parce que
+  // c'en est un) : sans ça "table"/"vegetable" seraient mal classés en adjectifs.
+  const ADJ_SUFFIX_EXCEPTIONS = new Set(['table', 'vegetable', 'cable', 'constable', 'syllable', 'bible', 'fable']);
   const ADJ_WORDLIST = new Set(['aware','sure','glad','afraid','alone','alive','asleep','fond','fit','ill',
     'well','kind','fair','cheap','rare','keen','calm','proud','brave','rich','poor','tired','bored','angry',
     'sad','happy','young','old','big','small','hot','cold','hard','soft','strong','weak','safe','clean']);
@@ -84,7 +105,8 @@
     const words = trimmed.split(/\s+/).filter(Boolean);
     if (words.length >= 3) return 'expression';
     const lastWord = words[words.length - 1].replace(/[^a-z]/gi, '').toLowerCase();
-    if (words.length === 1 && (ADJ_SUFFIXES.some((suf) => lastWord.endsWith(suf)) || ADJ_WORDLIST.has(lastWord))) return 'adjective';
+    if (words.length === 1 && !ADJ_SUFFIX_EXCEPTIONS.has(lastWord)
+      && (ADJ_SUFFIXES.some((suf) => lastWord.endsWith(suf)) || ADJ_WORDLIST.has(lastWord))) return 'adjective';
     if (sectionHint === 'adjective' || sectionHint === 'noun' || sectionHint === 'verb' || sectionHint === 'expression') {
       if (sectionHint !== 'expression' || words.length >= 2) return sectionHint;
     }
@@ -121,16 +143,31 @@
       .split(/[^a-zà-ÿ]+/).map((w) => w.trim()).filter(Boolean);
   }
 
-  // Repère dans la leçon les mots anglais qui n'ont jamais été rattachés à un item (pas de
-  // "= traduction" donné, mentionnés seulement dans une phrase ou une liste) et dont on connaît
-  // la traduction grâce au dictionnaire de secours. On ne se base QUE sur des lignes où
-  // l'anglais domine (et jamais sur un mot déjà traduit ailleurs dans la leçon), pour ne pas
-  // confondre un mot français avec un mot anglais qu'on ne connaîtrait pas encore.
-  function extractOrphanVocabulary(rawLines, existingItems) {
+  // Mots déjà bien maîtrisés ailleurs dans l'appli (autres leçons incluses) : pas besoin de les
+  // re-proposer comme "nouveaux" à chaque import, l'utilisateur les a déjà appris.
+  function alreadyLearnedWords() {
+    const set = new Set();
+    (typeof Store !== 'undefined' ? Store.getAllItems() : []).forEach((it) => {
+      if (it.masteryLevel >= 2) {
+        wordsOf(it.en).forEach((w) => set.add(w));
+        if (it.forms) it.forms.forEach((f) => wordsOf(f).forEach((w) => set.add(w)));
+      }
+    });
+    return set;
+  }
+
+  // Repère dans la leçon TOUS les mots anglais qui n'ont pas encore été rattachés à un item —
+  // pas seulement ceux qui ont une "= traduction" donnée. Un mot du dictionnaire de secours
+  // reçoit sa traduction (avec tolérance aux fautes de frappe) ; un mot inconnu du dictionnaire
+  // est quand même ajouté, traduction à compléter à la main, plutôt que d'être perdu. On ne se
+  // base QUE sur des lignes où l'anglais domine, jamais sur un mot déjà traduit ailleurs dans la
+  // leçon ou déjà appris dans une autre leçon, pour ne pas confondre un mot français avec un mot
+  // anglais inconnu ni faire réapprendre ce qui est déjà su.
+  function extractOrphanVocabulary(rawLines, existingItems, detectedFormsToFamily) {
     const englishText = rawLines.filter((l) => englishScore(l) >= frenchScore(l)).join(' \n ');
     if (!englishText.trim()) return [];
 
-    const covered = new Set();
+    const covered = alreadyLearnedWords();
     const frenchSeen = new Set();
     existingItems.forEach((it) => {
       wordsOf(it.en).forEach((w) => covered.add(w));
@@ -140,36 +177,66 @@
 
     const found = [];
     const addedKeys = new Set();
-    function addVocab(en, fr, freq) {
+    function addVocab(en, fr, freq, importance) {
       const key = en.toLowerCase();
       if (addedKeys.has(key)) return;
       addedKeys.add(key);
       found.push(makeItem({
         en, fr, type: classifyEnglishSide(en, null),
-        importance: freq >= 3 ? 'essential' : 'important',
+        importance: importance || (freq >= 3 ? 'essential' : 'important'),
         example: null,
       }));
     }
 
-    // 1) Expressions du dictionnaire (les plus longues d'abord, ex: "pencil case" avant "pencil")
-    Dictionary.PHRASE_KEYS.forEach((phrase) => {
-      const words = phrase.split(' ');
-      if (words.some((w) => covered.has(w))) return;
-      const re = new RegExp('\\b' + phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-      if (re.test(englishText)) {
-        addVocab(phrase, Dictionary.DICTIONARY[phrase], computeFrequency(phrase, englishText));
-        words.forEach((w) => covered.add(w));
+    function lookupWord(w) {
+      if (detectedFormsToFamily && WordFamilies.fuzzyFormLookup(detectedFormsToFamily, w)) return null; // déjà dans une famille
+      const hit = Dictionary.lookup(w);
+      if (hit) return { en: hit.isVerb ? 'to ' + (hit.corrected || w) : (hit.corrected || w), fr: hit.fr };
+      return { en: w, fr: '' };
+    }
+
+    // 1) Lignes qui ne contiennent QU'UN SEUL mot (ex: une liste "mot · mot · mot" découpée par
+    // `splitListSegments`) : extraction prioritaire et jamais supprimée par la suite, même si ce
+    // mot apparaît AUSSI comme partie d'une expression plus longue ailleurs (ex: "eagle" listé à
+    // part ET présent dans "bald eagle" : ce sont deux éléments distincts et légitimes).
+    rawLines.forEach((line) => {
+      if (englishScore(line) < frenchScore(line)) return;
+      const w = line.trim().toLowerCase().replace(/[^a-z-]/g, '');
+      if (!w || line.trim().split(/\s+/).length !== 1) return;
+      if (covered.has(w) || frenchSeen.has(w) || ENGLISH_STOPWORDS.has(w) || FRENCH_STOPWORDS.has(w)) return;
+      const res = lookupWord(w);
+      if (res) {
+        addVocab(res.en, res.fr, computeFrequency(w, englishText), res.fr ? undefined : 'secondary');
+        covered.add(w);
+        // Un mot composé ("green-eyed") est découpé par la tokenisation générique de l'étape 3
+        // (qui ne reconnaît pas les tirets) : sans ça, "green" et "eyed" ressortiraient en plus,
+        // comme fragments isolés sans traduction.
+        if (w.includes('-')) w.split('-').forEach((part) => covered.add(part));
       }
     });
 
-    // 2) Mots isolés reconnus par le dictionnaire
+    // 2) Expressions du dictionnaire (les plus longues d'abord, ex: "pencil case" avant "pencil").
+    // Une fois une expression trouvée, ses mots sont marqués "couverts" pour éviter qu'un simple
+    // fragment de l'expression (ex: "bald" tout seul, extrait de "bald eagle") ne devienne à tort
+    // un mot de vocabulaire séparé à l'étape 3 — les vrais mots isolés ont déjà été pris à l'étape 1.
+    Dictionary.PHRASE_KEYS.forEach((phrase) => {
+      const re = new RegExp('\\b' + phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+      if (re.test(englishText)) {
+        addVocab(phrase, Dictionary.DICTIONARY[phrase], computeFrequency(phrase, englishText));
+        phrase.split(' ').forEach((w) => covered.add(w));
+      }
+    });
+
+    // 3) Tous les mots isolés restants (mentionnés seulement dans une phrase/ligne à plusieurs
+    // mots, jamais sur leur propre ligne) : traduits via le dictionnaire quand on le peut (avec
+    // tolérance aux fautes), sinon ajoutés avec une traduction à compléter.
     const tokens = englishText.toLowerCase().match(/\b[a-z]{3,}\b/g) || [];
     const seen = new Set();
     tokens.forEach((w) => {
       if (seen.has(w) || covered.has(w) || frenchSeen.has(w) || ENGLISH_STOPWORDS.has(w) || FRENCH_STOPWORDS.has(w)) return;
       seen.add(w);
-      const hit = Dictionary.lookup(w);
-      if (hit) addVocab(hit.isVerb ? 'to ' + w : w, hit.fr, computeFrequency(w, englishText));
+      const res = lookupWord(w);
+      if (res) addVocab(res.en, res.fr, computeFrequency(w, englishText), res.fr ? undefined : 'secondary');
     });
 
     return found;
@@ -189,6 +256,15 @@
   // ponctuation de fin de phrase pour ne jamais transformer un paragraphe entier en un seul item.
   function splitIntoSentences(line) {
     return line.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ0-9«"])/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  // Une leçon collée depuis un document en colonnes/tableau donne parfois une longue liste de
+  // mots séparés par "·" ou "•" sur une seule ligne (ex: "pillow · brand · copybook · ..."), sans
+  // aucune ponctuation de fin de phrase. Sans ce découpage, `expandLongLines` ci-dessous ne
+  // trouverait rien à couper et abandonnerait toute la ligne : on perdrait tous les mots d'un coup.
+  function splitListSegments(line) {
+    if (!/[·•]/.test(line)) return [line];
+    return line.split(/[·•]/).map((s) => s.trim()).filter(Boolean);
   }
 
   function expandLongLines(rawTextLines) {
@@ -222,7 +298,9 @@
 
   function analyzeLesson(rawText) {
     const fullText = rawText;
-    const rawLines = expandLongLines(rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+    const rawLines = expandLongLines(
+      rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).flatMap((l) => splitListSegments(l))
+    );
     const items = [];
     const seenPairs = new Set();
     let sectionHint = null;
@@ -307,7 +385,7 @@
       const tokensGuess = cleanLine.split(/[^A-Za-z]+/).filter(Boolean).map((w) => w.toLowerCase());
       if (tokensGuess.length >= 2 && tokensGuess.length <= 6 && frenchScore(cleanLine) < 3
         && !GRAMMAR_KEYWORDS.test(cleanLine) && !CULTURE_KEYWORDS.test(cleanLine)) {
-        const famsHere = tokensGuess.map((t) => detectedFormsToFamily.get(t)).filter(Boolean);
+        const famsHere = tokensGuess.map((t) => WordFamilies.fuzzyFormLookup(detectedFormsToFamily, t)).filter(Boolean);
         const uniqueBases = new Set(famsHere.map((f) => f.base));
         if (famsHere.length >= 2 && uniqueBases.size === 1) {
           const fam = famsHere[0];
@@ -323,7 +401,7 @@
       const triple = parseTripleLine(cleanLine);
       if (triple) {
         const key = triple.w1.toLowerCase();
-        const already = detectedFormsToFamily.get(key);
+        const already = WordFamilies.fuzzyFormLookup(detectedFormsToFamily, key);
         if (already) {
           if (triple.trans && !already.userFr) already.userFr = triple.trans;
           continue;
@@ -346,13 +424,29 @@
       if (m.length === 2 && m[0].trim() && m[1].trim() && m[0].trim().length < 80 && m[1].trim().length < 80) {
         const left = m[0].trim();
         const right = m[1].trim();
-        const { en, fr } = splitEnFr(left, right);
+        let { en, fr } = splitEnFr(left, right);
+
+        // Tolère 1-2 fautes d'orthographe sur le mot anglais (ex: "beComme" -> "become") :
+        // on essaie d'abord de le rattacher à un verbe/pluriel/comparatif irrégulier connu,
+        // sinon à un mot du dictionnaire de secours, et on corrige l'orthographe si besoin.
+        let normEn = en.replace(/^to\s+/i, '').trim().toLowerCase();
+        const hadTo = /^to\s+/i.test(en);
+        const resolvedBase = WordFamilies.resolveBase(normEn);
+        if (resolvedBase && resolvedBase !== normEn) {
+          en = (hadTo ? 'to ' : '') + resolvedBase;
+          normEn = resolvedBase;
+        } else if (normEn.length >= 6) {
+          const dictHit = Dictionary.lookup(normEn);
+          if (dictHit && dictHit.corrected && dictHit.corrected !== normEn) {
+            en = (hadTo || dictHit.isVerb ? 'to ' : '') + dictHit.corrected;
+            normEn = dictHit.corrected;
+          }
+        }
 
         // Cette paire ne fait en fait que traduire UNE forme d'une famille déjà détectée
         // (ex: "go = aller" alors que "went"/"gone" apparaissent ailleurs) : on rattache la
         // traduction à la famille au lieu de créer un item isolé et redondant.
-        const normEn = en.replace(/^to\s+/i, '').trim().toLowerCase();
-        const fam = detectedFormsToFamily.get(normEn);
+        const fam = WordFamilies.fuzzyFormLookup(detectedFormsToFamily, normEn);
         if (fam) {
           if (fr && (normEn === fam.base || !fam.userFr)) fam.userFr = fr;
           continue;
@@ -400,7 +494,7 @@
     // Le vocabulaire "orphelin" : des mots anglais présents dans la leçon mais jamais rattachés
     // à un item (pas de "= traduction" donné, mentionnés seulement dans une phrase, une liste
     // sans ponctuation claire, etc.). On ne doit pas les laisser disparaître silencieusement.
-    extractOrphanVocabulary(rawLines, items).forEach((it) => items.push(it));
+    extractOrphanVocabulary(rawLines, items, detectedFormsToFamily).forEach((it) => items.push(it));
 
     return items;
   }

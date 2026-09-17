@@ -18,10 +18,62 @@ AS.Storage = (function () {
     jump: 'Space', dash: 'ShiftLeft', pause: 'Escape',
   };
 
+  // Second jeu de raccourcis, entièrement séparé du premier : celui de
+  // l'éditeur de niveaux (déplacement de caméra, outils...) — voir
+  // AS.Keybinds.EDITOR_ACTIONS côté keybinds.js et editor.js qui lit ces
+  // codes au lieu de littéraux figés.
+  const DEFAULT_EDITOR_KEYBINDS = {
+    panForward: 'KeyW', panBack: 'KeyS', panLeft: 'KeyA', panRight: 'KeyD',
+    panDown: 'KeyQ', panUp: 'KeyE',
+    rotate: 'KeyR', power: 'KeyP',
+    deselect: 'Escape',
+    removeWaypoint: 'Backspace',
+    toggleTool: 'Tab',
+    testLevel: 'KeyT',
+    quickSave: 'KeyS',
+  };
+
+  const LANGUAGES = ['fr', 'en', 'es', 'de', 'it', 'pt', 'ja', 'ko'];
+
+  // ---- Règles du jeu et de l'éditeur -----------------------------------
+  // TOUT ce qui règle l'équilibrage (physique du joueur, bornes des
+  // réglages par bloc dans l'éditeur) vit ICI, en un seul endroit, plutôt
+  // qu'éparpillé en constantes figées dans le code — voir l'écran "Règles"
+  // (main.js) qui les affiche/modifie, et AS.World.applyRules() qui les
+  // applique à AS.CFG. Ces valeurs par défaut sont celles du jeu "d'origine"
+  // (déjà 20% plus rapide que la toute première version — voir jumpVel etc.
+  // ci-dessous, qui reflètent ce réglage plutôt que de le ré-appliquer par
+  // un facteur cascadé) : les modifier ici ne change QUE le point de départ
+  // avant réglage utilisateur, jamais une valeur déjà personnalisée.
+  const RULE_DEFAULTS = {
+    // ---- Déplacement / saut / dash / mur -----------------------------
+    maxSpeed: 10.8, boostMaxSpeed: 20.4,
+    jumpVel: 15.6, doubleJumpVel: 13.2,
+    wallJumpVelY: 15, wallJumpPush: 11.4,
+    dashSpeed: 28.8, dashDuration: 0.16, dashCharges: 1,
+    // ---- Gravité (négatif = vers le bas ; "montée" freine le saut tenu,
+    // "chute" accélère la descente) -------------------------------------
+    gravityRise: -22, gravityFall: -34,
+    // ---- Glace : accélération (prise de vitesse) et adhérence (plus
+    // haut = moins glissant, freine plus vite) --------------------------
+    iceAccel: 13.2, iceFriction: 3,
+    // ---- Bornes des glissières par bloc dans l'éditeur (outil
+    // Sélection) : jusqu'où la valeur d'UN bloc peut être poussée ------
+    bounceForceMin: 5, bounceForceMax: 45,
+    crumbleTimeMin: 0.1, crumbleTimeMax: 3,
+    moverSpeedMin: 0.3, moverSpeedMax: 6,
+    // ---- Distance de vue max de la caméra d'édition (molette) : la
+    // grille elle-même n'a pas de limite (juste des nombres), c'est cette
+    // distance qui empêchait de voir/atteindre un niveau très étendu -----
+    cameraMaxDist: 240,
+  };
+
   function defaultSave() {
     return {
-      settings: { difficulty: 'court-1', sfxVolume: 0.8, skin: 'bleu' },
+      settings: { difficulty: 'court-1', sfxVolume: 0.8, skin: 'bleu', language: 'fr' },
       keybinds: Object.assign({}, DEFAULT_KEYBINDS),
+      editorKeybinds: Object.assign({}, DEFAULT_EDITOR_KEYBINDS),
+      rules: Object.assign({}, RULE_DEFAULTS),
       zoneBest: {},      // { [difficulty]: ms }  temps total du niveau
     };
   }
@@ -36,6 +88,8 @@ AS.Storage = (function () {
       const d = defaultSave();
       data.settings = Object.assign(d.settings, data.settings);
       data.keybinds = Object.assign({}, d.keybinds, data.keybinds);
+      data.editorKeybinds = Object.assign({}, d.editorKeybinds, data.editorKeybinds);
+      data.rules = Object.assign({}, d.rules, data.rules);
       data.zoneBest = data.zoneBest || {};
     } catch (e) {
       data = defaultSave();
@@ -82,6 +136,38 @@ AS.Storage = (function () {
     load();
     data.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
     save();
+  }
+
+  // ---- Raccourcis clavier de l'ÉDITEUR (jeu séparé du précédent) -----------
+  function getEditorKeybinds() { load(); return data.editorKeybinds; }
+  function setEditorKeybind(action, code) {
+    load();
+    data.editorKeybinds[action] = code;
+    save();
+  }
+  function resetEditorKeybinds() {
+    load();
+    data.editorKeybinds = Object.assign({}, DEFAULT_EDITOR_KEYBINDS);
+    save();
+  }
+
+  // ---- Langue -----------------------------------------------------------
+  function getLanguage() { load(); return data.settings.language || 'fr'; }
+  function setLanguage(code) { load(); data.settings.language = code; save(); }
+
+  // ---- Règles du jeu et de l'éditeur (voir RULE_DEFAULTS ci-dessus) -------
+  function getRules() { load(); return data.rules; }
+  function setRule(key, value) {
+    load();
+    data.rules[key] = value;
+    save();
+    if (AS.World && AS.World.applyRules) AS.World.applyRules();
+  }
+  function resetRules() {
+    load();
+    data.rules = Object.assign({}, RULE_DEFAULTS);
+    save();
+    if (AS.World && AS.World.applyRules) AS.World.applyRules();
   }
 
   // ---- Niveaux créés dans l'éditeur -----------------------------------------
@@ -153,6 +239,9 @@ AS.Storage = (function () {
     load, save, recordZone,
     setDifficulty, getSfxVolume, setSfxVolume, getSkin, setSkin, DEFAULT_KEYBINDS,
     getKeybinds, setKeybind, resetKeybinds,
+    DEFAULT_EDITOR_KEYBINDS, getEditorKeybinds, setEditorKeybind, resetEditorKeybinds,
+    LANGUAGES, getLanguage, setLanguage,
+    RULE_DEFAULTS, getRules, setRule, resetRules,
     loadLevels, saveLevel, deleteLevel, recordLevelBest,
     setLevelMainDifficulty, getMainLevelFor,
   };

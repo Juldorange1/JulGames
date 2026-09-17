@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Puissance 4 — Solveur</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Puissance 4 <span class="sub">— Solveur exact</span></h1>
+    <a class="back" href="../index.html">&larr; JulGame</a>
+  </header>
+
+  <main>
+    <div id="status" class="status">Trait aux <span id="turn-name" class="turn-red">Rouges</span></div>
+
+    <div id="analysis-bar" class="analysis-bar">
+      <span id="analysis-state">Analyse desactivee</span>
+      <span id="analysis-nodes"></span>
+    </div>
+
+    <div id="board-wrap">
+      <div id="scores" class="scores"></div>
+      <div id="board" class="board"></div>
+    </div>
+
+    <div class="controls">
+      <button id="btn-new">Nouvelle partie</button>
+      <button id="btn-undo">Annuler le coup</button>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-analysis" checked>
+        Afficher l'analyse (coups jusqu'a la fin)
+      </label>
+    </div>
+
+    <details class="legend">
+      <summary>Comment lire les scores</summary>
+      <p>
+        Au-dessus de chaque colonne jouable, le solveur affiche le resultat exact de ce coup
+        avec un jeu parfait des deux cotes : un nombre <b class="win">vert</b> = victoire dans
+        ce nombre de coups pour le joueur qui vient de jouer, un nombre <b class="loss">rouge</b> =
+        defaite dans ce nombre de coups, <b class="draw">=</b> = partie nulle. Plus le nombre de
+        coups avant victoire est petit, plus le coup est fort.
+      </p>
+      <p>
+        Le solveur est compile en WebAssembly (environ 15x plus rapide qu'un calcul
+        JavaScript pur) et tourne dans un thread separe (Web Worker) : il ne bloque
+        jamais le jeu, vous pouvez toujours jouer, annuler ou relancer une partie
+        pendant qu'il calcule. Les ouvertures les plus frequentes sont precalculees
+        dans un livre d'ouverture et s'affichent instantanement ; les positions plus
+        rares se resolvent en direct, generalement en quelques secondes.
+      </p>
+    </details>
+  </main>
+
+  <script src="js/book.js?v=1"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

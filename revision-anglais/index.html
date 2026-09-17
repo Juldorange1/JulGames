@@ -35,7 +35,7 @@
       <div class="card today-card">
         <div class="today-title">À faire aujourd'hui</div>
         <div class="today-num"><span id="home-due-count">0</span> élément(s) à réviser</div>
-        <button class="btn primary big" id="btn-smart-review">🧠 RÉVISION INTELLIGENTE</button>
+        <button class="btn primary big" id="btn-smart-review">🧠 RÉVISION NULLE ET ENNUYEUSE</button>
       </div>
 
       <div class="card quick-card">
@@ -167,6 +167,20 @@
     <section class="screen" id="screen-settings">
       <h2>⚙️ Réglages</h2>
       <div class="card">
+        <div class="section-title">🔁 Vitesse de réapparition des mots</div>
+        <p class="hint">Comme le "multiplicateur d'intervalle" d'Anki. 1× = normal. Plus haut = les mots reviennent moins souvent (espacement plus long). Plus bas = ils reviennent plus vite.</p>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="range" id="interval-multiplier" min="0.25" max="3" step="0.05" style="flex:1">
+          <span id="interval-multiplier-value" style="min-width:48px;text-align:right;font-weight:700;">1×</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">⌨️ Raccourcis clavier (pendant une session)</div>
+        <p class="hint">Actifs uniquement pendant une révision. Clique sur "Changer" puis appuie sur la touche voulue.</p>
+        <div id="keybinds-list"></div>
+        <button class="btn small" id="btn-reset-keybinds" style="margin-top:8px">↺ Réinitialiser les raccourcis</button>
+      </div>
+      <div class="card">
         <div class="section-title">Sauvegarde</div>
         <p class="hint">Toutes tes données sont stockées localement dans ce navigateur.</p>
         <button class="btn" id="btn-export">⬇️ Exporter mes données</button>
@@ -178,6 +192,7 @@
 </div>
 
 <script src="js/storage.js"></script>
+<script src="js/fuzzy.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/visuals.js"></script>
 <script src="js/word-families.js"></script>

@@ -365,6 +365,13 @@ AS.Player.prototype._verticalForcesAndJump = function (dt, input) {
     this.abilities.wallJump && input.holdingIntoWall;
   if (this.wallSliding) {
     g = CFG.gravityWallSlide;
+    // S'accrocher à un mur recharge le dash et le double saut, exactement
+    // comme atterrir au sol (voir _integrateAndCollide) : un mur est un
+    // point d'appui au même titre qu'une plateforme, et ça laisse une
+    // vraie marge de manoeuvre après un enchaînement de wall-jumps plutôt
+    // que d'épuiser ces ressources en un seul passage.
+    this.jumpsUsed = 0;
+    this.dashCharges = CFG.dashCharges;
   } else if (this.velocity.y > 0) {
     g = input.jumpHeld ? CFG.gravityRise : CFG.gravityRise * 2.6;
   } else {

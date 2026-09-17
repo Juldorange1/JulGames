@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WAVE // ASCENSION</title>
+<link rel="stylesheet" href="style.css?v=20">
+</head>
+<body>
+
+<div id="app">
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD pendant la partie -->
+  <div id="hud-top" class="hud hidden">
+    <div class="hud-stat" id="hudMoney"><span class="hud-icon">€</span><span id="hudMoneyVal">0</span></div>
+    <div class="hud-stat" id="hudDistance"><span class="hud-label">DIST</span><span id="hudDistanceVal">0</span></div>
+    <div class="hud-stat" id="hudDifficulty"><span class="hud-label">DIFFICULTÉ</span><span id="hudDifficultyVal">1,0×</span></div>
+    <div class="hud-stat" id="hudCombo"><span class="hud-label">COMBO</span><span id="hudComboVal">0</span></div>
+  </div>
+  <div id="hud-bottom" class="hud hidden">
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+  </div>
+  <div id="run-flash"></div>
+  <div id="modeAnnounce" class="mode-announce hidden"></div>
+  <div id="topRightBtns">
+    <button id="rulesBtn" class="icon-btn" title="Règles">📖</button>
+    <button id="settingsBtn" class="icon-btn" title="Paramètres">⚙</button>
+    <button id="muteBtn" class="icon-btn" title="Son">🔊</button>
+  </div>
+
+  <!-- Écran menu -->
+  <div id="menu-screen" class="screen">
+    <div class="menu-wrap">
+      <h1 class="game-title">WAVE <span class="accent">// ASCENSION</span></h1>
+      <p class="game-subtitle">Maintiens n'importe quelle touche ou clic pour monter. Relâche pour descendre. Ne touche à rien.</p>
+
+      <div id="offlineBanner" class="offline-banner hidden">
+        Production hors ligne : <b id="offlineAmount">+0 €</b>
+      </div>
+
+      <div class="menu-stats">
+        <div class="mstat"><span class="mstat-label">Argent</span><span class="mstat-val" id="menuMoney">0 €</span></div>
+        <div class="mstat"><span class="mstat-label">Meilleure distance</span><span class="mstat-val" id="menuBestDist">0</span></div>
+        <div class="mstat"><span class="mstat-label">Difficulté max atteinte</span><span class="mstat-val" id="menuBestDifficulty">1,0×</span></div>
+        <div class="mstat"><span class="mstat-label">Meilleur combo</span><span class="mstat-val" id="menuBestCombo">0</span></div>
+        <div class="mstat"><span class="mstat-label">Ascensions</span><span class="mstat-val" id="menuAscensions">0</span></div>
+      </div>
+
+      <div class="speed-select">
+        <span class="speed-select-label">Multiplicateur de difficulté — augmente les gains d'or</span>
+        <div id="difficultyButtons" class="speed-buttons"></div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btnPlay" class="btn btn-primary btn-huge">▶ JOUER</button>
+        <button id="btnUpgrades" class="btn btn-secondary btn-huge">📈 AMÉLIORATIONS</button>
+      </div>
+
+      <button id="btnAscend" class="btn btn-ascend">✦ ASCENSION — gagner <span id="ascendGain">0</span> ✦</button>
+      <p class="ascend-hint" id="ascendHint"></p>
+    </div>
+  </div>
+
+  <!-- Écran améliorations -->
+  <div id="upgrades-screen" class="screen hidden">
+    <div class="panel-header">
+      <h2>Améliorations</h2>
+      <span class="panel-money">€ <span id="upMoney">0</span></span>
+      <button id="btnCloseUpgrades" class="btn btn-secondary">← Retour</button>
+    </div>
+    <div id="upgradesList" class="upgrades-list"></div>
+  </div>
+
+  <!-- Écran règles -->
+  <div id="rules-screen" class="screen hidden">
+    <div class="panel-header">
+      <h2>Règles</h2>
+      <button id="btnCloseRules" class="btn btn-secondary">← Retour</button>
+    </div>
+    <div class="rules-list">
+
+      <div class="rule-block">
+        <h3>Contrôles</h3>
+        <p>N'importe quelle touche du clavier, ou n'importe quel bouton de la souris / de l'écran tactile. Le comportement change selon le mode actif :</p>
+        <ul>
+          <li><b>Wave</b> — maintenir fait monter en diagonale, relâcher fait descendre.</li>
+          <li><b>OVNI</b> — chaque appui donne un bond ; la gravité fait retomber entre deux appuis.</li>
+          <li><b>Vaisseau</b> — maintenir pousse vers le haut, relâcher laisse retomber (vol lissé, pas de lignes droites).</li>
+          <li><b>Balle</b> — chaque appui inverse le sens de la gravité : la balle roule en arcs entre le sol et le plafond du couloir.</li>
+          <li><b>Cube</b> — appuyer déclenche un saut à hauteur fixe, uniquement possible au sol.</li>
+          <li><b>Robot</b> — comme le Cube, mais maintenir l'appui un peu plus longtemps pendant la montée ajoute un peu de hauteur au saut.</li>
+          <li><b>Araignée</b> — chaque appui fait basculer instantanément entre le sol et le plafond, qui restent fixes.</li>
+        </ul>
+      </div>
+
+      <div class="rule-block">
+        <h3>Portails &amp; blocs solides</h3>
+        <p>Chaque partie commence dans un mode tiré au hasard parmi les sept. Des portails colorés apparaissent ensuite aléatoirement et basculent temporairement vers l'un des six autres modes, avec des obstacles adaptés à chaque physique, avant de repasser en Wave (vert). Cube et Robot introduisent un nouveau type de bloc : un sol/une plateforme solide sur lequel on peut se tenir sans mourir, contrairement au couloir qu'il faut habituellement éviter de toucher. Le nom de chaque portail est toujours écrit dessus.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Portails de gravité &amp; de vitesse</h3>
+        <p>D'autres portails, plus rares, modifient temporairement les commandes sans jamais changer de mode : un portail <b>violet</b> inverse la gravité en Wave/OVNI/Vaisseau (appuyer fait descendre, relâcher fait monter) — sans effet sur Cube, Robot, Araignée et Balle. Un portail <b>vert/orange</b> change la vitesse de déplacement de -15 % à +25 % en Wave/OVNI/Vaisseau/Balle (Cube et Robot gardent toujours leur vitesse normale, le timing d'un saut ne devant jamais dépendre de la vitesse de défilement).</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Zones de décor</h3>
+        <p>Le décor change au fil de la distance parcourue — forêt, désert, glacier, volcan — avec un fondu entre chaque zone. Purement visuel : n'affecte jamais les couloirs ni la difficulté.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Difficulté &amp; or</h3>
+        <p>Avant de jouer, choisis un multiplicateur de difficulté (jusqu'à 15×). Il ne change jamais la vitesse : il rend les obstacles plus durs et multiplie d'autant l'or gagné. La difficulté choisie reste la même du début à la fin de la partie.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Combo &amp; Perfect</h3>
+        <p>Certains passages étroits ou précis sont marqués en doré. Les franchir sans collision déclenche un Perfect : le combo augmente et l'or gagné s'en trouve boosté. Une collision met fin à la partie.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Sacs d'or</h3>
+        <p>Des sacs d'or apparaissent parfois près des murs (Wave, OVNI, Vaisseau, Balle). Les toucher donne un gros gain d'or, affiché directement à l'endroit où ils sont ramassés — d'autant plus élevé que la difficulté choisie est haute.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Améliorations &amp; Ascension</h3>
+        <p>L'or gagné en jouant s'investit dans des améliorations (difficulté, revenus, combo, performance, automatisation). Une fois assez loin, une Ascension réinitialise ces améliorations contre une monnaie permanente qui augmente les revenus pour toujours.</p>
+      </div>
+
+      <div class="rule-block">
+        <h3>Hors-ligne</h3>
+        <p>L'automatisation continue de produire un peu d'or pendant que tu n'es pas en train de jouer — toujours bien moins qu'une partie active.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Écran paramètres -->
+  <div id="settings-screen" class="screen hidden">
+    <div class="panel-header">
+      <h2>Paramètres</h2>
+      <button id="btnCloseSettings" class="btn btn-secondary">← Retour</button>
+    </div>
+    <div class="settings-list">
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Volume musique</div>
+        </div>
+        <input type="range" id="musicVolume" class="slider" min="0" max="100" value="45">
+        <span class="setting-val" id="musicVolumeVal">45%</span>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Volume effets sonores</div>
+        </div>
+        <input type="range" id="sfxVolume" class="slider" min="0" max="100" value="80">
+        <span class="setting-val" id="sfxVolumeVal">80%</span>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Tout couper</div>
+          <div class="setting-desc">Coupe musique + effets sans changer les réglages ci-dessus.</div>
+        </div>
+        <button id="settingsMuteToggle" class="btn btn-secondary">🔊 Son activé</button>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row column">
+        <div class="setting-info">
+          <div class="setting-name">Contrôles</div>
+          <div class="setting-desc">
+            N'importe quelle touche du clavier, ou n'importe quel bouton de la souris / de l'écran
+            tactile : maintenir fait monter le Wave, relâcher le fait descendre. Aucune touche à
+            configurer — tout fonctionne.
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Touche « Rejouer »</div>
+          <div class="setting-desc">Une fois configurée, appuie dessus sur l'écran de mort pour relancer instantanément.</div>
+        </div>
+        <button id="retryKeyBtn" class="btn btn-secondary">Configurer une touche</button>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-name">Réinitialiser la sauvegarde</div>
+          <div class="setting-desc">Efface définitivement argent, améliorations et ascensions.</div>
+        </div>
+        <button id="btnResetSave" class="btn btn-danger">Réinitialiser</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Écran de mort -->
+  <div id="death-screen" class="screen hidden">
+    <div class="death-card">
+      <h2 class="death-title">TOUCHÉ</h2>
+      <div class="death-stats">
+        <div class="dstat"><span class="dstat-label">Distance</span><span class="dstat-val" id="deathDistance">0</span></div>
+        <div class="dstat"><span class="dstat-label">Record</span><span class="dstat-val" id="deathBest">0</span></div>
+        <div class="dstat"><span class="dstat-label">Argent gagné</span><span class="dstat-val" id="deathMoney">0 €</span></div>
+        <div class="dstat"><span class="dstat-label">Combo max</span><span class="dstat-val" id="deathCombo">0</span></div>
+      </div>
+      <div class="death-actions">
+        <button id="btnRetry" class="btn btn-primary btn-huge">↻ REJOUER</button>
+        <button id="btnDeathMenu" class="btn btn-secondary">Menu</button>
+      </div>
+      <p class="retry-key-hint hidden" id="retryKeyHint"></p>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/constants.js?v=20"></script>
+<script src="js/format.js?v=20"></script>
+<script src="js/audio.js?v=20"></script>
+<script src="js/state.js?v=20"></script>
+<script src="js/upgrades.js?v=20"></script>
+<script src="js/prestige.js?v=20"></script>
+<script src="js/idle.js?v=20"></script>
+<script src="js/segments.js?v=20"></script>
+<script src="js/player.js?v=20"></script>
+<script src="js/collision.js?v=20"></script>
+<script src="js/particles.js?v=20"></script>
+<script src="js/render.js?v=20"></script>
+<script src="js/ui.js?v=20"></script>
+<script src="js/game.js?v=20"></script>
+<script src="js/main.js?v=20"></script>
+</body>
+</html>

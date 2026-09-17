@@ -10,15 +10,17 @@ entre les jeux, sauf mention contraire).
 |---|---|---|
 | [`ruines/`](ruines/) | **Ruine** | Top-down desert/ruine, grille 12×12, modes Solo / Coop / PvP |
 | [`hexdefense/`](hexdefense/) | **Hex Défense** | Tower defense hexagonal, plusieurs héros, Mode Infini (prestige, cristaux, Choses aléatoires) |
-| [`hades3/`](hades3/) | **Hades 3** | Combat par vagues façon Hades, dash/échange/mine |
-| [`pokedex/`](pokedex/) | **Pokédex — Apprentissage** | Appli perso d'apprentissage du Pokédex (quiz, révision espacée, 100 % hors-ligne) |
 | [`geodash/`](geodash/) | **GeoDash** | Éditeur de niveaux façon Geometry Dash (piques, blocs, portails) + mode test/jeu |
+| [`synergie/`](synergie/) | **Synergie** | Roguelike d'action top-down : 50 compétences / 25 spécificités à tags, tirage de build avant chaque combat, roue de rareté |
+| [`puissance4/`](puissance4/) | **Puissance 4** | Solveur exact (negamax + alpha-bêta + table de transposition dans un Web Worker) : affiche pour chaque colonne le nombre de coups jusqu'à la victoire/défaite/nul |
+| [`wave-idle/`](wave-idle/) | **Wave // Ascension** | Geometry Dash Wave pur (aucun autre mode) × idle/incremental : paliers de vitesse 1× à 89×, combos Perfect, améliorations, prestige Ascension |
 
 ## Outils (pas des jeux)
 
 | Dossier | Outil | Description |
 |---|---|---|
 | [`revision-anglais/`](revision-anglais/) | **Révision Anglais** | Import de leçon (analyse auto), 8 types d'exercices, révision espacée intelligente, 100 % local |
+| [`pokedex/`](pokedex/) | **Pokédex — Apprentissage** | Appli perso d'apprentissage du Pokédex (quiz, révision espacée, 100 % hors-ligne) |
 
 > **Avidité** a été déplacé dans son propre dépôt indépendant
 > (`C:\Users\juldorange\avidite`, hors de ce monorepo) le 2026-08-29, pour
@@ -47,7 +49,10 @@ ruine/                  (dépôt = "JulGame")
 ├── CLAUDE.md           Instructions générales du dépôt
 ├── ruines/              Jeu "Ruine"
 ├── hexdefense/         Jeu "Hex Défense"
-├── hades3/              Jeu "Hades 3"
-├── pokedex/             Jeu "Pokédex"
-└── geodash/             Jeu "GeoDash"
+├── geodash/             Jeu "GeoDash"
+├── synergie/            Jeu "Synergie"
+├── puissance4/          Jeu "Puissance 4" (solveur exact)
+├── wave-idle/           Jeu "Wave // Ascension"
+├── revision-anglais/    Outil "Révision Anglais"
+└── pokedex/             Outil "Pokédex"
 ```

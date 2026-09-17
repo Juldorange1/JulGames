@@ -114,11 +114,20 @@
   }
 
   // Scanne le texte entier : une famille est "détectée" dès qu'une de ses formes distinctives
-  // (prétérit/participe, ou comparatif/superlatif) apparaît quelque part, même isolément.
+  // (prétérit/participe, ou comparatif/superlatif) apparaît quelque part, même isolément —
+  // et même avec une ou deux fautes de frappe si le mot est assez long (cf. js/fuzzy.js : sous
+  // 6 lettres on exige l'orthographe exacte, pour éviter de confondre par ex. "want" et "went").
   function detect(fullText) {
+    const tokens = fullText.match(/\b[a-zA-Z]{3,}\b/g) || [];
+    const tokenSet = new Set(tokens.map((t) => t.toLowerCase()));
     const found = [];
     ALL_FAMILIES.forEach((fam) => {
-      const hit = fam.distinctive.some((f) => wholeWordPresent(f, fullText));
+      const hit = fam.distinctive.some((f) => {
+        const fl = f.toLowerCase();
+        if (tokenSet.has(fl)) return true;
+        if (fl.length < 6) return false;
+        return tokens.some((t) => Fuzzy.isCloseMatch(t, fl));
+      });
       if (hit) found.push(Object.assign({}, fam, { userFr: null }));
     });
     return found;
@@ -131,7 +140,33 @@
     return map;
   }
 
-  function isKnownBase(word) { return BASE_INDEX.has((word || '').toLowerCase()); }
+  // Cherche `word` dans une table forme -> famille (ex: celle de formIndex), en tolérant une
+  // faute de frappe pour les mots assez longs. Retourne la famille ou null.
+  function fuzzyFormLookup(map, word) {
+    const w = (word || '').toLowerCase();
+    if (map.has(w)) return map.get(w);
+    if (w.length < 6) return null;
+    for (const [form, fam] of map) {
+      if (Fuzzy.isCloseMatch(w, form)) return fam;
+    }
+    return null;
+  }
 
-  global.WordFamilies = { detect, formIndex, isKnownBase, BASE_INDEX };
+  function isKnownBase(word) {
+    const w = (word || '').toLowerCase();
+    if (BASE_INDEX.has(w)) return true;
+    if (w.length < 6) return false;
+    return Fuzzy.findClosestMatch(w, Array.from(BASE_INDEX.keys())) !== null;
+  }
+
+  // Retourne la base "correcte" (ex: "become") à partir d'une forme éventuellement mal
+  // orthographiée (ex: "beComme"), ou null si rien d'assez proche.
+  function resolveBase(word) {
+    const w = (word || '').toLowerCase();
+    if (BASE_INDEX.has(w)) return w;
+    if (w.length < 6) return null;
+    return Fuzzy.findClosestMatch(w, Array.from(BASE_INDEX.keys()));
+  }
+
+  global.WordFamilies = { detect, formIndex, fuzzyFormLookup, isKnownBase, resolveBase, BASE_INDEX };
 })(window);

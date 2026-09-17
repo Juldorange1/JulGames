@@ -10,7 +10,9 @@
   // Paliers d'intervalle (en ms) : quelques minutes -> plus tard dans la session -> demain -> ...
   const STEPS = [2 * MIN, 8 * MIN, 30 * MIN, 4 * HOUR, 1 * DAY, 3 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 60 * DAY, 120 * DAY];
 
-  const SKILLS = ['en_fr', 'fr_en', 'listening'];
+  // Une seule compétence par direction : plus de 3e compétence "écoute" séparée depuis que
+  // l'appli n'a plus qu'un seul type d'exercice (flashcard, qui alterne les 2 directions).
+  const SKILLS = ['en_fr', 'fr_en'];
 
   function newSkillState() {
     return { stepIndex: -1, due: Date.now(), ease: 1.0, reps: 0, success: 0, errors: 0, streak: 0, lastResult: null, lastDate: null };
@@ -31,17 +33,24 @@
     return Math.min(1, errors / total);
   }
 
-  // Calcule le niveau de maîtrise agrégé 0-4 à partir des compétences.
-  // 0 nouveau / 1 reconnu (en->fr) / 2 mémorisé (fr->en) / 3 maîtrisé (écoute) / 4 solide (tout, intervalle long)
+  // Calcule le niveau de maîtrise agrégé 0-3 à partir des compétences.
+  // 0 nouveau / 1 reconnu (anglais->français réussi) / 2 mémorisé (français->anglais réussi)
+  // / 3 solide (intervalle long dans les deux sens)
   function computeMasteryLevel(item) {
     const s = item.skills;
     const seen = SKILLS.some((k) => s[k].reps > 0);
     if (!seen) return 0;
     if (s.en_fr.success === 0) return 1;
     if (s.fr_en.success === 0) return 2;
-    if (s.listening.success === 0) return 3;
     const longEnough = SKILLS.every((k) => s[k].stepIndex >= 5);
-    return longEnough ? 4 : 3;
+    return longEnough ? 3 : 2;
+  }
+
+  // Lit le multiplicateur configuré dans les Réglages (par défaut 1 = comportement normal),
+  // borné pour éviter un réglage aberrant (mots ne revenant jamais, ou revenant en boucle).
+  function intervalMultiplier() {
+    const v = (typeof Store !== 'undefined' && Store.getSettings().intervalMultiplier) || 1;
+    return Math.min(5, Math.max(0.1, v));
   }
 
   function applyResult(item, skillName, correct, opts) {
@@ -71,8 +80,11 @@
     // Un mot difficile revient plus souvent : on réduit l'intervalle jusqu'à -50%.
     const difficultyPenalty = 1 - diff * 0.5;
     const jitter = 0.9 + Math.random() * 0.2;
-    let interval = baseInterval * sk.ease * difficultyPenalty * jitter;
-    if (!correct) interval = Math.min(interval, STEPS[1]); // un échec revient vite, quoi qu'il arrive
+    // Multiplicateur réglable par l'utilisateur (Réglages) : >1 espace davantage les révisions
+    // (les mots reviennent moins souvent), <1 les rapproche (ils reviennent plus vite).
+    const userMultiplier = intervalMultiplier();
+    let interval = baseInterval * sk.ease * difficultyPenalty * jitter * userMultiplier;
+    if (!correct) interval = Math.min(interval, STEPS[1] * userMultiplier); // un échec revient vite, quoi qu'il arrive
     sk.due = Date.now() + interval;
 
     item.masteryLevel = computeMasteryLevel(item);
@@ -89,21 +101,5 @@
     return nextDue(item) <= now;
   }
 
-  // Choisit une compétence à travailler pour un item, en évitant de répéter toujours
-  // la même direction (contre la "fausse mémoire" de reconnaissance).
-  function pickSkillToTrain(item) {
-    const now = Date.now();
-    const due = SKILLS.filter((k) => item.skills[k].due <= now);
-    const pool = due.length ? due : SKILLS.slice();
-    // priorité : jamais essayé > le moins pratiqué > pas la dernière compétence utilisée
-    const untried = pool.filter((k) => item.skills[k].reps === 0);
-    if (untried.length) return untried[0];
-    pool.sort((a, b) => item.skills[a].reps - item.skills[b].reps);
-    if (pool.length > 1 && pool[0] === item.lastSkillUsed) {
-      return pool[1];
-    }
-    return pool[0];
-  }
-
-  global.SRS = { SKILLS, STEPS, newSrsState, applyResult, computeMasteryLevel, difficultyFactor, nextDue, isDue, pickSkillToTrain };
+  global.SRS = { SKILLS, STEPS, newSrsState, applyResult, computeMasteryLevel, difficultyFactor, nextDue, isDue };
 })(window);
