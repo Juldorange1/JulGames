@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ADOFAI</title>
+<style>
+  :root{
+    --fire:#ff5a3c; --ice:#3ca9ff; --bg:#0e0e14; --panel:#1a1a24; --panel2:#22222e;
+    --text:#eee; --sub:#9a9aab; --accent:#ffd23f; --bad:#ff3b3b; --good:#4dff9e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI",Arial,sans-serif;overflow:hidden;}
+  #app{position:relative;width:100vw;height:100vh;}
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;}
+  .screen.active{display:flex;}
+  /* ---- Menu ---- */
+  #menu{padding:36px 20px;overflow-y:auto;}
+  #menu h1{font-size:2.2em;margin:0 0 4px;background:linear-gradient(90deg,var(--fire),var(--ice));
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  #menu p.sub{color:var(--sub);margin:0 0 28px;text-align:center;}
+  .levelList{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;
+    width:100%;max-width:980px;}
+  .levelCard{background:var(--panel);border:1px solid #33333f;border-radius:12px;padding:16px 18px;
+    cursor:pointer;transition:border-color .15s,transform .1s;position:relative;}
+  .levelCard:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .levelCard b{display:block;font-size:1.1em;margin-bottom:6px;color:var(--accent);}
+  .levelCard span{font-size:.85em;color:var(--sub);display:block;}
+  .levelCard .del{position:absolute;top:8px;right:8px;background:none;border:none;color:#666;
+    font-size:1.1em;cursor:pointer;padding:2px 6px;}
+  .levelCard .del:hover{color:var(--bad);}
+  .bigBtn{background:linear-gradient(90deg,var(--fire),var(--ice));border:none;color:#111;
+    font-weight:700;font-size:1em;padding:14px 26px;border-radius:10px;cursor:pointer;margin:22px 0 8px;}
+  .bigBtn:hover{filter:brightness(1.1);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .ghostBtn{background:var(--panel2);border:1px solid #3a3a48;color:var(--text);padding:9px 16px;
+    border-radius:8px;cursor:pointer;font-size:.9em;}
+  .ghostBtn:hover{border-color:var(--accent);}
+  /* ---- Editor ---- */
+  #editor{width:100%;height:100%;}
+  #editorTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;
+    background:var(--panel);border-bottom:1px solid #333;width:100%;}
+  #editorTop input[type=text],#editorTop input[type=number]{background:var(--panel2);
+    border:1px solid #3a3a48;color:var(--text);border-radius:6px;padding:6px 8px;font-size:.9em;}
+  #editorTop label{font-size:.8em;color:var(--sub);display:flex;flex-direction:column;gap:2px;}
+  #editorCanvasWrap{flex:1;width:100%;position:relative;}
+  #editorCanvas{width:100%;height:100%;display:block;background:radial-gradient(circle at 50% 50%,#181822,#0c0c12);}
+  #editorHint{position:absolute;bottom:10px;left:14px;color:var(--sub);font-size:.8em;
+    background:rgba(0,0,0,.4);padding:6px 10px;border-radius:6px;max-width:520px;}
+  #editorBottom{display:flex;gap:10px;padding:10px 14px;background:var(--panel);
+    border-top:1px solid #333;width:100%;flex-wrap:wrap;align-items:center;}
+  #angleReadout{font-size:1.3em;color:var(--accent);font-weight:700;min-width:60px;text-align:center;}
+  #ioBox{position:absolute;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:20;}
+  #ioBox.active{display:flex;}
+  #ioBox textarea{width:min(600px,90vw);height:220px;background:#111;color:#dfe;border:1px solid #444;
+    border-radius:8px;padding:10px;font-family:monospace;font-size:.8em;}
+  #ioPanel{background:var(--panel);padding:20px;border-radius:12px;display:flex;flex-direction:column;gap:10px;align-items:center;}
+  /* ---- Play ---- */
+  #play{width:100%;height:100%;position:relative;}
+  #playCanvas{width:100%;height:100%;display:block;background:radial-gradient(circle at 50% 40%,#141420,#0a0a10);}
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;
+    padding:12px 16px;pointer-events:none;}
+  #progressWrap{width:min(600px,80%);height:8px;background:#222;border-radius:4px;overflow:hidden;}
+  #progressBar{height:100%;width:0%;background:linear-gradient(90deg,var(--fire),var(--ice));}
+  #hudRow{display:flex;justify-content:space-between;width:min(600px,80%);margin-top:6px;font-size:.85em;color:var(--sub);}
+  #comboText{font-size:1.4em;font-weight:800;color:var(--accent);text-shadow:0 0 8px rgba(0,0,0,.6);}
+  #judgeText{position:absolute;top:44%;left:50%;transform:translate(-50%,-50%);font-size:1.6em;
+    font-weight:800;opacity:0;pointer-events:none;transition:opacity .15s;}
+  #playOverlay{position:absolute;inset:0;background:rgba(6,6,10,.86);display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px;}
+  #playOverlay.active{display:flex;}
+  #playOverlay h2{font-size:2em;margin:0;}
+  #playOverlay p{color:var(--sub);margin:0;}
+  #tapCatcher{position:absolute;inset:0;cursor:pointer;}
+  .kbd{display:inline-block;background:#222;border:1px solid #444;border-radius:4px;
+    padding:1px 7px;font-family:monospace;color:var(--accent);}
+  .checkRow{display:flex;align-items:center;gap:8px;font-size:.9em;color:var(--sub);}
+  .checkRow select{background:var(--panel2);color:var(--text);border:1px solid #3a3a48;
+    border-radius:6px;padding:4px 6px;}
+  .checkRow input[type=number]{background:var(--panel2);color:var(--text);border:1px solid #3a3a48;
+    border-radius:6px;padding:4px 6px;}
+  .checkRow input[type=range]{accent-color:var(--accent);width:140px;}
+  .diffDots{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px;}
+  .diffDots span{width:7px;height:7px;border-radius:50%;background:#3a3a48;display:inline-block;}
+  .diffDots span.on{background:var(--fire);}
+  #btnCheckpoint{position:absolute;top:10px;right:14px;pointer-events:auto;display:none;}
+  #deathsText{display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== MENU ===================== -->
+  <div id="menu" class="screen active">
+    <h1>ADOFAI</h1>
+    <p class="sub">Clone maison (fan-made, non-officiel) : tape sur le temps pour propulser la bille vers la case suivante.</p>
+    <div class="levelList" id="levelList"></div>
+    <button class="bigBtn" id="btnNewLevel">+ Créer un niveau</button>
+    <div class="row">
+      <button class="ghostBtn" id="btnImportMenu">Importer un niveau (JSON)</button>
+    </div>
+  </div>
+
+  <!-- ===================== EDITEUR ===================== -->
+  <div id="editor" class="screen">
+    <div id="editorTop">
+      <label>Nom
+        <input type="text" id="edName" placeholder="Mon niveau" maxlength="40">
+      </label>
+      <label>BPM
+        <input type="number" id="edBpm" min="40" max="300" value="128" style="width:70px">
+      </label>
+      <label>Tolérance
+        <select id="edTol" style="background:var(--panel2);color:var(--text);border:1px solid #3a3a48;border-radius:6px;padding:6px 4px;">
+          <option value="0.28">Facile</option>
+          <option value="0.2" selected>Normal</option>
+          <option value="0.13">Difficile</option>
+        </select>
+      </label>
+      <div style="flex:1"></div>
+      <button class="ghostBtn" id="btnEdBack">← Menu</button>
+    </div>
+    <div id="editorCanvasWrap">
+      <canvas id="editorCanvas"></canvas>
+      <div id="editorHint">Déplace la souris pour viser l'angle (aimanté à 15°), <b>clic</b> ou <span class="kbd">Entrée</span> pour poser la case. <span class="kbd">←</span><span class="kbd">→</span> ajustent l'angle, <span class="kbd">Retour</span> annule la dernière case.</div>
+    </div>
+    <div id="editorBottom">
+      <span id="angleReadout">0°</span>
+      <button class="ghostBtn" id="btnUndo">Annuler dernière case</button>
+      <button class="ghostBtn" id="btnClear">Tout effacer</button>
+      <div style="flex:1"></div>
+      <button class="ghostBtn" id="btnExport">Exporter JSON</button>
+      <button class="ghostBtn" id="btnTest">▶ Tester</button>
+      <button class="bigBtn" id="btnSave" style="margin:0">Enregistrer</button>
+    </div>
+    <div id="ioBox">
+      <div id="ioPanel">
+        <div id="ioTitle" style="font-weight:700"></div>
+        <textarea id="ioText"></textarea>
+        <div class="row">
+          <button class="ghostBtn" id="ioConfirm">Charger</button>
+          <button class="ghostBtn" id="ioCopy">Copier</button>
+          <button class="ghostBtn" id="ioClose">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== JEU ===================== -->
+  <div id="play" class="screen">
+    <canvas id="playCanvas"></canvas>
+    <div id="tapCatcher"></div>
+    <div id="hud">
+      <div id="progressWrap"><div id="progressBar"></div></div>
+      <div id="hudRow">
+        <span id="comboText">Combo 0</span>
+        <span id="deathsText">Morts 0</span>
+        <span id="accText">100%</span>
+      </div>
+      <button class="ghostBtn" id="btnCheckpoint">📍 Poser un checkpoint ici</button>
+    </div>
+    <div id="judgeText"></div>
+    <div id="playOverlay">
+      <h2 id="overTitle">Prêt ?</h2>
+      <p id="overSub"></p>
+      <label class="checkRow"><input type="checkbox" id="trainToggle"> Mode entraînement (checkpoints, morts sans pénalité)</label>
+      <label class="checkRow" id="trainSpeedRow">Vitesse
+        <input type="range" id="trainSpeedRange" min="10" max="200" step="1" value="100">
+        <input type="number" id="trainSpeedNum" min="10" max="200" step="1" value="100" style="width:60px">
+        <span>%</span>
+      </label>
+      <div class="row">
+        <button class="bigBtn" id="btnOverPrimary" style="margin:0">Jouer</button>
+        <button class="ghostBtn" id="btnOverMenu">Menu</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ==================== Stockage ==================== */
+const STORE_KEY = "adofaiLevels";
+function loadCustomLevels(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }catch(e){ return []; }
+}
+function saveCustomLevels(list){
+  localStorage.setItem(STORE_KEY, JSON.stringify(list));
+}
+
+// Les 5 niveaux principaux, difficulté 1 (facile) à 5 (très difficile) : BPM croissant,
+// tolérance de frappe décroissante, motifs d'angles de plus en plus complexes.
+const BUILTIN_LEVELS = [
+  { id:"builtin-1", name:"Premier envol", difficulty:1, bpm:90, tol:0.30, builtin:true,
+    angles:[0,0,0,0,30,30,0,0,-30,-30,0,0,45,45,0,0,-45,-45,0,0] },
+  { id:"builtin-2", name:"Chemin des cerisiers", difficulty:2, bpm:112, tol:0.24, builtin:true,
+    angles:[0,45,-45,45,-45,0,0,90,90,0,0,-90,-90,0,30,-30,30,-30,0,0,60,-60,0,0] },
+  { id:"builtin-3", name:"Vent de traverse", difficulty:3, bpm:132, tol:0.19, builtin:true,
+    angles:[0,30,60,30,0,-30,-60,-30,0,0,90,-90,90,-90,45,-45,45,-45,0,135,135,0,0,-135,-135,0,0,0] },
+  { id:"builtin-4", name:"Tempête glacée", difficulty:4, bpm:152, tol:0.15, builtin:true,
+    angles:[0,60,-60,60,-60,60,-60,0,0,90,-90,90,-90,90,-90,0,15,30,45,60,75,90,105,90,75,60,45,30,15,0] },
+  { id:"builtin-5", name:"Danse ultime", difficulty:5, bpm:175, tol:0.11, builtin:true,
+    angles:[0,15,30,45,60,75,90,105,120,135,150,165,180,195,210,225,240,255,270,285,300,315,330,345,0,60,-60,90,-90,120,-120,90,-90,0] }
+];
+
+/* ==================== Navigation d'écrans ==================== */
+const screens = { menu: document.getElementById("menu"), editor: document.getElementById("editor"), play: document.getElementById("play") };
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+/* ==================== Audio (généré, aucun fichier externe) ==================== */
+let actx = null;
+function ensureAudio(){ if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); } return actx; }
+function beep(freq, dur, type, vol){
+  try{
+    const ctx = ensureAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    gain.gain.value = vol!==undefined?vol:0.18;
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  }catch(e){}
+}
+function sfxHit(perfect){ beep(perfect?880:660, 0.12, "triangle", 0.2); }
+function sfxFail(){ beep(120, 0.35, "sawtooth", 0.22); }
+function sfxWin(){ beep(660,0.15,"triangle",0.2); setTimeout(()=>beep(880,0.15,"triangle",0.2),120); setTimeout(()=>beep(1100,0.25,"triangle",0.22),240); }
+
+/* ==================== Menu ==================== */
+const levelListEl = document.getElementById("levelList");
+function renderMenu(){
+  levelListEl.innerHTML = "";
+  const custom = loadCustomLevels();
+  const all = BUILTIN_LEVELS.concat(custom);
+  all.forEach(lv=>{
+    const card = document.createElement("div");
+    card.className = "levelCard";
+    const diffDots = lv.difficulty ? `<span class="diffDots">${[1,2,3,4,5].map(i=>`<span class="${i<=lv.difficulty?'on':''}"></span>`).join("")}</span>` : "";
+    card.innerHTML = `<b>${escapeHtml(lv.name)}</b><span>${lv.angles.length} cases · ${lv.bpm} BPM${diffDots}</span>`;
+    card.addEventListener("click", ()=> startPlay(lv));
+    if(!lv.builtin){
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "✕"; del.title = "Supprimer";
+      del.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(confirm(`Supprimer "${lv.name}" ?`)){
+          const list = loadCustomLevels().filter(l=>l.id!==lv.id);
+          saveCustomLevels(list); renderMenu();
+        }
+      });
+      card.appendChild(del);
+    }
+    levelListEl.appendChild(card);
+  });
+}
+function escapeHtml(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+document.getElementById("btnNewLevel").addEventListener("click", ()=>{ openEditor(null); });
+document.getElementById("btnImportMenu").addEventListener("click", ()=>{
+  const txt = prompt("Colle le JSON du niveau :");
+  if(!txt) return;
+  try{
+    const data = JSON.parse(txt);
+    if(!Array.isArray(data.angles)) throw new Error("format");
+    data.id = "custom-"+Date.now();
+    const list = loadCustomLevels(); list.push(data); saveCustomLevels(list); renderMenu();
+  }catch(e){ alert("JSON invalide."); }
+});
+
+/* ==================== Editeur ==================== */
+const edCanvas = document.getElementById("editorCanvas");
+const edCtx = edCanvas.getContext("2d");
+const edName = document.getElementById("edName");
+const edBpm = document.getElementById("edBpm");
+const edTol = document.getElementById("edTol");
+const angleReadout = document.getElementById("angleReadout");
+const ANGLE_STEP = 15;
+const TILE_LEN = 90;
+
+/* ==================== Décor procédural (ciel de crépuscule + cerisiers) ====================
+   Généré entièrement en canvas, sans aucune image téléchargée : reste 100% local. */
+const petals = [];
+function initPetals(w, h){
+  petals.length = 0;
+  const count = Math.max(24, Math.round((w*h)/22000));
+  for(let i=0;i<count;i++){
+    petals.push({
+      x: Math.random()*w, y: Math.random()*h,
+      size: 4+Math.random()*7,
+      speed: 14+Math.random()*22,
+      sway: 0.6+Math.random()*1.4,
+      swayPhase: Math.random()*Math.PI*2,
+      rot: Math.random()*Math.PI*2,
+      rotSpeed: (Math.random()-0.5)*1.2,
+      hue: Math.random()<0.5 ? "#ffc9de" : "#ffe3ee"
+    });
+  }
+}
+let lastPetalT = null;
+function updatePetals(w, h, tRealMs){
+  if(lastPetalT===null) lastPetalT = tRealMs;
+  let dt = (tRealMs - lastPetalT)/1000;
+  lastPetalT = tRealMs;
+  if(dt<=0 || dt>0.25) dt = 0.016;
+  petals.forEach(p=>{
+    p.y += p.speed*dt;
+    p.x += Math.sin(p.swayPhase + p.y*0.01)*p.sway*dt*10;
+    p.rot += p.rotSpeed*dt;
+    if(p.y > h+10){ p.y = -10; p.x = Math.random()*w; }
+    if(p.x < -10) p.x = w+10;
+    if(p.x > w+10) p.x = -10;
+  });
+}
+function drawMountains(ctx, w, h, baseY, color, amp, freq, offset){
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  for(let x=0;x<=w;x+=20){
+    const y = baseY - Math.sin((x+offset)*freq)*amp - Math.sin((x+offset)*freq*2.3)*amp*0.4;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(w, h); ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+}
+function drawBackground(ctx, w, h, parallax, tRealMs){
+  // ciel de crépuscule
+  const sky = ctx.createLinearGradient(0,0,0,h);
+  sky.addColorStop(0, "#2b1444");
+  sky.addColorStop(0.45, "#6a2f63");
+  sky.addColorStop(0.72, "#e8724f");
+  sky.addColorStop(1, "#ffb178");
+  ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
+
+  // lune douce
+  const moonX = w*0.78 - parallax*0.03, moonY = h*0.22;
+  const glow = ctx.createRadialGradient(moonX,moonY,4,moonX,moonY,90);
+  glow.addColorStop(0, "rgba(255,244,214,.9)");
+  glow.addColorStop(1, "rgba(255,244,214,0)");
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(moonX,moonY,90,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#fff6df"; ctx.beginPath(); ctx.arc(moonX,moonY,22,0,Math.PI*2); ctx.fill();
+
+  // montagnes en parallaxe
+  drawMountains(ctx, w, h, h*0.78, "rgba(40,18,48,.55)", 26, 0.008, -parallax*0.15);
+  drawMountains(ctx, w, h, h*0.86, "rgba(25,10,32,.75)", 18, 0.013, -parallax*0.3);
+
+  // pétales de cerisier
+  if(petals.length===0) initPetals(w,h);
+  updatePetals(w,h,tRealMs);
+  petals.forEach(p=>{
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.hue;
+    ctx.beginPath();
+    ctx.ellipse(0,0,p.size,p.size*0.6,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+let draft = null; // {angles:[], name, bpm, tol}
+let ghostAngle = 0;
+let mouseInCanvas = false;
+
+function setTolSelect(tol){
+  // choisit l'option la plus proche pour éviter un select() sans correspondance exacte
+  const options = Array.from(edTol.options).map(o=>parseFloat(o.value));
+  let best = options[0], bestDiff = Infinity;
+  options.forEach(v=>{ const d = Math.abs(v-tol); if(d<bestDiff){ bestDiff=d; best=v; } });
+  edTol.value = String(best);
+}
+
+function openEditor(existing){
+  if(existing){
+    draft = { angles: existing.angles.slice(), name: existing.name, bpm: existing.bpm, tol: existing.tol!==undefined?existing.tol:0.2, id: existing.id };
+  } else {
+    draft = { angles: [], name: "", bpm: 128, tol: 0.2, id: null };
+  }
+  edName.value = draft.name || "";
+  edBpm.value = draft.bpm || 128;
+  setTolSelect(draft.tol!==undefined?draft.tol:0.2);
+  showScreen("editor");
+  resizeEditorCanvas();
+  drawEditor();
+}
+
+function resizeEditorCanvas(){
+  const wrap = document.getElementById("editorCanvasWrap");
+  edCanvas.width = wrap.clientWidth;
+  edCanvas.height = wrap.clientHeight;
+}
+window.addEventListener("resize", ()=>{
+  if(screens.editor.classList.contains("active")){ resizeEditorCanvas(); drawEditor(); }
+  if(screens.play.classList.contains("active")){ resizePlayCanvas(); }
+});
+
+function tilesFromAngles(angles){
+  const pts = [{x:0,y:0}];
+  let x=0,y=0;
+  for(let i=0;i<angles.length;i++){
+    const rad = angles[i]*Math.PI/180;
+    x += Math.cos(rad)*TILE_LEN;
+    y += Math.sin(rad)*TILE_LEN; // math y-up
+    pts.push({x,y});
+  }
+  return pts;
+}
+
+function drawEditor(){
+  const w = edCanvas.width, h = edCanvas.height;
+  edCtx.clearRect(0,0,w,h);
+  const pts = tilesFromAngles(draft.angles);
+  const last = pts[pts.length-1];
+  drawBackground(edCtx, w, h, last.x, performance.now());
+  // camera centers on last tile
+  const camX = w/2 - last.x;
+  const camY = h/2 + last.y; // y flip
+  function toScreen(p){ return { x: p.x + camX, y: -p.y + camY }; }
+
+  // path lines
+  edCtx.strokeStyle = "#444a5a"; edCtx.lineWidth = 4;
+  edCtx.beginPath();
+  pts.forEach((p,i)=>{ const s=toScreen(p); if(i===0) edCtx.moveTo(s.x,s.y); else edCtx.lineTo(s.x,s.y); });
+  edCtx.stroke();
+
+  // tiles
+  pts.forEach((p,i)=>{
+    const s = toScreen(p);
+    edCtx.beginPath();
+    edCtx.fillStyle = i===0 ? "#ffd23f" : (i===pts.length-1 ? "#ff5a3c" : "#3ca9ff");
+    edCtx.arc(s.x, s.y, i===pts.length-1?9:6, 0, Math.PI*2);
+    edCtx.fill();
+  });
+
+  // ghost preview
+  if(mouseInCanvas){
+    const rad = ghostAngle*Math.PI/180;
+    const gx = last.x + Math.cos(rad)*TILE_LEN;
+    const gy = last.y + Math.sin(rad)*TILE_LEN;
+    const s0 = toScreen(last), s1 = toScreen({x:gx,y:gy});
+    edCtx.strokeStyle = "rgba(255,210,63,.6)"; edCtx.lineWidth = 3; edCtx.setLineDash([6,6]);
+    edCtx.beginPath(); edCtx.moveTo(s0.x,s0.y); edCtx.lineTo(s1.x,s1.y); edCtx.stroke();
+    edCtx.setLineDash([]);
+    edCtx.beginPath(); edCtx.fillStyle = "rgba(255,210,63,.85)";
+    edCtx.arc(s1.x, s1.y, 7, 0, Math.PI*2); edCtx.fill();
+  }
+  angleReadout.textContent = normAngle(ghostAngle) + "°";
+}
+
+function normAngle(a){ let n = a % 360; if(n<0) n+=360; if(n>180) n-=360; return Math.round(n); }
+
+function snapAngle(a){ return Math.round(a/ANGLE_STEP)*ANGLE_STEP; }
+
+edCanvas.addEventListener("mousemove", (e)=>{
+  mouseInCanvas = true;
+  const rect = edCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const w = edCanvas.width, h = edCanvas.height;
+  const pts = tilesFromAngles(draft.angles);
+  const last = pts[pts.length-1];
+  const camX = w/2 - last.x, camY = h/2 + last.y;
+  const worldX = mx - camX, worldY = -(my - camY);
+  const dx = worldX - last.x, dy = worldY - last.y;
+  let ang = Math.atan2(dy,dx)*180/Math.PI;
+  ghostAngle = snapAngle(ang);
+  drawEditor();
+});
+edCanvas.addEventListener("mouseleave", ()=>{ mouseInCanvas=false; drawEditor(); });
+edCanvas.addEventListener("click", ()=>{ commitTile(); });
+
+function commitTile(){
+  draft.angles.push(snapAngle(ghostAngle));
+  drawEditor();
+}
+document.addEventListener("keydown", (e)=>{
+  if(!screens.editor.classList.contains("active")) return;
+  if(document.activeElement && (document.activeElement.tagName==="INPUT" || document.activeElement.tagName==="TEXTAREA" || document.activeElement.tagName==="SELECT")) return;
+  if(e.key==="ArrowLeft"){ ghostAngle = snapAngle(ghostAngle+ANGLE_STEP); mouseInCanvas=true; drawEditor(); e.preventDefault(); }
+  else if(e.key==="ArrowRight"){ ghostAngle = snapAngle(ghostAngle-ANGLE_STEP); mouseInCanvas=true; drawEditor(); e.preventDefault(); }
+  else if(e.key==="Enter"){ commitTile(); e.preventDefault(); }
+  else if(e.key==="Backspace"){ draft.angles.pop(); drawEditor(); e.preventDefault(); }
+});
+
+document.getElementById("btnUndo").addEventListener("click", ()=>{ draft.angles.pop(); drawEditor(); });
+document.getElementById("btnClear").addEventListener("click", ()=>{ if(confirm("Effacer toutes les cases ?")){ draft.angles=[]; drawEditor(); } });
+document.getElementById("btnEdBack").addEventListener("click", ()=>{ showScreen("menu"); renderMenu(); });
+
+function syncDraftFromInputs(){
+  draft.name = edName.value.trim() || "Sans nom";
+  draft.bpm = Math.max(40, Math.min(300, parseInt(edBpm.value,10) || 128));
+  draft.tol = parseFloat(edTol.value);
+}
+
+document.getElementById("btnSave").addEventListener("click", ()=>{
+  syncDraftFromInputs();
+  if(draft.angles.length < 2){ alert("Ajoute au moins 2 cases avant d'enregistrer."); return; }
+  const list = loadCustomLevels();
+  if(draft.id){
+    const idx = list.findIndex(l=>l.id===draft.id);
+    if(idx>=0) list[idx] = Object.assign({}, draft);
+    else { draft.id = "custom-"+Date.now(); list.push(Object.assign({}, draft)); }
+  } else {
+    draft.id = "custom-"+Date.now();
+    list.push(Object.assign({}, draft));
+  }
+  saveCustomLevels(list);
+  alert("Niveau enregistré !");
+  showScreen("menu"); renderMenu();
+});
+
+document.getElementById("btnTest").addEventListener("click", ()=>{
+  syncDraftFromInputs();
+  if(draft.angles.length < 2){ alert("Ajoute au moins 2 cases avant de tester."); return; }
+  startPlay(Object.assign({}, draft, {returnToEditor:true}));
+});
+
+const ioBox = document.getElementById("ioBox");
+const ioText = document.getElementById("ioText");
+const ioTitle = document.getElementById("ioTitle");
+let ioMode = "export";
+document.getElementById("btnExport").addEventListener("click", ()=>{
+  syncDraftFromInputs();
+  ioMode = "export";
+  ioTitle.textContent = "Exporter ce niveau";
+  ioText.value = JSON.stringify({ name:draft.name, bpm:draft.bpm, tol:draft.tol, angles:draft.angles });
+  ioBox.classList.add("active");
+});
+document.getElementById("ioConfirm").addEventListener("click", ()=>{
+  try{
+    const data = JSON.parse(ioText.value);
+    if(!Array.isArray(data.angles)) throw new Error("format");
+    draft.angles = data.angles.slice();
+    draft.name = data.name || draft.name;
+    draft.bpm = data.bpm || draft.bpm;
+    draft.tol = data.tol!==undefined?data.tol:draft.tol;
+    edName.value = draft.name; edBpm.value = draft.bpm; setTolSelect(draft.tol);
+    drawEditor();
+    ioBox.classList.remove("active");
+  }catch(e){ alert("JSON invalide."); }
+});
+document.getElementById("ioCopy").addEventListener("click", ()=>{
+  ioText.select();
+  try{ document.execCommand("copy"); }catch(e){}
+});
+document.getElementById("ioClose").addEventListener("click", ()=>{ ioBox.classList.remove("active"); });
+
+/* ==================== Jeu ==================== */
+const playCanvas = document.getElementById("playCanvas");
+const playCtx = playCanvas.getContext("2d");
+const tapCatcher = document.getElementById("tapCatcher");
+const comboText = document.getElementById("comboText");
+const accText = document.getElementById("accText");
+const deathsText = document.getElementById("deathsText");
+const progressBar = document.getElementById("progressBar");
+const judgeText = document.getElementById("judgeText");
+const playOverlay = document.getElementById("playOverlay");
+const overTitle = document.getElementById("overTitle");
+const overSub = document.getElementById("overSub");
+const btnOverPrimary = document.getElementById("btnOverPrimary");
+const btnOverMenu = document.getElementById("btnOverMenu");
+const trainToggle = document.getElementById("trainToggle");
+const trainSpeedRow = document.getElementById("trainSpeedRow");
+const trainSpeedRange = document.getElementById("trainSpeedRange");
+const trainSpeedNum = document.getElementById("trainSpeedNum");
+const btnCheckpoint = document.getElementById("btnCheckpoint");
+trainToggle.addEventListener("change", ()=>{ trainSpeedRow.style.display = trainToggle.checked ? "flex" : "none"; });
+trainSpeedRow.style.display = "none";
+function clampSpeedPct(v){ return Math.max(10, Math.min(200, Math.round(v) || 100)); }
+trainSpeedRange.addEventListener("input", ()=>{ trainSpeedNum.value = trainSpeedRange.value; });
+trainSpeedNum.addEventListener("input", ()=>{
+  const v = clampSpeedPct(parseFloat(trainSpeedNum.value));
+  trainSpeedRange.value = v;
+});
+trainSpeedNum.addEventListener("change", ()=>{ trainSpeedNum.value = clampSpeedPct(parseFloat(trainSpeedNum.value)); });
+function getTrainSpeedPct(){ return clampSpeedPct(parseFloat(trainSpeedNum.value)); }
+
+function resizePlayCanvas(){
+  playCanvas.width = playCanvas.clientWidth;
+  playCanvas.height = playCanvas.clientHeight;
+}
+
+let game = null; // état de la partie en cours
+
+function startPlay(level){
+  showScreen("play");
+  resizePlayCanvas();
+  game = buildGameState(level);
+  const diffNote = level.difficulty ? ` — difficulté ${level.difficulty}/5` : "";
+  showOverlay("Prêt ?", `${level.name} — ${level.bpm} BPM — ${level.angles.length} cases${diffNote}`, "Jouer");
+}
+
+const AUTO_CHECKPOINT_EVERY = 8;
+
+function buildGameState(level){
+  const beatDuration = 60000 / level.bpm; // ms (durée d'un temps, indépendante de la vitesse d'entraînement)
+  const tol = beatDuration * (level.tol!==undefined?level.tol:0.2);
+  const tiles = tilesFromAngles(level.angles);
+  return {
+    level, tiles, beatDuration, tol,
+    pivot: 0, // index de la case pivot actuelle
+    dir: 1,
+    running: false,
+    startTime: 0,
+    simTime: 0, // horloge interne du jeu (peut tourner au ralenti en entraînement)
+    lastRealNow: 0,
+    timeScale: 1,
+    trainMode: false,
+    deaths: 0,
+    checkpoints: [0],
+    camWorld: { x: tiles[0].x, y: tiles[0].y }, // la caméra suit la case pivot, jamais la carte qui ne bouge pas
+    combo: 0, maxCombo: 0, hits: 0, perfects: 0, total: level.angles.length,
+    failed: false, finished: false,
+    lastJudgeAt: 0,
+    beatTimeFor: null // rempli au démarrage
+  };
+}
+
+function angleAtPivot(level, k){
+  // angle de départ du bras au pivot k (pointant vers l'arrière, cf. doc)
+  return level.angles[k] + 180;
+}
+
+function dirForPivot(k){ return (k%2===0) ? 1 : -1; }
+
+function handAngleAt(g, t){
+  const k = g.pivot;
+  const swingStart = g.beatTimeFor(k); // temps programmé où ce pivot devient actif
+  const speed = 180 / g.beatDuration; // deg/ms (temps de simulation)
+  const start = angleAtPivot(g.level, k);
+  return start + g.dir * speed * (t - swingStart);
+}
+
+function scheduleBeatTimes(g){
+  g.beatTimeFor = (k)=> g.startTime + k*g.beatDuration;
+}
+
+// Cale l'horloge pour que l'échéance du pivot donné tombe dans `extraLead` + une pleine
+// rotation (un temps) après l'instant présent (simTime). Sert au lancement et aux respawns.
+function scheduleFrom(g, pivot, extraLead){
+  g.startTime = g.simTime + extraLead - pivot*g.beatDuration;
+  scheduleBeatTimes(g);
+}
+
+function addCheckpoint(g, pivot){
+  if(!g.checkpoints.includes(pivot)){
+    g.checkpoints.push(pivot);
+    g.checkpoints.sort((a,b)=>a-b);
+  }
+}
+function checkpointFor(g, pivot){
+  let best = 0;
+  g.checkpoints.forEach(cp=>{ if(cp<=pivot && cp>best) best = cp; });
+  return best;
+}
+
+function launchRun(){
+  const g = game;
+  g.trainMode = trainToggle.checked;
+  g.timeScale = g.trainMode ? getTrainSpeedPct()/100 : 1;
+  g.running = true; g.failed = false; g.finished = false;
+  g.pivot = 0; g.dir = 1; g.combo = 0; g.maxCombo = 0; g.hits = 0; g.perfects = 0;
+  g.deaths = 0; g.checkpoints = [0];
+  g.camWorld = { x: g.tiles[0].x, y: g.tiles[0].y };
+  g.simTime = 0; g.lastRealNow = performance.now();
+  scheduleFrom(g, 0, 600); // petit délai avant le premier temps
+  hideOverlay();
+  requestAnimationFrame(loop);
+}
+
+function trainingRespawn(g){
+  g.deaths++;
+  sfxFail();
+  flashJudge("RATÉ", "var(--bad)");
+  const cp = checkpointFor(g, g.pivot);
+  g.pivot = cp;
+  g.dir = dirForPivot(cp);
+  g.combo = 0;
+  g.camWorld = { x: g.tiles[cp].x, y: g.tiles[cp].y };
+  scheduleFrom(g, cp, 250);
+}
+
+function hideOverlay(){ playOverlay.classList.remove("active"); }
+function showOverlay(title, sub, btnLabel){
+  overTitle.textContent = title; overSub.textContent = sub; btnOverPrimary.textContent = btnLabel;
+  playOverlay.classList.add("active");
+}
+
+btnOverPrimary.addEventListener("click", ()=>{
+  if(!game) return;
+  launchRun();
+});
+btnOverMenu.addEventListener("click", ()=>{
+  game = null;
+  showScreen("menu"); renderMenu();
+});
+
+function flashJudge(text, color){
+  judgeText.textContent = text;
+  judgeText.style.color = color;
+  judgeText.style.opacity = "1";
+  clearTimeout(flashJudge._t);
+  flashJudge._t = setTimeout(()=>{ judgeText.style.opacity = "0"; }, 260);
+}
+
+function attemptHit(){
+  const g = game;
+  if(!g || !g.running || g.failed || g.finished) return;
+  const t = g.simTime;
+  const k = g.pivot;
+  const deadline = g.beatTimeFor(k+1); // la bille doit avoir rejoint la case k+1 à cet instant
+  const dt = t - deadline; // ms d'écart par rapport au temps parfait
+  if(Math.abs(dt) <= g.tol){
+    // réussite
+    const perfect = Math.abs(dt) <= g.tol*0.35;
+    g.hits++; g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo);
+    if(perfect) g.perfects++;
+    sfxHit(perfect);
+    flashJudge(perfect?"PARFAIT":"OK", perfect?"var(--good)":"var(--accent)");
+    g.pivot++;
+    g.dir *= -1;
+    if(g.trainMode && g.pivot % AUTO_CHECKPOINT_EVERY === 0) addCheckpoint(g, g.pivot);
+    if(g.pivot >= g.total){
+      g.finished = true; g.running = false;
+      sfxWin();
+      const acc = Math.round((g.perfects/g.total)*100);
+      const deathNote = g.trainMode ? ` — ${g.deaths} mort(s)` : "";
+      showOverlay("Niveau terminé !", `Précision parfaite : ${acc}% — combo max ${g.maxCombo}${deathNote}`, "Rejouer");
+    }
+  } else if(g.trainMode){
+    trainingRespawn(g);
+  } else {
+    failRun();
+  }
+}
+function failRun(){
+  const g = game;
+  g.failed = true; g.running = false;
+  sfxFail();
+  flashJudge("RATÉ", "var(--bad)");
+  showOverlay("Perdu…", `Tu es arrivé à la case ${g.pivot+1} / ${g.total}`, "Réessayer");
+}
+
+tapCatcher.addEventListener("mousedown", attemptHit);
+tapCatcher.addEventListener("touchstart", (e)=>{ e.preventDefault(); attemptHit(); }, {passive:false});
+const NON_TAP_KEYS = new Set(["Shift","Control","Alt","Meta","Tab","CapsLock","Escape","ContextMenu","OS",
+  "F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"]);
+document.addEventListener("keydown", (e)=>{
+  if(!screens.play.classList.contains("active")) return;
+  if(e.code === "Escape"){ game=null; showScreen("menu"); renderMenu(); return; }
+  if(e.repeat) return; // ignore l'auto-répétition d'une touche maintenue
+  if(NON_TAP_KEYS.has(e.key)) return;
+  e.preventDefault();
+  attemptHit();
+});
+btnCheckpoint.addEventListener("click", (e)=>{
+  e.stopPropagation();
+  const g = game;
+  if(!g || !g.running || !g.trainMode) return;
+  addCheckpoint(g, g.pivot);
+  flashJudge("CHECKPOINT", "var(--ice)");
+});
+
+function loop(){
+  const g = game;
+  if(!g) return;
+  if(g.running){
+    const realNow = performance.now();
+    const dtReal = Math.max(0, realNow - g.lastRealNow);
+    g.lastRealNow = realNow;
+    g.simTime += dtReal * g.timeScale;
+    // vérifie l'échec par timeout (fenêtre passée sans frappe correcte)
+    const k = g.pivot;
+    const deadline = g.beatTimeFor(k+1);
+    if(g.simTime - deadline > g.tol){
+      if(g.trainMode) trainingRespawn(g); else failRun();
+    }
+  }
+  drawPlay();
+  if(game && (game.running || game.failed || game.finished || true)){
+    requestAnimationFrame(loop);
+  }
+}
+
+function drawPlay(){
+  const g = game;
+  const w = playCanvas.width, h = playCanvas.height;
+  playCtx.clearRect(0,0,w,h);
+  if(!g){ drawBackground(playCtx, w, h, 0, performance.now()); return; }
+  const nowReal = performance.now();
+  const pivotWorld = g.tiles[g.pivot] || g.tiles[g.tiles.length-1];
+  const angle = g.running ? handAngleAt(g, g.simTime) : angleAtPivot(g.level, Math.min(g.pivot, g.level.angles.length-1));
+  const rad = angle*Math.PI/180;
+  const ballWorld = { x: pivotWorld.x + Math.cos(rad)*TILE_LEN, y: pivotWorld.y + Math.sin(rad)*TILE_LEN };
+
+  // La carte (les cases) ne bouge jamais : c'est la caméra qui glisse doucement vers la case
+  // pivot active, et le personnage (la bille) qui se déplace/orbite dans ce cadre.
+  const dtCam = Math.max(0, Math.min(0.1, (nowReal - (g.lastCamT||nowReal))/1000));
+  g.lastCamT = nowReal;
+  const camFollow = 1 - Math.exp(-dtCam/0.09);
+  g.camWorld.x += (pivotWorld.x - g.camWorld.x) * camFollow;
+  g.camWorld.y += (pivotWorld.y - g.camWorld.y) * camFollow;
+
+  const camX = w/2 - g.camWorld.x, camY = h/2 + g.camWorld.y;
+  drawBackground(playCtx, w, h, g.camWorld.x, nowReal);
+  function toScreen(p){ return { x: p.x + camX, y: -p.y + camY }; }
+
+  // chemin (fenêtre autour du pivot)
+  const from = Math.max(0, g.pivot-3), to = Math.min(g.tiles.length-1, g.pivot+4);
+  playCtx.strokeStyle = "#333a4a"; playCtx.lineWidth = 5;
+  playCtx.beginPath();
+  for(let i=from;i<=to;i++){
+    const s = toScreen(g.tiles[i]);
+    if(i===from) playCtx.moveTo(s.x,s.y); else playCtx.lineTo(s.x,s.y);
+  }
+  playCtx.stroke();
+  for(let i=from;i<=to;i++){
+    const s = toScreen(g.tiles[i]);
+    playCtx.beginPath();
+    playCtx.fillStyle = i < g.pivot ? "#4dff9e" : (i===g.pivot ? "#ffd23f" : "#3ca9ff");
+    playCtx.arc(s.x, s.y, i===g.pivot?10:7, 0, Math.PI*2);
+    playCtx.fill();
+    if(g.trainMode && g.checkpoints.includes(i)){
+      playCtx.beginPath();
+      playCtx.strokeStyle = "#ffffff"; playCtx.lineWidth = 2;
+      playCtx.arc(s.x, s.y, (i===g.pivot?10:7)+5, 0, Math.PI*2);
+      playCtx.stroke();
+    }
+  }
+
+  // bras
+  const sp = toScreen(pivotWorld), sb = toScreen(ballWorld);
+  playCtx.strokeStyle = "rgba(255,255,255,.35)"; playCtx.lineWidth = 3;
+  playCtx.beginPath(); playCtx.moveTo(sp.x,sp.y); playCtx.lineTo(sb.x,sb.y); playCtx.stroke();
+
+  // bille
+  const grad = playCtx.createRadialGradient(sb.x,sb.y,2,sb.x,sb.y,16);
+  grad.addColorStop(0, g.pivot%2===0 ? "#ff9a7a" : "#8fd4ff");
+  grad.addColorStop(1, g.pivot%2===0 ? "#ff5a3c" : "#3ca9ff");
+  playCtx.beginPath(); playCtx.fillStyle = grad; playCtx.arc(sb.x, sb.y, 13, 0, Math.PI*2); playCtx.fill();
+
+  // hud
+  progressBar.style.width = Math.round((g.pivot/g.total)*100) + "%";
+  comboText.textContent = "Combo " + g.combo;
+  const acc = g.hits>0 ? Math.round((g.perfects/Math.max(1,g.hits))*100) : 100;
+  accText.textContent = acc + "% parfait";
+  deathsText.style.display = g.trainMode ? "inline" : "none";
+  deathsText.textContent = "Morts " + g.deaths;
+  btnCheckpoint.style.display = (g.trainMode && g.running) ? "inline-block" : "none";
+}
+
+/* ==================== Démarrage ==================== */
+renderMenu();
+})();
+</script>
+</body>
+</html>

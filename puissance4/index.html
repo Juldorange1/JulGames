@@ -44,17 +44,21 @@
         coups avant victoire est petit, plus le coup est fort.
       </p>
       <p>
-        Le solveur est compile en WebAssembly (environ 15x plus rapide qu'un calcul
-        JavaScript pur) et tourne dans un thread separe (Web Worker) : il ne bloque
-        jamais le jeu, vous pouvez toujours jouer, annuler ou relancer une partie
-        pendant qu'il calcule. Les ouvertures les plus frequentes sont precalculees
-        dans un livre d'ouverture et s'affichent instantanement ; les positions plus
-        rares se resolvent en direct, generalement en quelques secondes.
+        Le solveur est le moteur de reference de Pascal Pons (Connect 4 Game Solver),
+        compile en WebAssembly, avec son livre d'ouverture precalcule complet (33 Mo,
+        charge une fois au demarrage). Resultat : chaque position, y compris le
+        plateau totalement vide, se resout en quelques millisecondes.
+      </p>
+      <p class="credit">
+        Solveur sous licence <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a> —
+        <a href="https://github.com/PascalPons/connect4" target="_blank" rel="noopener">algorithme et livre par Pascal Pons</a>,
+        <a href="https://github.com/Khoding/connect4-solver" target="_blank" rel="noopener">binaire WASM par Khoding</a>.
+        Voir <a href="js/vendor/README.md">js/vendor/README.md</a> pour le detail.
       </p>
     </details>
   </main>
 
-  <script src="js/book.js?v=1"></script>
+  <script src="js/vendor/c4solver.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

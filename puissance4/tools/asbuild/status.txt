@@ -1,1 +1,0 @@
-TERMINE: Resultat colonne 3 : 40  (temps: 164.46s, noeuds: 1264843769)

@@ -57,11 +57,14 @@ main{width:100%;max-width:640px;display:flex;flex-direction:column;align-items:c
 .analysis-bar{
   width:100%;
   display:flex;
+  flex-wrap:wrap;
+  gap:4px 12px;
   justify-content:space-between;
   font-size:.8em;
   color:var(--muted);
   min-height:1.2em;
 }
+.analysis-bar #analysis-nodes.error-msg{color:var(--loss);flex-basis:100%;text-align:left;}
 
 #board-wrap{
   background:var(--panel);
@@ -158,6 +161,8 @@ button:disabled{opacity:.4;cursor:default;}
   color:var(--muted);
 }
 .legend summary{cursor:pointer;color:var(--text);}
+.legend p.credit{font-size:.85em;color:#777;}
+.legend p.credit a{color:#999;}
 .legend b.win{color:var(--win);}
 .legend b.loss{color:var(--loss);}
 .legend b.draw{color:var(--draw);}

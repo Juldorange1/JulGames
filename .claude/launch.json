@@ -2,34 +2,6 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "synergie",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5573",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "synergie"
-      ],
-      "port": 5573
-    },
-    {
-      "name": "synergie2",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5574",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "synergie"
-      ],
-      "port": 5574
-    },
-    {
       "name": "revision-anglais",
       "runtimeExecutable": "python",
       "runtimeArgs": [
@@ -100,20 +72,6 @@
       "port": 5502
     },
     {
-      "name": "ruine",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5501",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "ruines"
-      ],
-      "port": 5501
-    },
-    {
       "name": "root",
       "runtimeExecutable": "python",
       "runtimeArgs": [
@@ -154,18 +112,18 @@
       "port": 5575
     },
     {
-      "name": "wave-idle",
+      "name": "riposte",
       "runtimeExecutable": "python",
       "runtimeArgs": [
         "-m",
         "http.server",
-        "5592",
+        "5576",
         "--bind",
         "127.0.0.1",
         "--directory",
-        "wave-idle"
+        "riposte"
       ],
-      "port": 5592
+      "port": 5576
     },
     {
       "name": "ascensionbundle",
@@ -180,6 +138,34 @@
         "C:\\Users\\JULDOR~1\\AppData\\Local\\Temp\\claude\\C--Users-juldorange-ruine\\ddc21fdc-ec4b-4f80-8a24-9606fdf63006\\scratchpad\\artifact_test"
       ],
       "port": 5581
+    },
+    {
+      "name": "fracas",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5589",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "fracas"
+      ],
+      "port": 5589
+    },
+    {
+      "name": "adofai",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5588",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "adofai"
+      ],
+      "port": 5588
     }
   ]
 }
