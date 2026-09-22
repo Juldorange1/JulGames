@@ -166,6 +166,18 @@
         "adofai"
       ],
       "port": 5588
+    },
+    {
+      "name": "root2",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5598",
+        "--bind",
+        "127.0.0.1"
+      ],
+      "port": 5598
     }
   ]
 }

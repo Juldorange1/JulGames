@@ -5,34 +5,204 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>JulGame</title>
 <style>
-  body{margin:0;min-height:100vh;background:#1b1b1b;color:#eee;font-family:sans-serif;
-    display:flex;flex-direction:column;align-items:center;padding:40px 20px;box-sizing:border-box;}
-  h1{font-size:2.4em;margin:0 0 6px;}
-  p.sub{color:#aaa;margin:0 0 32px;}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;
-    width:100%;max-width:900px;}
-  a.card{display:block;background:#2a2a2a;border:1px solid #444;border-radius:10px;
-    padding:18px 20px;color:#eee;text-decoration:none;transition:border-color .15s,background .15s;}
-  a.card:hover{border-color:#ffd23f;background:#333;}
-  a.card b{display:block;font-size:1.15em;margin-bottom:4px;color:#ffd23f;}
-  a.card span{font-size:.9em;color:#bbb;}
+  :root{
+    --bg:#0b0c14;
+    --bg2:#12101f;
+    --ink:#f1eee9;
+    --sub:#9a94ad;
+    --card:rgba(255,255,255,.04);
+    --card-border:rgba(255,255,255,.09);
+    --accent:#ffd23f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 90% 60% at 15% -10%, rgba(255,120,80,.12), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 110% 10%, rgba(90,140,255,.14), transparent 55%),
+      radial-gradient(ellipse 70% 70% at 50% 120%, rgba(160,80,255,.14), transparent 60%),
+      linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+    color:var(--ink);
+    font-family:'Segoe UI',system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    padding:56px 20px 80px;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ---- decor : etoiles + blobs animes ---- */
+  #stars{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:.35;z-index:0;pointer-events:none;}
+  .blob1{width:420px;height:420px;background:#ff7a59;top:-140px;left:-120px;animation:drift1 26s ease-in-out infinite;}
+  .blob2{width:380px;height:380px;background:#5a8cff;top:10%;right:-140px;animation:drift2 32s ease-in-out infinite;}
+  .blob3{width:460px;height:460px;background:#a050ff;bottom:-180px;left:30%;animation:drift3 30s ease-in-out infinite;}
+  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(60px,50px) scale(1.15);}}
+  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-70px,40px) scale(1.1);}}
+  @keyframes drift3{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(40px,-60px) scale(1.12);}}
+
+  header{position:relative;z-index:1;text-align:center;margin-bottom:44px;}
+  .logo{
+    font-size:3.2em;font-weight:800;margin:0;letter-spacing:-1px;
+    background:linear-gradient(100deg,#ffd23f,#ff8a5c 35%,#c06bff 70%,#5a8cff);
+    background-size:300% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:shine 8s linear infinite;
+    text-shadow:0 0 60px rgba(255,210,63,.15);
+  }
+  @keyframes shine{0%{background-position:0% 50%;}100%{background-position:300% 50%;}}
+  p.sub{color:var(--sub);margin:10px 0 0;font-size:1.05em;}
+
+  main{position:relative;z-index:1;width:100%;max-width:980px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;}
+
+  a.card{
+    position:relative;display:block;overflow:hidden;
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:16px;
+    padding:20px 20px 22px;
+    color:var(--ink);text-decoration:none;
+    backdrop-filter:blur(6px);
+    transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease,background .25s ease;
+    opacity:0;transform:translateY(16px);
+    animation:riseIn .5s ease forwards;
+  }
+  .grid a.card:nth-child(1){animation-delay:.02s;}
+  .grid a.card:nth-child(2){animation-delay:.08s;}
+  .grid a.card:nth-child(3){animation-delay:.14s;}
+  .grid a.card:nth-child(4){animation-delay:.20s;}
+  .grid a.card:nth-child(5){animation-delay:.26s;}
+  .grid a.card:nth-child(6){animation-delay:.32s;}
+  .grid a.card:nth-child(7){animation-delay:.38s;}
+  .grid a.card:nth-child(8){animation-delay:.44s;}
+  @keyframes riseIn{to{opacity:1;transform:translateY(0);}}
+
+  a.card::before{
+    content:"";position:absolute;inset:-2px;border-radius:17px;padding:2px;
+    background:linear-gradient(120deg,var(--c1,#ffd23f),var(--c2,#ff8a5c));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:0;transition:opacity .25s ease;
+  }
+  a.card::after{
+    content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(120deg,transparent,rgba(255,255,255,.18),transparent);
+    transform:skewX(-20deg);transition:left .6s ease;
+  }
+  a.card:hover{transform:translateY(-5px);box-shadow:0 14px 34px -12px rgba(0,0,0,.55);}
+  a.card:hover::before{opacity:1;}
+  a.card:hover::after{left:140%;}
+
+  .icon{
+    width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:1.4em;margin-bottom:14px;
+    background:linear-gradient(135deg,var(--c1,#ffd23f),var(--c2,#ff8a5c));
+    box-shadow:0 6px 18px -6px var(--c1,#ffd23f);
+  }
+  a.card b{display:block;font-size:1.15em;margin-bottom:6px;color:#fff;}
+  a.card span{font-size:.88em;color:var(--sub);line-height:1.4;}
+
+  .section-label{
+    align-self:flex-start;width:100%;max-width:980px;margin:40px 0 16px;
+    color:var(--sub);font-size:.8em;letter-spacing:.14em;text-transform:uppercase;
+    display:flex;align-items:center;gap:10px;
+  }
+  .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--card-border),transparent);}
+
+  @media (prefers-reduced-motion: reduce){
+    .blob,.logo,a.card{animation:none !important;}
+    a.card{opacity:1;transform:none;}
+  }
 </style>
 </head>
 <body>
-  <h1>JulGame</h1>
-  <p class="sub">Tous les jeux, chacun independant</p>
-  <div class="grid">
-    <a class="card" href="hexdefense/index.html"><b>Hex Defense</b><span>Tower defense hexagonal, Mode Infini</span></a>
-    <a class="card" href="geodash/index.html"><b>GeoDash</b><span>Editeur de niveaux + jeu façon Geometry Dash</span></a>
-    <a class="card" href="plateforme3d/index.html"><b>Ascension</b><span>Platformer 3D vertical, speedrun, wall-jump/dash</span></a>
-    <a class="card" href="puissance4/index.html"><b>Puissance 4</b><span>Solveur exact : coups jusqu'a la victoire pour chaque colonne</span></a>
-    <a class="card" href="fracas/index.html"><b>Fracas</b><span>Action 2D vue du dessus, 11 personnages, expedition speedrun 30 salles + 6 boss</span></a>
-    <a class="card" href="adofai/index.html"><b>ADOFAI</b><span>Clone rythme-orbite (fan-made), 5 niveaux + editeur de niveaux</span></a>
-  </div>
-  <p class="sub" style="margin-top:36px">Outils (pas des jeux)</p>
-  <div class="grid">
-    <a class="card" href="revision-anglais/index.html"><b>Revision Anglais</b><span>Import de lecon, exercices varies, revision espacee intelligente</span></a>
-    <a class="card" href="pokedex/index.html"><b>Pokedex</b><span>Apprentissage, quiz, revision espacee</span></a>
-  </div>
+  <canvas id="stars"></canvas>
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+
+  <header>
+    <h1 class="logo">JulGame</h1>
+    <p class="sub">Tous les jeux, chacun independant</p>
+  </header>
+
+  <main>
+    <div class="grid">
+      <a class="card" style="--c1:#5ad0ff;--c2:#4d6bff" href="hexdefense/index.html">
+        <div class="icon">🛡️</div>
+        <b>Hex Defense</b><span>Tower defense hexagonal, Mode Infini</span>
+      </a>
+      <a class="card" style="--c1:#7cff8a;--c2:#2fd18f" href="geodash/index.html">
+        <div class="icon">🔺</div>
+        <b>GeoDash</b><span>Editeur de niveaux + jeu façon Geometry Dash</span>
+      </a>
+      <a class="card" style="--c1:#ffd23f;--c2:#ff8a5c" href="plateforme3d/index.html">
+        <div class="icon">🧗</div>
+        <b>Ascension</b><span>Platformer 3D vertical, speedrun, wall-jump/dash</span>
+      </a>
+      <a class="card" style="--c1:#ff5c7a;--c2:#ff8a5c" href="puissance4/index.html">
+        <div class="icon">🔴</div>
+        <b>Puissance 4</b><span>Solveur exact : coups jusqu'a la victoire pour chaque colonne</span>
+      </a>
+      <a class="card" style="--c1:#ff7a3d;--c2:#ff4d6d" href="fracas/index.html">
+        <div class="icon">💥</div>
+        <b>Fracas</b><span>Action 2D vue du dessus, 11 personnages, expedition speedrun 30 salles + 6 boss</span>
+      </a>
+      <a class="card" style="--c1:#c06bff;--c2:#5a8cff" href="adofai/index.html">
+        <div class="icon">🎵</div>
+        <b>ADOFAI</b><span>Clone rythme-orbite (fan-made), 5 niveaux + editeur de niveaux</span>
+      </a>
+      <a class="card" style="--c1:#5affc3;--c2:#3fa7ff" href="revision-anglais/index.html">
+        <div class="icon">📖</div>
+        <b>Revision Anglais</b><span>Import de lecon, exercices varies, revision espacee intelligente</span>
+      </a>
+      <a class="card" style="--c1:#ffb23f;--c2:#ff5c7a" href="pokedex/index.html">
+        <div class="icon">📱</div>
+        <b>Pokedex</b><span>Apprentissage, quiz, revision espacee</span>
+      </a>
+    </div>
+  </main>
+
+<script>
+(function(){
+  var cv=document.getElementById('stars'),ctx=cv.getContext('2d');
+  var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var stars=[],W,H;
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+  function init(){
+    resize();
+    var n=Math.min(140,Math.floor(W*H/9000));
+    stars=[];
+    for(var i=0;i<n;i++){
+      stars.push({
+        x:Math.random()*W,y:Math.random()*H,
+        r:Math.random()*1.4+.3,
+        a:Math.random()*Math.PI*2,
+        speed:.002+Math.random()*.004,
+        drift:(Math.random()-.5)*.15
+      });
+    }
+  }
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<stars.length;i++){
+      var s=stars[i];
+      s.a+=s.speed;
+      s.y+=s.drift;
+      if(s.y<-5)s.y=H+5; if(s.y>H+5)s.y=-5;
+      var tw=.5+.5*Math.sin(s.a);
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+(0.15+tw*0.65)+')';
+      ctx.fill();
+    }
+    if(!reduce)requestAnimationFrame(tick);
+  }
+  addEventListener('resize',init);
+  init();
+  tick();
+})();
+</script>
 </body>
 </html>
