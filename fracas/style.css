@@ -585,3 +585,34 @@ html, body {
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+/* ---------- Editeur de defi personnalise ---------- */
+.editor-row { flex-wrap: wrap; }
+.editor-name {
+  width: 100%; max-width: 360px; padding: 9px 12px; font-size: 14px;
+  background: rgba(255,255,255,0.04); color: var(--text);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; outline: none;
+}
+.editor-name:focus { border-color: var(--accent-cyan); }
+.editor-enemy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.editor-enemy {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--card-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 7px 10px;
+}
+.editor-enemy-name { font-size: 12px; color: var(--text-dim); }
+.editor-counter { display: flex; align-items: center; gap: 6px; }
+.editor-counter-btn {
+  pointer-events: auto; cursor: pointer; width: 24px; height: 24px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.2); color: var(--text);
+}
+.editor-counter-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+.editor-counter-val { min-width: 16px; text-align: center; font-weight: 700; color: var(--accent-yellow); }
+.editor-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; margin-top: 18px; }
+.menu-btn.disabled { opacity: 0.4; pointer-events: none; }
+.challenge-card { position: relative; }
+.custom-delete {
+  position: absolute; top: 10px; right: 12px; font-size: 11px; color: var(--text-dim);
+  padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); cursor: pointer;
+}
+.custom-delete:hover { color: var(--accent); border-color: var(--accent); }

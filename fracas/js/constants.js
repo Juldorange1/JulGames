@@ -7,7 +7,7 @@ let CANVAS_H = 720;
 
 const BASE_SPEED = 230; // px/s a 100% de vitesse
 const PLAYER_RADIUS = 16;
-const GLOBAL_SPEED_MULT = 1.25; // le jeu simule 25% plus vite (n'affecte pas le chrono ni les cooldowns, bases sur le temps reel)
+const GLOBAL_SPEED_MULT = 1.0; // vitesse de reference "100%" = -20% par rapport a l'ancienne vitesse par defaut (1.25)
 const ENEMY_HP_MULT = 0.7; // tous les ennemis ont -30% de PV
 const ENEMY_FIRE_RATE_MULT = 0.75; // les ennemis attaquent 25% moins vite (cadence de tir/tourelles/boss)
 const ENEMY_PROJECTILE_SPEED_MULT = 0.75; // les projectiles ennemis vont 25% moins vite
@@ -17,7 +17,7 @@ const DMG_MAX = 1.00;
 
 // Monnaie (€) gagnee en expedition/defi, depensee dans le marche du hub
 const BOSS_REWARD_BY_PART = { 1: 2, 2: 3, 3: 4 };
-const CHALLENGE_REWARD = 5;
+const CHALLENGE_REWARD = 0.05;
 const HUB_EXPAND_COST = 40;
 const HUB_MOVE_COST = 7;
 const HUB_DECOR_COST = 15;
@@ -76,6 +76,7 @@ const STATE = {
   MARKET: 'MARKET',
   CHAR_SELECT: 'CHAR_SELECT',
   CHALLENGE_SELECT: 'CHALLENGE_SELECT',
+  CHALLENGE_EDITOR: 'CHALLENGE_EDITOR',
   SETTINGS: 'SETTINGS',
   BESTIARY: 'BESTIARY',
   TEST_ROOM: 'TEST_ROOM',
@@ -104,7 +105,6 @@ const COLORS = {
   accel: '#5dff9d',
   slow: '#b47cff',
   dmgZone: '#ff7a3d',
-  neutral: '#8dff9c',
   invertH: '#ff7ad1',
   invertV: '#c77aff',
   wind: '#bfe8ff',
@@ -114,5 +114,5 @@ const PARTS = [1, 2, 3];
 const ROOMS_PER_PART = 10;
 
 const TERRAIN_TYPES = [
-  'ice', 'mud', 'accel', 'slow', 'damage', 'neutral', 'invertH', 'invertV', 'wind',
+  'ice', 'mud', 'accel', 'slow', 'damage', 'invertH', 'invertV', 'wind',
 ];

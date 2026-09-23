@@ -8,7 +8,18 @@ const UI = {
 
   init() { this.overlay = document.getElementById('overlay'); },
 
-  clear() { this.overlay.innerHTML = ''; this.hudRefs = null; this.roundEndShown = false; this._pauseEl = null; },
+  clear() {
+    this.overlay.innerHTML = '';
+    this.hudRefs = null;
+    this.roundEndShown = false;
+    this._pauseEl = null;
+    this.stopPortraitAnim();
+  },
+
+  stopPortraitAnim() {
+    if (this._portraitAnimId != null) { cancelAnimationFrame(this._portraitAnimId); this._portraitAnimId = null; }
+    this._portraits = null;
+  },
 
   showPause() {
     if (this._pauseEl) return;
@@ -34,6 +45,7 @@ const UI = {
     else if (state === STATE.MARKET) this.renderMarket();
     else if (state === STATE.CHAR_SELECT) this.renderCharSelect();
     else if (state === STATE.CHALLENGE_SELECT) this.renderChallengeSelect();
+    else if (state === STATE.CHALLENGE_EDITOR) this.renderChallengeEditor();
     else if (state === STATE.SETTINGS) this.renderSettings();
     else if (state === STATE.BESTIARY) this.renderBestiary();
     else if (state === STATE.TEST_ROOM || state === STATE.EXPEDITION || state === STATE.CHALLENGE) this.buildHUD(state);
@@ -56,7 +68,7 @@ const UI = {
   buildHubOverlay() {
     const hud = this.el('div', 'hud');
     hud.appendChild(this.el('div', 'hub-title', S('menuTitle')));
-    hud.appendChild(this.el('div', 'hub-money', `${Save.getMoney()}€`));
+    hud.appendChild(this.el('div', 'hub-money', formatMoney(Save.getMoney())));
     hud.appendChild(this.el('div', 'hub-hint', S('hubHint')));
     this.overlay.appendChild(hud);
   },
@@ -68,7 +80,7 @@ const UI = {
 
     const header = this.el('div', 'market-header');
     header.appendChild(this.el('h2', null, S('marketTitle')));
-    header.appendChild(this.el('div', 'market-money-badge', `${Save.getMoney()}€`));
+    header.appendChild(this.el('div', 'market-money-badge', formatMoney(Save.getMoney())));
     panel.appendChild(header);
 
     if (!this._marketTab) this._marketTab = 'expand';
@@ -269,6 +281,7 @@ const UI = {
     }
 
     const grid = this.el('div', 'char-grid');
+    const portraits = [];
     for (const id of allCharacterIds()) {
       const c = getCharacter(id);
       const card = this.el('div', 'char-card');
@@ -277,12 +290,10 @@ const UI = {
       const canvas = document.createElement('canvas');
       canvas.width = 128; canvas.height = 128;
       const cx = canvas.getContext('2d');
-      cx.translate(64, 68);
-      cx.scale(2.1, 2.1);
       if (c.draw) {
         const fake = { state: {}, x: 0, y: 0, aim: { x: 20, y: 0 }, facing: 0, radius: PLAYER_RADIUS, totalTime: 0, history: [{ t: 0, x: 0, y: 0 }], character: c };
         if (c.init) c.init(fake);
-        try { c.draw(cx, fake, null); } catch (e) { /* apercu indisponible pour ce personnage */ }
+        portraits.push({ ctx: cx, canvas, character: c, fake });
       }
       portrait.appendChild(canvas);
       card.appendChild(portrait);
@@ -305,6 +316,22 @@ const UI = {
     }
     panel.appendChild(grid);
     this.overlay.appendChild(panel);
+
+    // Portraits animes : les persos ont des idles/rotations/pulsations basees sur le temps
+    // (idleBob, orbes qui tournent...), invisibles sur un rendu fige a l'ouverture de l'ecran.
+    this.stopPortraitAnim();
+    this._portraits = portraits;
+    const animate = () => {
+      for (const p of this._portraits) {
+        p.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+        p.ctx.translate(64, 68);
+        p.ctx.scale(2.1, 2.1);
+        try { p.character.draw(p.ctx, p.fake, null); } catch (e) { /* apercu indisponible pour ce personnage */ }
+      }
+      this._portraitAnimId = requestAnimationFrame(animate);
+    };
+    this._portraitAnimId = requestAnimationFrame(animate);
   },
 
   // ---------------- DEFIS ----------------
@@ -320,12 +347,127 @@ const UI = {
       card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
       card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
       const rec = Save.getChallengeRecord(def.id);
-      card.appendChild(this.el('div', 'best', `${S('record')} : ${rec != null ? formatTime(rec) : '--:--.---'}`));
+      card.appendChild(this.el('div', 'best', `${S('record')} : ${rec != null ? formatTime(rec) : '--:--.---'}   ·   ${S('challengeReward')} : +${formatMoney(CHALLENGE_REWARD)}`));
       card.onclick = () => Game.startChallenge(def.id);
       list.appendChild(card);
     }
     panel.appendChild(list);
+
+    // Defis personnalises : crees par le joueur, avec record de temps mais sans gain d'argent.
+    panel.appendChild(this.el('h3', null, S('customChallengesTitle')));
+    const createBtn = this.el('div', 'menu-btn menu-btn-small', `+ ${S('customCreate')}`);
+    createBtn.onclick = () => { this._draft = null; this._editorScroll = 0; Game.setState(STATE.CHALLENGE_EDITOR); };
+    panel.appendChild(createBtn);
+    const customList = this.el('div', 'challenge-list');
+    for (const c of Save.data.customChallenges) {
+      const card = this.el('div', 'challenge-card');
+      card.style.setProperty('--accent', getCharacter(c.characterId).color || '#7fd8ff');
+      card.appendChild(this.el('h4', null, `${c.name} — ${charName(c.characterId)}`));
+      const enemyCount = Object.values(c.enemies || {}).reduce((a, b) => a + b, 0);
+      const summary = `${S('customEnemies')} : ${enemyCount}${c.bossType ? ' + ' + BOSS_DEFS[c.bossType].name : ''}   ·   ${S('ability')}${c.abilityGate}   ·   ${S('customNoMoney')}`;
+      card.appendChild(this.el('p', null, summary));
+      card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
+      const del = this.el('div', 'custom-delete', S('customDelete'));
+      del.onclick = (e) => { e.stopPropagation(); Save.removeCustomChallenge(c.id); Game.setState(STATE.CHALLENGE_SELECT); };
+      card.appendChild(del);
+      card.onclick = () => Game.startChallenge(c.id);
+      customList.appendChild(card);
+    }
+    if (!Save.data.customChallenges.length) customList.appendChild(this.el('div', 'menu-sub', S('customNone')));
+    panel.appendChild(customList);
     this.overlay.appendChild(panel);
+  },
+
+  // ---------------- EDITEUR DE DEFI PERSONNALISE ----------------
+  renderChallengeEditor() {
+    if (!this._draft) this._draft = { name: '', characterId: 1, abilityGate: 1, theme: 1, enemies: { T1: 2 }, bossType: null };
+    const d = this._draft;
+    const panel = this.el('div', 'panel');
+    const refresh = () => { this._editorScroll = panel.scrollTop; Game.setState(STATE.CHALLENGE_EDITOR); };
+    panel.appendChild(this.backBtn(() => Game.setState(STATE.CHALLENGE_SELECT)));
+    panel.appendChild(this.el('h2', null, S('customCreate')));
+    const wrap = this.el('div', 'settings-wrap');
+
+    const section = (titleKey) => {
+      const s = this.el('div', 'settings-section');
+      s.appendChild(this.el('h3', null, S(titleKey)));
+      wrap.appendChild(s);
+      return s;
+    };
+    const choiceRow = (parent, items, isActive, onPick) => {
+      const row = this.el('div', 'lang-row editor-row');
+      for (const it of items) {
+        const b = this.el('div', 'lang-btn' + (isActive(it.value) ? ' active' : ''), it.label);
+        b.onclick = () => { onPick(it.value); refresh(); };
+        row.appendChild(b);
+      }
+      parent.appendChild(row);
+    };
+
+    const nameSec = section('customName');
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = 32;
+    nameInput.className = 'editor-name';
+    nameInput.placeholder = S('customNamePlaceholder');
+    nameInput.value = d.name;
+    nameInput.addEventListener('input', () => { d.name = nameInput.value; });
+    nameSec.appendChild(nameInput);
+
+    choiceRow(section('customCharacter'), allCharacterIds().map((id) => ({ value: id, label: charName(id) })),
+      (v) => d.characterId === v, (v) => { d.characterId = v; });
+
+    const c = getCharacter(d.characterId);
+    choiceRow(section('customAbility'), [1, 2, 3].map((n) => ({ value: n, label: `${S('ability')}${n} : ${charField(c.id, 'a' + n + 'Label')}` })),
+      (v) => d.abilityGate === v, (v) => { d.abilityGate = v; });
+
+    choiceRow(section('customTheme'), [1, 2, 3].map((n) => ({ value: n, label: S('customTheme_' + n) })),
+      (v) => d.theme === v, (v) => { d.theme = v; });
+
+    const enemySec = section('customEnemies');
+    const grid = this.el('div', 'editor-enemy-grid');
+    for (const type of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']) {
+      const cell = this.el('div', 'editor-enemy');
+      cell.appendChild(this.el('div', 'editor-enemy-name', `${type} — ${turretInfo(type).name}`));
+      const ctr = this.el('div', 'editor-counter');
+      const minus = this.el('div', 'editor-counter-btn', '−');
+      const count = this.el('div', 'editor-counter-val', String(d.enemies[type] || 0));
+      const plus = this.el('div', 'editor-counter-btn', '+');
+      minus.onclick = () => { d.enemies[type] = Math.max(0, (d.enemies[type] || 0) - 1); if (!d.enemies[type]) delete d.enemies[type]; refresh(); };
+      plus.onclick = () => { d.enemies[type] = Math.min(6, (d.enemies[type] || 0) + 1); refresh(); };
+      ctr.appendChild(minus); ctr.appendChild(count); ctr.appendChild(plus);
+      cell.appendChild(ctr);
+      grid.appendChild(cell);
+    }
+    enemySec.appendChild(grid);
+
+    choiceRow(section('customBoss'), [{ value: null, label: S('customNoBoss') }].concat(['B1', 'B2', 'B3', 'B4', 'B5', 'B6'].map((t) => ({ value: t, label: BOSS_DEFS[t].name }))),
+      (v) => d.bossType === v, (v) => { d.bossType = v; });
+
+    const total = Object.values(d.enemies).reduce((a, b) => a + b, 0) + (d.bossType ? 1 : 0);
+    const actions = this.el('div', 'editor-actions');
+    const save = (thenPlay) => {
+      if (total === 0) return;
+      const entry = Save.addCustomChallenge({
+        name: d.name.trim() || `${S('customDefaultName')} ${Save.data.customChallenges.length + 1}`,
+        characterId: d.characterId, abilityGate: d.abilityGate, theme: d.theme,
+        enemies: Object.assign({}, d.enemies), bossType: d.bossType,
+      });
+      this._draft = null;
+      if (thenPlay) Game.startChallenge(entry.id);
+      else Game.setState(STATE.CHALLENGE_SELECT);
+    };
+    const saveBtn = this.el('div', 'menu-btn menu-btn-small' + (total === 0 ? ' disabled' : ''), S('customSave'));
+    saveBtn.onclick = () => save(false);
+    const playBtn = this.el('div', 'menu-btn menu-btn-small' + (total === 0 ? ' disabled' : ''), S('customSavePlay'));
+    playBtn.onclick = () => save(true);
+    actions.appendChild(saveBtn); actions.appendChild(playBtn);
+    if (total === 0) actions.appendChild(this.el('div', 'menu-sub', S('customNeedEnemy')));
+    wrap.appendChild(actions);
+
+    panel.appendChild(wrap);
+    this.overlay.appendChild(panel);
+    panel.scrollTop = this._editorScroll || 0;
   },
 
   // ---------------- REPERTOIRE & STATISTIQUES (menu unique) ----------------
@@ -339,7 +481,7 @@ const UI = {
     for (const id of allCharacterIds()) {
       const row = this.el('div', 'record-row');
       row.appendChild(this.el('span', null, `${id}. ${charName(id)}`));
-      const money = this.el('span', 'money', `${Save.getMoneyForChar(id)}€`);
+      const money = this.el('span', 'money', formatMoney(Save.getMoneyForChar(id)));
       row.appendChild(money);
       const rec = Save.getExpeditionRecord(id);
       row.appendChild(this.el('span', 'time', rec != null ? formatTime(rec) : '--:--.---'));
@@ -622,7 +764,7 @@ const UI = {
       timeMs = Expedition.elapsedMs; bestMs = Save.getExpeditionRecord(Expedition.characterId);
     } else if (state === STATE.CHALLENGE) {
       const def = Challenges.get(Challenges.id);
-      r.progEl.textContent = `${S('hudDefi')} ${def.id} : ${challengeField(def.id, 'title')}`;
+      r.progEl.textContent = def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${def.id} : ${challengeField(def.id, 'title')}`;
       timeMs = Challenges.elapsedMs; bestMs = Save.getChallengeRecord(Challenges.id);
     } else {
       r.progEl.textContent = S('hudTestRoom');

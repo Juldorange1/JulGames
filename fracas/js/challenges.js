@@ -128,7 +128,17 @@ const Challenges = {
   finished: false,
   newRecord: false,
 
-  get(id) { return CHALLENGE_DEFS.find((c) => c.id === id); },
+  get(id) {
+    const custom = Save.getCustomChallenge(id);
+    if (custom) {
+      return {
+        id: custom.id, custom: true, characterId: custom.characterId, abilityGate: custom.abilityGate,
+        theme: custom.theme, title: custom.name, desc: '', obstacles: [], turretSpecs: [],
+        enemies: custom.enemies, bossType: custom.bossType,
+      };
+    }
+    return CHALLENGE_DEFS.find((c) => c.id === id);
+  },
 
   start(world, id) {
     const def = this.get(id);
@@ -149,8 +159,10 @@ const Challenges = {
     const bounds = { x: -w / 2, y: -h / 2, w, h };
     const toX = (fx) => bounds.x + fx * bounds.w;
     const toY = (fy) => bounds.y + fy * bounds.h;
-    const obstacles = def.obstacles.map((o) => ({ x: toX(o.fx), y: toY(o.fy), w: o.fw * bounds.w, h: o.fh * bounds.h }));
     const spawn = { x: toX(SPAWN_FRAC.fx), y: toY(SPAWN_FRAC.fy) };
+    const obstacles = def.custom
+      ? makeObstacles(bounds, 3).filter((ob) => !circleRect(spawn.x, spawn.y, 80, ob.x, ob.y, ob.w, ob.h))
+      : def.obstacles.map((o) => ({ x: toX(o.fx), y: toY(o.fy), w: o.fw * bounds.w, h: o.fh * bounds.h }));
     const avoid = [{ x: spawn.x, y: spawn.y, r: 130 }];
     for (const spec of def.turretSpecs) avoid.push({ x: toX(spec.fx), y: toY(spec.fy), r: 70 });
 
@@ -176,11 +188,26 @@ const Challenges = {
       world.enemies.push(t);
     }
 
+    // Defi personnalise : exactement les ennemis choisis par le joueur, places aleatoirement.
+    if (def.custom) {
+      for (const [type, count] of Object.entries(def.enemies || {})) {
+        for (let i = 0; i < count; i++) {
+          const p = localPickPoint(bounds, obstacles, avoid, 45, 80);
+          if (!p) continue;
+          const t = createTurret(type, p.x, p.y);
+          t.hp *= CHALLENGE_HP_MULT; t.maxHp = t.hp;
+          if (type === 'T6') t.railPath = [{ x: p.x - 110, y: p.y }, { x: p.x + 110, y: p.y }];
+          world.enemies.push(t);
+          avoid.push({ x: p.x, y: p.y, r: 62 });
+        }
+      }
+    }
+
     // Renforts supplementaires (defis plus longs) : reprend les types deja presents du defi,
     // positionnes automatiquement dans la salle agrandie.
     const nonDummyTypes = def.turretSpecs.filter((s) => s.type !== 'DUMMY').map((s) => s.type);
     const extraPool = nonDummyTypes.length ? nonDummyTypes : ['T1'];
-    const extraCount = Math.max(2, Math.ceil(nonDummyTypes.length * 0.7));
+    const extraCount = def.custom ? 0 : Math.max(2, Math.ceil(nonDummyTypes.length * 0.7));
     for (let i = 0; i < extraCount; i++) {
       const p = localPickPoint(bounds, obstacles, avoid, 45, 60);
       if (!p) continue;
@@ -208,7 +235,8 @@ const Challenges = {
       this.finished = true;
       this.newRecord = Save.submitChallengeRecord(this.id, this.elapsedMs);
       const def = this.get(this.id);
-      Save.addMoneyForChar(def.characterId, CHALLENGE_REWARD);
+      // Les defis personnalises enregistrent un record mais ne rapportent jamais d'argent.
+      if (!def.custom) Save.addMoneyForChar(def.characterId, CHALLENGE_REWARD);
       if (this.newRecord) Audio2.record();
     }
   },

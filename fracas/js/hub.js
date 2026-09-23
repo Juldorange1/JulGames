@@ -3,12 +3,12 @@
 // incarne un personnage blanc sans aucune competence, qui ne peut que se deplacer ; marcher dans
 // une porte y suffit pour naviguer.
 
-const HUB_CELL = 105; // toujours 5x5 cases de base, mais des cases un peu plus petites
+const HUB_CELL = 105;
 const HUB_DOOR_RADIUS = 34;
 // Incremente a chaque fois que la forme de defaultHubLayout() change : une sauvegarde dont le hub
 // porte un ancien numero de version est regeneree a neuf (sinon les joueurs qui ont deja une
 // sauvegarde ne verraient jamais les changements de disposition par defaut).
-const HUB_LAYOUT_VERSION = 3;
+const HUB_LAYOUT_VERSION = 4;
 
 const HUB_CHARACTER = {
   id: 'hub', name: '', epithet: '', speedPercent: 118, color: '#f2f2f7',
@@ -29,13 +29,12 @@ const HUB_CHARACTER = {
   },
 };
 
-// Disposition de depart : bloc de 5x5 cases exactement. Les 6 portes + la case de depart occupent
-// l'anneau interieur ; tout le reste (dont deux cases de cet anneau et tout l'anneau exterieur) est
-// libre des le debut. La salle de test n'a plus de porte : on y accede uniquement depuis la liste
-// des personnages (clic sur un perso). Repertoire et Statistiques sont desormais un seul menu.
+// Disposition de depart : bloc de 3x3 cases. Les 6 portes + la case de depart en occupent 7,
+// les 2 cases laterales du milieu sont libres. La salle de test n'a pas de porte : on y accede
+// uniquement depuis la liste des personnages.
 function defaultHubLayout() {
   const cells = [];
-  for (let gx = -2; gx <= 2; gx++) for (let gy = -2; gy <= 2; gy++) cells.push({ gx, gy });
+  for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) cells.push({ gx, gy });
   return {
     version: HUB_LAYOUT_VERSION,
     cells,

@@ -41,6 +41,13 @@ function formatTime(ms) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(3, '0')}`;
 }
 
+function roundCents(v) { return Math.round(v * 100) / 100; }
+// "12€", "0,05€", "3,50€" : entier sans decimales, sinon deux decimales avec virgule.
+function formatMoney(v) {
+  const r = roundCents(v || 0);
+  return (Number.isInteger(r) ? String(r) : r.toFixed(2).replace('.', ',')) + '€';
+}
+
 function normalize(dx, dy) {
   const len = Math.hypot(dx, dy);
   if (len < 1e-6) return { x: 0, y: 0 };

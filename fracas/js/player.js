@@ -233,7 +233,7 @@ function applyTerrainEffect(type, player, world, dt) {
     case 'invertH': player.controlInvertH = true; break;
     case 'invertV': player.controlInvertV = true; break;
     case 'wind': player.x += 26 * dt; break;
-    case 'neutral': default: break;
+    default: break;
   }
 }
 

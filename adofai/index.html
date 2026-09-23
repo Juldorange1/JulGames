@@ -86,6 +86,7 @@
   .diffDots span.on{background:var(--fire);}
   #btnCheckpoint{position:absolute;top:10px;right:14px;pointer-events:auto;display:none;}
   #deathsText{display:none;}
+  #scoreText{display:none;}
 </style>
 </head>
 <body>
@@ -155,6 +156,7 @@
       <div id="progressWrap"><div id="progressBar"></div></div>
       <div id="hudRow">
         <span id="comboText">Combo 0</span>
+        <span id="scoreText">Case 0 · Record 0</span>
         <span id="deathsText">Morts 0</span>
         <span id="accText">100%</span>
       </div>
@@ -164,6 +166,15 @@
     <div id="playOverlay">
       <h2 id="overTitle">Prêt ?</h2>
       <p id="overSub"></p>
+      <label class="checkRow" id="infiniteBpmRow">Vitesse (BPM)
+        <input type="range" id="infiniteBpmRange" min="60" max="220" step="1" value="130">
+        <input type="number" id="infiniteBpmNum" min="60" max="220" step="1" value="130" style="width:60px">
+      </label>
+      <label class="checkRow" id="infiniteTolRow">Tolérance
+        <input type="range" id="infiniteTolRange" min="8" max="35" step="1" value="22">
+        <input type="number" id="infiniteTolNum" min="8" max="35" step="1" value="22" style="width:60px">
+        <span>%</span>
+      </label>
       <label class="checkRow"><input type="checkbox" id="trainToggle"> Mode entraînement (checkpoints, morts sans pénalité)</label>
       <label class="checkRow" id="trainSpeedRow">Vitesse
         <input type="range" id="trainSpeedRange" min="10" max="200" step="1" value="100">
@@ -192,20 +203,52 @@ function saveCustomLevels(list){
   localStorage.setItem(STORE_KEY, JSON.stringify(list));
 }
 
+// Double la longueur d'une séquence d'angles en enchaînant une seconde moitié en miroir
+// (angles inversés) : même style/difficulté, mais pas une simple répétition à l'identique.
+function mirrorDouble(angles){ return angles.concat(angles.map(a=>-a)); }
+
 // Les 5 niveaux principaux, difficulté 1 (facile) à 5 (très difficile) : BPM croissant,
 // tolérance de frappe décroissante, motifs d'angles de plus en plus complexes.
 const BUILTIN_LEVELS = [
   { id:"builtin-1", name:"Premier envol", difficulty:1, bpm:90, tol:0.30, builtin:true,
-    angles:[0,0,0,0,30,30,0,0,-30,-30,0,0,45,45,0,0,-45,-45,0,0] },
+    angles: mirrorDouble([0,0,0,0,30,30,0,0,-30,-30,0,0,45,45,0,0,-45,-45,0,0]) },
   { id:"builtin-2", name:"Chemin des cerisiers", difficulty:2, bpm:112, tol:0.24, builtin:true,
-    angles:[0,45,-45,45,-45,0,0,90,90,0,0,-90,-90,0,30,-30,30,-30,0,0,60,-60,0,0] },
+    angles: mirrorDouble([0,45,-45,45,-45,0,0,90,90,0,0,-90,-90,0,30,-30,30,-30,0,0,60,-60,0,0]) },
   { id:"builtin-3", name:"Vent de traverse", difficulty:3, bpm:132, tol:0.19, builtin:true,
-    angles:[0,30,60,30,0,-30,-60,-30,0,0,90,-90,90,-90,45,-45,45,-45,0,135,135,0,0,-135,-135,0,0,0] },
+    angles: mirrorDouble([0,30,60,30,0,-30,-60,-30,0,0,90,-90,90,-90,45,-45,45,-45,0,135,135,0,0,-135,-135,0,0,0]) },
   { id:"builtin-4", name:"Tempête glacée", difficulty:4, bpm:152, tol:0.15, builtin:true,
-    angles:[0,60,-60,60,-60,60,-60,0,0,90,-90,90,-90,90,-90,0,15,30,45,60,75,90,105,90,75,60,45,30,15,0] },
+    angles: mirrorDouble([0,60,-60,60,-60,60,-60,0,0,90,-90,90,-90,90,-90,0,15,30,45,60,75,90,105,90,75,60,45,30,15,0]) },
   { id:"builtin-5", name:"Danse ultime", difficulty:5, bpm:175, tol:0.11, builtin:true,
-    angles:[0,15,30,45,60,75,90,105,120,135,150,165,180,195,210,225,240,255,270,285,300,315,330,345,0,60,-60,90,-90,120,-120,90,-90,0] }
+    angles: mirrorDouble([0,15,30,45,60,75,90,105,120,135,150,165,180,195,210,225,240,255,270,285,300,315,330,345,0,60,-60,90,-90,120,-120,90,-90,0]) }
 ];
+
+/* ==================== Niveau Infini ==================== */
+// Motifs de virages "agréables" piochés au hasard (pondérés vers des angles modérés).
+const INFINITE_ANGLE_POOL = [
+  0,0,0,0, 15,-15,15,-15, 30,-30,30,-30, 45,-45,45,-45, 60,-60, 90,-90, 120,-120, 135,-135
+];
+const INFINITE_INITIAL_BATCH = 60;
+const INFINITE_EXTEND_BATCH = 40;
+const INFINITE_EXTEND_MARGIN = 15; // on prolonge dès qu'il reste moins de N cases générées
+function generateAngleBatch(n){
+  const out = [];
+  for(let i=0;i<n;i++) out.push(INFINITE_ANGLE_POOL[Math.floor(Math.random()*INFINITE_ANGLE_POOL.length)]);
+  return out;
+}
+function maybeExtendInfinite(g){
+  if(g.level.angles.length - g.pivot < INFINITE_EXTEND_MARGIN){
+    g.level.angles = g.level.angles.concat(generateAngleBatch(INFINITE_EXTEND_BATCH));
+    g.tiles = tilesFromAngles(g.level.angles);
+  }
+}
+const INFINITE_RECORD_KEY = "adofaiInfiniteRecord";
+function getInfiniteRecord(){ return parseInt(localStorage.getItem(INFINITE_RECORD_KEY), 10) || 0; }
+function setInfiniteRecordIfBetter(pivot){
+  const cur = getInfiniteRecord();
+  if(pivot > cur){ localStorage.setItem(INFINITE_RECORD_KEY, String(pivot)); return true; }
+  return false;
+}
+const INFINITE_LEVEL = { id:"infinite", name:"Infini", infinite:true, bpm:130, builtin:true, angles:[] };
 
 /* ==================== Navigation d'écrans ==================== */
 const screens = { menu: document.getElementById("menu"), editor: document.getElementById("editor"), play: document.getElementById("play") };
@@ -239,12 +282,16 @@ const levelListEl = document.getElementById("levelList");
 function renderMenu(){
   levelListEl.innerHTML = "";
   const custom = loadCustomLevels();
-  const all = BUILTIN_LEVELS.concat(custom);
+  const all = BUILTIN_LEVELS.concat([INFINITE_LEVEL]).concat(custom);
   all.forEach(lv=>{
     const card = document.createElement("div");
     card.className = "levelCard";
-    const diffDots = lv.difficulty ? `<span class="diffDots">${[1,2,3,4,5].map(i=>`<span class="${i<=lv.difficulty?'on':''}"></span>`).join("")}</span>` : "";
-    card.innerHTML = `<b>${escapeHtml(lv.name)}</b><span>${lv.angles.length} cases · ${lv.bpm} BPM${diffDots}</span>`;
+    if(lv.infinite){
+      card.innerHTML = `<b>♾️ ${escapeHtml(lv.name)}</b><span>Séquence aléatoire sans fin · vitesse et tolérance réglables · record : ${getInfiniteRecord()} cases</span>`;
+    } else {
+      const diffDots = lv.difficulty ? `<span class="diffDots">${[1,2,3,4,5].map(i=>`<span class="${i<=lv.difficulty?'on':''}"></span>`).join("")}</span>` : "";
+      card.innerHTML = `<b>${escapeHtml(lv.name)}</b><span>${lv.angles.length} cases · ${lv.bpm} BPM${diffDots}</span>`;
+    }
     card.addEventListener("click", ()=> startPlay(lv));
     if(!lv.builtin){
       const del = document.createElement("button");
@@ -558,7 +605,9 @@ const tapCatcher = document.getElementById("tapCatcher");
 const comboText = document.getElementById("comboText");
 const accText = document.getElementById("accText");
 const deathsText = document.getElementById("deathsText");
+const scoreText = document.getElementById("scoreText");
 const progressBar = document.getElementById("progressBar");
+const progressWrap = document.getElementById("progressWrap");
 const judgeText = document.getElementById("judgeText");
 const playOverlay = document.getElementById("playOverlay");
 const overTitle = document.getElementById("overTitle");
@@ -581,6 +630,25 @@ trainSpeedNum.addEventListener("input", ()=>{
 trainSpeedNum.addEventListener("change", ()=>{ trainSpeedNum.value = clampSpeedPct(parseFloat(trainSpeedNum.value)); });
 function getTrainSpeedPct(){ return clampSpeedPct(parseFloat(trainSpeedNum.value)); }
 
+// Réglages du niveau Infini (vitesse en BPM, tolérance en %), choisis avant chaque lancement.
+const infiniteBpmRow = document.getElementById("infiniteBpmRow");
+const infiniteBpmRange = document.getElementById("infiniteBpmRange");
+const infiniteBpmNum = document.getElementById("infiniteBpmNum");
+const infiniteTolRow = document.getElementById("infiniteTolRow");
+const infiniteTolRange = document.getElementById("infiniteTolRange");
+const infiniteTolNum = document.getElementById("infiniteTolNum");
+function linkRangeNumber(range, num, min, max, fallback){
+  const clamp = v => Math.max(min, Math.min(max, Math.round(v) || fallback));
+  range.addEventListener("input", ()=>{ num.value = range.value; });
+  num.addEventListener("input", ()=>{ range.value = clamp(parseFloat(num.value)); });
+  num.addEventListener("change", ()=>{ num.value = clamp(parseFloat(num.value)); });
+  return ()=> clamp(parseFloat(num.value));
+}
+const getInfiniteBpm = linkRangeNumber(infiniteBpmRange, infiniteBpmNum, 60, 220, 130);
+const getInfiniteTolPct = linkRangeNumber(infiniteTolRange, infiniteTolNum, 8, 35, 22);
+infiniteBpmRow.style.display = "none";
+infiniteTolRow.style.display = "none";
+
 function resizePlayCanvas(){
   playCanvas.width = playCanvas.clientWidth;
   playCanvas.height = playCanvas.clientHeight;
@@ -592,20 +660,29 @@ function startPlay(level){
   showScreen("play");
   resizePlayCanvas();
   game = buildGameState(level);
-  const diffNote = level.difficulty ? ` — difficulté ${level.difficulty}/5` : "";
-  showOverlay("Prêt ?", `${level.name} — ${level.bpm} BPM — ${level.angles.length} cases${diffNote}`, "Jouer");
+  infiniteBpmRow.style.display = level.infinite ? "flex" : "none";
+  infiniteTolRow.style.display = level.infinite ? "flex" : "none";
+  if(level.infinite){
+    showOverlay("Prêt ?", `${level.name} — séquence aléatoire sans fin — record : ${getInfiniteRecord()} cases`, "Jouer");
+  } else {
+    const diffNote = level.difficulty ? ` — difficulté ${level.difficulty}/5` : "";
+    showOverlay("Prêt ?", `${level.name} — ${level.bpm} BPM — ${level.angles.length} cases${diffNote}`, "Jouer");
+  }
 }
 
 const AUTO_CHECKPOINT_EVERY = 8;
 
 function buildGameState(level){
+  if(level.infinite){
+    level.angles = generateAngleBatch(INFINITE_INITIAL_BATCH); // nouvelle séquence aléatoire à chaque partie
+  }
   const beatDuration = 60000 / level.bpm; // ms (durée d'un temps, indépendante de la vitesse d'entraînement)
   const tol = beatDuration * (level.tol!==undefined?level.tol:0.2);
   const tiles = tilesFromAngles(level.angles);
   return {
     level, tiles, beatDuration, tol,
     pivot: 0, // index de la case pivot actuelle
-    dir: 1,
+    dir: SWING_DIR,
     running: false,
     startTime: 0,
     simTime: 0, // horloge interne du jeu (peut tourner au ralenti en entraînement)
@@ -615,19 +692,26 @@ function buildGameState(level){
     deaths: 0,
     checkpoints: [0],
     camWorld: { x: tiles[0].x, y: tiles[0].y }, // la caméra suit la case pivot, jamais la carte qui ne bouge pas
-    combo: 0, maxCombo: 0, hits: 0, perfects: 0, total: level.angles.length,
+    combo: 0, maxCombo: 0, hits: 0, perfects: 0, total: level.infinite ? Infinity : level.angles.length,
     failed: false, finished: false,
     lastJudgeAt: 0,
     beatTimeFor: null // rempli au démarrage
   };
 }
 
+// Marge de tolérance : fixe pendant toute la partie, y compris en mode Infini où elle est
+// choisie par le joueur avant de lancer (cf. launchRun).
+function tolFor(g){ return g.tol; }
+
 function angleAtPivot(level, k){
   // angle de départ du bras au pivot k (pointant vers l'arrière, cf. doc)
   return level.angles[k] + 180;
 }
 
-function dirForPivot(k){ return (k%2===0) ? 1 : -1; }
+// Le personnage tourne toujours dans le même sens (pas d'alternance) : une rotation de 180°
+// dans un sens constant retombe de toute façon exactement sur la case cible, donc le sens
+// n'affecte jamais la validité d'une frappe, seulement le rendu visuel.
+const SWING_DIR = 1;
 
 function handAngleAt(g, t){
   const k = g.pivot;
@@ -662,10 +746,19 @@ function checkpointFor(g, pivot){
 
 function launchRun(){
   const g = game;
+  if(g.level.infinite){
+    // vitesse et tolérance choisies par le joueur ; nouvelle séquence aléatoire à chaque lancement
+    g.level.bpm = getInfiniteBpm();
+    g.level.tol = getInfiniteTolPct()/100;
+    g.beatDuration = 60000 / g.level.bpm;
+    g.tol = g.beatDuration * g.level.tol;
+    g.level.angles = generateAngleBatch(INFINITE_INITIAL_BATCH);
+    g.tiles = tilesFromAngles(g.level.angles);
+  }
   g.trainMode = trainToggle.checked;
   g.timeScale = g.trainMode ? getTrainSpeedPct()/100 : 1;
   g.running = true; g.failed = false; g.finished = false;
-  g.pivot = 0; g.dir = 1; g.combo = 0; g.maxCombo = 0; g.hits = 0; g.perfects = 0;
+  g.pivot = 0; g.dir = SWING_DIR; g.combo = 0; g.maxCombo = 0; g.hits = 0; g.perfects = 0;
   g.deaths = 0; g.checkpoints = [0];
   g.camWorld = { x: g.tiles[0].x, y: g.tiles[0].y };
   g.simTime = 0; g.lastRealNow = performance.now();
@@ -680,7 +773,7 @@ function trainingRespawn(g){
   flashJudge("RATÉ", "var(--bad)");
   const cp = checkpointFor(g, g.pivot);
   g.pivot = cp;
-  g.dir = dirForPivot(cp);
+  g.dir = SWING_DIR;
   g.combo = 0;
   g.camWorld = { x: g.tiles[cp].x, y: g.tiles[cp].y };
   scheduleFrom(g, cp, 250);
@@ -716,15 +809,17 @@ function attemptHit(){
   const k = g.pivot;
   const deadline = g.beatTimeFor(k+1); // la bille doit avoir rejoint la case k+1 à cet instant
   const dt = t - deadline; // ms d'écart par rapport au temps parfait
-  if(Math.abs(dt) <= g.tol){
+  const tol = tolFor(g);
+  if(Math.abs(dt) <= tol){
     // réussite
-    const perfect = Math.abs(dt) <= g.tol*0.35;
+    const perfect = Math.abs(dt) <= tol*0.35;
     g.hits++; g.combo++; g.maxCombo = Math.max(g.maxCombo, g.combo);
     if(perfect) g.perfects++;
     sfxHit(perfect);
     flashJudge(perfect?"PARFAIT":"OK", perfect?"var(--good)":"var(--accent)");
     g.pivot++;
-    g.dir *= -1;
+    // g.dir reste constant : le personnage tourne toujours dans le même sens
+    if(g.level.infinite) maybeExtendInfinite(g);
     if(g.trainMode && g.pivot % AUTO_CHECKPOINT_EVERY === 0) addCheckpoint(g, g.pivot);
     if(g.pivot >= g.total){
       g.finished = true; g.running = false;
@@ -744,7 +839,13 @@ function failRun(){
   g.failed = true; g.running = false;
   sfxFail();
   flashJudge("RATÉ", "var(--bad)");
-  showOverlay("Perdu…", `Tu es arrivé à la case ${g.pivot+1} / ${g.total}`, "Réessayer");
+  if(g.level.infinite){
+    const beat = setInfiniteRecordIfBetter(g.pivot);
+    const recordNote = beat ? " — 🎉 nouveau record !" : ` — record : ${getInfiniteRecord()}`;
+    showOverlay("Perdu…", `Tu es arrivé à la case ${g.pivot + 1}${recordNote}`, "Réessayer");
+  } else {
+    showOverlay("Perdu…", `Tu es arrivé à la case ${g.pivot+1} / ${g.total}`, "Réessayer");
+  }
 }
 
 tapCatcher.addEventListener("mousedown", attemptHit);
@@ -778,7 +879,7 @@ function loop(){
     // vérifie l'échec par timeout (fenêtre passée sans frappe correcte)
     const k = g.pivot;
     const deadline = g.beatTimeFor(k+1);
-    if(g.simTime - deadline > g.tol){
+    if(g.simTime - deadline > tolFor(g)){
       if(g.trainMode) trainingRespawn(g); else failRun();
     }
   }
@@ -846,7 +947,10 @@ function drawPlay(){
   playCtx.beginPath(); playCtx.fillStyle = grad; playCtx.arc(sb.x, sb.y, 13, 0, Math.PI*2); playCtx.fill();
 
   // hud
-  progressBar.style.width = Math.round((g.pivot/g.total)*100) + "%";
+  progressWrap.style.display = g.level.infinite ? "none" : "block";
+  scoreText.style.display = g.level.infinite ? "inline" : "none";
+  if(g.level.infinite) scoreText.textContent = `Case ${g.pivot} · Record ${getInfiniteRecord()}`;
+  else progressBar.style.width = Math.round((g.pivot/g.total)*100) + "%";
   comboText.textContent = "Combo " + g.combo;
   const acc = g.hits>0 ? Math.round((g.perfects/Math.max(1,g.hits))*100) : 100;
   accText.textContent = acc + "% parfait";

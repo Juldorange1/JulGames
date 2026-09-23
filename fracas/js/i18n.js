@@ -10,7 +10,7 @@ const UI_STRINGS = {
     hubHint: 'ZQSD/WASD deplacement · marche vers une porte pour y acceder',
     testSpawnLabel: 'INVOQUER (a la visee)',
     btnMonde: 'MONDE', btnMondeSub: 'Expedition — 3 parties, 30 salles',
-    btnDefi: 'DEFI', btnDefiSub: '10 epreuves fixes',
+    btnDefi: 'DEFI', btnDefiSub: '11 epreuves + tes propres defis',
     btnPerso: 'PERSONNAGES', btnPersoSub: 'Fiches des 11 combattants',
     btnSettings: 'PARAMETRES', btnSettingsSub: 'Raccourcis, langue, son',
     sound: 'SON',
@@ -81,6 +81,15 @@ const UI_STRINGS = {
     marketWallColor: 'Couleur',
     marketDir_up: 'Haut', marketDir_down: 'Bas', marketDir_left: 'Gauche', marketDir_right: 'Droite',
     marketLegendBlock: 'Bloc principal', marketLegendDecor: 'Decor', marketLegendCandidate: 'Disponible',
+    challengeReward: 'Gain',
+    customChallengesTitle: 'Mes defis personnalises',
+    customCreate: 'Creer un defi', customName: 'Nom', customNamePlaceholder: 'Mon defi',
+    customDefaultName: 'Defi perso', customCharacter: 'Personnage', customAbility: 'Competence autorisee',
+    customTheme: 'Decor', customTheme_1: 'Prairie', customTheme_2: 'Usine', customTheme_3: 'Ruines',
+    customEnemies: 'Ennemis', customBoss: 'Boss', customNoBoss: 'Aucun',
+    customSave: 'ENREGISTRER', customSavePlay: 'ENREGISTRER ET JOUER', customDelete: 'Supprimer',
+    customNone: "Aucun defi personnalise pour l'instant.", customNoMoney: "sans gain d'argent",
+    customNeedEnemy: 'Ajoute au moins un ennemi ou un boss.',
   },
   en: {
     menuTitle: 'FRACAS',
@@ -88,7 +97,7 @@ const UI_STRINGS = {
     hubHint: 'ZQSD/WASD move · walk into a door to enter it',
     testSpawnLabel: 'SPAWN (at aim)',
     btnMonde: 'WORLD', btnMondeSub: 'Expedition — 3 parts, 30 rooms',
-    btnDefi: 'CHALLENGE', btnDefiSub: '10 fixed trials',
+    btnDefi: 'CHALLENGE', btnDefiSub: '11 trials + your own challenges',
     btnPerso: 'CHARACTERS', btnPersoSub: 'Roster of 11 fighters',
     btnSettings: 'SETTINGS', btnSettingsSub: 'Keybinds, language, sound',
     sound: 'SOUND',
@@ -159,6 +168,15 @@ const UI_STRINGS = {
     marketWallColor: 'Color',
     marketDir_up: 'Up', marketDir_down: 'Down', marketDir_left: 'Left', marketDir_right: 'Right',
     marketLegendBlock: 'Main block', marketLegendDecor: 'Decor', marketLegendCandidate: 'Available',
+    challengeReward: 'Reward',
+    customChallengesTitle: 'My custom challenges',
+    customCreate: 'Create a challenge', customName: 'Name', customNamePlaceholder: 'My challenge',
+    customDefaultName: 'Custom challenge', customCharacter: 'Character', customAbility: 'Allowed ability',
+    customTheme: 'Scenery', customTheme_1: 'Meadow', customTheme_2: 'Factory', customTheme_3: 'Ruins',
+    customEnemies: 'Enemies', customBoss: 'Boss', customNoBoss: 'None',
+    customSave: 'SAVE', customSavePlay: 'SAVE AND PLAY', customDelete: 'Delete',
+    customNone: 'No custom challenge yet.', customNoMoney: 'no money reward',
+    customNeedEnemy: 'Add at least one enemy or a boss.',
   },
 };
 
@@ -229,7 +247,7 @@ function challengeField(id, field) {
 // ---------------- Traductions des terrains (EN) ----------------
 const TERRAIN_I18N_EN = {
   ice: 'Ice', mud: 'Mud', accel: 'Accelerator', slow: 'Slow field', damage: 'Damage zone',
-  neutral: 'Neutral zone', invertH: 'Horizontal inversion', invertV: 'Vertical inversion', wind: 'Wind',
+  invertH: 'Horizontal inversion', invertV: 'Vertical inversion', wind: 'Wind',
 };
 
 function terrainLabelI18n(type) {

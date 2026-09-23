@@ -34,6 +34,7 @@ const Save = {
       moneyByChar: {},
       cursorColor: '#ffffff',
       cursorStyle: 'cross',
+      customChallenges: [],
       hub: null,
     };
     this.data = Object.assign({}, defaults, parsed || {});
@@ -85,10 +86,11 @@ const Save = {
   },
 
   submitChallengeRecord(challengeId, timeMs) {
-    const key = `challenge${challengeId}`;
-    const cur = this.data.challenges[key];
+    const custom = this.getCustomChallenge(challengeId);
+    const cur = custom ? custom.record : this.data.challenges[`challenge${challengeId}`];
     if (cur == null || timeMs < cur) {
-      this.data.challenges[key] = timeMs;
+      if (custom) custom.record = timeMs;
+      else this.data.challenges[`challenge${challengeId}`] = timeMs;
       this.persist();
       return true;
     }
@@ -96,7 +98,26 @@ const Save = {
   },
 
   getExpeditionRecord(charId) { return this.data.records[`character${charId}`]; },
-  getChallengeRecord(challengeId) { return this.data.challenges[`challenge${challengeId}`]; },
+  getChallengeRecord(challengeId) {
+    const custom = this.getCustomChallenge(challengeId);
+    return custom ? custom.record : this.data.challenges[`challenge${challengeId}`];
+  },
+
+  // Defis personnalises : identifiants "c<horodatage>" (stables d'une session a l'autre).
+  getCustomChallenge(id) {
+    if (typeof id !== 'string') return null;
+    return this.data.customChallenges.find((c) => c.id === id) || null;
+  },
+  addCustomChallenge(def) {
+    const entry = Object.assign({ id: 'c' + Date.now(), record: null }, def);
+    this.data.customChallenges.push(entry);
+    this.persist();
+    return entry;
+  },
+  removeCustomChallenge(id) {
+    this.data.customChallenges = this.data.customChallenges.filter((c) => c.id !== id);
+    this.persist();
+  },
 
   recordKill(type) {
     this.data.kills[type] = (this.data.kills[type] || 0) + 1;
@@ -104,16 +125,17 @@ const Save = {
   },
   getKillCount(type) { return this.data.kills[type] || 0; },
 
-  addMoney(amount) { this.data.money = Math.max(0, this.data.money + amount); this.persist(); },
+  // L'argent est arrondi au centime (recompenses de 0,05€) pour eviter les derives flottantes.
+  addMoney(amount) { this.data.money = roundCents(Math.max(0, this.data.money + amount)); this.persist(); },
   addMoneyForChar(charId, amount) {
     const key = `character${charId}`;
-    this.data.moneyByChar[key] = (this.data.moneyByChar[key] || 0) + amount;
+    this.data.moneyByChar[key] = roundCents((this.data.moneyByChar[key] || 0) + amount);
     this.addMoney(amount);
   },
   getMoneyForChar(charId) { return this.data.moneyByChar[`character${charId}`] || 0; },
   spendMoney(amount) {
     if (this.data.money < amount) return false;
-    this.data.money -= amount;
+    this.data.money = roundCents(this.data.money - amount);
     this.persist();
     return true;
   },

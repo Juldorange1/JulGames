@@ -113,21 +113,21 @@ function generateRoomLayout(part, index) {
 function terrainColor(type) {
   return {
     ice: 'rgba(157,232,255,0.28)', mud: 'rgba(138,106,69,0.35)', accel: 'rgba(93,255,157,0.25)',
-    slow: 'rgba(180,124,255,0.28)', damage: 'rgba(255,122,61,0.3)', neutral: 'rgba(141,255,156,0.18)',
+    slow: 'rgba(180,124,255,0.28)', damage: 'rgba(255,122,61,0.3)',
     invertH: 'rgba(255,122,209,0.25)', invertV: 'rgba(199,122,255,0.25)', wind: 'rgba(191,232,255,0.22)',
   }[type] || COLORS.danger;
 }
 function terrainEdgeColor(type) {
   return {
     ice: COLORS.ice, mud: COLORS.mud, accel: COLORS.accel, slow: COLORS.slow, damage: COLORS.dmgZone,
-    neutral: COLORS.neutral, invertH: COLORS.invertH, invertV: COLORS.invertV, wind: COLORS.wind,
+    invertH: COLORS.invertH, invertV: COLORS.invertV, wind: COLORS.wind,
   }[type] || COLORS.dangerEdge;
 }
 
 function terrainLabel(type) {
   return {
     ice: 'Glace', mud: 'Boue', accel: 'Accelerateur', slow: 'Ralentisseur', damage: 'Zone de degats',
-    neutral: 'Zone neutre', invertH: 'Inversion horizontale', invertV: 'Inversion verticale', wind: 'Vent',
+    invertH: 'Inversion horizontale', invertV: 'Inversion verticale', wind: 'Vent',
   }[type] || type;
 }
 
