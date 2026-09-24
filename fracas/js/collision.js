@@ -62,6 +62,7 @@ function resolveProjectileVsPlayer(world) {
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const pr = world.projectiles[i];
     if (pr.team !== TEAM.ENEMY) continue;
+    if (player.airborne) continue; // en plein saut : les tirs passent dessous
     if (!circleCircle(pr.x, pr.y, pr.radius, player.x, player.y, player.radius)) continue;
     if (pr.onHitPlayer) pr.onHitPlayer(pr, world, player);
     else playerApplyDamage(player, pr.dmgPercent || 0);
@@ -103,6 +104,7 @@ function resolveProjectileVsEnemies(world) {
         pr.x = e.x + nx * (combinedR + 0.5); pr.y = e.y + ny * (combinedR + 0.5);
         pr.bounces++;
         if (pr.bounceGrowth) pr.dmgValue *= (1 + pr.bounceGrowth);
+    if (pr.dmgCap) pr.dmgValue = Math.min(pr.dmgValue, pr.dmgCap);
         pr._bounceEnemyId = e.id; pr._bounceGrace = 0.12;
         Particles.burst(pr.x, pr.y, 6, pr.color, { maxSpeed: 90 });
         if (pr.onBounce) pr.onBounce(pr, world);
@@ -204,9 +206,27 @@ function resolveEnemyContactWithPlayer(world) {
   if (!player) return;
   for (const e of world.enemies) {
     if (e.dead || !e.contactDmgPercent) continue;
-    if (circleCircle(e.x, e.y, e.radius || 16, player.x, player.y, player.radius)) {
+    // +3 px : les ennemis etant solides, le joueur les touche sans jamais les chevaucher.
+    if (circleCircle(e.x, e.y, (e.radius || 16) + 3, player.x, player.y, player.radius)) {
       e._contactTick = (e._contactTick || 0) + (1 / 60);
       if (e._contactTick >= 0.6) { e._contactTick = 0; playerApplyDamage(player, e.contactDmgPercent); }
     } else e._contactTick = 0;
+  }
+  // Un ennemi qui se deplace sur le joueur (boss qui charge, tourelle mobile) ou une
+  // teleportation qui atterrit dans un ennemi : on ressort le joueur, ennemis solides.
+  for (const e of world.enemies) {
+    if (e.dead) continue;
+    const R = (e.radius || 16) + player.radius;
+    const dx = player.x - e.x, dy = player.y - e.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= R * R) continue;
+    const d = Math.sqrt(d2);
+    const n = d > 0.001 ? { x: dx / d, y: dy / d } : { x: 1, y: 0 };
+    player.x = e.x + n.x * R; player.y = e.y + n.y * R;
+  }
+  if (world.room) {
+    const b = world.room.bounds;
+    player.x = clamp(player.x, b.x + player.radius, b.x + b.w - player.radius);
+    player.y = clamp(player.y, b.y + player.radius, b.y + b.h - player.radius);
   }
 }

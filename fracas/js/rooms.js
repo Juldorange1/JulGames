@@ -11,6 +11,15 @@ const ROOM_ZOOM_MARGIN = 0.92;
 function computeZoom(worldW, worldH) {
   return Math.min(CANVAS_W / worldW, CANVAS_H / worldH) * ROOM_ZOOM_MARGIN;
 }
+// Memorise la zone a cadrer pour pouvoir recalculer le zoom quand la fenetre change de taille.
+// pad : marge cadree SOUS la carte pour voir la falaise de l'ile qui pend dans le vide.
+const ISLAND_VIEW_PAD = 0; // la carte est cadree en grand et centree
+function setWorldZoom(world, worldW, worldH, pad) {
+  const p = pad == null ? ISLAND_VIEW_PAD : pad;
+  world.islandPad = p;
+  world.zoomBox = { w: worldW, h: worldH + p };
+  world.zoom = computeZoom(worldW, worldH + p);
+}
 
 const TURRET_POOL_P1 = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
 const TURRET_POOL_P2 = ['T2', 'T2', 'T2', 'T4', 'T4', 'T4', 'T5', 'T5', 'T5', 'T8', 'T8', 'T8', 'T10', 'T10', 'T10', 'T1', 'T3', 'T9'];
@@ -75,8 +84,9 @@ function generateRoomLayout(part, index) {
     for (const type of types) {
       const p = localPickPoint(bounds, obstacles, avoid, 45) || { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
       terrainZones.push(makeZone({
-        x: p.x, y: p.y, radius: randRange(38, 58), duration: 9999, persistent: true, tickInterval: 999,
+        x: p.x, y: p.y, radius: randRange(46, 66), duration: 9999, persistent: true, tickInterval: 999,
         color: terrainColor(type), edgeColor: terrainEdgeColor(type), terrainType: type,
+        windAngle: randInt(0, 7) * Math.PI / 4,
       }));
       avoid.push({ x: p.x, y: p.y, r: 60 });
     }
@@ -102,11 +112,35 @@ function generateRoomLayout(part, index) {
     }
   }
 
+  // Aides de deplacement (comme dans les parcours) : une paire de teleporteurs (sens unique) et
+  // des trampolines qui font sauter par-dessus murs et projectiles.
+  const helpers = { teleporters: [], trampolines: [] };
+  const landingFree = (x, y) => x > bounds.x + 30 && x < bounds.x + bounds.w - 30 && y > bounds.y + 30 && y < bounds.y + bounds.h - 30
+    && !obstacles.some((o) => circleRect(x, y, 26, o.x, o.y, o.w, o.h));
+  if (Math.random() < 0.65) {
+    const a = localPickPoint({ x: bounds.x, y: bounds.y, w: bounds.w * 0.5, h: bounds.h }, obstacles, avoid, 40, 60);
+    const b = a && localPickPoint({ x: bounds.x + bounds.w * 0.5, y: bounds.y, w: bounds.w * 0.5, h: bounds.h }, obstacles, avoid, 40, 60);
+    if (a && b) { helpers.teleporters.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y }); avoid.push({ x: a.x, y: a.y, r: 60 }, { x: b.x, y: b.y, r: 60 }); }
+  }
+  const nTramp = isBoss ? randInt(1, 2) : randInt(1, 3);
+  for (let k = 0; k < nTramp; k++) {
+    for (let t = 0; t < 20; t++) {
+      const p = localPickPoint(bounds, obstacles, avoid, 36, 20);
+      if (!p) break;
+      const ang = randRange(0, Math.PI * 2);
+      const lx = p.x + Math.cos(ang) * 210, ly = p.y + Math.sin(ang) * 210;
+      if (!landingFree(lx, ly)) continue;
+      helpers.trampolines.push({ x: p.x, y: p.y, lx, ly });
+      avoid.push({ x: p.x, y: p.y, r: 60 });
+      break;
+    }
+  }
+
   const decorations = generateDecorations(bounds, obstacles, avoid, part, isBoss ? 26 : 18);
 
   return {
     part, index, bounds: Object.assign({}, bounds), obstacles, terrainZones, turretSpecs, decorations,
-    bossTypes, spawnPoint, isBoss, heavy: part === 3, zoom: computeZoom(w, h),
+    bossTypes, spawnPoint, isBoss, heavy: part === 3, zoom: computeZoom(w, h), helpers,
   };
 }
 
@@ -136,8 +170,14 @@ function instantiateRoom(world, layout) {
     bounds: Object.assign({}, layout.bounds), obstacles: layout.obstacles,
     terrainZones: layout.terrainZones.map((z) => Object.assign({}, z, { id: uid() })),
     part: layout.part, index: layout.index, isBoss: layout.isBoss,
+    // memes objets que les parcours (logique/rendu dans parkour.js), sans pieges ni boosts
+    parkour: layout.helpers ? {
+      time: 0, spikes: [], lasers: [], boosts: [], shooters: [],
+      teleporters: layout.helpers.teleporters, trampolines: layout.helpers.trampolines.map((t) => Object.assign({}, t)),
+    } : null,
   };
   world.room = room;
+  world.noFollow = true; // Monde : la camera ne suit jamais le personnage
   world.enemies = [];
   world.projectiles = [];
   world.zones = [];
@@ -145,10 +185,10 @@ function instantiateRoom(world, layout) {
   world.shields = [];
   world.mines = [];
   world.winds = [];
-  world.meteors = [];
+  world.meteors = []; world.hazards = [];
   world.decorations = layout.decorations || [];
   world.theme = ROOM_THEMES[layout.part] || ROOM_THEMES[1];
-  world.zoom = layout.zoom || 1;
+  setWorldZoom(world, layout.bounds.w, layout.bounds.h);
 
   for (const spec of layout.turretSpecs) {
     const t = createTurret(spec.type, spec.x, spec.y);

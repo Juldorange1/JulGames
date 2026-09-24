@@ -41,7 +41,7 @@ function bossRadialBurst(world, b, count, speed) {
   for (let i = 0; i < count; i++) {
     fireAt(world, b, (Math.PI * 2 * i) / count, { speed: speed || 160, dmgPercent: 8, radius: 8, color: COLORS.projEnemy });
   }
-  Audio2.attack();
+  Audio2.enemyShot();
 }
 
 function bossLineToward(world, b, count, spacing) {
@@ -154,7 +154,10 @@ function updateBoss(world, b, dt) {
     Audio2.boss();
   }
   if (b.state.phaseChangeFx > 0) b.state.phaseChangeFx -= dt;
-  b.timer += dt * ENEMY_FIRE_RATE_MULT;
+  // Deux boss en meme temps : chacun attaque deux fois moins souvent.
+  const aliveBosses = world.enemies.filter((e) => e.kind === 'boss' && !e.dead).length;
+  b.fireScale = aliveBosses >= 2 ? 0.5 : 1;
+  b.timer += dt * ENEMY_FIRE_RATE_MULT * b.fireScale;
   switch (b.type) {
     case 'B1': updateBoss1(world, b, dt); break;
     case 'B2': updateBoss2(world, b, dt); break;
@@ -277,7 +280,7 @@ function updateBoss3(world, b, dt) {
         spawnEnemyProjectile(world, { x: b.x, y: b.y, vx: dir.x * 260, vy: dir.y * 260, radius: 6, dmgPercent: 5, life: 4 });
       }
     }
-    Audio2.attack();
+    Audio2.enemyShot();
   }
   // Charge blindee : a partir de la phase 2, la mitraille percute regulierement le decor et le detruit.
   if (b.phase >= 2) {
@@ -295,7 +298,7 @@ function updateBoss4(world, b, dt) {
   const s = b.state;
   if (s.railIdx == null) { s.railIdx = 0; s.railT = 0; s.railSwitch = 0; }
   const switchInterval = b.phase === 3 ? 1.7 : 2.6;
-  s.railSwitch += dt * ENEMY_FIRE_RATE_MULT;
+  s.railSwitch += dt * ENEMY_FIRE_RATE_MULT * (b.fireScale || 1);
   bossCharge(b, switchInterval, 0.3);
   const rail = s.rails[s.railIdx];
   s.railT += dt * 0.6;
@@ -310,7 +313,7 @@ function updateBoss4(world, b, dt) {
     const dirCount = b.phase >= 2 ? 12 : 6;
     for (let i = 0; i < dirCount; i++) fireAt(world, b, (Math.PI * 2 * i) / dirCount, { speed: 180, dmgPercent: 10 });
     Particles.burst(b.x, b.y, 20, b.color, { maxSpeed: 200 });
-    Audio2.attack();
+    Audio2.enemyShot();
     // Au coeur de la salve, le canon detruit tout obstacle proche du nouveau rail (voies degagees a la force).
     if (b.phase === 3) bossDestroyNearestObstacle(world, b);
   }
@@ -623,20 +626,40 @@ function drawBoss(ctx, camera, b) {
   }
   ctx.restore();
 
-  const w = 90;
+  // (la barre de PV du boss est affichee en haut de l'ecran : voir renderBossBars)
+}
+
+// Barres de PV des boss, en haut de l'ecran (coordonnees ecran), une par boss vivant.
+function renderBossBars(ctx, world) {
+  const bosses = (world.enemies || []).filter((e) => e.kind === 'boss' && !e.dead);
+  if (!bosses.length) return;
+  const W = CANVAS_W;
+  const barW = Math.min(560, W * 0.42), barH = 14;
   ctx.save();
-  ctx.translate(sx - w / 2, sy - b.radius - 18);
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(0, 0, w, 8);
-  ctx.fillStyle = b.color;
-  ctx.fillRect(0, 0, w * clamp(b.hp / b.maxHp, 0, 1), 8);
-  ctx.strokeStyle = '#000';
-  ctx.strokeRect(0, 0, w, 8);
-  ctx.restore();
-  ctx.save();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px Segoe UI';
-  ctx.textAlign = 'center';
-  ctx.fillText(b.name, sx, sy - b.radius - 24);
+  bosses.forEach((b, i) => {
+    // salle de test : la barre de choix des persos occupe deja le haut de l'ecran
+    const top = Game.state === STATE.TEST_ROOM ? 78 : 26;
+    const x = W / 2 - barW / 2, y = top + i * 44;
+    const f = clamp(b.hp / b.maxHp, 0, 1);
+    b._barShown = b._barShown == null ? f : lerp(b._barShown, f, 0.08); // trainee de degats
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath(); ctx.roundRect(x - 3, y - 3, barW + 6, barH + 6, 6); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillRect(x, y, barW * b._barShown, barH);
+    const g = ctx.createLinearGradient(0, y, 0, y + barH);
+    g.addColorStop(0, b.color); g.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = b.color; ctx.fillRect(x, y, barW * f, barH);
+    ctx.fillStyle = g; ctx.fillRect(x, y, barW * f, barH);
+    // reperes des phases (70% et 35%)
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    for (const p of [0.7, 0.35]) ctx.fillRect(x + barW * p - 1, y, 2, barH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, barW - 1, barH - 1);
+    ctx.font = 'bold 13px Segoe UI'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 4;
+    ctx.textAlign = 'left'; ctx.fillText(b.name.toUpperCase(), x, y - 4);
+    ctx.textAlign = 'right'; ctx.fillText(`${Math.ceil(b.hp)} / ${Math.round(b.maxHp)}`, x + barW, y - 4);
+    ctx.shadowBlur = 0;
+  });
   ctx.restore();
 }

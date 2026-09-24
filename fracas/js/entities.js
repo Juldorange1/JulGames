@@ -15,6 +15,42 @@ function makeProjectile(p) {
   }, p);
 }
 
+// Reflechit un projectile sur un rectangle (normale = point le plus proche, donc faces ET coins).
+// Renvoie true s'il y a eu contact. killIfNoBounce : un projectile non rebondissant meurt au contact.
+function reflectProjectileOnRect(world, pr, rx, ry, rw, rh, killIfNoBounce) {
+  if (!circleRect(pr.x, pr.y, pr.radius, rx, ry, rw, rh)) return false;
+  const cx = clamp(pr.x, rx, rx + rw);
+  const cy = clamp(pr.y, ry, ry + rh);
+  const ddx = pr.x - cx, ddy = pr.y - cy;
+  const dd = Math.hypot(ddx, ddy);
+  let nx, ny;
+  if (dd > 0.001) { nx = ddx / dd; ny = ddy / dd; }
+  else {
+    // Centre deja a l'interieur : on ressort par la face la plus proche de la position precedente.
+    const px = pr.prevX != null ? pr.prevX : pr.x, py = pr.prevY != null ? pr.prevY : pr.y;
+    const dl = px - rx, dr = rx + rw - px, dt2 = py - ry, db = ry + rh - py;
+    const m = Math.min(dl, dr, dt2, db);
+    if (m === dl) { nx = -1; ny = 0; } else if (m === dr) { nx = 1; ny = 0; }
+    else if (m === dt2) { nx = 0; ny = -1; } else { nx = 0; ny = 1; }
+  }
+  if (dd > 0.001) { pr.x = cx + nx * (pr.radius + 0.5); pr.y = cy + ny * (pr.radius + 0.5); }
+  else if (nx !== 0) { pr.x = (nx < 0 ? rx : rx + rw) + nx * (pr.radius + 0.5); }
+  else { pr.y = (ny < 0 ? ry : ry + rh) + ny * (pr.radius + 0.5); }
+  const dot = pr.vx * nx + pr.vy * ny;
+  if (dot < 0) { pr.vx -= 2 * dot * nx; pr.vy -= 2 * dot * ny; }
+  if (pr.maxBounces > 0) {
+    pr.bounces++;
+    if (pr.bounceGrowth) pr.dmgValue *= (1 + pr.bounceGrowth);
+    if (pr.dmgCap) pr.dmgValue = Math.min(pr.dmgValue, pr.dmgCap);
+    Particles.burst(pr.x, pr.y, 6, pr.color, { maxSpeed: 90 });
+    if (pr.onBounce) pr.onBounce(pr, world);
+    if (pr.bounces > pr.maxBounces) { pr.dead = true; if (pr.onExpire) pr.onExpire(pr, world); }
+  } else if (killIfNoBounce) {
+    pr.dead = true;
+  }
+  return true;
+}
+
 function updateProjectiles(world, dt) {
   const arr = world.projectiles;
   for (let i = arr.length - 1; i >= 0; i--) {
@@ -46,6 +82,7 @@ function updateProjectiles(world, dt) {
           pr.bounces++;
           if (pr.bounceGrowth) pr.dmgPercent *= (1 + pr.bounceGrowth);
           if (pr.dmgValue) pr.dmgValue *= (1 + pr.bounceGrowth);
+          if (pr.dmgCap) pr.dmgValue = Math.min(pr.dmgValue, pr.dmgCap);
           Particles.burst(pr.x, pr.y, 6, pr.color, { maxSpeed: 90 });
           if (pr.onBounce) pr.onBounce(pr, world);
           if (pr.bounces > pr.maxBounces) { pr.dead = true; if (pr.onExpire) pr.onExpire(pr, world); }
@@ -55,34 +92,23 @@ function updateProjectiles(world, dt) {
       }
     }
 
+    // Tirs des pieges de parcours : arretes par les obstacles de la salle.
+    if (!pr.dead && pr.stopOnObstacles && world.room) {
+      for (const ob of world.room.obstacles) {
+        if (circleRect(pr.x, pr.y, pr.radius, ob.x, ob.y, ob.w, ob.h)) { pr.dead = true; Particles.burst(pr.x, pr.y, 5, pr.color, { maxSpeed: 70 }); break; }
+      }
+    }
     // Murs poses (ex : Ferro) : un projectile qui le touche rebondit dessus comme sur un ennemi.
     if (!pr.dead && !pr.ignoreWalls && world.walls && world.walls.length) {
       for (const w of world.walls) {
-        const wx = w.x - w.w / 2, wy = w.y - w.h / 2;
-        if (!circleRect(pr.x, pr.y, pr.radius, wx, wy, w.w, w.h)) continue;
-        const cx = clamp(pr.x, wx, wx + w.w);
-        const cy = clamp(pr.y, wy, wy + w.h);
-        const ddx = pr.x - cx, ddy = pr.y - cy;
-        const dd = Math.hypot(ddx, ddy);
-        let nx, ny;
-        if (dd > 0.001) { nx = ddx / dd; ny = ddy / dd; }
-        else if (Math.abs(pr.vx) > Math.abs(pr.vy)) { nx = pr.vx >= 0 ? -1 : 1; ny = 0; }
-        else { nx = 0; ny = pr.vy >= 0 ? -1 : 1; }
-        pr.x = cx + nx * (pr.radius + 0.5);
-        pr.y = cy + ny * (pr.radius + 0.5);
-        const dot = pr.vx * nx + pr.vy * ny;
-        pr.vx -= 2 * dot * nx;
-        pr.vy -= 2 * dot * ny;
-        if (pr.maxBounces > 0) {
-          pr.bounces++;
-          if (pr.bounceGrowth) pr.dmgValue *= (1 + pr.bounceGrowth);
-          Particles.burst(pr.x, pr.y, 6, pr.color, { maxSpeed: 90 });
-          if (pr.onBounce) pr.onBounce(pr, world);
-          if (pr.bounces > pr.maxBounces) { pr.dead = true; if (pr.onExpire) pr.onExpire(pr, world); }
-        } else {
-          pr.dead = true;
-        }
-        break;
+        if (reflectProjectileOnRect(world, pr, w.x - w.w / 2, w.y - w.h / 2, w.w, w.h, true)) break;
+      }
+    }
+    // Obstacles de la salle : les projectiles rebondissants (ex : couteaux de Ferro) rebondissent
+    // sur n'importe quelle face/coin ; les autres les traversent comme avant.
+    if (!pr.dead && !pr.ignoreWalls && pr.maxBounces > 0 && world.room && world.room.obstacles) {
+      for (const ob of world.room.obstacles) {
+        if (reflectProjectileOnRect(world, pr, ob.x, ob.y, ob.w, ob.h, false)) break;
       }
     }
 
@@ -94,6 +120,7 @@ function updateProjectiles(world, dt) {
 function drawProjectiles(ctx, camera, world) {
   for (const pr of world.projectiles) {
     const sx = pr.x - camera.x, sy = pr.y - camera.y;
+    if (pr.team === TEAM.ENEMY) { drawEnemyProjectile(ctx, pr, sx, sy); continue; }
     ctx.save();
     ctx.fillStyle = pr.color;
     ctx.shadowColor = pr.color;
@@ -163,6 +190,10 @@ function drawZones(ctx, camera, world) {
   for (const z of world.zones) {
     const sx = z.x - camera.x, sy = z.y - camera.y;
     const active = z.telegraphAge >= z.telegraph;
+    if (active && z.terrainType && TERRAIN_TYPES.includes(z.terrainType) && z.shape !== 'rect') {
+      drawTerrainZone(ctx, sx, sy, z);
+      continue;
+    }
     ctx.save();
     ctx.globalAlpha = active ? 0.85 : 0.4 + 0.3 * Math.sin(z.telegraphAge * 12);
     ctx.strokeStyle = z.edgeColor;

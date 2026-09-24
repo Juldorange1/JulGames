@@ -46,6 +46,47 @@ const Save = {
     // Une sauvegarde dont le hub est absent ou d'une version perimee (disposition par defaut
     // changee depuis) est regeneree a neuf plutot que de garder une ancienne structure figee.
     this.data.hub = (parsed && parsed.hub && parsed.hub.version === HUB_LAYOUT_VERSION) ? parsed.hub : defaultHubLayout();
+    // Parcours regeneres (nouvelle version) : leurs anciens records ne correspondent plus au trace.
+    if (typeof PARKOUR_VERSION !== 'undefined' && this.data.parkourVersion !== PARKOUR_VERSION) {
+      for (const k of Object.keys(this.data.challenges)) if (/^challengeP\d+$/.test(k)) this.data.challenges[k] = null;
+      for (const c of this.data.customChallenges || []) if (c.parkour) c.record = null;
+      this.data.parkourVersion = PARKOUR_VERSION;
+      this.persist();
+    }
+    for (const gone of ['perso', 'settings']) {
+      // Menus fusionnes : Personnages -> Codex, Parametres -> Fonctionnalites (avec le Marche)
+      if (this.data.hub && this.data.hub.doors && this.data.hub.doors[gone]) { delete this.data.hub.doors[gone]; this.persist(); }
+    }
+    if (this.data.hub && !this.data.hubDoorsV5) {
+      const hub = this.data.hub;
+      const hasCell = (gx, gy) => hub.cells.some((c) => c.gx === gx && c.gy === gy);
+      const hasDecor = (gx, gy) => (hub.decor || []).some((d) => d.gx === gx && d.gy === gy);
+      const moveDoor = (key, gx, gy) => {
+        if (!hub.doors[key] || !hasCell(gx, gy) || hasDecor(gx, gy)) return;
+        const other = Object.keys(hub.doors).find((k) => k !== key && hub.doors[k].gx === gx && hub.doors[k].gy === gy);
+        if (other) hub.doors[other] = { gx: hub.doors[key].gx, gy: hub.doors[key].gy }; // echange de place
+        hub.doors[key] = { gx, gy };
+      };
+      moveDoor('defi', 1, -1);
+      moveDoor('bestiary', -1, 1);
+      this.data.hubDoorsV5 = true;
+      this.persist();
+    }
+    if (this.data.hub && !this.data.hubDoorsV6) {
+      // Fonctionnalites : tout en bas a droite de la base (case la plus a droite de la rangee du bas)
+      const hub = this.data.hub;
+      const maxGy = Math.max(...hub.cells.map((c) => c.gy));
+      const bottomRow = hub.cells.filter((c) => c.gy === maxGy);
+      const target = bottomRow.reduce((a, c) => (c.gx > a.gx ? c : a), bottomRow[0]);
+      const hasDecor = (gx, gy) => (hub.decor || []).some((d) => d.gx === gx && d.gy === gy);
+      if (target && hub.doors.market && !hasDecor(target.gx, target.gy)) {
+        const other = Object.keys(hub.doors).find((k) => k !== 'market' && hub.doors[k].gx === target.gx && hub.doors[k].gy === target.gy);
+        if (other) hub.doors[other] = { gx: hub.doors.market.gx, gy: hub.doors.market.gy };
+        hub.doors.market = { gx: target.gx, gy: target.gy };
+      }
+      this.data.hubDoorsV6 = true;
+      this.persist();
+    }
     Keybinds = Object.assign({}, DEFAULT_KEYS, this.data.keybinds);
     return this.data;
   },
@@ -111,6 +152,13 @@ const Save = {
   addCustomChallenge(def) {
     const entry = Object.assign({ id: 'c' + Date.now(), record: null }, def);
     this.data.customChallenges.push(entry);
+    this.persist();
+    return entry;
+  },
+  updateCustomChallenge(id, fields) {
+    const entry = this.getCustomChallenge(id);
+    if (!entry) return this.addCustomChallenge(fields);
+    Object.assign(entry, fields, { record: null }); // defi modifie : l'ancien record ne vaut plus
     this.persist();
     return entry;
   },

@@ -113,6 +113,7 @@ const COLORS = {
 const PARTS = [1, 2, 3];
 const ROOMS_PER_PART = 10;
 
+// Les zones d'inversion des commandes (invertH / invertV) ont ete retirees du jeu.
 const TERRAIN_TYPES = [
-  'ice', 'mud', 'accel', 'slow', 'damage', 'invertH', 'invertV', 'wind',
+  'ice', 'mud', 'accel', 'slow', 'damage', 'wind',
 ];

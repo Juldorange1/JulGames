@@ -11,6 +11,12 @@ const Input = {
   init(canvas) {
     this._canvas = canvas;
     window.addEventListener('keydown', (e) => {
+      // Touches de modification seules : une combinaison systeme (Alt+Tab, Win...) va faire perdre
+      // le focus ; on ne les enregistre pas comme touches de jeu.
+      if (e.key === 'Alt' || e.key === 'Meta' || e.key === 'OS') return;
+      // Saisie de texte (nom d'un defi...) : les touches ne pilotent pas le jeu.
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (this.rebindCallback) {
         e.preventDefault();
         const cb = this.rebindCallback;
@@ -67,6 +73,19 @@ const Input = {
       }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Si la fenetre perd le focus (clic hors du jeu, Alt+Tab...), les relachements de touches ne
+    // sont jamais recus : on considere donc tout relache pour qu'aucune direction ne reste bloquee.
+    const releaseAll = () => {
+      for (const code of this.down) this.released.add(code);
+      this.down.clear();
+      this.mouse.down = false;
+    };
+    window.addEventListener('blur', releaseAll);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+    window.addEventListener('pagehide', releaseAll);
+    // Filet de securite : une touche de deplacement relachee hors fenetre ne doit jamais rester
+    // enfoncee si le navigateur n'a pas tout signale (keyup perdu).
+    window.addEventListener('focus', releaseAll);
   },
 
   isDown(code) { return this.down.has(code); },

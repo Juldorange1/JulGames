@@ -100,16 +100,20 @@ function turretCharge(t, interval, window) {
 function fireAt(world, t, angle, opts) {
   const dir = vecFromAngle(angle);
   const speed = (opts && opts.speed) || 170;
-  spawnEnemyProjectile(world, Object.assign({
+  const pr = spawnEnemyProjectile(world, Object.assign({
     x: t.x, y: t.y, vx: dir.x * speed, vy: dir.y * speed, radius: 6,
     dmgPercent: TURRET_LOSS[t.type], life: 5,
   }, opts));
+  // apparence propre au tireur (roche, aiguille, bulle, eclat de glace...) : pas que des boules rouges
+  const skin = PROJ_SKINS[t.type];
+  if (skin && !(opts && opts.skin)) { pr.skin = skin[0]; if (!(opts && opts.color) || opts.color === COLORS.projEnemy) pr.color = skin[1]; }
+  return pr;
 }
 
 const T1_INTERVAL = 1.45;
 function updateT1(world, t, dt) {
   turretCharge(t, T1_INTERVAL, 0.3);
-  if (t.timer >= T1_INTERVAL) { t.timer = 0; fireAt(world, t, t.aimAngle, { speed: 150 }); Audio2.attack(); }
+  if (t.timer >= T1_INTERVAL) { t.timer = 0; fireAt(world, t, t.aimAngle, { speed: 150 }); Audio2.enemyShot(); }
 }
 const T2_INTERVAL = 2.7;
 function updateT2(world, t, dt) {
@@ -161,7 +165,7 @@ function updateT5(world, t, dt) {
   if (t.timer >= T5_INTERVAL) {
     t.timer = 0; t.charging = false;
     for (let i = 0; i < 8; i++) fireAt(world, t, (Math.PI * 2 * i) / 8, { speed: 180 });
-    Audio2.attack();
+    Audio2.enemyShot();
   }
 }
 const T6_INTERVAL = 1.25;

@@ -30,6 +30,7 @@ function glowOutline(ctx, color, blur) {
 // ============================================================
 // PERSONNAGE 1 — LE PISTOLET VIVANT
 // ============================================================
+const COLT_FIRE_INTERVAL = 0.25, COLT_FOCUS_INTERVAL = 0.15; // cadence doublee
 CHARACTERS[1] = {
   id: 1, name: 'Colt', epithet: 'Le Pistolet Vivant', speedPercent: 42, color: '#ffd23d', // vitesse +20%
   attackLabel: 'Echange de position avec le pistolet (tir 360 automatique)', attackCd: 0.2,
@@ -48,17 +49,18 @@ CHARACTERS[1] = {
     if (!st.concentrating) {
       st.gunAngle += 1.6 * dt;
       st.fireTimer += dt;
-      if (st.fireTimer >= 0.5) {
+      if (st.fireTimer >= COLT_FIRE_INTERVAL) { // cadence x2
         st.fireTimer = 0;
         const dir = vecFromAngle(st.gunAngle);
         spawnPlayerProjectile(world, player, {
           x: st.gunX, y: st.gunY, vx: dir.x * 360, vy: dir.y * 360,
           radius: 7, dmgValue: 20 * 1.33, life: 1.4, // +33% degats
         });
+        Audio2.gunshot(0.45);
       }
     } else {
       st.fireTimer += dt;
-      if (st.fireTimer >= 0.3) {
+      if (st.fireTimer >= COLT_FOCUS_INTERVAL) {
         st.fireTimer = 0;
         const ang = angleTo(st.gunX, st.gunY, player.aim.x, player.aim.y);
         const dir = vecFromAngle(ang);
@@ -66,6 +68,7 @@ CHARACTERS[1] = {
           x: st.gunX, y: st.gunY, vx: dir.x * 460, vy: dir.y * 460,
           radius: 7, dmgValue: 36 * 1.33, life: 1.4, color: '#ff9d3d', // +33% degats
         });
+        Audio2.gunshot(0.6);
       }
     }
   },
@@ -162,17 +165,25 @@ CHARACTERS[1] = {
 // ============================================================
 // PERSONNAGE 2 — LE SAUTEUR
 // ============================================================
+// Nyx pose des trampolines : l'atterrissage est oriente dans le sens ou il a ete pose par rapport
+// a lui. 3 trampolines max par salle (le 4e en fait disparaitre un au hasard). Quand Nyx en prend
+// un, il saute et, en retombant, projette 4 projectiles (haut, bas, gauche, droite).
+const NYX_DMG = 0.7;
+const NYX_TRAMP_RANGE = 80, NYX_JUMP_DIST = 240, NYX_TRAMP_MAX = 3, NYX_ATTACK_CD = 0.7;
+const NYX_JUMP_TIME = 0.55, NYX_SHOT_DMG = 22, NYX_SHOT_SPEED = 400;
 CHARACTERS[2] = {
   id: 2, name: 'Nyx', epithet: 'Le Sauteur', speedPercent: 60, color: '#c77aff',
-  attackLabel: 'Teleportation offensive (420 px)', attackCd: 0.65,
+  attackLabel: 'Pose un trampoline (3 max) · atterrissage = 4 projectiles', attackCd: NYX_ATTACK_CD,
   a1Label: 'Echange avec tourelle', a1Cd: 8,
   a2Label: 'Trainee de feu', a2Cd: 10,
   a3Label: 'Retour en arriere (1s)', a3Cd: 7,
 
-  init(player) { player.state = { dashTimer: 0, trail: [] }; },
+  init(player) { player.state = { dashTimer: 0, trail: [], tramps: [], jump: null, room: null }; },
 
   update(world, player, dt, realDt) {
     const st = player.state;
+    // les trampolines appartiennent a la salle : nouvelle salle = plus de trampolines
+    if (st.room !== world.room) { st.room = world.room; st.tramps = []; st.jump = null; player.airborne = false; player.airScale = 1; }
     if (st.dashTimer > 0) {
       st.dashTimer -= dt;
       st.trailTimer = (st.trailTimer || 0) + dt;
@@ -181,35 +192,68 @@ CHARACTERS[2] = {
         world.zones.push(makeZone({
           x: player.x, y: player.y, radius: 22, duration: 3, tickInterval: 0.4,
           color: 'rgba(255,120,40,0.35)', edgeColor: '#ff7a28', team: TEAM.PLAYER,
-          onTick(z) { for (const e of enemiesInRadius(world, z.x, z.y, z.radius)) damageEnemy(world, e, 3, player); },
+          onTick(z) { for (const e of enemiesInRadius(world, z.x, z.y, z.radius)) damageEnemy(world, e, 3 * NYX_DMG, player); },
         }));
       }
       if (st.dashTimer <= 0) player.state.movementOverride = null;
     }
+    for (const t of st.tramps) if (t.bounce > 0) t.bounce -= dt;
+    // saut en cours : trajectoire imposee au-dessus de tout
+    if (st.jump) {
+      const j = st.jump;
+      j.t += dt;
+      const f = clamp(j.t / j.dur, 0, 1);
+      player.x = lerp(j.x0, j.x1, f); player.y = lerp(j.y0, j.y1, f);
+      player.airScale = 1 + 0.6 * Math.sin(Math.PI * f);
+      player.airborne = true;
+      if (f >= 1) {
+        st.jump = null; player.airborne = false; player.airScale = 1;
+        this.onTrampolineLand(world, player);
+      }
+      return;
+    }
+    // marcher sur un de ses trampolines = saut
+    for (const t of st.tramps) {
+      if (Math.hypot(t.x - player.x, t.y - player.y) < 18) {
+        st.jump = { x0: player.x, y0: player.y, x1: t.lx, y1: t.ly, t: 0, dur: NYX_JUMP_TIME };
+        player.airborne = true;
+        t.bounce = 0.3;
+        Audio2.whoosh();
+        break;
+      }
+    }
   },
 
+  // Atterrissage de N'IMPORTE QUEL trampoline (les siens, ceux des salles, des parcours, de la
+  // base...) : 4 projectiles en croix.
+  onTrampolineLand(world, player) {
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      spawnPlayerProjectile(world, player, {
+        x: player.x + dx * 16, y: player.y + dy * 16, vx: dx * NYX_SHOT_SPEED, vy: dy * NYX_SHOT_SPEED,
+        radius: 7, dmgValue: NYX_SHOT_DMG, life: 1.1, color: '#e0b3ff',
+      });
+    }
+    Particles.ring(player.x, player.y, 34, '#c77aff', 0.3);
+    Particles.burst(player.x, player.y, 18, '#e0c8ff', { maxSpeed: 200 });
+    if (Game.shakeCamera) Game.shakeCamera(3, 0.12);
+    Audio2.explosion(0.5);
+  },
+
+  // Pose un trampoline au curseur (a portee) ; il fait atterrir plus loin dans la meme direction.
   onAttackPress(world, player) {
-    if (player.attackCooldown > 0) return;
-    const ang = player.facing;
-    const dir = vecFromAngle(ang);
-    const from = { x: player.x, y: player.y };
-    let tx = player.x + dir.x * 420, ty = player.y + dir.y * 420;
-    if (world.room) {
-      const b = world.room.bounds;
-      tx = clamp(tx, b.x + player.radius, b.x + b.w - player.radius);
-      ty = clamp(ty, b.y + player.radius, b.y + b.h - player.radius);
-    }
-    const steps = 10;
-    for (let i = 1; i <= steps; i++) {
-      const px = lerp(from.x, tx, i / steps), py = lerp(from.y, ty, i / steps);
-      for (const e of enemiesInRadius(world, px, py, 26)) damageEnemy(world, e, 20, player);
-    }
-    player.x = tx; player.y = ty;
-    Particles.burst(from.x, from.y, 14, '#c77aff', { maxSpeed: 160 });
-    Particles.burst(tx, ty, 14, '#c77aff', { maxSpeed: 160 });
-    Particles.lightning(from.x, from.y, tx, ty, '#e0c8ff');
-    Audio2.teleport();
-    player.attackCooldown = 0.65;
+    const st = player.state;
+    if (player.attackCooldown > 0 || st.jump) return;
+    const d0 = normalize(player.aim.x - player.x, player.aim.y - player.y);
+    const dir = (d0.x || d0.y) ? d0 : vecFromAngle(player.facing);
+    const dist = clamp(Math.hypot(player.aim.x - player.x, player.aim.y - player.y), 36, NYX_TRAMP_RANGE); // pose tout pres de Nyx
+    const spot = parkourSafeSpot(world, player.x + dir.x * dist, player.y + dir.y * dist, 18);
+    if (!spot) return;
+    const land = parkourSafeSpot(world, spot.x + dir.x * NYX_JUMP_DIST, spot.y + dir.y * NYX_JUMP_DIST, player.radius + 2) || { x: spot.x, y: spot.y };
+    if (st.tramps.length >= NYX_TRAMP_MAX) st.tramps.splice(Math.floor(Math.random() * st.tramps.length), 1); // le 4e en remplace un au hasard
+    st.tramps.push({ x: spot.x, y: spot.y, lx: land.x, ly: land.y, bounce: 0 });
+    Particles.ring(spot.x, spot.y, 22, '#c77aff', 0.25);
+    Audio2.spark();
+    player.attackCooldown = NYX_ATTACK_CD;
   },
 
   ability1(world, player) {
@@ -218,7 +262,7 @@ CHARACTERS[2] = {
     const px = player.x, py = player.y;
     player.x = t.x; player.y = t.y;
     t.x = px; t.y = py;
-    damageEnemy(world, t, 30, player);
+    damageEnemy(world, t, 30 * NYX_DMG, player);
     Particles.burst(player.x, player.y, 14, '#c77aff', { maxSpeed: 160 });
     Particles.burst(px, py, 14, '#c77aff', { maxSpeed: 160 });
     Audio2.zap();
@@ -245,6 +289,21 @@ CHARACTERS[2] = {
   },
 
   draw(ctx, player) {
+    const st = player.state;
+    const k = player.airScale || 1;
+    if (st.tramps && st.tramps.length) {
+      // dessines dans le repere du joueur (deja zoome si Nyx est en l'air) : on annule ce zoom
+      ctx.save(); ctx.scale(1 / k, 1 / k);
+      const t = performance.now() / 1000;
+      for (const tr of st.tramps) drawTrampoline(ctx, tr, { x: player.x, y: player.y }, t);
+      ctx.restore();
+    }
+    if (st.jump) {
+      ctx.save(); ctx.scale(1 / k, 1 / k);
+      ctx.globalAlpha = 0.35 / k; ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(0, 12, 16 / k, 7 / k, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     drawGroundShadow(ctx, 12, 14);
     for (let i = 1; i <= 2; i++) {
       const p = playerSampleHistory(player, i * 0.1);
@@ -283,9 +342,10 @@ CHARACTERS[2] = {
 // PERSONNAGE 3 — LE BOOMERANG
 // ============================================================
 const KIP_BOOM_SPEED = 520 * 0.7; // -30% vitesse
+const KIP_CATCH_CD = 0.5;
 CHARACTERS[3] = {
   id: 3, name: 'Kip', epithet: 'Le Boomerang', speedPercent: 75, color: '#5dff9d',
-  attackLabel: 'Lance le boomerang',
+  attackLabel: 'Lance le boomerang', attackCd: KIP_CATCH_CD,
   a1Label: 'Surcharge (+dmg / -vitesse)', a1Cd: 3,
   a2Label: 'Boomerang curseur', a2Cd: 0,
   a3Label: 'Zones de glace x5', a3Cd: 12,
@@ -359,6 +419,7 @@ CHARACTERS[3] = {
         }
         if (dist(b.x, b.y, player.x, player.y) < 20) {
           st.boom = null;
+          player.attackCooldown = KIP_CATCH_CD; // 0,5 s avant de pouvoir le relancer
         }
       }
     }
@@ -367,7 +428,7 @@ CHARACTERS[3] = {
 
   onAttackPress(world, player) {
     const st = player.state;
-    if (st.boom) return;
+    if (st.boom || player.attackCooldown > 0) return;
     const dir = vecFromAngle(player.facing);
     st.boom = {
       x: player.x, y: player.y, vx: dir.x * KIP_BOOM_SPEED * st.speedMult, vy: dir.y * KIP_BOOM_SPEED * st.speedMult,
@@ -380,7 +441,7 @@ CHARACTERS[3] = {
       st.boom.b2 = { x: player.x + perp.x * 24, y: player.y + perp.y * 24, vx: dir.x * KIP_BOOM_SPEED * st.speedMult, vy: dir.y * KIP_BOOM_SPEED * st.speedMult, state: 'out' };
       player.state.pendingDouble = false;
     }
-    Audio2.attack();
+    Audio2.boomerang();
   },
 
   ability1(world, player) {
@@ -465,6 +526,7 @@ function drawBoomShape(ctx, x, y) {
 // ============================================================
 // PERSONNAGE 4 — LES QUATRE ORBES
 // ============================================================
+const BRAISE_ORB_DMG = 7 * 2; // degats x2
 CHARACTERS[4] = {
   id: 4, name: 'Braise', epithet: 'Les Quatre Orbes', speedPercent: 85, color: '#ff7a3d',
   attackLabel: 'Contact des orbes (automatique)',
@@ -493,7 +555,9 @@ CHARACTERS[4] = {
     st.tickTimer += dt;
     if (st.tickTimer >= 0.35) {
       st.tickTimer = 0;
-      for (const o of st.orbs) for (const e of enemiesInRadius(world, o.x, o.y, 16)) damageEnemy(world, e, 7, player);
+      let burned = false;
+      for (const o of st.orbs) for (const e of enemiesInRadius(world, o.x, o.y, 16)) { damageEnemy(world, e, BRAISE_ORB_DMG, player); burned = true; }
+      if (burned) Audio2.fire(0.5);
     }
   },
 
@@ -518,7 +582,7 @@ CHARACTERS[4] = {
     for (const e of world.enemies) {
       if (e.dead) continue;
       if (!pointInRect(e.x, e.y, nx, ny, nw, nh)) {
-        damageEnemy(world, e, 40, player);
+        damageEnemy(world, e, 40 * 2, player); // degats x2
         e.x = clamp(e.x, nx + (e.radius || 16), nx + nw - (e.radius || 16));
         e.y = clamp(e.y, ny + (e.radius || 16), ny + nh - (e.radius || 16));
       }
@@ -566,10 +630,12 @@ CHARACTERS[4] = {
 // ============================================================
 // PERSONNAGE 5 — LE REBOND
 // ============================================================
-const FERRO_KNIFE_DMG = 27 * 0.7; // -30% degats
+const FERRO_KNIFE_DMG = 27 * 0.7 * 1.4; // -30% puis +40% de degats
+const FERRO_ATTACK_CD = 0.35 * 3 * 2;  // delai d'attaque x3 puis encore x2
+const FERRO_KNIFE_LIFE = 6 * 0.65; // portee -35% (vitesse constante => duree de vie -35%)
 CHARACTERS[5] = {
   id: 5, name: 'Ferro', epithet: 'Le Rebond', speedPercent: 100, color: '#7fd8ff',
-  attackLabel: 'Deux projectiles rebondissants', attackCd: 0.35,
+  attackLabel: 'Deux projectiles rebondissants', attackCd: FERRO_ATTACK_CD,
   a1Label: 'Poussee', a1Cd: 9 * 1.4,
   a2Label: 'Mur 1x1', a2Cd: 10 * 1.4,
   a3Label: 'Rebonds prolonges (+0.3s/rebond)', a3Cd: 8 * 1.4,
@@ -585,13 +651,17 @@ CHARACTERS[5] = {
       const d = vecFromAngle(player.facing + offsetAngle);
       spawnPlayerProjectile(world, player, {
         x: player.x + d.x * 20, y: player.y + d.y * 20, vx: d.x * 380, vy: d.y * 380,
-        radius: 7, dmgValue: FERRO_KNIFE_DMG, life: 6, maxBounces: 6, bounceGrowth: 0.5, shape: 'knife', color: '#7fd8ff',
+        // Rebondit sur TOUT contact avec un mur (bords, obstacles, murs poses) : aucune limite de
+        // rebonds, seule la duree de vie (portee) arrete le couteau.
+        radius: 7, dmgValue: FERRO_KNIFE_DMG, life: FERRO_KNIFE_LIFE, maxBounces: 999, bounceGrowth: 0.5,
+        shape: 'knife', color: '#7fd8ff',
+        dmgCap: FERRO_KNIFE_DMG * Math.pow(1.5, 6), // meme plafond de degats qu'avec l'ancienne limite de 6 rebonds
         onBounce: extend ? (pr) => { pr.life += 0.3; } : null,
       });
     };
     fire(-0.12); fire(0.12);
-    Audio2.attack();
-    player.attackCooldown = 0.35;
+    Audio2.knifeThrow();
+    player.attackCooldown = FERRO_ATTACK_CD;
   },
 
   ability1(world, player) {
@@ -766,8 +836,8 @@ CHARACTERS[6] = {
 // PERSONNAGE 7 — LE RETARDÉ
 // ============================================================
 CHARACTERS[7] = {
-  id: 7, name: 'Echo', epithet: 'Le Retarde', speedPercent: 115, color: '#c77aff',
-  attackLabel: 'Frappe retardee (position d\'il y a 6s)', attackCd: 0.5,
+  id: 7, name: 'Echo', epithet: 'Le Retarde', speedPercent: 115, color: '#c77aff', autoAttack: true,
+  attackLabel: 'Frappe retardee automatique (position d\'il y a 3s)', attackCd: 0.5,
   a1Label: 'Frappe retardee (10s)', a1Cd: 7,
   a2Label: 'Acceleration (maintenir)', a2Cd: 0,
   a3Label: 'Marque + soin a la mort', a3Cd: 12,
@@ -809,7 +879,7 @@ CHARACTERS[7] = {
 
   onAttackPress(world, player) {
     if (player.attackCooldown > 0) return;
-    const p = playerSampleHistory(player, 6);
+    const p = playerSampleHistory(player, 3);
     for (const e of enemiesInRadius(world, p.x, p.y, 90)) damageEnemy(world, e, 30, player);
     Particles.ring(p.x, p.y, 90, '#c77aff', 0.3);
     Particles.burst(p.x, p.y, 18, '#c77aff', { maxSpeed: 160 });
@@ -870,6 +940,7 @@ CHARACTERS[7] = {
 // ============================================================
 // PERSONNAGE 8 — LE GRAVITATEUR
 // ============================================================
+const VEX_DMG = 1.3 * 0.6; // +30% puis -40% de degats
 CHARACTERS[8] = {
   id: 8, name: 'Vex', epithet: 'Le Gravitateur', speedPercent: 120, color: '#7a7aff',
   attackLabel: 'Attraction gravitationnelle (automatique)',
@@ -895,14 +966,17 @@ CHARACTERS[8] = {
         e.x += dir.x * pull * dt; e.y += dir.y * pull * dt;
         if (doTick) {
           const disp = dist(e.x, e.y, e.spawnX, e.spawnY);
-          if (disp > 4) damageEnemy(world, e, clamp(disp * 0.08, 1, 18) * 1.3, player); // +30% degats
+          if (disp > 4) damageEnemy(world, e, clamp(disp * 0.08, 1, 18) * VEX_DMG, player);
         }
       }
     }
-    st.autoTimer += dt;
+    // Pulsation centrale (competence 3) : seulement si cette competence est disponible
+    // (partie 3 d'expedition, ou hors expedition quand toutes les competences sont actives).
+    const pulseAllowed = !world.abilityGate || world.abilityGate === 3;
+    if (pulseAllowed) st.autoTimer += dt; else st.autoTimer = 0;
     if (st.autoTimer >= 15) {
       st.autoTimer = 0;
-      for (const e of enemiesInRadius(world, player.x, player.y, 150)) damageEnemy(world, e, 40 * 1.3, player); // +30% degats
+      for (const e of enemiesInRadius(world, player.x, player.y, 150)) damageEnemy(world, e, 40 * VEX_DMG, player);
       Particles.ring(player.x, player.y, 150, '#7a7aff', 0.5);
       Particles.burst(player.x, player.y, 30, '#7a7aff', { maxSpeed: 260 });
       Audio2.gravity();
@@ -914,7 +988,7 @@ CHARACTERS[8] = {
   },
 
   ability1(world, player) {
-    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 24, dmgPercent: 10 * 1.3 })); // +30% degats
+    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 24, dmgPercent: 10 * VEX_DMG }));
     Particles.burst(player.aim.x, player.aim.y, 8, '#7a7aff', { maxSpeed: 80, life: 0.3 });
     Audio2.spark();
     player.cooldowns.a1 = 7;
@@ -933,7 +1007,7 @@ CHARACTERS[8] = {
         e.y = clamp(e.y, b.y + (e.radius || 16), b.y + b.h - (e.radius || 16));
         for (const ob of world.room.obstacles) if (circleRect(e.x, e.y, e.radius || 16, ob.x, ob.y, ob.w, ob.h)) hitObstacle = true;
       }
-      if (hitObstacle) damageEnemy(world, e, 35 * 1.3, player); // +30% degats
+      if (hitObstacle) damageEnemy(world, e, 35 * VEX_DMG, player);
     }
     Particles.ring(player.x, player.y, 140, '#7a7aff', 0.3);
     Particles.burst(player.x, player.y, 26, '#7a7aff', { maxSpeed: 220 });
@@ -1010,7 +1084,7 @@ CHARACTERS[9] = {
       }
       st.waveFx = 0;
       st.waveActive = true;
-      Audio2.whoosh();
+      Audio2.fire(1.2);
     }
     if (st.waveActive) {
       st.waveFx += dt;
@@ -1134,11 +1208,13 @@ CHARACTERS[9] = {
 // ============================================================
 // PERSONNAGE 10 — LES DEUX ORBES
 // ============================================================
+const GEMINI_THIRD_ORB_RADIUS = 155;
+const GEMINI_THIRD_ORB_SPIN = 2.2; // rad/s (avant 5.5)
 CHARACTERS[10] = {
   id: 10, name: 'Gemini', epithet: 'Les Deux Orbes', speedPercent: 100, color: '#ffd23d',
   attackLabel: 'Frappe des deux orbes (charges)',
   a1Label: 'Melange les orbes', a1Cd: 5,
-  a2Label: 'Troisieme orbe (bloque tout, 3s)', a2Cd: 12,
+  a2Label: 'Troisieme orbe (bloque tout, 6s)', a2Cd: 12,
   a3Label: 'Gel des deux plus proches', a3Cd: 16,
 
   init(player) {
@@ -1160,7 +1236,7 @@ CHARACTERS[10] = {
       if (!world.shields.includes(st.thirdOrbShield)) {
         st.thirdOrbShield = null;
       } else {
-        st.thirdOrbAngle += 5.5 * dt;
+        st.thirdOrbAngle += GEMINI_THIRD_ORB_SPIN * dt;
       }
     }
   },
@@ -1191,14 +1267,16 @@ CHARACTERS[10] = {
 
   ability2(world, player) {
     const st = player.state;
-    const shield = makeShield({ x: player.x, y: player.y, radius: 62, duration: 3, color: '#8ff0ff', follow: player });
+    // Tourne 2x plus longtemps (6s), plus lentement, et sur une orbite qui englobe celle des
+    // deux autres orbes (le carre de demi-cote 100 a ses coins a ~141).
+    const shield = makeShield({ x: player.x, y: player.y, radius: GEMINI_THIRD_ORB_RADIUS, duration: 6, color: '#8ff0ff', follow: player });
     world.shields.push(shield);
     st.thirdOrbShield = shield;
     st.thirdOrbAngle = 0;
     Particles.burst(player.x, player.y, 22, '#8ff0ff', { maxSpeed: 220, life: 0.4 });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
-      Particles.lightning(player.x, player.y, player.x + Math.cos(a) * 62, player.y + Math.sin(a) * 62, '#c8faff');
+      Particles.lightning(player.x, player.y, player.x + Math.cos(a) * GEMINI_THIRD_ORB_RADIUS, player.y + Math.sin(a) * GEMINI_THIRD_ORB_RADIUS, '#c8faff');
     }
     Audio2.shield();
     player.cooldowns.a2 = 12;
@@ -1356,4 +1434,6 @@ CHARACTERS[11] = {
 };
 
 function getCharacter(id) { return CHARACTERS[id]; }
-function allCharacterIds() { return Object.keys(CHARACTERS).map(Number).sort((a, b) => a - b); }
+// Persos "normaux" (expedition, defis, salle de test) ; les persos de parcours sont a part.
+function allCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => !CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }
+function parkourCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }

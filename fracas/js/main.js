@@ -5,6 +5,8 @@ function resizeCanvas(canvas) {
   CANVAS_H = window.innerHeight;
   canvas.width = CANVAS_W;
   canvas.height = CANVAS_H;
+  const world = typeof Game !== 'undefined' && Game.world;
+  if (world && world.zoomBox) world.zoom = computeZoom(world.zoomBox.w, world.zoomBox.h);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -1,6 +1,14 @@
 // Rendu du monde (arene, terrains, obstacles, entites)
 
-function renderBackground(ctx, camera, room, theme, zoom) {
+function renderBackground(ctx, camera, room, theme, zoom, world) {
+  // Ciel (l'ile flotte dans les airs) : dessine en coordonnees ecran, avec parallaxe.
+  if (world) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    IslandSky.render(ctx, world, camera);
+    ctx.restore();
+    return;
+  }
   // Le repere de rendu est ancre a l'origine (0,0) puis mis a l'echelle par Game.render.
   // On dessine donc le fond depuis (0,0) sur toute la fenetre visible pre-zoom (= CANVAS / zoom),
   // avec une marge (via Math.min(z,1)) pour ne jamais laisser de vide si zoom < 1.
@@ -30,107 +38,10 @@ function renderBackground(ctx, camera, room, theme, zoom) {
   }
 }
 
+// Les decors (herbe, cailloux, tuyaux, fissures...) font partie du sol precalcule de la salle
+// (voir floor.js) : discrets, sans animation ni point lumineux qui gene la lecture des combats.
 function renderDecorations(ctx, camera, world) {
-  const list = world.decorations;
-  if (!list || list.length === 0) return;
-  const t = performance.now() / 1000;
-  for (const d of list) {
-    const sx = d.x - camera.x, sy = d.y - camera.y;
-    if (sx < -30 || sx > CANVAS_W + 30 || sy < -30 || sy > CANVAS_H + 30) continue;
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(d.rot);
-    ctx.scale(d.scale, d.scale);
-    switch (d.type) {
-      case 'grass': {
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = '#3a6a42';
-        ctx.beginPath(); ctx.ellipse(0, 4, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 0.9;
-        const blades = ['#3d7a46', '#4a8a52', '#5fa062', '#6fb56a'];
-        for (let i = -2; i <= 2; i++) {
-          const sway = Math.sin(t * 1.4 + d.seed + i) * 3;
-          const h = 10 + Math.abs(Math.sin(d.seed + i * 1.7)) * 6;
-          ctx.strokeStyle = blades[(i + 2) % blades.length];
-          ctx.lineWidth = 1.8;
-          ctx.beginPath();
-          ctx.moveTo(i * 4, 6);
-          ctx.quadraticCurveTo(i * 4 + sway, 6 - h * 0.6, i * 4 + sway * 1.6, 6 - h);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-        break;
-      }
-      case 'rock': {
-        const rg = ctx.createLinearGradient(-8, -6, 8, 6);
-        rg.addColorStop(0, '#565f52'); rg.addColorStop(0.5, '#3a3f38'); rg.addColorStop(1, '#22261f');
-        ctx.fillStyle = rg;
-        ctx.strokeStyle = '#161915';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-8, 4); ctx.lineTo(-4, -5); ctx.lineTo(5, -6); ctx.lineTo(8, 3); ctx.lineTo(2, 6); ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(-2, -3); ctx.lineTo(1, 2); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.12)';
-        ctx.beginPath(); ctx.ellipse(-2, -3, 3, 1.4, 0.5, 0, Math.PI * 2); ctx.fill();
-        break;
-      }
-      case 'pipe': {
-        ctx.fillStyle = '#2a3440';
-        ctx.strokeStyle = '#485868';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.roundRect(-16, -5, 32, 10, 5); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = '#5a7a8a';
-        ctx.beginPath(); ctx.arc(-10, 0, 1.6, 0, Math.PI * 2); ctx.arc(0, 0, 1.6, 0, Math.PI * 2); ctx.arc(10, 0, 1.6, 0, Math.PI * 2); ctx.fill();
-        break;
-      }
-      case 'rivet': {
-        ctx.fillStyle = '#232b34';
-        ctx.strokeStyle = '#3a4a58';
-        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = '#6a8494';
-        ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
-        break;
-      }
-      case 'stripe': {
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = '#ffd23d';
-        ctx.fillRect(-18, -4, 36, 8);
-        ctx.fillStyle = '#0a0a0a';
-        for (let i = -16; i < 18; i += 8) { ctx.fillRect(i, -4, 4, 8); }
-        break;
-      }
-      case 'crack': {
-        ctx.strokeStyle = 'rgba(255,110,40,0.45)';
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(-14, 0); ctx.lineTo(-4, -5); ctx.lineTo(2, 2); ctx.lineTo(14, -3);
-        ctx.stroke();
-        break;
-      }
-      case 'ashrock': {
-        ctx.fillStyle = '#241410';
-        ctx.strokeStyle = '#3a231a';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-9, 5); ctx.lineTo(-5, -6); ctx.lineTo(6, -5); ctx.lineTo(9, 4); ctx.lineTo(0, 7); ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        break;
-      }
-      case 'ember': {
-        const flick = 0.4 + 0.4 * Math.sin(t * 3 + d.seed * 4);
-        const rise = (t * 12 + d.seed * 20) % 30;
-        ctx.globalAlpha = Math.max(0, 0.7 - rise / 30) * flick + 0.15;
-        ctx.fillStyle = '#ff9d3d';
-        ctx.shadowColor = '#ff7a3d'; ctx.shadowBlur = 6;
-        ctx.beginPath(); ctx.arc(0, -rise, 1.8, 0, Math.PI * 2); ctx.fill();
-        break;
-      }
-    }
-    ctx.restore();
-  }
+  renderRoomFloor(ctx, camera, world);
 }
 
 // Bruit deterministe (memes deux nombres -> meme resultat) : sert a texturer les obstacles sans
@@ -212,9 +123,17 @@ function drawTexturedObstacle(ctx, sx, sy, w, h, themeName, seedX, seedY) {
 function renderObstacles(ctx, camera, room, theme) {
   if (!room) return;
   const themeName = theme && theme.name;
+  const zoom = (Game.world && Game.world.zoom) || 1;
+  const viewW = CANVAS_W / zoom + 40, viewH = CANVAS_H / zoom + 40;
   for (const ob of room.obstacles) {
     if (ob.hubKind === 'void') continue; // le vide hors de la salle du hub ne se dessine pas
+    if (ob.pkVoid) {
+      // roche autour du trace d'un parcours : masse sombre et nette
+      continue; // le vide autour du trace : on voit le ciel (l'ile flotte)
+    }
     const sx = ob.x - camera.x, sy = ob.y - camera.y;
+    // Hors champ (parcours tres longs, des centaines de murs) : inutile de le dessiner.
+    if (sx + ob.w < -40 || sy + ob.h < -40 || sx > viewW || sy > viewH) continue;
     ctx.save();
     if (ob.hubKind === 'wall') {
       // Mur colore du hub : reste net, couleur exacte choisie par le joueur (pas de texture).
@@ -232,23 +151,170 @@ function renderObstacles(ctx, camera, room, theme) {
 
 function renderTerrainZones(ctx, camera, room) {
   if (!room || !room.terrainZones) return;
-  for (const z of room.terrainZones) {
-    const sx = z.x - camera.x, sy = z.y - camera.y;
-    ctx.save();
-    ctx.fillStyle = z.color;
-    ctx.strokeStyle = z.edgeColor;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    ctx.arc(sx, sy, z.radius, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '10px Segoe UI';
-    ctx.textAlign = 'center';
-    ctx.fillText(terrainLabelI18n(z.terrainType), sx, sy + 3);
-    ctx.restore();
+  for (const z of room.terrainZones) drawTerrainZone(ctx, z.x - camera.x, z.y - camera.y, z);
+}
+
+// Petit generateur pseudo-aleatoire deterministe (motifs stables d'une frame a l'autre).
+function zoneRng(seed) {
+  let s = Math.abs(Math.floor(seed)) % 2147483647 || 1;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+const TERRAIN_STYLE = {
+  ice:     { core: 'rgba(225,248,255,0.55)', mid: 'rgba(140,215,250,0.38)', rim: '#bff0ff', glow: '#9de8ff' },
+  mud:     { core: 'rgba(92,64,34,0.85)',    mid: 'rgba(120,86,50,0.7)',    rim: '#6b4a26', glow: '#8a6a45' },
+  accel:   { core: 'rgba(120,255,170,0.35)', mid: 'rgba(40,200,110,0.22)',  rim: '#5dff9d', glow: '#5dff9d' },
+  slow:    { core: 'rgba(120,70,210,0.45)',  mid: 'rgba(80,40,160,0.32)',   rim: '#b47cff', glow: '#b47cff' },
+  damage:  { core: 'rgba(255,190,80,0.55)',  mid: 'rgba(230,60,20,0.42)',   rim: '#ff7a3d', glow: '#ff5a1e' },
+  invertH: { core: 'rgba(255,140,220,0.35)', mid: 'rgba(200,60,160,0.24)',  rim: '#ff7ad1', glow: '#ff7ad1' },
+  invertV: { core: 'rgba(210,150,255,0.35)', mid: 'rgba(140,70,220,0.24)',  rim: '#c77aff', glow: '#c77aff' },
+  wind:    { core: 'rgba(220,245,255,0.28)', mid: 'rgba(150,210,240,0.16)', rim: '#bfe8ff', glow: '#bfe8ff' },
+};
+
+function drawArrowHead(ctx, x, y, ang, size) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(-size * 0.6, -size * 0.75); ctx.lineTo(-size * 0.2, 0); ctx.lineTo(-size * 0.6, size * 0.75);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// Zone de terrain : sol texture propre a chaque type, anime, avec un bord lumineux net
+// (lisible d'un coup d'oeil, sans etiquette de texte).
+function drawTerrainZone(ctx, sx, sy, z) {
+  const st = TERRAIN_STYLE[z.terrainType];
+  if (!st) return;
+  const r = z.radius;
+  const t = performance.now() / 1000;
+  const rnd = zoneRng(z.x * 31 + z.y * 17 + 7);
+  ctx.save();
+
+  // Halo exterieur doux
+  const halo = ctx.createRadialGradient(sx, sy, r * 0.7, sx, sy, r * 1.25);
+  halo.addColorStop(0, st.glow + '40'); halo.addColorStop(1, st.glow + '00');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(sx, sy, r * 1.25, 0, Math.PI * 2); ctx.fill();
+
+  // Sol
+  const g = ctx.createRadialGradient(sx - r * 0.25, sy - r * 0.3, r * 0.1, sx, sy, r);
+  g.addColorStop(0, st.core); g.addColorStop(1, st.mid);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+
+  // Motif interne (clippe au disque)
+  ctx.save();
+  ctx.beginPath(); ctx.arc(sx, sy, r - 1, 0, Math.PI * 2); ctx.clip();
+  switch (z.terrainType) {
+    case 'ice': {
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.2;
+      for (let i = 0; i < 6; i++) {
+        let a = rnd() * Math.PI * 2, px = sx + Math.cos(a) * r * 0.15, py = sy + Math.sin(a) * r * 0.15;
+        ctx.beginPath(); ctx.moveTo(px, py);
+        for (let k = 0; k < 4; k++) { a += (rnd() - 0.5) * 0.9; px += Math.cos(a) * r * 0.25; py += Math.sin(a) * r * 0.25; ctx.lineTo(px, py); }
+        ctx.stroke();
+      }
+      // reflet qui balaie la glace
+      const sweep = ((t * 0.35) % 1.6 - 0.3) * r * 2;
+      const lg = ctx.createLinearGradient(sx - r + sweep - 20, sy - r, sx - r + sweep + 20, sy + r);
+      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, 'rgba(255,255,255,0.35)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = lg; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      for (let i = 0; i < 5; i++) {
+        const gx = sx + (rnd() - 0.5) * r * 1.5, gy = sy + (rnd() - 0.5) * r * 1.5;
+        const tw = Math.max(0, Math.sin(t * 3 + i * 2.1));
+        ctx.fillStyle = `rgba(255,255,255,${0.8 * tw})`;
+        ctx.beginPath(); ctx.arc(gx, gy, 1.6 * tw + 0.3, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'mud': {
+      for (let i = 0; i < 9; i++) {
+        const bx = sx + (rnd() - 0.5) * r * 1.5, by = sy + (rnd() - 0.5) * r * 1.5;
+        const rr = 3 + rnd() * 7;
+        ctx.fillStyle = 'rgba(60,40,18,0.55)';
+        ctx.beginPath(); ctx.ellipse(bx, by, rr * 1.4, rr, rnd() * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      for (let i = 0; i < 4; i++) {
+        const ph = (t * 0.6 + i * 0.27) % 1;
+        const bx = sx + Math.cos(i * 2.4) * r * 0.45, by = sy + Math.sin(i * 1.7) * r * 0.45;
+        ctx.strokeStyle = `rgba(190,150,100,${0.7 * (1 - ph)})`; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(bx, by, 2 + ph * 7, 0, Math.PI * 2); ctx.stroke();
+      }
+      break;
+    }
+    case 'wind': {
+      ctx.translate(sx, sy); ctx.rotate(z.windAngle || 0);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      for (let i = 0; i < 10; i++) {
+        const ly = (rnd() - 0.5) * r * 1.7, len = 14 + rnd() * 20;
+        const lx = ((rnd() * r * 2 + t * 90 * (0.8 + rnd() * 0.6)) % (r * 2.6)) - r * 1.3;
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + len, ly); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      drawArrowHead(ctx, r * 0.35, 0, 0, 9);
+      break;
+    }
+    case 'accel': {
+      ctx.translate(sx, sy);
+      const gap = 22, off = (t * 60) % gap;
+      ctx.fillStyle = 'rgba(200,255,220,0.55)';
+      for (let x = -r - gap + off; x < r + gap; x += gap) {
+        ctx.beginPath(); ctx.moveTo(x, -r * 0.35); ctx.lineTo(x + 9, 0); ctx.lineTo(x, r * 0.35); ctx.lineTo(x - 6, r * 0.35); ctx.lineTo(x + 3, 0); ctx.lineTo(x - 6, -r * 0.35); ctx.closePath(); ctx.fill();
+      }
+      break;
+    }
+    case 'slow': {
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const ph = 1 - ((t * 0.25 + i / 4) % 1);
+        ctx.strokeStyle = `rgba(220,190,255,${0.55 * (1 - ph) + 0.1})`;
+        ctx.beginPath(); ctx.arc(sx, sy, r * ph, 0, Math.PI * 2); ctx.stroke();
+      }
+      // aiguille d'horloge lente
+      ctx.strokeStyle = 'rgba(240,225,255,0.8)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      const ha = t * 0.4;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(ha) * r * 0.5, sy + Math.sin(ha) * r * 0.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(240,225,255,0.9)'; ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'damage': {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 5);
+      const hg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+      hg.addColorStop(0, `rgba(255,240,160,${0.35 + 0.25 * pulse})`); hg.addColorStop(1, 'rgba(255,60,20,0)');
+      ctx.fillStyle = hg; ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      ctx.strokeStyle = 'rgba(60,10,0,0.55)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+        let a = rnd() * Math.PI * 2, px = sx, py = sy;
+        ctx.beginPath(); ctx.moveTo(px, py);
+        for (let k = 0; k < 3; k++) { a += (rnd() - 0.5) * 1.2; px += Math.cos(a) * r * 0.33; py += Math.sin(a) * r * 0.33; ctx.lineTo(px, py); }
+        ctx.stroke();
+      }
+      for (let i = 0; i < 8; i++) {
+        const ex = sx + (rnd() - 0.5) * r * 1.6;
+        const ph = (t * (0.5 + rnd() * 0.5) + rnd()) % 1;
+        const ey = sy + r * 0.8 - ph * r * 1.6;
+        ctx.fillStyle = `rgba(255,${170 + Math.floor(80 * (1 - ph))},60,${1 - ph})`;
+        ctx.beginPath(); ctx.arc(ex, ey, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    }
+    case 'invertH': case 'invertV': {
+      ctx.translate(sx, sy); if (z.terrainType === 'invertV') ctx.rotate(Math.PI / 2);
+      const sw = Math.sin(t * 2.5) * r * 0.18;
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-r * 0.45 + sw, -6); ctx.lineTo(r * 0.4 + sw, -6); ctx.stroke();
+      drawArrowHead(ctx, r * 0.45 + sw, -6, 0, 9);
+      ctx.beginPath(); ctx.moveTo(r * 0.45 - sw, 6); ctx.lineTo(-r * 0.4 - sw, 6); ctx.stroke();
+      drawArrowHead(ctx, -r * 0.45 - sw, 6, Math.PI, 9);
+      break;
+    }
+    default: break;
   }
+  ctx.restore();
+
+  // Bord lumineux
+  ctx.strokeStyle = st.rim; ctx.lineWidth = 2.5;
+  ctx.shadowColor = st.glow; ctx.shadowBlur = 10 + 4 * Math.sin(t * 3);
+  ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
 }
 
 function renderEnemies(ctx, camera, world) {
@@ -325,23 +391,30 @@ function renderMenuBackdrop(ctx, ts) {
 
 function renderWorld(ctx, world) {
   const camera = world.camera;
-  renderBackground(ctx, camera, world.room, world.theme, world.zoom);
+  renderBackground(ctx, camera, world.room, world.theme, world.zoom, world);
+  renderIslandUnderside(ctx, camera, world);
   if (world.hubDoors) {
     renderHubFloor(ctx, camera, world);
     renderHubDoors(ctx, camera, world);
     renderHubDecorIcons(ctx, camera, world);
   }
   renderDecorations(ctx, camera, world);
+  renderIslandRims(ctx, camera, world);
   renderTerrainZones(ctx, camera, world.room);
+  renderParkourMarks(ctx, camera, world);
   renderObstacles(ctx, camera, world.room, world.theme);
+  renderParkourLasers(ctx, camera, world);
   drawWinds(ctx, camera, world);
   drawZones(ctx, camera, world);
+  renderHazardsGround(ctx, camera, world);
   drawWalls(ctx, camera, world);
   drawMines(ctx, camera, world);
   drawMeteors(ctx, camera, world);
   drawShields(ctx, camera, world);
   renderEnemies(ctx, camera, world);
   drawProjectiles(ctx, camera, world);
+  renderHazardsTop(ctx, camera, world);
   if (world.player) drawPlayer(ctx, camera, world, world.player);
   Particles.render(ctx, camera);
+  if (Game.state === STATE.CHALLENGE_EDITOR) Editor.renderOverlay(ctx, camera, world);
 }

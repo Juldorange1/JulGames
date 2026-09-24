@@ -40,6 +40,7 @@ const Game = {
 
   setState(s) {
     this.state = s;
+    if (s !== STATE.CHALLENGE_EDITOR && this.world) { this.world.editorMode = false; this.world.camShiftX = 0; }
     if (s === STATE.MENU) this.enterHub();
     UI.onStateChange(s);
   },
@@ -49,17 +50,24 @@ const Game = {
   enterHub() {
     const world = this.world;
     const hub = buildHubRoom();
-    world.room = { bounds: hub.bounds, obstacles: hub.obstacles, terrainZones: [], part: 0, index: 0, isBoss: false };
+    world.room = {
+      bounds: hub.bounds, obstacles: hub.obstacles, terrainZones: [], part: 0, index: 0, isBoss: false,
+      // trampolines et boosts achetes au marche (meme logique que dans les parcours)
+      parkour: { time: 0, spikes: [], lasers: [], shooters: [], teleporters: [], trampolines: hub.trampolines, boosts: hub.boosts },
+    };
     world.hubDoors = hub.doors;
     world.hubTeleporters = hub.teleporters;
     world.hubWinds = hub.winds;
-    world._teleportGrace = 0;
+    world._teleportArmed = true;
     world.enemies = []; world.projectiles = []; world.zones = []; world.walls = [];
-    world.shields = []; world.mines = []; world.winds = []; world.meteors = [];
+    world.shields = []; world.mines = []; world.winds = []; world.meteors = []; world.hazards = [];
     world.abilityGate = null;
     world.decorations = [];
     world.theme = null;
-    world.zoom = computeZoom(hub.bounds.w, hub.bounds.h);
+    // La camera ne suit le joueur que sur les grandes cartes (plus de 150 cases).
+    if (Save.data.hub.cells.length > 150) setWorldZoom(world, 13 * HUB_CELL, 9 * HUB_CELL, 0);
+    else setWorldZoom(world, hub.bounds.w + 70, hub.bounds.h + 110, 0); // marge : plaques des portes et bord de l'ile visibles
+    world.noFollow = false;
     world.userSpeedMult = 1;
     world.player = createPlayer(HUB_CHARACTER, hub.spawn.x, hub.spawn.y);
     this.updateCamera(1);
@@ -94,15 +102,16 @@ const Game = {
     const obW = Math.min(120, bounds.w * 0.08);
     world.room = { bounds, obstacles: [{ x: -obW / 2, y: bounds.y + bounds.h * 0.2, w: obW, h: 36 }], terrainZones: [], part: 0, index: 0, isBoss: false };
     world.enemies = []; world.projectiles = []; world.zones = []; world.walls = [];
-    world.shields = []; world.mines = []; world.winds = []; world.meteors = [];
+    world.shields = []; world.mines = []; world.winds = []; world.meteors = []; world.hazards = [];
     world.abilityGate = null;
     world.hubDoors = null;
     // Aucun argent ne doit jamais etre gagne dans la salle de test (pas de callback de recompense).
     world.onEnemyKilled = null;
     world.decorations = [];
     world.theme = null;
-    world.zoom = computeZoom(w, h);
+    setWorldZoom(world, w, h);
     world.userSpeedMult = 1; // salle de test : rythme fixe, non affecte par le multiplicateur de vitesse
+    world.noFollow = false;
     const dummyPositions = [
       [bounds.w * 0.22, -bounds.h * 0.2], [bounds.w * 0.35, 0],
       [bounds.w * 0.22, bounds.h * 0.2], [-bounds.w * 0.28, -bounds.h * 0.25],
@@ -179,7 +188,7 @@ const Game = {
   },
 
   isGameplayState() {
-    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE;
+    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE || this.state === STATE.CHALLENGE_EDITOR;
   },
 
   update(realDt) {
@@ -188,19 +197,30 @@ const Game = {
 
     if (this.state !== STATE.MENU && Input.wasPressed(Keybinds.pause)) {
       if (this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE) { this.togglePause(); return; }
+      if (this.state === STATE.CHALLENGE_EDITOR) { this.setState(STATE.CHALLENGE_SELECT); return; }
       this.goToMenu(); return;
     }
     if (this.paused) return;
+    // Editeur de defi dans la carte : on se deplace et on place des elements, rien ne "vit".
+    if (this.state === STATE.CHALLENGE_EDITOR) {
+      const dtE = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1);
+      updatePlayer(world, world.player, dtE, realDt);
+      Particles.update(realDt);
+      Editor.update(world, realDt);
+      this.updateCamera(realDt);
+      return;
+    }
     if (Input.wasPressed(Keybinds.restart)) { this.restartCurrent(); return; }
 
     let frozen = false;
     if (this.state === STATE.EXPEDITION && (Expedition.finished || Expedition.transitionTimer > 0)) frozen = true;
-    if (this.state === STATE.CHALLENGE && Challenges.finished) frozen = true;
+    if (this.state === STATE.CHALLENGE && (Challenges.finished || Challenges.transitionTimer > 0)) frozen = true;
 
     const simDt = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1) * (1 + (world.simSpeedBonus || 0));
 
     if (!frozen) {
       updatePlayer(world, world.player, simDt, realDt);
+      if (world.room && world.room.parkour) updateParkourObjects(world, simDt);
       updateProjectiles(world, simDt);
       updateZones(world, simDt);
       updateWalls(world, simDt);
@@ -210,8 +230,9 @@ const Game = {
       updateFrozenTimers(world, simDt);
       for (const e of world.enemies) {
         if (e.kind === 'turret') updateTurret(world, e, simDt);
-        else if (e.kind === 'boss') updateBoss(world, e, simDt);
+        else if (e.kind === 'boss') { updateBoss(world, e, simDt); updateBossSpecials(world, e, simDt); }
       }
+      updateHazards(world, simDt);
       resolveCollisions(world, simDt, realDt);
       if (this.state === STATE.MENU) updateHub(world, simDt);
     }
@@ -231,10 +252,21 @@ const Game = {
     const b = world.room.bounds;
     const zoom = world.zoom || 1;
     const viewW = CANVAS_W / zoom, viewH = CANVAS_H / zoom;
-    let tx = world.player.x - viewW / 2;
+    let tx = world.player.x - viewW / 2 + (world.camShiftX || 0);
     let ty = world.player.y - viewH / 2;
-    if (b.w > viewW) tx = clamp(tx, b.x, b.x + b.w - viewW); else tx = b.x + b.w / 2 - viewW / 2;
-    if (b.h > viewH) ty = clamp(ty, b.y, b.y + b.h - viewH); else ty = b.y + b.h / 2 - viewH / 2;
+    // La camera ne suit le joueur que sur les cartes de plus de 150 cases, et jamais dans le Monde :
+    // sinon la carte entiere est cadree et fixe.
+    const cells = world.hubDoors ? Save.data.hub.cells.length : (b.w * b.h) / (HUB_CELL * HUB_CELL);
+    const shift = world.camShiftX || 0;
+    if (world.noFollow || cells <= 150) {
+      tx = b.x + b.w / 2 - viewW / 2 + shift;
+      ty = b.y + (b.h + (world.islandPad || 0)) / 2 - viewH / 2; // la falaise sous l'ile reste visible
+    } else {
+      // grande carte : on suit le joueur sans sortir de la carte (la barre de l'editeur ne cache
+      // jamais le bord gauche)
+      if (b.w > viewW) tx = clamp(tx, b.x + 2 * Math.min(0, shift), b.x + b.w - viewW); else tx = b.x + b.w / 2 - viewW / 2 + shift;
+      if (b.h > viewH) ty = clamp(ty, b.y, b.y + b.h - viewH); else ty = b.y + b.h / 2 - viewH / 2;
+    }
     cam.x = lerp(cam.x, tx, clamp(realDt * 8, 0, 1));
     cam.y = lerp(cam.y, ty, clamp(realDt * 8, 0, 1));
     if (cam.shakeTime > 0) {
@@ -248,6 +280,8 @@ const Game = {
     const ctx = this.ctx;
     ctx.save();
     if (this.world.camera.renderOffsetX) ctx.translate(this.world.camera.renderOffsetX, this.world.camera.renderOffsetY);
+    // Zoom nul/invalide (fenetre de taille 0 au moment du chargement) : recalcule des que possible.
+    if (!(this.world.zoom > 0) && this.world.zoomBox && CANVAS_W > 0) this.world.zoom = computeZoom(this.world.zoomBox.w, this.world.zoomBox.h);
     if (this.isGameplayState() && this.world.player) {
       const zoom = this.world.zoom || 1;
       ctx.scale(zoom, zoom);
@@ -259,10 +293,12 @@ const Game = {
 
     // Fondu noir de transition entre les salles d'une expedition : dessine par-dessus
     // tout le reste (hors zoom/tremblement de camera) pour masquer le changement de salle.
-    if (this.state === STATE.EXPEDITION && Expedition.transitionPhase) {
-      const d = Expedition.transitionDuration;
-      const t = clamp(Expedition.transitionTimer / d, 0, 1);
-      const alpha = Expedition.transitionPhase === 'out' ? (1 - t) : t;
+    if (this.isGameplayState() && this.world.player) renderBossBars(ctx, this.world);
+    const fader = this.state === STATE.EXPEDITION ? Expedition : (this.state === STATE.CHALLENGE ? Challenges : null);
+    if (fader && fader.transitionPhase) {
+      const d = fader.transitionDuration;
+      const t = clamp(fader.transitionTimer / d, 0, 1);
+      const alpha = fader.transitionPhase === 'out' ? (1 - t) : t;
       if (alpha > 0.001) {
         ctx.save();
         ctx.globalAlpha = alpha;

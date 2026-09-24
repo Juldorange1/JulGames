@@ -6,7 +6,50 @@ const UI = {
   roundEndShown: false,
   _pauseEl: null,
 
-  init() { this.overlay = document.getElementById('overlay'); },
+  init() {
+    this.overlay = document.getElementById('overlay');
+    this.initCursor();
+  },
+
+  // Le meme viseur personnalise (Parametres > Curseur) partout : en jeu comme dans tous les menus.
+  // C'est un petit canvas qui suit la souris ; le curseur systeme est masque (style.css).
+  initCursor() {
+    const c = document.createElement('canvas');
+    c.id = 'fx-cursor';
+    c.width = 32; c.height = 32;
+    document.body.appendChild(c);
+    this._cursorCanvas = c;
+    this._cursorKey = '';
+    window.addEventListener('mousemove', (e) => {
+      c.style.transform = `translate(${e.clientX - 16}px, ${e.clientY - 16}px)`;
+      c.style.display = 'block';
+      this.refreshCursor();
+    });
+    document.addEventListener('mouseleave', () => { c.style.display = 'none'; });
+    this.refreshCursor();
+  },
+
+  refreshCursor() {
+    const c = this._cursorCanvas;
+    if (!c) return;
+    const color = (Save.data && Save.data.cursorColor) || '#ffffff';
+    const style = (Save.data && Save.data.cursorStyle) || 'cross';
+    const key = color + style;
+    if (key === this._cursorKey) return;
+    this._cursorKey = key;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 32, 32);
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.6;
+    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 3;
+    if (style === 'dot') {
+      ctx.beginPath(); ctx.arc(16, 16, 3.2, 0, Math.PI * 2); ctx.fill();
+    } else if (style === 'circle') {
+      ctx.beginPath(); ctx.arc(16, 16, 10, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(8, 16); ctx.lineTo(24, 16); ctx.moveTo(16, 8); ctx.lineTo(16, 24); ctx.stroke();
+      ctx.beginPath(); ctx.arc(16, 16, 10, 0, Math.PI * 2); ctx.stroke();
+    }
+  },
 
   clear() {
     this.overlay.innerHTML = '';
@@ -45,7 +88,7 @@ const UI = {
     else if (state === STATE.MARKET) this.renderMarket();
     else if (state === STATE.CHAR_SELECT) this.renderCharSelect();
     else if (state === STATE.CHALLENGE_SELECT) this.renderChallengeSelect();
-    else if (state === STATE.CHALLENGE_EDITOR) this.renderChallengeEditor();
+    else if (state === STATE.CHALLENGE_EDITOR) Editor.renderToolbar();
     else if (state === STATE.SETTINGS) this.renderSettings();
     else if (state === STATE.BESTIARY) this.renderBestiary();
     else if (state === STATE.TEST_ROOM || state === STATE.EXPEDITION || state === STATE.CHALLENGE) this.buildHUD(state);
@@ -74,12 +117,24 @@ const UI = {
   },
 
   // ---------------- MARCHE (agrandir/amenager le hub) ----------------
+  // Onglets du menu unique "Fonctionnalites" (Marche + Parametres).
+  featureTabs(active) {
+    const row = this.el('div', 'rep-tabs feature-tabs');
+    for (const [st, key] of [[STATE.MARKET, 'marketTitle'], [STATE.SETTINGS, 'settingsTitle']]) {
+      const b = this.el('div', 'rep-tab' + (st === active ? ' active' : ''), S(key));
+      b.onclick = () => Game.setState(st);
+      row.appendChild(b);
+    }
+    return row;
+  },
+
   renderMarket() {
     const panel = this.el('div', 'panel market-panel');
     panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
 
     const header = this.el('div', 'market-header');
-    header.appendChild(this.el('h2', null, S('marketTitle')));
+    header.appendChild(this.el('h2', null, S('featuresTitle')));
+    header.appendChild(this.featureTabs(STATE.MARKET));
     header.appendChild(this.el('div', 'market-money-badge', formatMoney(Save.getMoney())));
     panel.appendChild(header);
 
@@ -89,25 +144,25 @@ const UI = {
     if (!this._marketWindDir) this._marketWindDir = 'up';
     if (!this._marketMoveKey) this._marketMoveKey = 'market';
 
-    const tabLabelKey = { expand: 'marketTabExpand', move: 'marketTabMove', add: 'marketTabAdd', remove: 'marketTabRemove' };
-    const tabCost = { expand: HUB_EXPAND_COST, move: HUB_MOVE_COST, add: HUB_DECOR_COST, remove: null };
+    const tabLabelKey = { expand: 'marketTabExpand', shrink: 'marketTabShrink', move: 'marketTabMove', add: 'marketTabAdd', remove: 'marketTabRemove' };
+    const tabCost = { expand: `${HUB_EXPAND_COST}€`, shrink: `+${HUB_EXPAND_COST}€`, move: `${HUB_MOVE_COST}€`, add: `${HUB_DECOR_COST}€`, remove: null };
     const tabRow = this.el('div', 'market-tabs');
-    for (const t of ['expand', 'move', 'add', 'remove']) {
+    for (const t of ['expand', 'shrink', 'move', 'add', 'remove']) {
       const b = this.el('div', 'market-tab' + (this._marketTab === t ? ' active' : ''));
       b.appendChild(this.el('div', 'market-tab-name', S(tabLabelKey[t])));
-      if (tabCost[t] != null) b.appendChild(this.el('div', 'market-tab-cost', `${tabCost[t]}€`));
-      b.onclick = () => { this._marketTab = t; Game.setState(STATE.MARKET); };
+      if (tabCost[t] != null) b.appendChild(this.el('div', 'market-tab-cost', tabCost[t]));
+      b.onclick = () => { this._marketTab = t; this._pendingTramp = null; Game.setState(STATE.MARKET); };
       tabRow.appendChild(b);
     }
     panel.appendChild(tabRow);
-    panel.appendChild(this.el('div', 'market-hint', S('marketHint_' + this._marketTab)));
+    panel.appendChild(this.el('div', 'market-hint', S(this._pendingTramp ? 'marketHint_trampLand' : 'marketHint_' + this._marketTab)));
 
     if (this._marketTab === 'add') {
       const options = this.el('div', 'market-options');
       const optRow = this.el('div', 'lang-row');
-      for (const dt of ['teleporter', 'wall', 'wind']) {
+      for (const dt of ['teleporter', 'wall', 'wind', 'trampoline', 'boost']) {
         const b = this.el('div', 'lang-btn' + (this._marketDecorType === dt ? ' active' : ''), S('marketDecor_' + dt));
-        b.onclick = () => { this._marketDecorType = dt; Game.setState(STATE.MARKET); };
+        b.onclick = () => { this._marketDecorType = dt; this._pendingTramp = null; Game.setState(STATE.MARKET); };
         optRow.appendChild(b);
       }
       options.appendChild(optRow);
@@ -181,6 +236,9 @@ const UI = {
     const doorAt = {};
     for (const [key, pos] of Object.entries(Save.data.hub.doors)) doorAt[hubCellKey(pos.gx, pos.gy)] = key;
     const windGlyph = { up: '↑', down: '↓', left: '←', right: '→' };
+    const landAt = {};
+    for (const d of Save.data.hub.decor) if (d.type === 'trampoline') landAt[hubCellKey(d.lgx, d.lgy)] = true;
+    const pend = this._pendingTramp;
 
     for (let gy = gMinGy; gy <= gMaxGy; gy++) {
       for (let gx = gMinGx; gx <= gMaxGx; gx++) {
@@ -198,12 +256,19 @@ const UI = {
           cell.classList.add('has-decor', 'decor-' + decor.type);
           if (decor.type === 'wall') cell.style.background = decor.color;
           cell.title = S('marketDecor_' + decor.type);
-          cell.textContent = decor.type === 'teleporter' ? '◎' : (decor.type === 'wind' ? (windGlyph[decor.dir] || '→') : '');
+          const glyph = { teleporter: '◎', trampoline: '⤴', boost: '»' };
+          cell.textContent = decor.type === 'wind' ? (windGlyph[decor.dir] || '→') : (glyph[decor.type] || '');
+        } else if (landAt[key]) {
+          cell.classList.add('tramp-land');
+          cell.textContent = '⊙';
+          cell.title = S('marketTrampLanding');
         }
+        if (pend && pend.gx === gx && pend.gy === gy) { cell.classList.add('pending'); cell.textContent = '⤴'; }
         let isCandidate = false;
         if (mode === 'expand') isCandidate = !isOcc && hubAdjacentToExisting(gx, gy);
-        else if (mode === 'move' || mode === 'add') isCandidate = isOcc && !doorKey && !decor;
+        else if (mode === 'move' || mode === 'add') isCandidate = isOcc && !doorKey && !decor && !landAt[key] && !(pend && pend.gx === gx && pend.gy === gy);
         else if (mode === 'remove') isCandidate = !!decor;
+        else if (mode === 'shrink') isCandidate = this.canRemoveHubCell(gx, gy);
         if (isCandidate) cell.classList.add('candidate');
         cell.onclick = () => this.onMarketCellClick(gx, gy, isOcc, doorKey, decor);
         grid.appendChild(cell);
@@ -213,8 +278,53 @@ const UI = {
     return board;
   },
 
+  // Une case achetee peut etre retiree (remboursee) si elle est vide et que la base reste d'un seul tenant.
+  canRemoveHubCell(gx, gy) {
+    const hub = Save.data.hub;
+    if (Math.abs(gx) <= 1 && Math.abs(gy) <= 1) return false; // cases de depart
+    if (!hub.cells.some((c) => c.gx === gx && c.gy === gy)) return false;
+    if (Object.values(hub.doors).some((p) => p.gx === gx && p.gy === gy)) return false;
+    if (hub.decor.some((d) => (d.gx === gx && d.gy === gy) || (d.type === 'trampoline' && d.lgx === gx && d.lgy === gy))) return false;
+    const rest = hub.cells.filter((c) => !(c.gx === gx && c.gy === gy));
+    const keyOf = (c) => c.gx + ',' + c.gy;
+    const set = new Set(rest.map(keyOf));
+    const seen = new Set([keyOf(rest[0])]);
+    const q = [rest[0]];
+    while (q.length) {
+      const c = q.pop();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const k = (c.gx + dx) + ',' + (c.gy + dy);
+        if (set.has(k) && !seen.has(k)) { seen.add(k); q.push({ gx: c.gx + dx, gy: c.gy + dy }); }
+      }
+    }
+    return seen.size === rest.length;
+  },
+
   onMarketCellClick(gx, gy, isOcc, doorKey, decor) {
     const mode = this._marketTab;
+    const isLanding = Save.data.hub.decor.some((d) => d.type === 'trampoline' && d.lgx === gx && d.lgy === gy);
+    if (mode === 'shrink') {
+      if (!this.canRemoveHubCell(gx, gy)) return;
+      Save.data.hub.cells = Save.data.hub.cells.filter((c) => !(c.gx === gx && c.gy === gy));
+      Save.addMoney(HUB_EXPAND_COST); // case remboursee
+      Save.persist();
+      Game.setState(STATE.MARKET);
+      return;
+    }
+    if (mode === 'add' && this._marketDecorType === 'trampoline') {
+      // 1er clic : case du trampoline ; 2e clic : case libre ou il fait atterrir (donc son sens)
+      if (!isOcc || doorKey || decor || isLanding) return;
+      const pend = this._pendingTramp;
+      if (!pend) { this._pendingTramp = { gx, gy }; Game.setState(STATE.MARKET); return; }
+      if (pend.gx === gx && pend.gy === gy) { this._pendingTramp = null; Game.setState(STATE.MARKET); return; }
+      if (!Save.spendMoney(HUB_DECOR_COST)) return;
+      Save.data.hub.decor.push({ id: uid(), type: 'trampoline', gx: pend.gx, gy: pend.gy, lgx: gx, lgy: gy });
+      this._pendingTramp = null;
+      Save.persist();
+      Game.setState(STATE.MARKET);
+      return;
+    }
+    if ((mode === 'add' || mode === 'move') && isLanding) return;
     if (mode === 'expand') {
       if (isOcc || !hubAdjacentToExisting(gx, gy)) return;
       if (!Save.spendMoney(HUB_EXPAND_COST)) return;
@@ -252,23 +362,22 @@ const UI = {
 
   // ---------------- SELECTION / SHOWCASE PERSONNAGES ----------------
   renderCharSelect() {
-    const mode = Game.pendingCharSelectMode || 'showcase';
-    const panel = this.el('div', 'panel');
+    // Tous les personnages sur un seul ecran (grille ajustee a la fenetre, sans defilement) :
+    // juste l'animation, le nom, la vitesse et le record. Le detail des competences est au Codex.
+    const mode = Game.pendingCharSelectMode || 'expedition';
+    const panel = this.el('div', 'panel rep-panel');
     panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
-    panel.appendChild(this.el('h2', null, mode === 'expedition' ? S('charSelectTitle') : S('charShowcaseTitle')));
-
-    // Le multiplicateur de vitesse du jeu se choisit en meme temps que le personnage, juste avant
-    // de lancer l'expedition (et non plus dans un ecran de parametres separe).
+    const head = this.el('div', 'rep-head');
+    head.appendChild(this.el('h2', null, S('charSelectTitle')));
     if (mode === 'expedition') {
-      const speedSection = this.el('div', 'settings-section speed-inline');
-      speedSection.appendChild(this.el('h3', null, S('settingsSpeedMult')));
-      const speedRow = this.el('div', 'volume-row');
+      const speedRow = this.el('div', 'cs-speed');
+      speedRow.appendChild(this.el('span', null, S('settingsSpeedMult')));
       const speedSlider = document.createElement('input');
       speedSlider.type = 'range';
       speedSlider.min = String(SPEED_MULT_MIN); speedSlider.max = String(SPEED_MULT_MAX); speedSlider.step = '10';
       speedSlider.value = String(Save.data.speedMult || SPEED_MULT_DEFAULT);
       speedSlider.className = 'volume-slider';
-      const speedValue = this.el('div', 'volume-value', `${Save.data.speedMult || SPEED_MULT_DEFAULT}%`);
+      const speedValue = this.el('b', null, `${Save.data.speedMult || SPEED_MULT_DEFAULT}%`);
       speedSlider.addEventListener('input', () => {
         const v = Number(speedSlider.value);
         Save.setSpeedMult(v);
@@ -276,58 +385,70 @@ const UI = {
       });
       speedRow.appendChild(speedSlider);
       speedRow.appendChild(speedValue);
-      speedSection.appendChild(speedRow);
-      panel.appendChild(speedSection);
+      head.appendChild(speedRow);
     }
+    panel.appendChild(head);
 
-    const grid = this.el('div', 'char-grid');
+    const grid = this.el('div', 'rep-grid fit-grid');
     const portraits = [];
-    for (const id of allCharacterIds()) {
+    const ids = allCharacterIds();
+    for (const id of ids) {
       const c = getCharacter(id);
-      const card = this.el('div', 'char-card');
-      card.style.setProperty('--accent', c.color || '#7fd8ff');
-      const portrait = this.el('div', 'char-portrait');
-      const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const cx = canvas.getContext('2d');
-      if (c.draw) {
-        const fake = { state: {}, x: 0, y: 0, aim: { x: 20, y: 0 }, facing: 0, radius: PLAYER_RADIUS, totalTime: 0, history: [{ t: 0, x: 0, y: 0 }], character: c };
-        if (c.init) c.init(fake);
-        portraits.push({ ctx: cx, canvas, character: c, fake });
-      }
-      portrait.appendChild(canvas);
-      card.appendChild(portrait);
-      const body = this.el('div', 'char-card-body');
-      body.appendChild(this.el('h3', null, `${id}. ${charName(id)}`));
-      body.appendChild(this.el('div', 'char-epithet', charEpithet(id)));
-      body.appendChild(this.el('div', 'stat-line', `${S('speed')} : ${c.speedPercent}%`));
-      body.appendChild(mkAbilityLine(S('attack'), charField(id, 'attackLabel')));
-      body.appendChild(mkAbilityLine(`${S('ability')}1 (${keyLabel(Keybinds.ability1)})`, `${charField(id, 'a1Label')}${c.a1Cd ? ' — ' + c.a1Cd + 's' : ''}`));
-      body.appendChild(mkAbilityLine(`${S('ability')}2 (${keyLabel(Keybinds.ability2)})`, `${charField(id, 'a2Label')}${c.a2Cd ? ' — ' + c.a2Cd + 's' : ''}`));
-      body.appendChild(mkAbilityLine(`${S('ability')}3 (${keyLabel(Keybinds.ability3)})`, `${charField(id, 'a3Label')}${c.a3Cd ? ' — ' + c.a3Cd + 's' : ''}`));
+      const tile = this.el('div', 'rep-tile');
+      tile.style.setProperty('--accent', c.color || '#7fd8ff');
+      const sc = createShowcase('character', id);
+      portraits.push(sc);
+      tile.appendChild(sc.canvas);
+      const cap = this.el('div', 'rep-tile-cap');
+      cap.appendChild(this.el('span', 'rep-tile-name', charName(id)));
       const rec = Save.getExpeditionRecord(id);
-      body.appendChild(this.el('div', 'best', `${S('recordExpedition')} : ${rec != null ? formatTime(rec) : '--:--.---'}`));
-      card.appendChild(body);
-      card.onclick = () => {
+      cap.appendChild(this.el('span', 'rep-tile-sub', `${c.speedPercent}%${rec != null ? ' · ' + formatTime(rec) : ''}`));
+      tile.appendChild(cap);
+      tile.onclick = () => {
         if (mode === 'expedition') Game.startExpedition(id);
         else Game.startTestRoom(id);
       };
-      grid.appendChild(card);
+      grid.appendChild(tile);
     }
     panel.appendChild(grid);
     this.overlay.appendChild(panel);
+    this.fitTiles(grid, ids.length);
+    this.startPortraitAnim(portraits);
+  },
 
-    // Portraits animes : les persos ont des idles/rotations/pulsations basees sur le temps
-    // (idleBob, orbes qui tournent...), invisibles sur un rendu fige a l'ouverture de l'ecran.
+  // Choisit le nombre de colonnes qui donne les plus grandes vignettes possibles SANS defilement
+  // (la grille doit avoir une hauteur definie). Recalcule au redimensionnement de la fenetre.
+  fitTiles(grid, n) {
+    const capH = 30, gap = 8;
+    const apply = () => {
+      if (!grid.isConnected) return;
+      const W = grid.clientWidth, H = grid.clientHeight;
+      if (!W || !H) return;
+      let best = { w: 0, cols: 1 };
+      for (let cols = 1; cols <= n; cols++) {
+        const rows = Math.ceil(n / cols);
+        const wByW = (W - gap * (cols - 1)) / cols;
+        const wByH = ((H - gap * (rows - 1)) / rows - capH) * 240 / 150;
+        const w = Math.min(wByW, wByH);
+        if (w > best.w) best = { w, cols };
+      }
+      grid.style.gridTemplateColumns = `repeat(${best.cols}, ${Math.max(80, Math.floor(best.w))}px)`;
+    };
+    requestAnimationFrame(apply);
+    if (this._fitHandler) window.removeEventListener('resize', this._fitHandler);
+    this._fitHandler = apply;
+    window.addEventListener('resize', apply);
+  },
+
+  startPortraitAnim(scenes) {
     this.stopPortraitAnim();
-    this._portraits = portraits;
-    const animate = () => {
-      for (const p of this._portraits) {
-        p.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
-        p.ctx.translate(64, 68);
-        p.ctx.scale(2.1, 2.1);
-        try { p.character.draw(p.ctx, p.fake, null); } catch (e) { /* apercu indisponible pour ce personnage */ }
+    this._portraits = scenes;
+    let last = performance.now();
+    const animate = (now) => {
+      const dt = clamp((now - last) / 1000, 0, 0.05);
+      last = now;
+      for (const sc of this._portraits) {
+        try { sc.tick(dt); } catch (e) { /* apercu indisponible */ }
       }
       this._portraitAnimId = requestAnimationFrame(animate);
     };
@@ -356,207 +477,299 @@ const UI = {
     // Defis personnalises : crees par le joueur, avec record de temps mais sans gain d'argent.
     panel.appendChild(this.el('h3', null, S('customChallengesTitle')));
     const createBtn = this.el('div', 'menu-btn menu-btn-small', `+ ${S('customCreate')}`);
-    createBtn.onclick = () => { this._draft = null; this._editorScroll = 0; Game.setState(STATE.CHALLENGE_EDITOR); };
+    createBtn.onclick = () => Editor.open('combat');
     panel.appendChild(createBtn);
     const customList = this.el('div', 'challenge-list');
-    for (const c of Save.data.customChallenges) {
+    for (const c of Save.data.customChallenges.filter((x) => !x.parkour)) {
       const card = this.el('div', 'challenge-card');
       card.style.setProperty('--accent', getCharacter(c.characterId).color || '#7fd8ff');
       card.appendChild(this.el('h4', null, `${c.name} — ${charName(c.characterId)}`));
-      const enemyCount = Object.values(c.enemies || {}).reduce((a, b) => a + b, 0);
-      const summary = `${S('customEnemies')} : ${enemyCount}${c.bossType ? ' + ' + BOSS_DEFS[c.bossType].name : ''}   ·   ${S('ability')}${c.abilityGate}   ·   ${S('customNoMoney')}`;
+      const enemyCount = c.placed ? c.placed.enemies.length : Object.values(c.enemies || {}).reduce((a, b) => a + b, 0);
+      const bossT = c.placed ? (c.placed.boss && c.placed.boss.type) : c.bossType;
+      const summary = `${S('customEnemies')} : ${enemyCount}${bossT ? ' + ' + BOSS_DEFS[bossT].name : ''}   ·   ${S('ability')}${c.abilityGate}   ·   ${S('customNoMoney')}`;
       card.appendChild(this.el('p', null, summary));
       card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
       const del = this.el('div', 'custom-delete', S('customDelete'));
       del.onclick = (e) => { e.stopPropagation(); Save.removeCustomChallenge(c.id); Game.setState(STATE.CHALLENGE_SELECT); };
       card.appendChild(del);
+      const edit = this.el('div', 'custom-delete custom-edit', S('customEdit'));
+      edit.onclick = (e) => { e.stopPropagation(); Editor.open(c.parkour ? 'parkour' : 'combat', c); };
+      card.appendChild(edit);
       card.onclick = () => Game.startChallenge(c.id);
       customList.appendChild(card);
     }
-    if (!Save.data.customChallenges.length) customList.appendChild(this.el('div', 'menu-sub', S('customNone')));
+    if (!Save.data.customChallenges.some((x) => !x.parkour)) customList.appendChild(this.el('div', 'menu-sub', S('customNone')));
     panel.appendChild(customList);
-    this.overlay.appendChild(panel);
-  },
 
-  // ---------------- EDITEUR DE DEFI PERSONNALISE ----------------
-  renderChallengeEditor() {
-    if (!this._draft) this._draft = { name: '', characterId: 1, abilityGate: 1, theme: 1, enemies: { T1: 2 }, bossType: null };
-    const d = this._draft;
-    const panel = this.el('div', 'panel');
-    const refresh = () => { this._editorScroll = panel.scrollTop; Game.setState(STATE.CHALLENGE_EDITOR); };
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.CHALLENGE_SELECT)));
-    panel.appendChild(this.el('h2', null, S('customCreate')));
-    const wrap = this.el('div', 'settings-wrap');
-
-    const section = (titleKey) => {
-      const s = this.el('div', 'settings-section');
-      s.appendChild(this.el('h3', null, S(titleKey)));
-      wrap.appendChild(s);
-      return s;
-    };
-    const choiceRow = (parent, items, isActive, onPick) => {
-      const row = this.el('div', 'lang-row editor-row');
-      for (const it of items) {
-        const b = this.el('div', 'lang-btn' + (isActive(it.value) ? ' active' : ''), it.label);
-        b.onclick = () => { onPick(it.value); refresh(); };
-        row.appendChild(b);
-      }
-      parent.appendChild(row);
-    };
-
-    const nameSec = section('customName');
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.maxLength = 32;
-    nameInput.className = 'editor-name';
-    nameInput.placeholder = S('customNamePlaceholder');
-    nameInput.value = d.name;
-    nameInput.addEventListener('input', () => { d.name = nameInput.value; });
-    nameSec.appendChild(nameInput);
-
-    choiceRow(section('customCharacter'), allCharacterIds().map((id) => ({ value: id, label: charName(id) })),
-      (v) => d.characterId === v, (v) => { d.characterId = v; });
-
-    const c = getCharacter(d.characterId);
-    choiceRow(section('customAbility'), [1, 2, 3].map((n) => ({ value: n, label: `${S('ability')}${n} : ${charField(c.id, 'a' + n + 'Label')}` })),
-      (v) => d.abilityGate === v, (v) => { d.abilityGate = v; });
-
-    choiceRow(section('customTheme'), [1, 2, 3].map((n) => ({ value: n, label: S('customTheme_' + n) })),
-      (v) => d.theme === v, (v) => { d.theme = v; });
-
-    const enemySec = section('customEnemies');
-    const grid = this.el('div', 'editor-enemy-grid');
-    for (const type of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']) {
-      const cell = this.el('div', 'editor-enemy');
-      cell.appendChild(this.el('div', 'editor-enemy-name', `${type} — ${turretInfo(type).name}`));
-      const ctr = this.el('div', 'editor-counter');
-      const minus = this.el('div', 'editor-counter-btn', '−');
-      const count = this.el('div', 'editor-counter-val', String(d.enemies[type] || 0));
-      const plus = this.el('div', 'editor-counter-btn', '+');
-      minus.onclick = () => { d.enemies[type] = Math.max(0, (d.enemies[type] || 0) - 1); if (!d.enemies[type]) delete d.enemies[type]; refresh(); };
-      plus.onclick = () => { d.enemies[type] = Math.min(6, (d.enemies[type] || 0) + 1); refresh(); };
-      ctr.appendChild(minus); ctr.appendChild(count); ctr.appendChild(plus);
-      cell.appendChild(ctr);
-      grid.appendChild(cell);
+    // ---- Defis de parcours ----
+    panel.appendChild(this.el('h3', null, S('parkourTitle')));
+    panel.appendChild(this.el('div', 'menu-sub parkour-hint', S('parkourHint')));
+    const pkList = this.el('div', 'challenge-list');
+    for (const def of PARKOUR_DEFS) {
+      const card = this.el('div', 'challenge-card parkour-card');
+      card.style.setProperty('--accent', getCharacter(def.characterId).color || '#5dff9d');
+      card.appendChild(this.el('h4', null, `${S('parkourLabel')} ${def.id.slice(1)} — ${charName(def.characterId)}`));
+      card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
+      card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
+      const rec = Save.getChallengeRecord(def.id);
+      card.appendChild(this.el('div', 'best', `${S('record')} : ${rec != null ? formatTime(rec) : '--:--.---'}   ·   ${S('parkourLength')} : ${S('parkourLength_' + def.length)}   ·   ${S('challengeReward')} : +${formatMoney(CHALLENGE_REWARD)}`));
+      card.onclick = () => Game.startChallenge(def.id);
+      pkList.appendChild(card);
     }
-    enemySec.appendChild(grid);
+    panel.appendChild(pkList);
 
-    choiceRow(section('customBoss'), [{ value: null, label: S('customNoBoss') }].concat(['B1', 'B2', 'B3', 'B4', 'B5', 'B6'].map((t) => ({ value: t, label: BOSS_DEFS[t].name }))),
-      (v) => d.bossType === v, (v) => { d.bossType = v; });
-
-    const total = Object.values(d.enemies).reduce((a, b) => a + b, 0) + (d.bossType ? 1 : 0);
-    const actions = this.el('div', 'editor-actions');
-    const save = (thenPlay) => {
-      if (total === 0) return;
-      const entry = Save.addCustomChallenge({
-        name: d.name.trim() || `${S('customDefaultName')} ${Save.data.customChallenges.length + 1}`,
-        characterId: d.characterId, abilityGate: d.abilityGate, theme: d.theme,
-        enemies: Object.assign({}, d.enemies), bossType: d.bossType,
-      });
-      this._draft = null;
-      if (thenPlay) Game.startChallenge(entry.id);
-      else Game.setState(STATE.CHALLENGE_SELECT);
-    };
-    const saveBtn = this.el('div', 'menu-btn menu-btn-small' + (total === 0 ? ' disabled' : ''), S('customSave'));
-    saveBtn.onclick = () => save(false);
-    const playBtn = this.el('div', 'menu-btn menu-btn-small' + (total === 0 ? ' disabled' : ''), S('customSavePlay'));
-    playBtn.onclick = () => save(true);
-    actions.appendChild(saveBtn); actions.appendChild(playBtn);
-    if (total === 0) actions.appendChild(this.el('div', 'menu-sub', S('customNeedEnemy')));
-    wrap.appendChild(actions);
-
-    panel.appendChild(wrap);
+    panel.appendChild(this.el('h3', null, S('customParkoursTitle')));
+    const pkCreate = this.el('div', 'menu-btn menu-btn-small', `+ ${S('parkourCreate')}`);
+    pkCreate.onclick = () => Editor.open('parkour');
+    panel.appendChild(pkCreate);
+    const pkCustom = this.el('div', 'challenge-list');
+    for (const c of Save.data.customChallenges.filter((x) => x.parkour)) {
+      const card = this.el('div', 'challenge-card parkour-card');
+      card.style.setProperty('--accent', getCharacter(c.characterId).color || '#5dff9d');
+      card.appendChild(this.el('h4', null, `${c.name} — ${charName(c.characterId)}`));
+      card.appendChild(this.el('p', null, `${S('parkourLength')} : ${S('parkourLength_' + c.length)}   ·   ${S('parkourDensity')} : ${S('parkourDensity_' + c.density)}   ·   ${S('customNoMoney')}`));
+      card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
+      const del = this.el('div', 'custom-delete', S('customDelete'));
+      del.onclick = (e) => { e.stopPropagation(); Save.removeCustomChallenge(c.id); Game.setState(STATE.CHALLENGE_SELECT); };
+      card.appendChild(del);
+      const edit = this.el('div', 'custom-delete custom-edit', S('customEdit'));
+      edit.onclick = (e) => { e.stopPropagation(); Editor.open(c.parkour ? 'parkour' : 'combat', c); };
+      card.appendChild(edit);
+      card.onclick = () => Game.startChallenge(c.id);
+      pkCustom.appendChild(card);
+    }
+    if (!Save.data.customChallenges.some((x) => x.parkour)) pkCustom.appendChild(this.el('div', 'menu-sub', S('parkourNone')));
+    panel.appendChild(pkCustom);
     this.overlay.appendChild(panel);
-    panel.scrollTop = this._editorScroll || 0;
   },
 
   // ---------------- REPERTOIRE & STATISTIQUES (menu unique) ----------------
   renderBestiary() {
-    const panel = this.el('div', 'panel');
+    // Onglets + grille compacte a gauche, fiche detaillee de l'element choisi a droite :
+    // peu de texte visible d'un coup, tout est range.
+    const tab = this._repTab && this._repTab !== 'records' ? this._repTab : 'chars';
+    const panel = this.el('div', 'panel rep-panel');
     panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
-    panel.appendChild(this.el('h2', null, S('bestiaryTitle')));
-
-    panel.appendChild(this.el('h3', null, S('recordsExpeditions')));
-    const list1 = this.el('div', 'record-list');
-    for (const id of allCharacterIds()) {
-      const row = this.el('div', 'record-row');
-      row.appendChild(this.el('span', null, `${id}. ${charName(id)}`));
-      const money = this.el('span', 'money', formatMoney(Save.getMoneyForChar(id)));
-      row.appendChild(money);
-      const rec = Save.getExpeditionRecord(id);
-      row.appendChild(this.el('span', 'time', rec != null ? formatTime(rec) : '--:--.---'));
-      list1.appendChild(row);
+    const head = this.el('div', 'rep-head');
+    head.appendChild(this.el('h2', null, S('bestiaryTitle')));
+    const tabs = this.el('div', 'rep-tabs');
+    for (const [k, label] of [['chars', 'repTabChars'], ['parkour', 'repTabParkour'], ['turrets', 'bestiaryTurrets'], ['bosses', 'bestiaryBosses'], ['elements', 'repTabElements'], ['rules', 'repTabRules']]) {
+      const b = this.el('div', 'rep-tab' + (k === tab ? ' active' : ''), S(label));
+      b.onclick = () => { this._repTab = k; this._repSel = null; Game.setState(STATE.BESTIARY); };
+      tabs.appendChild(b);
     }
-    panel.appendChild(list1);
+    head.appendChild(tabs);
+    panel.appendChild(head);
 
-    panel.appendChild(this.el('h3', null, S('recordsChallenges')));
-    const list2 = this.el('div', 'record-list');
-    for (const def of CHALLENGE_DEFS) {
-      const row = this.el('div', 'record-row');
-      row.appendChild(this.el('span', null, `${S('hudDefi')} ${def.id} — ${challengeField(def.id, 'title')}`));
-      const rec = Save.getChallengeRecord(def.id);
-      row.appendChild(this.el('span', 'time', rec != null ? formatTime(rec) : '--:--.---'));
-      list2.appendChild(row);
+    if (tab === 'records' || tab === 'rules') {
+      panel.appendChild(tab === 'records' ? this.renderRecordsBoard() : this.renderRulesBoard());
+      this.overlay.appendChild(panel);
+      return;
     }
-    panel.appendChild(list2);
 
-    panel.appendChild(this.el('h3', null, S('bestiaryTurrets')));
-    const tGrid = this.el('div', 'char-grid');
-    for (const type of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']) {
-      const info = turretInfo(type);
-      const card = this.el('div', 'char-card');
-      const accent = TURRET_COLOR[type] || '#7fd8ff';
-      card.style.setProperty('--accent', accent);
-      const portrait = this.el('div', 'char-portrait');
-      const canvas = document.createElement('canvas');
-      canvas.width = 110; canvas.height = 110;
-      const cx = canvas.getContext('2d');
-      cx.translate(55, 55); cx.scale(2.4, 2.4);
-      try { (TURRET_BODY[type] || bodyT1)(cx, { type, aimAngle: -Math.PI / 2, phase: -Math.PI / 2, charging: false }, accent); } catch (e) { /* apercu indisponible */ }
-      portrait.appendChild(canvas);
-      card.appendChild(portrait);
-      const body = this.el('div', 'char-card-body');
-      body.appendChild(this.el('h3', null, `${type} — ${info.name}`));
-      body.appendChild(this.el('div', 'stat-line', `${S('bestiaryHp')} : ${Math.round(TURRET_HP[type] * ENEMY_HP_MULT)}   ${S('bestiaryLoss')} : ${TURRET_LOSS[type]}%`));
-      body.appendChild(this.el('div', 'ability-line', info.desc));
-      body.appendChild(this.el('div', 'best', `${S('bestiaryKills')} : ${Save.getKillCount(type)}`));
-      card.appendChild(body);
-      tGrid.appendChild(card);
-    }
-    panel.appendChild(tGrid);
+    const TURRETS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+    const items = tab === 'chars' ? allCharacterIds().map((id) => ({ kind: 'character', id }))
+      : tab === 'parkour' ? parkourCharacterIds().map((id) => ({ kind: 'character', id }))
+        : tab === 'turrets' ? TURRETS.map((id) => ({ kind: 'turret', id }))
+          : tab === 'elements' ? CODEX_ELEMENTS.map((el) => ({ kind: 'element', id: el.id }))
+            : ['B1', 'B2', 'B3', 'B4', 'B5', 'B6'].map((id) => ({ kind: 'boss', id }));
+    if (!items.some((it) => it.id === this._repSel)) this._repSel = items[0].id;
 
-    panel.appendChild(this.el('h3', null, S('bestiaryBosses')));
-    const bGrid = this.el('div', 'char-grid');
-    for (const type of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']) {
-      const def = BOSS_DEFS[type];
-      const info = bossInfo(type);
-      const card = this.el('div', 'char-card');
-      card.style.setProperty('--accent', def.color);
-      const portrait = this.el('div', 'char-portrait');
-      const canvas = document.createElement('canvas');
-      canvas.width = 110; canvas.height = 110;
-      const cx = canvas.getContext('2d');
-      cx.translate(55, 60); cx.scale(1.35, 1.35);
-      try { drawBoss(cx, { x: 0, y: 0 }, { type, x: 0, y: 0, radius: def.radius || 34, hp: def.hp * ENEMY_HP_MULT, maxHp: def.hp * ENEMY_HP_MULT, color: def.color, phase: 1, name: def.name, state: {} }); } catch (e) { /* apercu indisponible */ }
-      portrait.appendChild(canvas);
-      card.appendChild(portrait);
-      const body = this.el('div', 'char-card-body');
-      body.appendChild(this.el('h3', null, def.name));
-      body.appendChild(this.el('div', 'stat-line', `${S('bestiaryHp')} : ${Math.round(def.hp * ENEMY_HP_MULT)}   ${S('bestiaryContact')} : ${def.contact}%`));
-      body.appendChild(this.el('div', 'ability-line', info.desc));
-      body.appendChild(this.el('div', 'best', `${S('bestiaryKills')} : ${Save.getKillCount(type)}`));
-      card.appendChild(body);
-      bGrid.appendChild(card);
+    const scenes = [];
+    const wrap = this.el('div', 'rep-wrap');
+    const grid = this.el('div', 'rep-grid');
+    const detailHolder = this.el('div', 'rep-detail');
+    let detailScene = null;
+    const showDetail = (it) => {
+      if (detailScene) scenes.splice(scenes.indexOf(detailScene), 1);
+      detailHolder.innerHTML = '';
+      const d = this.renderRepDetail(it);
+      detailScene = d.scene;
+      scenes.push(detailScene);
+      detailHolder.appendChild(d.node);
+    };
+    for (const it of items) {
+      const tile = this.el('div', 'rep-tile' + (it.id === this._repSel ? ' active' : ''));
+      tile.style.setProperty('--accent', this.repColor(it));
+      const sc = createShowcase(it.kind, it.id);
+      scenes.push(sc);
+      tile.appendChild(sc.canvas);
+      const cap = this.el('div', 'rep-tile-cap');
+      cap.appendChild(this.el('span', 'rep-tile-name', this.repName(it)));
+      cap.appendChild(this.el('span', 'rep-tile-sub', this.repSub(it)));
+      tile.appendChild(cap);
+      tile.onclick = () => {
+        this._repSel = it.id;
+        for (const t of grid.children) t.classList.remove('active');
+        tile.classList.add('active');
+        showDetail(it);
+      };
+      grid.appendChild(tile);
     }
-    panel.appendChild(bGrid);
+    wrap.appendChild(grid);
+    wrap.appendChild(detailHolder);
+    panel.appendChild(wrap);
     this.overlay.appendChild(panel);
+    grid.classList.add('fit-grid');
+    this.fitTiles(grid, items.length);
+    showDetail(items.find((it) => it.id === this._repSel));
+    this.startPortraitAnim(scenes);
+  },
+
+  repColor(it) {
+    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).color;
+    if (it.kind === 'character') return getCharacter(it.id).color || '#7fd8ff';
+    if (it.kind === 'turret') return TURRET_COLOR[it.id] || '#ff5d5d';
+    return BOSS_DEFS[it.id].color;
+  },
+  repName(it) {
+    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).name;
+    if (it.kind === 'character') return charName(it.id);
+    if (it.kind === 'turret') return turretInfo(it.id).name;
+    return BOSS_DEFS[it.id].name;
+  },
+  repSub(it) {
+    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).group;
+    if (it.kind === 'character') {
+      if (getCharacter(it.id).parkourOnly) return charEpithet(it.id);
+      const rec = Save.getExpeditionRecord(it.id);
+      return rec != null ? formatTime(rec) : `${S('speed')} ${getCharacter(it.id).speedPercent}%`;
+    }
+    if (it.kind === 'turret') return `${it.id} · ${Save.getKillCount(it.id)} ${S('bestiaryKills').toLowerCase()}`;
+    return `${Save.getKillCount(it.id)} ${S('bestiaryKills').toLowerCase()}`;
+  },
+
+  // Fiche detaillee (colonne de droite).
+  renderRepDetail(it) {
+    const node = this.el('div', 'rep-card');
+    node.style.setProperty('--accent', this.repColor(it));
+    const sc = createShowcase(it.kind, it.id);
+    sc.canvas.classList.add('rep-big');
+    node.appendChild(sc.canvas);
+    const title = this.el('div', 'rep-title');
+    title.appendChild(this.el('h3', null, this.repName(it)));
+    const chips = this.el('div', 'rep-chips');
+    const chip = (label, value, cls) => {
+      const c = this.el('div', 'rep-chip' + (cls ? ' ' + cls : ''));
+      c.appendChild(this.el('span', null, label));
+      c.appendChild(this.el('b', null, value));
+      chips.appendChild(c);
+    };
+    const rows = this.el('div', 'rep-rows');
+    const row = (key, text) => {
+      const r = this.el('div', 'rep-row');
+      r.appendChild(this.el('span', 'rep-key', key));
+      r.appendChild(this.el('span', null, text));
+      rows.appendChild(r);
+    };
+    if (it.kind === 'character') {
+      const c = getCharacter(it.id);
+      title.appendChild(this.el('div', 'rep-epithet', charEpithet(it.id)));
+      if (c.parkourOnly) {
+        for (const d of PARKOUR_DEFS.filter((pd) => pd.characterId === it.id)) {
+          const rec = Save.getChallengeRecord(d.id);
+          chip(`${S('parkourLabel')} ${d.id.slice(1)}`, rec != null ? formatTime(rec) : '--:--.---', 'time');
+        }
+        chip(S('repMoney'), formatMoney(Save.getMoneyForChar(it.id)), 'money');
+        row(keyLabel(Keybinds.attack), `${charField(it.id, 'attackLabel')}${c.attackCd ? ' · ' + c.attackCd + 's' : ''}`);
+        row(keyLabel(Keybinds.ability), `${charField(it.id, 'a1Label')}${c.a1Cd ? ' · ' + c.a1Cd + 's' : ''}`);
+      } else {
+        chip(S('speed'), `${c.speedPercent}%`);
+        const rec = Save.getExpeditionRecord(it.id);
+        chip(S('repRecord'), rec != null ? formatTime(rec) : '--:--.---', 'time');
+        chip(S('repMoney'), formatMoney(Save.getMoneyForChar(it.id)), 'money');
+        // records des defis de ce personnage
+        for (const cd of CHALLENGE_DEFS.filter((x) => x.characterId === it.id)) {
+          const rc = Save.getChallengeRecord(cd.id);
+          chip(`${S('hudDefi')} ${cd.id}`, rc != null ? formatTime(rc) : '--:--.---', 'time');
+        }
+        row(keyLabel(Keybinds.attack), charField(it.id, 'attackLabel'));
+        for (const n of [1, 2, 3]) row(keyLabel(Keybinds['ability' + n]), `${charField(it.id, 'a' + n + 'Label')}${c['a' + n + 'Cd'] ? ' · ' + c['a' + n + 'Cd'] + 's' : ''}`);
+      }
+    } else if (it.kind === 'element') {
+      const el = CODEX_ELEMENTS.find((e) => e.id === it.id);
+      title.appendChild(this.el('div', 'rep-epithet', el.group));
+    } else if (it.kind === 'turret') {
+      chip(S('bestiaryHp'), String(Math.round(TURRET_HP[it.id] * ENEMY_HP_MULT)));
+      chip(S('bestiaryLoss'), `${TURRET_LOSS[it.id]}%`);
+      chip(S('bestiaryKills'), String(Save.getKillCount(it.id)), 'time');
+      rows.appendChild(this.el('p', 'rep-desc', turretInfo(it.id).desc));
+    } else {
+      const def = BOSS_DEFS[it.id];
+      chip(S('bestiaryHp'), String(Math.round(def.hp * ENEMY_HP_MULT)));
+      chip(S('bestiaryContact'), `${def.contact}%`);
+      chip(S('bestiaryKills'), String(Save.getKillCount(it.id)), 'time');
+      rows.appendChild(this.el('p', 'rep-desc', bossInfo(it.id).desc));
+    }
+    // Statistiques detaillees (valeurs chiffrees)
+    const statList = it.kind === 'character' ? codexCharStats(it.id)
+      : it.kind === 'turret' ? (CODEX_TURRET_STATS[it.id] || [])
+        : it.kind === 'element' ? CODEX_ELEMENTS.find((e) => e.id === it.id).stats
+          : [['Phases', '3 (seuils a 70% et 35% de PV)'], ['Vitesse d\'attaque', 'augmente a chaque phase'], ['Rayon', String(BOSS_DEFS[it.id].radius || 34)]];
+    const stats = this.el('div', 'rep-stats');
+    if (statList.length) stats.appendChild(this.el('div', 'rep-stats-title', S('repStats')));
+    for (const [k, v] of statList) {
+      const r = this.el('div', 'rep-stat');
+      r.appendChild(this.el('span', null, k));
+      r.appendChild(this.el('b', null, v));
+      stats.appendChild(r);
+    }
+    node.appendChild(title);
+    if (chips.children.length) node.appendChild(chips);
+    if (rows.children.length) node.appendChild(rows);
+    node.appendChild(stats);
+    if (it.kind === 'character' && !getCharacter(it.id).parkourOnly) {
+      const btn = this.el('div', 'menu-btn menu-btn-small rep-action', S('repTestRoom'));
+      btn.onclick = () => Game.startTestRoom(it.id);
+      node.appendChild(btn);
+    } else if (it.kind === 'character') {
+      node.appendChild(this.el('div', 'rep-note', S('repParkourNote')));
+    }
+    return { node, scene: sc };
+  },
+
+  // Onglet Regles : cartes courtes, tout sur un ecran.
+  renderRulesBoard() {
+    const board = this.el('div', 'rep-records rep-rules');
+    for (const sec of CODEX_RULES) {
+      const c = this.el('div', 'rep-rec-col');
+      c.appendChild(this.el('h3', null, sec.title));
+      for (const l of sec.lines) c.appendChild(this.el('p', 'rep-rule', l));
+      board.appendChild(c);
+    }
+    return board;
+  },
+
+  // Onglet Records : trois colonnes compactes.
+  renderRecordsBoard() {
+    const board = this.el('div', 'rep-records');
+    const col = (titleKey, lines) => {
+      const c = this.el('div', 'rep-rec-col');
+      c.appendChild(this.el('h3', null, S(titleKey)));
+      for (const [label, value, extra] of lines) {
+        const r = this.el('div', 'rep-rec-row');
+        r.appendChild(this.el('span', 'rep-rec-label', label));
+        if (extra != null) r.appendChild(this.el('span', 'rep-rec-money', extra));
+        r.appendChild(this.el('span', 'rep-rec-time', value));
+        c.appendChild(r);
+      }
+      board.appendChild(c);
+    };
+    const t = (ms) => (ms != null ? formatTime(ms) : '--:--.---');
+    col('recordsExpeditions', allCharacterIds().map((id) => [charName(id), t(Save.getExpeditionRecord(id)), formatMoney(Save.getMoneyForChar(id))]));
+    col('recordsChallenges', CHALLENGE_DEFS.map((d) => [`${d.id}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
+    col('parkourTitle', PARKOUR_DEFS.map((d) => [`${d.id.slice(1)}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
+    return board;
   },
 
   // ---------------- PARAMETRES ----------------
   renderSettings() {
     const panel = this.el('div', 'panel');
     panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
-    panel.appendChild(this.el('h2', null, S('settingsTitle')));
+    const header = this.el('div', 'market-header');
+    header.appendChild(this.el('h2', null, S('featuresTitle')));
+    header.appendChild(this.featureTabs(STATE.SETTINGS));
+    panel.appendChild(header);
 
     const wrap = this.el('div', 'settings-wrap');
 
@@ -751,8 +964,9 @@ const UI = {
     if (!player) return;
     const r = this.hudRefs;
     r.nameEl.textContent = `${S('hudPersonnage')} : ${charName(player.character.id)}`;
-    const pct = Math.round(player.damageMultiplier * 100);
-    r.dmgEl.textContent = `${S('hudDamage')} : ${pct}%`;
+    // En parcours, la jauge montre la vitesse (les coups ralentissent au lieu de reduire les degats).
+    const pct = Math.round((player.parkour ? (player.parkourSpeed || 1) : player.damageMultiplier) * 100);
+    r.dmgEl.textContent = `${S(player.parkour ? 'hudSpeed' : 'hudDamage')} : ${pct}%`;
     const dmgColor = pct >= 70 ? '#7fff9c' : (pct >= 35 ? '#ffd23d' : '#ff5d5d');
     r.dmgEl.style.color = dmgColor;
     r.dmgBarFill.style.width = `${pct}%`;
@@ -764,7 +978,13 @@ const UI = {
       timeMs = Expedition.elapsedMs; bestMs = Save.getExpeditionRecord(Expedition.characterId);
     } else if (state === STATE.CHALLENGE) {
       const def = Challenges.get(Challenges.id);
-      r.progEl.textContent = def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${def.id} : ${challengeField(def.id, 'title')}`;
+      if (def.parkour) {
+        const title = def.custom ? `${S('parkourLabel')} : ${def.title}` : `${S('parkourLabel')} ${def.id.slice(1)} : ${challengeField(def.id, 'title')}`;
+        r.progEl.textContent = `${title}   ${S('hudProgress')} : ${Math.round((Challenges.progress || 0) * 100)}%`;
+      } else {
+        const title = def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${def.id} : ${challengeField(def.id, 'title')}`;
+        r.progEl.textContent = `${title}   ${S('hudRoom')} : ${Challenges.roomNum}/${CHALLENGE_ROOMS}`;
+      }
       timeMs = Challenges.elapsedMs; bestMs = Save.getChallengeRecord(Challenges.id);
     } else {
       r.progEl.textContent = S('hudTestRoom');
@@ -777,12 +997,13 @@ const UI = {
     // Attaque principale : cooldown reel si le personnage en a un, AUTO si totalement automatique,
     // sinon affichee sans jauge (mecaniques de disponibilite propres a certains persos).
     const atk = r.slots.attack;
-    atk.nameLabel.textContent = S('attack');
+    // Persos de parcours : l'attaque EST leur 1re competence -> on affiche son nom.
+    atk.nameLabel.textContent = c.parkourOnly ? charField(c.id, 'attackLabel') : S('attack');
     atk.slot.classList.remove('locked');
     if (c.attackCd) {
       const cur = player.attackCooldown || 0;
       const ratio = clamp(cur / c.attackCd, 0, 1);
-      atk.keyChip.textContent = keyLabel(Keybinds.attack);
+      atk.keyChip.textContent = c.autoAttack ? S('autoLabel') : keyLabel(Keybinds.attack);
       atk.fill.style.height = `${ratio * 100}%`;
       atk.cdText.textContent = cur > 0.05 ? cur.toFixed(1) : '';
       atk.slot.classList.toggle('ready', cur <= 0);
@@ -814,6 +1035,9 @@ const UI = {
       const cd = c[`${key}Cd`] || 0;
       const cur = player.cooldowns[key] || 0;
       const s = r.slots[key];
+      // Persos de parcours : 2 competences seulement (attaque + competence unique)
+      s.slot.style.display = (c.parkourOnly && key !== 'a1') ? 'none' : '';
+      if (c.parkourOnly && key !== 'a1') continue;
       const locked = gate && gate !== gateNum[key];
       const fnName = 'ability' + key.slice(1);
       const automatic = !c[fnName] && !c[`${fnName}Held`];
@@ -854,6 +1078,9 @@ const UI = {
     if (state === STATE.EXPEDITION && Expedition.transitionTimer > 0 && !Expedition.finished) {
       r.msg.style.display = 'block';
       r.msg.textContent = `${S('hudPart')} ${Expedition.part} — ${S('hudRoom')} ${Expedition.roomIndex}${Expedition.roomIndex === 10 ? ' (' + S('hudBoss') + ')' : ''}`;
+    } else if (state === STATE.CHALLENGE && Challenges.transitionTimer > 0 && !Challenges.finished) {
+      r.msg.style.display = 'block';
+      r.msg.textContent = `${S('hudRoom')} ${Challenges.roomNum + 1}/${CHALLENGE_ROOMS} · C${challengeRoomGate(Challenges.get(Challenges.id), Challenges.roomNum + 1)}${Challenges.roomNum + 1 === CHALLENGE_ROOMS && Challenges.get(Challenges.id).bossType ? ' (' + S('hudBoss') + ')' : ''}`;
     } else {
       r.msg.style.display = 'none';
     }
