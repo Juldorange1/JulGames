@@ -524,17 +524,14 @@ function laserState(l, time) {
 
 function updateParkourObjects(world, dt) {
   const P = world.room && world.room.parkour;
-  const p = world.player;
-  if (!P || !p) return;
+  const players = worldPlayers(world);
+  if (!P || !players.length) return;
   P.time += dt;
-  if (p._trapCd > 0) p._trapCd -= dt;
-  if (p.boostTimer > 0) p.boostTimer -= dt;
-  if (p._tpCd > 0) p._tpCd -= dt;
   for (const t of P.trampolines) if (t.bounce > 0) t.bounce -= dt;
 
-  // Tourelles-pieges : rafales a intervalles (seulement pres du joueur, inutile ailleurs)
+  // Tourelles-pieges : rafales a intervalles (seulement pres d'un joueur, inutile ailleurs)
   for (const sh of P.shooters) {
-    if (Math.abs(sh.x - p.x) > 1100) continue;
+    if (!players.some((p) => Math.abs(sh.x - p.x) <= 1100)) continue;
     const tt = P.time + sh.offset;
     const cyc = Math.floor(tt / sh.period), local = tt - cyc * sh.period;
     for (let k = 0; k < sh.burst; k++) {
@@ -549,6 +546,14 @@ function updateParkourObjects(world, dt) {
     }
   }
 
+  // Tout ce qui suit concerne chaque joueur (plusieurs joueurs dans les salles en ligne).
+  for (const p of players) updateParkourForPlayer(world, P, p, dt);
+}
+
+function updateParkourForPlayer(world, P, p, dt) {
+  if (p._trapCd > 0) p._trapCd -= dt;
+  if (p.boostTimer > 0) p.boostTimer -= dt;
+  if (p._tpCd > 0) p._tpCd -= dt;
   // Saut de trampoline : trajectoire imposee, au-dessus des murs, pieges et zones.
   if (p.jump) {
     const j = p.jump;
@@ -675,7 +680,7 @@ function renderParkourObjects(ctx, camera, world, t) {
   }
   for (const bo of P.boosts) if (!bo.taken && vis(bo.x)) drawBoostPickup(ctx, bo.x - camera.x, bo.y - camera.y, t, bo.x);
 
-  const p = world.player;
+  for (const p of (world.players || [world.player])) {
   if (p && p.jump) {
     const k = p.airScale || 1;
     ctx.save();
@@ -683,6 +688,7 @@ function renderParkourObjects(ctx, camera, world, t) {
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.ellipse(p.x - camera.x, p.y - camera.y + 10, 14 / k, 6 / k, 0, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  }
   }
 }
 

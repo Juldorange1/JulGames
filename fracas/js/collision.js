@@ -45,7 +45,10 @@ function resolveShieldBlocking(world) {
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const pr = world.projectiles[i];
     for (const s of world.shields) {
-      if (s.blocksTeam !== pr.team) continue;
+      // Bouclier : bloque les tirs ennemis, et en JcJ les tirs des joueurs de l'autre equipe.
+      const blocks = s.blocksTeam === pr.team && (pr.team !== TEAM.PLAYER || s.ownerTeam == null || pr.ownerTeam !== s.ownerTeam);
+      const blocksPvp = world.pvp && pr.team === TEAM.PLAYER && s.ownerTeam != null && pr.ownerTeam !== s.ownerTeam;
+      if (!blocks && !blocksPvp) continue;
       if (circleCircle(pr.x, pr.y, pr.radius, s.x, s.y, s.radius)) {
         Particles.burst(pr.x, pr.y, 8, s.color, { maxSpeed: 100, life: 0.2 });
         pr.dead = true;
@@ -57,17 +60,19 @@ function resolveShieldBlocking(world) {
 }
 
 function resolveProjectileVsPlayer(world) {
-  const player = world.player;
-  if (!player) return;
+  const players = worldPlayers(world);
+  if (!players.length) return;
   for (let i = world.projectiles.length - 1; i >= 0; i--) {
     const pr = world.projectiles[i];
     if (pr.team !== TEAM.ENEMY) continue;
-    if (player.airborne) continue; // en plein saut : les tirs passent dessous
-    if (!circleCircle(pr.x, pr.y, pr.radius, player.x, player.y, player.radius)) continue;
-    if (pr.onHitPlayer) pr.onHitPlayer(pr, world, player);
-    else playerApplyDamage(player, pr.dmgPercent || 0);
-    Audio2.impact();
-    if (!pr.pierce) { world.projectiles.splice(i, 1); }
+    for (const player of players) {
+      if (player.airborne) continue; // en plein saut : les tirs passent dessous
+      if (!circleCircle(pr.x, pr.y, pr.radius, player.x, player.y, player.radius)) continue;
+      if (pr.onHitPlayer) pr.onHitPlayer(pr, world, player);
+      else playerApplyDamage(player, pr.dmgPercent || 0);
+      Audio2.impact();
+      if (!pr.pierce) { world.projectiles.splice(i, 1); break; }
+    }
   }
 }
 
@@ -76,7 +81,7 @@ function resolveProjectileVsEnemies(world) {
     const pr = world.projectiles[i];
     if (pr.team !== TEAM.PLAYER) continue;
     let consumed = false;
-    for (const e of world.enemies) {
+    for (const e of hostiles(world, pr.owner)) {
       if (e.dead) continue;
       if (pr._hitIds && pr._hitIds.has(e.id)) continue;
       if (pr._bounceEnemyId === e.id && pr._bounceGrace > 0) continue;
@@ -121,16 +126,19 @@ function resolveMines(world, dt) {
     const m = world.mines[i];
     if (m.dead) { world.mines.splice(i, 1); continue; }
     if (!m.armed) continue;
-    const player = world.player;
-    if (player && circleCircle(m.x, m.y, m.triggerRadius, player.x, player.y, player.radius)) {
-      playerApplyDamage(player, m.dmgPercent || 10);
-      Particles.burst(m.x, m.y, 18, '#ffd23d', { maxSpeed: 200 });
-      Audio2.impact();
-      m.dead = true;
-      world.mines.splice(i, 1);
+    // Mine ennemie : piege les joueurs. Mine d'un joueur (Vex) : piege les cibles hostiles.
+    if (m.team === TEAM.ENEMY) {
+      const victim = worldPlayers(world).find((p) => !p.airborne && circleCircle(m.x, m.y, m.triggerRadius, p.x, p.y, p.radius));
+      if (victim) {
+        playerApplyDamage(victim, m.dmgPercent || 10);
+        Particles.burst(m.x, m.y, 18, '#ffd23d', { maxSpeed: 200 });
+        Audio2.impact();
+        m.dead = true;
+        world.mines.splice(i, 1);
+      }
       continue;
     }
-    for (const e of world.enemies) {
+    for (const e of hostiles(world, m.owner)) {
       if (e.dead) continue;
       if (circleCircle(m.x, m.y, m.triggerRadius, e.x, e.y, e.radius || 16)) {
         damageEnemy(world, e, 25, m);
@@ -146,7 +154,7 @@ function resolveMines(world, dt) {
 function resolveWinds(world, dt, realDt) {
   if (world.winds.length === 0) return;
   const tickDt = realDt != null ? realDt : dt;
-  const touchedThisFrame = new Set();
+  const touchedThisFrame = new Map(); // ennemi -> vent qui l'a touche (auteur des degats)
   for (const w of world.winds) {
     const rx = w.x - w.w / 2, ry = w.y - w.h / 2;
     // Projectiles : le vent vertical propulse tout projectile qui le touche
@@ -161,12 +169,12 @@ function resolveWinds(world, dt, realDt) {
       continue;
     }
     const force = (w.strong ? w.force * 3 : w.force);
-    for (const e of world.enemies) {
-      if (e.dead) continue;
+    for (const e of hostiles(world, w.owner)) {
+      if (e.dead || e.anchored) continue;
       if (!pointInRect(e.x, e.y, rx, ry, w.w, w.h)) continue;
       e.x += w.dirX * force * dt;
       e.y += w.dirY * force * dt;
-      touchedThisFrame.add(e);
+      if (!touchedThisFrame.has(e)) touchedThisFrame.set(e, w);
       if (world.room) {
         const b = world.room.bounds;
         const hitBound = e.x - (e.radius || 16) < b.x || e.x + (e.radius || 16) > b.x + b.w ||
@@ -195,22 +203,25 @@ function resolveWinds(world, dt, realDt) {
   // Cadence de degats en vrai temps ecoule, appliquee une seule fois par ennemi et par frame meme
   // s'il est touche par plusieurs zones de vent simultanement : jamais plus d'une fois toutes les
   // 0,5s reelles, quel que soit le multiplicateur de vitesse du jeu ou le nombre de zones superposees.
-  for (const e of touchedThisFrame) {
+  for (const [e, w] of touchedThisFrame) {
     e._windTick = (e._windTick || 0) + tickDt;
-    if (e._windTick >= 0.5) { e._windTick = 0; damageEnemy(world, e, 6, world); }
+    if (e._windTick >= 0.5) { e._windTick = 0; damageEnemy(world, e, 6, w); }
   }
 }
 
 function resolveEnemyContactWithPlayer(world) {
-  const player = world.player;
-  if (!player) return;
+  for (const player of worldPlayers(world)) resolveEnemyContactFor(world, player);
+}
+function resolveEnemyContactFor(world, player) {
   for (const e of world.enemies) {
     if (e.dead || !e.contactDmgPercent) continue;
     // +3 px : les ennemis etant solides, le joueur les touche sans jamais les chevaucher.
+    // minuterie de contact propre a chaque joueur (plusieurs joueurs en ligne)
+    const ct = player._contactTicks || (player._contactTicks = {});
     if (circleCircle(e.x, e.y, (e.radius || 16) + 3, player.x, player.y, player.radius)) {
-      e._contactTick = (e._contactTick || 0) + (1 / 60);
-      if (e._contactTick >= 0.6) { e._contactTick = 0; playerApplyDamage(player, e.contactDmgPercent); }
-    } else e._contactTick = 0;
+      ct[e.id] = (ct[e.id] || 0) + (1 / 60);
+      if (ct[e.id] >= 0.6) { ct[e.id] = 0; playerApplyDamage(player, e.contactDmgPercent); }
+    } else ct[e.id] = 0;
   }
   // Un ennemi qui se deplace sur le joueur (boss qui charge, tourelle mobile) ou une
   // teleportation qui atterrit dans un ennemi : on ressort le joueur, ennemis solides.

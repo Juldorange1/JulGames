@@ -83,6 +83,9 @@ const STATE = {
   EXPEDITION: 'EXPEDITION',
   CHALLENGE: 'CHALLENGE',
   ROUND_END: 'ROUND_END',
+  ONLINE_MENU: 'ONLINE_MENU',   // en ligne : connexion, creer / rejoindre
+  ONLINE_LOBBY: 'ONLINE_LOBBY', // en ligne : lobby (equipes, persos, pret)
+  ONLINE_GAME: 'ONLINE_GAME',   // en ligne : partie (simulee par le serveur)
 };
 
 const TEAM = {

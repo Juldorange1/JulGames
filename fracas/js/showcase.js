@@ -228,31 +228,10 @@ const CHARACTER_SHOWCASE = {
     draw(ctx, s, c, fake, dt) { scDrawDummy(ctx, s.dummy, dt); scDrawCharacter(ctx, c, fake, -40, 0); scDrawFx(ctx, s.fx); },
   },
 
-  // Braise : les quatre orbes de feu tournent, s'ecartent et brulent la cible au contact.
-  4: {
-    init(s) { s.t = 0; s.cd = 0; s.dummy = scDummy(58, 0); },
-    update(s, dt, c, fake) {
-      s.t += dt; s.cd -= dt;
-      const dist = 34 + 22 * (0.5 + 0.5 * Math.sin(s.t * 0.9));
-      const orbs = [];
-      for (let i = 0; i < 4; i++) {
-        const a = s.t * 1.3 + i * Math.PI / 2;
-        orbs.push({ x: Math.cos(a) * dist, y: Math.sin(a) * dist });
-      }
-      fake.state.orbs = orbs;
-      for (const o of orbs) {
-        if (s.cd <= 0 && Math.hypot(o.x - s.dummy.x, o.y - s.dummy.y) < 16) {
-          s.cd = 0.25; scHit(s.dummy); scBurst(s.fx, o.x, o.y, 10, '#ff9d3d', 90);
-        }
-      }
-    },
-    draw(ctx, s, c, fake, dt) { scDrawDummy(ctx, s.dummy, dt); scDrawCharacter(ctx, c, fake, 0, 0); scDrawFx(ctx, s.fx); },
-  },
-
-  // Ferro : deux couteaux qui rebondissent a l'infini dans le cadre.
+  // Ferro : deux couteaux lances dos a dos qui rebondissent a l'infini dans le cadre.
   5: {
     init(s) {
-      for (const a of [0.45, 2.55]) {
+      for (const a of [0.45, 0.45 + Math.PI]) {
         scBullet(s.fx, { x: Math.cos(a) * 20, y: Math.sin(a) * 20, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, life: Infinity, bounce: true, shape: 'knife', color: '#7fd8ff', r: 6 });
       }
       s.trail = [];
@@ -368,35 +347,32 @@ const CHARACTER_SHOWCASE = {
     },
   },
 
-  // Croc : son aura relache une vague de flammes toutes les 1,2s sur les ennemis proches.
+  // Croc : 4 lasers de feu chaque seconde, en croix puis en diagonale (bascule a l'appui).
   9: {
-    init(s) { s.t = 0; s.dummies = [scDummy(46, -18), scDummy(-44, 22)]; },
+    init(s) { s.t = 0; s.shots = 0; s.dummies = [scDummy(62, 0), scDummy(-44, -44), scDummy(0, 58)]; },
     update(s, dt, c, fake) {
       s.t += dt;
       const st = fake.state;
-      if (s.t >= 1.2) {
-        s.t = 0; st.waveActive = true; st.waveFx = 0;
-        for (const d of s.dummies) { scHit(d); scBurst(s.fx, d.x, d.y, 10, '#ff9d3d', 70); }
-        for (let i = 0; i < 18; i++) {
-          const a = (i / 18) * Math.PI * 2;
-          s.fx.sparks.push({ x: Math.cos(a) * 66, y: Math.sin(a) * 66, vx: Math.cos(a) * 20, vy: Math.sin(a) * 20 - 20, age: 0, life: 0.5, color: choice(['#ff3d1a', '#ff9d3d', '#ffd23d']), r: 2 });
+      st.tick = s.t;
+      if (st.beamFx > 0) st.beamFx = Math.max(0, st.beamFx - dt);
+      if (s.t >= 1) {
+        s.t = 0; s.shots++;
+        st.beamAngles = crocLaserAngles(st.mode);
+        st.beamFx = CROC_LASER_FX;
+        for (const d of s.dummies) {
+          const hit = st.beamAngles.some((a) => distToSegment(d.x, d.y, 0, 0, Math.cos(a) * 80, Math.sin(a) * 80) < 12);
+          if (hit) { scHit(d); scBurst(s.fx, d.x, d.y, 10, '#ff9d3d', 70); }
         }
+        if (s.shots % 2 === 0) st.mode = st.mode === 'diag' ? 'plus' : 'diag';
       }
-      if (st.waveActive) { st.waveFx += dt; if (st.waveFx >= 0.5) st.waveActive = false; }
     },
     draw(ctx, s, c, fake, dt) {
       for (const d of s.dummies) scDrawDummy(ctx, d, dt);
-      // L'aura reelle (250 px) est dessinee reduite pour tenir dans le cadre, puis le corps a
-      // taille normale par-dessus.
-      fake.x = 0; fake.y = 0;
-      ctx.save(); ctx.scale(0.27, 0.27);
-      try { c.draw(ctx, fake, null); } catch (e) { /* apercu indisponible */ }
-      ctx.restore();
-      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.clip();
-      const wave = fake.state.waveActive; fake.state.waveActive = false;
-      try { c.draw(ctx, fake, null); } catch (e) { /* apercu indisponible */ }
-      fake.state.waveActive = wave;
-      ctx.restore();
+      const st = fake.state;
+      if (st.beamFx > 0 && st.beamAngles) drawCrocLasers(ctx, st.beamAngles, st.beamFx / CROC_LASER_FX, 80);
+      const fx = st.beamFx; st.beamFx = 0;
+      scDrawCharacter(ctx, c, fake, 0, 0);
+      st.beamFx = fx;
       scDrawFx(ctx, s.fx);
     },
   },
@@ -521,10 +497,12 @@ Object.assign(CHARACTER_SHOWCASE, {
     update(s, dt, c, fake) {
       const st = fake.state;
       s.t += dt;
-      if (s.t < 1.3) { st.holding = true; st.hold = (s.t / 1.3) * ELAN_MAX_HOLD * 0.35; st.sliding = false; s.x = -40 + s.t * 10; s.y = 30; }
-      else if (st.holding) { st.holding = false; scBolt(s.fx, s.x, s.y, s.x, -28, '#5dff9d', 0.25); scRing(s.fx, s.x, -28, 4, 18, 0.3, '#5dff9d', 2); s.y = -28; }
+      // Bonds alternes : un vers le haut, le suivant vers le bas.
+      const startY = elanDir(st) < 0 ? 30 : -28, endY = -startY + (elanDir(st) < 0 ? 2 : 0);
+      if (s.t < 1.3) { st.holding = true; st.hold = (s.t / 1.3) * ELAN_MAX_HOLD * 0.35; st.sliding = false; if (s.t < dt * 1.5) s.x = -40; s.x += 10 * dt; s.y = startY; }
+      else if (st.holding) { st.holding = false; scBolt(s.fx, s.x, s.y, s.x, endY, '#5dff9d', 0.25); scRing(s.fx, s.x, endY, 4, 18, 0.3, '#5dff9d', 2); s.y = endY; st.jumps = (st.jumps || 0) + 1; }
       else if (s.t < 2.8) { st.sliding = true; st.slideTime = (s.t - 1.3) * 1.2; s.x += 55 * dt; }
-      else { st.sliding = false; s.t = 0; s.x = -40; }
+      else { st.sliding = false; s.t = 0; }
     },
     draw(ctx, s, c, fake) {
       ctx.save(); ctx.beginPath(); ctx.rect(-s.bounds.hw, -s.bounds.hh, s.bounds.hw * 2, s.bounds.hh * 2); ctx.clip();
@@ -863,6 +841,14 @@ function createShowcase(kind, id) {
         drawTrampoline(ctx, { x: -45, y: 18, lx: 45, ly: 18, bounce: (t % 1.4) < 0.3 ? 0.3 - (t % 1.4) : 0 }, { x: 0, y: 0 }, t);
         const f = (t % 1.4) / 1.4;
         ctx.save(); ctx.fillStyle = '#7fd8ff'; ctx.beginPath(); ctx.arc(lerp(-45, 45, f), 18 - Math.sin(Math.PI * f) * 45, 7 * (1 + 0.5 * Math.sin(Math.PI * f)), 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      } else if (id === 'mover') {
+        // petit mur mobile sur un trace en huit (rails pointilles dessous)
+        const seq = [];
+        for (let i = 0; i <= 48; i++) { const u = (i / 48) * Math.PI * 2; seq.push({ x: Math.sin(u) * 62, y: Math.sin(u) * Math.cos(u) * 44 }); }
+        const u = t * 1.1, u2 = u + 0.02;
+        const cx = Math.sin(u) * 62, cy = Math.sin(u) * Math.cos(u) * 44;
+        const ob = { w: 30, h: 30, vx: Math.sin(u2) * 62 - cx, vy: Math.sin(u2) * Math.cos(u2) * 44 - cy, mover: { seq, closed: true, seed: 7 } };
+        drawMovingWall(ctx, cx - 15, cy - 15, ob, 'prairie');
       } else if (id === 'boost') drawBoostPickup(ctx, 0, 0, t, 0);
       scDrawFx(ctx, s.fx);
     };
@@ -904,4 +890,36 @@ function createShowcase(kind, id) {
     draw(dt);
   };
   return { canvas, tick };
+}
+
+// Vignette "inconnu" : grand point d'interrogation (perso jamais joue, ennemi jamais croise).
+function createMysteryShowcase(accent) {
+  const canvas = document.createElement('canvas');
+  canvas.width = SHOWCASE_W; canvas.height = SHOWCASE_H;
+  canvas.className = 'showcase-canvas';
+  const ctx = canvas.getContext('2d');
+  let t = Math.random() * 10;
+  const tick = (dt) => {
+    t += dt || 0;
+    const g = ctx.createRadialGradient(SHOWCASE_W / 2, SHOWCASE_H / 2, 10, SHOWCASE_W / 2, SHOWCASE_H / 2, SHOWCASE_W * 0.6);
+    g.addColorStop(0, '#1c2233'); g.addColorStop(1, '#0a0d15');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, SHOWCASE_W, SHOWCASE_H);
+    ctx.save();
+    ctx.translate(SHOWCASE_W / 2, SHOWCASE_H / 2 + Math.sin(t * 1.6) * 3);
+    ctx.font = '900 86px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = accent || '#7fd8ff'; ctx.shadowBlur = 18 + 6 * Math.sin(t * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText('?', 0, 4);
+    ctx.restore();
+  };
+  tick(0);
+  return { canvas, tick };
+}
+
+// Vrai si l'element peut etre montre dans le Codex / les menus (sinon : "?").
+function isDiscovered(kind, id) {
+  if (kind === 'character') return Save.isCharKnown(id);
+  if (kind === 'turret' || kind === 'boss') return Save.isEnemyKnown(id);
+  return true;
 }

@@ -88,9 +88,15 @@ function generateRoomLayout(part, index) {
         color: terrainColor(type), edgeColor: terrainEdgeColor(type), terrainType: type,
         windAngle: randInt(0, 7) * Math.PI / 4,
       }));
+      // certaines zones se deplacent (trajectoire quelconque, jamais indiquee)
+      if (Math.random() < 0.45) attachZoneMover(terrainZones[terrainZones.length - 1], bounds);
       avoid.push({ x: p.x, y: p.y, r: 60 });
     }
   }
+
+  // Murs mobiles (trajectoires variees) : 60% des salles normales, 35% des salles de boss.
+  const movingWalls = Math.random() < (isBoss ? 0.35 : 0.6)
+    ? makeMovingWalls(bounds, obstacles, avoid, isBoss ? 1 : randInt(1, 2)) : [];
 
   const turretSpecs = [];
   let bossTypes = null;
@@ -139,9 +145,20 @@ function generateRoomLayout(part, index) {
   const decorations = generateDecorations(bounds, obstacles, avoid, part, isBoss ? 26 : 18);
 
   return {
-    part, index, bounds: Object.assign({}, bounds), obstacles, terrainZones, turretSpecs, decorations,
+    part, index, bounds: Object.assign({}, bounds), obstacles: obstacles.concat(movingWalls), terrainZones, turretSpecs, decorations,
     bossTypes, spawnPoint, isBoss, heavy: part === 3, zoom: computeZoom(w, h), helpers,
   };
+}
+
+// Zone de terrain persistante (salles, defis) ; moving : peut suivre une trajectoire.
+function makeTerrainZone(type, x, y, radius, bounds, moving) {
+  const z = makeZone({
+    x, y, radius, duration: 9999, persistent: true, tickInterval: 999,
+    color: terrainColor(type), edgeColor: terrainEdgeColor(type), terrainType: type,
+    windAngle: randInt(0, 7) * Math.PI / 4,
+  });
+  if (moving && bounds) attachZoneMover(z, bounds);
+  return z;
 }
 
 function terrainColor(type) {
@@ -167,8 +184,9 @@ function terrainLabel(type) {
 
 function instantiateRoom(world, layout) {
   const room = {
-    bounds: Object.assign({}, layout.bounds), obstacles: layout.obstacles,
-    terrainZones: layout.terrainZones.map((z) => Object.assign({}, z, { id: uid() })),
+    // copies : un mur mobile repart de sa position de depart si la salle est rejouee
+    bounds: Object.assign({}, layout.bounds), obstacles: layout.obstacles.map((o) => (o.mover ? cloneMovingWall(o) : o)),
+    terrainZones: layout.terrainZones.map((z) => Object.assign({}, z, { id: uid(), mover: z.mover ? Object.assign({}, z.mover) : null })),
     part: layout.part, index: layout.index, isBoss: layout.isBoss,
     // memes objets que les parcours (logique/rendu dans parkour.js), sans pieges ni boosts
     parkour: layout.helpers ? {

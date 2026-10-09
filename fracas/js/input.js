@@ -115,3 +115,20 @@ const Input = {
     this.rebindCallback = callback;
   },
 };
+
+// Intentions du joueur local pour ce pas de simulation (solo) ou a envoyer au serveur (en ligne).
+// La simulation ne lit jamais Input directement : elle lit player.input.
+function sampleLocalInput(world) {
+  const mv = Input.moveVector();
+  const zoom = (world && world.zoom) || 1;
+  const cam = (world && world.camera) || { x: 0, y: 0 };
+  return {
+    mx: mv.x, my: mv.y,
+    ax: Input.mouse.x / zoom + cam.x, ay: Input.mouse.y / zoom + cam.y, hasAim: true,
+    attack: Input.isDown(Keybinds.attack), attackReleased: Input.wasReleased(Keybinds.attack),
+    a1p: Input.ability1Pressed(), a1d: Input.ability1Down(),
+    a2p: Input.wasPressed(Keybinds.ability2), a2d: Input.isDown(Keybinds.ability2),
+    a3p: Input.wasPressed(Keybinds.ability3), a3d: Input.isDown(Keybinds.ability3),
+    abp: Input.wasPressed(Keybinds.ability), abd: Input.isDown(Keybinds.ability),
+  };
+}

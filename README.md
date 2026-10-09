@@ -10,9 +10,10 @@ entre les jeux, sauf mention contraire).
 |---|---|---|
 | [`hexdefense/`](hexdefense/) | **Hex Défense** | Tower defense hexagonal, plusieurs héros, Mode Infini (prestige, cristaux, Choses aléatoires) |
 | [`geodash/`](geodash/) | **GeoDash** | Éditeur de niveaux façon Geometry Dash (piques, blocs, portails) + mode test/jeu |
-| [`puissance4/`](puissance4/) | **Puissance 4** | Solveur exact (moteur WASM + livre d'ouverture de reference, voir `puissance4/js/vendor/`) : affiche pour chaque colonne le nombre de coups jusqu'à la victoire/défaite/nul, en quelques millisecondes. ⚠️ Sous licence **AGPL-3.0** (dépendance tierce) — voir `puissance4/LICENSE` |
-| [`fracas/`](fracas/) | **Fracas** | Action 2D vue du dessus : 11 personnages radicalement différents (33 compétences), 12 tourelles, 6 boss, expédition speedrun en 3 parties de 10 salles, 10 défis fixes, multiplicateur de dégâts au lieu de PV |
-| [`adofai/`](adofai/) | **ADOFAI** | Clone maison (fan-made) façon A Dance of Fire and Ice : bille en orbite qu'on propulse au tempo vers la case suivante, 5 niveaux principaux (difficulté 1 à 5) + mode entraînement (checkpoints, vitesse réglable au %, morts sans pénalité) + éditeur de niveaux intégré (angles, BPM, export/import JSON), 100 % local |
+| [`fracas/`](fracas/) | **Fracas** | Action 2D vue du dessus : 10 personnages radicalement différents (30 compétences) + 4 persos de parcours, 12 tourelles, 6 boss, expédition speedrun en 3 parties de 10 salles, 10 défis fixes, multiplicateur de dégâts au lieu de PV |
+| [`echos/`](echos/) | **Échos** | Jeu de rythme sur TES musiques : import d'un fichier audio ou d'un titre Spotify (lien → titre/pochette, puis enregistrement du son de l'onglet ou de l'appli pendant qu'il joue, silences coupés automatiquement). De 1 à 24 touches au choix (personnalisables ; au-delà de 8, disposition « piano » sur deux rangées) : le morceau est analysé en 24 bandes fines (échelle ERB) regroupées en une bande par touche (aigu → grave ; jusqu'à 8 bandes filtres Linkwitz-Riley compensés, au-delà filtres RIF complémentaires dont le retard de 46 ms est compensé dans l'horloge : toutes les bandes réunies = le morceau d'origine) ; chaque touche fait sonner sa bande jusqu'à sa note suivante, mauvaise touche = silence. Partitions générées automatiquement (attaques détectées par bande) : style Couches ou Mélodie (une note à la fois, touche selon la hauteur du passage), 4 difficultés. Modes Entraînement (score, records), Solo libre (sans notes) et Écouter (démo parfaite), vitesse de 25 % à 200 % sans changer la hauteur (WSOLA), départ à n'importe quel passage, guide sonore. Notes longues à tenir (détectées quand le son reste fort ; lâcher trop tôt coupe le son), désactivables (« relâchement ignoré » : que des appuis). Son et vaisseaux désactivables. Clavier de notes au centre ; à sa gauche (écran large), 4 mini-niveaux « vaisseau » façon Geometry Dash, un par touche (tenir = monter, lâcher = descendre), générés depuis la partition : pics là où il faut voler, plafond qui descend hors des notes, construits pour qu'un jeu correct (±0,12 s, appuis de 0,03 à 0,2 s) ne s'écrase jamais. Bibliothèque en IndexedDB, 100 % local |
+| [`forge-pvp/`](forge-pvp/) | **Forge PvP** | Entraînement PvP Minecraft en 3D (three.js vendorisé, licence MIT, voir `forge-pvp/vendor/`) : déplacements, sauts, sprint, accroupi, effet Vitesse, flèches et combat calqués sur Minecraft. 7 exercices entièrement configurables (durée libre ou infinie, difficulté 0–100 %, sets enregistrables) : boxing & ciblage, réflexes, arc (option : les cibles ripostent et il faut esquiver), construction rapide (échafaudage autorisé autour de la parcelle), bridge, parkour (chaque saut validé par le planificateur `js/plan.js` sur la vraie physique, trajectoires protégées : toujours finissable), test de CPS. **Mode regarder** dans chaque exercice : l'ordinateur joue parfaitement à ta place sans connaître l'avenir (`js/ia.js`). Interface sans défilement |
+| [`forge-serveur/`](forge-serveur/) | **Forge PvP — serveur Minecraft** | Version **serveur Minecraft Java 26.3** de Forge PvP (Fabric, mod côté serveur seulement : on se connecte avec un Minecraft normal). Hub avec une plaque par exercice, menus en coffre, 15 exercices avec bots (vrais joueurs simulés par le serveur) et mode « regarder le bot ». Lancement : `serveur/Lancer le serveur.bat` ; mise en ligne avec playit.gg (voir son README). Pas un jeu web : pas de lien sur la page d'accueil |
 
 ## Outils (pas des jeux)
 
@@ -48,8 +49,10 @@ ruine/                  (dépôt = "JulGame")
 ├── CLAUDE.md           Instructions générales du dépôt
 ├── hexdefense/         Jeu "Hex Défense"
 ├── geodash/             Jeu "GeoDash"
-├── puissance4/          Jeu "Puissance 4" (solveur exact)
 ├── fracas/              Jeu "Fracas"
 ├── revision-anglais/    Outil "Révision Anglais"
+├── echos/             Jeu "Échos" (rythme sur ses propres musiques, import Spotify)
+├── forge-pvp/         Entraînement PvP Minecraft (3D)
+├── forge-serveur/    Forge PvP en serveur Minecraft Java (mod Fabric côté serveur)
 └── pokedex/             Outil "Pokédex"
 ```

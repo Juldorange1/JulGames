@@ -125,8 +125,10 @@ function renderObstacles(ctx, camera, room, theme) {
   const themeName = theme && theme.name;
   const zoom = (Game.world && Game.world.zoom) || 1;
   const viewW = CANVAS_W / zoom + 40, viewH = CANVAS_H / zoom + 40;
+  renderMovingWallRails(ctx, camera, room);
   for (const ob of room.obstacles) {
-    if (ob.hubKind === 'void') continue; // le vide hors de la salle du hub ne se dessine pas
+    if (ob.hubKind === 'void') continue;
+    if (ob.mover || ob.moving) { drawMovingWall(ctx, ob.x - camera.x, ob.y - camera.y, ob, themeName); continue; } // le vide hors de la salle du hub ne se dessine pas
     if (ob.pkVoid) {
       // roche autour du trace d'un parcours : masse sombre et nette
       continue; // le vide autour du trace : on voit le ciel (l'ile flotte)
@@ -320,6 +322,7 @@ function drawTerrainZone(ctx, sx, sy, z) {
 function renderEnemies(ctx, camera, world) {
   for (const e of world.enemies) {
     if (e.dead) continue;
+    if (e.kind === 'crystal') { if (typeof drawCrystal === 'function') drawCrystal(ctx, camera, e); continue; } // modes en ligne
     if (e.kind === 'boss') drawBoss(ctx, camera, e);
     else drawTurret(ctx, camera, e);
     if (e.frozen > 0 || e.frozenUntilTouched) {
@@ -414,7 +417,11 @@ function renderWorld(ctx, world) {
   renderEnemies(ctx, camera, world);
   drawProjectiles(ctx, camera, world);
   renderHazardsTop(ctx, camera, world);
-  if (world.player) drawPlayer(ctx, camera, world, world.player);
+  if (world.onlineUnder) world.onlineUnder(ctx, camera, world); // modes en ligne : cages, zones de soin...
+  if (world.players) {
+    for (const p of world.players) if (!p.dead && !p.absent) drawPlayer(ctx, camera, world, p);
+  } else if (world.player) drawPlayer(ctx, camera, world, world.player);
+  if (world.onlineOver) world.onlineOver(ctx, camera, world); // ballons, noms, barres de %
   Particles.render(ctx, camera);
   if (Game.state === STATE.CHALLENGE_EDITOR) Editor.renderOverlay(ctx, camera, world);
 }

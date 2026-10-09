@@ -9,7 +9,7 @@ function codexCharStats(id) {
   const c = getCharacter(id);
   const base = [['Vitesse', `${c.speedPercent}% (${Math.round(BASE_SPEED * c.speedPercent / 100)} px/s)`]];
   const T = {
-    1: [['Pistolet (orbite)', 'rayon 95, 1,6 tour/s'], ['Tir auto', `toutes les ${COLT_FIRE_INTERVAL}s · ${r1(20 * 1.33)} degats · 360 px/s`],
+    1: [['Pistolet (orbite)', 'rayon 95, 1,6 tour/s'], ['Tir auto', `toutes les ${COLT_FIRE_INTERVAL}s · ${r1(20 * 1.33)} degats · 360 px/s`], ['Ricochets', `${COLT_BOUNCES} rebonds sur tout (murs, obstacles, ennemis)`],
       ['Echange (attaque)', 'recharge 0,2 s'], ['Concentration', `tir vise toutes les ${COLT_FOCUS_INTERVAL}s · ${r1(36 * 1.33)} degats`],
       ['C1 Chaos mobile', 'teleporte toutes les tourelles · 14 s'], ['C2 Salve', `rayon 110 · ${r1(30 * 1.33)} degats · 6 s`]],
     2: [['Trampoline', `pose a ${NYX_TRAMP_RANGE} px max · fait sauter de ${NYX_JUMP_DIST} px dans le sens de la pose · ${NYX_TRAMP_MAX} max (le 4e en remplace un au hasard) · ${NYX_ATTACK_CD} s`],
@@ -17,17 +17,15 @@ function codexCharStats(id) {
       ['C2 Trainee de feu', `dash 1,4 s · zones ${r1(3 * NYX_DMG)} degats/0,4 s pendant 3 s · 10 s`], ['C3 Retour', 'position d\'il y a 1 s · 7 s']],
     3: [['Boomerang', `${Math.round(KIP_BOOM_SPEED)} px/s · 25 degats aller ET retour · portee 620`], ['Recharge', `${KIP_CATCH_CD} s apres l'avoir rattrape`],
       ['C1 Surcharge', '+20% degats / -10% vitesse (cumulable) · 3 s'], ['C2 Boomerang curseur', 'suit le curseur (bascule)'], ['C3 Glace x5', 'zones qui accelerent le boomerang de 30% · 12 s']],
-    4: [['Orbes de feu', `4 orbes · ${BRAISE_ORB_DMG} degats toutes les 0,35 s au contact`], ['Orbite', 'rayon 84 (216 ecartees) · melange toutes les 20 s'],
-      ['C1 Bouclier', 'aleatoire, rayon 46, 6 s · 14 s'], ['C2 Ecartement', 'maintenir'], ['C3 Arene reduite', '-15% de salle · 80 degats hors zone · 16 s']],
-    5: [['Couteaux', `2 par tir · ${r1(FERRO_KNIFE_DMG)} degats · 380 px/s`], ['Recharge', `${r1(FERRO_ATTACK_CD)} s`], ['Rebonds', 'illimites (murs, obstacles) · +50% degats par rebond (plafonne)'],
+    5: [['Couteaux', `2 par tir, dos a dos (vise + oppose) · ${r1(FERRO_KNIFE_DMG)} degats · 380 px/s`], ['Recharge', `${r1(FERRO_ATTACK_CD)} s`], ['Rebonds', 'illimites (murs, obstacles) · +50% degats par rebond (plafonne)'],
       ['Portee', `${r1(FERRO_KNIFE_LIFE)} s de vol`], ['C1 Poussee', 'rayon 220 · recul 60 · 10,5 degats · 12,6 s'], ['C2 Mur', '48x48 pendant 8 s · 14 s'], ['C3 Rebonds prolonges', '+0,3 s par rebond · 11,2 s']],
-    6: [['Meteorite', `charge jusqu'a 3 s · jusqu'a ${r1(METEOR_MAX_DMG)} degats · rayon 60 · chute 1 s`], ['Pendant la charge', 'immobile'],
+    6: [['Meteorite', `charge jusqu'a 3 s · jusqu'a ${r1(METEOR_MAX_DMG)} degats · rayon 60 · chute 1 s`], ['Pendant la charge', 'immobile'], ['Sol en feu', `a chaque impact · rayon ${Math.round(60 * CENDRE_FIRE_RADIUS)} · ${CENDRE_FIRE_TIME} s · ${CENDRE_FIRE_DMG} degats / 0,5 s · brule aussi Cendre`],
       ['C1 Quatre meteorites', `${r1(METEOR_MAX_DMG * 0.6)} degats chacune · 9 s`], ['C2 Invincibilite', '0,5 s · 6 s'], ['C3 Zone de charge', `${r1(3 * 0.65)} degats / 0,2 s au curseur · 10 s`]],
     7: [['Frappe retardee', 'position d\'il y a 3 s · rayon 90 · 30 degats · 0,5 s'], ['C1 Frappe lointaine', 'position d\'il y a 10 s · rayon 110 · 45 degats · 7 s'],
       ['C2 Acceleration', 'maintenir : jusqu\'a +50% de vitesse du temps'], ['C3 Marque', 'tuer la cible cree un soin de 15% · 12 s']],
     8: [['Attraction', `rayon 260 · degats = distance tiree x0,08 (${r1(1 * VEX_DMG)} a ${r1(18 * VEX_DMG)}) / 0,4 s`], ['C1 Mine', `${r1(10 * VEX_DMG)}% · 7 s`],
       ['C2 Repulsion', `rayon 140 · recul 70 · ${r1(35 * VEX_DMG)} degats contre un mur · 8 s`], ['C3 Pulsation', `toutes les 15 s (competence 3 seulement) · rayon 150 · ${r1(40 * VEX_DMG)} degats · te ramene au centre`]],
-    9: [['Aura', 'rayon 250 · vague toutes les 1,2 s · jusqu\'a 30 degats (selon proximite)'], ['C1 Bouclier', 'invincible 1 s · 8 s'], ['C2 Dash', '120 px · 2,5 s'], ['C3 Arret global', 'fige tous les ennemis 1 s · 25 s']],
+    9: [['Lasers de feu', `4 lasers toutes les ${CROC_LASER_INTERVAL} s · longueur ${CROC_LASER_LEN} · jusqu'a ${CROC_LASER_DMG} degats (plus l'ennemi est proche, plus ca fait mal)`], ['Attaque', 'bascule croix (+) / diagonales (x)'], ['C1 Bouclier', 'invincible 1 s · 8 s'], ['C2 Dash', '120 px · 2,5 s'], ['C3 Arret global', 'fige tous les ennemis 1 s · 25 s']],
     10: [['Deux orbes', 'parcours carre de rayon 100 · frappe rayon 48 · 20 degats'], ['Charges', 'se rechargent en 1,5 s'], ['C1 Melange', 'repositionne les orbes · 5 s'],
       ['C2 Troisieme orbe', `bouclier rayon ${GEMINI_THIRD_ORB_RADIUS} · 6 s · bloque tout · 12 s`], ['C3 Gel', 'fige les 2 ennemis les plus proches jusqu\'au contact · 16 s']],
     11: [['Bloc de vent chaud', '140x140 · pousse les ennemis · 8 s · 3 max · 0,4 s'], ['C1 Vent vertical', 'bloque les projectiles · 10 s'], ['C2 Vent puissant', '3x plus fort, projette contre les murs · 11 s'], ['C3 Inversion', 'retourne tes vents · 6 s']],
@@ -35,7 +33,7 @@ function codexCharStats(id) {
     13: [['Dash charge', `charge max ${TRAIT_MAX_CHARGE} s (immobile) · vers le curseur`], ['Portee', `${Math.round(traitDash(0).speed * traitDash(0).dur)} a ${Math.round(traitDash(1).speed * traitDash(1).dur)} px`],
       ['Pendant le dash', 'invulnerable aux pieges'], ['Recharge', `${TRAIT_CD} s`], ['Invincibilite', `0,5 s · ${TRAIT_INV_CD} s`]],
     14: [['Teleporteurs', `paire ici + curseur (${JANUS_PORTAL_RANGE} max) · durent ${JANUS_PORTAL_LIFE} s · ${JANUS_PORTAL_CD} s`], ['Bloc de vent', `ne pousse que lui · force ${JANUS_WIND_FORCE} · ${JANUS_WIND_LIFE} s · 1 max · ${JANUS_WIND_CD} s`]],
-    15: [['Bond vers le haut', `${ELAN_MIN_DIST} a ${ELAN_MAX_DIST} px selon le maintien (${ELAN_MAX_HOLD} s max) · ${ELAN_CD} s`], ['Sol glissant', `+${Math.round((PARKOUR_SLIDE_SPEED - 1) * 100)}% de vitesse, forte inertie · ${ELAN_SLIDE_MAX} s max · ${ELAN_SLIDE_CD} s`]],
+    15: [['Bond alterne', `1er vers le haut, 2e vers le bas, etc. · ${ELAN_MIN_DIST} a ${ELAN_MAX_DIST} px selon le maintien (${ELAN_MAX_HOLD} s max) · ${ELAN_CD} s`], ['Sol glissant', `+${Math.round((PARKOUR_SLIDE_SPEED - 1) * 100)}% de vitesse, forte inertie · ${ELAN_SLIDE_MAX} s max · ${ELAN_SLIDE_CD} s`]],
   };
   return base.concat(T[id] || []);
 }
@@ -68,6 +66,8 @@ const CODEX_ELEMENTS = [
   { id: 'shooter', group: 'Piege', name: 'Tourelle-piege', color: '#ff9d3d', stats: [['Effet', 'rafales de 1 a 3 tirs en travers · -7,2% de vitesse · arretes par les murs'], ['Ou', 'parcours']] },
   { id: 'teleporter', group: 'Aide', name: 'Teleporteur', color: '#7fd8ff', stats: [['Effet', 'entree bleue -> sortie violette, sens unique'], ['Ou', 'parcours et salles du Monde']] },
   { id: 'trampoline', group: 'Aide', name: 'Trampoline', color: '#ffd23d', stats: [['Effet', 'saut de 0,6 s par-dessus murs, pieges et tirs'], ['Ou', 'parcours et salles du Monde']] },
+  { id: 'mover', group: 'Obstacle', name: 'Mur mobile', color: '#ffb14d', stats: [['Effet', 'bloque le joueur, les ennemis et les tirs ; pousse tout sur son passage'],
+    ['Trajectoires', 'aller-retour, zigzag, vague, pendule, cercle, ellipse, rectangle, triangle, losange, huit'], ['Ou', 'salles du Monde et des defis']] },
   { id: 'boost', group: 'Aide', name: 'Boost de vitesse', color: '#ffd23d', stats: [['Effet', '+60% de vitesse pendant 3 s'], ['Ou', 'parcours']] },
 ];
 
@@ -77,7 +77,7 @@ const CODEX_RULES = [
   { title: 'Monde (expedition)', lines: ['3 parties de 10 salles ; la 10e salle de chaque partie est un boss.',
     'Chaque partie debloque UNE competence (partie 1 = C1, partie 2 = C2, partie 3 = C3) sur la touche unique.',
     'Vider une salle soigne un peu ; teleporteurs et trampolines aident a se deplacer.'] },
-  { title: 'Defis', lines: ['11 defis en 3 salles : une competence differente autorisee dans chaque salle (boss eventuel dans la 3e).', 'Chaque defi reussi rapporte 0,05 EUR ; record de temps enregistre.',
+  { title: 'Defis', lines: ['10 defis en 3 salles : une competence differente autorisee dans chaque salle (boss eventuel dans la 3e).', 'Chaque defi reussi rapporte 0,05 EUR ; record de temps enregistre.',
     'Tes propres defis se creent dans la carte (editeur) : records oui, argent non.'] },
   { title: 'Parcours', lines: ['Atteins l\'arrivee a droite le plus vite possible, jeu accelere.', 'Pas d\'ennemis : piques, lasers, tourelles-pieges. Chaque coup baisse ta VITESSE (+25% rendus a mi-parcours).',
     '4 personnages dedies : attaque = competence 1, touche de competence unique = competence 2.'] },

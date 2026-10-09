@@ -16,5 +16,7 @@ Voir [README.md](README.md) pour la liste des jeux et l'arborescence complète.
   dossier (ex: [ruine/CLAUDE.md](ruine/CLAUDE.md)) — s'y référer en priorité quand on travaille
   dans ce dossier.
 - Le dossier `.claude/` (settings locaux) n'est pas suivi par git — c'est voulu.
+- **Tests toujours sans son** : ouvrir les jeux avec `?muet` dans l'adresse (chaque jeu qui fait du son a un petit
+  script dans son `<head>` qui coupe tout l'audio dans ce cas). Un nouveau jeu avec du son doit recevoir ce script.
 - `index.html` à la racine est une simple page d'accueil qui liste les jeux ; ce n'est pas
   un jeu en soi.

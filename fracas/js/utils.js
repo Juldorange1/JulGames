@@ -81,3 +81,32 @@ function segmentCircleEntry(px, py, dx, dy, cx, cy, r) {
 
 let __uidCounter = 1;
 function uid() { return __uidCounter++; }
+
+// ---------- Hasard reproductible (defi du jour, generation decidee par le serveur) ----------
+function hashString(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// Execute fn avec Math.random remplace par un generateur a graine : toutes les fonctions de
+// generation existantes (randRange, choice, pickN...) deviennent reproductibles a l'identique.
+function withSeededRandom(seed, fn) {
+  const orig = Math.random;
+  Math.random = mulberry32(seed);
+  try { return fn(); } finally { Math.random = orig; }
+}
+// Jour local "AAAAMMJJ" (le defi du jour change a minuit, heure du joueur).
+function localDateKey(d) {
+  const x = d || new Date();
+  return `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, '0')}${String(x.getDate()).padStart(2, '0')}`;
+}

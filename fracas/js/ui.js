@@ -92,6 +92,9 @@ const UI = {
     else if (state === STATE.SETTINGS) this.renderSettings();
     else if (state === STATE.BESTIARY) this.renderBestiary();
     else if (state === STATE.TEST_ROOM || state === STATE.EXPEDITION || state === STATE.CHALLENGE) this.buildHUD(state);
+    else if (state === STATE.ONLINE_MENU) OnlineUI.renderMenu();
+    else if (state === STATE.ONLINE_LOBBY) OnlineUI.renderLobby(true);
+    else if (state === STATE.ONLINE_GAME) { this.buildHUD(state); OnlineUI.buildGameOverlay(); }
   },
 
   el(tag, cls, text) {
@@ -396,13 +399,15 @@ const UI = {
       const c = getCharacter(id);
       const tile = this.el('div', 'rep-tile');
       tile.style.setProperty('--accent', c.color || '#7fd8ff');
-      const sc = createShowcase('character', id);
+      // perso jamais joue : "?" (on peut quand meme le choisir pour le decouvrir)
+      const known = Save.isCharKnown(id);
+      const sc = known ? createShowcase('character', id) : createMysteryShowcase(c.color);
       portraits.push(sc);
       tile.appendChild(sc.canvas);
       const cap = this.el('div', 'rep-tile-cap');
-      cap.appendChild(this.el('span', 'rep-tile-name', charName(id)));
+      cap.appendChild(this.el('span', 'rep-tile-name', known ? charName(id) : S('unknownName')));
       const rec = Save.getExpeditionRecord(id);
-      cap.appendChild(this.el('span', 'rep-tile-sub', `${c.speedPercent}%${rec != null ? ' · ' + formatTime(rec) : ''}`));
+      cap.appendChild(this.el('span', 'rep-tile-sub', known ? `${c.speedPercent}%${rec != null ? ' · ' + formatTime(rec) : ''}` : ''));
       tile.appendChild(cap);
       tile.onclick = () => {
         if (mode === 'expedition') Game.startExpedition(id);
@@ -456,15 +461,45 @@ const UI = {
   },
 
   // ---------------- DEFIS ----------------
+  // Petit portrait anime du perso impose, ou "?" s'il n'a jamais ete joue.
+  challengePortrait(charId, scenes) {
+    const known = Save.isCharKnown(charId);
+    const sc = known ? createShowcase('character', charId) : createMysteryShowcase(getCharacter(charId).color);
+    sc.canvas.classList.add('challenge-portrait');
+    scenes.push(sc);
+    return sc.canvas;
+  },
+  knownCharName(id) { return Save.isCharKnown(id) ? charName(id) : S('unknownName'); },
+
   renderChallengeSelect() {
     const panel = this.el('div', 'panel');
     panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
     panel.appendChild(this.el('h2', null, S('challengesTitle')));
+    const scenes = [];
+
+    // ---- Defi du jour (tout aleatoire, change a minuit) ----
+    const dId = dailyChallengeId();
+    const dDef = Challenges.get(dId);
+    const daily = this.el('div', 'challenge-card daily-card');
+    daily.style.setProperty('--accent', '#ffd23d');
+    daily.appendChild(this.challengePortrait(dDef.characterId, scenes));
+    const dInfo = this.el('div', 'daily-info');
+    dInfo.appendChild(this.el('h4', null, `${S('dailyTitle')} — ${this.knownCharName(dDef.characterId)}`));
+    dInfo.appendChild(this.el('p', null, S('dailySub')));
+    const dRec = Save.getChallengeRecord(dId);
+    const now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const left = Math.max(0, midnight - now), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
+    dInfo.appendChild(this.el('div', 'best', `${S('record')} : ${dRec != null ? formatTime(dRec) : '--:--.---'}   ·   ${S('dailyNext')} ${hh}h${String(mm).padStart(2, '0')}`));
+    daily.appendChild(dInfo);
+    daily.onclick = () => Game.startChallenge(dId);
+    panel.appendChild(daily);
+
     const list = this.el('div', 'challenge-list');
     for (const def of CHALLENGE_DEFS) {
       const card = this.el('div', 'challenge-card');
       card.style.setProperty('--accent', getCharacter(def.characterId).color || '#7fd8ff');
-      card.appendChild(this.el('h4', null, `${S('hudDefi')} ${def.id} — ${charName(def.characterId)}`));
+      card.appendChild(this.challengePortrait(def.characterId, scenes));
+      card.appendChild(this.el('h4', null, `${S('hudDefi')} ${challengeNumber(def)} — ${this.knownCharName(def.characterId)}`));
       card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
       card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
       const rec = Save.getChallengeRecord(def.id);
@@ -483,7 +518,8 @@ const UI = {
     for (const c of Save.data.customChallenges.filter((x) => !x.parkour)) {
       const card = this.el('div', 'challenge-card');
       card.style.setProperty('--accent', getCharacter(c.characterId).color || '#7fd8ff');
-      card.appendChild(this.el('h4', null, `${c.name} — ${charName(c.characterId)}`));
+      card.appendChild(this.challengePortrait(c.characterId, scenes));
+      card.appendChild(this.el('h4', null, `${c.name} — ${this.knownCharName(c.characterId)}`));
       const enemyCount = c.placed ? c.placed.enemies.length : Object.values(c.enemies || {}).reduce((a, b) => a + b, 0);
       const bossT = c.placed ? (c.placed.boss && c.placed.boss.type) : c.bossType;
       const summary = `${S('customEnemies')} : ${enemyCount}${bossT ? ' + ' + BOSS_DEFS[bossT].name : ''}   ·   ${S('ability')}${c.abilityGate}   ·   ${S('customNoMoney')}`;
@@ -508,7 +544,8 @@ const UI = {
     for (const def of PARKOUR_DEFS) {
       const card = this.el('div', 'challenge-card parkour-card');
       card.style.setProperty('--accent', getCharacter(def.characterId).color || '#5dff9d');
-      card.appendChild(this.el('h4', null, `${S('parkourLabel')} ${def.id.slice(1)} — ${charName(def.characterId)}`));
+      card.appendChild(this.challengePortrait(def.characterId, scenes));
+      card.appendChild(this.el('h4', null, `${S('parkourLabel')} ${def.id.slice(1)} — ${this.knownCharName(def.characterId)}`));
       card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
       card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
       const rec = Save.getChallengeRecord(def.id);
@@ -526,7 +563,8 @@ const UI = {
     for (const c of Save.data.customChallenges.filter((x) => x.parkour)) {
       const card = this.el('div', 'challenge-card parkour-card');
       card.style.setProperty('--accent', getCharacter(c.characterId).color || '#5dff9d');
-      card.appendChild(this.el('h4', null, `${c.name} — ${charName(c.characterId)}`));
+      card.appendChild(this.challengePortrait(c.characterId, scenes));
+      card.appendChild(this.el('h4', null, `${c.name} — ${this.knownCharName(c.characterId)}`));
       card.appendChild(this.el('p', null, `${S('parkourLength')} : ${S('parkourLength_' + c.length)}   ·   ${S('parkourDensity')} : ${S('parkourDensity_' + c.density)}   ·   ${S('customNoMoney')}`));
       card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
       const del = this.el('div', 'custom-delete', S('customDelete'));
@@ -541,6 +579,7 @@ const UI = {
     if (!Save.data.customChallenges.some((x) => x.parkour)) pkCustom.appendChild(this.el('div', 'menu-sub', S('parkourNone')));
     panel.appendChild(pkCustom);
     this.overlay.appendChild(panel);
+    this.startPortraitAnim(scenes);
   },
 
   // ---------------- REPERTOIRE & STATISTIQUES (menu unique) ----------------
@@ -591,12 +630,13 @@ const UI = {
     for (const it of items) {
       const tile = this.el('div', 'rep-tile' + (it.id === this._repSel ? ' active' : ''));
       tile.style.setProperty('--accent', this.repColor(it));
-      const sc = createShowcase(it.kind, it.id);
+      const known = isDiscovered(it.kind, it.id);
+      const sc = known ? createShowcase(it.kind, it.id) : createMysteryShowcase(this.repColor(it));
       scenes.push(sc);
       tile.appendChild(sc.canvas);
       const cap = this.el('div', 'rep-tile-cap');
-      cap.appendChild(this.el('span', 'rep-tile-name', this.repName(it)));
-      cap.appendChild(this.el('span', 'rep-tile-sub', this.repSub(it)));
+      cap.appendChild(this.el('span', 'rep-tile-name', known ? this.repName(it) : S('unknownName')));
+      cap.appendChild(this.el('span', 'rep-tile-sub', known ? this.repSub(it) : ''));
       tile.appendChild(cap);
       tile.onclick = () => {
         this._repSel = it.id;
@@ -641,6 +681,19 @@ const UI = {
 
   // Fiche detaillee (colonne de droite).
   renderRepDetail(it) {
+    if (!isDiscovered(it.kind, it.id)) {
+      // Pas encore decouvert : ni image, ni nom, ni statistiques.
+      const node = this.el('div', 'rep-card');
+      node.style.setProperty('--accent', this.repColor(it));
+      const sc = createMysteryShowcase(this.repColor(it));
+      sc.canvas.classList.add('rep-big');
+      node.appendChild(sc.canvas);
+      const title = this.el('div', 'rep-title');
+      title.appendChild(this.el('h3', null, S('unknownName')));
+      node.appendChild(title);
+      node.appendChild(this.el('div', 'rep-note', S('repUnknown')));
+      return { node, scene: sc };
+    }
     const node = this.el('div', 'rep-card');
     node.style.setProperty('--accent', this.repColor(it));
     const sc = createShowcase(it.kind, it.id);
@@ -681,7 +734,7 @@ const UI = {
         // records des defis de ce personnage
         for (const cd of CHALLENGE_DEFS.filter((x) => x.characterId === it.id)) {
           const rc = Save.getChallengeRecord(cd.id);
-          chip(`${S('hudDefi')} ${cd.id}`, rc != null ? formatTime(rc) : '--:--.---', 'time');
+          chip(`${S('hudDefi')} ${challengeNumber(cd)}`, rc != null ? formatTime(rc) : '--:--.---', 'time');
         }
         row(keyLabel(Keybinds.attack), charField(it.id, 'attackLabel'));
         for (const n of [1, 2, 3]) row(keyLabel(Keybinds['ability' + n]), `${charField(it.id, 'a' + n + 'Label')}${c['a' + n + 'Cd'] ? ' · ' + c['a' + n + 'Cd'] + 's' : ''}`);
@@ -757,7 +810,7 @@ const UI = {
     };
     const t = (ms) => (ms != null ? formatTime(ms) : '--:--.---');
     col('recordsExpeditions', allCharacterIds().map((id) => [charName(id), t(Save.getExpeditionRecord(id)), formatMoney(Save.getMoneyForChar(id))]));
-    col('recordsChallenges', CHALLENGE_DEFS.map((d) => [`${d.id}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
+    col('recordsChallenges', CHALLENGE_DEFS.map((d) => [`${challengeNumber(d)}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
     col('parkourTitle', PARKOUR_DEFS.map((d) => [`${d.id.slice(1)}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
     return board;
   },
@@ -964,12 +1017,13 @@ const UI = {
     if (!player) return;
     const r = this.hudRefs;
     r.nameEl.textContent = `${S('hudPersonnage')} : ${charName(player.character.id)}`;
-    // En parcours, la jauge montre la vitesse (les coups ralentissent au lieu de reduire les degats).
-    const pct = Math.round((player.parkour ? (player.parkourSpeed || 1) : player.damageMultiplier) * 100);
-    r.dmgEl.textContent = `${S(player.parkour ? 'hudSpeed' : 'hudDamage')} : ${pct}%`;
+    // En parcours (et au Foot en ligne), la jauge montre la vitesse : les coups ralentissent.
+    const speedGauge = player.parkour || player.speedMode;
+    const pct = Math.round((player.parkour ? (player.parkourSpeed || 1) : player.speedMode ? player.speedPct : player.damageMultiplier) * 100);
+    r.dmgEl.textContent = `${S(speedGauge ? 'hudSpeed' : 'hudDamage')} : ${pct}%`;
     const dmgColor = pct >= 70 ? '#7fff9c' : (pct >= 35 ? '#ffd23d' : '#ff5d5d');
     r.dmgEl.style.color = dmgColor;
-    r.dmgBarFill.style.width = `${pct}%`;
+    r.dmgBarFill.style.width = `${Math.min(100, pct)}%`;
     r.dmgBarFill.style.background = dmgColor;
 
     let timeMs = 0, bestMs = null;
@@ -982,10 +1036,15 @@ const UI = {
         const title = def.custom ? `${S('parkourLabel')} : ${def.title}` : `${S('parkourLabel')} ${def.id.slice(1)} : ${challengeField(def.id, 'title')}`;
         r.progEl.textContent = `${title}   ${S('hudProgress')} : ${Math.round((Challenges.progress || 0) * 100)}%`;
       } else {
-        const title = def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${def.id} : ${challengeField(def.id, 'title')}`;
+        const title = def.daily ? S('dailyTitle') : def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${challengeNumber(def)} : ${challengeField(def.id, 'title')}`;
         r.progEl.textContent = `${title}   ${S('hudRoom')} : ${Challenges.roomNum}/${CHALLENGE_ROOMS}`;
       }
       timeMs = Challenges.elapsedMs; bestMs = Save.getChallengeRecord(Challenges.id);
+    } else if (state === STATE.ONLINE_GAME) {
+      r.progEl.textContent = `${S('mpTitle')} · ${OnlineUI.modeName(OnlineGame.mode)}`;
+      const g = OnlineGame.g;
+      timeMs = g && g.kind === 'coop' ? g.elapsedMs : 0;
+      bestMs = g && g.kind === 'coop' ? Save.getChallengeRecord(MP.COOP_RECORD_PREFIX + g.challengeId) : null;
     } else {
       r.progEl.textContent = S('hudTestRoom');
     }

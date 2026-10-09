@@ -45,8 +45,9 @@ function bossRadialBurst(world, b, count, speed) {
 }
 
 function bossLineToward(world, b, count, spacing) {
-  if (!world.player) return;
-  const angle = angleTo(b.x, b.y, world.player.x, world.player.y);
+  const tp = nearestPlayer(world, b.x, b.y);
+  if (!tp) return;
+  const angle = angleTo(b.x, b.y, tp.x, tp.y);
   const dir = vecFromAngle(angle);
   const perp = { x: -dir.y, y: dir.x };
   for (let i = 0; i < count; i++) {
@@ -63,7 +64,7 @@ function bossZoneStrike(world, x, y, radius, dmgPercent, telegraph) {
     x, y, radius, telegraph: telegraph != null ? telegraph : 0.9, duration: 0.2, tickInterval: 999,
     color: COLORS.danger, edgeColor: COLORS.dangerEdge, team: TEAM.ENEMY,
     onActivate(z) {
-      if (world.player && zoneContainsPoint(z, world.player.x, world.player.y)) playerApplyDamage(world.player, dmgPercent);
+      for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) playerApplyDamage(pl, dmgPercent);
       Particles.burst(x, y, 16, COLORS.dangerEdge, { maxSpeed: 160 });
     },
   }));
@@ -88,13 +89,16 @@ function buildBossRails(room) {
 
 // Ejecte le joueur loin du boss (souffle, coup de masse...) s'il est a portee.
 function bossKnockbackPlayer(world, b, radius, force, dmgPercent) {
-  const player = world.player;
-  if (!player) return false;
-  const d = dist(b.x, b.y, player.x, player.y);
-  if (d > radius) return false;
-  const dir = normalize(player.x - b.x, player.y - b.y) || { x: 1, y: 0 };
-  pushPlayer(world, player, dir.x * force, dir.y * force);
-  if (dmgPercent) playerApplyDamage(player, dmgPercent);
+  let any = false;
+  for (const player of worldPlayers(world)) { // tous les joueurs a portee (coop en ligne)
+    const d = dist(b.x, b.y, player.x, player.y);
+    if (d > radius) continue;
+    const dir = normalize(player.x - b.x, player.y - b.y) || { x: 1, y: 0 };
+    pushPlayer(world, player, dir.x * force, dir.y * force);
+    if (dmgPercent) playerApplyDamage(player, dmgPercent);
+    any = true;
+  }
+  if (!any) return false;
   Audio2.impact();
   if (Game.shakeCamera) Game.shakeCamera(9, 0.22);
   return true;
@@ -177,8 +181,9 @@ function clampToRoom(world, b) {
 }
 
 function homeToward(world, b, speed, dt) {
-  if (!world.player) return;
-  const dir = normalize(world.player.x - b.x, world.player.y - b.y);
+  const tp = nearestPlayer(world, b.x, b.y);
+  if (!tp) return;
+  const dir = normalize(tp.x - b.x, tp.y - b.y);
   b.x += dir.x * speed * dt; b.y += dir.y * speed * dt;
 }
 
@@ -245,8 +250,9 @@ function updateBoss2(world, b, dt) {
   const rate = b.phase === 1 ? 0.46 : (b.phase === 2 ? 0.29 : 0.22);
   if (b.timer >= rate) {
     b.timer = 0;
-    if (world.player) {
-      const dir = normalize(world.player.x - b.x, world.player.y - b.y);
+    const tp = nearestPlayer(world, b.x, b.y);
+    if (tp) {
+      const dir = normalize(tp.x - b.x, tp.y - b.y);
       const spreadAngles = b.phase === 1 ? [0, 0.28, -0.28] : (b.phase === 2 ? [0, 0.28, -0.28, 0.56, -0.56] : [0, 0.28, -0.28, 0.56, -0.56, 0.84, -0.84]);
       for (const spread of spreadAngles) {
         const vx = (dir.x * Math.cos(spread) - dir.y * Math.sin(spread)) * 200;
@@ -272,8 +278,9 @@ function updateBoss3(world, b, dt) {
   if (b.timer >= interval) {
     b.timer = 0; b.charging = false;
     const count = b.phase === 1 ? 6 : (b.phase === 2 ? 10 : 13);
-    if (world.player) {
-      const baseAngle = angleTo(b.x, b.y, world.player.x, world.player.y);
+    const tp = nearestPlayer(world, b.x, b.y);
+    if (tp) {
+      const baseAngle = angleTo(b.x, b.y, tp.x, tp.y);
       for (let i = 0; i < count; i++) {
         const a = baseAngle + (i - (count - 1) / 2) * 0.14;
         const dir = vecFromAngle(a);
@@ -330,7 +337,8 @@ function updateBoss5(world, b, dt) {
     const zoneCount = b.phase === 1 ? 2 : (b.phase === 2 ? 3 : 4);
     const projCount = b.phase === 1 ? 5 : (b.phase === 2 ? 8 : 11);
     for (let i = 0; i < zoneCount; i++) {
-      const p = world.player ? { x: world.player.x + randRange(-70, 70), y: world.player.y + randRange(-70, 70) } : randomValidPointInRoom(world, {});
+      const tp = nearestPlayer(world, b.x, b.y);
+      const p = tp ? { x: tp.x + randRange(-70, 70), y: tp.y + randRange(-70, 70) } : randomValidPointInRoom(world, {});
       bossZoneStrike(world, p.x, p.y, 70, 22, 0.9);
     }
     bossRadialBurst(world, b, projCount, 150);

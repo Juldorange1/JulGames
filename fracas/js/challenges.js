@@ -1,6 +1,7 @@
-// Les 11 defis (un par personnage) : entierement predefinis (positions en fractions de l'ecran), aucun hasard
+// Les 10 defis (un par personnage) : entierement predefinis (positions en fractions de l'ecran), aucun hasard
 
 const SPAWN_FRAC = { fx: 0.078, fy: 0.5 };
+const COMBAT_ROOM_W = 1000, COMBAT_ROOM_H = 650; // salles de defi : pas trop grandes
 
 // abilityGate : le defi ne rend disponible qu'UNE seule des 3 competences du personnage
 // (choisie pour coller au theme du defi) ; bossType (optionnel) ajoute un boss affaibli au combat
@@ -35,16 +36,6 @@ const CHALLENGE_DEFS = [
     turretSpecs: [
       { type: 'T2', fx: 0.333, fy: 0.25 }, { type: 'T2', fx: 0.667, fy: 0.5 },
       { type: 'T2', fx: 0.333, fy: 0.75 },
-    ],
-  },
-  {
-    id: 4, characterId: 4, title: 'Positionnement des quatre boules',
-    desc: 'Place tes orbes de feu au contact des tourelles disposees en cercle.',
-    theme: 1, abilityGate: 2, speed: 1.1,
-    obstacles: [],
-    turretSpecs: [
-      { type: 'T4', fx: 0.5, fy: 0.2 }, { type: 'T4', fx: 0.778, fy: 0.5 },
-      { type: 'T4', fx: 0.5, fy: 0.8 }, { type: 'T4', fx: 0.244, fy: 0.5 },
     ],
   },
   {
@@ -118,6 +109,36 @@ const CHALLENGE_DEFS = [
     ],
   },
 ];
+// Numero affiche (1..n) : les ids restent fixes (records sauvegardes) meme si un defi est retire.
+function challengeNumber(def) { const i = CHALLENGE_DEFS.findIndex((d) => d.id === def.id); return i >= 0 ? i + 1 : def.id; }
+
+// ---------- Defi du jour ----------
+// Tout est tire au hasard a partir de la date (meme defi pour tout le monde ce jour-la) :
+// personnage, decor, competence de depart, obstacles, tourelles, boss, zones (parfois mobiles).
+// Id "DAAAAMMJJ" : un record par jour.
+const DAILY_TURRETS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+function dailyChallengeId() { return 'D' + localDateKey(); }
+function dailyDef(key) {
+  const seed = hashString('fracas-daily-' + key);
+  return withSeededRandom(seed, () => {
+    const obstacles = [];
+    for (let i = 0, n = randInt(0, 3); i < n; i++) {
+      const fw = randRange(0.05, 0.1), fh = randRange(0.1, 0.3);
+      obstacles.push({ fx: randRange(0.3, 0.85 - fw), fy: randRange(0.1, 0.9 - fh), fw, fh });
+    }
+    const turretSpecs = [];
+    for (let i = 0, n = randInt(3, 5); i < n; i++) {
+      turretSpecs.push({ type: choice(DAILY_TURRETS), fx: randRange(0.4, 0.9), fy: randRange(0.15, 0.85) });
+    }
+    return {
+      id: 'D' + key, daily: true, dateKey: key, seed,
+      characterId: choice(allCharacterIds()), theme: randInt(1, 3), abilityGate: randInt(1, 3), speed: 1.1,
+      title: 'Defi du jour', desc: '', obstacles, turretSpecs,
+      bossType: Math.random() < 0.5 ? choice(['B1', 'B2', 'B3', 'B4', 'B5', 'B6']) : null,
+      randomZones: pickN(TERRAIN_TYPES, randInt(1, 3)),
+    };
+  });
+}
 
 const CHALLENGE_ROOMS = 3; // chaque defi : 3 salles, une competence differente dans chacune
 // Competence autorisee dans la salle n : on part de celle du defi puis on tourne (C1 -> C2 -> C3).
@@ -132,7 +153,7 @@ const CHALLENGE_HP_MULT = 1.6; // defis plus durs : tourelles/boss plus resistan
 const TURRET_THREAT = { DUMMY: 0.2, T1: 1, T2: 1.2, T3: 1.4, T4: 1.1, T5: 1.3, T6: 1.1, T7: 1.2, T8: 1.5, T9: 1.2, T10: 1.3, T11: 1.2, T12: 1.4 };
 const BOSS_THREAT = 4.5;
 const CHALLENGE_THREAT_BUDGET = 9;
-const CHALLENGE_CHAR_POWER = { 1: 1.15, 2: 1, 3: 0.95, 4: 1.15, 5: 0.9, 6: 0.95, 7: 1.05, 8: 0.9, 9: 1, 10: 1, 11: 0.85 };
+const CHALLENGE_CHAR_POWER = { 1: 1.15, 2: 1, 3: 0.95, 5: 0.9, 6: 0.95, 7: 1.05, 8: 0.9, 9: 1, 10: 1, 11: 0.85 };
 
 const Challenges = {
   active: false,
@@ -148,6 +169,7 @@ const Challenges = {
   transitionDuration: 0.32,
 
   get(id) {
+    if (typeof id === 'string' && /^D\d{8}$/.test(id)) return dailyDef(id.slice(1));
     if (typeof id === 'string' && /^P\d+$/.test(id)) {
       const pk = PARKOUR_DEFS.find((d) => d.id === id);
       return pk ? Object.assign({ parkour: true, abilityGate: 1 }, pk) : null;
@@ -297,6 +319,13 @@ const Challenges = {
   },
 
   load(world, def, roomNum) {
+    // Defi du jour : chaque salle est generee avec une graine (date + numero de salle), donc
+    // identique pour tous les joueurs et a chaque essai de la journee.
+    if (def.daily && !this._seeding) {
+      this._seeding = true;
+      try { withSeededRandom(def.seed + roomNum * 7919, () => this.load(world, def, roomNum)); } finally { this._seeding = false; }
+      return;
+    }
     if (def.parkour) { this.loadParkour(world, def); return; }
     if (def.placed) { this.loadPlaced(world, def, roomNum); return; }
     if (roomNum === 2 && !def.custom) def = this.mirrorDef(def);
@@ -311,12 +340,21 @@ const Challenges = {
       : def.obstacles.map((o) => ({ x: toX(o.fx), y: toY(o.fy), w: o.fw * bounds.w, h: o.fh * bounds.h }));
     const avoid = [{ x: spawn.x, y: spawn.y, r: 130 }];
     for (const spec of def.turretSpecs) avoid.push({ x: toX(spec.fx), y: toY(spec.fy), r: 70 });
+    // Murs mobiles possibles dans chaque salle (trajet libre de tout obstacle et des tourelles).
+    if (Math.random() < 0.6) obstacles.push(...makeMovingWalls(bounds, obstacles, avoid, randInt(1, 2)));
 
     const room = {
       bounds, obstacles,
       terrainZones: (def.terrainZones || []).map((z) => makeZone(Object.assign({}, z, { id: uid() }))),
       part: 0, index: def.id, isBoss: false, challengeRoom: roomNum,
     };
+    // Zones tirees au hasard (defi du jour) : certaines se deplacent.
+    for (const type of def.randomZones || []) {
+      const p = localPickPoint(bounds, obstacles, avoid, 50, 40);
+      if (!p) continue;
+      room.terrainZones.push(makeTerrainZone(type, p.x, p.y, randRange(46, 66), bounds, Math.random() < 0.6));
+      avoid.push({ x: p.x, y: p.y, r: 60 });
+    }
     world.room = room;
     world.noFollow = false;
     world.enemies = [];
@@ -421,7 +459,7 @@ const Challenges = {
     }
     const allDead = world.enemies.length > 0 && world.enemies.every((e) => e.dead);
     if (allDead && this.roomNum < CHALLENGE_ROOMS) {
-      if (world.player) playerHeal(world.player, 6);
+      for (const p of worldPlayers(world)) playerHeal(p, 6); // tous les joueurs (coop en ligne)
       this.transitionPhase = 'out';
       this.transitionTimer = this.transitionDuration;
       return;

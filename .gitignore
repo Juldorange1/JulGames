@@ -3,5 +3,3 @@ start-server.vbs
 pokedex/start-pokedex.vbs
 pokedex/data/_cache/
 node_modules/
-puissance4/tools/asbuild/*.log
-puissance4/tools/*.log

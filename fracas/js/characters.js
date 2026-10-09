@@ -1,4 +1,4 @@
-// Les 11 personnages jouables : attaque + 3 competences chacun.
+// Les 10 personnages jouables : attaque + 3 competences chacun.
 // CHARACTERS[id] expose : nom, vitesse, libelles HUD/selection, init(player), update(world,player,dt,realDt),
 // onAttackPress/onAttackHeld/onAttackRelease, ability1/2/3 (+ *Held variantes), draw(ctx,player,world).
 
@@ -31,6 +31,7 @@ function glowOutline(ctx, color, blur) {
 // PERSONNAGE 1 — LE PISTOLET VIVANT
 // ============================================================
 const COLT_FIRE_INTERVAL = 0.25, COLT_FOCUS_INTERVAL = 0.15; // cadence doublee
+const COLT_BOUNCES = 3; // les balles ricochent sur tout (murs, obstacles, ennemis)
 CHARACTERS[1] = {
   id: 1, name: 'Colt', epithet: 'Le Pistolet Vivant', speedPercent: 42, color: '#ffd23d', // vitesse +20%
   attackLabel: 'Echange de position avec le pistolet (tir 360 automatique)', attackCd: 0.2,
@@ -54,7 +55,7 @@ CHARACTERS[1] = {
         const dir = vecFromAngle(st.gunAngle);
         spawnPlayerProjectile(world, player, {
           x: st.gunX, y: st.gunY, vx: dir.x * 360, vy: dir.y * 360,
-          radius: 7, dmgValue: 20 * 1.33, life: 1.4, // +33% degats
+          radius: 7, dmgValue: 20 * 1.33, life: 1.4, maxBounces: COLT_BOUNCES, // +33% degats, rebondit sur tout
         });
         Audio2.gunshot(0.45);
       }
@@ -66,7 +67,7 @@ CHARACTERS[1] = {
         const dir = vecFromAngle(ang);
         spawnPlayerProjectile(world, player, {
           x: st.gunX, y: st.gunY, vx: dir.x * 460, vy: dir.y * 460,
-          radius: 7, dmgValue: 36 * 1.33, life: 1.4, color: '#ff9d3d', // +33% degats
+          radius: 7, dmgValue: 36 * 1.33, life: 1.4, maxBounces: COLT_BOUNCES, color: '#ff9d3d', // +33% degats
         });
         Audio2.gunshot(0.6);
       }
@@ -87,7 +88,7 @@ CHARACTERS[1] = {
   },
 
   ability1(world, player) {
-    for (const e of world.enemies) {
+    for (const e of hostiles(world, player)) {
       if (e.dead || e.kind === 'boss') continue;
       const p = randomValidPointInRoom(world, { margin: 40, avoidPlayerRadius: 50 });
       const from = { x: e.x, y: e.y };
@@ -101,7 +102,7 @@ CHARACTERS[1] = {
 
   ability2(world, player) {
     const st = player.state;
-    for (const e of enemiesInRadius(world, st.gunX, st.gunY, 110)) damageEnemy(world, e, 30 * 1.33, player); // +33% degats
+    for (const e of enemiesInRadius(world, st.gunX, st.gunY, 110, player)) damageEnemy(world, e, 30 * 1.33, player); // +33% degats
     Particles.ring(st.gunX, st.gunY, 110, '#ff9d3d', 0.35);
     Particles.burst(st.gunX, st.gunY, 26, '#ff9d3d', { maxSpeed: 220 });
     Audio2.boom2();
@@ -192,7 +193,7 @@ CHARACTERS[2] = {
         world.zones.push(makeZone({
           x: player.x, y: player.y, radius: 22, duration: 3, tickInterval: 0.4,
           color: 'rgba(255,120,40,0.35)', edgeColor: '#ff7a28', team: TEAM.PLAYER,
-          onTick(z) { for (const e of enemiesInRadius(world, z.x, z.y, z.radius)) damageEnemy(world, e, 3 * NYX_DMG, player); },
+          onTick(z) { for (const e of enemiesInRadius(world, z.x, z.y, z.radius, player)) damageEnemy(world, e, 3 * NYX_DMG, player); },
         }));
       }
       if (st.dashTimer <= 0) player.state.movementOverride = null;
@@ -257,7 +258,7 @@ CHARACTERS[2] = {
   },
 
   ability1(world, player) {
-    const t = nearestTurret(world, player.x, player.y);
+    const t = nearestTurret(world, player.x, player.y, player);
     if (!t) return;
     const px = player.x, py = player.y;
     player.x = t.x; player.y = t.y;
@@ -271,7 +272,7 @@ CHARACTERS[2] = {
 
   ability2(world, player) {
     player.state.dashTimer = 1.4;
-    const mv = Input.moveVector();
+    const mv = playerMoveInput(player);
     const dir = (mv.x || mv.y) ? mv : vecFromAngle(player.facing);
     player.state.movementOverride = { vx: dir.x * BASE_SPEED * 0.35, vy: dir.y * BASE_SPEED * 0.35 };
     Audio2.whoosh();
@@ -366,7 +367,7 @@ CHARACTERS[3] = {
       if (b.state === 'out') {
         b.x += b.vx * speedMult * dt; b.y += b.vy * speedMult * dt;
         let hit = false;
-        for (const e of world.enemies) {
+        for (const e of hostiles(world, player)) {
           if (e.dead) continue;
           if (circleCircle(b.x, b.y, 10, e.x, e.y, e.radius || 16)) {
             damageEnemy(world, e, 25 * st.dmgMult, player);
@@ -386,7 +387,7 @@ CHARACTERS[3] = {
         }
         if (b.double && b.b2.state === 'out') {
           b.b2.x += b.b2.vx * speedMult * dt; b.b2.y += b.b2.vy * speedMult * dt;
-          for (const e of world.enemies) {
+          for (const e of hostiles(world, player)) {
             if (e.dead) continue;
             if (circleCircle(b.b2.x, b.b2.y, 10, e.x, e.y, e.radius || 16)) { damageEnemy(world, e, 25 * st.dmgMult, player); b.b2.state = 'back'; break; }
           }
@@ -397,7 +398,7 @@ CHARACTERS[3] = {
         const spd = KIP_BOOM_SPEED * st.speedMult * speedMult;
         b.x += dir.x * spd * dt; b.y += dir.y * spd * dt;
         if (!b.hitReturnIds) b.hitReturnIds = new Set();
-        for (const e of world.enemies) {
+        for (const e of hostiles(world, player)) {
           if (e.dead || b.hitReturnIds.has(e.id)) continue;
           if (circleCircle(b.x, b.y, 10, e.x, e.y, e.radius || 16)) {
             damageEnemy(world, e, 25 * st.dmgMult, player);
@@ -409,7 +410,7 @@ CHARACTERS[3] = {
           const dir2 = vecFromAngle(ang2);
           b.b2.x += dir2.x * spd * dt; b.b2.y += dir2.y * spd * dt;
           if (!b.b2.hitReturnIds) b.b2.hitReturnIds = new Set();
-          for (const e of world.enemies) {
+          for (const e of hostiles(world, player)) {
             if (e.dead || b.b2.hitReturnIds.has(e.id)) continue;
             if (circleCircle(b.b2.x, b.b2.y, 10, e.x, e.y, e.radius || 16)) {
               damageEnemy(world, e, 25 * st.dmgMult, player);
@@ -524,110 +525,6 @@ function drawBoomShape(ctx, x, y) {
 }
 
 // ============================================================
-// PERSONNAGE 4 — LES QUATRE ORBES
-// ============================================================
-const BRAISE_ORB_DMG = 7 * 2; // degats x2
-CHARACTERS[4] = {
-  id: 4, name: 'Braise', epithet: 'Les Quatre Orbes', speedPercent: 85, color: '#ff7a3d',
-  attackLabel: 'Contact des orbes (automatique)',
-  a1Label: 'Bouclier alea.', a1Cd: 14,
-  a2Label: 'Ecartement (maintenir)', a2Cd: 0,
-  a3Label: 'Reduction de zone', a3Cd: 16,
-
-  init(player) {
-    player.state = {
-      offsets: [0, Math.PI / 2, Math.PI, Math.PI * 1.5],
-      dist: 84, targetDist: 84, reshuffleTimer: 0, tickTimer: 0, // ecart +20% (70 -> 84)
-    };
-  },
-
-  update(world, player, dt) {
-    const st = player.state;
-    st.reshuffleTimer += dt;
-    if (st.reshuffleTimer >= 20) {
-      st.reshuffleTimer = 0;
-      st.offsets = shuffle([0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((a) => a + randRange(-0.4, 0.4)));
-      Particles.burst(player.x, player.y, 16, '#ff7a3d', { maxSpeed: 120 });
-    }
-    st.orbitAngle = (st.orbitAngle || 0) + 0.9 * dt;
-    st.dist = lerp(st.dist, st.targetDist, clamp(dt * 4, 0, 1));
-    st.orbs = st.offsets.map((a) => ({ x: player.x + Math.cos(a + st.orbitAngle) * st.dist, y: player.y + Math.sin(a + st.orbitAngle) * st.dist }));
-    st.tickTimer += dt;
-    if (st.tickTimer >= 0.35) {
-      st.tickTimer = 0;
-      let burned = false;
-      for (const o of st.orbs) for (const e of enemiesInRadius(world, o.x, o.y, 16)) { damageEnemy(world, e, BRAISE_ORB_DMG, player); burned = true; }
-      if (burned) Audio2.fire(0.5);
-    }
-  },
-
-  ability1(world, player) {
-    const p = randomValidPointInRoom(world, { margin: 50, avoidPlayerRadius: 0 });
-    world.shields.push(makeShield({ x: p.x, y: p.y, radius: 46, duration: 6, color: '#ff7a3d' }));
-    Particles.ring(p.x, p.y, 46, '#ff7a3d', 0.4);
-    Audio2.shield();
-    player.cooldowns.a1 = 14;
-  },
-
-  ability2Held(world, player, dt, held) {
-    player.state.targetDist = held ? 216 : 84; // ecart +20%
-  },
-
-  ability3(world, player) {
-    const room = world.room;
-    if (!room) return;
-    const b = room.bounds;
-    const shrinkW = b.w * 0.15, shrinkH = b.h * 0.15;
-    const nx = b.x + shrinkW / 2, ny = b.y + shrinkH / 2, nw = b.w - shrinkW, nh = b.h - shrinkH;
-    for (const e of world.enemies) {
-      if (e.dead) continue;
-      if (!pointInRect(e.x, e.y, nx, ny, nw, nh)) {
-        damageEnemy(world, e, 40 * 2, player); // degats x2
-        e.x = clamp(e.x, nx + (e.radius || 16), nx + nw - (e.radius || 16));
-        e.y = clamp(e.y, ny + (e.radius || 16), ny + nh - (e.radius || 16));
-      }
-    }
-    room.bounds = { x: nx, y: ny, w: nw, h: nh };
-    player.x = clamp(player.x, nx + player.radius, nx + nw - player.radius);
-    player.y = clamp(player.y, ny + player.radius, ny + nh - player.radius);
-    Particles.burst(player.x, player.y, 30, '#ff3d1a', { maxSpeed: 260, life: 0.5 });
-    Audio2.boom2();
-    player.cooldowns.a3 = 16;
-  },
-
-  draw(ctx, player, world) {
-    const bob = idleBob(1.5);
-    drawGroundShadow(ctx, 12, 13);
-    ctx.save();
-    ctx.translate(0, bob);
-    glowOutline(ctx, 'rgba(255,122,61,0.55)', 10);
-    ctx.fillStyle = radialBodyGradient(ctx, 13, '#ffd8a8', '#e05a1e', '#7a2600');
-    ctx.strokeStyle = '#4a1a05';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#1f0800';
-    ctx.beginPath(); ctx.arc(-4.5, -1, 2, 0, Math.PI * 2); ctx.arc(4.5, -1, 2, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    const st = player.state;
-    if (st.orbs) {
-      for (const o of st.orbs) {
-        ctx.save();
-        ctx.translate(o.x - player.x, o.y - player.y);
-        const flick = 1 + Math.sin(performance.now() / 90 + o.x) * 0.08;
-        ctx.scale(flick, flick);
-        const og = ctx.createRadialGradient(0, 0, 0, 0, 0, 9);
-        og.addColorStop(0, '#fff3c8'); og.addColorStop(0.5, '#ffb14d'); og.addColorStop(1, '#ff3d1a');
-        ctx.fillStyle = og;
-        ctx.shadowColor = '#ff7a3d'; ctx.shadowBlur = 14;
-        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      }
-    }
-  },
-};
-
-// ============================================================
 // PERSONNAGE 5 — LE REBOND
 // ============================================================
 const FERRO_KNIFE_DMG = 27 * 0.7 * 1.4; // -30% puis +40% de degats
@@ -635,7 +532,7 @@ const FERRO_ATTACK_CD = 0.35 * 3 * 2;  // delai d'attaque x3 puis encore x2
 const FERRO_KNIFE_LIFE = 6 * 0.65; // portee -35% (vitesse constante => duree de vie -35%)
 CHARACTERS[5] = {
   id: 5, name: 'Ferro', epithet: 'Le Rebond', speedPercent: 100, color: '#7fd8ff',
-  attackLabel: 'Deux projectiles rebondissants', attackCd: FERRO_ATTACK_CD,
+  attackLabel: 'Deux projectiles rebondissants (devant + derriere)', attackCd: FERRO_ATTACK_CD,
   a1Label: 'Poussee', a1Cd: 9 * 1.4,
   a2Label: 'Mur 1x1', a2Cd: 10 * 1.4,
   a3Label: 'Rebonds prolonges (+0.3s/rebond)', a3Cd: 8 * 1.4,
@@ -659,14 +556,14 @@ CHARACTERS[5] = {
         onBounce: extend ? (pr) => { pr.life += 0.3; } : null,
       });
     };
-    fire(-0.12); fire(0.12);
+    fire(0); fire(Math.PI); // le 2e couteau part a l'oppose du 1er
     Audio2.knifeThrow();
     player.attackCooldown = FERRO_ATTACK_CD;
   },
 
   ability1(world, player) {
     const dir = vecFromAngle(player.facing);
-    for (const e of enemiesInRadius(world, player.x, player.y, 220)) {
+    for (const e of enemiesInRadius(world, player.x, player.y, 220, player)) {
       e.x += dir.x * 60; e.y += dir.y * 60;
       damageEnemy(world, e, 15 * 0.7, player); // -30% degats
     }
@@ -725,6 +622,7 @@ CHARACTERS[5] = {
 // PERSONNAGE 6 — LE METEORE
 // ============================================================
 const METEOR_MAX_DMG = 70 * 0.65; // -35% degats
+const CENDRE_FIRE_TIME = 3.5, CENDRE_FIRE_RADIUS = 0.85, CENDRE_FIRE_DMG = 4; // zone de feu laissee a l'impact (degats / 0,5 s)
 CHARACTERS[6] = {
   id: 6, name: 'Cendre', epithet: 'Le Meteore', speedPercent: 100, color: '#ff7a3d',
   attackLabel: 'Charger puis lacher une meteorite',
@@ -743,7 +641,7 @@ CHARACTERS[6] = {
         st.chargeZoneTimer = (st.chargeZoneTimer || 0) + dt;
         if (st.chargeZoneTimer >= 0.2) {
           st.chargeZoneTimer = 0;
-          for (const e of enemiesInRadius(world, player.aim.x, player.aim.y, 60)) damageEnemy(world, e, 3 * 0.65, player); // -35% degats
+          for (const e of enemiesInRadius(world, player.aim.x, player.aim.y, 60, player)) damageEnemy(world, e, 3 * 0.65, player); // -35% degats
         }
       }
     }
@@ -762,9 +660,15 @@ CHARACTERS[6] = {
     const frac = clamp(st.chargeTime / 3, 0, 1);
     const dmg = METEOR_MAX_DMG * frac;
     const onImpact = (m) => {
-      for (const e of enemiesInRadius(world, m.x, m.y, m.radius)) damageEnemy(world, e, m.dmgPercent, player);
+      for (const e of enemiesInRadius(world, m.x, m.y, m.radius, player)) damageEnemy(world, e, m.dmgPercent, player);
       Particles.ring(m.x, m.y, m.radius, '#ff7a3d', 0.4);
       Audio2.boom2();
+      // Le sol reste en feu : brule TOUT ce qui y entre, ennemis comme Cendre lui-meme.
+      world.zones.push(makeZone({
+        x: m.x, y: m.y, radius: m.radius * CENDRE_FIRE_RADIUS, duration: CENDRE_FIRE_TIME, tickInterval: 0.5,
+        team: TEAM.PLAYER, terrainType: 'damage',
+        onTick: (z) => { for (const e of enemiesInRadius(world, z.x, z.y, z.radius, player)) damageEnemy(world, e, CENDRE_FIRE_DMG, player); },
+      }));
     };
     if (st.quadNext) {
       st.quadNext = false;
@@ -880,7 +784,7 @@ CHARACTERS[7] = {
   onAttackPress(world, player) {
     if (player.attackCooldown > 0) return;
     const p = playerSampleHistory(player, 3);
-    for (const e of enemiesInRadius(world, p.x, p.y, 90)) damageEnemy(world, e, 30, player);
+    for (const e of enemiesInRadius(world, p.x, p.y, 90, player)) damageEnemy(world, e, 30, player);
     Particles.ring(p.x, p.y, 90, '#c77aff', 0.3);
     Particles.burst(p.x, p.y, 18, '#c77aff', { maxSpeed: 160 });
     Audio2.teleport();
@@ -889,7 +793,7 @@ CHARACTERS[7] = {
 
   ability1(world, player) {
     const p = playerSampleHistory(player, 10);
-    for (const e of enemiesInRadius(world, p.x, p.y, 110)) damageEnemy(world, e, 45, player);
+    for (const e of enemiesInRadius(world, p.x, p.y, 110, player)) damageEnemy(world, e, 45, player);
     Particles.ring(p.x, p.y, 110, '#e0c8ff', 0.35);
     Particles.burst(p.x, p.y, 22, '#c77aff', { maxSpeed: 200 });
     Audio2.boom2();
@@ -897,7 +801,7 @@ CHARACTERS[7] = {
   },
 
   ability3(world, player) {
-    const t = nearestEnemy(world, player.x, player.y, 500);
+    const t = nearestEnemy(world, player.x, player.y, 500, player);
     if (!t) return;
     player.state.markedTarget = t;
     player.state.markedHandled = false;
@@ -956,7 +860,7 @@ CHARACTERS[8] = {
     st.tick += dt;
     const doTick = st.tick >= 0.4;
     if (doTick) st.tick = 0;
-    for (const e of world.enemies) {
+    for (const e of hostiles(world, player)) {
       if (e.dead) continue;
       if (e.spawnX == null) { e.spawnX = e.x; e.spawnY = e.y; }
       const d = dist(e.x, e.y, player.x, player.y);
@@ -964,10 +868,16 @@ CHARACTERS[8] = {
         const dir = normalize(player.x - e.x, player.y - e.y);
         const pull = 90 * (1 - d / RADIUS);
         e.x += dir.x * pull * dt; e.y += dir.y * pull * dt;
+        // Adversaire humain (en ligne) : il se deplace librement, on compte donc la distance
+        // reellement TIREE par l'attraction (et non l'ecart a une position de depart).
+        // (idem pour un element ancre comme un cristal : il ne bouge pas mais subit l'attraction)
+        if (e.kind === 'player' || e.anchored) e._vexPulled = (e._vexPulled || 0) + pull * dt;
         if (doTick) {
-          const disp = dist(e.x, e.y, e.spawnX, e.spawnY);
+          const disp = (e.kind === 'player' || e.anchored) ? (e._vexPulled || 0) : dist(e.x, e.y, e.spawnX, e.spawnY);
           if (disp > 4) damageEnemy(world, e, clamp(disp * 0.08, 1, 18) * VEX_DMG, player);
         }
+      } else if (e.kind === 'player' || e.anchored) {
+        e._vexPulled = Math.max(0, (e._vexPulled || 0) - 60 * dt);
       }
     }
     // Pulsation centrale (competence 3) : seulement si cette competence est disponible
@@ -976,7 +886,7 @@ CHARACTERS[8] = {
     if (pulseAllowed) st.autoTimer += dt; else st.autoTimer = 0;
     if (st.autoTimer >= 15) {
       st.autoTimer = 0;
-      for (const e of enemiesInRadius(world, player.x, player.y, 150)) damageEnemy(world, e, 40 * VEX_DMG, player);
+      for (const e of enemiesInRadius(world, player.x, player.y, 150, player)) damageEnemy(world, e, 40 * VEX_DMG, player);
       Particles.ring(player.x, player.y, 150, '#7a7aff', 0.5);
       Particles.burst(player.x, player.y, 30, '#7a7aff', { maxSpeed: 260 });
       Audio2.gravity();
@@ -988,14 +898,14 @@ CHARACTERS[8] = {
   },
 
   ability1(world, player) {
-    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 24, dmgPercent: 10 * VEX_DMG }));
+    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 24, dmgPercent: 10 * VEX_DMG, owner: player }));
     Particles.burst(player.aim.x, player.aim.y, 8, '#7a7aff', { maxSpeed: 80, life: 0.3 });
     Audio2.spark();
     player.cooldowns.a1 = 7;
   },
 
   ability2(world, player) {
-    for (const e of enemiesInRadius(world, player.x, player.y, 140)) {
+    for (const e of enemiesInRadius(world, player.x, player.y, 140, player)) {
       const dir = normalize(e.x - player.x, e.y - player.y);
       const prevX = e.x, prevY = e.y;
       e.x += dir.x * 70; e.y += dir.y * 70;
@@ -1052,44 +962,94 @@ CHARACTERS[8] = {
 // ============================================================
 // PERSONNAGE 9 — LE PRÉDATEUR
 // ============================================================
-const PREDATOR_AURA_RADIUS = 250;
+// Toutes les secondes (temps reel), 4 lasers de feu partent de Croc : en croix (+) par defaut,
+// en diagonale (x) apres un appui sur l'attaque (un nouvel appui revient en croix).
+// Degats proportionnels a la proximite : max au contact, nuls au bout du laser.
+const CROC_LASER_LEN = 300, CROC_LASER_WIDTH = 14 * 1.2, CROC_LASER_DMG = 32 * 1.15, CROC_LASER_INTERVAL = 1, CROC_LASER_FX = 0.35;
+function crocLaserAngles(mode) {
+  const base = mode === 'diag' ? Math.PI / 4 : 0;
+  return [0, 1, 2, 3].map((i) => base + i * Math.PI / 2);
+}
+// Dessine les 4 rayons de feu depuis (0,0) ; t = 1 au tir puis s'eteint vers 0.
+function drawCrocLasers(ctx, angles, t, len) {
+  const L = len || CROC_LASER_LEN;
+  const time = performance.now() / 50;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const a of angles) {
+    ctx.save();
+    ctx.rotate(a);
+    const g = ctx.createLinearGradient(0, 0, L, 0);
+    g.addColorStop(0, `rgba(255,240,180,${0.95 * t})`);
+    g.addColorStop(0.5, `rgba(255,140,40,${0.75 * t})`);
+    g.addColorStop(1, 'rgba(255,40,10,0)');
+    ctx.shadowColor = '#ff3d1a'; ctx.shadowBlur = 18;
+    ctx.strokeStyle = g;
+    ctx.lineWidth = CROC_LASER_WIDTH * 2 * (0.6 + 0.4 * t);
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(L, 0); ctx.stroke();
+    // coeur blanc + ondulation de flamme
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(255,255,230,${0.9 * t})`;
+    ctx.lineWidth = 4 * t + 1;
+    ctx.beginPath();
+    for (let x = 10; x <= L; x += 12) {
+      const y = Math.sin(x * 0.08 + time + a) * 3 * (1 - x / L);
+      if (x === 10) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
 CHARACTERS[9] = {
   id: 9, name: 'Croc', epithet: 'Le Predateur', speedPercent: 135, color: '#ff5d5d',
-  attackLabel: 'Vague de flamme toutes les 1,2s reelles (non activable, degats proportionnels a la proximite)',
+  attackLabel: 'Lasers de feu chaque seconde (appui : croix / diagonales)',
   a1Label: 'Bouclier (1s d\'invincibilite)', a1Cd: 8,
   a2Label: 'Petit dash', a2Cd: 2.5,
   a3Label: 'Arret global', a3Cd: 25,
 
-  init(player) { player.state = { tick: 0, waveFx: 0, waveActive: false }; },
+  init(player) { player.state = { tick: 0, mode: 'plus', beamFx: 0, beamAngles: null, prevDown: false }; },
 
   update(world, player, dt, realDt) {
     const st = player.state;
     // Cadence en VRAI temps ecoule : ne doit jamais etre affectee par l'acceleration globale du jeu.
     st.tick += realDt;
-    if (st.tick >= 1.2) {
+    if (st.tick >= CROC_LASER_INTERVAL) {
       st.tick = 0;
-      for (const e of enemiesInRadius(world, player.x, player.y, PREDATOR_AURA_RADIUS)) {
-        const d = dist(player.x, player.y, e.x, e.y);
-        damageEnemy(world, e, 30 * (1 - d / PREDATOR_AURA_RADIUS), player);
+      st.beamAngles = crocLaserAngles(st.mode);
+      st.beamFx = CROC_LASER_FX;
+      for (const a of st.beamAngles) {
+        const ex = player.x + Math.cos(a) * CROC_LASER_LEN, ey = player.y + Math.sin(a) * CROC_LASER_LEN;
+        for (const e of hostiles(world, player)) {
+          if (e.dead) continue;
+          if (distToSegment(e.x, e.y, player.x, player.y, ex, ey) > CROC_LASER_WIDTH + (e.radius || 16)) continue;
+          const d = dist(player.x, player.y, e.x, e.y);
+          const k = clamp(1 - d / (CROC_LASER_LEN + (e.radius || 16)), 0.08, 1);
+          damageEnemy(world, e, CROC_LASER_DMG * k, player);
+        }
+        for (let i = 0; i < 7; i++) {
+          const r = randRange(20, CROC_LASER_LEN);
+          Particles.spawn(player.x + Math.cos(a) * r, player.y + Math.sin(a) * r, {
+            vx: randRange(-25, 25), vy: randRange(-50, -15), life: randRange(0.3, 0.6), r: randRange(2, 4),
+            color: choice(['#ff3d1a', '#ff9d3d', '#ffd23d']), gravity: -20,
+          });
+        }
       }
-      const emberCount = 26;
-      for (let i = 0; i < emberCount; i++) {
-        const a = (i / emberCount) * Math.PI * 2 + randRange(-0.06, 0.06);
-        const r = PREDATOR_AURA_RADIUS * randRange(0.85, 1);
-        Particles.spawn(player.x + Math.cos(a) * r, player.y + Math.sin(a) * r, {
-          vx: Math.cos(a) * randRange(10, 30), vy: Math.sin(a) * randRange(10, 30) - 30,
-          life: randRange(0.4, 0.7), r: randRange(2, 4.5),
-          color: choice(['#ff3d1a', '#ff9d3d', '#ffd23d']), gravity: -20,
-        });
-      }
-      st.waveFx = 0;
-      st.waveActive = true;
-      Audio2.fire(1.2);
+      Audio2.fire(1.1);
     }
-    if (st.waveActive) {
-      st.waveFx += dt;
-      if (st.waveFx >= 0.5) st.waveActive = false;
+    if (st.beamFx > 0) st.beamFx = Math.max(0, st.beamFx - dt);
+  },
+
+  // Appui (front montant uniquement) : bascule croix <-> diagonales pour les prochains lasers.
+  onAttackHeld(world, player, dt, down) {
+    const st = player.state;
+    if (down && !st.prevDown) {
+      st.mode = st.mode === 'diag' ? 'plus' : 'diag';
+      Particles.text(player.x, player.y - 30, st.mode === 'diag' ? 'X' : '+', '#ffb14d');
+      Audio2.charge(0.2);
     }
+    st.prevDown = down;
   },
 
   // Le bouclier n'est plus automatique : il faut l'activer soi-meme (touche a1).
@@ -1101,7 +1061,7 @@ CHARACTERS[9] = {
   },
 
   ability2(world, player) {
-    const mv = Input.moveVector();
+    const mv = playerMoveInput(player);
     const dir = (mv.x || mv.y) ? mv : vecFromAngle(player.facing);
     let nx = player.x + dir.x * 120, ny = player.y + dir.y * 120;
     if (world.room) {
@@ -1116,7 +1076,7 @@ CHARACTERS[9] = {
   },
 
   ability3(world, player) {
-    for (const e of world.enemies) if (!e.dead) e.frozen = 1;
+    for (const e of hostiles(world, player)) if (!e.dead) e.frozen = 1;
     Particles.ring(player.x, player.y, 260, '#ffffff', 0.45);
     Particles.burst(player.x, player.y, 30, '#ffffff', { maxSpeed: 240 });
     Audio2.freeze();
@@ -1124,50 +1084,22 @@ CHARACTERS[9] = {
   },
 
   draw(ctx, player) {
-    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 500);
+    const st = player.state;
+    // Reperes discrets : direction des prochains lasers (+ ou x), qui se remplissent avant le tir.
+    const charge = clamp((st.tick || 0) / CROC_LASER_INTERVAL, 0, 1);
     ctx.save();
-    const auraGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, PREDATOR_AURA_RADIUS);
-    auraGrad.addColorStop(0, `rgba(255,61,61,${0.16 + 0.05 * pulse})`);
-    auraGrad.addColorStop(0.55, 'rgba(255,61,61,0.05)');
-    auraGrad.addColorStop(1, 'rgba(255,61,61,0)');
-    ctx.fillStyle = auraGrad;
-    ctx.beginPath(); ctx.arc(0, 0, PREDATOR_AURA_RADIUS, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,93,93,0.25)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 7]);
-    ctx.beginPath(); ctx.arc(0, 0, PREDATOR_AURA_RADIUS, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,122,61,${0.12 + 0.3 * charge})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 8]);
+    for (const a of crocLaserAngles(st.mode)) {
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 22, Math.sin(a) * 22);
+      ctx.lineTo(Math.cos(a) * (22 + 60 * charge), Math.sin(a) * (22 + 60 * charge));
+      ctx.stroke();
+    }
     ctx.setLineDash([]);
     ctx.restore();
-    if (player.state.waveActive) {
-      const wt = clamp(player.state.waveFx / 0.5, 0, 1);
-      const radius = PREDATOR_AURA_RADIUS * wt;
-      const spikes = 32;
-      const time = performance.now() / 60;
-      ctx.save();
-      ctx.globalAlpha = 0.75 * (1 - wt);
-      ctx.shadowColor = '#ff3d1a'; ctx.shadowBlur = 18;
-      // bande de flamme : deux traces jointives (crete + base) avec un bord irregulier/vacillant
-      ctx.beginPath();
-      for (let i = 0; i <= spikes; i++) {
-        const a = (i / spikes) * Math.PI * 2;
-        const jag = Math.sin(a * 7 + time) * 10 + Math.sin(a * 13 - time * 1.7) * 5;
-        const r = radius + jag;
-        const px = Math.cos(a) * r, py = Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      const grad = ctx.createRadialGradient(0, 0, Math.max(0, radius - 22), 0, 0, radius + 12);
-      grad.addColorStop(0, 'rgba(255,61,26,0)');
-      grad.addColorStop(0.55, 'rgba(255,122,61,0.55)');
-      grad.addColorStop(0.85, 'rgba(255,210,61,0.65)');
-      grad.addColorStop(1, 'rgba(255,210,61,0)');
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.strokeStyle = '#ffd23d';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-    }
+    if (st.beamFx > 0 && st.beamAngles) drawCrocLasers(ctx, st.beamAngles, st.beamFx / CROC_LASER_FX);
     drawGroundShadow(ctx, 8, 14);
     // Le corps (tete/yeux) suit toujours precisement le curseur de la souris.
     const faceAngle = Math.atan2(player.aim.y - player.y, player.aim.x - player.x);
@@ -1245,8 +1177,8 @@ CHARACTERS[10] = {
     const st = player.state;
     if (!st.charge1 || !st.charge2) return;
     st.charge1 = false; st.charge2 = false; st.regen1 = 0; st.regen2 = 0;
-    for (const e of enemiesInRadius(world, st.orb1.x, st.orb1.y, 48)) damageEnemy(world, e, 20, player); // zone +20%
-    for (const e of enemiesInRadius(world, st.orb2.x, st.orb2.y, 48)) damageEnemy(world, e, 20, player); // zone +20%
+    for (const e of enemiesInRadius(world, st.orb1.x, st.orb1.y, 48, player)) damageEnemy(world, e, 20, player); // zone +20%
+    for (const e of enemiesInRadius(world, st.orb2.x, st.orb2.y, 48, player)) damageEnemy(world, e, 20, player); // zone +20%
     for (const o of [st.orb1, st.orb2]) {
       Particles.burst(o.x, o.y, 14, '#fff3c8', { maxSpeed: 200, life: 0.3 });
       for (let i = 0; i < 3; i++) {
@@ -1269,7 +1201,7 @@ CHARACTERS[10] = {
     const st = player.state;
     // Tourne 2x plus longtemps (6s), plus lentement, et sur une orbite qui englobe celle des
     // deux autres orbes (le carre de demi-cote 100 a ses coins a ~141).
-    const shield = makeShield({ x: player.x, y: player.y, radius: GEMINI_THIRD_ORB_RADIUS, duration: 6, color: '#8ff0ff', follow: player });
+    const shield = makeShield({ x: player.x, y: player.y, radius: GEMINI_THIRD_ORB_RADIUS, duration: 6, color: '#8ff0ff', follow: player, ownerTeam: player.team });
     world.shields.push(shield);
     st.thirdOrbShield = shield;
     st.thirdOrbAngle = 0;
@@ -1283,7 +1215,7 @@ CHARACTERS[10] = {
   },
 
   ability3(world, player) {
-    const enemies = world.enemies.filter((e) => !e.dead).sort((a, b) => dist2(player.x, player.y, a.x, a.y) - dist2(player.x, player.y, b.x, b.y));
+    const enemies = hostiles(world, player).filter((e) => !e.dead).sort((a, b) => dist2(player.x, player.y, a.x, a.y) - dist2(player.x, player.y, b.x, b.y));
     for (let i = 0; i < Math.min(2, enemies.length); i++) {
       enemies[i].frozenUntilTouched = true;
       Particles.ring(enemies[i].x, enemies[i].y, 26, '#8ff0ff', 0.3);
@@ -1433,7 +1365,8 @@ CHARACTERS[11] = {
   },
 };
 
-function getCharacter(id) { return CHARACTERS[id]; }
+// Repli sur Colt pour un id disparu (ex : Braise, supprime) encore present dans une sauvegarde ou un defi perso.
+function getCharacter(id) { return CHARACTERS[id] || CHARACTERS[1]; }
 // Persos "normaux" (expedition, defis, salle de test) ; les persos de parcours sont a part.
 function allCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => !CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }
 function parkourCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }

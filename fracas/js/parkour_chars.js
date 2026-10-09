@@ -291,11 +291,13 @@ const ELAN_MAX_HOLD = 2.0, ELAN_MIN_DIST = 60, ELAN_MAX_DIST = 260, ELAN_CD = 1.
 const ELAN_SLIDE_MAX = 2.5, ELAN_SLIDE_CD = 3, ELAN_SLIDE_CD_EARLY = 1.5;
 const PARKOUR_SLIDE_SPEED = 1.35; // +35% de vitesse, inertie identique a la glace
 function elanDist(hold) { return ELAN_MIN_DIST + (ELAN_MAX_DIST - ELAN_MIN_DIST) * clamp(hold / ELAN_MAX_HOLD, 0, 1); }
+function elanDir(st) { return (st.jumps || 0) % 2 === 0 ? -1 : 1; } // -1 = haut, 1 = bas
 CHARACTERS[15] = {
   id: 15, parkourOnly: true, name: 'Elan', epithet: 'Le Bond', speedPercent: 100, color: '#5dff9d',
-  attackLabel: 'Bond vers le haut (maintenir puis relacher)', attackCd: ELAN_CD,
+  attackLabel: 'Bond alterne haut / bas (maintenir puis relacher)', attackCd: ELAN_CD,
   a1Label: 'Sol glissant et rapide (maintenir, 2,5 s max)', a1Cd: ELAN_SLIDE_CD,
-  init(player) { player.state = { hold: 0, holding: false, sliding: false, slideTime: 0 }; },
+  // jumps : nombre de bonds faits -> 1er, 3e, 5e... vers le HAUT ; 2e, 4e... vers le BAS.
+  init(player) { player.state = { hold: 0, holding: false, sliding: false, slideTime: 0, jumps: 0 }; },
   update() {},
   onAttackHeld(world, player, dt, down) {
     const st = player.state;
@@ -303,7 +305,8 @@ CHARACTERS[15] = {
       st.holding = true;
       st.hold = Math.min(ELAN_MAX_HOLD, st.hold + dt);
     } else if (!down && st.holding) {
-      parkourBlink(world, player, player.x, player.y - elanDist(st.hold), '#5dff9d');
+      parkourBlink(world, player, player.x, player.y + elanDir(st) * elanDist(st.hold), '#5dff9d');
+      st.jumps = (st.jumps || 0) + 1;
       st.holding = false; st.hold = 0;
       player.attackCooldown = ELAN_CD;
     }
@@ -322,14 +325,14 @@ CHARACTERS[15] = {
   draw(ctx, player) {
     const st = player.state;
     if (st.holding) {
-      const dist = elanDist(st.hold);
+      const dist = elanDist(st.hold) * elanDir(st), sgn = elanDir(st);
       ctx.save();
       ctx.strokeStyle = 'rgba(93,255,157,0.5)'; ctx.lineWidth = 2; ctx.setLineDash([5, 6]);
-      ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(0, -dist); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 16 * sgn); ctx.lineTo(0, dist); ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 0.5;
       ctx.strokeStyle = '#5dff9d'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0, -dist, 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, dist, 13, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
       ctx.save();
       ctx.strokeStyle = '#b8ffd0'; ctx.lineWidth = 3; ctx.shadowColor = '#5dff9d'; ctx.shadowBlur = 10;

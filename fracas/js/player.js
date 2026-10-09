@@ -2,8 +2,14 @@
 
 function createPlayer(character, x, y) {
   return {
+    id: uid(), kind: 'player', team: null,
     x, y, radius: PLAYER_RADIUS, vx: 0, vy: 0,
     character,
+    // Intentions du joueur pour ce pas de simulation : clavier/souris en solo (sampleLocalInput),
+    // messages reseau en ligne. La simulation ne lit JAMAIS le clavier directement.
+    input: null,
+    dead: false, frozen: 0,
+    dmgMax: DMG_MAX, // plafond du multiplicateur (le mode Survivant permet de depasser 100%)
     damageMultiplier: 1.0,
     invincible: false, invincibleTimer: 0,
     speedMult: 1,
@@ -23,7 +29,16 @@ function createPlayer(character, x, y) {
 const PLAYER_DAMAGE_TAKEN_MULT = 0.6 * 0.5; // resistance globale -40%, PUIS tous les ennemis infligent 2x moins de degats
 
 function playerApplyDamage(player, percent) {
-  if (player.invincible || percent <= 0) return;
+  if (player.invincible || player.dead || percent <= 0) return;
+  // Foot (en ligne) : les coups baissent le pourcentage de VITESSE (mort a 40%).
+  if (player.speedMode) {
+    const loss = percent * PLAYER_DAMAGE_TAKEN_MULT;
+    player.speedPct = Math.max(0, (player.speedPct != null ? player.speedPct : 1) - loss / 100);
+    Particles.text(player.x, player.y - 24, `-${Math.round(loss)}% ${S('hudSpeedShort')}`, '#ff5d5d');
+    Particles.burst(player.x, player.y, 10, '#ff5d5d', { maxSpeed: 140 });
+    Audio2.hurt();
+    return;
+  }
   // Parcours : un coup ne touche pas les degats mais ralentit le joueur.
   if (player.parkour) {
     const loss = percent * PARKOUR_DAMAGE_TO_SPEED;
@@ -35,7 +50,7 @@ function playerApplyDamage(player, percent) {
     return;
   }
   const applied = percent * PLAYER_DAMAGE_TAKEN_MULT;
-  player.damageMultiplier = clamp(player.damageMultiplier - applied / 100, DMG_MIN, DMG_MAX);
+  player.damageMultiplier = clamp(player.damageMultiplier - applied / 100, DMG_MIN, Math.max(player.dmgMax || DMG_MAX, player.damageMultiplier));
   Particles.text(player.x, player.y - 24, `-${Math.round(applied)}%`, '#ff5d5d');
   Particles.burst(player.x, player.y, 10, '#ff5d5d', { maxSpeed: 140 });
   Audio2.hurt();
@@ -45,7 +60,8 @@ function playerApplyDamage(player, percent) {
 function playerHeal(player, percent) {
   if (percent <= 0) return;
   if (player.parkour) { player.parkourSpeed = clamp((player.parkourSpeed || 1) + percent / 100, PARKOUR_MIN_SPEED, 1); player.healFx = 0.4; return; }
-  player.damageMultiplier = clamp(player.damageMultiplier + percent / 100, DMG_MIN, DMG_MAX);
+  if (player.speedMode) { player.speedPct = Math.min(player.speedMax || 1, (player.speedPct || 1) + percent / 100); player.healFx = 0.4; return; }
+  player.damageMultiplier = clamp(player.damageMultiplier + percent / 100, DMG_MIN, player.dmgMax || DMG_MAX);
   Particles.text(player.x, player.y - 24, `+${Math.round(percent)}%`, '#7fff9c');
   player.healFx = 0.4;
 }
@@ -83,8 +99,19 @@ function playerSampleHistory(player, secondsAgo) {
   return { x: player.x, y: player.y };
 }
 
+// Entrees neutres (joueur deconnecte, rien recu du reseau...)
+const EMPTY_INPUT = Object.freeze({
+  mx: 0, my: 0, ax: 0, ay: 0, hasAim: false, attack: false, attackReleased: false,
+  a1p: false, a1d: false, a2p: false, a2d: false, a3p: false, a3d: false, abp: false, abd: false,
+});
+function playerMoveInput(player) {
+  const inp = player.input || EMPTY_INPUT;
+  return { x: inp.mx || 0, y: inp.my || 0 };
+}
+
 function updatePlayer(world, player, dt, realDt) {
   player.totalTime += realDt;
+  const inp = player.input || EMPTY_INPUT;
 
   if (player.invincibleTimer > 0) {
     player.invincibleTimer -= realDt;
@@ -126,8 +153,16 @@ function updatePlayer(world, player, dt, realDt) {
   if (player.state && player.state.sliding) { player.onIce = true; player.speedMult *= PARKOUR_SLIDE_SPEED; player.slideGrip = true; }
   else player.slideGrip = false;
 
+  // Fige par un adversaire (Croc C3, gel de Gemini...) : ni deplacement ni action.
+  if (player.frozenUntilTouched) { player.frozenUntilTouched = false; player.frozen = Math.max(player.frozen || 0, 2.5); }
+  if (player.frozen > 0) {
+    player.frozen = Math.max(0, player.frozen - realDt);
+    player.vx = 0; player.vy = 0;
+    if (player.frozen > 0) { player.history.push({ t: player.totalTime, x: player.x, y: player.y }); return; }
+  }
+
   // Deplacement
-  let mv = Input.moveVector();
+  let mv = { x: inp.mx || 0, y: inp.my || 0 };
   if (player.controlInvertH) mv = { x: -mv.x, y: mv.y };
   if (player.controlInvertV) mv = { x: mv.x, y: -mv.y };
 
@@ -142,6 +177,7 @@ function updatePlayer(world, player, dt, realDt) {
   }
   if (dashOverride) { vx = dashOverride.vx; vy = dashOverride.vy; }
   if (!player.parkour && player.boostTimer > 0) { vx *= PARKOUR_BOOST_MULT; vy *= PARKOUR_BOOST_MULT; }
+  if (player.speedMode && !dashOverride) { const k = player.speedPct != null ? player.speedPct : 1; vx *= k; vy *= k; } // Foot : % de vitesse
   if (player.parkour) {
     // +30% de vitesse de base dans tous les parcours
     const k = PARKOUR_MOVE_BONUS * (player.parkourSpeed || 1) * (player.boostTimer > 0 ? PARKOUR_BOOST_MULT : 1);
@@ -164,7 +200,7 @@ function updatePlayer(world, player, dt, realDt) {
   // Les ennemis sont solides : le joueur glisse autour sans jamais pouvoir les traverser
   // (meme en dash). La normale est prise depuis la position precedente si le deplacement de
   // cette frame a franchi le centre de l'ennemi, pour ne pas ressortir de l'autre cote.
-  for (const e of world.enemies) {
+  for (const e of playerSolids(world, player)) {
     if (e.dead) continue;
     const R = (e.radius || 16) + player.radius;
     const dx = nx - e.x, dy = ny - e.y;
@@ -177,10 +213,9 @@ function updatePlayer(world, player, dt, realDt) {
   }
   player.x = nx; player.y = ny;
 
-  // Visee (la souris est en pixels ecran, la camera/le monde en unites pre-zoom)
-  const zoom = world.zoom || 1;
-  player.aim.x = Input.mouse.x / zoom + world.camera.x;
-  player.aim.y = Input.mouse.y / zoom + world.camera.y;
+  // Visee : point du monde vise (calcule a partir de la souris par sampleLocalInput en solo,
+  // recu du client en ligne).
+  if (inp.hasAim) { player.aim.x = inp.ax; player.aim.y = inp.ay; }
   if (dist2(player.aim.x, player.aim.y, player.x, player.y) > 4) {
     player.facing = angleTo(player.x, player.y, player.aim.x, player.aim.y);
   }
@@ -207,11 +242,15 @@ function updatePlayer(world, player, dt, realDt) {
   // deja lui-meme via son propre cooldown/ressource interne).
   // L'attaque est rebindable (clavier ou bouton de souris) ; maintenir equivaut a cliquer en continu.
   // Certains persos (Echo) attaquent tout seuls, comme si la touche etait maintenue.
-  const wantAttackDown = Input.isDown(Keybinds.attack) || !!player.character.autoAttack;
-  const wantAttackReleased = Input.wasReleased(Keybinds.attack);
-  if (player.character.onAttackHeld) player.character.onAttackHeld(world, player, dt, wantAttackDown);
-  if (wantAttackDown && player.character.onAttackPress) player.character.onAttackPress(world, player);
-  if (wantAttackReleased && player.character.onAttackRelease) player.character.onAttackRelease(world, player);
+  const wantAttackDown = !!inp.attack || !!player.character.autoAttack;
+  const wantAttackReleased = !!inp.attackReleased;
+  // Mode en ligne (Foot) : avec un ballon, l'attaque devient le lancer du ballon.
+  const overridden = world.attackOverride && world.attackOverride(world, player, !!inp.attack, wantAttackReleased);
+  if (!overridden) {
+    if (player.character.onAttackHeld) player.character.onAttackHeld(world, player, dt, wantAttackDown);
+    if (wantAttackDown && player.character.onAttackPress) player.character.onAttackPress(world, player);
+    if (wantAttackReleased && player.character.onAttackRelease) player.character.onAttackRelease(world, player);
+  }
 
   // Verrouillage de competence par partie d'expedition : une seule touche unifiee active
   // celle qui est disponible (peu importe son numero). Hors expedition (salle de test, defis),
@@ -222,16 +261,12 @@ function updatePlayer(world, player, dt, realDt) {
   const a3Allowed = !gate || gate === 3;
 
   const abilityPressed = (slot) => {
-    if (gate) return slot === gate && Input.wasPressed(Keybinds.ability);
-    if (slot === 1) return Input.ability1Pressed();
-    if (slot === 2) return Input.wasPressed(Keybinds.ability2);
-    return Input.wasPressed(Keybinds.ability3);
+    if (gate) return slot === gate && !!inp.abp;
+    return !!inp['a' + slot + 'p'];
   };
   const abilityDown = (slot) => {
-    if (gate) return slot === gate && Input.isDown(Keybinds.ability);
-    if (slot === 1) return Input.ability1Down();
-    if (slot === 2) return Input.isDown(Keybinds.ability2);
-    return Input.isDown(Keybinds.ability3);
+    if (gate) return slot === gate && !!inp.abd;
+    return !!inp['a' + slot + 'd'];
   };
 
   if (a1Allowed && abilityPressed(1) && player.cooldowns.a1 <= 0 && player.character.ability1) {
@@ -248,6 +283,14 @@ function updatePlayer(world, player, dt, realDt) {
     player.character.ability3(world, player);
   }
   if (player.character.ability3Held) player.character.ability3Held(world, player, dt, a3Allowed && abilityDown(3));
+}
+
+// Ce qui bloque le joueur : les ennemis (et cristaux), plus les autres joueurs en ligne.
+function playerSolids(world, player) {
+  if (!world.players || player.airborne) return world.enemies;
+  const list = world.enemies.slice();
+  for (const q of world.players) if (q !== player && !q.dead && !q.absent && !q.airborne) list.push(q);
+  return list;
 }
 
 const TERRAIN_DAMAGE_TICK = 12; // brut, avant PLAYER_DAMAGE_TAKEN_MULT (=> -3.6% toutes les 0.5s)

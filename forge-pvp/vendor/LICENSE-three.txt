@@ -1,0 +1,3 @@
+three.js — https://threejs.org
+The MIT License. Copyright © 2010-2023 three.js authors.
+Fichier three.min.js copié tel quel (seul l'avertissement de dépréciation en tête a été retiré).

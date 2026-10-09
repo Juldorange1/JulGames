@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Échos — JulGame</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312101f'/%3E%3Crect x='8' y='14' width='9' height='36' rx='3' fill='%235ee7ff'/%3E%3Crect x='21' y='24' width='9' height='26' rx='3' fill='%239b8cff'/%3E%3Crect x='34' y='8' width='9' height='42' rx='3' fill='%23ff6fae'/%3E%3Crect x='47' y='30' width='9' height='20' rx='3' fill='%23ffb341'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ BIBLIOTHÈQUE ============ -->
+<section id="ecran-biblio" class="ecran actif">
+  <header class="entete">
+    <a class="lien-retour" href="../index.html">← JulGame</a>
+    <h1 class="logo">Échos</h1>
+    <button class="btn-ico" data-action="reglages" title="Réglages">⚙</button>
+  </header>
+  <p class="accroche">Importe une musique, puis rejoue-la toi-même avec <b>4 touches</b>.
+    Chaque touche fait sonner une partie du morceau : à gauche l'<b>aigu</b>, à droite le <b>grave</b>.
+    Bonne touche au bon moment = la musique joue. Mauvaise touche = silence.</p>
+
+  <div class="imports">
+    <button class="gros-btn" id="btn-fichier">
+      <span class="ico">📁</span><b>Importer un fichier</b><small>MP3, WAV, OGG, M4A, vidéo… ou glisse-le ici</small>
+    </button>
+    <button class="gros-btn spotify" data-aller="spotify">
+      <span class="ico"><svg viewBox="0 0 24 24" width="30" height="30"><circle cx="12" cy="12" r="11" fill="#1ed760"/><path d="M6.5 9.3c3.8-1.1 8-.8 11.2 1.1M7.2 12.3c3.1-.9 6.5-.6 9.2 1M7.9 15.1c2.4-.6 5-.4 7.1.8" stroke="#0b0c14" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></span>
+      <b>Depuis Spotify</b><small>Colle un lien : Échos enregistre le son pendant qu'il joue</small>
+    </button>
+    <input type="file" id="input-fichier" accept="audio/*,video/*" multiple hidden>
+  </div>
+
+  <h2 class="titre-section">Ma bibliothèque</h2>
+  <div id="liste" class="liste"></div>
+  <p id="liste-vide" class="vide">Aucune musique pour l'instant. Importe un fichier ou un titre Spotify pour commencer.</p>
+</section>
+
+<!-- ============ MORCEAU ============ -->
+<section id="ecran-morceau" class="ecran">
+  <header class="entete">
+    <button class="lien-retour" data-aller="biblio">← Bibliothèque</button>
+    <span></span>
+    <button class="btn-ico" data-action="reglages" title="Réglages">⚙</button>
+  </header>
+
+  <div class="fiche">
+    <div id="m-pochette" class="pochette grande"></div>
+    <div class="fiche-infos">
+      <input id="m-titre" class="champ-titre" spellcheck="false" title="Clique pour renommer">
+      <input id="m-artiste" class="champ-artiste" spellcheck="false" placeholder="Artiste" title="Clique pour modifier">
+      <div class="fiche-meta"><span id="m-duree"></span><span id="m-source"></span>
+        <button class="lien-danger" id="m-supprimer">Supprimer</button></div>
+    </div>
+  </div>
+
+  <div class="apercu-boite">
+    <canvas id="apercu"></canvas>
+    <div class="apercu-pied">
+      <span>Départ : <b id="m-depart">0:00</b> <small>(clique sur l'aperçu pour t'entraîner sur un passage)</small></span>
+      <button class="mini" id="m-depart-zero">↺ Depuis le début</button>
+    </div>
+  </div>
+
+  <div class="choix">
+    <div class="groupe">
+      <label>Mode</label>
+      <div class="segm" data-opt="mode">
+        <button data-v="entrainement">🎯 Entraînement</button>
+        <button data-v="solo">🎹 Solo libre</button>
+        <button data-v="ecoute">👂 Écouter</button>
+      </div>
+      <p class="aide" id="aide-mode"></p>
+    </div>
+    <div class="groupe">
+      <label>Partition</label>
+      <div class="segm" data-opt="style">
+        <button data-v="couches">Couches</button>
+        <button data-v="melodie">Mélodie</button>
+      </div>
+      <p class="aide" id="aide-style"></p>
+    </div>
+    <div class="groupe">
+      <label>Nombre de touches</label>
+      <div class="vitesse">
+        <button class="mini" id="m-touches-moins" title="Une touche de moins">−</button>
+        <input type="range" id="m-touches" min="1" max="24" step="1">
+        <button class="mini" id="m-touches-plus" title="Une touche de plus">+</button>
+        <b id="m-touches-v" class="compteur"></b>
+      </div>
+      <div class="segm petits" data-opt="nbTouches">
+        <button data-v="1">1</button><button data-v="2">2</button><button data-v="4">4</button><button data-v="6">6</button>
+        <button data-v="8">8</button><button data-v="12">12</button><button data-v="16">16</button><button data-v="24">24</button>
+      </div>
+      <p class="aide" id="aide-touches"></p>
+    </div>
+    <div class="groupe">
+      <label>Temps de relâchement (notes longues)</label>
+      <div class="segm" data-opt="relachement">
+        <button data-v="true">✋ Pris en compte</button>
+        <button data-v="false">Ignoré (que des appuis)</button>
+      </div>
+      <p class="aide" id="aide-relachement"></p>
+    </div>
+    <div class="groupe">
+      <label>Difficulté</label>
+      <div class="segm" data-opt="diff">
+        <button data-v="facile">Facile</button>
+        <button data-v="normal">Normal</button>
+        <button data-v="difficile">Difficile</button>
+        <button data-v="expert">Expert</button>
+      </div>
+      <p class="aide" id="m-stats"></p>
+    </div>
+    <div class="groupe duo">
+      <div>
+        <label>Vitesse de la musique : <b id="m-rate-v">100 %</b></label>
+        <div class="vitesse">
+          <button class="mini" id="m-rate-moins" title="Plus lent">−</button>
+          <input type="range" id="m-rate" min="0.25" max="2" step="0.05">
+          <button class="mini" id="m-rate-plus" title="Plus rapide">+</button>
+        </div>
+        <div class="segm petits" data-opt="rate">
+          <button data-v="0.5">50 %</button>
+          <button data-v="0.75">75 %</button>
+          <button data-v="1">100 %</button>
+          <button data-v="1.25">125 %</button>
+          <button data-v="1.5">150 %</button>
+        </div>
+      </div>
+      <div>
+        <label>Guide sonore</label>
+        <div class="segm" data-opt="guide">
+          <button data-v="0">Aucun</button>
+          <button data-v="0.12">Faible</button>
+          <button data-v="0.3">Moyen</button>
+        </div>
+      </div>
+    </div>
+    <div class="groupe duo">
+      <div>
+        <label>Son</label>
+        <div class="segm" data-opt="son">
+          <button data-v="true">🔊 Activé</button>
+          <button data-v="false">🔇 Coupé</button>
+        </div>
+      </div>
+      <div>
+        <label>Vaisseaux Geometry Dash</label>
+        <div class="segm" data-opt="vaisseaux">
+          <button data-v="true">🚀 Affichés</button>
+          <button data-v="false">Masqués</button>
+        </div>
+      </div>
+    </div>
+    <p class="aide petit">Vitesse : de 25 % (ralenti) à 200 % (accéléré), par pas de 5 % ; la hauteur des notes ne change pas. Guide sonore : le morceau complet joue doucement en fond pour t'aider à suivre.</p>
+  </div>
+
+  <div id="m-records" class="records"></div>
+  <button id="btn-jouer" class="cta">▶ Jouer</button>
+</section>
+
+<!-- ============ SPOTIFY ============ -->
+<section id="ecran-spotify" class="ecran">
+  <header class="entete">
+    <button class="lien-retour" data-aller="biblio">← Bibliothèque</button>
+    <h1 class="titre-ecran">Importer depuis Spotify</h1>
+    <span></span>
+  </header>
+
+  <div class="carte">
+    <label for="sp-lien" class="etape"><span>1</span> Colle le lien du titre</label>
+    <p class="aide">Dans Spotify : <b>⋯</b> → <b>Partager</b> → <b>Copier le lien du titre</b>.</p>
+    <div class="ligne">
+      <input id="sp-lien" class="champ" placeholder="https://open.spotify.com/track/…" spellcheck="false">
+      <button class="btn" id="sp-ok">OK</button>
+    </div>
+    <p id="sp-erreur" class="erreur"></p>
+  </div>
+
+  <div class="carte" id="sp-bloc-lecteur" hidden>
+    <div class="etape"><span>2</span> Vérifie le titre</div>
+    <div class="sp-infos">
+      <div id="sp-pochette" class="pochette"></div>
+      <div class="sp-champs">
+        <input id="sp-titre" class="champ" placeholder="Titre">
+        <input id="sp-artiste" class="champ" placeholder="Artiste">
+        <label class="sp-duree">Durée du titre <small>(écrite dans Spotify, ex. 3:32 — conseillé : l'enregistrement s'arrête pile à la fin)</small>
+          <input id="sp-duree" class="champ" placeholder="3:32" inputmode="numeric"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="carte" id="sp-bloc-rec" hidden>
+    <div class="etape"><span>3</span> Ouvre le titre dans Spotify</div>
+    <div class="ligne">
+      <a id="sp-ouvrir-appli" class="btn secondaire" href="#">🟢 Ouvrir dans l'appli Spotify</a>
+      <a id="sp-ouvrir" class="btn secondaire" href="#" target="_blank" rel="noopener">🌐 Ouvrir sur le site Spotify ↗</a>
+    </div>
+    <p class="aide">Connecte-toi si besoin. <b>Ne lance pas encore la lecture.</b></p>
+
+    <div class="etape" style="margin-top:16px"><span>4</span> Enregistre le morceau entier</div>
+    <p class="aide">Spotify protège ses fichiers : on ne peut pas les télécharger. Échos <b>enregistre le son pendant que Spotify le joue</b>
+      (en temps réel). L'enregistrement reste sur ton ordinateur.</p>
+    <ol class="aide">
+      <li>Clique sur le bouton vert. Chrome te demande quoi partager :
+        <ul>
+          <li>appli Spotify → <b>« Écran entier »</b> et coche <b>« Partager aussi l'audio du système »</b> ;</li>
+          <li>site Spotify → l'<b>onglet Spotify</b> et coche <b>« Partager aussi l'audio de l'onglet »</b>.</li>
+        </ul></li>
+      <li>Dans Spotify, lance le titre <b>depuis le début</b> et laisse-le jouer jusqu'au bout.</li>
+    </ol>
+    <button class="btn grand vert" id="sp-rec">🎙 Enregistrer le morceau entier</button>
+    <p class="aide petit">Le silence avant le début est coupé automatiquement. Sans durée indiquée, clique sur « Terminer » à la fin du titre (sinon Spotify enchaîne sur le titre suivant).</p>
+  </div>
+
+  <div class="carte rec-en-cours" id="sp-bloc-encours" hidden>
+    <div class="rec-etat"><span class="point-rouge"></span><b id="sp-etat">En attente du son…</b><span id="sp-temps">0:00</span></div>
+    <div class="vu"><div id="sp-vu"></div></div>
+    <div class="barre sp-avance" id="sp-avance-boite" hidden><div id="sp-avance"></div></div>
+    <div class="ligne">
+      <button class="btn" id="sp-terminer">✔ Terminer</button>
+      <button class="btn secondaire" id="sp-annuler">Annuler</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ JEU ============ -->
+<section id="ecran-jeu" class="ecran">
+  <canvas id="jeu"></canvas>
+  <button class="btn-pause" id="btn-pause" title="Pause (Échap)">❚❚</button>
+  <div id="voile-pause" class="voile" hidden>
+    <div class="boite">
+      <h2>Pause</h2>
+      <button class="btn grand" id="p-reprendre">▶ Reprendre</button>
+      <button class="btn grand secondaire" id="p-son"></button>
+      <button class="btn grand secondaire" id="p-vaisseaux"></button>
+      <button class="btn grand secondaire" id="p-recommencer">↺ Recommencer</button>
+      <button class="btn grand secondaire" id="p-quitter">✕ Quitter</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RÉSULTATS ============ -->
+<section id="ecran-resultats" class="ecran">
+  <div class="resultats">
+    <div id="r-note" class="r-note">S</div>
+    <h2 id="r-titre"></h2>
+    <p id="r-sous" class="aide"></p>
+    <div id="r-grille" class="r-grille"></div>
+    <p id="r-record" class="r-record"></p>
+    <div class="ligne centre">
+      <button class="btn grand" id="r-rejouer">↺ Rejouer</button>
+      <button class="btn grand secondaire" id="r-morceau">Réglages du morceau</button>
+      <button class="btn grand secondaire" data-aller="biblio">Bibliothèque</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RÉGLAGES ============ -->
+<div id="modal-reglages" class="voile" hidden>
+  <div class="boite large">
+    <h2>Réglages</h2>
+    <label>Tes touches <small id="rg-touches-nb"></small> <small>(clique puis appuie sur la touche voulue)</small></label>
+    <div class="touches" id="rg-touches"></div>
+    <label>Ordre des sons</label>
+    <div class="segm" data-reglage="aiguGauche">
+      <button data-v="1">Aigu à gauche → grave à droite</button>
+      <button data-v="0">Grave à gauche → aigu à droite</button>
+    </div>
+    <label>Vitesse de défilement des notes : <b id="rg-vitesse-v"></b></label>
+    <input type="range" id="rg-vitesse" min="0.6" max="2.2" step="0.1">
+    <label>Décalage (si tu tapes toujours trop tôt / trop tard) : <b id="rg-decalage-v"></b></label>
+    <input type="range" id="rg-decalage" min="-150" max="150" step="5">
+    <label>Volume : <b id="rg-volume-v"></b></label>
+    <input type="range" id="rg-volume" min="0" max="1" step="0.05">
+    <div class="ligne centre">
+      <button class="btn secondaire" id="rg-defaut">Valeurs par défaut</button>
+      <button class="btn" id="rg-fermer">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHARGEMENT ============ -->
+<div id="voile-chargement" class="voile" hidden>
+  <div class="boite">
+    <div class="spinner"></div>
+    <p id="ch-texte">Chargement…</p>
+    <div class="barre"><div id="ch-barre"></div></div>
+  </div>
+</div>
+<div id="glisser" class="glisser" hidden><div>Lâche ta musique ici 🎵</div></div>
+<div id="toast" class="toast"></div>
+
+<script src="js/stock.js"></script>
+<script src="js/analyse.js"></script>
+<script src="js/son.js"></script>
+<script src="js/spotify.js"></script>
+<script src="js/vaisseaux.js"></script>
+<script src="js/jeu.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

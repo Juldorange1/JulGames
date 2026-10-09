@@ -128,13 +128,13 @@ function drawEnemyProjectile(ctx, pr, sx, sy) {
 // ---------- Dangers des attaques speciales ----------
 function addHazard(world, h) {
   if (!world.hazards) world.hazards = [];
-  world.hazards.push(Object.assign({ t: 0, tele: 0.8, dur: 1, hitCd: 0 }, h));
+  world.hazards.push(Object.assign({ id: uid(), t: 0, tele: 0.8, dur: 1, hitCd: 0 }, h));
 }
 
 function updateHazards(world, dt) {
   const list = world.hazards;
   if (!list || !list.length) return;
-  const p = world.player;
+  const players = worldPlayers(world);
   for (let i = list.length - 1; i >= 0; i--) {
     const h = list[i];
     h.t += dt;
@@ -148,17 +148,23 @@ function updateHazards(world, dt) {
       Particles.burst(h.x, h.y, 14, '#ff7a3d', { maxSpeed: 180, life: 0.4 });
       Audio2.explosion(1.1);
       if (Game.shakeCamera) Game.shakeCamera(9, 0.35);
-      if (p && Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.radius) playerApplyDamage(p, h.dmg);
+      for (const p of players) if (Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.radius) playerApplyDamage(p, h.dmg);
     }
     if (h.type === 'spikes' && !h.erupted && h.t >= h.tele) {
       h.erupted = true;
       if (Game.shakeCamera) Game.shakeCamera(6, 0.25);
       Audio2.freeze();
     }
-    if (active && p && !p.airborne && !(h.hitCd > 0) && (h.type === 'laser' || h.type === 'spikes')) {
+    if (active && (h.type === 'laser' || h.type === 'spikes')) {
       const a = h.angle + (h.rot || 0) * Math.max(0, h.t - h.tele) / h.dur;
       const x1 = h.x + Math.cos(a) * h.len, y1 = h.y + Math.sin(a) * h.len;
-      if (distToSegment(p.x, p.y, h.x, h.y, x1, y1) < h.width / 2 + p.radius) { playerApplyDamage(p, h.dmg); h.hitCd = 0.6; }
+      // delai entre deux touches propre a chaque joueur
+      const cds = h.hitCds || (h.hitCds = {});
+      for (const p of players) {
+        if (p.airborne || cds[p.id] > 0) continue;
+        if (distToSegment(p.x, p.y, h.x, h.y, x1, y1) < h.width / 2 + p.radius) { playerApplyDamage(p, h.dmg); cds[p.id] = 0.6; }
+      }
+      for (const k in cds) if (cds[k] > 0) cds[k] -= dt;
     }
     if (h.type === 'laser' && active && Math.random() < 0.3 && Game.shakeCamera) Game.shakeCamera(2.5, 0.08);
     if (h.t >= h.tele + h.dur) list.splice(i, 1);
@@ -259,7 +265,7 @@ function renderHazardsTop(ctx, camera, world) {
 }
 
 // ---------- Programme des attaques speciales ----------
-function bossAim(world, b) { const p = world.player; return p ? Math.atan2(p.y - b.y, p.x - b.x) : 0; }
+function bossAim(world, b) { const p = nearestPlayer(world, b.x, b.y); return p ? Math.atan2(p.y - b.y, p.x - b.x) : 0; }
 
 const BOSS_SPECIALS = {
   // Le Noeud : lignes de pics de glace qui jaillissent du sol en eventail vers le joueur
@@ -269,7 +275,7 @@ const BOSS_SPECIALS = {
   },
   // Le Jardin : pluie de cosses explosives autour du joueur
   B2(world, b) {
-    const p = world.player; if (!p) return;
+    const p = nearestPlayer(world, b.x, b.y); if (!p) return;
     for (let i = 0; i < 5 + b.phase * 2; i++) {
       addHazard(world, { type: 'meteor', x: p.x + (Math.random() - 0.5) * 320, y: p.y + (Math.random() - 0.5) * 240, r: 42, tele: 1 + Math.random() * 0.6, dur: 0.3, dmg: 11 });
     }
@@ -281,7 +287,7 @@ const BOSS_SPECIALS = {
   },
   // Le Rail : mur de rochers avec une seule breche, qui avance vers le joueur
   B4(world, b) {
-    const p = world.player; if (!p) return;
+    const p = nearestPlayer(world, b.x, b.y); if (!p) return;
     const a = bossAim(world, b), dir = { x: Math.cos(a), y: Math.sin(a) }, perp = { x: -dir.y, y: dir.x };
     const n = 17, gap = Math.floor(Math.random() * (n - 4)) + 2;
     for (let i = 0; i < n; i++) {
@@ -294,7 +300,7 @@ const BOSS_SPECIALS = {
   },
   // Le Colosse : pluie de meteorites
   B5(world, b) {
-    const p = world.player; if (!p) return;
+    const p = nearestPlayer(world, b.x, b.y); if (!p) return;
     for (let i = 0; i < 6 + b.phase * 2; i++) {
       addHazard(world, { type: 'meteor', x: p.x + (Math.random() - 0.5) * 380, y: p.y + (Math.random() - 0.5) * 280, r: 55, tele: 1.1 + i * 0.15, dur: 0.3, dmg: 16 });
     }

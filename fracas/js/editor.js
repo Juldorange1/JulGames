@@ -5,7 +5,6 @@
 const EDITOR_TOOLBAR_W = 270;
 const EDITOR_MAX_ENEMIES = 30;
 const EDITOR_MAX_ITEMS = 160;
-const COMBAT_ROOM_W = 1000, COMBAT_ROOM_H = 650; // salles de defi : pas trop grandes
 const ED_DIRS = { E: 0, S: Math.PI / 2, W: Math.PI, N: -Math.PI / 2 };
 const ED_WALLS = { wallS: { w: 48, h: 48 }, wallH: { w: 192, h: 40 }, wallV: { w: 40, h: 192 } };
 

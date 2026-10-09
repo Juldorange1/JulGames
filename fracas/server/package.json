@@ -1,0 +1,20 @@
+{
+  "name": "fracas-server",
+  "version": "1.0.0",
+  "description": "Serveur de jeu en ligne de Fracas (simulation autoritaire, WebSocket)",
+  "main": "index.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "dev:lag": "node -e \"process.env.DEV_LAG_MS='60';require('./index.js')\"",
+    "test": "node test/sim_smoke.js && node test/net_test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

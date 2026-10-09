@@ -98,20 +98,6 @@
       "port": 5570
     },
     {
-      "name": "puissance4",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5575",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "puissance4"
-      ],
-      "port": 5575
-    },
-    {
       "name": "riposte",
       "runtimeExecutable": "python",
       "runtimeArgs": [
@@ -154,20 +140,6 @@
       "port": 5589
     },
     {
-      "name": "adofai",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5588",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "adofai"
-      ],
-      "port": 5588
-    },
-    {
       "name": "root2",
       "runtimeExecutable": "python",
       "runtimeArgs": [
@@ -178,6 +150,34 @@
         "127.0.0.1"
       ],
       "port": 5598
+    },
+    {
+      "name": "forge-pvp",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5602",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "forge-pvp"
+      ],
+      "port": 5602
+    },
+    {
+      "name": "echos",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5603",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "echos"
+      ],
+      "port": 5603
     }
   ]
 }

@@ -52,9 +52,11 @@ function turretWander(world, t, dt, speed, leash) {
   t.facing = Math.atan2(dir.y, dir.x);
 }
 
+// Vise le joueur le plus proche (plusieurs joueurs en coop en ligne).
 function turretAimAtPlayer(t, world) {
-  if (!world.player) return 0;
-  return angleTo(t.x, t.y, world.player.x, world.player.y);
+  const p = nearestPlayer(world, t.x, t.y);
+  if (!p) return 0;
+  return angleTo(t.x, t.y, p.x, p.y);
 }
 
 function updateTurret(world, t, dt) {
@@ -72,7 +74,7 @@ function updateTurret(world, t, dt) {
     return;
   }
   if (enemyIsDisabled(t)) return;
-  if (t.type !== 'T4' && t.type !== 'T10' && !t.fixedAim && world.player) {
+  if (t.type !== 'T4' && t.type !== 'T10' && !t.fixedAim && nearestPlayer(world, t.x, t.y)) {
     const target = turretAimAtPlayer(t, world);
     t.aimAngle = lerpAngle(t.aimAngle == null ? target : t.aimAngle, target, clamp(dt * 6, 0, 1));
   }
@@ -146,7 +148,8 @@ function updateT3(world, t, dt) {
       const dir = vecFromAngle(s.aimAngle);
       for (let d = 20; d < 900; d += 20) {
         const px = t.x + dir.x * d, py = t.y + dir.y * d;
-        if (world.player && dist(px, py, world.player.x, world.player.y) < 14) { playerApplyDamage(world.player, TURRET_LOSS.T3 * 0.25); break; }
+        const hitP = worldPlayers(world).find((pl) => dist(px, py, pl.x, pl.y) < 14);
+        if (hitP) { playerApplyDamage(hitP, TURRET_LOSS.T3 * 0.25); break; }
       }
     }
     if (s.phaseTimer >= 0.7) { s.phase = 'idle'; s.phaseTimer = 0; }
@@ -240,7 +243,7 @@ function updateT11(world, t, dt) {
     t.timer = 0; t.charging = false;
     const dir = vecFromAngle(t.aimAngle);
     const pr = spawnEnemyProjectile(world, { x: t.x, y: t.y, vx: dir.x * 110, vy: dir.y * 110, radius: 7, dmgPercent: TURRET_LOSS.T11, life: 6, homing: 0.7 });
-    pr.target = world.player;
+    pr.target = nearestPlayer(world, t.x, t.y);
   }
 }
 const T12_INTERVAL = 2.3;
@@ -249,12 +252,13 @@ function updateT12(world, t, dt) {
   if (!s.pending) turretCharge(t, T12_INTERVAL, 0.3);
   if (!s.pending && t.timer >= T12_INTERVAL) {
     t.timer = 0; t.charging = false; s.pending = true; s.telegraphTimer = 0;
-    s.target = world.player ? { x: world.player.x, y: world.player.y } : { x: t.x, y: t.y };
+    const tp = nearestPlayer(world, t.x, t.y);
+    s.target = tp ? { x: tp.x, y: tp.y } : { x: t.x, y: t.y };
     world.zones.push(makeZone({
       x: s.target.x, y: s.target.y, radius: 80, telegraph: 0.65, duration: 0.15, tickInterval: 999,
       color: COLORS.danger, edgeColor: COLORS.dangerEdge, team: TEAM.ENEMY,
       onActivate(z) {
-        if (world.player && zoneContainsPoint(z, world.player.x, world.player.y)) playerApplyDamage(world.player, TURRET_LOSS.T12);
+        for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) playerApplyDamage(pl, TURRET_LOSS.T12);
       },
       onExpire() { s.pending = false; },
     }));

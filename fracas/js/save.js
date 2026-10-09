@@ -36,6 +36,9 @@ const Save = {
       cursorStyle: 'cross',
       customChallenges: [],
       hub: null,
+      // Codex a decouvrir : persos deja joues, ennemis/boss deja croises en partie
+      discovered: null,
+      playerName: '',
     };
     this.data = Object.assign({}, defaults, parsed || {});
     this.data.records = Object.assign({}, defaults.records, (parsed && parsed.records) || {});
@@ -85,6 +88,38 @@ const Save = {
         hub.doors.market = { gx: target.gx, gy: target.gy };
       }
       this.data.hubDoorsV6 = true;
+      this.persist();
+    }
+    if (this.data.hub && !this.data.hub.doors.online) {
+      // Nouveau portail "En ligne" : premiere case libre (ni porte, ni decor), sinon nouvelle case.
+      const hub = this.data.hub;
+      const used = (gx, gy) => Object.values(hub.doors).some((d) => d.gx === gx && d.gy === gy) || (hub.decor || []).some((d) => d.gx === gx && d.gy === gy || (d.lgx === gx && d.lgy === gy));
+      const prefs = [[0, -1], [-1, 0], [1, 0], [0, 1]];
+      let spot = prefs.find(([gx, gy]) => hub.cells.some((c) => c.gx === gx && c.gy === gy) && !used(gx, gy));
+      if (!spot) { const c = hub.cells.find((cc) => !used(cc.gx, cc.gy)); if (c) spot = [c.gx, c.gy]; }
+      if (!spot) {
+        const minGy = Math.min(...hub.cells.map((c) => c.gy));
+        spot = [0, minGy - 1];
+        hub.cells.push({ gx: 0, gy: minGy - 1 });
+      }
+      hub.doors.online = { gx: spot[0], gy: spot[1] };
+      this.persist();
+    }
+    if (!this.data.discovered) {
+      // Premiere version avec decouverte : on reprend tout ce que la sauvegarde prouve deja
+      // (records, argent gagne avec un perso, ennemis deja detruits).
+      const d = { chars: {}, enemies: {} };
+      for (const [k, v] of Object.entries(this.data.records)) if (v != null) d.chars[k.replace('character', '')] = true;
+      for (const k of Object.keys(this.data.moneyByChar)) if (this.data.moneyByChar[k] > 0) d.chars[k.replace('character', '')] = true;
+      for (const [k, v] of Object.entries(this.data.challenges)) {
+        if (v == null) continue;
+        const id = k.replace('challenge', '');
+        const def = /^P\d+$/.test(id) ? (typeof PARKOUR_DEFS !== 'undefined' && PARKOUR_DEFS.find((p) => p.id === id))
+          : (typeof CHALLENGE_DEFS !== 'undefined' && CHALLENGE_DEFS.find((c) => String(c.id) === id));
+        if (def) d.chars[def.characterId] = true;
+      }
+      for (const [k, v] of Object.entries(this.data.kills)) if (v > 0) d.enemies[k] = true;
+      this.data.discovered = d;
       this.persist();
     }
     Keybinds = Object.assign({}, DEFAULT_KEYS, this.data.keybinds);
@@ -188,4 +223,19 @@ const Save = {
     return true;
   },
   getMoney() { return this.data.money; },
+
+  // ---- Decouverte (Codex, choix de perso/defi) ----
+  isCharKnown(id) { return !!(this.data.discovered && this.data.discovered.chars[id]); },
+  markCharPlayed(id) {
+    if (this.isCharKnown(id)) return;
+    this.data.discovered.chars[id] = true;
+    this.persist();
+  },
+  isEnemyKnown(type) { return !!(this.data.discovered && this.data.discovered.enemies[type]); },
+  markEnemySeen(type) {
+    if (!type || type === 'DUMMY' || this.isEnemyKnown(type)) return;
+    this.data.discovered.enemies[type] = true;
+    this.persist();
+  },
+  setPlayerName(n) { this.data.playerName = String(n || '').slice(0, 16); this.persist(); },
 };

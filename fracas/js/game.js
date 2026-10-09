@@ -153,6 +153,7 @@ const Game = {
     world.hubDoors = null;
     this.applyUserSpeedMult();
     this.spawnPlayerFor(characterId, 0, 0);
+    Save.markCharPlayed(characterId); // decouvert : visible dans le Codex et les menus
     Challenges.active = false;
     Expedition.start(world, characterId);
     this.setState(STATE.EXPEDITION);
@@ -165,6 +166,7 @@ const Game = {
     world.hubDoors = null;
     this.applyUserSpeedMult();
     this.spawnPlayerFor(def.characterId, 0, 0);
+    Save.markCharPlayed(def.characterId);
     Expedition.active = false;
     Challenges.start(world, challengeId);
     this.setState(STATE.CHALLENGE);
@@ -188,11 +190,19 @@ const Game = {
   },
 
   isGameplayState() {
-    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE || this.state === STATE.CHALLENGE_EDITOR;
+    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE || this.state === STATE.CHALLENGE_EDITOR || this.state === STATE.ONLINE_GAME;
   },
 
   update(realDt) {
     const world = this.world;
+    // Partie en ligne : le serveur simule, le client envoie ses entrees et affiche.
+    if (this.state === STATE.ONLINE_GAME) {
+      if (Input.wasPressed(Keybinds.pause)) OnlineUI.toggleLeaveMenu();
+      OnlineGame.update(realDt);
+      UI.updateHUD(this);
+      OnlineUI.updateGameOverlay();
+      return;
+    }
     if (!world.player) return;
 
     if (this.state !== STATE.MENU && Input.wasPressed(Keybinds.pause)) {
@@ -204,6 +214,7 @@ const Game = {
     // Editeur de defi dans la carte : on se deplace et on place des elements, rien ne "vit".
     if (this.state === STATE.CHALLENGE_EDITOR) {
       const dtE = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1);
+      world.player.input = sampleLocalInput(world);
       updatePlayer(world, world.player, dtE, realDt);
       Particles.update(realDt);
       Editor.update(world, realDt);
@@ -219,25 +230,18 @@ const Game = {
     const simDt = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1) * (1 + (world.simSpeedBonus || 0));
 
     if (!frozen) {
-      updatePlayer(world, world.player, simDt, realDt);
-      if (world.room && world.room.parkour) updateParkourObjects(world, simDt);
-      updateProjectiles(world, simDt);
-      updateZones(world, simDt);
-      updateWalls(world, simDt);
-      updateShields(world, simDt);
-      updateWinds(world, simDt);
-      updateMeteors(world, simDt);
-      updateFrozenTimers(world, simDt);
-      for (const e of world.enemies) {
-        if (e.kind === 'turret') updateTurret(world, e, simDt);
-        else if (e.kind === 'boss') { updateBoss(world, e, simDt); updateBossSpecials(world, e, simDt); }
-      }
-      updateHazards(world, simDt);
-      resolveCollisions(world, simDt, realDt);
+      // Solo : les intentions viennent du clavier/souris locaux ; la simulation est partagee
+      // avec le serveur multijoueur (js/sim.js).
+      world.player.input = sampleLocalInput(world);
+      stepWorld(world, simDt, realDt);
       if (this.state === STATE.MENU) updateHub(world, simDt);
     }
     Particles.update(realDt);
 
+    // Codex : tout ennemi/boss croise en vraie partie devient decouvert.
+    if (this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE) {
+      for (const e of world.enemies) if (!e.dead && e.type) Save.markEnemySeen(e.type);
+    }
     if (this.state === STATE.EXPEDITION) Expedition.update(world, realDt);
     if (this.state === STATE.CHALLENGE) Challenges.update(world, realDt);
 

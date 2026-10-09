@@ -43,6 +43,7 @@ function defaultHubLayout() {
       spawn: { gx: 0, gy: 0 },
       bestiary: { gx: -1, gy: 1 },  // Codex en bas a gauche
       market: { gx: 1, gy: 1 },
+      online: { gx: 0, gy: -1 },    // En ligne : en haut au milieu
     },
     decor: [],
   };
@@ -50,7 +51,7 @@ function defaultHubLayout() {
 
 // Les portes navigables (tout sauf "spawn", qui est un bloc principal mais pas une porte). La
 // salle de test n'y figure pas : on y accede uniquement depuis la liste des personnages.
-function hubKeyList() { return ['world', 'defi', 'bestiary', 'market']; }
+function hubKeyList() { return ['world', 'defi', 'bestiary', 'market', 'online'].filter((k) => Save.data.hub.doors[k]); }
 
 function hubDoorMeta() {
   return {
@@ -58,6 +59,7 @@ function hubDoorMeta() {
     defi: { labelKey: 'btnDefi', action: () => Game.setState(STATE.CHALLENGE_SELECT) },
     bestiary: { labelKey: 'btnBestiary', action: () => Game.setState(STATE.BESTIARY) },
     market: { labelKey: 'btnFeatures', action: () => Game.setState(STATE.MARKET) }, // marche + parametres
+    online: { labelKey: 'btnOnline', action: () => Game.setState(STATE.ONLINE_MENU) }, // multijoueur en ligne
   };
 }
 
@@ -360,6 +362,7 @@ const HUB_DOOR_STYLE = {
   defi: { color: [255, 210, 61], icon: 'defi' },
   bestiary: { color: [199, 122, 255], icon: 'codex' },
   market: { color: [93, 255, 157], icon: 'gear' },
+  online: { color: [255, 122, 209], icon: 'online' },
 };
 
 function drawHubDoorIcon(ctx, kind, col) {
@@ -387,6 +390,13 @@ function drawHubDoorIcon(ctx, kind, col) {
     ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 10); ctx.stroke();
     ctx.lineWidth = 1.2;
     for (const y of [-3, 1, 5]) { ctx.beginPath(); ctx.moveTo(-9, y - 1); ctx.lineTo(-3, y); ctx.moveTo(3, y); ctx.lineTo(9, y - 1); ctx.stroke(); }
+  } else if (kind === 'online') {
+    // deux joueurs relies (en ligne)
+    ctx.beginPath(); ctx.arc(-6, -4, 3.5, 0, Math.PI * 2); ctx.arc(6, -4, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-6, 8, 6, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(6, 8, 6, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -4, 12, -Math.PI * 0.8, -Math.PI * 0.2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, -4, 16, -Math.PI * 0.75, -Math.PI * 0.25); ctx.stroke();
   } else {
     // engrenage + piece
     ctx.beginPath();
