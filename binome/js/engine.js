@@ -31,7 +31,7 @@ const eraData = d => ERAS[eraOf(d) % ERAS.length];
 /* ---------- sauvegarde ---------- */
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 function load() {
-  try { const t = localStorage.getItem(SAVE_KEY); if (!t) return null; const s = JSON.parse(t); if (!s || s.v !== 1) return null; s.seen = s.seen || {}; s.level = s.level || 1; s.stats.perfect = s.stats.perfect || 0; s.stats.goals = s.stats.goals || 0; return s; } catch (e) { return null; }
+  try { const t = localStorage.getItem(SAVE_KEY); if (!t) return null; const s = JSON.parse(t); if (!s || s.v !== 1) return null; s.seen = s.seen || {}; s.level = s.level || 1; s.rules = s.rules.filter(r => RULES[r.key]); s.pacts = s.pacts.filter(p => PACTS[p.key]); for (const h of s.heroes) for (const sl of h.slots) if (sl) sl.mods = sl.mods.filter(m => UPGRADES[m.key]); for (const k in s.talents) if (!TALENTS[k]) delete s.talents[k]; for (const k in TALENTS) s.talents[k] = s.talents[k] || 0; s.stats.perfect = s.stats.perfect || 0; s.stats.goals = s.stats.goals || 0; return s; } catch (e) { return null; }
 }
 function wipeSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
 
@@ -43,7 +43,7 @@ function newGame(h1, h2, level) {
   S = {
     v: 1, level: Math.max(1, Math.round(level || 1)), depth: 0, money: 0, bossesKilled: 0, bossesFailed: 0, bossesSeen: 0, sinceBoss: 0,
     heroes: [mkHero(h1), mkHero(h2)], rules: [], pacts: [],
-    talents: { vigueur: 0, agilite: 0, soif: 0, robustesse: 0, egide: 0, choix: 0, prosperite: 0, repos: 0 },
+    talents: { vigueur: 0, soif: 0, robustesse: 0, egide: 0, choix: 0, prosperite: 0, repos: 0 },
     engraved: { skill: 0, upgrade: 0, rule: 0 },
     choices: null, pending: null, rerolls: 0,
     stats: { kills: 0, rooms: 0, moneyTotal: 0, started: Date.now(), perfect: 0, goals: 0 }, seen: {},
@@ -61,7 +61,7 @@ function pactOf(k) { return S.pacts.find(p => p.key === k); }
 function maxPct() { return 100 + 10 * S.talents.vigueur; }
 function G() {
   const g = {
-    dmg: 1, taken: 1 - 0.1 * S.talents.robustesse, move: S.talents.agilite, range: 0, cd: 0, push: 0, coll: 5,
+    dmg: 1, taken: Math.pow(0.9, S.talents.robustesse), move: 0, range: 0, cd: 0, push: 0, coll: 5,
     heal: KILL_HEAL + 2 * S.talents.soif, healMult: 1, extraEnemies: 0, actions: 1, moveCap: 99,
     diag: false, enemyMove: 0, startHeal: 0, startPenalty: 0, ricochet: false, adrenaline: false, explode: false,
     lien: false, riposte: false, relais: false, initiative: false, fury: false, storm: false, drain: 0, enemyHp: 1,
@@ -69,7 +69,6 @@ function G() {
   for (const r of S.rules) {
     switch (r.key) {
       case 'diagonales': g.diag = true; break;
-      case 'elan': g.move += 1; break;
       case 'adrenaline': g.adrenaline = true; break;
       case 'explosifs': g.explode = true; break;
       case 'gravite': g.push += 1; break;
@@ -93,7 +92,6 @@ function G() {
       case 'frenesie': g.actions = 2; g.moveCap = 1; if (v > 1) g.range += 1; break;
       case 'nuee': g.heal += 5 * v; g.extraEnemies += 2; break;
       case 'sang': g.healMult *= v + 1; g.startPenalty += 10; break;
-      case 'sprint': g.move += 2 * v; g.cd += 1; break;
       case 'tempete': g.dmg *= 1 + 0.3 * v; g.storm = true; break;
       case 'titan': g.taken *= 1 - 0.25 * v; g.dmg *= 0.75; break;
       case 'brume': g.dmg *= 1 + 0.35 * v; g.range -= 1; break;
@@ -102,6 +100,7 @@ function G() {
     }
   }
   if (C && C.card && C.card.trait === 'brouillard') g.range -= 1;
+  if (C && C.boost) { if (C.boost.dmg) g.dmg *= C.boost.dmg; if (C.boost.range) g.range += C.boost.range; }
   if (C && C.card && C.card.trait === 'frenetique') g.enemyMove += 1;
   g.taken = Math.max(0.15, g.taken);
   return g;
@@ -115,11 +114,12 @@ function skillStats(hi, slot) {
   const s = Object.assign({}, d, {
     key: inst.key, dmg: d.dmg || 0, range: d.range || 0, cd: d.cd || 0, push: d.push || 0, poison: d.poison || 0,
     stun: d.stun || 0, pierce: !!d.pierce, splash: 0, lifesteal: d.lifesteal || 0, echo: 0, vif: 0, exec: d.exec || 0,
-    chain: d.chain || 0, area: d.area || 'single',
+    chain: d.chain || 0, area: d.area || 'single', capMult: 1,
   });
   for (const m of inst.mods) if (UPGRADES[m.key]) UPGRADES[m.key].apply(s, m.v || 1);
   const g = G();
   s.dmg *= g.dmg;
+  s.cap = d.dmg ? Math.round((d.cap || d.dmg * CAP_MULT) * s.capMult) : 0;
   if (s.range > 1 || (s.type !== 'line' && s.range > 0)) s.range = Math.max(1, s.range + g.range);
   else if (s.range === 1 && g.range > 0) s.range += g.range;
   s.cd = Math.max(0, s.cd + g.cd);
@@ -130,9 +130,14 @@ function skillStats(hi, slot) {
 function runeMult(u) { return u && C && inB(u.x, u.y) && tile(u.x, u.y).z === 'rune' ? 1.75 : 1; }
 function ritualOn() { return !!C && C.kind === 'rituel' && C.units.some(u => !u.dead && u.kind === 'cristal'); }
 function enemyPower(e) { return (e.enr || 1) * runeMult(e) * (ritualOn() ? 1.3 : 1); }
-function displayDmg(hi, s) {
+/* dégâts sans plafond (pour afficher « 40/16 ») */
+function rawDmg(hi, s) {
   const u = C ? heroUnit(hi) : null;
   return Math.round(s.dmg * S.heroes[hi].pct / 100 * furyMult(hi) * runeMult(u));
+}
+function displayDmg(hi, s) {
+  const u = C ? heroUnit(hi) : null;
+  return Math.round(Math.min(s.cap || 1e9, s.dmg * S.heroes[hi].pct / 100 * furyMult(hi) * runeMult(u)));
 }
 function furyMult(hi) { return (G().fury && S.heroes[hi].pct < 70) ? 1.3 : 1; }
 
@@ -242,12 +247,44 @@ function bossMoney(card) {
 function genRoom(card) {
   const r = mulberry32(card.seed);
   const d = card.depth, era = eraOf(d) % ERAS.length;
+  // taille et forme aléatoires
+  let W = 7 + Math.floor(r() * 5), H = 5 + Math.floor(r() * 4);
+  if (card.boss) { W = Math.max(W, 8); H = Math.max(H, 6); }
+  GRID_W = W; GRID_H = H;
+  let shape = pick(r, ['rect', 'coins', 'trous', 'caverne', 'croix', 'ravin', 'coins', 'trous']);
   let grid, objs, ok = false, tries = 0;
-  while (!ok && tries++ < 60) {
+  const pass = (x, y) => { const t = grid[y][x].t; return t !== 'rock' && t !== 'pit' && t !== 'void'; };
+  while (!ok && tries++ < 90) {
+    if (tries > 60) shape = 'rect';
     grid = []; objs = [];
-    for (let y = 0; y < GRID_H; y++) { const row = []; for (let x = 0; x < GRID_W; x++) row.push({ t: 'floor', fire: 0, fireOwner: null, trap: null, ttl: 0, z: null, zd: null, zp: null }); grid.push(row); }
-    const free = () => { for (let k = 0; k < 40; k++) { const x = 2 + Math.floor(r() * 5), y = Math.floor(r() * GRID_H); if (grid[y][x].t === 'floor' && !objs.some(o => o.x === x && o.y === y)) return [x, y]; } return null; };
-    let rocks = 3 + Math.floor(r() * 4) + (card.trait === 'etroit' ? 5 : 0) + (era === 1 ? 3 : 0);
+    for (let y = 0; y < H; y++) { const row = []; for (let x = 0; x < W; x++) row.push({ t: 'floor', fire: 0, fireOwner: null, trap: null, ttl: 0, z: null, zd: null, zp: null }); grid.push(row); }
+    const V = (x, y) => { if (x >= 0 && y >= 0 && x < W && y < H) grid[y][x].t = 'void'; };
+    if (shape === 'coins' || shape === 'croix') {
+      for (const [cx, cy] of [[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1]]) {
+        if (r() > (shape === 'croix' ? 0.9 : 0.65)) continue;
+        const cw = shape === 'croix' ? Math.max(1, Math.floor(W * 0.3)) : 1 + Math.floor(r() * 2), ch = shape === 'croix' ? Math.max(1, Math.floor(H * 0.3)) : 1 + Math.floor(r() * 2);
+        for (let dy = 0; dy < ch; dy++) for (let dx = 0; dx < cw; dx++) V(cx === 0 ? dx : W - 1 - dx, cy === 0 ? dy : H - 1 - dy);
+      }
+    } else if (shape === 'trous') {
+      const n = 1 + Math.floor(r() * 3);
+      for (let i = 0; i < n; i++) { let x = 2 + Math.floor(r() * (W - 4)), y = 1 + Math.floor(r() * (H - 2)); const sz = 1 + Math.floor(r() * 3); for (let k = 0; k < sz; k++) { V(x, y); const [dx, dy] = pick(r, DIR4); x = clamp(x + dx, 2, W - 3); y = clamp(y + dy, 0, H - 1); } }
+    } else if (shape === 'caverne') {
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (r() < 0.32) V(x, y);
+      for (let it = 0; it < 2; it++) {
+        const vv = grid.map(row => row.map(t => t.t === 'void'));
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          let n = 0; for (const [dx, dy] of DIR8) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H || vv[ny][nx]) n++; }
+          grid[y][x].t = n >= 5 ? 'void' : 'floor';
+        }
+      }
+    } else if (shape === 'ravin') {
+      const x0 = 3 + Math.floor(r() * Math.max(1, W - 6));
+      const bridges = new Set([Math.floor(r() * H), Math.floor(r() * H)]);
+      for (let y = 0; y < H; y++) if (!bridges.has(y)) V(x0, y);
+    }
+    const free = () => { for (let k = 0; k < 50; k++) { const x = 2 + Math.floor(r() * Math.max(1, W - 4)), y = Math.floor(r() * H); if (grid[y][x].t === 'floor' && !objs.some(o => o.x === x && o.y === y)) return [x, y]; } return null; };
+    const area = W * H;
+    let rocks = Math.round(area * 0.06) + Math.floor(r() * 3) + (card.trait === 'etroit' ? 5 : 0) + (era === 1 ? 3 : 0);
     let pits = d >= 3 ? Math.floor(r() * 3) : (d >= 1 ? Math.floor(r() * 2) : 0);
     if (card.trait === 'instable') pits += 4;
     if (era === 3) pits += 2;
@@ -260,18 +297,21 @@ function genRoom(card) {
     for (let i = 0; i < pits; i++) { const p = free(); if (p) grid[p[1]][p[0]].t = 'pit'; }
     for (let i = 0; i < lava; i++) { const p = free(); if (p) grid[p[1]][p[0]].t = 'lava'; }
     for (let i = 0; i < barrels; i++) { const p = free(); if (p) objs.push({ kind: 'baril', x: p[0], y: p[1] }); }
-    // connexité : toutes les cases praticables doivent être reliées
-    const pass = (x, y) => grid[y][x].t !== 'rock' && grid[y][x].t !== 'pit';
-    let total = 0, sx = -1, sy = -1;
-    for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) if (pass(x, y)) { total++; if (sx < 0) { sx = x; sy = y; } }
+    // connexité, place pour les héros (à gauche) et les ennemis (à droite)
+    let total = 0, sx = -1, sy = -1, left = 0, right = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (pass(x, y)) { total++; if (sx < 0) { sx = x; sy = y; } if (x <= 1) left++; if (x >= W - 3) right++; }
+    if (sx < 0 || total < area * 0.5 || left < 3 || right < 5) continue;
     const seen = new Set([key(sx, sy)]); const q = [[sx, sy]];
     while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of DIR4) { const nx = x + dx, ny = y + dy; if (inB(nx, ny) && pass(nx, ny) && !seen.has(key(nx, ny))) { seen.add(key(nx, ny)); q.push([nx, ny]); } } }
     ok = seen.size === total;
   }
   // héros à gauche
-  const hy = [2 + Math.floor(r() * 2), 0];
-  hy[1] = hy[0] + 2 + Math.floor(r() * 2); if (hy[1] >= GRID_H) hy[1] = hy[0] - 2;
-  const heroSpawns = [[1, hy[0]], [0, hy[1]]];
+  const cand = []; for (let x = 0; x < 2; x++) for (let y = 0; y < H; y++) if (grid[y][x].t === 'floor' && !objs.some(o => o.x === x && o.y === y)) cand.push([x, y]);
+  shuffle(r, cand);
+  cand.sort((a, b) => Math.abs(a[1] - (H - 1) / 2) - Math.abs(b[1] - (H - 1) / 2));
+  const h1 = cand[0] || [0, 0];
+  const h2 = cand.find(c => Math.abs(c[1] - h1[1]) >= 2) || cand.find(c => c !== h1) || [1, 0];
+  const heroSpawns = [h1, h2];
   for (const [x, y] of heroSpawns) grid[y][x].t = 'floor';
   // zones de carte
   const freeFloor = (x, y) => inB(x, y) && grid[y][x].t === 'floor' && !grid[y][x].z && !heroSpawns.some(([a, b]) => a === x && b === y) && !objs.some(o => o.x === x && o.y === y);
@@ -302,15 +342,16 @@ function genRoom(card) {
     if (z === 'buisson' || z === 'boue') { const p = rndFloor(); if (!p) return; let [x, y] = p; const sz = 1 + Math.floor(r() * 3); for (let i = 0; i < sz; i++) { if (freeFloor(x, y)) grid[y][x].z = z; const [dx, dy] = pick(r, DIR4); if (inB(x + dx, y + dy)) { x += dx; y += dy; } } return; }
     const p = rndFloor(); if (p) grid[p[1]][p[0]].z = z;
   };
-  const zoneList = Object.keys(ZONES).filter(k => ZONES[k].minDepth <= d);
+  const zoneList = Object.keys(ZONES).filter(k => ZONES[k].minDepth <= d && ZONES[k].w > 0);
   const bias = ['boue', 'buisson', 'rune', 'courant', 'portail'][era];
-  const nz = 2 + Math.floor(r() * 3) + (d >= 12 ? 1 : 0) + (d >= 25 ? 1 : 0);
+  const nz = 3 + Math.floor(r() * 3) + Math.floor(GRID_W * GRID_H / 30) + (d >= 12 ? 1 : 0) + (d >= 25 ? 1 : 0);
   for (let i = 0; i < nz && zoneList.length; i++) placeZone(wpick(r, zoneList.map(k => [k, ZONES[k].w * (k === bias ? 3 : 1)])));
   if (card.trait === 'glacier') for (let i = 0; i < 4; i++) placeZone('glace');
   if (card.trait === 'portails') { placeZone('portail'); placeZone('portail'); }
   // ennemis à droite
   const enemies = [];
   const extra = {};
+  const nearFloor = (tx, ty) => { let best = null, bd = 1e9; for (let y = 0; y < GRID_H; y++) for (let x = 0; x < GRID_W; x++) { if (grid[y][x].t !== 'floor' || taken.has(key(x, y)) || grid[y][x].z) continue; const dd = man(x, y, tx, ty) * 10 + y * 0.1 + x * 0.01; if (dd < bd) { bd = dd; best = [x, y]; } } return best || [GRID_W - 1, 0]; };
   const taken = new Set(heroSpawns.map(([x, y]) => key(x, y)).concat(objs.map(o => key(o.x, o.y))));
   const spot = (minX) => {
     for (let k = 0; k < 80; k++) {
@@ -324,8 +365,8 @@ function genRoom(card) {
   if (card.boss) {
     const B = BOSSES[card.boss];
     if (B.heads) {
-      for (const [x, y] of [[7, 1], [8, 3], [7, 5]]) { grid[y][x].t = 'floor'; taken.add(key(x, y)); enemies.push({ kind: card.boss, x, y, boss: true }); }
-    } else { grid[3][7].t = 'floor'; taken.add(key(7, 3)); enemies.push({ kind: card.boss, x: 7, y: 3, boss: true }); }
+      for (const [tx, ty] of [[GRID_W - 2, 1], [GRID_W - 1, Math.floor(GRID_H / 2)], [GRID_W - 2, GRID_H - 2]]) { const p = nearFloor(tx, ty); if (p) { taken.add(key(p[0], p[1])); enemies.push({ kind: card.boss, x: p[0], y: p[1], boss: true }); } }
+    } else { const p = nearFloor(GRID_W - 2, Math.floor(GRID_H / 2)); taken.add(key(p[0], p[1])); enemies.push({ kind: card.boss, x: p[0], y: p[1], boss: true }); }
     const adds = (card.diff === 2 ? 2 : 1) + Math.floor(d / 20);
     for (let i = 0; i < adds; i++) { const k = pickEnemy(r, d, true); const p = spot(5); if (p) enemies.push({ kind: k, x: p[0], y: p[1] }); }
   } else {
@@ -339,7 +380,7 @@ function genRoom(card) {
     let pairId = 0;
     for (let i = 0; i < n; i++) {
       const kind = pickEnemy(r, d, i >= n - 1);
-      const p = spot(kind === 'spectre' ? 4 : 6); if (!p) break;
+      const p = spot(Math.floor(GRID_W * (kind === 'spectre' ? 0.45 : 0.6))); if (!p) break;
       const elite = (d >= 3 || lvl() >= 3) && r() < (card.diff === 2 ? 0.25 : 0) + LF.elite;
       if (kind === 'jumeau') {
         const q = spot(5); if (!q) continue;
@@ -365,6 +406,14 @@ function genRoom(card) {
     }
     if (kind === 'rituel') {
       for (let i = 0; i < 1 + card.diff; i++) { const p = spot(4); if (p) objs.push({ kind: 'cristal', x: p[0], y: p[1] }); }
+    }
+    // bonus à aller chercher (coffre, orbe, cercle de pouvoir)
+    const nb = (r() < 0.5 ? 1 : 0) + (card.diff === 2 && r() < 0.35 ? 1 : 0);
+    for (let i = 0; i < nb; i++) {
+      const b = wpick(r, [['coffre', 4], ['orbe', 4], ['cercle', 3]]);
+      const p = spot(3); if (!p) break;
+      if (b === 'cercle') { grid[p[1]][p[0]].z = 'cercle'; grid[p[1]][p[0]].prog = 0; taken.delete(key(p[0], p[1])); }
+      else objs.push({ kind: b, x: p[0], y: p[1], orb: b === 'orbe' ? pick(r, Object.keys(ORBS)) : null });
     }
   }
   return Object.assign({ grid, objs, heroSpawns, enemies }, extra);
@@ -400,7 +449,7 @@ function spawnEnemy(kind, x, y, extra) {
   return mkUnit(Object.assign({
     team: 'enemy', kind, x, y, hp, maxHp: hp, dmg: E.dmg * enemyDmgScale() * (extra && extra.elite ? 1.3 : 1),
     move: E.move, range: E.range || 1, ai: E.ai, push: E.push || 0, immunePush: !!E.immunePush, bt: 0,
-    armor: E.armor || 0, split: !!E.split,
+    armor: E.armor || 0, split: !!E.split, grows: !!E.grows,
   }, extra || {}));
 }
 function spawnBoss(kind, x, y, diff) {
@@ -410,7 +459,7 @@ function spawnBoss(kind, x, y, diff) {
   const ds = (1 + 0.1 * S.bossesKilled) * (diff === 2 ? 1.1 : 1) * levelFx().dmg;
   return mkUnit({
     team: 'enemy', kind, x, y, hp, maxHp: hp, dmg: B.dmg * ds, special: (B.special || 0) * ds, move: B.move, range: B.range || 1,
-    ai: 'boss', boss: true, push: B.push || 0, immunePush: true, bt: 0, enr: 1, phase: 0,
+    ai: 'boss', boss: true, push: B.push || 0, immunePush: true, bt: 0, enr: 1, phase: 0, lastHit: 1,
   });
 }
 
@@ -425,7 +474,7 @@ function startCombat(card) {
     goal: card.goal || null, goalN: card.goalN || 0, gs: { hurt: false, falls: 0, crash: 0, combo: false, basic: false },
     showPreview: UI.showPreview !== false, preview: null, ver: 0, turnSeed: 1,
     kind: card.boss ? 'normal' : (card.kind || 'normal'), waves: room.waves ? room.waves.slice() : [], waveNo: 1, waveTotal: room.waves ? room.waves.length + 1 : 1,
-    incoming: [], spawns: room.spawns || [], limit: room.turns || 0, flash: 0, pbanner: null,
+    incoming: [], spawns: room.spawns || [], limit: room.turns || 0, flash: 0, pbanner: null, boost: null, loot: 0,
   };
   UNDO = null;
   room.heroSpawns.forEach(([x, y], i) => {
@@ -440,6 +489,7 @@ function startCombat(card) {
   if (card.goal === 'rapide') C.goalN = goalTurns(card, room);
   for (const o of room.objs) {
     if (o.kind === 'cristal') { const hp = Math.round(8 * levelFx().hp); C.units.push(mkUnit({ team: 'obj', kind: 'cristal', x: o.x, y: o.y, hp, maxHp: hp, immunePush: true })); }
+    else if (o.kind === 'coffre' || o.kind === 'orbe') { const hp = Math.round((o.kind === 'coffre' ? 10 : 7) * levelFx().hp); C.units.push(mkUnit({ team: 'obj', kind: o.kind, orb: o.orb, x: o.x, y: o.y, hp, maxHp: hp, immunePush: o.kind === 'coffre' })); }
     else C.units.push(mkUnit({ team: 'obj', kind: 'baril', x: o.x, y: o.y, hp: 1, maxHp: 1 }));
   }
   if (C.kind === 'survie') C.incoming = placeIncoming(C.spawns[0] || [], 1);
@@ -449,7 +499,7 @@ function startCombat(card) {
     if (g.startHeal) h.pct = Math.min(maxPct(), h.pct + g.startHeal);
     if (g.startPenalty) h.pct = Math.max(FLOOR_PCT, h.pct - g.startPenalty);
   }
-  if (S.talents.egide) heroUnits().forEach(u => u.shield = 1);
+  if (S.talents.egide) heroUnits().forEach(u => u.shield = S.talents.egide);
   if (card.trait === 'reflets') { spawnOmbre(0); spawnOmbre(1); }
   if (card.boss === 'reflet') spawnOmbre(0);
   if (g.initiative || card.trait === 'surprise') enemies().forEach(e => e.stun = 1);
@@ -463,8 +513,8 @@ const enemies = () => C.units.filter(u => u.team === 'enemy' && !u.dead);
 function unitAt(x, y) { return C.units.find(u => !u.dead && u.x === x && u.y === y) || null; }
 function tile(x, y) { return C.grid[y][x]; }
 const isRock = (x, y) => tile(x, y).t === 'rock';
-const isPit = (x, y) => tile(x, y).t === 'pit';
-const walkable = (x, y) => inB(x, y) && tile(x, y).t !== 'rock' && tile(x, y).t !== 'pit';
+const isPit = (x, y) => tile(x, y).t === 'pit' || tile(x, y).t === 'void';
+const walkable = (x, y) => inB(x, y) && tile(x, y).t !== 'rock' && tile(x, y).t !== 'pit' && tile(x, y).t !== 'void';
 
 /* BFS de déplacement. pass(u) : on peut traverser l'unité u ? */
 function bfs(sx, sy, maxD, team, diag, extraPass) {
@@ -474,7 +524,7 @@ function bfs(sx, sy, maxD, team, diag, extraPass) {
   while (q.length) {
     const [x, y] = q.shift(); const cur = res.get(key(x, y));
     if (cur.d >= maxD) continue;
-    if (cur.d > 0 && C.grid[y][x].z === 'boue') continue;
+    if (cur.d > 0 && (C.grid[y][x].z === 'boue' || C.grid[y][x].z === 'trampoline' || C.grid[y][x].z === 'machoire')) continue;
     for (const [dx, dy] of dirs) {
       const nx = x + dx, ny = y + dy;
       if (!walkable(nx, ny) || res.has(key(nx, ny))) continue;
@@ -695,6 +745,7 @@ async function damageHero(u, pts, opts) {
   const h = S.heroes[u.hero];
   const amount = Math.max(1, Math.round(pts * G().taken));
   h.pct = Math.max(FLOOR_PCT, h.pct - amount);
+  if (opts.attacker) opts.attacker.lastHit = C.turn;
   C.gs.hurt = true;
   u.flash = 1; C.shake = Math.min(10, C.shake + 4 + amount * 0.3);
   ftext(u.x, u.y, `−${amount}%`, '#ff6b6b', true);
@@ -705,6 +756,16 @@ async function damageHero(u, pts, opts) {
     await wait(80); fx({ type: 'slash', x: opts.attacker.x, y: opts.attacker.y, color: '#ffd166', dur: 250 });
     await hurt(opts.attacker, 6, u.hero);
   }
+}
+async function applyOrb(kind, u) {
+  const O = ORBS[kind]; Sfx.order();
+  ftext(u.x, u.y, O.name + ' !', O.color, true);
+  fx({ type: 'ring', x: u.x, y: u.y, color: O.color, dur: 600, r: 2.5 });
+  if (kind === 'fureur') C.boost = Object.assign({}, C.boost, { dmg: 1.4, label: O.name });
+  else if (kind === 'portee') C.boost = Object.assign({}, C.boost, { range: 1, label: O.name });
+  else if (kind === 'soin') { healHero(0, 12); healHero(1, 12); }
+  else if (kind === 'egide') for (const h of heroUnits()) h.shield = Math.min(h.shield + 1, 3);
+  C.ver++;
 }
 /* un Totem protège-t-il cette unité ? */
 function totemNear(u) { return u.team === 'enemy' && u.kind !== 'totem' && C.units.some(t => !t.dead && t.kind === 'totem' && t !== u && cheb(t.x, t.y, u.x, u.y) <= 1); }
@@ -728,6 +789,8 @@ async function hurt(u, amt, credit, opts) {
   if (u.team === 'enemy' && credit != null) C.shake = Math.min(8, C.shake + 1.5);
   if (u.hp <= 0) { await kill(u, credit); return; }
   if (u.boss) await checkPhase(u);
+  if (u.kind === 'enrage') { u.dmg += 2; u.move = Math.min(ENEMIES.enrage.move + 2, u.move + 1); ftext(u.x, u.y + 0.3, 'Rage', '#ff5a5a'); }
+  if (u.kind === 'miroir' && opts && opts.direct && credit != null && credit >= 0) { const h = heroUnit(credit); if (h && !h.dead) { fx({ type: 'bolt', x: u.x, y: u.y, x2: h.x, y2: h.y, color: '#c9d6ff', dur: 250 }); await damageHero(h, Math.max(1, Math.round(amt * 0.4))); } }
   if (u.split && u.hp >= 2 && enemies().length < 12) await splitUnit(u);
 }
 function phaseBanner(u, name, tip) {
@@ -772,11 +835,15 @@ async function kill(u, credit, cause) {
     if (C.inAction) C.actionKills = (C.actionKills || 0) + 1;
     const g = G();
     if (credit != null && credit >= 0 && !u.noHeal) {
-      C.kills[credit]++;
+      C.kills[credit]++; if (!SIM) { S.stats.heroKills = S.stats.heroKills || [0, 0]; S.stats.heroKills[credit]++; }
       healHero(credit, g.heal * g.healMult);
       if (g.lien) healHero(1 - credit, 3);
       const hu = heroUnit(credit);
       if (g.adrenaline && hu && C.phase === 'hero' && !hu.adrUsed) { hu.adrUsed = true; hu.actions++; ftext(hu.x, hu.y, 'Adrénaline !', '#ffd166'); }
+    }
+    if (u.kind === 'martyr') {
+      for (const a of enemies()) { a.hp = Math.min(a.maxHp, a.hp + 8); if (man(a.x, a.y, u.x, u.y) === 1) a.shield = Math.max(a.shield, 1); ftext(a.x, a.y, '+8', '#f2e6b0'); }
+      fx({ type: 'ring', x: u.x, y: u.y, color: '#f2e6b0', dur: 600, r: 3 }); Sfx.heal();
     }
     for (const sc of C.units) if (!sc.dead && sc !== u && sc.kind === 'charognard') { sc.maxHp += 4; sc.hp += 4; sc.dmg += 1; ftext(sc.x, sc.y, 'Festin !', '#d8d870'); }
     if (u.kind === 'jumeau' && u.twin) {
@@ -792,6 +859,14 @@ async function kill(u, credit, cause) {
     if (g.explode && u.kind !== 'kamikaze') await explode(u.x, u.y, 'ring8', 5, 4, credit, '#ffb347', true);
   } else if (u.team === 'obj' && u.kind === 'baril') {
     await explode(u.x, u.y, 'ring8', 10, 8, credit, '#ffb347');
+  } else if (u.kind === 'coffre') {
+    if (credit != null && credit >= 0) {
+      const g = Math.max(1, Math.round((2 + S.depth * 0.15) * levelFx().gold * (1 + 0.25 * S.talents.prosperite)));
+      S.money += g; S.stats.moneyTotal += g; C.loot += g; ftext(u.x, u.y, `+${g} or`, '#ffd166', true); Sfx.gold();
+    } else ftext(u.x, u.y, 'Coffre perdu', '#888');
+  } else if (u.kind === 'orbe') {
+    if (credit != null && credit >= 0) await applyOrb(u.orb, u);
+    else ftext(u.x, u.y, 'Orbe perdue', '#888');
   } else if (u.kind === 'cristal') {
     Sfx.shatter(); C.shake += 5; ftext(u.x, u.y, 'Cristal brisé', '#d68bff', true);
     if (credit != null && credit >= 0) healHero(credit, 5);
@@ -868,6 +943,28 @@ async function enterTile(u, fromX, fromY, opts) {
     fx({ type: 'spark', x: u.x, y: u.y, color: '#dfe3ee', dur: 280 }); Sfx.thud();
     await hurt(u, u.team === 'hero' ? 5 : 6, u.team === 'hero' ? null : (opts.credit != null ? opts.credit : null));
     if (u.dead || C.ended) return true;
+  }
+  if (t.z === 'soin') {
+    t.z = null; fx({ type: 'ring', x: u.x, y: u.y, color: '#6dffae', dur: 400 }); Sfx.heal();
+    if (u.team === 'hero') healHero(u.hero, 6); else if (u.team === 'enemy') { u.hp = Math.min(u.maxHp, u.hp + 5); ftext(u.x, u.y, '+5', '#6dffae'); }
+  }
+  if (t.z === 'machoire' && u.team !== 'obj') {
+    t.z = null; fx({ type: 'slash', x: u.x, y: u.y, color: '#d9b55a', dur: 300 }); Sfx.trap(); ftext(u.x, u.y, 'Mâchoires !', '#d9b55a');
+    u.stun = Math.max(u.stun, 1);
+    await hurt(u, 3, u.team === 'hero' ? null : (opts.credit != null ? opts.credit : null));
+    return true;
+  }
+  if (t.z === 'trampoline' && !opts.noBounce && (u.x !== fromX || u.y !== fromY)) {
+    const dx = Math.sign(u.x - fromX), dy = Math.sign(u.y - fromY);
+    const nx = u.x + 2 * dx, ny = u.y + 2 * dy;
+    if (inB(nx, ny) && !isRock(nx, ny) && !unitAt(nx, ny)) {
+      const ox0 = u.x, oy0 = u.y;
+      u.jump = performance.now(); Sfx.dash(); ftext(u.x, u.y, 'Boing !', '#ff9ad5');
+      if (isPit(nx, ny)) { if (u.team === 'hero') await heroFall(u, nx, ny); else await fallInto(u, nx, ny, opts.credit != null ? opts.credit : null); return true; }
+      u.x = nx; u.y = ny; await wait(260);
+      await enterTile(u, ox0, oy0, Object.assign({}, opts, { noBounce: true }));
+      return true;
+    }
   }
   let stop = false;
   if (u.team === 'enemy' && t.trap) { await triggerTrap(u); stop = true; if (u.dead) return true; }
@@ -963,6 +1060,7 @@ async function heroHit(hu, o, s, dir, mult, opts) {
   const ox = o.x, oy = o.y;
   let dmg = s.dmg * mult * S.heroes[hi].pct / 100 * furyMult(hi) * runeMult(hu);
   if (s.exec && o.hp < o.maxHp * 0.5) dmg *= 1 + s.exec;
+  if (s.cap) dmg = Math.min(dmg, s.cap);
   if (s.dmg > 0) {
     await hurt(o, dmg, hi, { direct: true });
     if (s.lifesteal && !opts.secondary && o.team === 'enemy') healHero(hi, s.lifesteal);
@@ -1106,8 +1204,8 @@ async function useSkill(hu, slot, tx, ty) {
     case 'place': {
       const t = tile(tx, ty);
       if (s.place === 'wall') { t.t = 'rock'; t.ttl = 3; fx({ type: 'burst', x: tx, y: ty, color: '#bbb', dur: 350 }); Sfx.thud(); }
-      else if (s.place === 'trap') { t.trap = { dmg: Math.round(s.dmg * S.heroes[hi].pct / 100), owner: hi }; Sfx.trap(); fx({ type: 'ring', x: tx, y: ty, color: '#ffd166', dur: 300 }); }
-      else if (s.place === 'bomb') { C.bombs.push({ x: tx, y: ty, dmg: Math.round(s.dmg * S.heroes[hi].pct / 100 * furyMult(hi)), owner: hi }); Sfx.trap(); }
+      else if (s.place === 'trap') { t.trap = { dmg: Math.round(Math.min(s.cap || 1e9, s.dmg * S.heroes[hi].pct / 100)), owner: hi }; Sfx.trap(); fx({ type: 'ring', x: tx, y: ty, color: '#ffd166', dur: 300 }); }
+      else if (s.place === 'bomb') { C.bombs.push({ x: tx, y: ty, dmg: Math.round(Math.min(s.cap || 1e9, s.dmg * S.heroes[hi].pct / 100 * furyMult(hi))), owner: hi }); Sfx.trap(); }
       await wait(150);
       break;
     }
@@ -1119,7 +1217,6 @@ async function useSkill(hu, slot, tx, ty) {
       break;
     }
   }
-  if (!hu.dead && s.vif) { if (hu.hasMove) hu.moveBudget += s.vif; else { hu.hasMove = true; hu.moveBudget = s.vif; } ftext(hu.x, hu.y, `+${s.vif} dépl.`, '#9fe0ff'); }
   if (C.actionKills >= 2) C.gs.combo = true;
   C.inAction = false;
   C.busy = false; C.ver++;
@@ -1164,6 +1261,7 @@ function heroPhaseStart(first) {
   const g = G();
   for (const u of heroUnits()) {
     u.actions = g.actions; u.hasMove = true; u.moveBudget = heroMove(u.hero); u.adrUsed = false;
+    if (C.units.some(e => !e.dead && e.kind === 'gardien' && cheb(e.x, e.y, u.x, u.y) <= 2)) { u.moveBudget = Math.max(1, u.moveBudget - 2); u.frozen = true; } else u.frozen = false;
   }
   if (!first) {
     for (const h of S.heroes) for (const s of h.slots) if (s && s.cdLeft > 0) s.cdLeft--;
@@ -1178,8 +1276,18 @@ async function heroPhaseHazards() {
   for (const u of heroUnits()) {
     const t = tile(u.x, u.y);
     if (t.t === 'lava') { ftext(u.x, u.y, 'Lave', '#ff9a3d'); await damageHero(u, 8); }
-    else if (t.fire > 0) { ftext(u.x, u.y, 'Feu', '#ff9a3d'); await damageHero(u, 5); }
+    else if (t.fire > 0 || t.z === 'foyer') { ftext(u.x, u.y, 'Feu', '#ff9a3d'); await damageHero(u, 5); }
     if (t.z === 'autel') healHero(u.hero, 5);
+    if (t.z === 'cercle') {
+      t.prog = (t.prog || 0) + 1;
+      ftext(u.x, u.y, `Cercle ${t.prog}/2`, '#ffd166');
+      if (t.prog >= 2) {
+        const gld = Math.max(1, Math.round((2 + S.depth * 0.1) * levelFx().gold * (1 + 0.25 * S.talents.prosperite)));
+        S.money += gld; S.stats.moneyTotal += gld; C.loot += gld; healHero(0, 8); healHero(1, 8);
+        ftext(u.x, u.y, `+${gld} or`, '#ffd166', true); Sfx.gold(); t.z = null;
+        fx({ type: 'ring', x: u.x, y: u.y, color: '#ffd166', dur: 600, r: 2 });
+      }
+    }
     if (g.drain) await damageHero(u, g.drain);
     if (C.ended || C.failed) break;
   }
@@ -1191,7 +1299,7 @@ function placeIncoming(list, salt) {
   const hs = heroUnits();
   for (const s of list) {
     let best = null, bs = -1e9;
-    for (let y = 0; y < GRID_H; y++) for (let x = 4; x < GRID_W; x++) {
+    for (let y = 0; y < GRID_H; y++) for (let x = Math.floor(GRID_W * 0.45); x < GRID_W; x++) {
       if (!walkable(x, y) || unitAt(x, y) || used.has(key(x, y))) continue;
       const t = tile(x, y); if (t.t === 'lava' || t.z) continue;
       const near = hs.length ? Math.min(...hs.map(h => man(h.x, h.y, x, y))) : 9;
@@ -1238,7 +1346,8 @@ async function enemyPhaseInner() {
   movers.sort((a, b) => { const da = tile(a.x, a.y).zd, db = tile(b.x, b.y).zd; return (b.x * db[0] + b.y * db[1]) - (a.x * da[0] + a.y * da[1]) || a.uid - b.uid; });
   for (const u of movers) {
     if (u.dead) continue;
-    const [dx, dy] = tile(u.x, u.y).zd; const nx = u.x + dx, ny = u.y + dy;
+    const tc = tile(u.x, u.y); if (tc.z !== 'courant' || !tc.zd) continue;
+    const [dx, dy] = tc.zd; const nx = u.x + dx, ny = u.y + dy;
     if (!inB(nx, ny) || isRock(nx, ny) || unitAt(nx, ny)) continue;
     if (isPit(nx, ny)) { if (u.team === 'hero') await heroFall(u, nx, ny); else await fallInto(u, nx, ny, null); if (checkEnd()) return finishCombat(); continue; }
     const fx0 = u.x, fy0 = u.y; u.x = nx; u.y = ny; await wait(90);
@@ -1260,7 +1369,7 @@ async function enemyPhaseInner() {
     if (e.dead) continue;
     const t = tile(e.x, e.y);
     if (t.t === 'lava') await hurt(e, 10, null);
-    else if (t.fire > 0) await hurt(e, 6, t.fireOwner);
+    else if (t.fire > 0 || t.z === 'foyer') await hurt(e, 6, t.fire > 0 ? t.fireOwner : null);
     if (!e.dead && t.z === 'autel' && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + 5); ftext(e.x, e.y, '+5', '#6dffae'); }
     if (!e.dead && ritualOn() && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + 3); ftext(e.x, e.y, '+3', '#d68bff'); }
     if (C.ended) return finishCombat();
@@ -1321,7 +1430,7 @@ async function resolveTelegraph(t) {
   await wait(130);
   for (const [x, y] of t.tiles) {
     const o = unitAt(x, y);
-    if (o) await hurt(o, o.team === 'hero' ? t.pct : t.hp, null);
+    if (o) await hurt(o, o.team === 'hero' ? t.pct : t.hp, null, { attacker: C.units.find(u => u.uid === t.owner) });
     if (t.fire) { const tt = tile(x, y); if (tt.t !== 'rock' && tt.t !== 'pit') { tt.fire = t.fire; tt.fireOwner = null; } }
     if (C.ended) return;
   }
@@ -1362,7 +1471,7 @@ function enemyReach(e) {
   for (const [k, n] of [...m]) { const o = unitAt(n.x, n.y); if (o && o !== e) m.delete(k); }
   return m;
 }
-function tilePenalty(x, y) { const t = tile(x, y); return (t.t === 'lava' ? 40 : 0) + (t.fire > 0 ? 25 : 0) + (t.z === 'piques' ? 20 : 0) + (t.z === 'autel' ? -6 : 0) + (C.telegraphs.some(tl => tl.tiles.some(([a, b]) => a === x && b === y)) ? 30 : 0); }
+function tilePenalty(x, y) { const t = tile(x, y); return (t.t === 'lava' ? 40 : 0) + (t.fire > 0 || t.z === 'foyer' ? 25 : 0) + (t.z === 'piques' || t.z === 'machoire' ? 20 : 0) + (t.z === 'soin' ? -8 : 0) + (t.z === 'autel' ? -6 : 0) + (C.telegraphs.some(tl => tl.tiles.some(([a, b]) => a === x && b === y)) ? 30 : 0); }
 async function walkEnemy(e, map, tx, ty) {
   const path = pathTo(map, tx, ty);
   for (const [x, y] of path) {
@@ -1393,7 +1502,7 @@ async function rangedAttack(e, h, dmg, color) {
   fx({ type: 'proj', x: e.x, y: e.y, x2: h.x, y2: h.y, color: color || '#ffb36b', dur: 200 }); Sfx.enemyShoot();
   await wait(200);
   if (SIM) C.simLog.push({ t: 'atk', uid: e.uid, x: e.x, y: e.y, tx: h.x, ty: h.y, ranged: true });
-  await damageHero(h, dmg * enemyPower(e));
+  await damageHero(h, dmg * enemyPower(e), { attacker: e });
 }
 
 async function aiMelee(e, dmg, push, noAttack) {
@@ -1524,6 +1633,40 @@ async function aiWeaver(e) {
   for (const n of map.values()) { const dd = f[key(n.x, n.y)]; const sc = -Math.abs(Math.min(dd, 9) - 3) * 4 - n.d * 0.5 - tilePenalty(n.x, n.y); if (sc > bs) { bs = sc; best = n; } }
   if (best) await walkEnemy(e, map, best.x, best.y);
 }
+/* Semeur : fait pousser des piques à côté du héros le plus faible */
+async function aiSower(e) {
+  const hs = targetHeroes(e); if (!hs.length) return;
+  let planted = 0; for (const row of C.grid) for (const t of row) if (t.sown) planted++;
+  const h = lowestHero(hs);
+  if (planted < 8) {
+    const cands = DIR8.map(([dx, dy]) => [h.x + dx, h.y + dy]).filter(([x, y]) => inB(x, y) && tile(x, y).t === 'floor' && !tile(x, y).z && !unitAt(x, y)).sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    if (cands.length) { const [x, y] = cands[0]; const t = tile(x, y); t.z = 'piques'; t.sown = true; fx({ type: 'burst', x, y, color: '#8fbf4a', dur: 400 }); ftext(x, y, 'Piques !', '#b6e070'); Sfx.thud(); await wait(220); }
+  }
+  const map = enemyReach(e); const f = distField(heroUnits().map(o => [o.x, o.y]));
+  let best = null, bs = 1e9; for (const n of map.values()) { const sc = Math.abs(f[key(n.x, n.y)] - 3) * 4 + tilePenalty(n.x, n.y) + n.d * 0.1; if (sc < bs) { bs = sc; best = n; } }
+  if (best) await walkEnemy(e, map, best.x, best.y);
+}
+/* Pyromane : annonce un embrasement en croix sur un héros */
+async function aiPyro(e) {
+  const hs = targetHeroes(e); if (!hs.length) return;
+  const map = enemyReach(e); const f = distField(hs.map(o => [o.x, o.y]));
+  let best = null, bs = 1e9; for (const n of map.values()) { const sc = Math.abs(f[key(n.x, n.y)] - 4) * 4 + tilePenalty(n.x, n.y) + n.d * 0.1; if (sc < bs) { bs = sc; best = n; } }
+  if (best && !(await walkEnemy(e, map, best.x, best.y))) return;
+  if (e.dead) return;
+  const inR = hs.filter(h => man(h.x, h.y, e.x, e.y) <= e.range); if (!inR.length) return;
+  const h = lowestHero(inR);
+  C.telegraphs.push({ tiles: areaTiles(h.x, h.y, 'plus'), center: [h.x, h.y], hp: e.dmg, pct: e.dmg * enemyPower(e), owner: e.uid, label: 'Feu', color: '#ff7a2a', fire: 3 });
+  fx({ type: 'proj', x: e.x, y: e.y, x2: h.x, y2: h.y, color: '#ff7a2a', dur: 300, arc: true }); Sfx.mark(); await wait(250);
+}
+/* Coureur : frappe puis recule */
+async function aiSkirmish(e) {
+  await aiMelee(e, e.dmg, 0);
+  if (e.dead || C.ended) return;
+  const map = bfs(e.x, e.y, 2, 'enemy', false); for (const [k, n] of [...map]) { const o = unitAt(n.x, n.y); if (o && o !== e) map.delete(k); }
+  const f = distField(heroUnits().map(o => [o.x, o.y]));
+  let best = null, bs = -1e9; for (const n of map.values()) { const sc = Math.min(f[key(n.x, n.y)], 6) * 4 - tilePenalty(n.x, n.y) - n.d * 0.1; if (sc > bs) { bs = sc; best = n; } }
+  if (best && (best.x !== e.x || best.y !== e.y)) await walkEnemy(e, map, best.x, best.y);
+}
 /* Voleur : fuit les héros */
 async function aiFlee(e) {
   const map = enemyReach(e);
@@ -1547,9 +1690,18 @@ async function enemyAct(e) {
   if (e.stun > 0) { e.stun--; ftext(e.x, e.y, 'Étourdi', '#9fe0ff'); await wait(200); return; }
   e.bt++;
   if (e.alpha < 1) e.alpha = 1;
+  if (e.grows) { e.dmg *= 1.12; e.maxHp += 3; e.hp += 3; ftext(e.x, e.y, 'Grandit', '#f08a5a'); }
   if (e.ai === 'boss') return bossAct(e);
   switch (e.ai) {
     case 'totem': return;
+    case 'frost': { // se place à 2 cases d'un héros
+      const map = enemyReach(e); const f = distField(heroUnits().map(o => [o.x, o.y]));
+      let best = null, bs = 1e9; for (const n of map.values()) { const sc = Math.abs(f[key(n.x, n.y)] - 2) * 5 + tilePenalty(n.x, n.y) + n.d * 0.1; if (sc < bs) { bs = sc; best = n; } }
+      if (best) await walkEnemy(e, map, best.x, best.y); return;
+    }
+    case 'sower': return aiSower(e);
+    case 'pyro': return aiPyro(e);
+    case 'skirmish': return aiSkirmish(e);
     case 'lance': return aiLance(e);
     case 'blow': return aiLine(e, 'blow');
     case 'hook': return aiLine(e, 'hook');
@@ -1644,6 +1796,7 @@ async function enemyAct(e) {
 async function bossAct(e) {
   const hs = targetHeroes(e); if (!hs.length) return;
   const ph = e.phase || 0;
+  if (C.turn - (e.lastHit || 0) >= 3 && C.huntTurn !== C.turn) { if (await bossHunt(e, hs)) return; }
   switch (e.kind) {
     case 'colosse': {
       if (ph >= 2) { // éboulement : un rocher annoncé sur chaque héros
@@ -1729,6 +1882,23 @@ async function bossAct(e) {
   }
 }
 
+/* Traque : téléportation à côté du héros le plus faible + coup immédiat */
+async function bossHunt(e, hs) {
+  const h = lowestHero(hs);
+  const spots = DIR4.map(([dx, dy]) => [h.x + dx, h.y + dy]).filter(([x, y]) => walkable(x, y) && !unitAt(x, y) && tile(x, y).t !== 'lava' && !tile(x, y).z);
+  if (!spots.length) return false;
+  spots.sort((a, b) => man(a[0], a[1], e.x, e.y) - man(b[0], b[1], e.x, e.y) || a[1] - b[1] || a[0] - b[0]);
+  const [x, y] = spots[0];
+  C.huntTurn = C.turn;
+  for (const o of enemies()) if (o.boss) o.lastHit = Math.max(o.lastHit || 0, C.turn - 1);
+  ftext(e.x, e.y, 'Traque !', '#ff5a5a', true); Sfx.ghost();
+  e.alpha = 0.2; await wait(200); e.x = x; e.y = y; e.rx = x; e.ry = y; e.alpha = 1; await wait(120);
+  fx({ type: 'ring', x, y, color: '#ff5a5a', dur: 450 });
+  await meleeAttack(e, h, e.dmg, 0);
+  e.lastHit = C.turn;
+  return true;
+}
+
 /* ---------- zone de danger (ce que les ennemis peuvent toucher au prochain tour) ---------- */
 function dangerTiles(onlyUnit) {
   const set = new Set();
@@ -1739,9 +1909,10 @@ function dangerTiles(onlyUnit) {
     const m = bfs(e.x, e.y, mv, 'enemy', false);
     const ai = e.ai === 'boss' ? (e.kind === 'reine' || e.kind === 'hydre' || e.kind === 'reflet' ? 'ranged' : (e.kind === 'oracle' ? 'none' : 'melee')) : (e.ai === 'mirror' ? 'healer' : e.ai);
     if (ai === 'ombre') { for (const [dx, dy] of DIR4) if (inB(e.x + dx, e.y + dy)) set.add(key(e.x + dx, e.y + dy)); continue; }
+    if (ai === 'frost' || ai === 'sower' || ai === 'pyro') continue;
     if (ai === 'lance') { for (const n of m.values()) for (const [dx, dy] of DIR4) for (const [x, y] of lanceTiles(n.x, n.y, dx, dy)) set.add(key(x, y)); continue; }
     if (ai === 'blow' || ai === 'hook') { for (const n of m.values()) for (const [dx, dy] of DIR4) for (let i = 1; i <= e.range; i++) { const x = n.x + dx * i, y = n.y + dy * i; if (!inB(x, y) || isRock(x, y)) break; set.add(key(x, y)); } continue; }
-    if (ai === 'melee' || ai === 'kamikaze' || ai === 'summoner') {
+    if (ai === 'melee' || ai === 'kamikaze' || ai === 'summoner' || ai === 'skirmish') {
       for (const n of m.values()) { if (unitAt(n.x, n.y) && unitAt(n.x, n.y) !== e && unitAt(n.x, n.y).team !== 'hero') continue; for (const [dx, dy] of DIR4) if (inB(n.x + dx, n.y + dy)) set.add(key(n.x + dx, n.y + dy)); }
     } else if (ai === 'ranged' || ai === 'healer') {
       const r = ai === 'healer' ? 3 : e.range;
@@ -1841,7 +2012,7 @@ function prolongAll(n) {
 
 /* ---------- gravure (or) ---------- */
 function engraveCost(kind) { return ENGRAVE_COST[kind] + ENGRAVE_STEP[kind] * S.engraved[kind]; }
-function talentCost(k) { return TALENTS[k].base + TALENTS[k].step * S.talents[k]; }
+function talentCost(k) { return Math.round(TALENTS[k].base * Math.pow(TALENTS[k].grow, S.talents[k] || 0)); }
 
 /* ---------- défis de salle ---------- */
 function goalTurns(card, room) {

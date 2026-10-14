@@ -4,7 +4,7 @@
    règles, pactes, ennemis, boss, traits de salle, ères)
    ========================================================= */
 
-const GRID_W = 9, GRID_H = 7;
+let GRID_W = 9, GRID_H = 7;   // taille de la salle en cours (change à chaque salle)
 const FLOOR_PCT = 40;      // plancher du % de dégâts
 const KILL_HEAL = 5;       // soin (en points de %) pour le héros qui tue
 
@@ -103,15 +103,14 @@ const UPGRADES = {
   eclats:    { name: 'Éclats', desc: v => `${40 * v} % des dégâts sur les cases voisines de la cible`, ok: s => s.dmg > 0, apply: (s, v) => { s.splash += 0.4 * v; } },
   sangsue:   { name: 'Sangsue', desc: v => `chaque coup te rend ${2 * v} %`, ok: s => s.dmg > 0, apply: (s, v) => { s.lifesteal += 2 * v; } },
   echo:      { name: 'Écho', desc: v => `frappe une 2e fois à ${40 * v} %`, ok: s => s.dmg > 0, apply: (s, v) => { s.echo += 0.4 * v; } },
-  vif:       { name: 'Vif', desc: v => `après usage : ${v + 1} cases de déplacement en plus`, ok: s => true, apply: (s, v) => { s.vif += v + 1; } },
   bourreau:  { name: 'Bourreau', desc: v => `×${1 + v} de dégâts sur une cible sous 50 % de ses PV`, ok: s => s.dmg > 0, apply: (s, v) => { s.exec += v; } },
+  plafond:   { name: 'Plafond', desc: v => `+${50 * v} % de dégâts maximum`, ok: s => s.dmg > 0, apply: (s, v) => { s.capMult += 0.5 * v; } },
   rebond:    { name: 'Rebond', desc: v => `rebondit sur ${v} autre${v > 1 ? 's' : ''} ennemi${v > 1 ? 's' : ''}`, ok: s => s.dmg > 0 && (s.type === 'line' || s.area === 'single'), apply: (s, v) => { s.chain += v; } },
 };
 
 /* ---------- Règles (changent le jeu pour les deux héros) ---------- */
 const RULES = {
   diagonales: { name: 'Diagonales', desc: 'Les héros se déplacent aussi en diagonale.' },
-  elan:       { name: 'Élan', desc: '+1 case de déplacement pour les deux héros.' },
   adrenaline: { name: 'Adrénaline', desc: 'Tuer un ennemi rend l’action du héros (1 fois par tour).' },
   explosifs:  { name: 'Cadavres explosifs', desc: 'Les ennemis tués explosent (5 dégâts autour d’eux).' },
   gravite:    { name: 'Gravité', desc: 'Toutes les poussées vont 1 case plus loin.' },
@@ -135,7 +134,6 @@ const PACTS = {
   frenesie: { name: 'Frénésie', bonus: v => v > 1 ? '2 actions par tour, +1 portée' : '2 actions par tour', malus: 'déplacement limité à 1 case' },
   nuee:     { name: 'Nuée', bonus: v => `tuer soigne +${5 * v} % en plus`, malus: '+2 ennemis par salle' },
   sang:     { name: 'Pacte de sang', bonus: v => `les soins des kills ×${v + 1}`, malus: '−10 % au début de chaque salle' },
-  sprint:   { name: 'Sprint', bonus: v => `+${2 * v} cases de déplacement`, malus: 'toutes les recharges +1' },
   tempete:  { name: 'Tempête', bonus: v => `+${30 * v} % de dégâts`, malus: 'la foudre frappe 2 cases au hasard chaque tour (annoncées)' },
   titan:    { name: 'Peau de titan', bonus: v => `−${25 * v} % de dégâts subis`, malus: '−25 % de dégâts infligés' },
   brume:    { name: 'Brume', bonus: v => `+${35 * v} % de dégâts`, malus: 'portée −1 (minimum 1)' },
@@ -186,6 +184,22 @@ const ENEMIES = {
                 desc: 'Fait surgir un rocher à côté d’un héros (2 tours) pour lui bloquer le passage.' },
   charognard: { name: 'Charognard', hp: 14, move: 3, ai: 'melee', dmg: 5, shape: 'blob', color: '#a3a35a', minDepth: 13, w: 1.5, scav: true,
                 desc: 'Chaque fois qu’un autre ennemi meurt, il gagne +4 PV et +1 dégât. Tue-le en premier !' },
+  eveille:    { name: 'Éveillé', hp: 14, move: 2, ai: 'melee', dmg: 4, shape: 'circle', color: '#f08a5a', minDepth: 4, w: 1.8, grows: true,
+                desc: 'Devient plus fort à chaque tour : +12 % de dégâts et +3 PV par tour. Tue-le vite !' },
+  enrage:     { name: 'Enragé', hp: 20, move: 2, ai: 'melee', dmg: 5, shape: 'square', color: '#d94040', minDepth: 6, w: 1.6,
+                desc: 'Chaque coup reçu le rend plus fort (+2 dégâts) et plus rapide (jusqu’à +2 déplacement). Tue-le d’un coup.' },
+  gardien:    { name: 'Gardien de givre', hp: 18, move: 1, ai: 'frost', dmg: 0, shape: 'hex', color: '#9fe0ff', minDepth: 8, w: 1.3,
+                desc: 'N’attaque pas. Les héros qui commencent leur tour à 2 cases ou moins de lui ont −2 déplacement.' },
+  semeur:     { name: 'Semeur', hp: 12, move: 2, ai: 'sower', range: 3, dmg: 0, shape: 'diamond', color: '#8fbf4a', minDepth: 9, w: 1.4,
+                desc: 'Fait pousser des piques à côté d’un héros chaque tour : le terrain devient de plus en plus dangereux.' },
+  pyromane:   { name: 'Pyromane', hp: 12, move: 2, ai: 'pyro', range: 6, dmg: 5, shape: 'triangle', color: '#ff7a2a', minDepth: 11, w: 1.5,
+                desc: 'Annonce un embrasement en croix sur un héros : ça brûle au tour suivant puis reste en feu 2 tours.' },
+  martyr:     { name: 'Martyr', hp: 10, move: 3, ai: 'melee', dmg: 3, shape: 'circle', color: '#f2e6b0', minDepth: 10, w: 1.3,
+                desc: 'En mourant, soigne tous ses alliés de 8 PV et donne un bouclier à ceux qui le touchent.' },
+  miroir:     { name: 'Miroir', hp: 16, move: 2, ai: 'melee', dmg: 4, shape: 'diamond', color: '#c9d6ff', minDepth: 15, w: 1.3,
+                desc: 'Renvoie 40 % des dégâts directs reçus au héros qui l’attaque (en %). Utilise les collisions, le feu, les chutes…' },
+  coureur:    { name: 'Coureur', hp: 11, move: 4, ai: 'skirmish', dmg: 5, shape: 'triangle', color: '#f7c948', minDepth: 7, w: 1.6,
+                desc: 'Frappe puis recule de 2 cases. Difficile à coincer.' },
   voleur:     { name: 'Voleur', hp: 10, move: 2, ai: 'flee', dmg: 0, shape: 'triangle', color: '#ffd166', minDepth: 999, w: 0,
                 desc: 'Ne se bat pas : il fuit. Tue-le avant la fin du compte à rebours.' },
 };
@@ -198,12 +212,12 @@ const BOSSES = {
               desc: 'Frappe au corps à corps. Tous les 3 tours, annonce un séisme autour de lui (2 cases).' },
   reine:    { name: 'La Reine des Nuées', hp: 65, move: 2, dmg: 6, range: 5, color: '#e05a9a', shape: 'hex',
               desc: 'Tire en ligne. Tous les 3 tours, invoque des Rôdeurs (1, ou 2 en ★★).' },
-  oracle:   { name: "L'Oracle", hp: 80, move: 0, dmg: 11, color: '#7fd6ff', shape: 'diamond',
+  oracle:   { name: "L'Oracle", hp: 80, move: 2, dmg: 11, color: '#7fd6ff', shape: 'diamond',
               desc: 'Chaque tour : annonce un laser sur une ligne ou une colonne entière. Un tour sur deux, il se téléporte (toujours à 3-4 cases d’un héros).' },
   forgeron: { name: 'Le Forgeron', hp: 88, move: 2, dmg: 9, special: 12, push: 2, color: '#ff7b3a', shape: 'square',
               desc: 'Frappe et repousse de 2. Un tour sur deux, lance son marteau sur une zone 3×3 qui reste en feu.' },
   hydre:    { name: "L'Hydre", hp: 36, move: 0, dmg: 6, range: 5, heads: 3, color: '#4fd18b', shape: 'blob',
-              desc: 'Trois têtes immobiles qui tirent en ligne. Chaque tête tranchée rend les autres plus fortes.' },
+              desc: 'Trois têtes immobiles qui tirent en ligne (elles se téléportent si tu restes hors de portée). Chaque tête tranchée rend les autres plus fortes.' },
 };
 BOSSES.reflet = { name: 'Le Reflet', hp: 70, move: 2, dmg: 8, range: 4, color: '#9aa3ff', shape: 'diamond',
   desc: 'Tire en ligne. Au début puis tous les 3 tours, crée l’Ombre d’un héros (elle copie ses mouvements en miroir).' };
@@ -234,15 +248,15 @@ const ERAS = [
 ];
 
 /* ---------- Talents définitifs (achetés avec l'or des boss) ---------- */
+/* aucun niveau maximum : chaque achat coûte plus cher (base × croissance^niveau) */
 const TALENTS = {
-  vigueur:    { name: 'Vigueur', desc: '+10 % de maximum pour les deux héros.', base: 14, step: 6, max: 5 },
-  agilite:    { name: 'Agilité', desc: '+1 case de déplacement.', base: 28, step: 18, max: 2 },
-  soif:       { name: 'Soif', desc: '+2 % de soin par kill.', base: 12, step: 8, max: 4 },
-  robustesse: { name: 'Robustesse', desc: '−10 % de dégâts subis.', base: 16, step: 10, max: 3 },
-  egide:      { name: 'Égide innée', desc: 'Chaque héros commence chaque salle avec un bouclier.', base: 30, step: 0, max: 1 },
-  choix:      { name: 'Clairvoyance', desc: '4 portes au choix au lieu de 3.', base: 34, step: 0, max: 1 },
-  prosperite: { name: 'Prospérité', desc: '+25 % d’or gagné sur les boss.', base: 20, step: 15, max: 3 },
-  repos:      { name: 'Convalescence', desc: '+3 % aux deux héros après chaque salle.', base: 18, step: 12, max: 3 },
+  vigueur:    { name: 'Vigueur', desc: '+10 % de maximum pour les deux héros.', base: 14, grow: 1.45 },
+  soif:       { name: 'Soif', desc: '+2 % de soin par kill.', base: 12, grow: 1.5 },
+  robustesse: { name: 'Robustesse', desc: '−10 % des dégâts subis restants.', base: 16, grow: 1.55 },
+  egide:      { name: 'Égide innée', desc: '+1 bouclier au début de chaque salle.', base: 30, grow: 2 },
+  choix:      { name: 'Clairvoyance', desc: '+1 porte au choix.', base: 34, grow: 2.4 },
+  prosperite: { name: 'Prospérité', desc: '+25 % d’or gagné.', base: 20, grow: 1.6 },
+  repos:      { name: 'Convalescence', desc: '+3 % aux deux héros après chaque salle.', base: 18, grow: 1.55 },
 };
 
 /* coût pour graver (rendre définitif) un effet temporaire ; augmente à chaque gravure du même type */
@@ -268,8 +282,16 @@ const ZONES = {
              desc: 'Une unité poussée sur la glace continue de glisser jusqu’au premier obstacle (on marche dessus normalement).' },
   rune:    { name: 'Rune de puissance', minDepth: 7, w: 1.5, color: '#ffd166', tip: '+75 % de dégâts en attaquant d’ici',
              desc: 'Une unité qui attaque depuis cette case fait +75 % de dégâts (les ennemis aussi !).' },
-  portail: { name: 'Portails', minDepth: 9, w: 1.5, color: '#d68bff', tip: 'Ressort par le portail jumeau',
-             desc: 'Entrer dans un portail fait ressortir par le portail jumeau (même lettre), s’il est libre. Marche, poussée et glissade comprises.' },
+  portail: { name: 'Téléporteurs', minDepth: 2, w: 2, color: '#d68bff', tip: 'Ressort par le portail jumeau',
+             desc: 'Entrer dans un téléporteur fait ressortir par son jumeau (même lettre), s’il est libre. Marche, poussée et glissade comprises.' },
+  soin:    { name: 'Petit soin', minDepth: 0, w: 2, color: '#6dffae', tip: '+6 % (ou +5 PV), une fois',
+             desc: 'Le premier qui marche dessus récupère 6 % (un ennemi : 5 PV). Disparaît ensuite.' },
+  foyer:   { name: 'Foyer', minDepth: 1, w: 2, color: '#ff7a2a', tip: 'Brûle en permanence',
+             desc: 'Toujours en feu : −5 % au héros qui y commence son tour, 6 dégâts à l’ennemi qui y est au tour ennemi.' },
+  trampoline: { name: 'Trampoline', minDepth: 0, w: 2.5, color: '#ff9ad5', tip: 'Fait rebondir 2 cases plus loin',
+             desc: 'Une unité qui arrive dessus rebondit 2 cases plus loin dans le même sens (par-dessus tout). Si elle retombe dans un trou : chute !' },
+  machoire: { name: 'Piège à mâchoires', minDepth: 1, w: 2, color: '#d9b55a', tip: 'Étourdit et blesse, une fois',
+             desc: 'La première unité qui entre dessus est étourdie 1 tour et subit 3 dégâts (−3 %). Le piège se referme ensuite.' },
 };
 
 /* ---------- Défis de salle (facultatifs) ---------- */
@@ -307,5 +329,24 @@ const TIPS = {
   invocateur: 'Invoque des Rôdeurs', scissipare: 'Se divise si touché', totem: '½ dégâts autour de lui', carapace: 'Attaques directes : 2 max',
   jumeau: 'Tuer les deux le même tour', miroitier: 'Crée des Ombres', ombre: 'Copie ton héros en miroir', lancier: 'Frappe 2 cases en ligne',
   souffleur: 'Te repousse de 2 cases', grappineur: 'T’attire à lui', tisseur: 'Crée des murs près de toi', charognard: 'Grandit à chaque mort',
-  voleur: 'Fuit : tue-le vite',
+  voleur: 'Fuit : tue-le vite', eveille: 'Plus fort chaque tour', enrage: 'Plus fort à chaque coup reçu', gardien: '−2 déplacement autour',
+  semeur: 'Fait pousser des piques', pyromane: 'Embrase une croix (annoncée)', martyr: 'Soigne ses alliés en mourant', miroir: 'Renvoie 40 % des dégâts',
+  coureur: 'Frappe et recule',
 };
+
+/* ---------- Bonus dans les salles ---------- */
+const BONUS = {
+  coffre: { name: 'Coffre', desc: 'Casse-le pour gagner de l’or.' },
+  orbe:   { name: 'Orbe', desc: 'Casse-la : bonus pour toute la salle.' },
+  cercle: { name: 'Cercle de pouvoir', desc: 'Commence 2 tours dedans (pas forcément d’affilée) : or + soin.' },
+};
+const ORBS = {
+  fureur:   { name: 'Fureur', tip: '+40 % de dégâts pour la salle', color: '#ff6b6b' },
+  portee:   { name: 'Portée', tip: '+1 portée des compétences pour la salle', color: '#7cc4ff' },
+  soin:     { name: 'Soin', tip: '+12 % aux deux héros', color: '#6dffae' },
+  egide:    { name: 'Égide', tip: '+1 bouclier aux deux héros', color: '#9fe0ff' },
+};
+ZONES.cercle = { name: 'Cercle de pouvoir', minDepth: 999, w: 0, color: '#ffd166', tip: '2 tours dedans = or + soin',
+  desc: 'Un héros qui commence son tour dans le cercle le charge. Après 2 tours de charge : or et +8 % aux deux héros.' };
+/* chaque compétence a des dégâts maximum (par coup), relevables (amélioration Plafond, talent Maîtrise) */
+const CAP_MULT = 2;

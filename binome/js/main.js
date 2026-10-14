@@ -85,7 +85,7 @@
     el.addEventListener('mouseover', ev => {
       const b = ev.target.closest('.skb');
       const v = b && b.dataset.s != null ? { hi: +b.dataset.h, slot: +b.dataset.s } : null;
-      if (JSON.stringify(v) !== JSON.stringify(UI.hoverSkill)) { UI.hoverSkill = v; UI.updateInfo(); }
+      if (JSON.stringify(v) !== JSON.stringify(UI.hoverSkill)) { UI.hoverSkill = v; UI.hoverEl = b; UI.updateInfo(); }
     });
     el.addEventListener('mouseleave', () => { UI.hoverSkill = null; UI.updateInfo(); });
   }

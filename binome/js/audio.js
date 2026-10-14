@@ -3,7 +3,7 @@
    BINÔME — sons (synthèse WebAudio avec réverbération) et musiques (fichiers)
    ========================================================= */
 const Sfx = (() => {
-  let ctx = null, master = null, dry = null, wet = null;
+  let ctx = null, master = null, dry = null, wet = null, comp = null;
   const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   let muted = store('binome_muet') === '1';
   let vol = parseFloat(store('binome_vol_sfx')); if (!(vol >= 0)) vol = 0.7;
@@ -13,7 +13,7 @@ const Sfx = (() => {
     if (!ctx) {
       const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
       ctx = new A();
-      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ctx.destination);
+      comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ctx.destination);
       master = ctx.createGain(); master.gain.value = 0.5 * vol; master.connect(comp);
       dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
       // réverbération : réponse impulsionnelle générée
@@ -48,7 +48,68 @@ const Sfx = (() => {
     const g = c.createGain(); g.gain.value = v || 0.3;
     s.connect(f); f.connect(g); out(g, rev); s.start(t);
   }
+  /* ---------- mélodie de secours, générée en direct (si le fichier n'est pas prêt) ---------- */
+  const SONGS = {
+    explore: { bpm: 76, chords: [[57, 60, 64], [52, 55, 59], [53, 57, 60], [48, 52, 55]], lead: 'sine', drums: false, pad: true },
+    combat:  { bpm: 126, chords: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], lead: 'triangle', drums: true },
+    boss:    { bpm: 146, chords: [[50, 53, 57], [46, 50, 53], [43, 46, 50], [45, 49, 52]], lead: 'square', drums: true, hard: true },
+  };
+  const LEAD = [
+    [0, -1, -1, 2, -1, -1, 1, -1, 2, -1, 4, -1, 3, -1, 1, -1],
+    [4, -1, 3, -1, 2, -1, -1, 1, 0, -1, -1, -1, 2, -1, 1, -1],
+    [0, -1, 2, -1, 4, -1, 5, -1, 4, -1, 2, -1, 3, -1, -1, -1],
+    [5, -1, 4, -1, 3, -1, 2, -1, 1, -1, 2, -1, 0, -1, -1, -1],
+  ];
+  let seq = null;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  function mnote(c, bus, m, t, dur, type, v, cutoff) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(mtof(m), t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    if (cutoff) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; g.connect(f); f.connect(bus); } else g.connect(bus);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function mdrum(c, bus, kind, t) {
+    if (kind === 'kick') { const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.25); return; }
+    const len = Math.floor(c.sampleRate * (kind === 'hat' ? 0.04 : 0.14)), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const s = c.createBufferSource(); s.buffer = b; const f = c.createBiquadFilter();
+    f.type = kind === 'hat' ? 'highpass' : 'bandpass'; f.frequency.value = kind === 'hat' ? 7000 : 1800;
+    const g = c.createGain(); g.gain.value = kind === 'hat' ? 0.06 : 0.22; s.connect(f); f.connect(g); g.connect(bus); s.start(t);
+  }
+  function synthStep(c, song, bus, step, t, sd) {
+    const bar = Math.floor(step / 16) % 4, s = step % 16, ch = song.chords[bar];
+    const tones = [ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12, ch[2] + 12];
+    if (song.pad && s === 0) for (const m of ch) mnote(c, bus, m, t, sd * 16, 'sine', 0.05, 1200);
+    if (s % 4 === 0 || (song.hard && s % 2 === 0)) mnote(c, bus, ch[0] - 12, t, sd * (song.hard ? 1.8 : 3.5), 'sawtooth', 0.16, 700);
+    if (!song.pad && s % 2 === 0) mnote(c, bus, tones[(s / 2) % 3] + 12, t, sd * 1.6, 'triangle', 0.05, 3000);
+    const li = LEAD[(Math.floor(step / 64) + bar) % 4][s];
+    if (li >= 0) mnote(c, bus, tones[li] + 12, t, sd * (song.pad ? 6 : 2.6), song.lead, song.pad ? 0.06 : 0.07, song.hard ? 2600 : 4000);
+    if (song.drums) { if (s % 8 === 0 || (song.hard && s === 10)) mdrum(c, bus, 'kick', t); if (s === 4 || s === 12) mdrum(c, bus, 'snare', t); if (s % 2 === 1) mdrum(c, bus, 'hat', t); }
+  }
+  function synthStop() {
+    if (!seq) return;
+    const s = seq; seq = null; clearInterval(s.timer);
+    try { s.bus.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { try { s.bus.disconnect(); } catch (e) { } }, 2500); } catch (e) { }
+  }
+  function synthPlay(mood, v) {
+    if (seq && seq.mood === mood) { seq.bus.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.3); return; }
+    synthStop();
+    const c = ac(); if (!c) return;
+    const song = SONGS[mood] || SONGS.combat, sd = 60 / song.bpm / 4;
+    const bus = c.createGain(); bus.gain.value = 0.0001; bus.connect(comp);
+    const send = c.createGain(); send.gain.value = 0.25; bus.connect(send); send.connect(wet);
+    bus.gain.setTargetAtTime(v * 0.6, c.currentTime, 0.6);
+    let step = 0, next = c.currentTime + 0.1;
+    const timer = setInterval(() => { while (next < c.currentTime + 0.3) { synthStep(c, song, bus, step, next, sd); next += sd; step++; } }, 60);
+    seq = { mood, bus, timer };
+  }
+
   return {
+    synthPlay, synthStop,
+    synthVolume(v) { if (seq && ctx) seq.bus.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.2); },
+    get synthOn() { return !!seq; },
     get muted() { return muted; },
     get volume() { return vol; },
     setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_sfx', String(v)); } catch (e) { } if (master) master.gain.value = 0.5 * vol; },
@@ -104,18 +165,18 @@ const Music = (() => {
     boss: [{ src: 'music/boss.wav', intro: 'music/boss_intro.wav' }],
   };
   const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  let vol = parseFloat(store('binome_vol_music')); if (!(vol >= 0)) vol = 0.5;
+  let vol = parseFloat(store('binome_vol_music')); if (!(vol >= 0)) vol = 0.7;
   let mood = null, cur = null, unlocked = false, combatIdx = 0;
   const broken = new Set();
-  const target = () => (Sfx.muted ? 0 : vol * 0.6);
+  const target = () => (Sfx.muted ? 0 : Math.min(1, vol * 0.75));
   function fade(a, to, ms, done) {
+    // minuterie (et non requestAnimationFrame) : le fondu marche même onglet caché
     const from = a.volume, t0 = performance.now();
-    const step = () => {
+    const id = setInterval(() => {
       const k = Math.min(1, (performance.now() - t0) / ms);
       try { a.volume = Math.max(0, Math.min(1, from + (to - from) * k)); } catch (e) { }
-      if (k < 1) requestAnimationFrame(step); else if (done) done();
-    };
-    step();
+      if (k >= 1) { clearInterval(id); if (done) done(); }
+    }, 40);
   }
   function start(track) {
     if (!track || broken.has(track.src)) return null;
@@ -123,15 +184,18 @@ const Music = (() => {
     let part = 'loop';
     const loopPart = () => { part = 'loop'; a.src = track.src; a.loop = true; a.play().catch(() => { }); };
     // fichier absent : on le note et on joue la suite (ou rien)
-    a.addEventListener('error', () => { if (part === 'intro') { broken.add(track.intro); loopPart(); } else broken.add(track.src); });
+    a.addEventListener('error', () => { if (part === 'intro') { broken.add(track.intro); loopPart(); } else { broken.add(track.src); if (cur === a) fallback(); } });
+    a.addEventListener('playing', () => { if (cur === a) { a.ok = true; Sfx.synthStop(); } });
+    a.addEventListener('waiting', () => { if (cur === a) { a.ok = false; setTimeout(() => { if (cur === a && !a.ok) fallback(); }, 2000); } });
     if (track.intro && !broken.has(track.intro)) { part = 'intro'; a.src = track.intro; a.loop = false; a.addEventListener('ended', loopPart, { once: true }); a.play().catch(() => { }); }
     else loopPart();
     fade(a, target(), 1200);
     return a;
   }
+  function fallback() { if (mood && unlocked && !Sfx.muted) Sfx.synthPlay(mood, vol); }
   return {
     get volume() { return vol; },
-    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) cur.volume = target(); },
+    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) cur.volume = target(); Sfx.synthVolume(v); },
     unlock() { if (unlocked) return; unlocked = true; if (mood) { const m = mood; mood = null; this.play(m); } },
     play(m) {
       if (m === mood && cur) return;
@@ -142,8 +206,13 @@ const Music = (() => {
       const list = TRACKS[m] || [];
       let track = list[0];
       if (m === 'combat' && list.length > 1) { track = list[combatIdx % list.length]; combatIdx++; if (broken.has(track.src)) track = list.find(t => !broken.has(t.src)); }
+      Sfx.synthStop();
       cur = start(track);
+      // toujours une musique : si le fichier n'a pas démarré après 1,5 s (absent, lent à charger…), mélodie générée
+      const a = cur;
+      if (!a) fallback();
+      else setTimeout(() => { if (cur === a && !a.ok) fallback(); }, 1500);
     },
-    refresh() { if (cur) cur.volume = target(); },
+    refresh() { if (cur) cur.volume = target(); if (Sfx.muted) Sfx.synthStop(); else if (cur && !cur.ok) fallback(); },
   };
 })();

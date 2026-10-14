@@ -94,6 +94,7 @@ const UI = {
   pickLevel: 1,
   show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+    const tp = $('#tip'); if (tp) tp.classList.remove('on');
     if (id === 'scr-combat') { requestAnimationFrame(() => { Render.resize(); Render.start(); }); } else Render.stop();
     document.body.dataset.screen = id;
   },
@@ -164,7 +165,6 @@ const UI = {
 
   /* ---------- écran de choix de salle ---------- */
   showChoice(notes) {
-    if (notes !== undefined) UI.lastNotes = notes;
     const era = eraData(S.depth);
     document.documentElement.style.setProperty('--accent', era.accent);
     document.documentElement.style.setProperty('--era-bg', era.bg);
@@ -175,7 +175,8 @@ const UI = {
     const lv = $('#ch-level');
     lv.innerHTML = UI.levelHtml(lvl(), !canChangeLevel());
     if (canChangeLevel()) UI.bindLevel(lv, () => lvl(), v => { S.level = v; try { localStorage.setItem('binome_level', String(v)); } catch (e) { } save(); UI.showChoice(); });
-    $('#ch-notes').innerHTML = (UI.lastNotes || []).map(n => `<div class="note ${n.c || ''}">${esc(n.t)}</div>`).join('');
+    $('#ch-notes').innerHTML = '';
+    (notes || []).forEach((n, i) => setTimeout(() => UI.toast(n.t, n.c === 'bad' ? 'bad' : n.c === 'gold' ? 'gold' : n.c === 'dim' ? 'dim' : 'good', 3600), i * 300));
     $('#ch-heroes').innerHTML = S.heroes.map((h, hi) => heroSummary(h, hi)).join('');
     const eff = [];
     for (const r of S.rules) eff.push(`<span class="ch rule" title="${esc(RULES[r.key].desc)}">${icon('rule', 16)}<b>${RULES[r.key].name}</b><i>${r.perm ? '∞' : r.dur}</i></span>`);
@@ -218,6 +219,8 @@ const UI = {
       parts.push(`<span class="ch goal ${st}" title="${esc(goalText(C.goal, C.goalN))} Réussi : +${GOAL_HEAL} %">${icon(st === 'ok' ? 'check' : st === 'fail' ? 'cross' : 'star', 16)}<b>${GOALS[C.goal].name}${C.goal === 'rapide' ? ` ${Math.min(C.turn, C.goalN)}/${C.goalN}` : ''}</b></span>`);
     }
     if (card.trait) parts.push(chip(TRAITS[card.trait].bad ? 'taunt' : 'star', TRAITS[card.trait].name, TRAITS[card.trait].bad ? 'red' : 'green', TRAITS[card.trait].desc));
+    if (C.boost) parts.push(chip('bolt', C.boost.label, 'gold', 'Bonus de salle'));
+    if (C.loot) parts.push(chip('gold', '+' + C.loot, 'gold', 'Or ramassé dans cette salle'));
     UI.setHtml($('#cb-top-mid'), parts.join(''));
     // barre du boss
     const bb = $('#boss-bar');
@@ -258,16 +261,30 @@ const UI = {
   },
   updateInfo() {
     if (!C) return;
-    let html = '';
+    if ($('#modal').classList.contains('on')) { UI.placeTip('', null); return; }
+    UI.setHtml($('#cb-info'), C.phase === 'enemy' ? `<div class="inf-h">${icon('skullx', 20)} Tour ennemi…</div>`
+      : `<div class="inf-keys"><span><kbd>1</kbd>-<kbd>4</kbd> attaque</span><span><kbd>Tab</kbd> héros</span><span><kbd>Z</kbd> annuler</span><span><kbd>Espace</kbd> fin</span><span>${icon('arrow', 15)} = tour ennemi prévu</span><span>survol = détails</span></div>`);
+    let html = '', pos = null;
     const hv = UI.hoverSkill;
-    if (hv) html = skillInfo(hv.hi, hv.slot);
-    else if (C.mode === 'skill') html = skillInfo(C.sel, C.slot);
-    else if (C.hover) html = tileInfo(C.hover[0], C.hover[1]);
-    if (!html) {
-      if (C.phase === 'enemy') html = `<div class="inf-h">${icon('skullx', 20)} Tour ennemi…</div>`;
-      else html = `<div class="inf-keys"><span><kbd>1</kbd>-<kbd>4</kbd> attaque</span><span><kbd>Tab</kbd> héros</span><span><kbd>Z</kbd> annuler</span><span><kbd>Espace</kbd> fin</span><span>${icon('arrow', 15)} = tour ennemi prévu</span></div>`;
+    if (hv && UI.hoverEl && UI.hoverEl.isConnected) {
+      html = skillInfo(hv.hi, hv.slot);
+      const r = UI.hoverEl.getBoundingClientRect(); pos = { x1: r.left, x2: r.right, y: r.top + r.height / 2 };
+    } else if (C.hover) {
+      html = tileInfo(C.hover[0], C.hover[1]);
+      if (html) { const [cx, cy] = Render.tileCenterPx(C.hover[0], C.hover[1]); const h = Render.ts / 2; pos = { x1: cx - h, x2: cx + h, y: cy }; }
     }
-    UI.setHtml($('#cb-info'), html);
+    UI.placeTip(html, pos);
+  },
+  placeTip(html, pos) {
+    const tip = $('#tip'); if (!tip) return;
+    if (!html || !pos) { tip.classList.remove('on'); return; }
+    UI.setHtml(tip, html); tip.classList.add('on');
+    const w = tip.offsetWidth, h = tip.offsetHeight, vw = innerWidth, vh = innerHeight;
+    let x = pos.x2 + 12;
+    if (x + w > vw - 8) x = pos.x1 - 12 - w;
+    if (x < 8) x = Math.max(8, Math.min(vw - w - 8, pos.x1));
+    const y = Math.max(8, Math.min(vh - h - 8, pos.y - h / 2));
+    tip.style.left = Math.round(x) + 'px'; tip.style.top = Math.round(y) + 'px';
   },
   selectSkill(hi, slot) {
     if (!C || C.busy || C.phase !== 'hero') return;
@@ -318,12 +335,14 @@ const UI = {
   },
   modal(title, body, buttons, opts) {
     const m = $('#modal');
-    m.innerHTML = `<div class="modal-box ${opts && opts.wide ? 'wide' : ''}"><h2>${title}</h2><div class="modal-body">${body}</div><div class="modal-btns">${(buttons || []).map((b, i) => `<button class="btn ${b.cls || ''}" data-i="${i}">${b.label}</button>`).join('')}</div></div>`;
+    if (typeof Codex !== 'undefined') Codex.stop();
+    UI.placeTip('', null);
+    m.innerHTML = `<div class="modal-box ${opts && opts.wide ? 'wide' : ''} ${opts && opts.huge ? 'huge' : ''}"><h2>${title}</h2><div class="modal-body">${body}</div><div class="modal-btns">${(buttons || []).map((b, i) => `<button class="btn ${b.cls || ''}" data-i="${i}">${b.label}</button>`).join('')}</div></div>`;
     m.classList.add('on');
     m.querySelectorAll('.modal-btns .btn').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.i]; if (!bt.keep) UI.closeModal(); if (bt.fn) bt.fn(); });
     return m;
   },
-  closeModal() { const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; },
+  closeModal() { if (typeof Codex !== 'undefined') Codex.stop(); const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; },
   choose(title, intro, options, onPick, cancel) {
     const body = `${intro ? `<p class="intro">${intro}</p>` : ''}<div class="opt-list">${options.map((o, i) => `<button class="opt ${o.cls || ''}" data-i="${i}" ${o.disabled ? 'disabled' : ''}>${i < 9 ? `<span class="num">${i + 1}</span>` : ''}${o.html}</button>`).join('')}</div>`;
     const m = UI.modal(title, body, cancel ? [{ label: cancel.label, cls: 'ghost', fn: cancel.fn }] : [], { wide: true });
@@ -417,8 +436,8 @@ const UI = {
     const engr = rows.length ? rows.map((r, i) => { const c = engraveCost(r.kind); return `<div class="at-row">${r.html}<button class="btn gold" data-e="${i}" ${S.money < c ? 'disabled' : ''}>${icon('anvil', 18)} ${c}</button></div>`; }).join('')
       : `<div class="empty">${icon('hourglass', 18)} Rien à graver.</div>`;
     const tal = Object.keys(TALENTS).map(k => {
-      const T = TALENTS[k], lv = S.talents[k], maxed = lv >= T.max, c = talentCost(k);
-      return `<div class="at-row"><span class="opt-ico">${icon('star', 24)}</span><span><b>${T.name}</b> <span class="pips">${'●'.repeat(lv)}${'○'.repeat(T.max - lv)}</span><br><small>${esc(T.desc)}</small></span><button class="btn gold" data-t="${k}" ${maxed || S.money < c ? 'disabled' : ''}>${maxed ? 'Max' : `${icon('gold', 18)} ${c}`}</button></div>`;
+      const T = TALENTS[k], lv = S.talents[k] || 0, c = talentCost(k);
+      return `<div class="at-row"><span class="opt-ico">${icon('star', 24)}</span><span><b>${T.name}</b> ${chip(null, 'niv. ' + lv, lv ? 'gold' : '')}<br><small>${esc(T.desc)}</small></span><button class="btn gold" data-t="${k}" ${S.money < c ? 'disabled' : ''}>${icon('gold', 18)} ${c}</button></div>`;
     }).join('');
     const body = `<div class="at-gold">${icon('gold', 30)} <b>${S.money}</b></div>
       <h3>${icon('anvil', 20)} Graver <small>= garder pour toujours</small></h3><div class="at-list">${engr}</div>
@@ -429,70 +448,13 @@ const UI = {
       S.money -= c; S.engraved[r.kind]++; r.fn(); Sfx.gold(); addLog('Gravure effectuée.'); save(); UI.showAtelier();
     });
     m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
-      const k = b.dataset.t, c = talentCost(k); if (S.money < c || S.talents[k] >= TALENTS[k].max) return;
-      S.money -= c; S.talents[k]++; Sfx.gold(); addLog(`Talent ${TALENTS[k].name} niveau ${S.talents[k]}.`); save(); UI.showAtelier();
+      const k = b.dataset.t, c = talentCost(k); if (S.money < c) return;
+      S.money -= c; S.talents[k] = (S.talents[k] || 0) + 1; Sfx.gold(); addLog(`Talent ${TALENTS[k].name} niveau ${S.talents[k]}.`); save(); UI.showAtelier();
     });
   },
 
   /* ---------- Codex ---------- */
-  codexTab: 'ennemis',
-  showCodex(tab) {
-    if (tab) UI.codexTab = tab;
-    const seen = (S && S.seen) || {};
-    const tabs = { ennemis: ['skullx', 'Ennemis'], boss: ['crown', 'Boss'], salles: ['door', 'Salles'], zones: ['spikes', 'Terrain'], competences: ['blade', 'Compétences'], ameliorations: ['up', 'Améliorations'], regles: ['rule', 'Règles'], mecaniques: ['cog', 'Mécaniques'] };
-    let body = '';
-    const card = (ic, title, chips, desc, cls) => `<div class="cx ${cls || ''}"><div class="cx-h">${ic ? icon(ic, 20) : ''}<b>${title}</b></div>${chips ? `<div class="cx-c">${chips}</div>` : ''}<p>${desc}</p></div>`;
-    switch (UI.codexTab) {
-      case 'ennemis':
-        body = Object.keys(ENEMIES).map(k => { const E = ENEMIES[k];
-          return seen[k] ? card(null, E.name, chip('heart', E.hp) + (E.dmg ? chip('blade', E.dmg + '%', 'red') : '') + chip('foot', E.move, 'blue') + (E.range > 1 ? chip('target', E.range) : ''), esc(E.desc))
-            : card('help', '???', E.minDepth < 999 ? chip('door', 'salle ' + (E.minDepth + 1)) : '', 'Pas encore rencontré.', 'unk'); }).join('');
-        break;
-      case 'boss':
-        body = BOSS_ORDER.map(k => { const B = BOSSES[k];
-          const ph = (B.phases || []).map((p, i) => chip('skullx', `${Math.round(p.at * 100)} % : ${p.name}`, 'red', p.tip)).join('');
-          return seen[k] ? card('crown', B.name, chip('heart', B.hp) + ph, esc(B.desc)) : card('help', '???', '', 'Boss pas encore rencontré.', 'unk'); }).join('');
-        break;
-      case 'salles':
-        body = Object.keys(ROOM_KINDS).map(k => card(ROOM_KINDS[k].icon, ROOM_KINDS[k].name, '', esc(ROOM_KINDS[k].tip))).join('')
-          + Object.keys(TRAITS).map(k => card(TRAITS[k].bad ? 'taunt' : 'star', TRAITS[k].name, '', esc(TRAITS[k].desc))).join('');
-        break;
-      case 'zones':
-        body = Object.keys(ZONES).map(k => card(ZONE_ICON[k], ZONES[k].name, chip('door', 'salle ' + (ZONES[k].minDepth + 1)), esc(ZONES[k].desc))).join('')
-          + card('pit', 'Fosse', '', 'Un ennemi qui tombe dedans meurt (le kill compte). Un héros qui tombe perd 12 % et remonte à côté.')
-          + card('lava', 'Lave', '', '10 dégâts aux ennemis qui y sont au tour ennemi, −8 % aux héros qui y commencent leur tour.')
-          + card('barrel', 'Baril', '', 'Explose quand on le touche : 10 dégâts (−8 % aux héros) autour. Se pousse.')
-          + card('gem', 'Cristal', '', 'Salles « Rituel » : tant qu’un cristal tient, les ennemis font +30 % de dégâts et récupèrent 3 PV par tour.');
-        break;
-      case 'competences':
-        body = Object.keys(SKILLS).map(k => { const s = SKILLS[k]; return card(s.icon, s.name, (s.dmg ? chip('blade', s.dmg) : '') + (s.range ? chip('target', s.range) : '') + (s.cd ? chip('hourglass', s.cd) : '') + (s.basic ? chip('star', 'base', 'gold') : ''), esc(s.desc)); }).join('');
-        break;
-      case 'ameliorations':
-        body = Object.keys(UPGRADES).map(k => card('up', UPGRADES[k].name, chip('star', '★') + chip('star', '★★', 'gold'), `${esc(UPGRADES[k].desc(1))} / ${esc(UPGRADES[k].desc(2))}`)).join('');
-        break;
-      case 'regles':
-        body = Object.keys(RULES).map(k => card('rule', RULES[k].name, '', esc(RULES[k].desc))).join('')
-          + Object.keys(PACTS).map(k => card('pact', PACTS[k].name, '', `+ ${esc(PACTS[k].bonus(1))}<br>− ${esc(PACTS[k].malus)}`)).join('');
-        break;
-      case 'mecaniques':
-        body = [
-          ['arrow', 'Prévision', 'Flèches rouges = qui frappe qui. Silhouettes = où vont les ennemis. Croix jaune = va mourir. Numéros = ordre d’action. Sous chaque héros : son % après le tour ennemi.'],
-          ['dash', 'Ordre d’action', 'De gauche à droite, puis de haut en bas. Les boss jouent en dernier.'],
-          ['hourglass', 'Début du tour ennemi', '1) arrivées 2) courants 3) bombes 4) attaques annoncées 5) poison, feu, lave, autels 6) chaque ennemi joue.'],
-          ['push', 'Collisions', 'Poussé contre un obstacle ou une unité : 5 dégâts aux deux (−4 % pour un héros).'],
-          ['shield', 'Attaques directes', 'Les compétences sont directes (la Carapace les réduit à 2). Collisions, chutes, explosions, feu, poison, piques, pièges ne le sont pas.'],
-          ['swap', 'Ombres', 'Copient chaque mouvement de leur héros en miroir gauche ↔ droite. Case bloquée = pas sauté. Fosse = elle tombe.'],
-          ['crown', 'Boss à phases', 'Sous certains seuils de PV (traits sur la barre), le boss change de phase : plus fort, nouvelles attaques.'],
-          ['skullx', 'Difficulté', 'Niveau 1 à l’infini : plus de PV, de dégâts et d’ennemis… et beaucoup plus d’or sur les boss. On ne peut la changer que toutes les 10 salles. Chaque niveau se débloque en battant un boss au niveau d’en dessous.'],
-          ['star', 'Défis', 'Facultatifs. Réussi : +10 % aux deux héros (or ×1,5 contre un boss).'],
-          ['heart', 'Soins', 'Tuer = +5 % au tueur (sauf morceaux de Scissipare et jumeaux ressuscités). Jamais sous 40 %.'],
-        ].map(([ic, a, b]) => card(ic, a, '', b)).join('');
-        break;
-    }
-    const tabsHtml = Object.keys(tabs).map(k => `<button class="cx-tab ${k === UI.codexTab ? 'on' : ''}" data-tab="${k}">${icon(tabs[k][0], 16)} ${tabs[k][1]}</button>`).join('');
-    const m = UI.modal(`${icon('rule', 26)} Codex`, `<div class="cx-tabs">${tabsHtml}</div><div class="cx-list">${body}</div>`, [{ label: 'Fermer', cls: 'ghost' }], { wide: true });
-    m.querySelectorAll('.cx-tab').forEach(b => b.onclick = () => UI.showCodex(b.dataset.tab));
-  },
+  showCodex(tab) { Codex.open(tab); },
 
   /* ---------- menu & aide ---------- */
   showMenu() {
@@ -578,24 +540,39 @@ function effectChips(s) {
   if (s.echo) e.push(chip('spin', Math.round(s.echo * 100) + '%', '', 'Écho'));
   if (s.chain) e.push(chip('bolt', '×' + s.chain, '', 'Rebondit'));
   if (s.exec) e.push(chip('skull', '×' + (1 + s.exec), 'red', 'Cible sous 50 %'));
-  if (s.vif) e.push(chip('foot', '+' + s.vif, 'blue', 'Déplacement après'));
   if (s.shield) e.push(chip('shield', '', 'blue', 'Bouclier'));
   if (s.fire) e.push(chip('fire', '', 'red', 'Feu'));
   if (s.ff) e.push(chip('taunt', 'allié', 'red', 'Touche aussi ton allié'));
   return e.join('');
 }
+function dmgHtml(raw, cap) {
+  if (!cap) return '';
+  if (raw > cap) return `<span class="dmg over" title="Ferait ${raw} mais limité à ${cap} (maximum de la compétence)">${raw}/${cap}</span>`;
+  return `<span class="dmg" title="Dégâts / maximum">${raw}<small>/${cap}</small></span>`;
+}
 function durTag(x) { return x.perm ? '<span class="dur perm" title="Définitif">∞</span>' : `<span class="dur" title="Salles restantes">${x.dur}</span>`; }
 function heroSummary(h, hi) {
-  const H = HEROES[h.key];
-  const sk = h.slots.map((s, si) => {
-    if (!s) return `<div class="sk empty" title="Emplacement vide">${icon('plus', 22)}</div>`;
-    const D = SKILLS[s.key];
-    const mods = s.mods.length ? `<span class="sk-m" title="${esc(s.mods.map(m => UPGRADES[m.key].name + ' (' + (m.perm ? '∞' : m.dur) + ')').join(', '))}">+${s.mods.length}</span>` : '';
-    return `<div class="sk" title="${esc(D.name + ' — ' + D.desc)}">${icon(D.icon, 26)}${si > 0 ? durTag(s) : ''}${mods}</div>`;
+  const H = HEROES[h.key], g = G();
+  const kills = (S.stats.heroKills || [0, 0])[hi] || 0;
+  const stats = [
+    chip('heart', `${Math.round(h.pct)}/${maxPct()} %`, '', '% actuel / maximum'),
+    chip('foot', HEROES[h.key].move, 'blue', 'Déplacement'),
+    chip('skullx', kills, '', 'Ennemis tués'),
+    g.dmg !== 1 ? chip('blade', '×' + g.dmg.toFixed(2), 'red', 'Multiplicateur de dégâts (règles, pactes)') : '',
+    g.taken < 1 ? chip('shield', '−' + Math.round((1 - g.taken) * 100) + ' %', 'blue', 'Dégâts subis en moins') : (g.taken > 1 ? chip('shield', '+' + Math.round((g.taken - 1) * 100) + ' %', 'red', 'Dégâts subis en plus') : ''),
+    S.talents.egide ? chip('shield', S.talents.egide, 'blue', 'Boucliers au début de chaque salle') : '',
+  ].join('');
+  const rows = h.slots.map((sl, si) => {
+    if (!sl) return `<div class="hrow empty">${icon('plus', 20)}<span>Emplacement libre</span></div>`;
+    const D = SKILLS[sl.key], st = skillStats(hi, si), raw = rawDmg(hi, st);
+    const mods = sl.mods.map(m => chip('up', UPGRADES[m.key].name + (m.perm ? ' ∞' : ' ' + m.dur), 'gold', UPGRADES[m.key].desc(m.v))).join('');
+    return `<div class="hrow" title="${esc(D.desc)}"><span class="hr-ico">${icon(D.icon, 22)}</span><b>${D.name}</b>
+      ${st.dmg ? `<span class="ch red">${icon('blade', 15)}${dmgHtml(raw, st.cap)}</span>` : ''}${chip('target', skillKindText(st))}${st.cd ? chip('hourglass', st.cd, '', 'Recharge (tours)') : ''}${si > 0 ? (sl.perm ? chip('star', '∞', 'gold', 'Définitive') : chip('hourglass', sl.dur + ' salles', '', 'Durée restante')) : ''}${mods}</div>`;
   }).join('');
   return `<div class="hsum" style="--c:${H.color}">
-    <div class="tok">${H.name[0]}</div>
-    <div class="hsum-main"><div class="hsum-top"><b>${H.name}</b>${pctBar(h)}</div><div class="hsum-skills">${sk}</div></div></div>`;
+    <div class="hsum-top"><div class="tok">${H.name[0]}</div><div class="hs-name"><b>${H.name}</b><small>${H.title}</small></div>${pctBar(h)}</div>
+    <div class="hs-stats">${stats}</div>
+    <div class="hs-rows">${rows}</div></div>`;
 }
 function pctBar(h) {
   const mx = maxPct(), p = Math.round(h.pct);
@@ -678,7 +655,7 @@ function heroPanel(hi) {
   const h = S.heroes[hi], H = HEROES[h.key], u = heroUnit(hi);
   const sel = C.sel === hi;
   const done = u && C.phase === 'hero' && u.actions <= 0 && !u.hasMove;
-  const st = u ? `${chip('foot', u.hasMove ? u.moveBudget : 0, u.hasMove ? 'blue' : 'off', 'Déplacement')}${chip('star', Math.max(0, u.actions), u.actions > 0 ? 'gold' : 'off', 'Actions')}${u.shield ? chip('shield', u.shield, 'blue', 'Bouclier') : ''}` : '';
+  const st = u ? `${u.frozen ? chip('snow', '−2', 'blue', 'Gardien de givre : −2 déplacement') : ''}${chip('foot', u.hasMove ? u.moveBudget : 0, u.hasMove ? 'blue' : 'off', 'Déplacement')}${chip('star', Math.max(0, u.actions), u.actions > 0 ? 'gold' : 'off', 'Actions')}${u.shield ? chip('shield', u.shield, 'blue', 'Bouclier') : ''}` : '';
   const sk = h.slots.map((s, si) => {
     if (!s) return `<button class="skb empty" disabled><span class="k">${si + 1}</span>${icon('plus', 22)}</button>`;
     const D = SKILLS[s.key], st2 = skillStats(hi, si);
@@ -689,7 +666,7 @@ function heroPanel(hi) {
     return `<button class="skb ${active ? 'active' : ''} ${unusable ? 'off' : ''}" data-h="${hi}" data-s="${si}">
       <span class="k">${si + 1}</span>${icon(D.icon, 28)}
       <span class="nm">${D.name}</span>
-      <span class="meta">${dm > 0 ? `<b title="Dégâts">${dm}</b>` : ''}${si > 0 ? (s.perm ? durTag(s) : `<span class="dur" title="Salles restantes">${icon('hourglass', 11)}${s.dur}</span>`) : ''}${s.mods.length ? `<span class="mods">+${s.mods.length}</span>` : ''}</span>
+      <span class="meta">${dm > 0 ? dmgHtml(rawDmg(hi, st2), st2.cap) : ''}${si > 0 ? (s.perm ? durTag(s) : `<span class="dur" title="Salles restantes">${icon('hourglass', 11)}${s.dur}</span>`) : ''}${s.mods.length ? `<span class="mods">+${s.mods.length}</span>` : ''}</span>
       ${cd > 0 ? `<span class="cd">${cd}</span>` : ''}</button>`;
   }).join('');
   const pv = C.preview && C.preview.ver === C.ver && C.phase === 'hero' && !C.busy ? C.preview : null;
@@ -708,7 +685,8 @@ function skillInfo(hi, slot) {
   const D = SKILLS[inst.key], s = skillStats(hi, slot);
   const dm = displayDmg(hi, s);
   const mods = inst.mods.map(m => chip('up', UPGRADES[m.key].name + (m.perm ? ' ∞' : ' ' + m.dur), 'gold', UPGRADES[m.key].desc(m.v))).join('');
-  return `<div class="inf-h">${icon(D.icon, 22)} ${D.name} ${dm > 0 ? chip('blade', dm, 'red', 'Dégâts') : ''}${chip(s.type === 'line' && s.range > 1 ? 'arrow' : 'target', skillKindText(s))}${s.cd ? chip('hourglass', s.cd, '', 'Recharge') : ''}${effectChips(s)}${mods}</div><p>${esc(D.desc)}</p>`;
+  const raw = rawDmg(hi, s);
+  return `<div class="inf-h">${icon(D.icon, 22)} ${D.name} ${dm > 0 ? `<span class="ch red" title="Dégâts / maximum par coup (le maximum se relève avec l’amélioration Plafond)">${icon('blade', 16)}${dmgHtml(raw, s.cap)}</span>` : ''}${chip(s.type === 'line' && s.range > 1 ? 'arrow' : 'target', skillKindText(s))}${s.cd ? chip('hourglass', s.cd, '', 'Recharge') : ''}${effectChips(s)}${mods}</div><p>${esc(D.desc)}</p>`;
 }
 function tileInfo(x, y) {
   const o = unitAt(x, y), t = tile(x, y);
@@ -719,6 +697,11 @@ function tileInfo(x, y) {
       parts.push(`<div class="inf-h" style="color:${H.color}">${H.name} ${chip('heart', Math.round(h.pct) + '%')}${chip('foot', heroMove(o.hero), 'blue')}${o.shield ? chip('shield', o.shield, 'blue') : ''}</div>`);
     } else if (o.kind === 'cristal') {
       parts.push(`<div class="inf-h">${icon('gem', 20)} Cristal ${chip('heart', Math.ceil(o.hp))}</div><p>Tant qu’il tient : ennemis +30 % et +3 PV/tour.</p>`);
+    } else if (o.kind === 'coffre') {
+      parts.push(`<div class="inf-h">${icon('gold', 20)} Coffre ${chip('heart', Math.ceil(o.hp))}</div><p>Casse-le : de l’or pour toi.</p>`);
+    } else if (o.kind === 'orbe') {
+      const O = ORBS[o.orb];
+      parts.push(`<div class="inf-h" style="color:${O.color}">${icon('star', 20)} Orbe : ${O.name} ${chip('heart', Math.ceil(o.hp))}</div><p>Casse-la : ${esc(O.tip)}.</p>`);
     } else if (o.team === 'obj') {
       parts.push(`<div class="inf-h">${icon('barrel', 20)} Baril ${chip('bomb', '10', 'red')}</div><p>Explose s’il est touché.</p>`);
     } else {
@@ -740,6 +723,7 @@ function tileInfo(x, y) {
     }
   }
   const tz = [];
+  if (t.t === 'void') return '';
   if (t.t === 'pit') tz.push(chip('pit', 'Fosse', '', 'Chute : mort pour un ennemi, −12 % pour un héros'));
   if (t.t === 'lava') tz.push(chip('lava', 'Lave', 'red', '−10 PV / −8 %'));
   if (t.t === 'rock') tz.push(chip('wall', t.ttl ? 'Rocher ' + t.ttl : 'Rocher', '', 'Bloque, sert de mur aux collisions'));
