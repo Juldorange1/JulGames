@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — sons (synthèse WebAudio avec réverbération) et musiques (fichiers)
+   TRIADE — sons (synthèse WebAudio avec réverbération) et musiques (fichiers)
    ========================================================= */
 const Sfx = (() => {
   let ctx = null, master = null, dry = null, wet = null, comp = null;
@@ -8,8 +8,7 @@ const Sfx = (() => {
   let muted = store('binome_muet') === '1';
   let vol = parseFloat(store('binome_vol_sfx')); if (!(vol >= 0)) vol = 0.7;
   const simOn = () => typeof SIM !== 'undefined' && SIM;
-  function ac() {
-    if (muted || simOn()) return null;
+  function ensure() {
     if (!ctx) {
       const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
       ctx = new A();
@@ -24,6 +23,14 @@ const Sfx = (() => {
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+  function ac() { if (muted || simOn()) return null; return ensure(); }
+  let mbus = null;
+  function musicBus() {
+    const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
+    const c = ensure(); if (!c) return null;
+    if (!mbus) { mbus = c.createGain(); mbus.gain.value = 1; mbus.connect(comp); }
+    return { ctx: c, bus: mbus };
   }
   const out = (node, rev) => { node.connect(dry); if (rev) { const g = ctx.createGain(); g.gain.value = rev; node.connect(g); g.connect(wet); } };
   function tone(f, dur, type, v, slide, delay, rev, filt) {
@@ -91,24 +98,24 @@ const Sfx = (() => {
   function synthStop() {
     if (!seq) return;
     const s = seq; seq = null; clearInterval(s.timer);
-    try { s.bus.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { try { s.bus.disconnect(); } catch (e) { } }, 2500); } catch (e) { }
+    try { s.bus.gain.setTargetAtTime(0, ctx.currentTime, 0.9); setTimeout(() => { try { s.bus.disconnect(); } catch (e) { } }, 5000); } catch (e) { }
   }
   function synthPlay(mood, v) {
-    if (seq && seq.mood === mood) { seq.bus.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.3); return; }
+    if (seq && seq.mood === mood) { seq.bus.gain.setTargetAtTime(v * 0.3, ctx.currentTime, 0.5); return; }
     synthStop();
     const c = ac(); if (!c) return;
     const song = SONGS[mood] || SONGS.combat, sd = 60 / song.bpm / 4;
     const bus = c.createGain(); bus.gain.value = 0.0001; bus.connect(comp);
     const send = c.createGain(); send.gain.value = 0.25; bus.connect(send); send.connect(wet);
-    bus.gain.setTargetAtTime(v * 0.6, c.currentTime, 0.6);
+    bus.gain.setTargetAtTime(v * 0.3, c.currentTime, 1.2);
     let step = 0, next = c.currentTime + 0.1;
     const timer = setInterval(() => { while (next < c.currentTime + 0.3) { synthStep(c, song, bus, step, next, sd); next += sd; step++; } }, 60);
     seq = { mood, bus, timer };
   }
 
   return {
-    synthPlay, synthStop,
-    synthVolume(v) { if (seq && ctx) seq.bus.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.2); },
+    synthPlay, synthStop, musicBus,
+    synthVolume(v) { if (seq && ctx) seq.bus.gain.setTargetAtTime(v * 0.3, ctx.currentTime, 0.2); },
     get synthOn() { return !!seq; },
     get muted() { return muted; },
     get volume() { return vol; },
@@ -157,62 +164,83 @@ const Sfx = (() => {
   };
 })();
 
-/* ---------- musiques : fichiers dans music/ (voir music/CREDITS.md) ---------- */
+/* ---------- musiques : fichiers dans music/ (voir music/CREDITS.md) ----------
+   Chaque morceau a un gain de normalisation (mesuré : écarts de ~30 dB entre fichiers),
+   pour qu'aucune musique ne soit plus forte qu'une autre. Fondus enchaînés longs et doux. */
 const Music = (() => {
   const TRACKS = {
-    explore: [{ src: 'music/explore.ogg' }],
-    combat: [{ src: 'music/combat.ogg' }, { src: 'music/combat2.ogg' }],
-    boss: [{ src: 'music/boss.wav', intro: 'music/boss_intro.wav' }],
+    explore: [{ src: 'music/explore.ogg', gain: 7.8 }],
+    combat: [{ src: 'music/combat.ogg', gain: 1.26 }, { src: 'music/combat2.ogg', gain: 0.3 }],
+    boss: [{ src: 'music/boss.wav', gain: 0.7, intro: 'music/boss_intro.wav', introGain: 0.78 }],
   };
+  const FADE = 1.0;            // constante de temps des fondus (s) : ~3 s pour un fondu complet
   const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   let vol = parseFloat(store('binome_vol_music')); if (!(vol >= 0)) vol = 0.7;
-  let mood = null, cur = null, unlocked = false, combatIdx = 0;
+  let mood = null, cur = null, unlocked = false, combatN = 0;
   const broken = new Set();
-  const target = () => (Sfx.muted ? 0 : Math.min(1, vol * 0.75));
-  function fade(a, to, ms, done) {
-    // minuterie (et non requestAnimationFrame) : le fondu marche même onglet caché
-    const from = a.volume, t0 = performance.now();
-    const id = setInterval(() => {
-      const k = Math.min(1, (performance.now() - t0) / ms);
-      try { a.volume = Math.max(0, Math.min(1, from + (to - from) * k)); } catch (e) { }
-      if (k >= 1) { clearInterval(id); if (done) done(); }
-    }, 40);
+  const webaudio = location.protocol !== 'file:';   // en file://, le navigateur interdit de router l'audio
+  const level = () => (Sfx.muted ? 0 : vol * 0.55);
+  function setGain(p, v, tc) {
+    if (p.g) { const c = p.g.context; p.g.gain.cancelScheduledValues(c.currentTime); p.g.gain.setTargetAtTime(Math.max(0.0001, v), c.currentTime, tc); return; }
+    // repli sans WebAudio : volume des éléments (max 1)
+    const t0 = performance.now(), from = p.vol || 0; p.vol = v;
+    clearInterval(p.fadeId);
+    p.fadeId = setInterval(() => { const k = Math.min(1, (performance.now() - t0) / (tc * 3000)); for (const a of p.els) try { a.volume = Math.min(1, (from + (v - from) * k) * (a.norm || 1)); } catch (e) { } if (k >= 1) clearInterval(p.fadeId); }, 50);
+  }
+  function makeEl(p, src, loop, norm, bus) {
+    const a = new Audio(); a.preload = 'auto'; a.loop = loop; a.norm = norm; a.src = src;
+    if (bus && p.g) { try { const s = bus.ctx.createMediaElementSource(a), ng = bus.ctx.createGain(); ng.gain.value = norm; s.connect(ng); ng.connect(p.g); } catch (e) { } }
+    else a.volume = 0;
+    a.addEventListener('playing', () => { if (cur === p) { p.ok = true; Sfx.synthStop(); } });
+    p.els.push(a);
+    return a;
   }
   function start(track) {
     if (!track || broken.has(track.src)) return null;
-    const a = new Audio(); a.preload = 'auto'; a.volume = 0;
-    let part = 'loop';
-    const loopPart = () => { part = 'loop'; a.src = track.src; a.loop = true; a.play().catch(() => { }); };
-    // fichier absent : on le note et on joue la suite (ou rien)
-    a.addEventListener('error', () => { if (part === 'intro') { broken.add(track.intro); loopPart(); } else { broken.add(track.src); if (cur === a) fallback(); } });
-    a.addEventListener('playing', () => { if (cur === a) { a.ok = true; Sfx.synthStop(); } });
-    a.addEventListener('waiting', () => { if (cur === a) { a.ok = false; setTimeout(() => { if (cur === a && !a.ok) fallback(); }, 2000); } });
-    if (track.intro && !broken.has(track.intro)) { part = 'intro'; a.src = track.intro; a.loop = false; a.addEventListener('ended', loopPart, { once: true }); a.play().catch(() => { }); }
-    else loopPart();
-    fade(a, target(), 1200);
-    return a;
+    const p = { track, ok: false, els: [] };
+    const bus = webaudio ? Sfx.musicBus() : null;
+    if (bus) { p.g = bus.ctx.createGain(); p.g.gain.value = 0.0001; p.g.connect(bus.bus); }
+    const loop = makeEl(p, track.src, true, track.gain || 1, bus);
+    loop.addEventListener('error', () => { broken.add(track.src); if (cur === p) fallback(); });
+    let first = loop;
+    if (track.intro && !broken.has(track.intro)) {
+      const intro = makeEl(p, track.intro, false, track.introGain || track.gain || 1, bus);
+      intro.addEventListener('ended', () => { if (cur === p) loop.play().catch(() => { }); });   // boucle déjà chargée : enchaînement sans coupure
+      intro.addEventListener('error', () => { broken.add(track.intro); if (cur === p) loop.play().catch(() => { }); });
+      first = intro;
+    }
+    first.play().catch(() => { });
+    setGain(p, level(), FADE);
+    return p;
+  }
+  function stopPlayer(p) {
+    if (!p) return;
+    setGain(p, 0, FADE * 0.8);
+    setTimeout(() => { for (const a of p.els) try { a.pause(); a.removeAttribute('src'); a.load(); } catch (e) { } if (p.g) try { p.g.disconnect(); } catch (e) { } }, 4500);
   }
   function fallback() { if (mood && unlocked && !Sfx.muted) Sfx.synthPlay(mood, vol); }
   return {
     get volume() { return vol; },
-    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) cur.volume = target(); Sfx.synthVolume(v); },
+    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) setGain(cur, level(), 0.15); Sfx.synthVolume(v); },
     unlock() { if (unlocked) return; unlocked = true; if (mood) { const m = mood; mood = null; this.play(m); } },
     play(m) {
       if (m === mood && cur) return;
+      const list = TRACKS[m] || [];
+      let track = list[0];
+      if (m === 'combat' && list.length > 1) { track = list[Math.floor(combatN / 3) % list.length]; combatN++; if (broken.has(track.src)) track = list.find(t => !broken.has(t.src)); }
+      // même morceau déjà en cours (ex. deux combats de suite) : on ne coupe rien
+      if (cur && track && cur.track === track) { mood = m; return; }
       mood = m;
       if (!unlocked) return;
       const old = cur; cur = null;
-      if (old) fade(old, 0, 900, () => { try { old.pause(); } catch (e) { } });
-      const list = TRACKS[m] || [];
-      let track = list[0];
-      if (m === 'combat' && list.length > 1) { track = list[combatIdx % list.length]; combatIdx++; if (broken.has(track.src)) track = list.find(t => !broken.has(t.src)); }
+      stopPlayer(old);
       Sfx.synthStop();
       cur = start(track);
-      // toujours une musique : si le fichier n'a pas démarré après 1,5 s (absent, lent à charger…), mélodie générée
-      const a = cur;
-      if (!a) fallback();
-      else setTimeout(() => { if (cur === a && !a.ok) fallback(); }, 1500);
+      // toujours une musique : si le fichier n'a pas démarré après 3 s, mélodie générée (fondu doux)
+      const p = cur;
+      if (!p) fallback();
+      else setTimeout(() => { if (cur === p && !p.ok) fallback(); }, 3000);
     },
-    refresh() { if (cur) cur.volume = target(); if (Sfx.muted) Sfx.synthStop(); else if (cur && !cur.ok) fallback(); },
+    refresh() { if (!Sfx.muted) Sfx.musicBus(); if (cur) setGain(cur, level(), 0.3); if (Sfx.muted) Sfx.synthStop(); else if (cur && !cur.ok) fallback(); },
   };
 })();

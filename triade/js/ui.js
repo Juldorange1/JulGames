@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — interface (écrans DOM)
+   TRIADE — interface (écrans DOM)
    Principe : gros chiffres, symboles, peu de texte. Le détail est dans le Codex.
    ========================================================= */
 const ICONS = {
@@ -83,7 +83,8 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const REWARD_ICON = { skill: 'plus', upgrade: 'up', rule: 'rule', pact: 'pact', rest: 'rest', prolong: 'hourglass', mutation: 'mutate', transfert: 'transfer' };
 const REWARD_KIND = { skill: 'Compétence', upgrade: 'Amélioration', rule: 'Règle', pact: 'Pacte', rest: 'Repos', prolong: 'Sablier', mutation: 'Mutation', transfert: 'Transfert' };
 const ZONE_ICON = { piques: 'spikes', courant: 'current', autel: 'altar', glace: 'ice', rune: 'rune', portail: 'portal', buisson: 'bush', boue: 'mud' };
-const chip = (ic, txt, cls, title) => `<span class="ch ${cls || ''}"${title ? ` title="${esc(title)}"` : ''}>${ic ? icon(ic, 16) : ''}${txt != null && txt !== '' ? `<b>${txt}</b>` : ''}</span>`;
+const CHIP_TIP = { heart: 'PV (ennemi) ou % de dégâts (héros)', blade: 'Dégâts', foot: 'Déplacement (cases)', target: 'Portée / type de ciblage', hourglass: 'Durée (salles) ou recharge (tours)', star: 'Bonus / défi', gold: 'Or', crown: 'Boss', skullx: 'Difficulté / danger', shield: 'Bouclier ou protection', up: 'Amélioration / maximum', rule: 'Règle', pact: 'Pacte', pit: 'Fosse', lava: 'Lave', barrel: 'Baril explosif', door: 'Salle', wave: 'Vagues d’ennemis', run: 'Fuite / chasse', gem: 'Cristaux du rituel', bolt: 'Bonus de salle', snow: 'Ralentissement', drop: 'Poison', taunt: 'Attention', check: 'Réussi', cross: 'Raté', plus: 'Ajout', swap: 'Échange / miroir', arrow: 'Tir / prévision', spark: 'Éclats', push: 'Repousse', hook: 'Attire', spin: 'Écho', skull: 'Exécution', fire: 'Feu', link: 'Lien' };
+const chip = (ic, txt, cls, title) => { title = title || CHIP_TIP[ic] || ''; return `<span class="ch ${cls || ''}"${title ? ` title="${esc(title)}"` : ''}>${ic ? icon(ic, 16) : ''}${txt != null && txt !== '' ? `<b>${txt}</b>` : ''}</span>`; };
 
 const UI = {
   reduceMotion: false,
@@ -152,9 +153,9 @@ const UI = {
     box.querySelectorAll('.pick-card').forEach(b => b.onclick = () => {
       Sfx.click();
       const k = b.dataset.k, i = UI.pickSel.indexOf(k);
-      if (i >= 0) UI.pickSel.splice(i, 1); else { UI.pickSel.push(k); if (UI.pickSel.length > 2) UI.pickSel.shift(); }
+      if (i >= 0) UI.pickSel.splice(i, 1); else { UI.pickSel.push(k); if (UI.pickSel.length > NB_HEROES) UI.pickSel.shift(); }
       box.querySelectorAll('.pick-card').forEach(x => { const j = UI.pickSel.indexOf(x.dataset.k); x.classList.toggle('sel', j >= 0); x.dataset.n = j >= 0 ? j + 1 : ''; });
-      $('#btn-start').disabled = UI.pickSel.length !== 2;
+      $('#btn-start').disabled = UI.pickSel.length !== NB_HEROES;
     });
     const lv = $('#pick-level');
     const draw = () => { lv.innerHTML = UI.levelHtml(UI.pickLevel); UI.bindLevel(lv, () => UI.pickLevel, v => { UI.pickLevel = v; draw(); }); };
@@ -172,9 +173,7 @@ const UI = {
     $('#ch-era').textContent = era.name;
     $('#ch-era').title = era.desc;
     $('#ch-gold').innerHTML = `${icon('gold', 22)} ${S.money}`;
-    const lv = $('#ch-level');
-    lv.innerHTML = UI.levelHtml(lvl(), !canChangeLevel());
-    if (canChangeLevel()) UI.bindLevel(lv, () => lvl(), v => { S.level = v; try { localStorage.setItem('binome_level', String(v)); } catch (e) { } save(); UI.showChoice(); });
+    $('#ch-level').innerHTML = `${icon('cog', 20)} Paramètres <span class="ch red">${icon('skullx', 15)}<b>${lvl()}</b></span>`;
     $('#ch-notes').innerHTML = '';
     (notes || []).forEach((n, i) => setTimeout(() => UI.toast(n.t, n.c === 'bad' ? 'bad' : n.c === 'gold' ? 'gold' : n.c === 'dim' ? 'dim' : 'good', 3600), i * 300));
     $('#ch-heroes').innerHTML = S.heroes.map((h, hi) => heroSummary(h, hi)).join('');
@@ -240,7 +239,7 @@ const UI = {
       setTimeout(() => { computePreview().then(() => { UI.pvPending = false; UI.refreshCombat(); }, () => { UI.pvPending = false; }); }, 0);
     }
     UI.setHtml($('#cb-depth'), `${S.depth + 1}<small>tour ${C.turn}</small>`);
-    for (let hi = 0; hi < 2; hi++) UI.setHtml($(`#hp-${hi}`), heroPanel(hi));
+    for (let hi = 0; hi < NB_HEROES; hi++) UI.setHtml($(`#hp-${hi}`), S.heroes[hi] ? heroPanel(hi) : '');
     const myTurn = C.phase === 'hero' && !C.busy && !C.ended;
     const btn = $('#btn-end');
     btn.disabled = !myTurn;
@@ -261,6 +260,7 @@ const UI = {
   },
   updateInfo() {
     if (!C) return;
+    if (UI.tipEl) return;   // une info-bulle d'interface est affichée
     if ($('#modal').classList.contains('on')) { UI.placeTip('', null); return; }
     UI.setHtml($('#cb-info'), C.phase === 'enemy' ? `<div class="inf-h">${icon('skullx', 20)} Tour ennemi…</div>`
       : `<div class="inf-keys"><span><kbd>1</kbd>-<kbd>4</kbd> attaque</span><span><kbd>Tab</kbd> héros</span><span><kbd>Z</kbd> annuler</span><span><kbd>Espace</kbd> fin</span><span>${icon('arrow', 15)} = tour ennemi prévu</span><span>survol = détails</span></div>`);
@@ -274,6 +274,14 @@ const UI = {
       if (html) { const [cx, cy] = Render.tileCenterPx(C.hover[0], C.hover[1]); const h = Render.ts / 2; pos = { x1: cx - h, x2: cx + h, y: cy }; }
     }
     UI.placeTip(html, pos);
+  },
+  /* n'importe quel élément avec une description : on remplace l'info-bulle du navigateur par la nôtre */
+  genericTip(el) {
+    if (el.hasAttribute('title')) { el.dataset.tip = el.getAttribute('title'); el.removeAttribute('title'); }
+    if (!el.dataset.tip) return;
+    UI.tipEl = el;
+    const r = el.getBoundingClientRect();
+    UI.placeTip(`<div class="tip-t">${esc(el.dataset.tip)}</div>`, { x1: r.left, x2: r.right, y: r.top + r.height / 2 });
   },
   placeTip(html, pos) {
     const tip = $('#tip'); if (!tip) return;
@@ -314,7 +322,7 @@ const UI = {
     if (C.ended) { UI.refreshCombat(); finishCombat(); return; }
     C.mode = null; C.slot = -1;
     const hu = heroUnit(C.sel);
-    if (hu && hu.actions <= 0 && !hu.hasMove) { const o = heroUnit(1 - C.sel); if (o && (o.actions > 0 || o.hasMove)) C.sel = o.hero; }
+    if (hu && hu.actions <= 0 && !hu.hasMove) { const o = heroUnits().find(u => u.hero !== C.sel && (u.actions > 0 || u.hasMove)); if (o) C.sel = o.hero; }
     UI.refreshCombat();
     UI.checkAutoEnd();
   },
@@ -403,16 +411,21 @@ const UI = {
         return;
       }
       case 'transfert': {
-        const el = allSkills((s, hi, si) => si > 0 && !S.heroes[1 - hi].slots.some(x => x && x.key === s.key));
+        const el = allSkills((s, hi, si) => si > 0 && S.heroes.some((h2, j) => j !== hi && !h2.slots.some(x => x && x.key === s.key)));
         if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % aux deux héros`); }
         UI.choose(`${icon('transfer', 22)} Transfert`, 'Donner quelle compétence à l’autre héros ?', el.map(o => skillOpt(o)), o => {
-          const inst = S.heroes[o.hi].slots[o.si], to = 1 - o.hi;
+          const inst = S.heroes[o.hi].slots[o.si];
+          const targets = S.heroes.map((h2, j) => j).filter(j => j !== o.hi && !S.heroes[j].slots.some(x => x && x.key === inst.key));
+          const go = to => {
           const h2 = S.heroes[to];
           const doMove = (slot) => { S.heroes[o.hi].slots[o.si] = null; if (v > 1 && !inst.perm) inst.dur += 3; h2.slots[slot] = inst; fin(`${SKILLS[inst.key].name} → ${HEROES[h2.key].name}`); };
           const empty = h2.slots.findIndex((s, i) => i > 0 && !s);
           if (empty > 0) return doMove(empty);
           UI.choose('Plus de place', 'Remplacer quelle compétence ?', h2.slots.map((s, si) => ({ s, si, hi: to })).filter(x => x.si > 0).map(x => skillOpt(x, 'Remplacer')),
             x => doMove(x.si), { label: 'Annuler', fn: () => fin('Transfert annulé', 'dim') });
+          };
+          if (targets.length === 1) return go(targets[0]);
+          UI.choose('À qui ?', '', targets.map(j => ({ j, html: `<span class="opt-ico" style="color:${HEROES[S.heroes[j].key].color}">${icon('star', 24)}</span><b>${HEROES[S.heroes[j].key].name}</b>` })), t => go(t.j), { label: 'Annuler', fn: () => fin('Transfert annulé', 'dim') });
         }, { label: 'Refuser', fn: () => fin('Transfert refusé', 'dim') });
         return;
       }
@@ -455,6 +468,34 @@ const UI = {
 
   /* ---------- Codex ---------- */
   showCodex(tab) { Codex.open(tab); },
+
+  /* ---------- paramètres (difficulté, son, vitesse) ---------- */
+  showSettings() {
+    const can = canChangeLevel();
+    const body = `<h3>${icon('skullx', 20)} Difficulté</h3>
+      <div id="set-level">${UI.levelHtml(lvl(), !can)}</div>
+      <p class="hint">${can ? 'Tu peux changer la difficulté maintenant (toutes les 10 salles).' : `Changement possible dans ${10 - (S.depth % 10)} salle(s) : la difficulté ne se change que toutes les 10 salles.`}
+        Niveau maximum débloqué : <b>${unlockedLevel()}</b> (bats un boss au niveau ${unlockedLevel()} pour débloquer le suivant).</p>
+      <h3>${icon('sound', 20)} Son</h3>
+      <div class="menu-opts">
+        <label class="slider" title="Volume de la musique">${icon('music', 20)}<span>Musique</span><input type="range" min="0" max="1" step="0.05" value="${Music.volume}" id="s-mvol"></label>
+        <label class="slider" title="Volume des effets sonores">${icon('sound', 20)}<span>Effets</span><input type="range" min="0" max="1" step="0.05" value="${Sfx.volume}" id="s-svol"></label>
+        <button class="btn ghost" id="s-mute" title="Couper ou remettre tout le son (M)">${icon(Sfx.muted ? 'mute' : 'sound', 20)} ${Sfx.muted ? 'Son coupé' : 'Son activé'}</button>
+      </div>
+      <h3>${icon('dash', 20)} Jeu</h3>
+      <div class="menu-opts">
+        <button class="btn ghost" id="s-speed" title="Vitesse des animations (V)">${icon('dash', 20)} Animations : ${ANIM >= 1 ? 'normales' : ANIM >= 0.5 ? 'rapides' : 'éclair'}</button>
+        <button class="btn ghost" id="s-auto" title="Finir le tour tout seul quand plus aucun héros ne peut agir">${icon('hourglass', 20)} Fin de tour automatique : ${UI.autoEnd ? 'oui' : 'non'}</button>
+      </div>`;
+    const m = UI.modal(`${icon('cog', 24)} Paramètres`, body, [{ label: 'Fermer', cls: 'ghost', fn: () => UI.showChoice() }], { wide: true });
+    if (can) UI.bindLevel(m.querySelector('#set-level'), () => lvl(), v => { S.level = v; try { localStorage.setItem('binome_level', String(v)); } catch (e) { } save(); UI.showSettings(); });
+    $('#s-mvol').oninput = e => Music.setVolume(+e.target.value);
+    $('#s-svol').oninput = e => Sfx.setVolume(+e.target.value);
+    $('#s-svol').onchange = () => Sfx.select();
+    $('#s-mute').onclick = () => { Sfx.setMuted(!Sfx.muted); UI.showSettings(); };
+    $('#s-speed').onclick = () => { UI.cycleSpeed(); UI.showSettings(); };
+    $('#s-auto').onclick = () => { UI.autoEnd = !UI.autoEnd; try { localStorage.setItem('binome_auto', UI.autoEnd ? '1' : '0'); } catch (e) { } UI.showSettings(); };
+  },
 
   /* ---------- menu & aide ---------- */
   showMenu() {
@@ -553,7 +594,7 @@ function dmgHtml(raw, cap) {
 function durTag(x) { return x.perm ? '<span class="dur perm" title="Définitif">∞</span>' : `<span class="dur" title="Salles restantes">${x.dur}</span>`; }
 function heroSummary(h, hi) {
   const H = HEROES[h.key], g = G();
-  const kills = (S.stats.heroKills || [0, 0])[hi] || 0;
+  const kills = (S.stats.heroKills || [])[hi] || 0;
   const stats = [
     chip('heart', `${Math.round(h.pct)}/${maxPct()} %`, '', '% actuel / maximum'),
     chip('foot', HEROES[h.key].move, 'blue', 'Déplacement'),
@@ -577,7 +618,7 @@ function heroSummary(h, hi) {
 function pctBar(h) {
   const mx = maxPct(), p = Math.round(h.pct);
   const cls = p <= FLOOR_PCT ? 'low' : p < 60 ? 'mid' : '';
-  return `<div class="pct ${cls}"><div class="pct-num">${p}%</div><div class="bar"><i style="width:${p / mx * 100}%"></i><em style="left:${FLOOR_PCT / mx * 100}%"></em></div></div>`;
+  return `<div class="pct ${cls}" title="% de dégâts : ${p} % (maximum ${mx} %). Baisse quand tu es touché, jamais sous ${FLOOR_PCT} %. Tes attaques font ce % de leurs dégâts."><div class="pct-num">${p}%</div><div class="bar"><i style="width:${p / mx * 100}%"></i><em style="left:${FLOOR_PCT / mx * 100}%"></em></div></div>`;
 }
 function rewardShortTitle(rw) {
   switch (rw.type) {
@@ -622,8 +663,8 @@ function doorHtml(c, i) {
   const goalHtml = c.goal ? chip('star', GOALS[c.goal].name, 'goalc', goalText(c.goal, c.goalN) + ` Réussi : +${GOAL_HEAL} %`) : '';
   if (c.boss) {
     const B = BOSSES[c.boss];
-    const marge = Math.max(0, Math.round(Math.min(S.heroes[0].pct, S.heroes[1].pct) - FLOOR_PCT));
-    return `<button class="door boss d${c.diff}" data-i="${i}" style="--c:${B.color}"><span class="door-num">${i + 1}</span>
+    const marge = Math.max(0, Math.round(lowestPct() - FLOOR_PCT));
+    return `<button class="door boss d${c.diff}" data-i="${i}" style="--c:${B.color}" title="${esc(`Boss : ${B.name}. ${B.desc} Seule source d’or. Si un héros tombe à 40 %, il s’enfuit.`)}"><span class="door-num">${i + 1}</span>
       <div class="door-top"><span class="stars">${'★'.repeat(c.diff)}</span>${chip('crown', 'BOSS', 'gold')}</div>
       <div class="door-arch">${icon('crown', 46)}</div>
       <h3>${B.name}</h3>
@@ -632,7 +673,7 @@ function doorHtml(c, i) {
     </button>`;
   }
   const rw = c.reward, K = ROOM_KINDS[c.kind || 'normal'];
-  return `<button class="door d${c.diff}" data-i="${i}"><span class="door-num">${i + 1}</span>
+  return `<button class="door d${c.diff}" data-i="${i}" title="${esc(`${K.name} : ${K.tip} Récompense — ${rewardTitle(rw)} : ${rewardDesc(rw)}${c.diff > 1 ? ' (★★ : plus dur, gains ×2)' : ''}`)}"><span class="door-num">${i + 1}</span>
     <div class="door-top"><span class="stars">${'★'.repeat(c.diff)}</span>${c.diff > 1 ? '<span class="mult">×2</span>' : ''}${chip(K.icon, K.name, c.kind && c.kind !== 'normal' ? 'kind' : '', K.tip)}</div>
     <div class="door-arch rw-${rw.type}">${icon(REWARD_ICON[rw.type], 46)}</div>
     <div class="door-kind">${REWARD_KIND[rw.type]}</div>
@@ -676,7 +717,7 @@ function heroPanel(hi) {
     fut = after < now ? `<div class="fut bad" title="Ton % après le tour ennemi si tu finis ton tour maintenant">${icon('arrow', 16)} <b>${after} %</b> <small>(−${now - after})</small></div>` : `<div class="fut ok" title="Aucun dégât prévu">${icon('check', 16)} <b>intact</b></div>`;
   }
   return `<div class="hp-in ${sel ? 'sel' : ''} ${done ? 'done' : ''}" data-h="${hi}" style="--c:${H.color}">
-    <div class="hp-head"><div class="tok">${H.name[0]}</div><b class="nm">${H.name}</b><div class="sts">${st}</div></div>
+    <div class="hp-head"><div class="tok" title="${esc(H.name + ' — ' + H.desc)}">${H.name[0]}</div><b class="nm" title="Clique pour choisir ce héros (Tab)">${H.name}</b><div class="sts">${st}</div></div>
     ${pctBar(h)}${fut}
     <div class="skills">${sk}</div></div>`;
 }

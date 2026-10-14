@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — moteur : état de la partie, salles, combat, IA
+   TRIADE — moteur : état de la partie, salles, combat, IA
    ========================================================= */
 
 const SAVE_KEY = 'binome_save_v1';
@@ -31,7 +31,7 @@ const eraData = d => ERAS[eraOf(d) % ERAS.length];
 /* ---------- sauvegarde ---------- */
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 function load() {
-  try { const t = localStorage.getItem(SAVE_KEY); if (!t) return null; const s = JSON.parse(t); if (!s || s.v !== 1) return null; s.seen = s.seen || {}; s.level = s.level || 1; s.rules = s.rules.filter(r => RULES[r.key]); s.pacts = s.pacts.filter(p => PACTS[p.key]); for (const h of s.heroes) for (const sl of h.slots) if (sl) sl.mods = sl.mods.filter(m => UPGRADES[m.key]); for (const k in s.talents) if (!TALENTS[k]) delete s.talents[k]; for (const k in TALENTS) s.talents[k] = s.talents[k] || 0; s.stats.perfect = s.stats.perfect || 0; s.stats.goals = s.stats.goals || 0; return s; } catch (e) { return null; }
+  try { const t = localStorage.getItem(SAVE_KEY); if (!t) return null; const s = JSON.parse(t); if (!s || s.v !== 1) return null; s.seen = s.seen || {}; s.level = s.level || 1; while (s.heroes.length < NB_HEROES) { const k = Object.keys(HEROES).find(x => !s.heroes.some(h => h.key === x)); s.heroes.push(mkHero(k)); } s.stats.heroKills = (s.stats.heroKills || []).concat([0, 0, 0]).slice(0, NB_HEROES); s.rules = s.rules.filter(r => RULES[r.key]); s.pacts = s.pacts.filter(p => PACTS[p.key]); for (const h of s.heroes) for (const sl of h.slots) if (sl) sl.mods = sl.mods.filter(m => UPGRADES[m.key]); for (const k in s.talents) if (!TALENTS[k]) delete s.talents[k]; for (const k in TALENTS) s.talents[k] = s.talents[k] || 0; s.stats.perfect = s.stats.perfect || 0; s.stats.goals = s.stats.goals || 0; return s; } catch (e) { return null; }
 }
 function wipeSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
 
@@ -39,10 +39,10 @@ function wipeSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
 function mkHero(k) {
   return { key: k, pct: 100, slots: [{ key: HEROES[k].basic, perm: true, dur: 0, mods: [] }, null, null, null] };
 }
-function newGame(h1, h2, level) {
+function newGame(keys, level) {
   S = {
     v: 1, level: Math.max(1, Math.round(level || 1)), depth: 0, money: 0, bossesKilled: 0, bossesFailed: 0, bossesSeen: 0, sinceBoss: 0,
-    heroes: [mkHero(h1), mkHero(h2)], rules: [], pacts: [],
+    heroes: keys.map(mkHero), rules: [], pacts: [],
     talents: { vigueur: 0, soif: 0, robustesse: 0, egide: 0, choix: 0, prosperite: 0, repos: 0 },
     engraved: { skill: 0, upgrade: 0, rule: 0 },
     choices: null, pending: null, rerolls: 0,
@@ -56,6 +56,7 @@ function newGame(h1, h2, level) {
 function addLog(t) { S.log.unshift({ t, d: S.depth }); if (S.log.length > 40) S.log.length = 40; }
 
 /* ---------- agrégat des effets globaux ---------- */
+function lowestPct() { return Math.min(...S.heroes.map(h => h.pct)); }
 function hasRule(k) { return S.rules.some(r => r.key === k); }
 function pactOf(k) { return S.pacts.find(p => p.key === k); }
 function maxPct() { return 100 + 10 * S.talents.vigueur; }
@@ -119,7 +120,7 @@ function skillStats(hi, slot) {
   for (const m of inst.mods) if (UPGRADES[m.key]) UPGRADES[m.key].apply(s, m.v || 1);
   const g = G();
   s.dmg *= g.dmg;
-  s.cap = d.dmg ? Math.round((d.cap || d.dmg * CAP_MULT) * s.capMult) : 0;
+  s.cap = d.dmg ? Math.round((d.cap || d.dmg * CAP_MULT) * s.capMult * (C && onRune(heroUnit(hi)) ? RUNE_CAP : 1)) : 0;
   if (s.range > 1 || (s.type !== 'line' && s.range > 0)) s.range = Math.max(1, s.range + g.range);
   else if (s.range === 1 && g.range > 0) s.range += g.range;
   s.cd = Math.max(0, s.cd + g.cd);
@@ -127,7 +128,8 @@ function skillStats(hi, slot) {
   if (g.ricochet && s.type === 'line' && s.dmg > 0) s.chain += 1;
   return s;
 }
-function runeMult(u) { return u && C && inB(u.x, u.y) && tile(u.x, u.y).z === 'rune' ? 1.75 : 1; }
+function onRune(u) { return !!(u && C && inB(u.x, u.y) && tile(u.x, u.y).z === 'rune'); }
+function runeMult(u) { return 1; }
 function ritualOn() { return !!C && C.kind === 'rituel' && C.units.some(u => !u.dead && u.kind === 'cristal'); }
 function enemyPower(e) { return (e.enr || 1) * runeMult(e) * (ritualOn() ? 1.3 : 1); }
 /* dégâts sans plafond (pour afficher « 40/16 ») */
@@ -158,12 +160,12 @@ function genReward(r, diff) {
   const list = [['skill', 26], ['upgrade', 28], ['rule', 14], ['pact', 10], ['rest', 9]];
   if (tempEffectsCount() >= 3) list.push(['prolong', 5]);
   if (nonBasicSkills().length >= 1) { list.push(['mutation', 5]); list.push(['transfert', 3]); }
-  const low = Math.min(S.heroes[0].pct, S.heroes[1].pct);
+  const low = lowestPct();
   if (low < 70) list.push(['rest', 10]);
   const type = wpick(r, list);
   const rw = { type, v: diff };
   if (type === 'skill') {
-    const hi = r() < 0.5 ? 0 : 1;
+    const hi = Math.floor(r() * S.heroes.length);
     const owned = new Set(S.heroes[hi].slots.filter(Boolean).map(s => s.key));
     const pool = SKILL_POOL.filter(k => !owned.has(k));
     rw.hero = hi; rw.key = pick(r, pool);
@@ -230,7 +232,7 @@ function genChoices() {
     out.push(card);
   }
   // si un héros est mal en point, au moins une porte propose du repos
-  const low = Math.min(S.heroes[0].pct, S.heroes[1].pct);
+  const low = lowestPct();
   const plain = out.filter(c => !c.boss);
   if (low < 65 && plain.length && !plain.some(c => c.reward.type === 'rest')) {
     const c = plain[Math.floor(Math.random() * plain.length)]; c.reward = { type: 'rest', v: c.diff };
@@ -248,8 +250,8 @@ function genRoom(card) {
   const r = mulberry32(card.seed);
   const d = card.depth, era = eraOf(d) % ERAS.length;
   // taille et forme aléatoires
-  let W = 7 + Math.floor(r() * 5), H = 5 + Math.floor(r() * 4);
-  if (card.boss) { W = Math.max(W, 8); H = Math.max(H, 6); }
+  let W = 8 + Math.floor(r() * 5), H = 6 + Math.floor(r() * 4);
+  if (card.boss) { W = Math.max(W, 9); H = Math.max(H, 7); }
   GRID_W = W; GRID_H = H;
   let shape = pick(r, ['rect', 'coins', 'trous', 'caverne', 'croix', 'ravin', 'coins', 'trous']);
   let grid, objs, ok = false, tries = 0;
@@ -300,7 +302,7 @@ function genRoom(card) {
     // connexité, place pour les héros (à gauche) et les ennemis (à droite)
     let total = 0, sx = -1, sy = -1, left = 0, right = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (pass(x, y)) { total++; if (sx < 0) { sx = x; sy = y; } if (x <= 1) left++; if (x >= W - 3) right++; }
-    if (sx < 0 || total < area * 0.5 || left < 3 || right < 5) continue;
+    if (sx < 0 || total < area * 0.5 || left < 5 || right < 5) continue;
     const seen = new Set([key(sx, sy)]); const q = [[sx, sy]];
     while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of DIR4) { const nx = x + dx, ny = y + dy; if (inB(nx, ny) && pass(nx, ny) && !seen.has(key(nx, ny))) { seen.add(key(nx, ny)); q.push([nx, ny]); } } }
     ok = seen.size === total;
@@ -309,9 +311,11 @@ function genRoom(card) {
   const cand = []; for (let x = 0; x < 2; x++) for (let y = 0; y < H; y++) if (grid[y][x].t === 'floor' && !objs.some(o => o.x === x && o.y === y)) cand.push([x, y]);
   shuffle(r, cand);
   cand.sort((a, b) => Math.abs(a[1] - (H - 1) / 2) - Math.abs(b[1] - (H - 1) / 2));
-  const h1 = cand[0] || [0, 0];
-  const h2 = cand.find(c => Math.abs(c[1] - h1[1]) >= 2) || cand.find(c => c !== h1) || [1, 0];
-  const heroSpawns = [h1, h2];
+  const heroSpawns = [];
+  for (let i = 0; i < NB_HEROES; i++) {
+    const c = cand.find(c => !heroSpawns.includes(c) && heroSpawns.every(o => man(o[0], o[1], c[0], c[1]) >= 2)) || cand.find(c => !heroSpawns.includes(c));
+    if (c) heroSpawns.push(c);
+  }
   for (const [x, y] of heroSpawns) grid[y][x].t = 'floor';
   // zones de carte
   const freeFloor = (x, y) => inB(x, y) && grid[y][x].t === 'floor' && !grid[y][x].z && !heroSpawns.some(([a, b]) => a === x && b === y) && !objs.some(o => o.x === x && o.y === y);
@@ -470,7 +474,7 @@ function startCombat(card) {
   C = {
     card, grid: room.grid, units: [], turn: 1, phase: 'hero', telegraphs: [], bombs: [],
     sel: 0, mode: null, slot: -1, busy: false, boss: !!card.boss, failed: false, ended: false,
-    fx: [], texts: [], shake: 0, hover: null, danger: false, kills: [0, 0], reinf: false, banner: null,
+    fx: [], texts: [], shake: 0, hover: null, danger: false, kills: [0, 0, 0], reinf: false, banner: null,
     goal: card.goal || null, goalN: card.goalN || 0, gs: { hurt: false, falls: 0, crash: 0, combo: false, basic: false },
     showPreview: UI.showPreview !== false, preview: null, ver: 0, turnSeed: 1,
     kind: card.boss ? 'normal' : (card.kind || 'normal'), waves: room.waves ? room.waves.slice() : [], waveNo: 1, waveTotal: room.waves ? room.waves.length + 1 : 1,
@@ -500,7 +504,7 @@ function startCombat(card) {
     if (g.startPenalty) h.pct = Math.max(FLOOR_PCT, h.pct - g.startPenalty);
   }
   if (S.talents.egide) heroUnits().forEach(u => u.shield = S.talents.egide);
-  if (card.trait === 'reflets') { spawnOmbre(0); spawnOmbre(1); }
+  if (card.trait === 'reflets') S.heroes.forEach((h, i) => spawnOmbre(i));
   if (card.boss === 'reflet') spawnOmbre(0);
   if (g.initiative || card.trait === 'surprise') enemies().forEach(e => e.stun = 1);
   heroPhaseStart(true);
@@ -763,7 +767,7 @@ async function applyOrb(kind, u) {
   fx({ type: 'ring', x: u.x, y: u.y, color: O.color, dur: 600, r: 2.5 });
   if (kind === 'fureur') C.boost = Object.assign({}, C.boost, { dmg: 1.4, label: O.name });
   else if (kind === 'portee') C.boost = Object.assign({}, C.boost, { range: 1, label: O.name });
-  else if (kind === 'soin') { healHero(0, 12); healHero(1, 12); }
+  else if (kind === 'soin') S.heroes.forEach((h, i) => healHero(i, 12));
   else if (kind === 'egide') for (const h of heroUnits()) h.shield = Math.min(h.shield + 1, 3);
   C.ver++;
 }
@@ -835,9 +839,9 @@ async function kill(u, credit, cause) {
     if (C.inAction) C.actionKills = (C.actionKills || 0) + 1;
     const g = G();
     if (credit != null && credit >= 0 && !u.noHeal) {
-      C.kills[credit]++; if (!SIM) { S.stats.heroKills = S.stats.heroKills || [0, 0]; S.stats.heroKills[credit]++; }
+      C.kills[credit]++; if (!SIM) { S.stats.heroKills = S.stats.heroKills || [0, 0, 0]; S.stats.heroKills[credit] = (S.stats.heroKills[credit] || 0) + 1; }
       healHero(credit, g.heal * g.healMult);
-      if (g.lien) healHero(1 - credit, 3);
+      if (g.lien) for (let i = 0; i < S.heroes.length; i++) if (i !== credit) healHero(i, 3);
       const hu = heroUnit(credit);
       if (g.adrenaline && hu && C.phase === 'hero' && !hu.adrUsed) { hu.adrUsed = true; hu.actions++; ftext(hu.x, hu.y, 'Adrénaline !', '#ffd166'); }
     }
@@ -1268,7 +1272,7 @@ function heroPhaseStart(first) {
   }
   C.turnSeed = (Math.random() * 2 ** 31) | 0;
   C.ver++;
-  if (!SIM) { C.sel = heroUnit(0) ? 0 : 1; C.mode = null; C.slot = -1; }
+  if (!SIM) { const f = heroUnits()[0]; C.sel = f ? f.hero : 0; C.mode = null; C.slot = -1; }
 }
 async function heroPhaseHazards() {
   // début du tour des héros : lave, feu, autel, drain (Colère)
@@ -1283,7 +1287,7 @@ async function heroPhaseHazards() {
       ftext(u.x, u.y, `Cercle ${t.prog}/2`, '#ffd166');
       if (t.prog >= 2) {
         const gld = Math.max(1, Math.round((2 + S.depth * 0.1) * levelFx().gold * (1 + 0.25 * S.talents.prosperite)));
-        S.money += gld; S.stats.moneyTotal += gld; C.loot += gld; healHero(0, 8); healHero(1, 8);
+        S.money += gld; S.stats.moneyTotal += gld; C.loot += gld; S.heroes.forEach((h, i) => healHero(i, 8));
         ftext(u.x, u.y, `+${gld} or`, '#ffd166', true); Sfx.gold(); t.z = null;
         fx({ type: 'ring', x: u.x, y: u.y, color: '#ffd166', dur: 600, r: 2 });
       }
@@ -1714,8 +1718,8 @@ async function enemyAct(e) {
     case 'mirror': {
       if (e.bt % 3 === 1) {
         const cnt = hi => enemies().filter(o => o.kind === 'ombre' && o.mirror === hi).length;
-        const hi = cnt(0) <= cnt(1) ? 0 : 1;
-        if (spawnOmbre(hi) || spawnOmbre(1 - hi)) { await wait(300); return; }
+        const order = heroUnits().map(h => h.hero).sort((a, b) => cnt(a) - cnt(b) || a - b);
+        if (order.some(hi => spawnOmbre(hi))) { await wait(300); return; }
       }
       return aiRanged(e, e.dmg, e.range, '#a0a8ff');
     }
@@ -1876,7 +1880,7 @@ async function bossAct(e) {
         const om = enemies().filter(o => o.kind === 'ombre').sort((a, b) => a.uid - b.uid)[0];
         if (om) { const ax = e.x, ay = e.y; e.x = om.x; e.y = om.y; om.x = ax; om.y = ay; e.rx = e.x; e.ry = e.y; om.rx = om.x; om.ry = om.y; Sfx.swap(); fx({ type: 'ring', x: e.x, y: e.y, color: '#9aa3ff', dur: 400 }); await wait(200); }
       }
-      if (e.bt % (ph >= 1 ? 2 : 3) === 0) { const hi = Math.floor(e.bt / 2) % 2; if (spawnOmbre(hi, ph >= 2 ? 3 : MAX_OMBRES) || spawnOmbre(1 - hi, ph >= 2 ? 3 : MAX_OMBRES)) { ftext(e.x, e.y, 'Reflet !', '#b9c0ff', true); await wait(300); } }
+      if (e.bt % (ph >= 1 ? 2 : 3) === 0) { const hs2 = heroUnits().map(h => h.hero), st = Math.floor(e.bt / 2) % Math.max(1, hs2.length); if ([...hs2.slice(st), ...hs2.slice(0, st)].some(hi => spawnOmbre(hi, ph >= 2 ? 3 : MAX_OMBRES))) { ftext(e.x, e.y, 'Reflet !', '#b9c0ff', true); await wait(300); } }
       return aiRanged(e, e.dmg, e.range, '#9aa3ff');
     }
   }

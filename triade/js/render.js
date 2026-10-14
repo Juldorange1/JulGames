@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — rendu du plateau (canvas 2D)
+   TRIADE — rendu du plateau (canvas 2D)
    Tout ce qui concerne une case reste DANS la case (PV, %, badges) :
    rien ne déborde du plateau.
    ========================================================= */

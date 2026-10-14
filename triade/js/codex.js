@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — Codex animé : une petite scène jouée en boucle pour
+   TRIADE — Codex animé : une petite scène jouée en boucle pour
    chaque ennemi, boss, compétence, héros, terrain et objet.
    Les scènes utilisent le vrai rendu du jeu (Render.drawDemo).
    ========================================================= */
@@ -18,7 +18,7 @@ const Codex = (() => {
       card: { seed: 1 }, kind: 'normal', incoming: [], preview: null, ver: 0, gs: {}, boost: null, flash: 0, pbanner: null, banner: null, sel: -1, turn: 1 };
   }
   function demoS() {
-    return { depth: S ? S.depth : 0, level: 1, heroes: [{ key: 'brann', pct: 100, slots: [] }, { key: 'lyse', pct: 100, slots: [] }],
+    return { depth: S ? S.depth : 0, level: 1, heroes: [{ key: 'brann', pct: 100, slots: [] }, { key: 'lyse', pct: 100, slots: [] }, { key: 'kael', pct: 100, slots: [] }],
       talents: { vigueur: 0, soif: 0, robustesse: 0, egide: 0, choix: 0, prosperite: 0, repos: 0 }, rules: [], pacts: [], seen: {} };
   }
   const hero = (x, y, i) => mk({ team: 'hero', kind: 'hero', hero: i || 0, x, y });

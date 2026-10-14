@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — démarrage et entrées (souris, tactile, clavier)
+   TRIADE — démarrage et entrées (souris, tactile, clavier)
    ========================================================= */
 (function () {
   try { const a = parseFloat(localStorage.getItem('binome_anim')); if (a > 0) ANIM = a; } catch (e) { }
@@ -33,15 +33,25 @@
   $('#btn-help').onclick = () => UI.showHelp();
   $('#btn-pick-back').onclick = () => UI.showTitle();
   $('#btn-start').onclick = () => {
-    if (UI.pickSel.length !== 2) return;
+    if (UI.pickSel.length !== NB_HEROES) return;
     Sfx.door();
-    newGame(UI.pickSel[0], UI.pickSel[1], UI.pickLevel);
+    newGame(UI.pickSel.slice(), UI.pickLevel);
     try { localStorage.setItem('binome_level', String(UI.pickLevel)); } catch (e) { }
     UI.showChoice([{ t: 'Chaque porte mène à une salle et donne une récompense. Les récompenses durent un certain nombre de salles.', c: 'dim' }]);
     let seen = false; try { seen = localStorage.getItem('binome_aide') === '1'; localStorage.setItem('binome_aide', '1'); } catch (e) { }
     if (!seen) UI.showHelp();
   };
   $('#btn-atelier').onclick = () => { Sfx.click(); UI.showAtelier(); };
+  $('#ch-level').onclick = () => { Sfx.click(); UI.showSettings(); };
+  // descriptions au survol de tout élément de l'interface
+  document.addEventListener('mouseover', ev => {
+    const el = ev.target.closest && ev.target.closest('[title],[data-tip]');
+    if (!el || el === UI.tipEl) return;
+    UI.genericTip(el);
+  });
+  document.addEventListener('mouseout', ev => {
+    if (UI.tipEl && !(ev.relatedTarget && UI.tipEl.contains(ev.relatedTarget))) { UI.tipEl = null; UI.placeTip('', null); if (C) UI.updateInfo(); }
+  });
   $('#btn-ch-help').onclick = () => UI.showHelp();
   $('#btn-ch-codex').onclick = () => UI.showCodex();
   $('#btn-cb-codex').onclick = () => UI.showCodex();
@@ -75,7 +85,7 @@
   };
 
   // panneaux des héros (délégation, le HTML est reconstruit)
-  for (const id of ['#hp-0', '#hp-1']) {
+  for (const id of ['#hp-0', '#hp-1', '#hp-2']) {
     const el = $(id);
     el.addEventListener('click', ev => {
       const b = ev.target.closest('.skb'); const p = ev.target.closest('.hp-in');
@@ -160,7 +170,7 @@
     if (!C || scr !== 'scr-combat') return;
     if (ev.repeat && !k.startsWith('arrow')) return;
     if (k >= '1' && k <= '4') { UI.selectSkill(C.sel, +k - 1); ev.preventDefault(); }
-    else if (k === 'tab' || k === 'q') { ev.preventDefault(); UI.selectHero(1 - C.sel); }
+    else if (k === 'tab' || k === 'q') { ev.preventDefault(); const hs = heroUnits().map(u => u.hero).sort((a, b) => a - b); if (hs.length) UI.selectHero(hs[(hs.indexOf(C.sel) + 1) % hs.length]); }
     else if (k === ' ' || k === 'enter' || k === 'f') { ev.preventDefault(); endTurn(); }
     else if (k === 'escape') { if (C.mode) { C.mode = null; C.slot = -1; UI.refreshCombat(); } else UI.showMenu(); }
     else if (k === 'd') { C.danger = !C.danger; UI.refreshCombat(); }

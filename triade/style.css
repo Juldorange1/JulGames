@@ -331,3 +331,37 @@ input { -webkit-user-select: text; user-select: text; }
 .cx-canvas { width: 100%; height: 250px; display: block; border-radius: 12px; background: #0a0d15; }
 .cx-big { height: 140px; display: grid; place-items: center; color: var(--accent); background: rgba(0,0,0,0.25); border-radius: 12px; }
 @media (max-width: 760px) { .cx2 { grid-template-columns: 1fr; } .cx-items { flex-direction: row; flex-wrap: wrap; max-height: 150px; } .cx-canvas { height: 200px; } }
+
+/* ---------- 3 héros : plateau large, héros en bas ---------- */
+#scr-combat.on { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "top" "boss" "board" "bottom"; }
+.cb-bottom { grid-area: bottom; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 210px; gap: 8px; padding: 8px 10px 10px; background: rgba(0,0,0,0.35); border-top: 1px solid rgba(255,255,255,0.06); }
+#hp-0, #hp-1, #hp-2 { grid-area: auto; }
+.cb-bottom .hero-panel { padding: 0; overflow: visible; min-height: 0; }
+.cb-bottom .hp-in { padding: 8px 10px; height: 100%; }
+.cb-bottom .hp-head { margin-bottom: 4px; }
+.cb-bottom .hp-in .pct { margin-bottom: 4px; } .cb-bottom .hp-in .pct-num { font-size: 22px; min-width: 56px; }
+.cb-bottom .fut { margin: 0 0 6px; font-size: 13px; padding: 2px 8px; }
+.cb-bottom .skills { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.cb-bottom .skb { padding: 8px 2px 5px; } .cb-bottom .skb .nm { font-size: 11px; } .cb-bottom .skb .meta .dmg { font-size: 14px; }
+.cb-bottom .skb.empty { min-height: 58px; }
+.cb-bottom .cb-ctrl { grid-area: auto; display: flex; flex-direction: column; gap: 6px; padding: 0; background: none; border: 0; }
+.cb-bottom .cb-ctrl #btn-end { min-width: 0; width: 100%; flex: 1; font-size: 18px; }
+.cb-bottom .cb-ctrl #btn-undo { width: 100%; }
+.cb-bottom .cb-ctrl .info { display: none; }
+.boss-bar { margin: 6px 10px 0; }
+.logo-tokens span + span + span { animation-delay: -0.6s; }
+.tip-t { font-size: 15px; line-height: 1.4; }
+@media (max-width: 1100px) {
+  .cb-bottom { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cb-bottom .cb-ctrl { grid-column: 1 / -1; flex-direction: row; } .cb-bottom .cb-ctrl #btn-end { flex: 2; } .cb-bottom .cb-ctrl #btn-undo { width: auto; flex: 1; }
+  .cb-bottom .skb .nm { display: none; }
+}
+@media (max-width: 640px) {
+  #scr-combat.on { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-areas: "top" "boss" "board" "bottom"; }
+  .cb-bottom { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px 4px 6px; }
+  .cb-bottom .hp-in { padding: 5px; } .cb-bottom .hp-head .nm { font-size: 13px; } .cb-bottom .hp-head .tok { display: none; }
+  .cb-bottom .hp-in .pct { grid-template-columns: 1fr; } .cb-bottom .hp-in .pct-num { font-size: 16px; min-width: 0; }
+  .cb-bottom .skills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+  .cb-bottom .skb .meta { display: none; } .cb-bottom .skb.empty { min-height: 36px; }
+  .cb-bottom .fut { font-size: 11px; }
+}

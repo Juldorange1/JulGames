@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   BINÔME — données du jeu (héros, compétences, améliorations,
+   TRIADE — données du jeu (héros, compétences, améliorations,
    règles, pactes, ennemis, boss, traits de salle, ères)
    ========================================================= */
 
@@ -280,8 +280,8 @@ const ZONES = {
              desc: 'Un héros qui commence son tour dessus récupère 5 %. Un ennemi dessus récupère 5 PV au tour ennemi.' },
   glace:   { name: 'Glace', minDepth: 5, w: 2.5, color: '#bfeaff', tip: 'Poussé dessus = glisse loin',
              desc: 'Une unité poussée sur la glace continue de glisser jusqu’au premier obstacle (on marche dessus normalement).' },
-  rune:    { name: 'Rune de puissance', minDepth: 7, w: 1.5, color: '#ffd166', tip: '+75 % de dégâts en attaquant d’ici',
-             desc: 'Une unité qui attaque depuis cette case fait +75 % de dégâts (les ennemis aussi !).' },
+  rune:    { name: 'Rune de puissance', minDepth: 5, w: 1.8, color: '#ffd166', tip: 'Maximum des compétences ×2',
+             desc: 'Un héros qui attaque depuis cette case a le MAXIMUM de dégâts de ses compétences doublé (ses dégâts normaux ne changent pas). Utile quand une compétence affiche « 40/16 ».' },
   portail: { name: 'Téléporteurs', minDepth: 2, w: 2, color: '#d68bff', tip: 'Ressort par le portail jumeau',
              desc: 'Entrer dans un téléporteur fait ressortir par son jumeau (même lettre), s’il est libre. Marche, poussée et glissade comprises.' },
   soin:    { name: 'Petit soin', minDepth: 0, w: 2, color: '#6dffae', tip: '+6 % (ou +5 PV), une fois',
@@ -350,3 +350,5 @@ ZONES.cercle = { name: 'Cercle de pouvoir', minDepth: 999, w: 0, color: '#ffd166
   desc: 'Un héros qui commence son tour dans le cercle le charge. Après 2 tours de charge : or et +8 % aux deux héros.' };
 /* chaque compétence a des dégâts maximum (par coup), relevables (amélioration Plafond, talent Maîtrise) */
 const CAP_MULT = 2;
+const RUNE_CAP = 2;    // une rune double le maximum
+const NB_HEROES = 3;  // taille de l'équipe
