@@ -1,70 +1,149 @@
 'use strict';
-/* Petits sons synthétisés (WebAudio), coupables dans le menu. */
+/* =========================================================
+   BINÔME — sons (synthèse WebAudio avec réverbération) et musiques (fichiers)
+   ========================================================= */
 const Sfx = (() => {
-  let ctx = null, master = null;
-  let muted = false;
-  try { muted = localStorage.getItem('binome_muet') === '1'; } catch (e) { }
+  let ctx = null, master = null, dry = null, wet = null;
+  const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  let muted = store('binome_muet') === '1';
+  let vol = parseFloat(store('binome_vol_sfx')); if (!(vol >= 0)) vol = 0.7;
+  const simOn = () => typeof SIM !== 'undefined' && SIM;
   function ac() {
-    if (muted) return null;
+    if (muted || simOn()) return null;
     if (!ctx) {
       const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
-      ctx = new A(); master = ctx.createGain(); master.gain.value = 0.35; master.connect(ctx.destination);
+      ctx = new A();
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ctx.destination);
+      master = ctx.createGain(); master.gain.value = 0.5 * vol; master.connect(comp);
+      dry = ctx.createGain(); dry.gain.value = 1; dry.connect(master);
+      // réverbération : réponse impulsionnelle générée
+      const len = ctx.sampleRate * 1.6, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+      const conv = ctx.createConvolver(); conv.buffer = ir;
+      wet = ctx.createGain(); wet.gain.value = 0.22; wet.connect(conv); conv.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
-  function tone(f, dur, type, vol, slide, delay) {
+  const out = (node, rev) => { node.connect(dry); if (rev) { const g = ctx.createGain(); g.gain.value = rev; node.connect(g); g.connect(wet); } };
+  function tone(f, dur, type, v, slide, delay, rev, filt) {
     const c = ac(); if (!c) return;
     const t = c.currentTime + (delay || 0);
     const o = c.createOscillator(), g = c.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f * slide), t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f * (0.97 + Math.random() * 0.06), t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(25, f * slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.3, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let last = g; o.connect(g);
+    if (filt) { const f2 = c.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = filt; g.connect(f2); last = f2; }
+    out(last, rev); o.start(t); o.stop(t + dur + 0.05);
   }
-  function noise(dur, vol, freq, q, delay) {
+  function noise(dur, v, freq, q, delay, rev, type, sweep) {
     const c = ac(); if (!c) return;
     const t = c.currentTime + (delay || 0);
-    const len = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const len = Math.max(1, Math.floor(c.sampleRate * dur)), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.6);
     const s = c.createBufferSource(); s.buffer = b;
-    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq || 1200; f.Q.value = q || 0.8;
-    const g = c.createGain(); g.gain.value = vol || 0.3;
-    s.connect(f); f.connect(g); g.connect(master); s.start(t);
+    const f = c.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.setValueAtTime(freq || 1200, t); f.Q.value = q || 0.8;
+    if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(40, freq * sweep), t + dur);
+    const g = c.createGain(); g.gain.value = v || 0.3;
+    s.connect(f); f.connect(g); out(g, rev); s.start(t);
   }
   return {
     get muted() { return muted; },
-    setMuted(v) { muted = v; try { localStorage.setItem('binome_muet', v ? '1' : '0'); } catch (e) { } if (v && ctx) ctx.suspend(); },
-    click() { tone(660, 0.05, 'triangle', 0.12); },
-    select() { tone(520, 0.06, 'triangle', 0.15); tone(780, 0.06, 'triangle', 0.1, null, 0.04); },
-    step() { noise(0.04, 0.08, 500, 1.5); },
-    swing() { noise(0.12, 0.25, 2200, 0.7); },
-    shoot(k) { if (k === 'eclat' || k === 'gel' || k === 'foudre') { tone(1200, 0.12, 'sine', 0.15, 2); } else { noise(0.08, 0.2, 3200, 1); tone(900, 0.07, 'square', 0.05, 0.5); } },
-    dash() { noise(0.18, 0.2, 900, 0.6); },
-    spin() { noise(0.25, 0.22, 1600, 0.5); tone(300, 0.2, 'sawtooth', 0.05, 2); },
-    swap() { tone(400, 0.1, 'sine', 0.15, 2); tone(800, 0.1, 'sine', 0.12, 0.5, 0.08); },
-    hit() { noise(0.08, 0.3, 900, 1); },
-    enemyHit() { noise(0.1, 0.3, 700, 1); tone(140, 0.12, 'square', 0.08, 0.6); },
-    enemyShoot() { noise(0.07, 0.15, 2600, 1); },
-    hurt() { tone(220, 0.18, 'sawtooth', 0.15, 0.5); noise(0.1, 0.2, 500, 1); },
-    block() { tone(1400, 0.12, 'triangle', 0.14, 0.7); },
-    kill() { tone(330, 0.15, 'triangle', 0.15, 0.5); noise(0.15, 0.2, 1200, 0.6); },
-    boom(small) { noise(small ? 0.25 : 0.45, small ? 0.3 : 0.5, 180, 0.6); tone(90, small ? 0.2 : 0.4, 'sine', 0.3, 0.4); },
-    thud() { tone(110, 0.12, 'sine', 0.3, 0.5); noise(0.06, 0.2, 400, 1); },
-    fall() { tone(500, 0.45, 'sine', 0.15, 0.15); },
-    trap() { tone(900, 0.06, 'square', 0.08); tone(600, 0.08, 'square', 0.08, null, 0.05); },
-    zap() { noise(0.15, 0.25, 4000, 2); tone(1600, 0.1, 'sawtooth', 0.06, 0.3); },
-    vortex() { tone(200, 0.4, 'sine', 0.15, 3); noise(0.4, 0.15, 800, 0.5); },
-    taunt() { tone(180, 0.3, 'sawtooth', 0.12, 1.5); },
-    order() { tone(660, 0.08, 'triangle', 0.15); tone(990, 0.12, 'triangle', 0.15, null, 0.08); },
-    heal() { tone(700, 0.15, 'sine', 0.1, 1.5); },
-    summon() { tone(260, 0.3, 'triangle', 0.12, 1.8); },
-    ghost() { tone(800, 0.25, 'sine', 0.08, 0.4); },
-    mark() { tone(1000, 0.08, 'square', 0.07); tone(1000, 0.08, 'square', 0.07, null, 0.12); },
-    laser() { tone(1800, 0.35, 'sawtooth', 0.08, 0.2); noise(0.3, 0.2, 3000, 1); },
-    win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'triangle', 0.13, null, i * 0.08)); },
-    fail() { [392, 330, 262].forEach((f, i) => tone(f, 0.25, 'triangle', 0.13, null, i * 0.12)); },
-    gold() { [988, 1318].forEach((f, i) => tone(f, 0.12, 'triangle', 0.12, null, i * 0.07)); },
-    door() { tone(180, 0.3, 'sine', 0.2, 1.5); noise(0.3, 0.1, 600, 0.6); },
+    get volume() { return vol; },
+    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_sfx', String(v)); } catch (e) { } if (master) master.gain.value = 0.5 * vol; },
+    setMuted(v) { muted = v; try { localStorage.setItem('binome_muet', v ? '1' : '0'); } catch (e) { } if (v && ctx) ctx.suspend(); Music.refresh(); },
+    unlock() { ac(); },
+    click() { tone(880, 0.04, 'triangle', 0.1); tone(1320, 0.03, 'sine', 0.05, null, 0.02); },
+    select() { tone(523, 0.07, 'triangle', 0.12); tone(784, 0.09, 'triangle', 0.1, null, 0.05, 0.3); },
+    step() { noise(0.035, 0.07, 420, 1.2); tone(90, 0.05, 'sine', 0.08, 0.7); },
+    swing() { noise(0.14, 0.26, 2600, 0.6, 0, 0.1, 'bandpass', 0.4); },
+    shoot(k) {
+      if (k === 'eclat' || k === 'gel' || k === 'foudre') { tone(1400, 0.16, 'sine', 0.14, 2.2, 0, 0.4); tone(2100, 0.1, 'triangle', 0.06, 1.5, 0.03, 0.4); }
+      else { noise(0.07, 0.24, 3600, 1.2); tone(740, 0.09, 'square', 0.04, 0.45, 0, 0.1, 2400); }
+    },
+    dash() { noise(0.22, 0.24, 700, 0.7, 0, 0.15, 'bandpass', 3); tone(120, 0.18, 'sawtooth', 0.05, 2, 0, 0, 900); },
+    spin() { noise(0.3, 0.22, 1400, 0.5, 0, 0.2, 'bandpass', 2.5); tone(260, 0.25, 'sawtooth', 0.05, 2.5, 0, 0.2, 1500); },
+    swap() { tone(420, 0.12, 'sine', 0.14, 2.2, 0, 0.4); tone(840, 0.12, 'sine', 0.1, 0.5, 0.09, 0.4); },
+    hit() { noise(0.08, 0.32, 1000, 1); tone(140, 0.09, 'sine', 0.2, 0.6); },
+    enemyHit() { noise(0.1, 0.32, 650, 1); tone(110, 0.14, 'square', 0.07, 0.55, 0, 0.1, 900); },
+    enemyShoot() { noise(0.08, 0.16, 2800, 1.2, 0, 0.1); tone(500, 0.07, 'triangle', 0.05, 0.6); },
+    hurt() { tone(240, 0.22, 'sawtooth', 0.14, 0.45, 0, 0.15, 1800); noise(0.12, 0.24, 480, 1); tone(70, 0.2, 'sine', 0.25, 0.6); },
+    block() { tone(1560, 0.18, 'triangle', 0.13, 0.75, 0, 0.5); tone(2340, 0.12, 'sine', 0.06, 0.8, 0.01, 0.5); },
+    kill() { tone(330, 0.2, 'triangle', 0.14, 0.4, 0, 0.3); noise(0.18, 0.22, 1600, 0.6, 0, 0.2, 'bandpass', 0.3); tone(1760, 0.12, 'sine', 0.05, 1.3, 0.06, 0.6); },
+    boom(small) { noise(small ? 0.3 : 0.6, small ? 0.34 : 0.55, 900, 0.5, 0, 0.35, 'lowpass', 0.12); tone(80, small ? 0.25 : 0.5, 'sine', 0.38, 0.35); if (!small) tone(45, 0.6, 'sine', 0.3, 0.6); },
+    thud() { tone(105, 0.14, 'sine', 0.32, 0.5); noise(0.07, 0.22, 380, 1); },
+    fall() { tone(620, 0.55, 'sine', 0.13, 0.12, 0, 0.5); noise(0.4, 0.08, 900, 0.6, 0.1, 0.3, 'bandpass', 0.3); },
+    trap() { tone(950, 0.05, 'square', 0.08, null, 0, 0, 3000); tone(640, 0.08, 'square', 0.08, null, 0.05, 0, 3000); },
+    zap() { noise(0.18, 0.26, 4200, 2, 0, 0.3); tone(1700, 0.14, 'sawtooth', 0.06, 0.3, 0, 0.3, 4000); },
+    vortex() { tone(180, 0.5, 'sine', 0.16, 3.2, 0, 0.5); noise(0.5, 0.15, 700, 0.5, 0, 0.4, 'bandpass', 3); },
+    taunt() { tone(170, 0.36, 'sawtooth', 0.12, 1.6, 0, 0.3, 1200); tone(255, 0.3, 'sawtooth', 0.08, 1.4, 0.04, 0.3, 1200); },
+    order() { [660, 880, 1320].forEach((f, i) => tone(f, 0.12, 'triangle', 0.12, null, i * 0.06, 0.4)); },
+    heal() { [784, 988, 1175].forEach((f, i) => tone(f, 0.22, 'sine', 0.08, null, i * 0.05, 0.6)); },
+    summon() { tone(220, 0.4, 'triangle', 0.12, 2, 0, 0.5); noise(0.3, 0.1, 500, 0.6, 0.05, 0.4, 'bandpass', 3); },
+    ghost() { tone(820, 0.32, 'sine', 0.08, 0.4, 0, 0.7); tone(410, 0.32, 'sine', 0.05, 0.5, 0.03, 0.7); },
+    mark() { tone(1046, 0.08, 'square', 0.06, null, 0, 0.2, 3000); tone(1046, 0.08, 'square', 0.06, null, 0.13, 0.2, 3000); },
+    laser() { tone(1900, 0.45, 'sawtooth', 0.07, 0.15, 0, 0.3, 5000); noise(0.35, 0.2, 3200, 1, 0, 0.3); },
+    wind() { noise(0.45, 0.26, 600, 0.6, 0, 0.3, 'bandpass', 4); },
+    hook() { tone(1200, 0.06, 'square', 0.07, 0.6, 0, 0.2, 4000); noise(0.25, 0.16, 1500, 0.8, 0.03, 0.2, 'bandpass', 0.3); },
+    shatter() { noise(0.4, 0.26, 5000, 1.5, 0, 0.5, 'highpass'); [2093, 2637, 3136].forEach((f, i) => tone(f, 0.35, 'sine', 0.05, 0.98, i * 0.03, 0.7)); },
+    horn() { tone(196, 0.5, 'sawtooth', 0.1, null, 0, 0.5, 900); tone(294, 0.5, 'sawtooth', 0.08, null, 0.18, 0.5, 900); },
+    phase() { tone(90, 1.0, 'sawtooth', 0.18, 0.6, 0, 0.6, 700); tone(135, 0.9, 'sawtooth', 0.12, 0.55, 0.05, 0.6, 700); noise(0.9, 0.3, 300, 0.6, 0, 0.6, 'lowpass', 0.3); },
+    win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.24, 'triangle', 0.13, null, i * 0.09, 0.5)); tone(2093, 0.5, 'sine', 0.05, null, 0.36, 0.8); },
+    fail() { [392, 330, 262].forEach((f, i) => tone(f, 0.3, 'triangle', 0.13, null, i * 0.14, 0.5)); },
+    gold() { [988, 1318, 1760].forEach((f, i) => tone(f, 0.16, 'triangle', 0.11, null, i * 0.07, 0.6)); },
+    door() { tone(150, 0.4, 'sine', 0.2, 1.6, 0, 0.5); noise(0.35, 0.12, 500, 0.6, 0, 0.4, 'bandpass', 2); },
+  };
+})();
+
+/* ---------- musiques : fichiers dans music/ (voir music/CREDITS.md) ---------- */
+const Music = (() => {
+  const TRACKS = {
+    explore: [{ src: 'music/explore.ogg' }],
+    combat: [{ src: 'music/combat.ogg' }, { src: 'music/combat2.ogg' }],
+    boss: [{ src: 'music/boss.wav', intro: 'music/boss_intro.wav' }],
+  };
+  const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  let vol = parseFloat(store('binome_vol_music')); if (!(vol >= 0)) vol = 0.5;
+  let mood = null, cur = null, unlocked = false, combatIdx = 0;
+  const broken = new Set();
+  const target = () => (Sfx.muted ? 0 : vol * 0.6);
+  function fade(a, to, ms, done) {
+    const from = a.volume, t0 = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      try { a.volume = Math.max(0, Math.min(1, from + (to - from) * k)); } catch (e) { }
+      if (k < 1) requestAnimationFrame(step); else if (done) done();
+    };
+    step();
+  }
+  function start(track) {
+    if (!track || broken.has(track.src)) return null;
+    const a = new Audio(); a.preload = 'auto'; a.volume = 0;
+    let part = 'loop';
+    const loopPart = () => { part = 'loop'; a.src = track.src; a.loop = true; a.play().catch(() => { }); };
+    // fichier absent : on le note et on joue la suite (ou rien)
+    a.addEventListener('error', () => { if (part === 'intro') { broken.add(track.intro); loopPart(); } else broken.add(track.src); });
+    if (track.intro && !broken.has(track.intro)) { part = 'intro'; a.src = track.intro; a.loop = false; a.addEventListener('ended', loopPart, { once: true }); a.play().catch(() => { }); }
+    else loopPart();
+    fade(a, target(), 1200);
+    return a;
+  }
+  return {
+    get volume() { return vol; },
+    setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) cur.volume = target(); },
+    unlock() { if (unlocked) return; unlocked = true; if (mood) { const m = mood; mood = null; this.play(m); } },
+    play(m) {
+      if (m === mood && cur) return;
+      mood = m;
+      if (!unlocked) return;
+      const old = cur; cur = null;
+      if (old) fade(old, 0, 900, () => { try { old.pause(); } catch (e) { } });
+      const list = TRACKS[m] || [];
+      let track = list[0];
+      if (m === 'combat' && list.length > 1) { track = list[combatIdx % list.length]; combatIdx++; if (broken.has(track.src)) track = list.find(t => !broken.has(t.src)); }
+      cur = start(track);
+    },
+    refresh() { if (cur) cur.volume = target(); },
   };
 })();

@@ -164,8 +164,33 @@ const ENEMIES = {
                 desc: 'Énorme, très lent, impossible à pousser.' },
   invocateur: { name: 'Invocateur', hp: 18, move: 2, ai: 'summoner', dmg: 3, shape: 'hex', color: '#b06ad9', minDepth: 22, w: 1,
                 desc: 'Reste en retrait et invoque un Rôdeur tous les 2 tours (3 fois au plus).' },
+  scissipare: { name: 'Scissipare', hp: 16, move: 2, ai: 'melee', dmg: 5, shape: 'blob', color: '#c6e05a', minDepth: 5, w: 2, split: true,
+                desc: 'Touché sans mourir, il se divise en deux (PV partagés). Tue-le d’un seul coup, ou fais-le tomber.' },
+  totem:      { name: 'Totem', hp: 16, move: 0, ai: 'totem', dmg: 0, shape: 'totem', color: '#d9b55a', minDepth: 7, w: 1.3, immunePush: true,
+                desc: 'Immobile, n’attaque pas. Les ennemis sur les 8 cases autour de lui ne subissent que la moitié des dégâts.' },
+  carapace:   { name: 'Carapace', hp: 18, move: 2, ai: 'melee', dmg: 6, shape: 'shell', color: '#4fb0a8', minDepth: 9, w: 1.8, armor: 2,
+                desc: 'Les attaques directes ne lui font que 2 dégâts. Collisions, chutes, explosions, feu, poison et pièges font des dégâts normaux.' },
+  jumeau:     { name: 'Jumeau', hp: 12, move: 3, ai: 'melee', dmg: 5, shape: 'circle', color: '#ff9ad5', minDepth: 12, w: 1.6,
+                desc: 'Arrivent par deux. Si un seul meurt, l’autre le fait revenir au tour ennemi suivant (sans soin pour toi). Tue les deux dans le même tour.' },
+  miroitier:  { name: 'Miroitier', hp: 14, move: 2, ai: 'mirror', range: 3, dmg: 4, shape: 'diamond', color: '#a0a8ff', minDepth: 16, w: 1.2,
+                desc: 'Tous les 3 tours (dès son 1er tour), crée l’Ombre d’un héros à sa position en miroir (2 Ombres au plus).' },
+  ombre:      { name: 'Ombre', hp: 8, move: 0, ai: 'ombre', dmg: 6, shape: 'ghost', color: '#2e3247', minDepth: 999, w: 0,
+                desc: 'Clone d’un héros. Quand CE héros bouge (marche, saut, poussée…), l’Ombre fait le même mouvement en miroir (gauche ↔ droite). Si elle tombe dans une fosse, elle meurt et le kill compte. À la fin de ton tour, elle frappe les héros à côté d’elle.' },
+  lancier:    { name: 'Lancier', hp: 14, move: 2, ai: 'lance', range: 2, dmg: 6, shape: 'spear', color: '#d9c46a', minDepth: 3, w: 2.2,
+                desc: 'Frappe les 2 cases devant lui en ligne droite (ses alliés aussi).' },
+  souffleur:  { name: 'Souffleur', hp: 12, move: 2, ai: 'blow', range: 4, dmg: 3, push: 2, shape: 'circle', color: '#8fd6ff', minDepth: 4, w: 2,
+                desc: 'Souffle à distance : repousse un héros de 2 cases (fosses, lave, piques…).' },
+  grappineur: { name: 'Grappineur', hp: 12, move: 2, ai: 'hook', range: 5, dmg: 3, shape: 'hex', color: '#c98f5a', minDepth: 6, w: 1.6,
+                desc: 'Lance un crochet à distance : attire un héros jusqu’à lui.' },
+  tisseur:    { name: 'Tisseur', hp: 10, move: 2, ai: 'weaver', range: 3, dmg: 3, shape: 'diamond', color: '#9ad1a0', minDepth: 10, w: 1.3,
+                desc: 'Fait surgir un rocher à côté d’un héros (2 tours) pour lui bloquer le passage.' },
+  charognard: { name: 'Charognard', hp: 14, move: 3, ai: 'melee', dmg: 5, shape: 'blob', color: '#a3a35a', minDepth: 13, w: 1.5, scav: true,
+                desc: 'Chaque fois qu’un autre ennemi meurt, il gagne +4 PV et +1 dégât. Tue-le en premier !' },
+  voleur:     { name: 'Voleur', hp: 10, move: 2, ai: 'flee', dmg: 0, shape: 'triangle', color: '#ffd166', minDepth: 999, w: 0,
+                desc: 'Ne se bat pas : il fuit. Tue-le avant la fin du compte à rebours.' },
 };
 const SUMMON_LIMIT = 10;
+const MAX_OMBRES = 2;
 
 /* ---------- Boss ---------- */
 const BOSSES = {
@@ -173,14 +198,16 @@ const BOSSES = {
               desc: 'Frappe au corps à corps. Tous les 3 tours, annonce un séisme autour de lui (2 cases).' },
   reine:    { name: 'La Reine des Nuées', hp: 65, move: 2, dmg: 6, range: 5, color: '#e05a9a', shape: 'hex',
               desc: 'Tire en ligne. Tous les 3 tours, invoque des Rôdeurs (1, ou 2 en ★★).' },
-  oracle:   { name: "L'Oracle", hp: 50, move: 0, dmg: 10, color: '#7fd6ff', shape: 'diamond',
-              desc: 'Chaque tour : annonce un laser sur une ligne ou une colonne entière, puis se téléporte loin.' },
+  oracle:   { name: "L'Oracle", hp: 80, move: 0, dmg: 11, color: '#7fd6ff', shape: 'diamond',
+              desc: 'Chaque tour : annonce un laser sur une ligne ou une colonne entière. Un tour sur deux, il se téléporte (toujours à 3-4 cases d’un héros).' },
   forgeron: { name: 'Le Forgeron', hp: 88, move: 2, dmg: 9, special: 12, push: 2, color: '#ff7b3a', shape: 'square',
               desc: 'Frappe et repousse de 2. Un tour sur deux, lance son marteau sur une zone 3×3 qui reste en feu.' },
   hydre:    { name: "L'Hydre", hp: 36, move: 0, dmg: 6, range: 5, heads: 3, color: '#4fd18b', shape: 'blob',
               desc: 'Trois têtes immobiles qui tirent en ligne. Chaque tête tranchée rend les autres plus fortes.' },
 };
-const BOSS_ORDER = ['colosse', 'reine', 'oracle', 'forgeron', 'hydre'];
+BOSSES.reflet = { name: 'Le Reflet', hp: 70, move: 2, dmg: 8, range: 4, color: '#9aa3ff', shape: 'diamond',
+  desc: 'Tire en ligne. Au début puis tous les 3 tours, crée l’Ombre d’un héros (elle copie ses mouvements en miroir).' };
+const BOSS_ORDER = ['colosse', 'reine', 'oracle', 'forgeron', 'hydre', 'reflet'];
 
 /* ---------- Traits de salle ---------- */
 const TRAITS = {
@@ -192,6 +219,9 @@ const TRAITS = {
   surprise:   { name: 'Surprise', desc: 'Les ennemis sont étourdis au premier tour.', bad: false },
   coulee:     { name: 'Coulée de lave', desc: 'Des cases de lave (dégâts à qui s’y arrête).', bad: true },
   etroit:     { name: 'Couloirs', desc: 'Beaucoup de rochers.', bad: false },
+  reflets:    { name: 'Reflets', desc: 'Chaque héros commence avec son Ombre (clone en miroir).', bad: true },
+  glacier:    { name: 'Glacier', desc: 'Beaucoup de glace : les poussées glissent loin.', bad: false },
+  portails:   { name: 'Portails', desc: 'Deux paires de portails.', bad: false },
 };
 
 /* ---------- Ères (changent toutes les 10 salles) ---------- */
@@ -221,3 +251,61 @@ const ENGRAVE_STEP = { skill: 3, upgrade: 2, rule: 4 };
 
 /* durées (en salles) des récompenses */
 const DUR = { skill: 5, upgrade: 6, rule: 4, pact: 3, haste: 4 };
+
+/* ---------- Zones de carte ---------- */
+const ZONES = {
+  piques:  { name: 'Piques', minDepth: 1, w: 3, color: '#b9bcc9', tip: '−6 PV / −5 % en entrant',
+             desc: 'Toute unité qui entre dessus (en marchant, poussée, attirée, téléportée…) subit 6 dégâts (−5 % pour un héros).' },
+  buisson: { name: 'Buisson', minDepth: 0, w: 2.5, color: '#4c9a52', tip: 'Invisible aux tirs à distance',
+             desc: 'Une unité dans un buisson ne peut pas être visée par les tirs en ligne, sauf au contact (les tirs passent au-dessus).' },
+  boue:    { name: 'Boue', minDepth: 1, w: 2, color: '#7a5a3a', tip: 'Arrête tout mouvement',
+             desc: 'Entrer dans la boue arrête le déplacement (marche, poussée, glissade).' },
+  courant: { name: 'Courant', minDepth: 2, w: 3, color: '#4fa8ff', tip: 'Emporte d’1 case au tour ennemi',
+             desc: 'Au début du tour ennemi, ce qui s’y trouve avance d’une case dans le sens de la flèche. Une fosse au bout = chute (héros compris).' },
+  autel:   { name: 'Autel', minDepth: 4, w: 1.5, color: '#6dffae', tip: '+5 % / +5 PV par tour',
+             desc: 'Un héros qui commence son tour dessus récupère 5 %. Un ennemi dessus récupère 5 PV au tour ennemi.' },
+  glace:   { name: 'Glace', minDepth: 5, w: 2.5, color: '#bfeaff', tip: 'Poussé dessus = glisse loin',
+             desc: 'Une unité poussée sur la glace continue de glisser jusqu’au premier obstacle (on marche dessus normalement).' },
+  rune:    { name: 'Rune de puissance', minDepth: 7, w: 1.5, color: '#ffd166', tip: '+75 % de dégâts en attaquant d’ici',
+             desc: 'Une unité qui attaque depuis cette case fait +75 % de dégâts (les ennemis aussi !).' },
+  portail: { name: 'Portails', minDepth: 9, w: 1.5, color: '#d68bff', tip: 'Ressort par le portail jumeau',
+             desc: 'Entrer dans un portail fait ressortir par le portail jumeau (même lettre), s’il est libre. Marche, poussée et glissade comprises.' },
+};
+
+/* ---------- Défis de salle (facultatifs) ---------- */
+const GOALS = {
+  intact: { name: 'Intouchable', desc: () => 'Aucun héros ne perd de %.' },
+  rapide: { name: 'Éclair', desc: n => `Finir en ${n} tour${n > 1 ? 's' : ''} ou moins.` },
+  chute:  { name: 'Gravité', desc: () => 'Tuer au moins un ennemi en le faisant tomber.' },
+  fracas: { name: 'Fracas', desc: () => 'Tuer 2 ennemis par collision ou explosion.' },
+  combo:  { name: 'Combo', desc: () => 'Tuer 2 ennemis avec une seule action.' },
+  econome:{ name: 'Économe', desc: () => 'Ne jamais utiliser les attaques de base.' },
+};
+const GOAL_HEAL = 10;
+
+/* ---------- Phases des boss (déclenchées sous un seuil de PV) ---------- */
+BOSSES.colosse.phases  = [{ at: 0.6, name: 'Fureur', tip: 'Séisme tous les 2 tours' }, { at: 0.3, name: 'Éboulement', tip: 'Des rochers tombent sur vous' }];
+BOSSES.reine.phases    = [{ at: 0.6, name: 'Essaim', tip: 'Invoque plus souvent' }, { at: 0.3, name: 'Rafale', tip: 'Tire deux fois' }];
+BOSSES.oracle.phases   = [{ at: 0.6, name: 'Croisée', tip: 'Laser en croix' }, { at: 0.3, name: 'Clairvoyance', tip: 'Un laser par héros' }];
+BOSSES.forgeron.phases = [{ at: 0.6, name: 'Forge ardente', tip: 'Marteau à chaque tour' }, { at: 0.3, name: 'Fournaise', tip: 'Anneau de feu autour de lui' }];
+BOSSES.reflet.phases   = [{ at: 0.6, name: 'Miroirs', tip: 'Ombre tous les 2 tours' }, { at: 0.3, name: 'Échange', tip: 'Prend la place d’une Ombre' }];
+BOSSES.hydre.phases    = [];
+
+/* ---------- Types de salles ---------- */
+const ROOM_KINDS = {
+  normal:  { name: 'Combat', icon: 'blade', tip: 'Tue tous les ennemis.' },
+  vagues:  { name: 'Vagues', icon: 'wave', tip: 'Plusieurs vagues d’ennemis arrivent.' },
+  survie:  { name: 'Survie', icon: 'hourglass', tip: 'Tiens bon jusqu’à la fin du compte à rebours.' },
+  chasse:  { name: 'Chasse', icon: 'run', tip: 'Tue le Voleur avant qu’il s’enfuie.' },
+  rituel:  { name: 'Rituel', icon: 'gem', tip: 'Tant qu’un cristal tient, les ennemis sont plus forts et se soignent.' },
+};
+
+/* ---------- Infobulles courtes (moins à lire) ---------- */
+const TIPS = {
+  rodeur: 'Corps à corps', archer: 'Tire en ligne', brute: 'Frappe et repousse', artilleur: 'Bombarde une croix (annoncée)',
+  kamikaze: 'Explose à côté de toi', chaman: 'Soigne / protège', spectre: 'Se téléporte sur le plus faible', golem: 'Énorme, inamovible',
+  invocateur: 'Invoque des Rôdeurs', scissipare: 'Se divise si touché', totem: '½ dégâts autour de lui', carapace: 'Attaques directes : 2 max',
+  jumeau: 'Tuer les deux le même tour', miroitier: 'Crée des Ombres', ombre: 'Copie ton héros en miroir', lancier: 'Frappe 2 cases en ligne',
+  souffleur: 'Te repousse de 2 cases', grappineur: 'T’attire à lui', tisseur: 'Crée des murs près de toi', charognard: 'Grandit à chaque mort',
+  voleur: 'Fuit : tue-le vite',
+};
