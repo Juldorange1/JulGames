@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Binôme — JulGame</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141826'/%3E%3Ccircle cx='22' cy='34' r='12' fill='%23ff8a3d'/%3E%3Ccircle cx='42' cy='30' r='12' fill='%235ad0ff'/%3E%3Cpath d='M10 54h44' stroke='%23ffd166' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="scr-title">
+
+<!-- ============ TITRE ============ -->
+<section id="scr-title" class="screen on">
+  <div class="title-bg"></div>
+  <div class="title-box">
+    <div class="logo-tokens"><span style="--c:#ff8a3d"></span><span style="--c:#5ad0ff"></span></div>
+    <h1 class="logo">BINÔME</h1>
+    <p class="tagline">Deux héros. Des salles sans fin. Aucun point de vie : seulement ton <b>% de dégâts</b>.</p>
+    <div class="title-btns">
+      <button class="btn big" id="btn-continue">Continuer</button>
+      <button class="btn big" id="btn-new">Nouvelle partie</button>
+      <button class="btn ghost" id="btn-help">Comment jouer</button>
+    </div>
+    <a class="back" href="../index.html">← JulGame</a>
+  </div>
+</section>
+
+<!-- ============ CHOIX DES HÉROS ============ -->
+<section id="scr-pick" class="screen">
+  <div class="page">
+    <header class="page-head"><button class="btn ghost small" id="btn-pick-back">← Retour</button><h2>Choisis ton binôme</h2><span></span></header>
+    <p class="hint center">Sélectionne <b>deux</b> héros. Ils commencent avec une seule attaque chacun : le reste viendra des salles.</p>
+    <div id="pick-list" class="pick-list"></div>
+    <div class="center"><button class="btn big" id="btn-start" disabled>Entrer dans la première salle</button></div>
+  </div>
+</section>
+
+<!-- ============ CHOIX DE LA SALLE ============ -->
+<section id="scr-choice" class="screen">
+  <div class="page">
+    <header class="page-head">
+      <div class="ph-left"><b id="ch-depth">Salle 1</b><small id="ch-era"></small></div>
+      <div class="ph-mid"><span class="gold" id="ch-gold"></span></div>
+      <div class="ph-right">
+        <button class="btn small gold" id="btn-atelier">Atelier</button>
+        <button class="btn ghost small icon-btn" id="btn-ch-help" title="Comment jouer"></button>
+        <button class="btn ghost small icon-btn" id="btn-ch-menu" title="Menu"></button>
+      </div>
+    </header>
+    <div id="ch-notes" class="notes"></div>
+    <div class="choice-grid">
+      <aside class="choice-side">
+        <h3>Ton binôme</h3>
+        <div id="ch-heroes"></div>
+        <h3>Règles et pactes actifs</h3>
+        <div id="ch-effects" class="effects"></div>
+      </aside>
+      <main class="choice-main">
+        <h3>Choisis la prochaine salle <small id="ch-bosschance"></small></h3>
+        <div id="ch-doors" class="doors"></div>
+        <h3>Journal</h3>
+        <div id="ch-log" class="log"></div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMBAT ============ -->
+<section id="scr-combat" class="screen">
+  <header class="cb-top">
+    <div class="cb-left"><button class="btn ghost small icon-btn" id="btn-cb-menu" title="Menu"></button><span id="cb-depth"></span></div>
+    <div id="cb-top-mid" class="cb-mid"></div>
+    <div class="cb-right">
+      <button class="btn ghost small" id="btn-danger" title="Zones de danger (D)"></button>
+      <button class="btn ghost small" id="btn-flee"></button>
+    </div>
+  </header>
+  <div class="hero-panel" id="hp-0"></div>
+  <div class="cb-board"><canvas id="board"></canvas></div>
+  <div class="hero-panel" id="hp-1"></div>
+  <footer class="cb-ctrl">
+    <button class="btn ghost" id="btn-undo" title="Annuler le déplacement (Z)"></button>
+    <div id="cb-info" class="info"></div>
+    <button class="btn big" id="btn-end">Fin du tour</button>
+  </footer>
+</section>
+
+<div id="modal" class="modal"></div>
+<div id="toasts" class="toasts"></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
