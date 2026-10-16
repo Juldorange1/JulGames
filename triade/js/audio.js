@@ -169,8 +169,9 @@ const Sfx = (() => {
    pour qu'aucune musique ne soit plus forte qu'une autre. Fondus enchaînés longs et doux. */
 const Music = (() => {
   const TRACKS = {
-    explore: [{ src: 'music/explore.ogg', gain: 7.8 }],
-    combat: [{ src: 'music/combat.ogg', gain: 1.26 }, { src: 'music/combat2.ogg', gain: 0.3 }],
+    // exploration : une ambiance par ère (Cryptes, Forêt Noire, Forge, Abysses, Néant)
+    explore: [{ src: 'music/explore.ogg', gain: 7.8, era: [0, 2] }, { src: 'music/forest.ogg', gain: 1.25, era: [1] }, { src: 'music/cave.mp3', gain: 0.38, era: [3] }, { src: 'music/void.mp3', gain: 0.35, era: [4] }],
+    combat: [{ src: 'music/combat.ogg', gain: 1.26 }, { src: 'music/battle_epic.mp3', gain: 0.4 }, { src: 'music/combat2.ogg', gain: 0.3 }, { src: 'music/fight.ogg', gain: 0.26 }],
     boss: [{ src: 'music/boss.wav', gain: 0.7, intro: 'music/boss_intro.wav', introGain: 0.78 }],
   };
   const FADE = 1.0;            // constante de temps des fondus (s) : ~3 s pour un fondu complet
@@ -224,10 +225,11 @@ const Music = (() => {
     setVolume(v) { vol = v; try { localStorage.setItem('binome_vol_music', String(v)); } catch (e) { } if (cur) setGain(cur, level(), 0.15); Sfx.synthVolume(v); },
     unlock() { if (unlocked) return; unlocked = true; if (mood) { const m = mood; mood = null; this.play(m); } },
     play(m) {
-      if (m === mood && cur) return;
-      const list = TRACKS[m] || [];
+      if (m === mood && cur && m !== 'explore') return;
+      const list = (TRACKS[m] || []).filter(t => !broken.has(t.src));
       let track = list[0];
-      if (m === 'combat' && list.length > 1) { track = list[Math.floor(combatN / 3) % list.length]; combatN++; if (broken.has(track.src)) track = list.find(t => !broken.has(t.src)); }
+      if (m === 'explore' && typeof S !== 'undefined' && S) { const e = eraOf(S.depth) % ERAS.length; track = list.find(t => t.era && t.era.includes(e)) || track; }
+      if (m === 'combat' && list.length > 1) { track = list[Math.floor(combatN / 3) % list.length]; combatN++; }
       // même morceau déjà en cours (ex. deux combats de suite) : on ne coupe rien
       if (cur && track && cur.track === track) { mood = m; return; }
       mood = m;
@@ -240,6 +242,17 @@ const Music = (() => {
       const p = cur;
       if (!p) fallback();
       else setTimeout(() => { if (cur === p && !p.ok) fallback(); }, 3000);
+    },
+    /* petit morceau joué par-dessus (victoire, boss en fuite) : la musique s'efface le temps du jingle */
+    jingle(name) {
+      const J = { victory: { src: 'music/victory.wav', gain: 0.7, max: 12 }, defeat: { src: 'music/defeat.mp3', gain: 0.58, max: 7 } }[name];
+      if (!J || !unlocked || Sfx.muted || broken.has(J.src)) return;
+      const a = new Audio(J.src); a.volume = Math.min(1, level() * J.gain * 1.4);
+      a.addEventListener('error', () => broken.add(J.src));
+      a.play().catch(() => { });
+      this.duck(0.12, J.max);
+      const t0 = Date.now(), v0 = a.volume;
+      const id = setInterval(() => { const s = (Date.now() - t0) / 1000; if (s > J.max - 1.5) a.volume = Math.max(0, v0 * (J.max - s) / 1.5); if (s >= J.max) { clearInterval(id); a.pause(); } }, 100);
     },
     /* baisse la musique un instant (jingle de victoire, changement de phase) puis la remonte doucement */
     duck(k, secs) {

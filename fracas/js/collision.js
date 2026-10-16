@@ -17,7 +17,7 @@ function resolveEnemyObstacles(world) {
   for (const e of world.enemies) {
     if (e.dead) continue;
     const r = e.radius || 16;
-    for (const ob of world.room.obstacles) {
+    for (const ob of roomSolids(world.room)) {
       if (!circleRect(e.x, e.y, r, ob.x, ob.y, ob.w, ob.h)) continue;
       const cx = clamp(e.x, ob.x, ob.x + ob.w);
       const cy = clamp(e.y, ob.y, ob.y + ob.h);
@@ -69,7 +69,7 @@ function resolveProjectileVsPlayer(world) {
       if (player.airborne) continue; // en plein saut : les tirs passent dessous
       if (!circleCircle(pr.x, pr.y, pr.radius, player.x, player.y, player.radius)) continue;
       if (pr.onHitPlayer) pr.onHitPlayer(pr, world, player);
-      else playerApplyDamage(player, pr.dmgPercent || 0);
+      else enemyHitPlayer(world, player, pr.dmgPercent || 0, pr.fromBoss);
       Audio2.impact();
       if (!pr.pierce) { world.projectiles.splice(i, 1); break; }
     }
@@ -220,7 +220,7 @@ function resolveEnemyContactFor(world, player) {
     const ct = player._contactTicks || (player._contactTicks = {});
     if (circleCircle(e.x, e.y, (e.radius || 16) + 3, player.x, player.y, player.radius)) {
       ct[e.id] = (ct[e.id] || 0) + (1 / 60);
-      if (ct[e.id] >= 0.6) { ct[e.id] = 0; playerApplyDamage(player, e.contactDmgPercent); }
+      if (ct[e.id] >= 0.6) { ct[e.id] = 0; enemyHitPlayer(world, player, e.contactDmgPercent, e.kind === 'boss'); }
     } else ct[e.id] = 0;
   }
   // Un ennemi qui se deplace sur le joueur (boss qui charge, tourelle mobile) ou une

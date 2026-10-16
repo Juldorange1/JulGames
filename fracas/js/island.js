@@ -20,8 +20,8 @@ function islandStyle(world) {
 // Surfaces de terre de la carte (rectangles).
 function islandLandRects(world) {
   const room = world.room;
-  if (world.hubDoors && Save.data && Save.data.hub) {
-    return Save.data.hub.cells.map((c) => ({ x: (c.gx - 0.5) * HUB_CELL, y: (c.gy - 0.5) * HUB_CELL, w: HUB_CELL, h: HUB_CELL }));
+  if (world.hubDoors && Save.data && hubLayout()) {
+    return hubLayout().cells.map((c) => ({ x: (c.gx - 0.5) * HUB_CELL, y: (c.gy - 0.5) * HUB_CELL, w: HUB_CELL, h: HUB_CELL }));
   }
   if (room.floorRects) return room.floorRects.map((r) => ({ x: r.x, y: r.y, w: r.w, h: r.h }));
   return [Object.assign({}, room._landBounds || (room._landBounds = Object.assign({}, room.bounds)))];
@@ -189,7 +189,7 @@ function renderIslandUnderside(ctx, camera, world) {
   const nowMs = performance.now();
   const dt = clamp((nowMs - (renderIslandUnderside._last || nowMs)) / 1000, 0, 0.05);
   renderIslandUnderside._last = nowMs;
-  const key = world.hubDoors ? 'hub' + Save.data.hub.cells.map((c) => c.gx + ',' + c.gy).join(';') : 'r';
+  const key = world.hubDoors ? 'hub' + hubLayout().cells.map((c) => c.gx + ',' + c.gy).join(';') : 'r';
   let isl = world.room._island;
   if (!isl || isl.key !== key) {
     isl = buildIsland(islandLandRects(world), islandStyle(world));

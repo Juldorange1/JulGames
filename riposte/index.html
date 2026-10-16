@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riposte</title>
+<link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+
+<div id="gameRoot">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="hud">
+    <div id="hudDamage">
+      <div id="hudDamageValue">100%</div>
+      <div id="hudDamageBar"><div id="hudDamageBarFill"></div></div>
+    </div>
+
+    <div id="hudTimer">00:00.00</div>
+
+    <div id="hudAbilities">
+      <div class="ability-slot" id="slotAttack">Attaque</div>
+    </div>
+
+    <div id="hudInfo">Salle de test — prototype moteur (étape 1)</div>
+  </div>
+
+  <div id="hint">
+    ZQSD/WASD : déplacement · Clic gauche : attaque (tir vers la souris) · R : reset la salle
+  </div>
+</div>
+
+<script src="js/core/input.js?v=3"></script>
+<script src="js/core/camera.js?v=3"></script>
+<script src="js/core/collision.js?v=3"></script>
+<script src="js/core/damageSystem.js?v=3"></script>
+<script src="js/core/timer.js?v=3"></script>
+<script src="js/entities/projectile.js?v=3"></script>
+<script src="js/entities/turret.js?v=3"></script>
+<script src="js/entities/player.js?v=3"></script>
+<script src="js/entities/room.js?v=3"></script>
+<script src="js/ui/hud.js?v=3"></script>
+<script src="js/core/game.js?v=3"></script>
+<script src="js/main.js?v=3"></script>
+</body>
+</html>

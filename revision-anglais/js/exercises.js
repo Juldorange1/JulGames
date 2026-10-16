@@ -65,22 +65,26 @@
     return a;
   }
 
-  // Construit une session : uniquement des flashcards, en alternant la direction (anglais->
-  // français / français->anglais) pour chaque mot d'une itération à l'autre.
+  // Sens à demander : celui dont l'échéance est la plus proche (chaque sens a son propre délai
+  // de répétition) ; à égalité (mot neuf), on alterne avec le sens demandé la dernière fois.
+  function pickDirection(item) {
+    const a = item.skills.en_fr.due, b = item.skills.fr_en.due;
+    if (a === b) return item.lastSkillUsed === 'en_fr' ? 'fr_en' : 'en_fr';
+    return a < b ? 'en_fr' : 'fr_en';
+  }
+
+  // Construit une session : uniquement des flashcards, CHAQUE MOT UNE SEULE FOIS. Un mot ne
+  // revient ensuite que selon la note donnée (❌ quelques questions plus tard dans la même
+  // session, 😐 un peu plus tard, ✅ pas avant sa prochaine échéance) — on ne le répète plus en
+  // boucle juste pour remplir la session, ce qui annulait l'effet de la note.
   function buildSession(items, pool, targetCount) {
     const queue = [];
-    // Un item sans traduction ne peut pas être révisé (on ne peut pas garantir la réponse
-    // exacte à l'affichage) : il reste éditable dans la leçon mais absent des sessions tant
-    // qu'il n'est pas complété. Les items sans "en" (règles/culture) sont traités à part.
-    const usable = items.filter((it) => it.en && it.fr);
+    // Un item sans traduction (ou dont le "mot" n'en est pas un) ne peut pas être révisé : il
+    // reste éditable dans la leçon mais absent des sessions. Les règles/notes culturelles (sans
+    // "en") sont traitées à part.
+    const usable = items.filter((it) => Analyzer.isReviewable(it));
     const noEnItems = items.filter((it) => !it.en && it.fr);
-    let i = 0;
-    while (queue.length < targetCount && usable.length) {
-      const item = usable[i % usable.length];
-      queue.push(genFlashcard(item, item.lastSkillUsed === 'en_fr' ? 'fr_en' : 'en_fr'));
-      i++;
-      if (i > usable.length * 6) break; // garde-fou
-    }
+    usable.slice(0, targetCount).forEach((item) => queue.push(genFlashcard(item, pickDirection(item))));
     // Insère les règles/notes de grammaire/culture en fin, présentées comme rappels courts.
     noEnItems.slice(0, Math.max(0, targetCount - queue.length)).forEach((it) => {
       queue.push({ kind: 'note', item: it });

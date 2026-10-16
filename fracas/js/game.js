@@ -6,7 +6,7 @@ const Game = {
   world: null,
   lastTs: 0,
   testRoomTargets: [],
-  pendingCharSelectMode: null, // 'test' | 'expedition'
+  pendingCharSelectMode: null, // 'test' | 'infinite'
   paused: false,
 
   init(canvas) {
@@ -15,8 +15,11 @@ const Game = {
     Input.init(canvas);
     Save.load();
     Audio2.init();
+    Music.init();
+    Controls.init();
     this.world = this.freshWorld();
-    this.setState(STATE.MENU);
+    // Au lancement : le menu principal (3 parties). Premier lancement : le tutoriel d'abord.
+    if (!Save.data.tutorialDone) Tutorial.start(STATE.INFINITE_MENU); else this.setState(STATE.INFINITE_MENU);
     requestAnimationFrame((ts) => this.loop(ts));
   },
 
@@ -34,26 +37,29 @@ const Game = {
   },
 
   shakeCamera(mag, dur) {
+    const k = Save.data && Save.data.access ? Save.data.access.shake / 100 : 1; // accessibilite : tremblements reglables (0 = aucun)
+    if (k <= 0) return;
+    mag *= k;
     this.world.camera.shakeMag = Math.max(this.world.camera.shakeMag, mag);
     this.world.camera.shakeTime = Math.max(this.world.camera.shakeTime, dur);
   },
 
   setState(s) {
     this.state = s;
-    if (s !== STATE.CHALLENGE_EDITOR && this.world) { this.world.editorMode = false; this.world.camShiftX = 0; }
     if (s === STATE.MENU) this.enterHub();
     UI.onStateChange(s);
   },
 
-  // Le "menu principal" est une salle a cases amenageable (marche) : on y marche vers des portes
-  // (ou des blocs decoratifs achetes) pour naviguer/interagir.
+  // La BASE : salle fixe ou l'on arrive apres les 3 parties d'une partie ; on y marche vers des
+  // portails (repartir, defi du jour, en ligne, Codex, parametres).
   enterHub() {
+    Boons.bind(null);
     const world = this.world;
     const hub = buildHubRoom();
     world.room = {
       bounds: hub.bounds, obstacles: hub.obstacles, terrainZones: [], part: 0, index: 0, isBoss: false,
       // trampolines et boosts achetes au marche (meme logique que dans les parcours)
-      parkour: { time: 0, spikes: [], lasers: [], shooters: [], teleporters: [], trampolines: hub.trampolines, boosts: hub.boosts },
+      props: makeRoomProps({ trampolines: hub.trampolines, boosts: hub.boosts }),
     };
     world.hubDoors = hub.doors;
     world.hubTeleporters = hub.teleporters;
@@ -65,7 +71,7 @@ const Game = {
     world.decorations = [];
     world.theme = null;
     // La camera ne suit le joueur que sur les grandes cartes (plus de 150 cases).
-    if (Save.data.hub.cells.length > 150) setWorldZoom(world, 13 * HUB_CELL, 9 * HUB_CELL, 0);
+    if (hubLayout().cells.length > 150) setWorldZoom(world, 13 * HUB_CELL, 9 * HUB_CELL, 0);
     else setWorldZoom(world, hub.bounds.w + 70, hub.bounds.h + 110, 0); // marge : plaques des portes et bord de l'ile visibles
     world.noFollow = false;
     world.userSpeedMult = 1;
@@ -73,11 +79,23 @@ const Game = {
     this.updateCamera(1);
   },
 
+  // Retour a l'accueil : la base si on y est (partie en cours a la base), sinon le menu principal.
   goToMenu() {
-    Expedition.active = false;
-    Challenges.active = false;
-    this.paused = false;
-    this.setState(STATE.MENU);
+    this.paused = false; UI.hidePause();
+    this.setState(Infinite.atBase && Infinite.run ? STATE.MENU : STATE.INFINITE_MENU);
+  },
+  // Base -> on repart pour les 3 parties suivantes de la meme partie.
+  resumeFromBase() {
+    if (!Infinite.run) { this.setState(STATE.INFINITE_MENU); return; }
+    Infinite.run.atBase = false;
+    Infinite.atBase = false;
+    Save.persist();
+    this.startInfinite(Infinite.slot);
+  },
+  // Base -> menu principal (la partie reste sauvegardee a la base).
+  leaveBase() {
+    Infinite.atBase = false;
+    this.setState(STATE.INFINITE_MENU);
   },
 
   togglePause() {
@@ -94,6 +112,7 @@ const Game = {
   },
 
   startTestRoom(characterId) {
+    Boons.bind(null);
     Save.setSelectedCharacter(characterId);
     this.paused = false; UI.hidePause();
     const world = this.world;
@@ -125,7 +144,6 @@ const Game = {
     world.enemies.push(straightTurret);
     this.spawnPlayerFor(characterId, bounds.x + bounds.w * 0.12, 0);
     this.updateCamera(1);
-    Expedition.active = false; Challenges.active = false;
     this.setState(STATE.TEST_ROOM);
   },
 
@@ -146,51 +164,100 @@ const Game = {
     }
   },
 
-  startExpedition(characterId) {
-    Save.setSelectedCharacter(characterId);
+  // Fracas Infini : reprend la partie de l'emplacement `slot`, ou en cree une nouvelle avec
+  // `newCharacterId` (chaque emplacement a sa progression independante).
+  startInfinite(slot, newCharacterId) {
+    const inf = infData();
+    if (newCharacterId != null) { inf.slots[slot] = infNewRun(newCharacterId); Save.persist(); }
+    const run = inf.slots[slot];
+    if (!run) return;
     this.paused = false; UI.hidePause();
+    if (this.world.online) this.world = this.freshWorld();
     const world = this.world;
     world.hubDoors = null;
-    this.applyUserSpeedMult();
-    this.spawnPlayerFor(characterId, 0, 0);
-    Save.markCharPlayed(characterId); // decouvert : visible dans le Codex et les menus
-    Challenges.active = false;
-    Expedition.start(world, characterId);
-    this.setState(STATE.EXPEDITION);
+    if (run.atBase) { Infinite.slot = slot; Infinite.run = run; Infinite.atBase = true; this.setState(STATE.MENU); return; } // partie arretee a la base
+    this.spawnPlayerFor(run.characterId, 0, 0);
+    Save.markCharPlayed(run.characterId);
+    Infinite.start(world, slot);
+    this.setState(STATE.INFINITE);
+    Assist.briefing(run.characterId, Infinite.partOf(Infinite.depth));
   },
 
-  startChallenge(challengeId) {
-    const def = Challenges.get(challengeId);
+  // Defi du jour : nouvelle tentative (autant qu'on veut).
+  startDaily() {
+    const cfg = Daily.config();
+    if (Infinite.active) Infinite.leave(this.world);
     this.paused = false; UI.hidePause();
+    if (this.world.online) this.world = this.freshWorld();
     const world = this.world;
     world.hubDoors = null;
-    this.applyUserSpeedMult();
-    this.spawnPlayerFor(def.characterId, 0, 0);
-    Save.markCharPlayed(def.characterId);
-    Expedition.active = false;
-    Challenges.start(world, challengeId);
-    this.setState(STATE.CHALLENGE);
+    this.spawnPlayerFor(cfg.chars[0], 0, 0);
+    Save.markCharPlayed(cfg.chars[0]);
+    Infinite.startDaily(world, cfg);
+    this.setState(STATE.INFINITE);
+    Assist.briefing(cfg.chars[0], Infinite.partOf(1));
+  },
+  leaveDaily() {
+    Infinite.leave(this.world);
+    this.paused = false; UI.hidePause();
+    this.setState(STATE.DAILY);
+  },
+
+  leaveInfinite() {
+    if (Infinite.daily) { this.leaveDaily(); return; }
+    Infinite.leave(this.world);
+    this.paused = false; UI.hidePause();
+    this.setState(STATE.INFINITE_MENU);
   },
 
   restartCurrent() {
-    if (this.state === STATE.EXPEDITION) { Expedition.restart(this.world); this.spawnPlayerFor(Expedition.characterId, 0, 0); Expedition.start(this.world, Expedition.characterId); }
-    else if (this.state === STATE.CHALLENGE) { const id = Challenges.id; this.spawnPlayerFor(Challenges.get(id).characterId, 0, 0); Challenges.start(this.world, id); }
-    else if (this.state === STATE.TEST_ROOM) { this.startTestRoom(this.world.player.character.id); }
+    if (this.state === STATE.TEST_ROOM) { this.startTestRoom(this.world.player.character.id); }
   },
 
   loop(ts) {
     const realDt = Math.min(0.05, this.lastTs ? (ts - this.lastTs) / 1000 : 0);
     this.lastTs = ts;
 
+    Controls.update(realDt);
     if (this.isGameplayState()) this.update(realDt);
+    this.updateMusic();
     this.render(ts);
 
     Input.endFrame();
+    Controls.endFrame();
     requestAnimationFrame((t) => this.loop(t));
   },
 
+  // Morceau selon l'ecran (2 variantes par partie du Monde, boss differents, profondeurs de
+  // l'Infini), intensite (combat), pression (peu de % ou boss) et etouffement en pause.
+  updateMusic() {
+    const s = this.state, w = this.world;
+    let track = 'menu';
+    if (s === STATE.INFINITE) {
+      const cyc = Math.floor((Infinite.depth - 1) / 30);
+      track = w.room && w.room.isBoss ? (Infinite.isFinalBoss() ? 'final' : (Infinite.partOf(Infinite.depth) === 2 ? 'boss2' : 'boss')) : 'part' + Infinite.partOf(Infinite.depth) + (cyc % 2 ? 'b' : '');
+    } else if (s === STATE.ONLINE_GAME) track = 'arena';
+    else if (s === STATE.ONLINE_MENU || s === STATE.ONLINE_LOBBY || s === STATE.BESTIARY) track = 'menu2';
+    else if (s === STATE.TEST_ROOM) track = 'part1b';
+    else if (s === STATE.TUTORIAL) track = 'tutorial';
+    Music.setTrack(track);
+    const play = this.isGameplayState() && s !== STATE.MENU;
+    const fighting = play && w && w.enemies && w.enemies.some((e) => !e.dead);
+    Music.setIntensity(fighting ? 1 : (play ? 0.4 : 0.3));
+    // pression : joueur en danger (peu de % de degats ou de vitesse) ou boss en vie
+    let pressure = 0;
+    const p = w && w.player;
+    if (fighting && p) {
+      const pct = p.speedMode ? p.speedPct : p.damageMultiplier;
+      pressure = clamp((0.45 - pct) / 0.35, 0, 1);
+      if (w.enemies.some((e) => !e.dead && e.kind === 'boss')) pressure = Math.max(pressure, 0.45);
+    }
+    Music.setPressure(pressure);
+    Music.setMuffled(!!(this.paused || (s === STATE.INFINITE && Infinite.shopOpen) || (typeof Boons !== 'undefined' && Boons.choosing) || Assist.open));
+  },
+
   isGameplayState() {
-    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE || this.state === STATE.CHALLENGE_EDITOR || this.state === STATE.ONLINE_GAME;
+    return this.state === STATE.MENU || this.state === STATE.TEST_ROOM || this.state === STATE.ONLINE_GAME || this.state === STATE.INFINITE || this.state === STATE.TUTORIAL;
   },
 
   update(realDt) {
@@ -205,27 +272,24 @@ const Game = {
     }
     if (!world.player) return;
 
+    if (this.state === STATE.TUTORIAL && Input.wasPressed(Keybinds.pause)) { Tutorial.skip(); return; }
+    if (this.state === STATE.INFINITE && Infinite.transitionPhase === 'done') { // defi du jour termine : R = rejouer, Echap = menu
+      if (Input.wasPressed(Keybinds.restart)) { this.startDaily(); return; }
+      if (Input.wasPressed(Keybinds.pause)) { this.leaveDaily(); return; }
+    }
+    if (UI.subMenu && Input.wasPressed(Keybinds.pause)) { UI.closeSub(); return; } // Echap : retour au menu pause
+    if (Assist.open && Input.wasPressed(Keybinds.pause)) { Assist.close(); return; } // Echap : fiche du perso fermee
     if (this.state !== STATE.MENU && Input.wasPressed(Keybinds.pause)) {
-      if (this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE) { this.togglePause(); return; }
-      if (this.state === STATE.CHALLENGE_EDITOR) { this.setState(STATE.CHALLENGE_SELECT); return; }
+      if (this.state === STATE.INFINITE && (Infinite.shopOpen || Boons.choosing)) return; // fin de boss : on choisit d'abord
+      if (this.state === STATE.INFINITE) { this.togglePause(); return; }
       this.goToMenu(); return;
     }
     if (this.paused) return;
-    // Editeur de defi dans la carte : on se deplace et on place des elements, rien ne "vit".
-    if (this.state === STATE.CHALLENGE_EDITOR) {
-      const dtE = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1);
-      world.player.input = sampleLocalInput(world);
-      updatePlayer(world, world.player, dtE, realDt);
-      Particles.update(realDt);
-      Editor.update(world, realDt);
-      this.updateCamera(realDt);
-      return;
-    }
-    if (Input.wasPressed(Keybinds.restart)) { this.restartCurrent(); return; }
+    if (Input.wasPressed(Keybinds.restart) || Controls.restartPressed()) { this.restartCurrent(); return; }
 
     let frozen = false;
-    if (this.state === STATE.EXPEDITION && (Expedition.finished || Expedition.transitionTimer > 0)) frozen = true;
-    if (this.state === STATE.CHALLENGE && (Challenges.finished || Challenges.transitionTimer > 0)) frozen = true;
+    if (this.state === STATE.INFINITE && (Infinite.transitionTimer > 0 || Infinite.shopOpen || Infinite.transitionPhase === 'done')) frozen = true;
+    if (Boons.choosing || Assist.open) frozen = true;
 
     const simDt = realDt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1) * (1 + (world.simSpeedBonus || 0));
 
@@ -234,16 +298,17 @@ const Game = {
       // avec le serveur multijoueur (js/sim.js).
       world.player.input = sampleLocalInput(world);
       stepWorld(world, simDt, realDt);
+      if (world.mods) updateBoonEffects(world, simDt); // bonus/malus qui changent la facon de jouer
       if (this.state === STATE.MENU) updateHub(world, simDt);
     }
     Particles.update(realDt);
 
     // Codex : tout ennemi/boss croise en vraie partie devient decouvert.
-    if (this.state === STATE.EXPEDITION || this.state === STATE.CHALLENGE) {
-      for (const e of world.enemies) if (!e.dead && e.type) Save.markEnemySeen(e.type);
+    if (this.state === STATE.INFINITE) {
+      if (!Assist.open) for (const e of world.enemies) if (!e.dead && e.type) { if (!Save.isEnemyKnown(e.type)) Assist.newEnemy(e.type); Save.markEnemySeen(e.type); } // apres la fiche du perso
     }
-    if (this.state === STATE.EXPEDITION) Expedition.update(world, realDt);
-    if (this.state === STATE.CHALLENGE) Challenges.update(world, realDt);
+    if (this.state === STATE.INFINITE && !Assist.open) Infinite.update(world, realDt);
+    if (this.state === STATE.TUTORIAL) { Tutorial.update(world, realDt); Tutorial.refreshDevice(); }
 
     this.updateCamera(realDt);
     UI.updateHUD(this);
@@ -260,7 +325,7 @@ const Game = {
     let ty = world.player.y - viewH / 2;
     // La camera ne suit le joueur que sur les cartes de plus de 150 cases, et jamais dans le Monde :
     // sinon la carte entiere est cadree et fixe.
-    const cells = world.hubDoors ? Save.data.hub.cells.length : (b.w * b.h) / (HUB_CELL * HUB_CELL);
+    const cells = world.hubDoors ? hubLayout().cells.length : (b.w * b.h) / (HUB_CELL * HUB_CELL);
     const shift = world.camShiftX || 0;
     if (world.noFollow || cells <= 150) {
       tx = b.x + b.w / 2 - viewW / 2 + shift;
@@ -298,7 +363,7 @@ const Game = {
     // Fondu noir de transition entre les salles d'une expedition : dessine par-dessus
     // tout le reste (hors zoom/tremblement de camera) pour masquer le changement de salle.
     if (this.isGameplayState() && this.world.player) renderBossBars(ctx, this.world);
-    const fader = this.state === STATE.EXPEDITION ? Expedition : (this.state === STATE.CHALLENGE ? Challenges : null);
+    const fader = this.state === STATE.INFINITE ? Infinite : null;
     if (fader && fader.transitionPhase) {
       const d = fader.transitionDuration;
       const t = clamp(fader.transitionTimer / d, 0, 1);

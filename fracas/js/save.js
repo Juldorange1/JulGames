@@ -1,13 +1,18 @@
-// Sauvegarde localStorage : records, personnage selectionne, parametres audio
+// Sauvegarde : records, personnage selectionne, parametres audio...
+// - version navigateur : localStorage ;
+// - version programme (Electron, desktop/) : un FICHIER JSON dans le dossier de l'utilisateur
+//   (window.fracasNative, voir desktop/preload.js) -> compatible Steam Cloud.
 
 const SAVE_KEY = 'fracas_save_v1';
+const NATIVE = typeof window !== 'undefined' && window.fracasNative ? window.fracasNative : null;
 
 const Save = {
   data: null,
 
   load() {
     let raw = null;
-    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    if (NATIVE) { try { raw = NATIVE.readSave(); } catch (e) { raw = null; } }
+    if (!raw) { try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; } }
     let parsed = null;
     if (raw) {
       try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
@@ -17,47 +22,41 @@ const Save = {
       volume: 0.7,
       speedMult: SPEED_MULT_DEFAULT,
       selectedCharacter: 1,
-      language: 'fr',
+      language: typeof detectLanguage === 'function' ? detectLanguage() : 'fr', // langue du systeme au 1er lancement
       keybinds: Object.assign({}, DEFAULT_KEYS),
       records: {
         character1: null, character2: null, character3: null, character4: null,
         character5: null, character6: null, character7: null, character8: null,
         character9: null, character10: null, character11: null,
       },
-      challenges: {
-        challenge1: null, challenge2: null, challenge3: null, challenge4: null,
-        challenge5: null, challenge6: null, challenge7: null, challenge8: null,
-        challenge9: null, challenge10: null, challenge11: null,
-      },
       kills: {},
       money: 0,
       moneyByChar: {},
       cursorColor: '#ffffff',
       cursorStyle: 'cross',
-      customChallenges: [],
       hub: null,
       // Codex a decouvrir : persos deja joues, ennemis/boss deja croises en partie
       discovered: null,
       playerName: '',
+      // Accessibilite : tremblements (%), mode daltonien, taille de l'interface (%), tirs ennemis tres visibles
+      access: { shake: 100, colorblind: 'none', text: 100 },
+      assist: true, // mode assiste (fiches des persos, nouveaux ennemis...)
     };
     this.data = Object.assign({}, defaults, parsed || {});
     this.data.records = Object.assign({}, defaults.records, (parsed && parsed.records) || {});
-    this.data.challenges = Object.assign({}, defaults.challenges, (parsed && parsed.challenges) || {});
     this.data.keybinds = Object.assign({}, defaults.keybinds, (parsed && parsed.keybinds) || {});
+    this.data.access = Object.assign({}, defaults.access, (parsed && parsed.access) || {});
     this.data.kills = Object.assign({}, (parsed && parsed.kills) || {});
     this.data.moneyByChar = Object.assign({}, (parsed && parsed.moneyByChar) || {});
     // Une sauvegarde dont le hub est absent ou d'une version perimee (disposition par defaut
     // changee depuis) est regeneree a neuf plutot que de garder une ancienne structure figee.
     this.data.hub = (parsed && parsed.hub && parsed.hub.version === HUB_LAYOUT_VERSION) ? parsed.hub : defaultHubLayout();
-    // Parcours regeneres (nouvelle version) : leurs anciens records ne correspondent plus au trace.
-    if (typeof PARKOUR_VERSION !== 'undefined' && this.data.parkourVersion !== PARKOUR_VERSION) {
-      for (const k of Object.keys(this.data.challenges)) if (/^challengeP\d+$/.test(k)) this.data.challenges[k] = null;
-      for (const c of this.data.customChallenges || []) if (c.parkour) c.record = null;
-      this.data.parkourVersion = PARKOUR_VERSION;
-      this.persist();
-    }
-    for (const gone of ['perso', 'settings']) {
-      // Menus fusionnes : Personnages -> Codex, Parametres -> Fonctionnalites (avec le Marche)
+    // Parcours et defis perso (editeur) supprimes du jeu : on nettoie leurs donnees.
+    delete this.data.customChallenges;
+    delete this.data.parkourVersion;
+    delete this.data.challenges; // defis supprimes du jeu (solo, du jour et coop)
+    for (const gone of ['perso', 'settings', 'defi']) {
+      // Menus fusionnes (Personnages -> Codex, Parametres -> Fonctionnalites) ; portail Defi supprime
       if (this.data.hub && this.data.hub.doors && this.data.hub.doors[gone]) { delete this.data.hub.doors[gone]; this.persist(); }
     }
     if (this.data.hub && !this.data.hubDoorsV5) {
@@ -70,7 +69,6 @@ const Save = {
         if (other) hub.doors[other] = { gx: hub.doors[key].gx, gy: hub.doors[key].gy }; // echange de place
         hub.doors[key] = { gx, gy };
       };
-      moveDoor('defi', 1, -1);
       moveDoor('bestiary', -1, 1);
       this.data.hubDoorsV5 = true;
       this.persist();
@@ -111,23 +109,20 @@ const Save = {
       const d = { chars: {}, enemies: {} };
       for (const [k, v] of Object.entries(this.data.records)) if (v != null) d.chars[k.replace('character', '')] = true;
       for (const k of Object.keys(this.data.moneyByChar)) if (this.data.moneyByChar[k] > 0) d.chars[k.replace('character', '')] = true;
-      for (const [k, v] of Object.entries(this.data.challenges)) {
-        if (v == null) continue;
-        const id = k.replace('challenge', '');
-        const def = /^P\d+$/.test(id) ? (typeof PARKOUR_DEFS !== 'undefined' && PARKOUR_DEFS.find((p) => p.id === id))
-          : (typeof CHALLENGE_DEFS !== 'undefined' && CHALLENGE_DEFS.find((c) => String(c.id) === id));
-        if (def) d.chars[def.characterId] = true;
-      }
       for (const [k, v] of Object.entries(this.data.kills)) if (v > 0) d.enemies[k] = true;
       this.data.discovered = d;
       this.persist();
     }
+    // raccourcis qui n'existent plus (ex : ancienne touche du marchand) : retires
+    for (const k of Object.keys(this.data.keybinds)) if (!(k in DEFAULT_KEYS)) delete this.data.keybinds[k];
     Keybinds = Object.assign({}, DEFAULT_KEYS, this.data.keybinds);
     return this.data;
   },
 
   persist() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); } catch (e) { /* stockage indisponible */ }
+    const json = JSON.stringify(this.data);
+    if (NATIVE) { try { NATIVE.writeSave(json); } catch (e) { /* disque indisponible */ } return; }
+    try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* stockage indisponible */ }
   },
 
   setSoundOn(on) { this.data.soundOn = on; this.persist(); },
@@ -161,46 +156,8 @@ const Save = {
     return false;
   },
 
-  submitChallengeRecord(challengeId, timeMs) {
-    const custom = this.getCustomChallenge(challengeId);
-    const cur = custom ? custom.record : this.data.challenges[`challenge${challengeId}`];
-    if (cur == null || timeMs < cur) {
-      if (custom) custom.record = timeMs;
-      else this.data.challenges[`challenge${challengeId}`] = timeMs;
-      this.persist();
-      return true;
-    }
-    return false;
-  },
-
   getExpeditionRecord(charId) { return this.data.records[`character${charId}`]; },
-  getChallengeRecord(challengeId) {
-    const custom = this.getCustomChallenge(challengeId);
-    return custom ? custom.record : this.data.challenges[`challenge${challengeId}`];
-  },
 
-  // Defis personnalises : identifiants "c<horodatage>" (stables d'une session a l'autre).
-  getCustomChallenge(id) {
-    if (typeof id !== 'string') return null;
-    return this.data.customChallenges.find((c) => c.id === id) || null;
-  },
-  addCustomChallenge(def) {
-    const entry = Object.assign({ id: 'c' + Date.now(), record: null }, def);
-    this.data.customChallenges.push(entry);
-    this.persist();
-    return entry;
-  },
-  updateCustomChallenge(id, fields) {
-    const entry = this.getCustomChallenge(id);
-    if (!entry) return this.addCustomChallenge(fields);
-    Object.assign(entry, fields, { record: null }); // defi modifie : l'ancien record ne vaut plus
-    this.persist();
-    return entry;
-  },
-  removeCustomChallenge(id) {
-    this.data.customChallenges = this.data.customChallenges.filter((c) => c.id !== id);
-    this.persist();
-  },
 
   recordKill(type) {
     this.data.kills[type] = (this.data.kills[type] || 0) + 1;
@@ -230,6 +187,14 @@ const Save = {
     if (this.isCharKnown(id)) return;
     this.data.discovered.chars[id] = true;
     this.persist();
+  },
+  // Bonus/malus deja rencontres (proposes en partie ou evenement du defi du jour) : visibles au Codex.
+  isBoonKnown(kind, key) { const d = this.data.discovered; return !!(d && d.boons && d.boons[kind + ':' + key]); },
+  markBoonSeen(kind, key) {
+    const d = this.data.discovered; if (!d) return;
+    if (!d.boons) d.boons = {};
+    if (d.boons[kind + ':' + key]) return;
+    d.boons[kind + ':' + key] = true; this.persist();
   },
   isEnemyKnown(type) { return !!(this.data.discovered && this.data.discovered.enemies[type]); },
   markEnemySeen(type) {

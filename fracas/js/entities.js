@@ -216,6 +216,7 @@ function drawZones(ctx, camera, world) {
 function makeWall(w) {
   return Object.assign({ id: uid(), kind: 'wall', x: 0, y: 0, w: 48, h: 48, duration: 8, age: 0, dead: false, color: '#7a7a8a' }, w);
 }
+function updateWindStrength(world) { for (const w of world.winds || []) if (w._strongUntil != null && (w.age || 0) >= w._strongUntil) { w.strong = false; w._strongUntil = null; } }
 function updateWalls(world, dt) {
   const arr = world.walls;
   for (let i = arr.length - 1; i >= 0; i--) {

@@ -10,9 +10,8 @@ const MP_MODES = {
   versus2: { id: 'versus2', kind: 'versus', players: 4, teams: ['A', 'B'], teamSize: 2 },
   foot: { id: 'foot', kind: 'foot', players: 4, teams: ['A', 'B'], teamSize: 2 },
   survivor: { id: 'survivor', kind: 'survivor', players: 4, teams: null, teamSize: 1 },
-  coop: { id: 'coop', kind: 'coop', players: 2, teams: ['A'], teamSize: 2 },
 };
-const MP_MODE_ORDER = ['versus1', 'versus2', 'foot', 'survivor', 'coop'];
+const MP_MODE_ORDER = ['versus1', 'versus2', 'foot', 'survivor'];
 
 // Couleurs d'equipe (Survivant : une couleur par joueur).
 const MP_TEAM_COLORS = { A: '#4fb3ff', B: '#ff5d6c', S1: '#ffd23d', S2: '#5dff9d', S3: '#c77aff', S4: '#ff9d3d' };
@@ -59,8 +58,6 @@ const MP = {
   SUDDEN_DEATH_AT: 240,     // Survivant : au-dela de 4 min, tout le monde perd 1%/s
 
   // Coop
-  COOP_RECORD_PREFIX: 'coop',
-  COOP_ENEMY_HP_SCALE: 1,   // reglage serveur (1 = PV normaux des defis)
 };
 
 // Entrees compactes envoyees par le client : [seq, mx, my, ax, ay, bits]

@@ -7,8 +7,12 @@
   const HOUR = 60 * MIN;
   const DAY = 24 * HOUR;
 
+  // Tous les intervalles sont allongés de 40 % (demande utilisateur).
+  const BASE_SCALE = 1.4;
+
   // Paliers d'intervalle (en ms) : quelques minutes -> plus tard dans la session -> demain -> ...
-  const STEPS = [2 * MIN, 8 * MIN, 30 * MIN, 4 * HOUR, 1 * DAY, 3 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 60 * DAY, 120 * DAY];
+  const STEPS = [2 * MIN, 8 * MIN, 30 * MIN, 4 * HOUR, 1 * DAY, 3 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 60 * DAY, 120 * DAY]
+    .map((ms) => ms * BASE_SCALE);
 
   // Une seule compétence par direction : plus de 3e compétence "écoute" séparée depuis que
   // l'appli n'a plus qu'un seul type d'exercice (flashcard, qui alterne les 2 directions).
@@ -53,39 +57,61 @@
     return Math.min(5, Math.max(0.1, v));
   }
 
+  // Trois notes, trois effets franchement différents sur le délai avant que le mot revienne :
+  //   ❌ "again" : retour au tout début, le mot revient dans quelques minutes, facilité en forte baisse.
+  //   😐 "hard"  : avance d'un seul palier, intervalle divisé par deux, facilité en baisse.
+  //   ✅ "good"  : avance de deux paliers (un seul si le mot est globalement difficile), bonus
+  //              d'intervalle, facilité en hausse.
+  // Ex. pour un mot au palier "~6 h" : ✅ -> ~5 jours, 😐 -> ~17 h, ❌ -> ~3 min.
+  const GRADE = {
+    good:  { advance: 2, factor: 1.2, ease: +0.10 },
+    hard:  { advance: 1, factor: 0.5, ease: -0.15 },
+    again: { advance: 0, factor: 1.0, ease: -0.30 },
+  };
+
   function applyResult(item, skillName, correct, opts) {
     opts = opts || {};
+    const grade = !correct ? 'again' : (opts.hesitant ? 'hard' : 'good');
+    const g = GRADE[grade];
     const sk = item.skills[skillName];
     sk.reps += 1;
     sk.lastDate = Date.now();
     sk.lastResult = correct;
-    const diff = difficultyFactor(item);
+    const diff = difficultyFactor(item); // 0 = mot connu dans l'ensemble, 1 = mot souvent raté
+    sk.ease = Math.min(2.5, Math.max(0.6, sk.ease + g.ease));
 
-    if (correct) {
-      sk.success += 1;
-      sk.streak += 1;
-      sk.ease = Math.min(2.2, sk.ease + 0.05);
-      // recul d'un palier de plus si le mot est difficile, pour revoir plus souvent
-      const advance = diff > 0.5 ? 1 : 2;
-      sk.stepIndex = Math.min(STEPS.length - 1, sk.stepIndex + advance);
-    } else {
+    if (grade === 'again') {
       sk.errors += 1;
       sk.streak = 0;
-      sk.ease = Math.max(0.6, sk.ease - 0.2);
-      sk.stepIndex = Math.max(-1, sk.stepIndex - 2);
+      sk.stepIndex = -1; // repart de zéro
+    } else {
+      sk.success += 1;
+      sk.streak = grade === 'good' ? sk.streak + 1 : 0;
+      const advance = grade === 'good' && diff > 0.5 ? 1 : g.advance;
+      sk.stepIndex = Math.min(STEPS.length - 1, sk.stepIndex + advance);
     }
 
-    const baseIndex = Math.max(0, sk.stepIndex);
-    const baseInterval = STEPS[baseIndex];
-    // Un mot difficile revient plus souvent : on réduit l'intervalle jusqu'à -50%.
-    const difficultyPenalty = 1 - diff * 0.5;
-    const jitter = 0.9 + Math.random() * 0.2;
     // Multiplicateur réglable par l'utilisateur (Réglages) : >1 espace davantage les révisions
     // (les mots reviennent moins souvent), <1 les rapproche (ils reviennent plus vite).
     const userMultiplier = intervalMultiplier();
-    let interval = baseInterval * sk.ease * difficultyPenalty * jitter * userMultiplier;
-    if (!correct) interval = Math.min(interval, STEPS[1] * userMultiplier); // un échec revient vite, quoi qu'il arrive
+    const jitter = 0.9 + Math.random() * 0.2;
+    let interval;
+    if (grade === 'again') {
+      interval = STEPS[0] * userMultiplier * jitter;
+    } else {
+      // Un mot globalement mal connu revient plus souvent : intervalle réduit jusqu'à -50 %.
+      const difficultyPenalty = 1 - diff * 0.5;
+      interval = STEPS[Math.max(0, sk.stepIndex)] * sk.ease * difficultyPenalty * g.factor * userMultiplier * jitter;
+      // 😐 doit toujours revenir plus tard que ❌, jamais plus tôt (cas d'un mot tout neuf).
+      if (grade === 'hard') interval = Math.max(interval, STEPS[0] * 2 * userMultiplier);
+    }
     sk.due = Date.now() + interval;
+    // Le mot entier attend ce délai, dans les deux sens : sinon l'autre sens (jamais demandé ou
+    // déjà échu) le ferait revenir aussitôt et la note donnée n'aurait aucun effet (comme Anki
+    // qui "enterre" les cartes sœurs). À l'échéance, c'est l'autre sens qui sera demandé.
+    SKILLS.forEach((k) => {
+      if (k !== skillName) item.skills[k].due = Math.max(item.skills[k].due, sk.due);
+    });
 
     item.masteryLevel = computeMasteryLevel(item);
     return sk;

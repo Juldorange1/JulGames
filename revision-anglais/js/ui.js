@@ -60,7 +60,7 @@
   // Un item sans traduction n'est pas révisable : la réponse affichée après clic doit toujours
   // être la traduction exacte, jamais un champ vide. Il reste visible/éditable dans sa leçon,
   // juste absent des sessions de révision tant qu'il n'est pas complété.
-  function reviewableItems() { return Store.getAllItems().filter((it) => it.en && it.fr); }
+  function reviewableItems() { return Store.getAllItems().filter(Analyzer.isReviewable); }
 
   function renderHome() {
     $('#home-date').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -332,7 +332,7 @@
   }
 
   function startExamSession(lessonId, minutes) {
-    const pool = lessonId ? Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr) : reviewableItems();
+    const pool = lessonId ? Store.getItemsByLesson(lessonId).filter(Analyzer.isReviewable) : reviewableItems();
     if (!pool.length) { toast('Aucun élément à réviser dans cette sélection.'); return; }
     const target = Math.max(6, Math.round(minutes * 2.2));
     const ranked = pool.slice().sort((a, b) => examScore(b) - examScore(a));
@@ -358,13 +358,32 @@
     return overdue * 0.6 + diff * 3 + impWeight + (3 - it.masteryLevel) * 0.4;
   }
 
+  function formatDelay(ms) {
+    const min = Math.ceil(ms / 60000);
+    if (min <= 1) return "moins d'une minute";
+    if (min < 60) return `${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `${h} h`;
+    const d = Math.round(h / 24);
+    return `${d} jour${d > 1 ? 's' : ''}`;
+  }
+
   function startSmartReview(minutes, mode) {
     // Un mot validé à répétition (niveau "solide" : plusieurs succès dans les deux sens, avec
     // des intervalles longs) n'a plus rien à faire ici — cette révision se concentre sur ce qui
     // n'est pas encore acquis, pas sur ce qu'on sait déjà par cœur.
-    const pool = reviewableItems().filter((it) => it.masteryLevel < 3);
-    if (!pool.length) { toast('Tout est déjà bien maîtrisé — rien à revoir ici pour l\'instant !'); return; }
+    const notMastered = reviewableItems().filter((it) => it.masteryLevel < 3);
+    if (!notMastered.length) { toast('Tout est déjà bien maîtrisé — rien à revoir ici pour l\'instant !'); return; }
     const now = Date.now();
+    // On respecte le délai fixé par la note : un mot déjà vu ne revient qu'une fois arrivé à
+    // échéance (sinon ✅ / 😐 / ❌ n'auraient aucun effet réel). Les mots jamais vus restent
+    // proposables (en nombre limité par capNewItems).
+    const pool = notMastered.filter((it) => !hasBeenSeen(it) || SRS.isDue(it, now));
+    if (!pool.length) {
+      const next = Math.min(...notMastered.map((it) => SRS.nextDue(it)));
+      toast(`Rien à revoir pour l'instant — prochain mot dans ${formatDelay(next - now)}.`);
+      return;
+    }
     const target = Math.max(6, Math.round(minutes * 2.2));
     const ranked = pool.slice().sort((a, b) => smartScore(b, now) - smartScore(a, now));
     const selected = capNewItems(ranked, target);
@@ -373,7 +392,7 @@
 
   function startLessonReview(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    let pool = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr);
+    let pool = Store.getItemsByLesson(lessonId).filter(Analyzer.isReviewable);
     if (App.lessonFilterEssentialOnly) pool = pool.filter((i) => i.importance === 'essential');
     if (!pool.length) { toast('Aucun élément révisable dans cette leçon.'); return; }
     const target = Math.max(8, Math.min(pool.length * 2, 40));
@@ -388,7 +407,7 @@
   // ---------------------------------------------------------------
   function startTestBlanc(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    const pool = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr);
+    const pool = Store.getItemsByLesson(lessonId).filter(Analyzer.isReviewable);
     if (pool.length < 3) { toast('Pas assez d\'éléments pour un test blanc (minimum 3).'); return; }
     const target = Math.min(20, Math.max(8, pool.length));
     startSession(Exercises.shuffle(pool).slice(0, target), pool, target, 'test', lesson.title);
@@ -432,24 +451,21 @@
       if (step.item.history.length > 30) step.item.history.shift();
       Store.markDirty();
     }
-    if (!correct && step.item) {
-      s.wrongItems.push(step.item);
-      const already = s.requeued[step.item.id] || 0;
-      if (already < 1) {
-        // Un vrai temps doit s'écouler avant de revoir ce mot : au moins MIN_GAP autres
-        // questions entre les deux, jamais collé à une autre occurrence déjà prévue.
-        const MIN_GAP = 6;
-        let pos = s.index + MIN_GAP + Math.floor(Math.random() * 4);
-        let attempts = 0;
-        while (attempts < 10 && s.queue.slice(Math.max(0, pos - 3), pos + 3).some((st) => st.item && st.item.id === step.item.id)) {
-          pos += 3;
-          attempts++;
-        }
-        pos = Math.min(pos, s.queue.length);
-        const altDirection = step.direction === 'en_fr' ? 'fr_en' : 'en_fr';
-        s.queue.splice(pos, 0, Exercises.genFlashcard(step.item, altDirection));
-        s.requeued[step.item.id] = already + 1;
+    if (!correct && step.item) s.wrongItems.push(step.item);
+    // Retour dans la MÊME session selon la note : ❌ revient après ~6 autres questions, 😐 après
+    // ~12, ✅ pas du tout (il attendra sa prochaine échéance, bien plus lointaine). Une seule
+    // reprise par mot et par session ; on repose la même question (même sens) que celle ratée.
+    const gap = !correct ? 6 : (opts.hesitant ? 12 : 0);
+    if (gap && step.item && (s.requeued[step.item.id] || 0) < 1) {
+      let pos = s.index + gap + Math.floor(Math.random() * 4);
+      let attempts = 0;
+      while (attempts < 10 && s.queue.slice(Math.max(0, pos - 3), pos + 3).some((st) => st.item && st.item.id === step.item.id)) {
+        pos += 3;
+        attempts++;
       }
+      pos = Math.min(pos, s.queue.length);
+      s.queue.splice(pos, 0, Exercises.genFlashcard(step.item, step.direction));
+      s.requeued[step.item.id] = 1;
     }
   }
 
@@ -604,7 +620,7 @@
   // ---------------------------------------------------------------
   function startLearnMode(lessonId) {
     const lesson = Store.getLesson(lessonId);
-    const items = Store.getItemsByLesson(lessonId).filter((i) => i.en && i.fr)
+    const items = Store.getItemsByLesson(lessonId).filter(Analyzer.isReviewable)
       .sort((a, b) => ({essential:0,important:1,secondary:2}[a.importance] - {essential:0,important:1,secondary:2}[b.importance]));
     if (!items.length) { toast('Aucun mot à apprendre dans cette leçon.'); return; }
     const groups = [];

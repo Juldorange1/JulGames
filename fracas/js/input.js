@@ -118,11 +118,13 @@ const Input = {
 
 // Intentions du joueur local pour ce pas de simulation (solo) ou a envoyer au serveur (en ligne).
 // La simulation ne lit jamais Input directement : elle lit player.input.
+// Clavier/souris + manette + tactile (Controls) sont fusionnes ici.
 function sampleLocalInput(world) {
   const mv = Input.moveVector();
   const zoom = (world && world.zoom) || 1;
   const cam = (world && world.camera) || { x: 0, y: 0 };
-  return {
+  const c = typeof Controls !== 'undefined' ? Controls.gameInput(world) : null;
+  const inp = {
     mx: mv.x, my: mv.y,
     ax: Input.mouse.x / zoom + cam.x, ay: Input.mouse.y / zoom + cam.y, hasAim: true,
     attack: Input.isDown(Keybinds.attack), attackReleased: Input.wasReleased(Keybinds.attack),
@@ -131,4 +133,10 @@ function sampleLocalInput(world) {
     a3p: Input.wasPressed(Keybinds.ability3), a3d: Input.isDown(Keybinds.ability3),
     abp: Input.wasPressed(Keybinds.ability), abd: Input.isDown(Keybinds.ability),
   };
+  if (c) {
+    if (c.mx || c.my) { inp.mx = c.mx; inp.my = c.my; }
+    if (c.aim) { inp.ax = c.aim.x; inp.ay = c.aim.y; }
+    for (const k of ['attack', 'attackReleased', 'a1p', 'a1d', 'a2p', 'a2d', 'a3p', 'a3d', 'abp', 'abd']) inp[k] = inp[k] || c[k];
+  }
+  return inp;
 }

@@ -13,6 +13,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('game');
   resizeCanvas(canvas);
   UI.init();
+  Icons.watch(document.body); // emojis de l'interface -> icones dessinees
   Game.init(canvas);
   window.addEventListener('resize', () => resizeCanvas(canvas));
 });

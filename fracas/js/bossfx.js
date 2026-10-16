@@ -148,7 +148,7 @@ function updateHazards(world, dt) {
       Particles.burst(h.x, h.y, 14, '#ff7a3d', { maxSpeed: 180, life: 0.4 });
       Audio2.explosion(1.1);
       if (Game.shakeCamera) Game.shakeCamera(9, 0.35);
-      for (const p of players) if (Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.radius) playerApplyDamage(p, h.dmg);
+      for (const p of players) if (Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.radius) enemyHitPlayer(world, p, h.dmg, true);
     }
     if (h.type === 'spikes' && !h.erupted && h.t >= h.tele) {
       h.erupted = true;
@@ -162,7 +162,7 @@ function updateHazards(world, dt) {
       const cds = h.hitCds || (h.hitCds = {});
       for (const p of players) {
         if (p.airborne || cds[p.id] > 0) continue;
-        if (distToSegment(p.x, p.y, h.x, h.y, x1, y1) < h.width / 2 + p.radius) { playerApplyDamage(p, h.dmg); cds[p.id] = 0.6; }
+        if (distToSegment(p.x, p.y, h.x, h.y, x1, y1) < h.width / 2 + p.radius) { enemyHitPlayer(world, p, h.dmg, true); cds[p.id] = 0.6; }
       }
       for (const k in cds) if (cds[k] > 0) cds[k] -= dt;
     }
@@ -319,13 +319,18 @@ function updateBossSpecials(world, b, dt) {
   if (!b._roared) {
     b._roared = true;
     b._spTimer = 3;
-    if (Game.shakeCamera) Game.shakeCamera(12, 0.6);
+    if (Game.shakeCamera) Game.shakeCamera(b.final ? 22 : 12, b.final ? 1.4 : 0.6);
     Audio2.boss();
     Particles.ring(b.x, b.y, (b.radius || 34) * 3, b.color, 0.6);
+    if (b.final) { // entree du boss final : onde doree + eclats des 6 boss
+      Particles.ring(b.x, b.y, (b.radius || 34) * 6, '#ffd23d', 1.2);
+      for (const k of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']) Particles.burst(b.x, b.y, 18, BOSS_DEFS[k].color, { maxSpeed: 380, life: 1 });
+      Audio2.explosion(1.4);
+    }
   }
   b._spTimer -= dt * (b.fireScale || 1); // double boss : attaques speciales 2x moins frequentes
   if (b._spTimer <= 0) {
-    const spec = BOSS_SPECIALS[b.type];
+    const spec = BOSS_SPECIALS[b.type === 'B7' ? b.aspect : b.type]; // boss final : attaque de l'aspect en cours
     if (spec) spec(world, b);
     b._spTimer = Math.max(4, 8 - (b.phase || 1) * 1.3);
   }

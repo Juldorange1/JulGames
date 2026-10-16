@@ -8,11 +8,13 @@
    Les dictionnaires sont dans js/lang/<code>.js (I18N.packs.<code> = { ... }).
    ========================================================= */
 const I18N = (() => {
-  const LANGS = { fr: 'Français', en: 'English' };
+  const LANGS = { fr: 'Français', en: 'English', es: 'Español', de: 'Deutsch', it: 'Italiano', pt: 'Português', ru: 'Русский', zh: '简体中文', ja: '日本語', ko: '한국어' };
   const packs = {};
   let lang = 'fr';
   try { lang = localStorage.getItem('binome_lang') || ''; } catch (e) { }
-  if (!LANGS[lang]) { const n = (navigator.language || 'fr').slice(0, 2).toLowerCase(); lang = LANGS[n] ? n : (n === 'fr' ? 'fr' : 'en'); }
+  if (!LANGS[lang]) { const n = (navigator.language || 'fr').slice(0, 2).toLowerCase(); lang = LANGS[n] ? n : 'en'; }
+  // seule la langue choisie est chargée (l'anglais sert de relais pour les autres)
+  if (lang !== 'fr' && document.readyState === 'loading') { document.write('<script src="js/lang/en.js"><\/script>'); if (lang !== 'en') document.write(`<script src="js/lang/${lang}.js"><\/script>`); }
   const harvest = /[?&]harvest\b/.test(location.search);   // outil : liste les textes non traduits
   const missing = new Map();
   let dict = null, pats = null;
@@ -22,9 +24,11 @@ const I18N = (() => {
   const typo = s => lang === 'fr' ? s : s.replace(/(\S)[ \u00a0\u202f]+([:!?;])/g, '$1$2').replace(/(\d)[ \u00a0\u202f]+%/g, '$1%');
   function build() {
     if (dict) return;
-    const p = packs[lang] || {};
+    const en = packs.en || {}, p = packs[lang] || {};
     dict = new Map(); pats = new Map();
-    for (const k0 in p) { const k = norm(k0); if (k.includes('{#}')) pats.set(k, p[k0]); else dict.set(k, p[k0]); }
+    // autres langues : clé française → texte anglais → traduction (à défaut, l'anglais)
+    const src = lang === 'en' ? en : Object.fromEntries(Object.keys(en).map(k => [k, p[en[k]] != null ? p[en[k]] : en[k]]));
+    for (const k0 in src) { const k = norm(k0); if (k.includes('{#}')) pats.set(k, src[k0]); else dict.set(k, src[k0]); }
   }
   function note(s) { if (harvest && /[a-zà-ÿ]{2}/i.test(s) && !missing.has(s)) missing.set(s, 1); }
   /* traduit une chaîne (garde les espaces autour) */

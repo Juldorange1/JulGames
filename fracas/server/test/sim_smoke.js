@@ -7,7 +7,7 @@ const { collectCategories, DeltaEncoder } = require('../core/snapshot');
 
 const CHARS = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11];
 let failed = 0;
-for (const mode of ['versus1', 'versus2', 'foot', 'survivor', 'coop']) {
+for (const mode of ['versus1', 'versus2', 'foot', 'survivor']) {
   try {
     const sc = createSimContext();
     const def = sc.x.MP_MODES[mode];

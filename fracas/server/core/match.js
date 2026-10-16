@@ -20,7 +20,7 @@ class Match {
     this.BITS = X.IN_BITS;
     this.mode = lobby.mode;
     const players = members.map((m) => ({ netId: m.session.id, name: m.session.name, team: m.team, characterId: m.characterId, connected: !!m.session.conn }));
-    this.ctl = this.sc.g.mpCreateMatch({ mode: lobby.mode, players, challengeId: lobby.challengeId, seed: crypto.randomInt(1 << 30) });
+    this.ctl = this.sc.g.mpCreateMatch({ mode: lobby.mode, players, seed: crypto.randomInt(1 << 30) });
     this.clients = new Map();
     for (const m of members) {
       this.clients.set(m.session.id, { session: m.session, latest: null, edges: 0, lastSeq: 0, needKey: true, rtt: 0, lastPingAt: 0 });
@@ -37,7 +37,7 @@ class Match {
 
   startMessage(netId) {
     return {
-      t: 'match.start', matchId: this.id, mode: this.mode, you: netId, challengeId: this.lobby.challengeId || null,
+      t: 'match.start', matchId: this.id, mode: this.mode, you: netId,
       roster: this.ctl.roster.map((r) => ({ netId: r.netId, name: r.name, team: r.team, characterId: r.characterId })),
       room: this.ctl.roomPayload(),
     };

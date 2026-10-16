@@ -8,13 +8,16 @@ function worldPlayers(world) {
   return world.player ? [world.player] : [];
 }
 // Joueur actif le plus proche d'un point (cible des tourelles et des boss).
+// Un joueur invisible (Cendre C2) n'est plus vu : les ennemis visent l'endroit ou il a disparu.
+function seenPlayer(p) { return p && p.invisibleTimer > 0 && p.ghost ? p.ghost : p; }
 function nearestPlayer(world, x, y) {
-  if (!world.players) return world.player;
+  if (!world.players) return seenPlayer(world.player);
   let best = null, bestD = Infinity;
   for (const p of world.players) {
     if (p.dead || p.absent) continue;
-    const d = dist2(p.x, p.y, x, y);
-    if (d < bestD) { bestD = d; best = p; }
+    const q = seenPlayer(p);
+    const d = dist2(q.x, q.y, x, y);
+    if (d < bestD) { bestD = d; best = q; }
   }
   return best;
 }
@@ -81,9 +84,15 @@ function damageEnemy(world, enemy, amount, source) {
   // le pourcentage affiche dans le HUD ("DEGATS : X%") doit reellement les mettre a l'echelle.
   // C'est le multiplicateur de l'AUTEUR du coup qui compte (plusieurs joueurs en ligne).
   const attacker = ownerOf(world, source);
-  const mult = attacker ? attacker.damageMultiplier : 1;
+  // (Fracas Infini : + bonus de degats achete au marchand)
+  // (+ benedictions/maledictions : modDmg ; coup critique = degats doubles)
+  const mult = attacker ? attacker.damageMultiplier * (attacker.dmgBonus || 1) * (attacker.modDmg || 1) : 1;
   amount *= mult;
   if (amount <= 0) return;
+  if (attacker && attacker.critChance && Math.random() < attacker.critChance) {
+    amount *= 2;
+    Particles.text(enemy.x, enemy.y - (enemy.radius || 16) - 20, 'CRIT', '#ff9d3d');
+  }
   // Adversaire humain ou cristal (modes en ligne) : regles du mode (serveur uniquement).
   if (enemy.kind === 'player' || enemy.kind === 'crystal') {
     if (world.onHostileHit) world.onHostileHit(world, enemy, amount, attacker);
@@ -101,6 +110,8 @@ function damageEnemy(world, enemy, amount, source) {
     Particles.ring(enemy.x, enemy.y, (enemy.radius || 16) * (isBoss ? 3.5 : 2.2), isBoss ? '#ff3d5a' : '#ff9d5d', isBoss ? 0.55 : 0.35);
     if (isBoss) { Audio2.boss(); if (Game.shakeCamera) Game.shakeCamera(10, 0.3); } else Audio2.turretDown();
     if (world.onEnemyKilled) world.onEnemyKilled(enemy);
+    if (world.mods && world.mods.chainBlast && typeof boonChainBlast === 'function') boonChainBlast(world, enemy, attacker); // bonus
+    if (attacker && attacker.killHeal) playerHeal(attacker, attacker.killHeal); // benediction
   }
 }
 
@@ -110,10 +121,24 @@ function spawnPlayerProjectile(world, player, opts) {
   return pr;
 }
 
+// Degats des ennemis sur le joueur : tous les BOSS font 2x moins de degats ; en Fracas Infini la
+// "puissance des ennemis" choisie apres chaque boss (world.enemyPower) multiplie aussi les degats.
+const BOSS_DAMAGE_MULT = 0.5; // -50% : 2x moins de degats pour tous les boss
+const PVE_LOSS_MULT = 0.5 * 1.35; // -50% puis +35% : % perdu face aux ennemis et pieges (pas en PvP)
+let BOSS_SCOPE = false;       // vrai pendant la mise a jour d'un boss : ses tirs sont marques fromBoss
+function enemyDamageScale(world, fromBoss) {
+  return PVE_LOSS_MULT * (fromBoss ? BOSS_DAMAGE_MULT : 1) * (world && world.enemyPower > 0 ? world.enemyPower : 1);
+}
+function enemyHitPlayer(world, player, percent, fromBoss) {
+  playerApplyDamage(player, percent * enemyDamageScale(world, fromBoss));
+}
+
 function spawnEnemyProjectile(world, opts) {
   const pr = makeProjectile(Object.assign({ team: TEAM.ENEMY, color: COLORS.projEnemy }, opts));
-  pr.vx *= ENEMY_PROJECTILE_SPEED_MULT;
-  pr.vy *= ENEMY_PROJECTILE_SPEED_MULT;
+  if (BOSS_SCOPE) pr.fromBoss = true;
+  const k = ENEMY_PROJECTILE_SPEED_MULT * (world.mods && world.mods.enemyProjSpeed ? 1 + world.mods.enemyProjSpeed : 1);
+  pr.vx *= k;
+  pr.vy *= k;
   world.projectiles.push(pr);
   return pr;
 }

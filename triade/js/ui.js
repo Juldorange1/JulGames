@@ -609,7 +609,11 @@ const UI = {
       <li><b>Dungeon Ambience</b> — yd (exploration)</li>
       <li><b>Heartfelt Battle</b> — request (combat)</li>
       <li><b>Fairy Battles</b> — MintoDog (combat)</li>
-      <li><b>Boss Battle #2 [Symphonic Metal]</b> — nene (boss)</li></ul>`, [{ label: 'Fermer', cls: 'ghost' }]);
+      <li><b>Boss Battle #2 [Symphonic Metal]</b> — nene (boss)</li>
+      <li><b>Crystal Cave (song18)</b>, <b>Mysterious Ambience (song21)</b>, <b>Battle Theme A</b>, <b>Victory Fanfare Short</b> — cynicmusic / pixelsphere.org</li>
+      <li><b>Creepy Forest</b> — Augmentality (Brandon Morris)</li>
+      <li><b>Fast fight / battle music</b> — Ville Nousiainen (Xythe)</li>
+      <li><b>Medieval: Defeat Theme</b> — RandomMind</li></ul>`, [{ label: 'Fermer', cls: 'ghost' }]);
   },
   isFull() { return window.triadeNative ? window.triadeNative.isFullscreen() : !!document.fullscreenElement; },
   toggleFull() {
@@ -618,7 +622,7 @@ const UI = {
     document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => { try { screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } }).catch(() => { });
   },
   langHtml() {
-    return `<div class="lang-row" title="Langue du jeu"><span>${icon('rule', 18)} Langue</span>${Object.keys(I18N.LANGS).map(l => `<button class="btn ghost small lang-b ${l === I18N.lang ? 'on2' : ''}" data-lang="${l}" translate="no">${I18N.LANGS[l]}</button>`).join('')}</div>`;
+    return `<div class="lang-row" title="Langue du jeu"><span>${icon('rule', 18)} Langue / Language</span>${Object.keys(I18N.LANGS).map(l => `<button class="btn ghost small lang-b ${l === I18N.lang ? 'on2' : ''}" data-lang="${l}" translate="no">${I18N.LANGS[l]}</button>`).join('')}</div>`;
   },
   bindLang() { document.querySelectorAll('.lang-b').forEach(b => b.onclick = () => { if (b.dataset.lang !== I18N.lang) { save && S && save(); I18N.set(b.dataset.lang); } }); },
   cycleSpeed() {

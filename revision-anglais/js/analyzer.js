@@ -496,7 +496,31 @@
     // sans ponctuation claire, etc.). On ne doit pas les laisser disparaître silencieusement.
     extractOrphanVocabulary(rawLines, items, detectedFormsToFamily).forEach((it) => items.push(it));
 
-    return items;
+    // Dernier contrôle : jamais de "mot" qui n'en est pas un (une lettre isolée comme "d", un
+    // reste de numérotation "d)", une suite de consonnes...). Les règles/notes culturelles, qui
+    // n'ont pas de côté anglais, ne sont pas concernées.
+    return items.filter((it) => !it.en || isPlausibleTerm(it.en));
+  }
+
+  // Un terme anglais plausible : au moins 2 lettres au total ; un mot seul doit contenir une
+  // voyelle (y compris "y") ou être un sigle écrit en majuscules ("TV", "DVD") ; une expression
+  // ou une phrase doit contenir au moins un vrai mot (≥ 2 lettres avec une voyelle). Écarte "d",
+  // "st", "pp", "4d"... sans toucher aux vrais mots courts ("go", "ox", "by"), ni aux phrases
+  // contenant un sigle ("I watch TV").
+  function isPlausibleTerm(en) {
+    const raw = (en || '').trim();
+    const letters = raw.replace(/[^a-z]/gi, '');
+    if (letters.length < 2) return false;
+    const words = raw.split(/[\s-]+/).map((w) => w.replace(/[^a-z]/gi, '')).filter(Boolean);
+    if (!words.length) return false;
+    if (words.length === 1) return /[aeiouy]/i.test(words[0]) || /^[A-Z]{2,}$/.test(words[0]);
+    return words.some((w) => w.length >= 2 && /[aeiouy]/i.test(w));
+  }
+
+  // Un item peut être proposé en flashcard seulement si ses deux faces ont un vrai contenu :
+  // un terme anglais plausible ET une traduction contenant au moins 2 lettres.
+  function isReviewable(it) {
+    return !!(it && it.en && it.fr && isPlausibleTerm(it.en) && /[a-zà-ÿ].*[a-zà-ÿ]/i.test(it.fr));
   }
 
   // Filet de sécurité : quel que soit le chemin emprunté par l'analyseur, jamais un item avec
@@ -536,5 +560,5 @@
     return item;
   }
 
-  global.Analyzer = { analyzeLesson, makeItem, classifyEnglishSide, splitEnFr, parseTripleLine, extractOrphanVocabulary };
+  global.Analyzer = { analyzeLesson, makeItem, classifyEnglishSide, splitEnFr, parseTripleLine, extractOrphanVocabulary, isPlausibleTerm, isReviewable };
 })(window);

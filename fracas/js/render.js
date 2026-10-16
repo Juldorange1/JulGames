@@ -404,9 +404,9 @@ function renderWorld(ctx, world) {
   renderDecorations(ctx, camera, world);
   renderIslandRims(ctx, camera, world);
   renderTerrainZones(ctx, camera, world.room);
-  renderParkourMarks(ctx, camera, world);
+  renderRoomObjects(ctx, camera, world);
   renderObstacles(ctx, camera, world.room, world.theme);
-  renderParkourLasers(ctx, camera, world);
+  drawRoomExit(ctx, camera, world); // porte de sortie (bord droit)
   drawWinds(ctx, camera, world);
   drawZones(ctx, camera, world);
   renderHazardsGround(ctx, camera, world);
@@ -422,6 +422,7 @@ function renderWorld(ctx, world) {
     for (const p of world.players) if (!p.dead && !p.absent) drawPlayer(ctx, camera, world, p);
   } else if (world.player) drawPlayer(ctx, camera, world, world.player);
   if (world.onlineOver) world.onlineOver(ctx, camera, world); // ballons, noms, barres de %
+  drawBoonEffects(ctx, camera, world); // orbes, bulle de temps, tempete
+  drawBoonFog(ctx, camera, world); // malediction "brouillard"
   Particles.render(ctx, camera);
-  if (Game.state === STATE.CHALLENGE_EDITOR) Editor.renderOverlay(ctx, camera, world);
 }

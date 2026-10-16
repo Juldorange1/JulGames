@@ -23,7 +23,6 @@ const rules = {
   MP: ref.x.MP,
   PROTOCOL: ref.x.NET_PROTOCOL_VERSION,
   characterIds: ref.g.allCharacterIds(),
-  challengeIds: ref.x.CHALLENGE_DEFS.map((d) => d.id), // defis normaux uniquement (pas de parcours)
 };
 
 const sessions = new Sessions(rules.MP.RECONNECT_GRACE_MS, log);
@@ -67,13 +66,12 @@ transport.onConnection((conn) => {
       case 'ping': conn.send({ t: 'pong', c: msg.c, s: Date.now() }); break;
       case 'resync': if (x && x.lobby.match) x.lobby.match.requestKeyframe(session.id); break;
       case 'lobby.list': conn.send({ t: 'lobby.list', lobbies: lobbies.listPublic() }); break;
-      case 'lobby.create': lobbies.create(session, { mode: msg.mode, isPrivate: msg.isPrivate, challengeId: msg.challengeId }); break;
+      case 'lobby.create': lobbies.create(session, { mode: msg.mode, isPrivate: msg.isPrivate }); break;
       case 'lobby.join': lobbies.join(session, msg.code); break;
       case 'lobby.leave': case 'match.leave': lobbies.leave(session); break;
       case 'lobby.char': lobbies.setCharacter(session, Number(msg.c)); break;
       case 'lobby.team': lobbies.setTeam(session, String(msg.team || '')); break;
       case 'lobby.ready': lobbies.setReady(session, !!msg.ready); break;
-      case 'lobby.challenge': lobbies.setChallenge(session, typeof msg.id === 'string' ? msg.id : Number(msg.id)); break;
       case 'lobby.start': lobbies.start(session); break;
       case 'name': session.name = require('./core/sessions').cleanName(msg.name); if (x) lobbies.broadcast(x.lobby); break;
       default: break;

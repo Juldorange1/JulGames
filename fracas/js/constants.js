@@ -17,7 +17,6 @@ const DMG_MAX = 1.00;
 
 // Monnaie (€) gagnee en expedition/defi, depensee dans le marche du hub
 const BOSS_REWARD_BY_PART = { 1: 2, 2: 3, 3: 4 };
-const CHALLENGE_REWARD = 0.05;
 const HUB_EXPAND_COST = 40;
 const HUB_MOVE_COST = 7;
 const HUB_DECOR_COST = 15;
@@ -48,10 +47,10 @@ const SPEED_MULT_MIN = 50, SPEED_MULT_MAX = 200, SPEED_MULT_DEFAULT = 100;
 
 function keyLabel(code) {
   if (!code) return '—';
-  const en = typeof lang === 'function' && lang() === 'en';
+  const en = typeof lang === 'function' && lang() !== 'fr';
   if (code.startsWith('Mouse')) {
     const idx = Number(code.slice(5));
-    const mouseMap = en ? ['LEFT CLICK', 'MIDDLE CLICK', 'RIGHT CLICK'] : ['CLIC GAUCHE', 'CLIC MOLETTE', 'CLIC DROIT'];
+    const mouseMap = typeof S === 'function' ? [S('mouseLeft'), S('mouseMiddle'), S('mouseRight')] : ['CLIC GAUCHE', 'CLIC MOLETTE', 'CLIC DROIT'];
     return mouseMap[idx] || `MOUSE ${idx}`;
   }
   const map = en ? {
@@ -72,17 +71,16 @@ function keyLabel(code) {
 }
 
 const STATE = {
-  MENU: 'MENU',
-  MARKET: 'MARKET',
+  MENU: 'MENU',                 // la BASE (atteinte apres les 3 parties d'une partie Infini)
+  DAILY: 'DAILY',               // defi du jour (presentation)
   CHAR_SELECT: 'CHAR_SELECT',
-  CHALLENGE_SELECT: 'CHALLENGE_SELECT',
-  CHALLENGE_EDITOR: 'CHALLENGE_EDITOR',
   SETTINGS: 'SETTINGS',
   BESTIARY: 'BESTIARY',
   TEST_ROOM: 'TEST_ROOM',
-  EXPEDITION: 'EXPEDITION',
-  CHALLENGE: 'CHALLENGE',
   ROUND_END: 'ROUND_END',
+  INFINITE_MENU: 'INFINITE_MENU', // Fracas Infini : menu (continuer / nouvelle partie)
+  INFINITE: 'INFINITE',           // Fracas Infini : partie sans fin
+  TUTORIAL: 'TUTORIAL',           // salle tutoriel
   ONLINE_MENU: 'ONLINE_MENU',   // en ligne : connexion, creer / rejoindre
   ONLINE_LOBBY: 'ONLINE_LOBBY', // en ligne : lobby (equipes, persos, pret)
   ONLINE_GAME: 'ONLINE_GAME',   // en ligne : partie (simulee par le serveur)

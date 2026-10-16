@@ -9,6 +9,16 @@ const UI = {
   init() {
     this.overlay = document.getElementById('overlay');
     this.initCursor();
+    this.applyAccess();
+    // Sons d'interface : clic et survol des elements cliquables des menus.
+    const CLICKABLE = '.menu-btn, .rep-tile, .launcher-card, .rep-tab, .lang-btn, .online-mode, .lobby-char, .back-btn, .test-spawn-btn, .test-room-char, .online-lobby-row, .lobby-code, .market-cell, .boon-card';
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest(CLICKABLE)) Audio2.uiClick(); }, true);
+    let lastHover = null;
+    document.addEventListener('mouseover', (e) => {
+      const el = e.target.closest && e.target.closest(CLICKABLE);
+      if (el && el !== lastHover) Audio2.uiHover();
+      lastHover = el;
+    });
   },
 
   // Le meme viseur personnalise (Parametres > Curseur) partout : en jeu comme dans tous les menus.
@@ -64,34 +74,174 @@ const UI = {
     this._portraits = null;
   },
 
+  // Accessibilite : filtre daltonien (jeu + interface) et taille de l'interface.
+  applyAccess() {
+    const a = (Save.data && Save.data.access) || {};
+    const f = a.colorblind && a.colorblind !== 'none' ? `url(#cb-${a.colorblind})` : '';
+    const cv = document.getElementById('game');
+    if (cv) cv.style.filter = f;
+    if (this.overlay) { this.overlay.style.filter = f; this.overlay.style.zoom = String((a.text || 100) / 100); }
+  },
+
+  // Accessibilite : reglages compacts (un bouton par reglage, un clic = valeur suivante).
+  accessSection() {
+    const a = Save.data.access;
+    const sec = this.el('div', 'settings-section');
+    sec.appendChild(this.el('h3', null, `👁️ ${S('settingsAccess')}`));
+    const grid = this.el('div', 'access-grid');
+    const cycle = (icon, label, options, cur, set) => {
+      const row = this.el('div', 'access-row');
+      row.appendChild(this.el('div', 'keybind-name', `${icon} ${label}`));
+      let i = Math.max(0, options.findIndex(([v]) => v === cur));
+      const b = this.el('div', 'lang-btn active access-btn', options[i][1]);
+      b.onclick = () => { i = (i + 1) % options.length; set(options[i][0]); b.textContent = options[i][1]; Save.persist(); this.applyAccess(); };
+      row.appendChild(b);
+      grid.appendChild(row);
+    };
+    cycle('🎓', S('accAssist'), [[true, 'ON'], [false, 'OFF']], Save.data.assist !== false, (v) => { Save.data.assist = v; });
+    cycle('📳', S('accShake'), [[100, '100%'], [50, '50%'], [0, 'OFF']], a.shake, (v) => { a.shake = v; });
+    cycle('🔠', S('accText'), [[100, '100%'], [115, '115%'], [130, '130%'], [90, '90%']], a.text, (v) => { a.text = v; });
+    cycle('🎨', S('accColorblind'), [['none', S('cb_none')], ['protan', S('cb_protan')], ['deutan', S('cb_deutan')], ['tritan', S('cb_tritan')]], a.colorblind, (v) => { a.colorblind = v; });
+    sec.appendChild(grid);
+    return sec;
+  },
+
+  // Journal de test (playtests) : exporter / effacer.
+  playtestSection() {
+    const sec = this.el('div', 'settings-section');
+    sec.appendChild(this.el('h3', null, `🐞 ${S('settingsPlaytest')}`));
+    sec.appendChild(this.el('div', 'settings-hint', S('ptHint').replace('{n}', Playtest.data().events.length)));
+    const row = this.el('div', 'lang-row');
+    const exp = this.el('div', 'lang-btn', `⬆️ ${S('ptExport')}`);
+    const msg = this.el('div', 'settings-hint', '');
+    exp.onclick = () => { Save.persist(); const where = Playtest.export(); msg.textContent = `✔ ${S('ptDone')} ${where || ''}`; };
+    const clr = this.el('div', 'lang-btn', `🗑️ ${S('ptClear')}`);
+    clr.onclick = () => { if (clr._armed) { Playtest.clear(); this.goSettings(); } else { clr._armed = true; clr.textContent = S('infConfirm'); } };
+    row.appendChild(exp); row.appendChild(clr);
+    sec.appendChild(row); sec.appendChild(msg);
+    return sec;
+  },
+
+  // Version programme (Electron) : plein ecran et taille de la fenetre.
+  displaySection() {
+    const sec = this.el('div', 'settings-section');
+    sec.appendChild(this.el('h3', null, `🖥️ ${S('settingsDisplay')}`));
+    const d = NATIVE.getDisplay();
+    const row1 = this.el('div', 'lang-row');
+    row1.appendChild(this.el('div', 'keybind-name', `⛶ ${S('displayFullscreen')}`));
+    const fs = this.el('div', 'lang-btn' + (d.fullscreen ? ' active' : ''), d.fullscreen ? 'ON' : 'OFF');
+    fs.onclick = () => { NATIVE.setFullscreen(!NATIVE.getDisplay().fullscreen); setTimeout(() => this.goSettings(), 150); };
+    row1.appendChild(fs);
+    sec.appendChild(row1);
+    const row2 = this.el('div', 'lang-row');
+    row2.appendChild(this.el('div', 'keybind-name', `🗗 ${S('displayWindow')}`));
+    for (const [w, h] of [[1280, 720], [1600, 900], [1920, 1080]]) {
+      const on = !d.fullscreen && d.width === w && d.height === h;
+      const b = this.el('div', 'lang-btn' + (on ? ' active' : ''), `${w}×${h}`);
+      b.onclick = () => { NATIVE.setWindowSize(w, h); setTimeout(() => this.goSettings(), 150); };
+      row2.appendChild(b);
+    }
+    sec.appendChild(row2);
+    return sec;
+  },
+
+  // Reglages du son (ON/OFF, effets, musique) : Parametres ET menu pause (toutes les versions).
+  soundControls() {
+    const box = this.el('div', 'sound-controls');
+    const soundRow = this.el('div', 'lang-row');
+    const soundBtn = this.el('div', 'lang-btn');
+    const paint = () => { soundBtn.textContent = Audio2.on ? '🔊 ON' : '🔇 OFF'; soundBtn.classList.toggle('active', Audio2.on); };
+    soundBtn.onclick = () => { Audio2.toggle(); paint(); };
+    paint();
+    soundRow.appendChild(soundBtn);
+    box.appendChild(soundRow);
+    const slider = (icon, label, get, set, preview) => {
+      const row = this.el('div', 'volume-row');
+      row.appendChild(this.el('div', 'keybind-name', `${icon} ${label}`));
+      const sl = document.createElement('input');
+      sl.type = 'range'; sl.min = '0'; sl.max = '100'; sl.step = '1';
+      sl.value = String(Math.round(get() * 100));
+      sl.className = 'volume-slider';
+      const val = this.el('div', 'volume-value', `${Math.round(get() * 100)}%`);
+      let deb = null;
+      sl.addEventListener('input', () => {
+        const v = Number(sl.value) / 100;
+        set(v); val.textContent = `${Math.round(v * 100)}%`;
+        if (preview) { clearTimeout(deb); deb = setTimeout(preview, 60); }
+      });
+      row.appendChild(sl); row.appendChild(val);
+      box.appendChild(row);
+    };
+    slider('💥', S('volume'), () => Audio2.volume, (v) => Audio2.setVolume(v), () => Audio2.attack());
+    slider('🎵', S('musicVolume'), () => Music.volume, (v) => Music.setVolume(v)); // volume de la musique, separe des effets
+    return box;
+  },
+
+  // ---------- Parametres / Codex ouverts depuis le menu pause (la partie reste en pause) ----------
+  subMenu: null,
+  goSettings() { if (this.subMenu) this.openSub('settings'); else Game.setState(STATE.SETTINGS); },
+  goCodex() { if (this.subMenu) this.openSub('codex'); else Game.setState(STATE.BESTIARY); },
+  openSub(kind) {
+    if (this._subEl) { this._subEl.remove(); this._subEl = null; }
+    this.stopPortraitAnim();
+    this.subMenu = kind;
+    if (this._pauseEl) this._pauseEl.style.display = 'none';
+    const before = this.overlay.lastElementChild;
+    if (kind === 'settings') this.renderSettings(); else this.renderBestiary();
+    const el = this.overlay.lastElementChild;
+    if (el && el !== before) { el.classList.add('sub-panel'); this._subEl = el; }
+  },
+  closeSub() {
+    if (this._subEl) { this._subEl.remove(); this._subEl = null; }
+    this.stopPortraitAnim();
+    this.subMenu = null;
+    // la langue a pu changer : on reconstruit le menu pause
+    if (this._pauseEl) { this._pauseEl.remove(); this._pauseEl = null; }
+    if (Game.paused) this.showPause();
+  },
+
   showPause() {
     if (this._pauseEl) return;
     const panel = this.el('div', 'panel pause-panel');
     panel.appendChild(this.el('h2', null, S('pauseTitle')));
-    const resume = this.el('div', 'menu-btn menu-btn-small', S('resume'));
+    const resume = this.el('div', 'menu-btn menu-btn-small', `▶ ${S('resume')}`);
     resume.onclick = () => Game.togglePause();
-    const abandon = this.el('div', 'menu-btn menu-btn-small', S('abandon'));
-    abandon.onclick = () => Game.goToMenu();
+    // Fracas Infini : on quitte vers son propre menu, la partie est sauvegardee
+    const inf = Game.state === STATE.INFINITE;
+    const abandon = this.el('div', 'menu-btn menu-btn-small', `🚪 ${S(inf && !Infinite.daily ? 'infQuitSaved' : 'abandon')}`);
+    abandon.onclick = () => (inf ? Game.leaveInfinite() : Game.goToMenu());
     panel.appendChild(resume);
+    // Parametres et Codex accessibles en pleine partie (sans la quitter)
+    const sub = this.el('div', 'pause-row');
+    const st = this.el('div', 'menu-btn menu-btn-small', `⚙️ ${S('settingsTitle')}`);
+    st.onclick = () => this.openSub('settings');
+    const cx = this.el('div', 'menu-btn menu-btn-small', `📖 ${S('btnBestiary')}`);
+    cx.onclick = () => this.openSub('codex');
+    sub.appendChild(st); sub.appendChild(cx);
+    panel.appendChild(sub);
     panel.appendChild(abandon);
+    panel.appendChild(this.soundControls()); // le son se regle aussi en pause
     this.overlay.appendChild(panel);
     this._pauseEl = panel;
   },
 
   hidePause() {
+    if (this._subEl) { this._subEl.remove(); this._subEl = null; this.stopPortraitAnim(); }
+    this.subMenu = null;
     if (this._pauseEl) { this._pauseEl.remove(); this._pauseEl = null; }
   },
 
   onStateChange(state) {
     this.clear();
     if (state === STATE.MENU) this.buildHubOverlay();
-    else if (state === STATE.MARKET) this.renderMarket();
     else if (state === STATE.CHAR_SELECT) this.renderCharSelect();
-    else if (state === STATE.CHALLENGE_SELECT) this.renderChallengeSelect();
-    else if (state === STATE.CHALLENGE_EDITOR) Editor.renderToolbar();
     else if (state === STATE.SETTINGS) this.renderSettings();
     else if (state === STATE.BESTIARY) this.renderBestiary();
-    else if (state === STATE.TEST_ROOM || state === STATE.EXPEDITION || state === STATE.CHALLENGE) this.buildHUD(state);
+    else if (state === STATE.TEST_ROOM) this.buildHUD(state);
+    else if (state === STATE.DAILY) Daily.renderMenu();
+    else if (state === STATE.INFINITE_MENU) InfiniteUI.beginMenu();
+    else if (state === STATE.INFINITE) this.buildHUD(state);
+    else if (state === STATE.TUTORIAL) { this.buildHUD(state); Tutorial.renderBox(); }
     else if (state === STATE.ONLINE_MENU) OnlineUI.renderMenu();
     else if (state === STATE.ONLINE_LOBBY) OnlineUI.renderLobby(true);
     else if (state === STATE.ONLINE_GAME) { this.buildHUD(state); OnlineUI.buildGameOverlay(); }
@@ -110,286 +260,26 @@ const UI = {
     return back;
   },
 
-  // ---------------- HUB (salle d'accueil) ----------------
+  // ---------------- BASE (apres les 3 parties) ----------------
   buildHubOverlay() {
     const hud = this.el('div', 'hud');
-    hud.appendChild(this.el('div', 'hub-title', S('menuTitle')));
-    hud.appendChild(this.el('div', 'hub-money', formatMoney(Save.getMoney())));
-    hud.appendChild(this.el('div', 'hub-hint', S('hubHint')));
+    hud.appendChild(this.el('div', 'hub-title', `🏠 ${S('baseTitle')}`));
+    hud.appendChild(this.el('div', 'hub-hint', S('baseHint')));
+    const leave = this.el('div', 'hub-version', `🚪 ${S('baseLeave')}`);
+    leave.onclick = () => Game.leaveBase();
+    hud.appendChild(leave);
     this.overlay.appendChild(hud);
-  },
-
-  // ---------------- MARCHE (agrandir/amenager le hub) ----------------
-  // Onglets du menu unique "Fonctionnalites" (Marche + Parametres).
-  featureTabs(active) {
-    const row = this.el('div', 'rep-tabs feature-tabs');
-    for (const [st, key] of [[STATE.MARKET, 'marketTitle'], [STATE.SETTINGS, 'settingsTitle']]) {
-      const b = this.el('div', 'rep-tab' + (st === active ? ' active' : ''), S(key));
-      b.onclick = () => Game.setState(st);
-      row.appendChild(b);
-    }
-    return row;
-  },
-
-  renderMarket() {
-    const panel = this.el('div', 'panel market-panel');
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
-
-    const header = this.el('div', 'market-header');
-    header.appendChild(this.el('h2', null, S('featuresTitle')));
-    header.appendChild(this.featureTabs(STATE.MARKET));
-    header.appendChild(this.el('div', 'market-money-badge', formatMoney(Save.getMoney())));
-    panel.appendChild(header);
-
-    if (!this._marketTab) this._marketTab = 'expand';
-    if (!this._marketDecorType) this._marketDecorType = 'teleporter';
-    if (!this._marketWallColor) this._marketWallColor = '#7fd8ff';
-    if (!this._marketWindDir) this._marketWindDir = 'up';
-    if (!this._marketMoveKey) this._marketMoveKey = 'market';
-
-    const tabLabelKey = { expand: 'marketTabExpand', shrink: 'marketTabShrink', move: 'marketTabMove', add: 'marketTabAdd', remove: 'marketTabRemove' };
-    const tabCost = { expand: `${HUB_EXPAND_COST}€`, shrink: `+${HUB_EXPAND_COST}€`, move: `${HUB_MOVE_COST}€`, add: `${HUB_DECOR_COST}€`, remove: null };
-    const tabRow = this.el('div', 'market-tabs');
-    for (const t of ['expand', 'shrink', 'move', 'add', 'remove']) {
-      const b = this.el('div', 'market-tab' + (this._marketTab === t ? ' active' : ''));
-      b.appendChild(this.el('div', 'market-tab-name', S(tabLabelKey[t])));
-      if (tabCost[t] != null) b.appendChild(this.el('div', 'market-tab-cost', tabCost[t]));
-      b.onclick = () => { this._marketTab = t; this._pendingTramp = null; Game.setState(STATE.MARKET); };
-      tabRow.appendChild(b);
-    }
-    panel.appendChild(tabRow);
-    panel.appendChild(this.el('div', 'market-hint', S(this._pendingTramp ? 'marketHint_trampLand' : 'marketHint_' + this._marketTab)));
-
-    if (this._marketTab === 'add') {
-      const options = this.el('div', 'market-options');
-      const optRow = this.el('div', 'lang-row');
-      for (const dt of ['teleporter', 'wall', 'wind', 'trampoline', 'boost']) {
-        const b = this.el('div', 'lang-btn' + (this._marketDecorType === dt ? ' active' : ''), S('marketDecor_' + dt));
-        b.onclick = () => { this._marketDecorType = dt; this._pendingTramp = null; Game.setState(STATE.MARKET); };
-        optRow.appendChild(b);
-      }
-      options.appendChild(optRow);
-      if (this._marketDecorType === 'wall') {
-        const colorRow = this.el('div', 'volume-row');
-        colorRow.appendChild(this.el('div', 'keybind-name', S('marketWallColor')));
-        const colorInput = document.createElement('input');
-        colorInput.type = 'color';
-        colorInput.className = 'market-color-input';
-        colorInput.value = this._marketWallColor;
-        colorInput.addEventListener('input', () => { this._marketWallColor = colorInput.value; });
-        colorRow.appendChild(colorInput);
-        options.appendChild(colorRow);
-      }
-      if (this._marketDecorType === 'wind') {
-        const dirRow = this.el('div', 'lang-row');
-        for (const d of ['up', 'down', 'left', 'right']) {
-          const b = this.el('div', 'lang-btn' + (this._marketWindDir === d ? ' active' : ''), S('marketDir_' + d));
-          b.onclick = () => { this._marketWindDir = d; Game.setState(STATE.MARKET); };
-          dirRow.appendChild(b);
-        }
-        options.appendChild(dirRow);
-      }
-      panel.appendChild(options);
-    }
-
-    if (this._marketTab === 'move') {
-      const options = this.el('div', 'market-options');
-      const meta = hubDoorMeta();
-      const keyRow = this.el('div', 'lang-row');
-      for (const key of hubKeyList().concat(['spawn'])) {
-        const label = meta[key] ? S(meta[key].labelKey) : S('hubSpawn');
-        const b = this.el('div', 'lang-btn' + (this._marketMoveKey === key ? ' active' : ''), label);
-        b.onclick = () => { this._marketMoveKey = key; Game.setState(STATE.MARKET); };
-        keyRow.appendChild(b);
-      }
-      options.appendChild(keyRow);
-      panel.appendChild(options);
-    }
-
-    const legend = this.el('div', 'market-legend');
-    legend.appendChild(this.legendItem('has-block', S('marketLegendBlock')));
-    legend.appendChild(this.legendItem('has-decor', S('marketLegendDecor')));
-    legend.appendChild(this.legendItem('candidate', S('marketLegendCandidate')));
-    panel.appendChild(legend);
-
-    panel.appendChild(this.buildMarketGrid());
-    this.overlay.appendChild(panel);
-  },
-
-  legendItem(cls, text) {
-    const item = this.el('div', 'market-legend-item');
-    item.appendChild(this.el('div', 'market-legend-swatch ' + cls));
-    item.appendChild(this.el('div', null, text));
-    return item;
-  },
-
-  buildMarketGrid() {
-    const mode = this._marketTab;
-    const occ = hubCellsSet();
-    const { minGx, maxGx, minGy, maxGy } = hubBounds();
-    const pad = 1;
-    const gMinGx = minGx - pad, gMaxGx = maxGx + pad, gMinGy = minGy - pad, gMaxGy = maxGy + pad;
-    const cols = gMaxGx - gMinGx + 1;
-    const board = this.el('div', 'market-board');
-    const grid = this.el('div', 'market-grid');
-    grid.style.gridTemplateColumns = `repeat(${cols}, 36px)`;
-    const meta = hubDoorMeta();
-    const decorAt = {};
-    for (const d of Save.data.hub.decor) decorAt[hubCellKey(d.gx, d.gy)] = d;
-    const doorAt = {};
-    for (const [key, pos] of Object.entries(Save.data.hub.doors)) doorAt[hubCellKey(pos.gx, pos.gy)] = key;
-    const windGlyph = { up: '↑', down: '↓', left: '←', right: '→' };
-    const landAt = {};
-    for (const d of Save.data.hub.decor) if (d.type === 'trampoline') landAt[hubCellKey(d.lgx, d.lgy)] = true;
-    const pend = this._pendingTramp;
-
-    for (let gy = gMinGy; gy <= gMaxGy; gy++) {
-      for (let gx = gMinGx; gx <= gMaxGx; gx++) {
-        const key = hubCellKey(gx, gy);
-        const isOcc = occ.has(key);
-        const doorKey = doorAt[key];
-        const decor = decorAt[key];
-        const cell = this.el('div', 'market-cell' + (isOcc ? ' occ' : ''));
-        if (doorKey) {
-          const label = meta[doorKey] ? S(meta[doorKey].labelKey) : S('hubSpawn');
-          cell.classList.add('has-block');
-          cell.title = label;
-          cell.textContent = label.slice(0, 2);
-        } else if (decor) {
-          cell.classList.add('has-decor', 'decor-' + decor.type);
-          if (decor.type === 'wall') cell.style.background = decor.color;
-          cell.title = S('marketDecor_' + decor.type);
-          const glyph = { teleporter: '◎', trampoline: '⤴', boost: '»' };
-          cell.textContent = decor.type === 'wind' ? (windGlyph[decor.dir] || '→') : (glyph[decor.type] || '');
-        } else if (landAt[key]) {
-          cell.classList.add('tramp-land');
-          cell.textContent = '⊙';
-          cell.title = S('marketTrampLanding');
-        }
-        if (pend && pend.gx === gx && pend.gy === gy) { cell.classList.add('pending'); cell.textContent = '⤴'; }
-        let isCandidate = false;
-        if (mode === 'expand') isCandidate = !isOcc && hubAdjacentToExisting(gx, gy);
-        else if (mode === 'move' || mode === 'add') isCandidate = isOcc && !doorKey && !decor && !landAt[key] && !(pend && pend.gx === gx && pend.gy === gy);
-        else if (mode === 'remove') isCandidate = !!decor;
-        else if (mode === 'shrink') isCandidate = this.canRemoveHubCell(gx, gy);
-        if (isCandidate) cell.classList.add('candidate');
-        cell.onclick = () => this.onMarketCellClick(gx, gy, isOcc, doorKey, decor);
-        grid.appendChild(cell);
-      }
-    }
-    board.appendChild(grid);
-    return board;
-  },
-
-  // Une case achetee peut etre retiree (remboursee) si elle est vide et que la base reste d'un seul tenant.
-  canRemoveHubCell(gx, gy) {
-    const hub = Save.data.hub;
-    if (Math.abs(gx) <= 1 && Math.abs(gy) <= 1) return false; // cases de depart
-    if (!hub.cells.some((c) => c.gx === gx && c.gy === gy)) return false;
-    if (Object.values(hub.doors).some((p) => p.gx === gx && p.gy === gy)) return false;
-    if (hub.decor.some((d) => (d.gx === gx && d.gy === gy) || (d.type === 'trampoline' && d.lgx === gx && d.lgy === gy))) return false;
-    const rest = hub.cells.filter((c) => !(c.gx === gx && c.gy === gy));
-    const keyOf = (c) => c.gx + ',' + c.gy;
-    const set = new Set(rest.map(keyOf));
-    const seen = new Set([keyOf(rest[0])]);
-    const q = [rest[0]];
-    while (q.length) {
-      const c = q.pop();
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const k = (c.gx + dx) + ',' + (c.gy + dy);
-        if (set.has(k) && !seen.has(k)) { seen.add(k); q.push({ gx: c.gx + dx, gy: c.gy + dy }); }
-      }
-    }
-    return seen.size === rest.length;
-  },
-
-  onMarketCellClick(gx, gy, isOcc, doorKey, decor) {
-    const mode = this._marketTab;
-    const isLanding = Save.data.hub.decor.some((d) => d.type === 'trampoline' && d.lgx === gx && d.lgy === gy);
-    if (mode === 'shrink') {
-      if (!this.canRemoveHubCell(gx, gy)) return;
-      Save.data.hub.cells = Save.data.hub.cells.filter((c) => !(c.gx === gx && c.gy === gy));
-      Save.addMoney(HUB_EXPAND_COST); // case remboursee
-      Save.persist();
-      Game.setState(STATE.MARKET);
-      return;
-    }
-    if (mode === 'add' && this._marketDecorType === 'trampoline') {
-      // 1er clic : case du trampoline ; 2e clic : case libre ou il fait atterrir (donc son sens)
-      if (!isOcc || doorKey || decor || isLanding) return;
-      const pend = this._pendingTramp;
-      if (!pend) { this._pendingTramp = { gx, gy }; Game.setState(STATE.MARKET); return; }
-      if (pend.gx === gx && pend.gy === gy) { this._pendingTramp = null; Game.setState(STATE.MARKET); return; }
-      if (!Save.spendMoney(HUB_DECOR_COST)) return;
-      Save.data.hub.decor.push({ id: uid(), type: 'trampoline', gx: pend.gx, gy: pend.gy, lgx: gx, lgy: gy });
-      this._pendingTramp = null;
-      Save.persist();
-      Game.setState(STATE.MARKET);
-      return;
-    }
-    if ((mode === 'add' || mode === 'move') && isLanding) return;
-    if (mode === 'expand') {
-      if (isOcc || !hubAdjacentToExisting(gx, gy)) return;
-      if (!Save.spendMoney(HUB_EXPAND_COST)) return;
-      Save.data.hub.cells.push({ gx, gy });
-      Save.persist();
-    } else if (mode === 'move') {
-      if (!isOcc || doorKey || decor) return;
-      if (!Save.spendMoney(HUB_MOVE_COST)) return;
-      Save.data.hub.doors[this._marketMoveKey] = { gx, gy };
-      Save.persist();
-    } else if (mode === 'add') {
-      if (!isOcc || doorKey || decor) return;
-      if (!Save.spendMoney(HUB_DECOR_COST)) return;
-      const entry = { id: uid(), gx, gy, type: this._marketDecorType };
-      if (this._marketDecorType === 'wall') entry.color = this._marketWallColor;
-      if (this._marketDecorType === 'wind') entry.dir = this._marketWindDir;
-      if (this._marketDecorType === 'teleporter') {
-        const unpaired = Save.data.hub.decor.find((d) => d.type === 'teleporter' && !d.pairId);
-        if (unpaired) { entry.pairId = uid(); unpaired.pairId = entry.pairId; }
-      }
-      Save.data.hub.decor.push(entry);
-      Save.persist();
-    } else if (mode === 'remove') {
-      if (!decor) return;
-      if (decor.type === 'teleporter' && decor.pairId) {
-        const partner = Save.data.hub.decor.find((d) => d.pairId === decor.pairId && d.id !== decor.id);
-        if (partner) partner.pairId = null;
-      }
-      Save.data.hub.decor = Save.data.hub.decor.filter((d) => d.id !== decor.id);
-      Save.addMoney(HUB_DECOR_COST);
-      Save.persist();
-    }
-    Game.setState(STATE.MARKET);
   },
 
   // ---------------- SELECTION / SHOWCASE PERSONNAGES ----------------
   renderCharSelect() {
     // Tous les personnages sur un seul ecran (grille ajustee a la fenetre, sans defilement) :
     // juste l'animation, le nom, la vitesse et le record. Le detail des competences est au Codex.
-    const mode = Game.pendingCharSelectMode || 'expedition';
+    const mode = Game.pendingCharSelectMode || 'infinite';
     const panel = this.el('div', 'panel rep-panel');
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
+    panel.appendChild(this.backBtn(() => Game.goToMenu()));
     const head = this.el('div', 'rep-head');
     head.appendChild(this.el('h2', null, S('charSelectTitle')));
-    if (mode === 'expedition') {
-      const speedRow = this.el('div', 'cs-speed');
-      speedRow.appendChild(this.el('span', null, S('settingsSpeedMult')));
-      const speedSlider = document.createElement('input');
-      speedSlider.type = 'range';
-      speedSlider.min = String(SPEED_MULT_MIN); speedSlider.max = String(SPEED_MULT_MAX); speedSlider.step = '10';
-      speedSlider.value = String(Save.data.speedMult || SPEED_MULT_DEFAULT);
-      speedSlider.className = 'volume-slider';
-      const speedValue = this.el('b', null, `${Save.data.speedMult || SPEED_MULT_DEFAULT}%`);
-      speedSlider.addEventListener('input', () => {
-        const v = Number(speedSlider.value);
-        Save.setSpeedMult(v);
-        speedValue.textContent = `${v}%`;
-      });
-      speedRow.appendChild(speedSlider);
-      speedRow.appendChild(speedValue);
-      head.appendChild(speedRow);
-    }
     panel.appendChild(head);
 
     const grid = this.el('div', 'rep-grid fit-grid');
@@ -406,11 +296,10 @@ const UI = {
       tile.appendChild(sc.canvas);
       const cap = this.el('div', 'rep-tile-cap');
       cap.appendChild(this.el('span', 'rep-tile-name', known ? charName(id) : S('unknownName')));
-      const rec = Save.getExpeditionRecord(id);
-      cap.appendChild(this.el('span', 'rep-tile-sub', known ? `${c.speedPercent}%${rec != null ? ' · ' + formatTime(rec) : ''}` : ''));
+      cap.appendChild(this.el('span', 'rep-tile-sub', known ? `👟 ${c.speedPercent}%` : ''));
       tile.appendChild(cap);
       tile.onclick = () => {
-        if (mode === 'expedition') Game.startExpedition(id);
+        if (mode === 'infinite') Game.startInfinite(Game.pendingInfiniteSlot || 0, id);
         else Game.startTestRoom(id);
       };
       grid.appendChild(tile);
@@ -460,158 +349,36 @@ const UI = {
     this._portraitAnimId = requestAnimationFrame(animate);
   },
 
-  // ---------------- DEFIS ----------------
-  // Petit portrait anime du perso impose, ou "?" s'il n'a jamais ete joue.
-  challengePortrait(charId, scenes) {
-    const known = Save.isCharKnown(charId);
-    const sc = known ? createShowcase('character', charId) : createMysteryShowcase(getCharacter(charId).color);
-    sc.canvas.classList.add('challenge-portrait');
-    scenes.push(sc);
-    return sc.canvas;
-  },
-  knownCharName(id) { return Save.isCharKnown(id) ? charName(id) : S('unknownName'); },
-
-  renderChallengeSelect() {
-    const panel = this.el('div', 'panel');
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
-    panel.appendChild(this.el('h2', null, S('challengesTitle')));
-    const scenes = [];
-
-    // ---- Defi du jour (tout aleatoire, change a minuit) ----
-    const dId = dailyChallengeId();
-    const dDef = Challenges.get(dId);
-    const daily = this.el('div', 'challenge-card daily-card');
-    daily.style.setProperty('--accent', '#ffd23d');
-    daily.appendChild(this.challengePortrait(dDef.characterId, scenes));
-    const dInfo = this.el('div', 'daily-info');
-    dInfo.appendChild(this.el('h4', null, `${S('dailyTitle')} — ${this.knownCharName(dDef.characterId)}`));
-    dInfo.appendChild(this.el('p', null, S('dailySub')));
-    const dRec = Save.getChallengeRecord(dId);
-    const now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const left = Math.max(0, midnight - now), hh = Math.floor(left / 3600000), mm = Math.floor((left % 3600000) / 60000);
-    dInfo.appendChild(this.el('div', 'best', `${S('record')} : ${dRec != null ? formatTime(dRec) : '--:--.---'}   ·   ${S('dailyNext')} ${hh}h${String(mm).padStart(2, '0')}`));
-    daily.appendChild(dInfo);
-    daily.onclick = () => Game.startChallenge(dId);
-    panel.appendChild(daily);
-
-    const list = this.el('div', 'challenge-list');
-    for (const def of CHALLENGE_DEFS) {
-      const card = this.el('div', 'challenge-card');
-      card.style.setProperty('--accent', getCharacter(def.characterId).color || '#7fd8ff');
-      card.appendChild(this.challengePortrait(def.characterId, scenes));
-      card.appendChild(this.el('h4', null, `${S('hudDefi')} ${challengeNumber(def)} — ${this.knownCharName(def.characterId)}`));
-      card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
-      card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
-      const rec = Save.getChallengeRecord(def.id);
-      card.appendChild(this.el('div', 'best', `${S('record')} : ${rec != null ? formatTime(rec) : '--:--.---'}   ·   ${S('challengeReward')} : +${formatMoney(CHALLENGE_REWARD)}`));
-      card.onclick = () => Game.startChallenge(def.id);
-      list.appendChild(card);
-    }
-    panel.appendChild(list);
-
-    // Defis personnalises : crees par le joueur, avec record de temps mais sans gain d'argent.
-    panel.appendChild(this.el('h3', null, S('customChallengesTitle')));
-    const createBtn = this.el('div', 'menu-btn menu-btn-small', `+ ${S('customCreate')}`);
-    createBtn.onclick = () => Editor.open('combat');
-    panel.appendChild(createBtn);
-    const customList = this.el('div', 'challenge-list');
-    for (const c of Save.data.customChallenges.filter((x) => !x.parkour)) {
-      const card = this.el('div', 'challenge-card');
-      card.style.setProperty('--accent', getCharacter(c.characterId).color || '#7fd8ff');
-      card.appendChild(this.challengePortrait(c.characterId, scenes));
-      card.appendChild(this.el('h4', null, `${c.name} — ${this.knownCharName(c.characterId)}`));
-      const enemyCount = c.placed ? c.placed.enemies.length : Object.values(c.enemies || {}).reduce((a, b) => a + b, 0);
-      const bossT = c.placed ? (c.placed.boss && c.placed.boss.type) : c.bossType;
-      const summary = `${S('customEnemies')} : ${enemyCount}${bossT ? ' + ' + BOSS_DEFS[bossT].name : ''}   ·   ${S('ability')}${c.abilityGate}   ·   ${S('customNoMoney')}`;
-      card.appendChild(this.el('p', null, summary));
-      card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
-      const del = this.el('div', 'custom-delete', S('customDelete'));
-      del.onclick = (e) => { e.stopPropagation(); Save.removeCustomChallenge(c.id); Game.setState(STATE.CHALLENGE_SELECT); };
-      card.appendChild(del);
-      const edit = this.el('div', 'custom-delete custom-edit', S('customEdit'));
-      edit.onclick = (e) => { e.stopPropagation(); Editor.open(c.parkour ? 'parkour' : 'combat', c); };
-      card.appendChild(edit);
-      card.onclick = () => Game.startChallenge(c.id);
-      customList.appendChild(card);
-    }
-    if (!Save.data.customChallenges.some((x) => !x.parkour)) customList.appendChild(this.el('div', 'menu-sub', S('customNone')));
-    panel.appendChild(customList);
-
-    // ---- Defis de parcours ----
-    panel.appendChild(this.el('h3', null, S('parkourTitle')));
-    panel.appendChild(this.el('div', 'menu-sub parkour-hint', S('parkourHint')));
-    const pkList = this.el('div', 'challenge-list');
-    for (const def of PARKOUR_DEFS) {
-      const card = this.el('div', 'challenge-card parkour-card');
-      card.style.setProperty('--accent', getCharacter(def.characterId).color || '#5dff9d');
-      card.appendChild(this.challengePortrait(def.characterId, scenes));
-      card.appendChild(this.el('h4', null, `${S('parkourLabel')} ${def.id.slice(1)} — ${this.knownCharName(def.characterId)}`));
-      card.appendChild(this.el('p', 'challenge-title', challengeField(def.id, 'title')));
-      card.appendChild(this.el('p', null, challengeField(def.id, 'desc')));
-      const rec = Save.getChallengeRecord(def.id);
-      card.appendChild(this.el('div', 'best', `${S('record')} : ${rec != null ? formatTime(rec) : '--:--.---'}   ·   ${S('parkourLength')} : ${S('parkourLength_' + def.length)}   ·   ${S('challengeReward')} : +${formatMoney(CHALLENGE_REWARD)}`));
-      card.onclick = () => Game.startChallenge(def.id);
-      pkList.appendChild(card);
-    }
-    panel.appendChild(pkList);
-
-    panel.appendChild(this.el('h3', null, S('customParkoursTitle')));
-    const pkCreate = this.el('div', 'menu-btn menu-btn-small', `+ ${S('parkourCreate')}`);
-    pkCreate.onclick = () => Editor.open('parkour');
-    panel.appendChild(pkCreate);
-    const pkCustom = this.el('div', 'challenge-list');
-    for (const c of Save.data.customChallenges.filter((x) => x.parkour)) {
-      const card = this.el('div', 'challenge-card parkour-card');
-      card.style.setProperty('--accent', getCharacter(c.characterId).color || '#5dff9d');
-      card.appendChild(this.challengePortrait(c.characterId, scenes));
-      card.appendChild(this.el('h4', null, `${c.name} — ${this.knownCharName(c.characterId)}`));
-      card.appendChild(this.el('p', null, `${S('parkourLength')} : ${S('parkourLength_' + c.length)}   ·   ${S('parkourDensity')} : ${S('parkourDensity_' + c.density)}   ·   ${S('customNoMoney')}`));
-      card.appendChild(this.el('div', 'best', `${S('record')} : ${c.record != null ? formatTime(c.record) : '--:--.---'}`));
-      const del = this.el('div', 'custom-delete', S('customDelete'));
-      del.onclick = (e) => { e.stopPropagation(); Save.removeCustomChallenge(c.id); Game.setState(STATE.CHALLENGE_SELECT); };
-      card.appendChild(del);
-      const edit = this.el('div', 'custom-delete custom-edit', S('customEdit'));
-      edit.onclick = (e) => { e.stopPropagation(); Editor.open(c.parkour ? 'parkour' : 'combat', c); };
-      card.appendChild(edit);
-      card.onclick = () => Game.startChallenge(c.id);
-      pkCustom.appendChild(card);
-    }
-    if (!Save.data.customChallenges.some((x) => x.parkour)) pkCustom.appendChild(this.el('div', 'menu-sub', S('parkourNone')));
-    panel.appendChild(pkCustom);
-    this.overlay.appendChild(panel);
-    this.startPortraitAnim(scenes);
-  },
-
   // ---------------- REPERTOIRE & STATISTIQUES (menu unique) ----------------
   renderBestiary() {
     // Onglets + grille compacte a gauche, fiche detaillee de l'element choisi a droite :
     // peu de texte visible d'un coup, tout est range.
     const tab = this._repTab && this._repTab !== 'records' ? this._repTab : 'chars';
     const panel = this.el('div', 'panel rep-panel');
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
+    panel.appendChild(this.backBtn(() => (this.subMenu ? this.closeSub() : Game.goToMenu())));
     const head = this.el('div', 'rep-head');
     head.appendChild(this.el('h2', null, S('bestiaryTitle')));
     const tabs = this.el('div', 'rep-tabs');
-    for (const [k, label] of [['chars', 'repTabChars'], ['parkour', 'repTabParkour'], ['turrets', 'bestiaryTurrets'], ['bosses', 'bestiaryBosses'], ['elements', 'repTabElements'], ['rules', 'repTabRules']]) {
-      const b = this.el('div', 'rep-tab' + (k === tab ? ' active' : ''), S(label));
-      b.onclick = () => { this._repTab = k; this._repSel = null; Game.setState(STATE.BESTIARY); };
+    const TAB_ICON = { chars: '🧍', turrets: '🗼', bosses: '👑', elements: '🧩', boons: '⚖️', rules: '📜' };
+    for (const [k, label] of [['chars', 'repTabChars'], ['turrets', 'bestiaryTurrets'], ['bosses', 'bestiaryBosses'], ['elements', 'repTabElements'], ['boons', 'repTabBoons'], ['rules', 'repTabRules']]) {
+      const b = this.el('div', 'rep-tab' + (k === tab ? ' active' : ''), `${TAB_ICON[k]} ${S(label)}`);
+      b.onclick = () => { this._repTab = k; this._repSel = null; this.goCodex(); };
       tabs.appendChild(b);
     }
     head.appendChild(tabs);
     panel.appendChild(head);
 
-    if (tab === 'records' || tab === 'rules') {
-      panel.appendChild(tab === 'records' ? this.renderRecordsBoard() : this.renderRulesBoard());
+    if (tab === 'records' || tab === 'rules' || tab === 'boons') {
+      panel.appendChild(tab === 'boons' ? this.renderBoonsBoard() : this.renderRulesBoard());
       this.overlay.appendChild(panel);
       return;
     }
 
     const TURRETS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
     const items = tab === 'chars' ? allCharacterIds().map((id) => ({ kind: 'character', id }))
-      : tab === 'parkour' ? parkourCharacterIds().map((id) => ({ kind: 'character', id }))
         : tab === 'turrets' ? TURRETS.map((id) => ({ kind: 'turret', id }))
           : tab === 'elements' ? CODEX_ELEMENTS.map((el) => ({ kind: 'element', id: el.id }))
-            : ['B1', 'B2', 'B3', 'B4', 'B5', 'B6'].map((id) => ({ kind: 'boss', id }));
+            : ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'].map((id) => ({ kind: 'boss', id }));
     if (!items.some((it) => it.id === this._repSel)) this._repSel = items[0].id;
 
     const scenes = [];
@@ -657,23 +424,21 @@ const UI = {
   },
 
   repColor(it) {
-    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).color;
+    if (it.kind === 'element') return elementInfo(it.id).color;
     if (it.kind === 'character') return getCharacter(it.id).color || '#7fd8ff';
     if (it.kind === 'turret') return TURRET_COLOR[it.id] || '#ff5d5d';
     return BOSS_DEFS[it.id].color;
   },
   repName(it) {
-    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).name;
+    if (it.kind === 'element') return elementInfo(it.id).name;
     if (it.kind === 'character') return charName(it.id);
     if (it.kind === 'turret') return turretInfo(it.id).name;
     return BOSS_DEFS[it.id].name;
   },
   repSub(it) {
-    if (it.kind === 'element') return CODEX_ELEMENTS.find((e) => e.id === it.id).group;
+    if (it.kind === 'element') return elementInfo(it.id).group;
     if (it.kind === 'character') {
-      if (getCharacter(it.id).parkourOnly) return charEpithet(it.id);
-      const rec = Save.getExpeditionRecord(it.id);
-      return rec != null ? formatTime(rec) : `${S('speed')} ${getCharacter(it.id).speedPercent}%`;
+      return `👟 ${getCharacter(it.id).speedPercent}%`;
     }
     if (it.kind === 'turret') return `${it.id} · ${Save.getKillCount(it.id)} ${S('bestiaryKills').toLowerCase()}`;
     return `${Save.getKillCount(it.id)} ${S('bestiaryKills').toLowerCase()}`;
@@ -718,46 +483,27 @@ const UI = {
     if (it.kind === 'character') {
       const c = getCharacter(it.id);
       title.appendChild(this.el('div', 'rep-epithet', charEpithet(it.id)));
-      if (c.parkourOnly) {
-        for (const d of PARKOUR_DEFS.filter((pd) => pd.characterId === it.id)) {
-          const rec = Save.getChallengeRecord(d.id);
-          chip(`${S('parkourLabel')} ${d.id.slice(1)}`, rec != null ? formatTime(rec) : '--:--.---', 'time');
-        }
-        chip(S('repMoney'), formatMoney(Save.getMoneyForChar(it.id)), 'money');
-        row(keyLabel(Keybinds.attack), `${charField(it.id, 'attackLabel')}${c.attackCd ? ' · ' + c.attackCd + 's' : ''}`);
-        row(keyLabel(Keybinds.ability), `${charField(it.id, 'a1Label')}${c.a1Cd ? ' · ' + c.a1Cd + 's' : ''}`);
-      } else {
-        chip(S('speed'), `${c.speedPercent}%`);
-        const rec = Save.getExpeditionRecord(it.id);
-        chip(S('repRecord'), rec != null ? formatTime(rec) : '--:--.---', 'time');
-        chip(S('repMoney'), formatMoney(Save.getMoneyForChar(it.id)), 'money');
-        // records des defis de ce personnage
-        for (const cd of CHALLENGE_DEFS.filter((x) => x.characterId === it.id)) {
-          const rc = Save.getChallengeRecord(cd.id);
-          chip(`${S('hudDefi')} ${challengeNumber(cd)}`, rc != null ? formatTime(rc) : '--:--.---', 'time');
-        }
-        row(keyLabel(Keybinds.attack), charField(it.id, 'attackLabel'));
-        for (const n of [1, 2, 3]) row(keyLabel(Keybinds['ability' + n]), `${charField(it.id, 'a' + n + 'Label')}${c['a' + n + 'Cd'] ? ' · ' + c['a' + n + 'Cd'] + 's' : ''}`);
-      }
+      chip(S('speed'), `${c.speedPercent}%`);
+      row(keyLabel(Keybinds.attack), charField(it.id, 'attackLabel'));
+      for (const n of [1, 2, 3]) row(keyLabel(Keybinds['ability' + n]), `${charField(it.id, 'a' + n + 'Label')}${c['a' + n + 'Cd'] ? ' · ' + c['a' + n + 'Cd'] + 's' : ''}`);
     } else if (it.kind === 'element') {
-      const el = CODEX_ELEMENTS.find((e) => e.id === it.id);
-      title.appendChild(this.el('div', 'rep-epithet', el.group));
+      title.appendChild(this.el('div', 'rep-epithet', elementInfo(it.id).group));
     } else if (it.kind === 'turret') {
       chip(S('bestiaryHp'), String(Math.round(TURRET_HP[it.id] * ENEMY_HP_MULT)));
-      chip(S('bestiaryLoss'), `${TURRET_LOSS[it.id]}%`);
+      chip(S('bestiaryLoss'), `${+(TURRET_LOSS[it.id] * PLAYER_DAMAGE_TAKEN_MULT * PVE_LOSS_MULT).toFixed(1)}%`); // % reellement perdu
       chip(S('bestiaryKills'), String(Save.getKillCount(it.id)), 'time');
       rows.appendChild(this.el('p', 'rep-desc', turretInfo(it.id).desc));
     } else {
       const def = BOSS_DEFS[it.id];
       chip(S('bestiaryHp'), String(Math.round(def.hp * ENEMY_HP_MULT)));
-      chip(S('bestiaryContact'), `${def.contact}%`);
+      chip(S('bestiaryContact'), `${+(def.contact * PLAYER_DAMAGE_TAKEN_MULT * PVE_LOSS_MULT * BOSS_DAMAGE_MULT).toFixed(1)}%`);
       chip(S('bestiaryKills'), String(Save.getKillCount(it.id)), 'time');
       rows.appendChild(this.el('p', 'rep-desc', bossInfo(it.id).desc));
     }
     // Statistiques detaillees (valeurs chiffrees)
     const statList = it.kind === 'character' ? codexCharStats(it.id)
       : it.kind === 'turret' ? (CODEX_TURRET_STATS[it.id] || [])
-        : it.kind === 'element' ? CODEX_ELEMENTS.find((e) => e.id === it.id).stats
+        : it.kind === 'element' ? elementInfo(it.id).stats
           : [['Phases', '3 (seuils a 70% et 35% de PV)'], ['Vitesse d\'attaque', 'augmente a chaque phase'], ['Rayon', String(BOSS_DEFS[it.id].radius || 34)]];
     const stats = this.el('div', 'rep-stats');
     if (statList.length) stats.appendChild(this.el('div', 'rep-stats-title', S('repStats')));
@@ -771,20 +517,53 @@ const UI = {
     if (chips.children.length) node.appendChild(chips);
     if (rows.children.length) node.appendChild(rows);
     node.appendChild(stats);
-    if (it.kind === 'character' && !getCharacter(it.id).parkourOnly) {
+    if (it.kind === 'character') {
       const btn = this.el('div', 'menu-btn menu-btn-small rep-action', S('repTestRoom'));
       btn.onclick = () => Game.startTestRoom(it.id);
       node.appendChild(btn);
-    } else if (it.kind === 'character') {
-      node.appendChild(this.el('div', 'rep-note', S('repParkourNote')));
     }
     return { node, scene: sc };
   },
 
   // Onglet Regles : cartes courtes, tout sur un ecran.
+  // Tous les bonus et malus possibles (fin de partie du Monde / de boss en Infini).
+  renderBoonsBoard() {
+    const board = this.el('div', 'rep-boons');
+    board.appendChild(this.el('div', 'rep-boons-note', `⏳ ${S('boonNextPart')}   ·   ∞ ${S('boonForever')}   ·   ${S('boonsCodexNote')}`));
+    const cols = this.el('div', 'rep-boons-cols');
+    for (const [kind, table, title] of [['boon', BOON_EFFECTS, `✚ ${S('codexBoons')}`], ['curse', CURSE_EFFECTS, `✖ ${S('codexCurses')}`]]) {
+      const col = this.el('div', 'rep-boons-col ' + kind);
+      col.appendChild(this.el('h3', null, title));
+      const list = this.el('div', 'rep-boons-list');
+      col.appendChild(list);
+      for (const key of Object.keys(table)) {
+        const part = boonParse(boonId(kind, key, 'part'));
+        const run = table[key][2] != null ? boonParse(boonId(kind, key, 'run')) : null;
+        if (!Save.isBoonKnown(kind, key)) { // pas encore rencontre en partie : cache
+          const u = this.el('div', 'rep-boon unknown');
+          u.appendChild(this.el('span', 'rep-boon-icon', '❔'));
+          u.appendChild(this.el('span', 'rep-boon-label', S('unknownName')));
+          list.appendChild(u);
+          continue;
+        }
+        const r = this.el('div', 'rep-boon');
+        r.appendChild(this.el('span', 'rep-boon-icon', part.icon));
+        r.appendChild(this.el('span', 'rep-boon-label', S(`mod_${key}`)));
+        r.appendChild(this.el('b', 'rep-boon-val', `⏳ ${boonValueText(part) || '✔'}`));
+        r.appendChild(this.el('b', 'rep-boon-val run', run ? `∞ ${boonValueText(run)}` : '∞ —'));
+        if ((table[key][4] || '').includes('heal')) r.title = S('boonsNoHealInf');
+        list.appendChild(r);
+      }
+      cols.appendChild(col);
+    }
+    board.appendChild(cols);
+    return board;
+  },
+
   renderRulesBoard() {
     const board = this.el('div', 'rep-records rep-rules');
-    for (const sec of CODEX_RULES) {
+    for (const k of CODEX_RULES) {
+      const sec = ruleInfo(k);
       const c = this.el('div', 'rep-rec-col');
       c.appendChild(this.el('h3', null, sec.title));
       for (const l of sec.lines) c.appendChild(this.el('p', 'rep-rule', l));
@@ -794,45 +573,26 @@ const UI = {
   },
 
   // Onglet Records : trois colonnes compactes.
-  renderRecordsBoard() {
-    const board = this.el('div', 'rep-records');
-    const col = (titleKey, lines) => {
-      const c = this.el('div', 'rep-rec-col');
-      c.appendChild(this.el('h3', null, S(titleKey)));
-      for (const [label, value, extra] of lines) {
-        const r = this.el('div', 'rep-rec-row');
-        r.appendChild(this.el('span', 'rep-rec-label', label));
-        if (extra != null) r.appendChild(this.el('span', 'rep-rec-money', extra));
-        r.appendChild(this.el('span', 'rep-rec-time', value));
-        c.appendChild(r);
-      }
-      board.appendChild(c);
-    };
-    const t = (ms) => (ms != null ? formatTime(ms) : '--:--.---');
-    col('recordsExpeditions', allCharacterIds().map((id) => [charName(id), t(Save.getExpeditionRecord(id)), formatMoney(Save.getMoneyForChar(id))]));
-    col('recordsChallenges', CHALLENGE_DEFS.map((d) => [`${challengeNumber(d)}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
-    col('parkourTitle', PARKOUR_DEFS.map((d) => [`${d.id.slice(1)}. ${challengeField(d.id, 'title')}`, t(Save.getChallengeRecord(d.id))]));
-    return board;
-  },
+
 
   // ---------------- PARAMETRES ----------------
   renderSettings() {
     const panel = this.el('div', 'panel');
-    panel.appendChild(this.backBtn(() => Game.setState(STATE.MENU)));
+    panel.appendChild(this.backBtn(() => (this.subMenu ? this.closeSub() : Game.goToMenu())));
     const header = this.el('div', 'market-header');
-    header.appendChild(this.el('h2', null, S('featuresTitle')));
-    header.appendChild(this.featureTabs(STATE.SETTINGS));
+    header.appendChild(this.el('h2', null, S('settingsTitle')));
     panel.appendChild(header);
 
     const wrap = this.el('div', 'settings-wrap');
 
     // Langue
     const langSection = this.el('div', 'settings-section');
-    langSection.appendChild(this.el('h3', null, S('settingsLanguage')));
+    langSection.appendChild(this.el('h3', null, `🌐 ${S('settingsLanguage')}`));
     const langRow = this.el('div', 'lang-row');
-    for (const code of ['fr', 'en']) {
-      const b = this.el('div', 'lang-btn' + (lang() === code ? ' active' : ''), code.toUpperCase());
-      b.onclick = () => { Save.setLanguage(code); Game.setState(STATE.SETTINGS); };
+    langRow.classList.add('lang-grid');
+    for (const { code, name } of LANGUAGES) {
+      const b = this.el('div', 'lang-btn' + (lang() === code ? ' active' : ''), name);
+      b.onclick = () => { Save.setLanguage(code); this.goSettings(); };
       langRow.appendChild(b);
     }
     langSection.appendChild(langRow);
@@ -840,37 +600,16 @@ const UI = {
 
     // Son
     const soundSection = this.el('div', 'settings-section');
-    soundSection.appendChild(this.el('h3', null, S('settingsSound')));
-    const soundRow = this.el('div', 'lang-row');
-    const soundBtn = this.el('div', 'lang-btn' + (Audio2.on ? ' active' : ''), Audio2.on ? 'ON' : 'OFF');
-    soundBtn.onclick = () => { Audio2.toggle(); Game.setState(STATE.SETTINGS); };
-    soundRow.appendChild(soundBtn);
-    soundSection.appendChild(soundRow);
-
-    const volRow = this.el('div', 'volume-row');
-    volRow.appendChild(this.el('div', 'keybind-name', S('volume')));
-    const volSlider = document.createElement('input');
-    volSlider.type = 'range';
-    volSlider.min = '0'; volSlider.max = '100'; volSlider.step = '1';
-    volSlider.value = String(Math.round(Audio2.volume * 100));
-    volSlider.className = 'volume-slider';
-    const volValue = this.el('div', 'volume-value', `${Math.round(Audio2.volume * 100)}%`);
-    let previewDebounce = null;
-    volSlider.addEventListener('input', () => {
-      const v = Number(volSlider.value) / 100;
-      Audio2.setVolume(v);
-      volValue.textContent = `${Math.round(v * 100)}%`;
-      clearTimeout(previewDebounce);
-      previewDebounce = setTimeout(() => Audio2.attack(), 60);
-    });
-    volRow.appendChild(volSlider);
-    volRow.appendChild(volValue);
-    soundSection.appendChild(volRow);
+    soundSection.appendChild(this.el('h3', null, `🔊 ${S('settingsSound')}`));
+    soundSection.appendChild(this.soundControls());
     wrap.appendChild(soundSection);
+    wrap.appendChild(this.accessSection());
+    if (Playtest.enabled()) wrap.appendChild(this.playtestSection()); // version de test seulement
+    if (NATIVE) wrap.appendChild(this.displaySection()); // version programme : plein ecran, taille
 
     // Curseur (apparence personnalisable)
     const cursorSection = this.el('div', 'settings-section');
-    cursorSection.appendChild(this.el('h3', null, S('settingsCursor')));
+    cursorSection.appendChild(this.el('h3', null, `🎯 ${S('settingsCursor')}`));
     const cursorRow = this.el('div', 'volume-row');
     cursorRow.appendChild(this.el('div', 'keybind-name', S('marketWallColor')));
     const cursorColorInput = document.createElement('input');
@@ -883,7 +622,7 @@ const UI = {
     const cursorStyleRow = this.el('div', 'lang-row');
     for (const style of ['cross', 'circle', 'dot']) {
       const b = this.el('div', 'lang-btn' + ((Save.data.cursorStyle || 'cross') === style ? ' active' : ''), S('cursorStyle_' + style));
-      b.onclick = () => { Save.setCursorStyle(style); Game.setState(STATE.SETTINGS); };
+      b.onclick = () => { Save.setCursorStyle(style); this.goSettings(); };
       cursorStyleRow.appendChild(b);
     }
     cursorSection.appendChild(cursorStyleRow);
@@ -891,7 +630,7 @@ const UI = {
 
     // Raccourcis
     const keySection = this.el('div', 'settings-section');
-    keySection.appendChild(this.el('h3', null, S('settingsKeybinds')));
+    keySection.appendChild(this.el('h3', null, `⌨️ ${S('settingsKeybinds')}`));
     keySection.appendChild(this.el('div', 'menu-sub settings-hint', S('settingsKeybindsHint')));
 
     const codes = REBINDABLE_ACTIONS.map((a) => Keybinds[a]);
@@ -907,7 +646,7 @@ const UI = {
         chip.classList.add('listening');
         Input.startRebind((code) => {
           Save.setKeybind(action, code);
-          Game.setState(STATE.SETTINGS);
+          this.goSettings();
         });
       };
       row.appendChild(chip);
@@ -920,7 +659,7 @@ const UI = {
     const resetTxt = this.el('div', 'btn-text');
     resetTxt.appendChild(this.el('div', 'btn-title', S('settingsReset')));
     resetBtn.appendChild(resetTxt);
-    resetBtn.onclick = () => { Save.resetKeybinds(); Game.setState(STATE.SETTINGS); };
+    resetBtn.onclick = () => { Save.resetKeybinds(); this.goSettings(); };
     keySection.appendChild(resetBtn);
 
     wrap.appendChild(keySection);
@@ -930,7 +669,7 @@ const UI = {
 
   // ---------------- HUD ----------------
   buildHUD(state) {
-    const hud = this.el('div', 'hud');
+    const hud = this.el('div', state === STATE.TUTORIAL ? 'hud hud-tutorial' : 'hud');
     const topLeft = this.el('div', 'hud-top-left');
     const nameEl = this.el('div', 'name', '');
     const dmgEl = this.el('div', 'hud-dmg', '');
@@ -938,7 +677,8 @@ const UI = {
     const dmgBarFill = this.el('div', 'hud-dmg-bar-fill');
     dmgBar.appendChild(dmgBarFill);
     const progEl = this.el('div', 'hud-progress', '');
-    topLeft.appendChild(nameEl); topLeft.appendChild(dmgEl); topLeft.appendChild(dmgBar); topLeft.appendChild(progEl);
+    const boonEl = this.el('div', 'hud-boons');
+    topLeft.appendChild(nameEl); topLeft.appendChild(dmgEl); topLeft.appendChild(dmgBar); topLeft.appendChild(progEl); topLeft.appendChild(boonEl);
     hud.appendChild(topLeft);
 
     const topRight = this.el('div', 'hud-top-right');
@@ -973,7 +713,7 @@ const UI = {
     hud.appendChild(recap);
 
     this.overlay.appendChild(hud);
-    this.hudRefs = { nameEl, dmgEl, dmgBarFill, progEl, timeEl, bestEl, slots, msg, roundEndContainer: null };
+    this.hudRefs = { nameEl, dmgEl, dmgBarFill, progEl, boonEl, timeEl, bestEl, slots, msg, roundEndContainer: null };
 
     if (state === STATE.TEST_ROOM) { this.buildTestRoomBar(); this.buildTestRoomSpawner(); }
   },
@@ -983,7 +723,7 @@ const UI = {
     bar.style.pointerEvents = 'auto';
     bar.appendChild(this.el('div', 'test-spawn-label', S('testSpawnLabel')));
     const grid = this.el('div', 'test-spawn-grid');
-    for (const type of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6']) {
+    for (const type of ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']) {
       const isBoss = type.charAt(0) === 'B';
       const b = this.el('div', 'test-spawn-btn' + (isBoss ? ' boss' : ''), type);
       b.title = isBoss ? BOSS_DEFS[type].name : turretInfo(type).name;
@@ -1010,54 +750,81 @@ const UI = {
     this.overlay.appendChild(bar);
   },
 
+  // Les panneaux du HUD ne doivent jamais cacher le jeu : des qu'un ennemi, un tir ennemi ou le
+  // joueur passe dessous, le panneau devient presque transparent.
+  hudSeeThrough(world) {
+    this._hudTick = (this._hudTick || 0) + 1;
+    if (this._hudTick % 4) return;
+    const canvas = document.getElementById('game');
+    if (!canvas || !this.overlay) return;
+    const c = canvas.getBoundingClientRect(), zoom = world.zoom || 1, cam = world.camera || { x: 0, y: 0 };
+    const pts = [];
+    const add = (x, y, r) => pts.push({ x: c.left + (x - cam.x) * zoom, y: c.top + (y - cam.y) * zoom, r: (r || 12) * zoom });
+    if (world.player) add(world.player.x, world.player.y, world.player.radius);
+    for (const e of world.enemies) if (!e.dead) add(e.x, e.y, e.radius || 16);
+    for (const pr of world.projectiles) if (pr.team === TEAM.ENEMY) add(pr.x, pr.y, pr.radius || 6);
+    for (const el of this.overlay.querySelectorAll('.hud-top-left, .hud-top-right, .hud-abilities, .controls-recap, .assist-toasts')) {
+      const b = el.getBoundingClientRect();
+      if (!b.width) continue;
+      const under = pts.some((p) => p.x > b.left - p.r && p.x < b.right + p.r && p.y > b.top - p.r && p.y < b.bottom + p.r);
+      el.classList.toggle('see-through', under);
+    }
+  },
+
   updateHUD(game) {
     if (!this.hudRefs) return;
     const { world, state } = game;
     const player = world.player;
     if (!player) return;
     const r = this.hudRefs;
+    this.hudSeeThrough(world);
     r.nameEl.textContent = `${S('hudPersonnage')} : ${charName(player.character.id)}`;
     // En parcours (et au Foot en ligne), la jauge montre la vitesse : les coups ralentissent.
-    const speedGauge = player.parkour || player.speedMode;
-    const pct = Math.round((player.parkour ? (player.parkourSpeed || 1) : player.speedMode ? player.speedPct : player.damageMultiplier) * 100);
-    r.dmgEl.textContent = `${S(speedGauge ? 'hudSpeed' : 'hudDamage')} : ${pct}%`;
+    const speedGauge = player.speedMode;
+    const pct = Math.round((player.speedMode ? player.speedPct : player.damageMultiplier) * 100);
+    setTextOnce(r.dmgEl, `${speedGauge ? '👟' : '⚔️'} ${S(speedGauge ? 'hudSpeed' : 'hudDamage')} : ${pct}%`); // seulement si le texte change (icones)
     const dmgColor = pct >= 70 ? '#7fff9c' : (pct >= 35 ? '#ffd23d' : '#ff5d5d');
     r.dmgEl.style.color = dmgColor;
-    r.dmgBarFill.style.width = `${Math.min(100, pct)}%`;
+    // Fracas Infini : la barre commence a 40% (le plancher) : vide a 40%, pleine au maximum
+    const infFloor = state === STATE.INFINITE && !speedGauge ? INF_DMG_MIN * 100 : 0;
+    const barPct = infFloor ? (pct - infFloor) / ((player.dmgMax || DMG_MAX) * 100 - infFloor) * 100 : pct;
+    r.dmgBarFill.style.width = `${clamp(barPct, 0, 100)}%`;
     r.dmgBarFill.style.background = dmgColor;
 
     let timeMs = 0, bestMs = null;
-    if (state === STATE.EXPEDITION) {
-      r.progEl.textContent = `${S('hudPart')} : ${Expedition.progressLabel()}   ${S('hudRoom')} : ${Expedition.roomLabel()}`;
-      timeMs = Expedition.elapsedMs; bestMs = Save.getExpeditionRecord(Expedition.characterId);
-    } else if (state === STATE.CHALLENGE) {
-      const def = Challenges.get(Challenges.id);
-      if (def.parkour) {
-        const title = def.custom ? `${S('parkourLabel')} : ${def.title}` : `${S('parkourLabel')} ${def.id.slice(1)} : ${challengeField(def.id, 'title')}`;
-        r.progEl.textContent = `${title}   ${S('hudProgress')} : ${Math.round((Challenges.progress || 0) * 100)}%`;
-      } else {
-        const title = def.daily ? S('dailyTitle') : def.custom ? `${S('hudDefi')} : ${def.title}` : `${S('hudDefi')} ${challengeNumber(def)} : ${challengeField(def.id, 'title')}`;
-        r.progEl.textContent = `${title}   ${S('hudRoom')} : ${Challenges.roomNum}/${CHALLENGE_ROOMS}`;
-      }
-      timeMs = Challenges.elapsedMs; bestMs = Save.getChallengeRecord(Challenges.id);
+    if (state === STATE.TUTORIAL) {
+      r.progEl.textContent = S('tutoReplay');
+    } else if (state === STATE.INFINITE) {
+      r.progEl.textContent = Infinite.daily
+        ? `📅 ${S('dailyTitle')} · ${S('dailyEv_' + Infinite.daily.event.id)} · ${S('infRoom')} ${Infinite.depth}/${DAILY_ROOMS}${world.room && world.room.isBoss ? ' (' + S('hudBoss') + ')' : ''}`
+        : `${S('hudPart')} ${Infinite.partOf(Infinite.depth)} · ${S('infRoom')} ${Infinite.depth}${world.room && world.room.isBoss ? ' (' + S('hudBoss') + ')' : ''}`;
     } else if (state === STATE.ONLINE_GAME) {
       r.progEl.textContent = `${S('mpTitle')} · ${OnlineUI.modeName(OnlineGame.mode)}`;
-      const g = OnlineGame.g;
-      timeMs = g && g.kind === 'coop' ? g.elapsedMs : 0;
-      bestMs = g && g.kind === 'coop' ? Save.getChallengeRecord(MP.COOP_RECORD_PREFIX + g.challengeId) : null;
     } else {
       r.progEl.textContent = S('hudTestRoom');
     }
-    r.timeEl.textContent = formatTime(timeMs);
-    r.bestEl.textContent = `${S('hudBest')} : ${bestMs != null ? formatTime(bestMs) : '--:--.---'}`;
+    if (state === STATE.TUTORIAL) { r.timeEl.textContent = ''; r.bestEl.textContent = ''; } else
+    if (state === STATE.INFINITE && Infinite.daily) {
+      // defi du jour : chrono (penalites comprises) et record du jour
+      r.timeEl.textContent = formatTime(Daily.totalMs()) + (Daily.penalty ? `  (+${Daily.penalty} s)` : '');
+      const rec = Daily.record();
+      r.bestEl.textContent = `🏆 ${rec != null ? formatTime(rec) : '--:--.---'}`;
+    } else if (state === STATE.INFINITE) {
+      // Aucun chrono ni record dans Fracas Infini : statistiques de la partie en cours.
+      r.timeEl.textContent = formatMoney(infMoney()); // argent de CETTE partie
+      r.bestEl.textContent = `${S('infUp_damage')} +${Math.round(infBonus('damage') * 100)}% · ${S('infUp_resist')} -${Math.round(infBonus('resist') * 100)}% · ${S('infUp_money')} +${Math.round(infBonus('money') * 100)}%`;
+    } else {
+      r.timeEl.textContent = formatTime(timeMs);
+      r.bestEl.textContent = `${S('hudBest')} : ${bestMs != null ? formatTime(bestMs) : '--:--.---'}`;
+    }
 
+    Boons.renderHudChips(r.boonEl); // benedictions (vert) / maledictions (rouge) actives
     const c = player.character;
 
     // Attaque principale : cooldown reel si le personnage en a un, AUTO si totalement automatique,
     // sinon affichee sans jauge (mecaniques de disponibilite propres a certains persos).
     const atk = r.slots.attack;
-    // Persos de parcours : l'attaque EST leur 1re competence -> on affiche son nom.
-    atk.nameLabel.textContent = c.parkourOnly ? charField(c.id, 'attackLabel') : S('attack');
+    atk.nameLabel.textContent = S('attack');
     atk.slot.classList.remove('locked');
     if (c.attackCd) {
       const cur = player.attackCooldown || 0;
@@ -1094,9 +861,6 @@ const UI = {
       const cd = c[`${key}Cd`] || 0;
       const cur = player.cooldowns[key] || 0;
       const s = r.slots[key];
-      // Persos de parcours : 2 competences seulement (attaque + competence unique)
-      s.slot.style.display = (c.parkourOnly && key !== 'a1') ? 'none' : '';
-      if (c.parkourOnly && key !== 'a1') continue;
       const locked = gate && gate !== gateNum[key];
       const fnName = 'ability' + key.slice(1);
       const automatic = !c[fnName] && !c[`${fnName}Held`];
@@ -1134,33 +898,35 @@ const UI = {
       }
     }
 
-    if (state === STATE.EXPEDITION && Expedition.transitionTimer > 0 && !Expedition.finished) {
+    if (false) {
+    } else if (state === STATE.INFINITE && (Infinite.transitionTimer > 0 || Infinite.swapBanner > 0 || Infinite.partBanner > 0 || Infinite.fleeBanner > 0 || Infinite.finalBanner > 0)) {
       r.msg.style.display = 'block';
-      r.msg.textContent = `${S('hudPart')} ${Expedition.part} — ${S('hudRoom')} ${Expedition.roomIndex}${Expedition.roomIndex === 10 ? ' (' + S('hudBoss') + ')' : ''}`;
-    } else if (state === STATE.CHALLENGE && Challenges.transitionTimer > 0 && !Challenges.finished) {
-      r.msg.style.display = 'block';
-      r.msg.textContent = `${S('hudRoom')} ${Challenges.roomNum + 1}/${CHALLENGE_ROOMS} · C${challengeRoomGate(Challenges.get(Challenges.id), Challenges.roomNum + 1)}${Challenges.roomNum + 1 === CHALLENGE_ROOMS && Challenges.get(Challenges.id).bossType ? ' (' + S('hudBoss') + ')' : ''}`;
+      const lines = [];
+      if (Infinite.fleeBanner > 0 && Infinite.transitionPhase !== 'out') lines.push(`💨 ${S('infBossFled')}`);
+      else if (Infinite.finalBanner > 0 && Infinite.transitionPhase !== 'out') lines.push(`👑 ${S('infFinalBoss')} 👑`);
+      else if (Infinite.transitionPhase === 'out') lines.push(`${S('infRoom')} ${Infinite.depth + 1}`);
+      else {
+        if (Infinite.partBanner > 0) lines.push(`${S('hudPart')} ${Infinite.partOf(Infinite.depth)} — C${Infinite.partOf(Infinite.depth)} ${S('infOnlyAbility')}`);
+        if (Infinite.swapBanner > 0) lines.push(`${S('infSwap')} : ${charName(Infinite.characterId)} !`);
+        if (!lines.length) lines.push(`${S('infRoom')} ${Infinite.depth}`);
+      }
+      setTextOnce(r.msg, lines.join('   ·   '));
     } else {
       r.msg.style.display = 'none';
     }
 
-    if (state === STATE.EXPEDITION && Expedition.finished && !this.roundEndShown) {
-      this.showRoundEnd(S('expeditionDone'), Expedition.finalTimeMs, Expedition.newRecord, () => Game.restartCurrent(), () => Game.goToMenu());
-    }
-    if (state === STATE.CHALLENGE && Challenges.finished && !this.roundEndShown) {
-      this.showRoundEnd(S('challengeDone'), Challenges.elapsedMs, Challenges.newRecord, () => Game.restartCurrent(), () => Game.goToMenu());
-    }
   },
 
   showRoundEnd(title, timeMs, isRecord, onRetry, onMenu) {
     this.roundEndShown = true;
+    Music.jingle('victory');
     const panel = this.el('div', 'panel round-end');
     panel.appendChild(this.el('h2', null, title));
     const sub = this.el('div', 'menu-sub round-end-sub', `${S('time')} : ${formatTime(timeMs)}${isRecord ? '  —  ' + S('newRecord') : ''}`);
     panel.appendChild(sub);
-    const retry = this.el('div', 'menu-btn menu-btn-small', S('retry'));
+    const retry = this.el('div', 'menu-btn menu-btn-small', `🔁 ${S('retry')}`);
     retry.onclick = onRetry;
-    const menu = this.el('div', 'menu-btn menu-btn-small', S('toMenu'));
+    const menu = this.el('div', 'menu-btn menu-btn-small', `🏠 ${S('toMenu')}`);
     menu.onclick = onMenu;
     panel.appendChild(retry);
     panel.appendChild(menu);

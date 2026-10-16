@@ -3,48 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Fracas</title>
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="cb-protan" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0.4789 0.4769 0.0442 0 0  0.5973 -0.6887 1.0914 0 0  0 0 0 1 0"/></filter>
+    <filter id="cb-deutan" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0.1628 0.7250 0.1122 0 0  0.4547 -0.6454 1.1907 0 0  0 0 0 1 0"/></filter>
+    <filter id="cb-tritan" color-interpolation-filters="linearRGB"><feColorMatrix type="matrix" values="0.7412 -0.4072 0.6660 0 0  0.0751 0.5852 0.3397 0 0  0 0 1 0 0  0 0 0 1 0"/></filter>
+  </svg>
   <canvas id="game" width="1280" height="720"></canvas>
   <div id="overlay"></div>
 </div>
+<div class="rotate-hint">Tourne ton téléphone en mode paysage pour jouer.<br>Rotate your phone to landscape.</div>
 
 <script src="js/constants.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/sprites.js"></script>
 <script src="js/mp/mp_shared.js"></script>
 <script src="js/input.js"></script>
+<script src="js/controls.js"></script>
 <script src="js/save.js"></script>
+<script src="js/playtest.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/lang/de.js"></script>
+<script src="js/lang/es.js"></script>
+<script src="js/lang/it.js"></script>
+<script src="js/lang/pt.js"></script>
+<script src="js/lang/ru.js"></script>
+<script src="js/lang/uk.js"></script>
+<script src="js/lang/pl.js"></script>
+<script src="js/lang/tr.js"></script>
+<script src="js/lang/zh.js"></script>
+<script src="js/lang/ja.js"></script>
+<script src="js/lang/ko.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/music_files.js"></script>
+<script src="js/music.js"></script>
 <script src="js/particles.js"></script>
 <script src="js/entities.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/collision.js"></script>
 <script src="js/player.js"></script>
 <script src="js/characters.js"></script>
-<script src="js/parkour_chars.js"></script>
+<script src="js/roomobjects.js"></script>
 <script src="js/turrets.js"></script>
 <script src="js/bosses.js"></script>
 <script src="js/bossfx.js"></script>
 <script src="js/rooms.js"></script>
 <script src="js/movingwalls.js"></script>
-<script src="js/expedition.js"></script>
-<script src="js/challenges.js"></script>
-<script src="js/parkour.js"></script>
+<script src="js/exitdoor.js"></script>
+<script src="js/boons.js"></script>
+<script src="js/daily.js"></script>
+<script src="js/infinite.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/hub.js"></script>
 <script src="js/floor.js"></script>
 <script src="js/island.js"></script>
   <script src="js/render.js"></script>
   <script src="js/showcase.js"></script>
-  <script src="js/editor.js"></script>
   <script src="js/codex_data.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/assist.js"></script>
 <script src="js/net/net_delta.js"></script>
 <script src="js/net/net_config.js"></script>
 <script src="js/net/net_transport.js"></script>

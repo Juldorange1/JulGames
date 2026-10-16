@@ -12,7 +12,7 @@ const OnlineGame = {
   active: false,
   over: false,
   showingResults: false,
-  matchId: null, mode: null, modeDef: null, you: null, roster: [], challengeId: null,
+  matchId: null, mode: null, modeDef: null, you: null, roster: [],
   view: null,
   frames: [],
   state: null,
@@ -44,7 +44,6 @@ const OnlineGame = {
     this.modeDef = MP_MODES[m.mode];
     this.you = m.you;
     this.roster = m.roster || [];
-    this.challengeId = m.challengeId;
     this.frames = [];
     this.state = null;
     this.lastN = 0;
@@ -90,7 +89,7 @@ const OnlineGame = {
     const v = this.view;
     v.room = {
       bounds: rm.bounds, obstacles: [], terrainZones: [], part: 0, index: 0, isBoss: !!rm.isBoss,
-      parkour: rm.parkour ? { time: 0, spikes: [], lasers: [], boosts: [], shooters: [], teleporters: rm.parkour.teleporters || [], trampolines: rm.parkour.trampolines || [] } : null,
+      props: rm.props ? makeRoomProps({ teleporters: rm.props.teleporters || [], trampolines: rm.props.trampolines || [] }) : null,
     };
     v.theme = ROOM_THEMES[rm.theme] || ROOM_THEMES[1];
     v.decorations = rm.decorations || [];
@@ -132,7 +131,6 @@ const OnlineGame = {
     this.result = m.result;
     if (m.g) this.g = m.g;
     this.isRecord = false;
-    if (m.result && m.result.kind === 'coop' && m.result.timeMs) this.isRecord = Save.submitChallengeRecord(MP.COOP_RECORD_PREFIX + m.result.challengeId, m.result.timeMs);
     this.showingResults = true;
     OnlineUI.showResults(m.result);
   },
@@ -157,7 +155,7 @@ const OnlineGame = {
     const speed = BASE_SPEED * (ch.speedPercent / 100) * (me.speedMult || 1);
     let vx = inp.mx * speed, vy = inp.my * speed;
     if (me.onIce) { const k = clamp(dt * 2.2, 0, 1); vx = lerp(sim.vx, vx, k); vy = lerp(sim.vy, vy, k); }
-    if (me.boostTimer > 0) { vx *= PARKOUR_BOOST_MULT; vy *= PARKOUR_BOOST_MULT; }
+    if (me.boostTimer > 0) { vx *= BOOST_MULT; vy *= BOOST_MULT; }
     if (me.speedMode) { vx *= me.speedPct; vy *= me.speedPct; }
     sim.vx = vx; sim.vy = vy;
     const n = Math.max(1, Math.ceil(Math.hypot(vx * dt, vy * dt) / 8));
@@ -289,6 +287,7 @@ const OnlineGame = {
     v.capzones = interp('C');
     if (v.room) { v.room.obstacles = interp('O'); v.room.terrainZones = interp('Y'); }
     v.abilityGate = latest.gate || null;
+    if (v.room) v.room.exit = this.g && this.g.exit ? Object.assign({}, this.g.exit) : null; // porte de sortie (coop)
     v.userSpeedMult = latest.sm || 1;
     // joueurs : les autres interpoles ; soi-meme = etat le plus recent + position predite
     const t = now / 1000;

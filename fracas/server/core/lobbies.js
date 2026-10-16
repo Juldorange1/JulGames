@@ -14,7 +14,7 @@ class Lobbies {
   constructor(refs) {
     this.log = refs.log;
     this.config = refs.config;
-    this.rules = refs.rules; // { MP_MODES, characterIds, challengeIds }
+    this.rules = refs.rules; // { MP_MODES, characterIds }
     this.byCode = new Map();
     this.matches = new Set();
   }
@@ -30,7 +30,7 @@ class Lobbies {
     }));
     const check = this.startCheck(lobby);
     return {
-      code: lobby.code, mode: lobby.mode, isPrivate: lobby.isPrivate, hostId: lobby.hostId, challengeId: lobby.challengeId,
+      code: lobby.code, mode: lobby.mode, isPrivate: lobby.isPrivate, hostId: lobby.hostId,
       status: lobby.match ? 'playing' : 'waiting', players, capacity: mode.players, teams: mode.teams,
       canStart: check.ok, waitingFor: check.reason,
     };
@@ -48,7 +48,7 @@ class Lobbies {
       const mode = this.rules.MP_MODES[l.mode];
       if (l.members.size >= mode.players) continue;
       const host = l.members.get(l.hostId);
-      out.push({ code: l.code, mode: l.mode, players: l.members.size, capacity: mode.players, host: host ? host.session.name : '?', challengeId: l.challengeId });
+      out.push({ code: l.code, mode: l.mode, players: l.members.size, capacity: mode.players, host: host ? host.session.name : '?' });
     }
     return out.slice(0, 50);
   }
@@ -72,9 +72,8 @@ class Lobbies {
     while (this.byCode.has(code)) code = makeCode();
     const lobby = {
       code, mode: modeId, isPrivate: !!opts.isPrivate, hostId: session.id, members: new Map(), match: null,
-      challengeId: null, createdAt: Date.now(),
+      createdAt: Date.now(),
     };
-    if (mode.kind === 'coop') lobby.challengeId = this.validChallenge(opts.challengeId) ? opts.challengeId : this.rules.challengeIds[0];
     this.byCode.set(code, lobby);
     this.addMember(lobby, session);
     this.log('info', `lobby ${code} cree (${modeId}) par ${session.name}`);
@@ -148,19 +147,6 @@ class Lobbies {
     this.broadcast(x.lobby);
   }
 
-  validChallenge(id) { return this.rules.challengeIds.includes(id) || (typeof id === 'string' && /^D\d{8}$/.test(id)); }
-
-  setChallenge(session, id) {
-    const x = this.member(session);
-    if (!x || x.lobby.match || x.lobby.hostId !== session.id) return;
-    if (this.rules.MP_MODES[x.lobby.mode].kind !== 'coop') return;
-    // Les parcours restent SOLO : seuls les defis normaux (et le defi du jour) sont acceptes.
-    if (!this.validChallenge(id)) return this.err(session, 'bad_challenge', 'Ce defi ne peut pas se jouer en coop.');
-    x.lobby.challengeId = id;
-    for (const m of x.lobby.members.values()) m.ready = false;
-    this.broadcast(x.lobby);
-  }
-
   startCheck(lobby) {
     const mode = this.rules.MP_MODES[lobby.mode];
     const members = [...lobby.members.values()];
@@ -168,7 +154,6 @@ class Lobbies {
     if (members.some((m) => !m.session.conn)) return { ok: false, reason: 'connection' };
     if (members.some((m) => !m.characterId)) return { ok: false, reason: 'characters' };
     if (mode.teams && mode.teams.some((t) => members.filter((m) => m.team === t).length !== mode.teamSize)) return { ok: false, reason: 'teams' };
-    if (mode.kind === 'coop' && !this.validChallenge(lobby.challengeId)) return { ok: false, reason: 'challenge' };
     if (members.some((m) => !m.ready)) return { ok: false, reason: 'ready' };
     return { ok: true, reason: null };
   }

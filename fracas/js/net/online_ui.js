@@ -11,7 +11,7 @@ const OnlineUI = {
   // ================= MENU EN LIGNE =================
   renderMenu() {
     const panel = UI.el('div', 'panel online-panel');
-    panel.appendChild(UI.backBtn(() => { this.stopListPolling(); if (NetClient.lobby) NetClient.leaveLobby(); Game.setState(STATE.MENU); }));
+    panel.appendChild(UI.backBtn(() => { this.stopListPolling(); if (NetClient.lobby) NetClient.leaveLobby(); Game.goToMenu(); }));
     panel.appendChild(UI.el('h2', null, S('mpTitle')));
 
     const status = UI.el('div', 'online-status');
@@ -39,12 +39,13 @@ const OnlineUI = {
     for (const id of MP_MODE_ORDER) {
       const def = MP_MODES[id];
       const b = UI.el('div', 'online-mode');
+      b.appendChild(UI.el('div', 'online-mode-icon', { versus1: '⚔️', versus2: '👥', foot: '⚽', survivor: '💀' }[id] || '🎮'));
       b.appendChild(UI.el('b', null, this.modeName(id)));
       b.appendChild(UI.el('span', null, S('mpModeDesc_' + id)));
-      b.appendChild(UI.el('em', null, `${def.players} ${S('mpPlayers')}`));
+      b.appendChild(UI.el('em', null, `${'🧍'.repeat(def.players)}`));
       b.onclick = () => {
         if (NetClient.status !== 'online') return;
-        NetClient.createLobby(id, privIn.checked, def.kind === 'coop' ? CHALLENGE_DEFS[0].id : undefined);
+        NetClient.createLobby(id, privIn.checked);
       };
       modes.appendChild(b);
     }
@@ -162,7 +163,7 @@ const OnlineUI = {
           const known = p.characterId && (p.id === (NetClient.you && NetClient.you.id) ? true : Save.isCharKnown(p.characterId));
           row.appendChild(UI.el('span', 'lp-name', `${p.host ? '★ ' : ''}${p.name}`));
           row.appendChild(UI.el('span', 'lp-char', p.characterId ? (known ? charName(p.characterId) : S('unknownName')) : '—'));
-          row.appendChild(UI.el('span', 'lp-ready ' + (p.ready ? 'on' : 'off'), p.ready ? S('mpReady') : (p.connected ? S('mpNotReady') : S('mpDisconnected'))));
+          row.appendChild(UI.el('span', 'lp-ready ' + (p.ready ? 'on' : 'off'), p.ready ? `✔ ${S('mpReady')}` : (p.connected ? '…' : `⚠ ${S('mpDisconnected')}`)));
         } else row.appendChild(UI.el('span', 'lp-name', S('mpWaitingSlot')));
         col.appendChild(row);
       }
@@ -175,28 +176,6 @@ const OnlineUI = {
     }
     panel.appendChild(teamsBox);
 
-    // coop : choix du defi (les parcours ne sont jamais proposes : ils restent en solo)
-    if (MP_MODES[L.mode].kind === 'coop') {
-      const cbox = UI.el('div', 'lobby-challenge');
-      cbox.appendChild(UI.el('span', 'online-label', S('mpChallenge')));
-      if (isHost) {
-        const sel = document.createElement('select');
-        sel.className = 'online-input';
-        const opts = [[dailyChallengeId(), S('dailyTitle')]].concat(CHALLENGE_DEFS.map((d) => [d.id, `${S('hudDefi')} ${challengeNumber(d)} — ${challengeField(d.id, 'title')}`]));
-        for (const [id, label] of opts) {
-          const o = document.createElement('option'); o.value = String(id); o.textContent = label;
-          if (String(id) === String(L.challengeId)) o.selected = true;
-          sel.appendChild(o);
-        }
-        sel.addEventListener('change', () => NetClient.pickChallenge(/^D/.test(sel.value) ? sel.value : Number(sel.value)));
-        cbox.appendChild(sel);
-      } else {
-        const d = Challenges.get(L.challengeId);
-        cbox.appendChild(UI.el('b', null, d ? (d.daily ? S('dailyTitle') : `${S('hudDefi')} ${challengeNumber(d)} — ${challengeField(d.id, 'title')}`) : '—'));
-      }
-      cbox.appendChild(UI.el('div', 'online-sub', S('mpCoopNote')));
-      panel.appendChild(cbox);
-    }
 
     // choix du personnage (vignettes ; "?" si jamais joue, mais on peut le choisir)
     panel.appendChild(UI.el('div', 'online-sub', S('mpPickChar')));
@@ -218,11 +197,11 @@ const OnlineUI = {
 
     // pret / lancer
     const actions = UI.el('div', 'lobby-actions');
-    const ready = UI.el('div', 'menu-btn menu-btn-small' + (me && me.ready ? ' active' : ''), me && me.ready ? S('mpUnready') : S('mpSetReady'));
+    const ready = UI.el('div', 'menu-btn menu-btn-small' + (me && me.ready ? ' active' : ''), me && me.ready ? `✖ ${S('mpUnready')}` : `✔ ${S('mpSetReady')}`);
     ready.onclick = () => NetClient.setReady(!(me && me.ready));
     actions.appendChild(ready);
     if (isHost) {
-      const start = UI.el('div', 'menu-btn menu-btn-small lobby-start' + (L.canStart ? '' : ' disabled'), S('mpStart'));
+      const start = UI.el('div', 'menu-btn menu-btn-small lobby-start' + (L.canStart ? '' : ' disabled'), `▶ ${S('mpStart')}`);
       start.onclick = () => { if (L.canStart) NetClient.startMatch(); };
       actions.appendChild(start);
     }
@@ -276,9 +255,6 @@ const OnlineUI = {
     } else if (g.kind === 'survivor') {
       const alive = (OnlineGame.view.players || []).filter((p) => !p.dead).length;
       top = `${S('mpSurvivors')} : ${alive}/${g.roster.length}<small>${g.time >= g.suddenDeathAt ? S('mpSuddenDeath') : fmt(g.suddenDeathAt - g.time) + ' ' + S('mpBeforeSudden')}</small>`;
-    } else if (g.kind === 'coop') {
-      const d = Challenges.get(g.challengeId);
-      top = `${d ? (d.daily ? S('dailyTitle') : S('hudDefi') + ' ' + challengeNumber(d)) : ''} · ${S('hudRoom')} ${g.roomNum}/${g.rooms}<small>${formatTime(g.elapsedMs)}</small>`;
     }
     if (r._top !== top) { r.score.innerHTML = top; r._top = top; }
     // --- bandeau central ---
@@ -340,10 +316,8 @@ const OnlineUI = {
       const won = (r.winners || []).includes(OnlineGame.you);
       title = won ? (r.winners.length > 1 ? S('mpDraw') : S('mpVictory')) : S('mpDefeat');
       sub = (r.placements || []).map((id, i) => `${i + 1}. ${this.nameOf(id)}`).join('   ');
-    } else if (r.kind === 'coop') {
-      title = r.abandoned ? S('mpAbandoned') : S('challengeDone');
-      sub = r.timeMs ? `${S('time')} : ${formatTime(r.timeMs)}${OnlineGame.isRecord ? '  —  ' + S('newRecord') : ''}` : '';
     }
+    Music.jingle(title === S('mpDefeat') ? 'defeat' : 'victory');
     const p = UI.el('div', 'panel round-end online-results');
     p.appendChild(UI.el('h2', null, title));
     p.appendChild(UI.el('div', 'menu-sub round-end-sub', sub));

@@ -68,14 +68,20 @@ function generateDecorations(bounds, obstacles, avoid, part, count) {
   return list;
 }
 
-function generateRoomLayout(part, index) {
+// opts.uniform (Fracas Infini) : toutes les parties sont aussi dures (meme nombre d'ennemis, pas
+// d'ennemis renforces en partie 3).
+function generateRoomLayout(part, index, opts) {
+  const uniform = !!(opts && opts.uniform);
   const isBoss = index === 10;
   const w = isBoss ? ROOM_WORLD_W_BOSS : ROOM_WORLD_W;
   const h = isBoss ? ROOM_WORLD_H_BOSS : ROOM_WORLD_H;
   const bounds = { x: -w / 2, y: -h / 2, w, h };
   const spawnPoint = { x: bounds.x + 55, y: bounds.y + bounds.h / 2 };
-  const obstacles = makeObstacles(bounds, isBoss ? randInt(0, 2) : randInt(1, 3));
-  const avoid = [{ x: spawnPoint.x, y: spawnPoint.y, r: 110 }];
+  // rien devant la porte de sortie (bord droit)
+  const clear = exitClearRect(bounds);
+  const obstacles = makeObstacles(bounds, isBoss ? randInt(0, 2) : randInt(1, 3))
+    .filter((o) => !rectsOverlap(o.x, o.y, o.w, o.h, clear.x, clear.y, clear.w, clear.h));
+  const avoid = [{ x: spawnPoint.x, y: spawnPoint.y, r: 110 }, exitAvoidPoint(bounds)];
 
   const terrainZones = [];
   if (part === 1 && !isBoss) {
@@ -107,7 +113,7 @@ function generateRoomLayout(part, index) {
     bossTypes = Math.random() < 0.32 ? pair.slice() : [choice(pair)];
   } else {
     const pool = part === 1 ? TURRET_POOL_P1 : (part === 2 ? TURRET_POOL_P2 : TURRET_POOL_P3);
-    const [lo, hi] = part === 2 ? [9, 13] : (part === 3 ? [4, 6] : [6, 9]);
+    const [lo, hi] = uniform ? [7, 10] : (part === 2 ? [9, 13] : (part === 3 ? [4, 6] : [6, 9]));
     const n = randInt(lo, hi);
     for (let i = 0; i < n; i++) {
       const type = choice(pool);
@@ -146,7 +152,7 @@ function generateRoomLayout(part, index) {
 
   return {
     part, index, bounds: Object.assign({}, bounds), obstacles: obstacles.concat(movingWalls), terrainZones, turretSpecs, decorations,
-    bossTypes, spawnPoint, isBoss, heavy: part === 3, zoom: computeZoom(w, h), helpers,
+    bossTypes, spawnPoint, isBoss, heavy: part === 3 && !uniform, zoom: computeZoom(w, h), helpers,
   };
 }
 
@@ -188,11 +194,10 @@ function instantiateRoom(world, layout) {
     bounds: Object.assign({}, layout.bounds), obstacles: layout.obstacles.map((o) => (o.mover ? cloneMovingWall(o) : o)),
     terrainZones: layout.terrainZones.map((z) => Object.assign({}, z, { id: uid(), mover: z.mover ? Object.assign({}, z.mover) : null })),
     part: layout.part, index: layout.index, isBoss: layout.isBoss,
-    // memes objets que les parcours (logique/rendu dans parkour.js), sans pieges ni boosts
-    parkour: layout.helpers ? {
-      time: 0, spikes: [], lasers: [], boosts: [], shooters: [],
+    // trampolines et teleporteurs (logique/rendu dans roomobjects.js)
+    props: layout.helpers ? makeRoomProps({
       teleporters: layout.helpers.teleporters, trampolines: layout.helpers.trampolines.map((t) => Object.assign({}, t)),
-    } : null,
+    }) : null,
   };
   world.room = room;
   world.noFollow = true; // Monde : la camera ne suit jamais le personnage

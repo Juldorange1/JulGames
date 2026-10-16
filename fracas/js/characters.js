@@ -33,7 +33,7 @@ function glowOutline(ctx, color, blur) {
 const COLT_FIRE_INTERVAL = 0.25, COLT_FOCUS_INTERVAL = 0.15; // cadence doublee
 const COLT_BOUNCES = 3; // les balles ricochent sur tout (murs, obstacles, ennemis)
 CHARACTERS[1] = {
-  id: 1, name: 'Colt', epithet: 'Le Pistolet Vivant', speedPercent: 42, color: '#ffd23d', // vitesse +20%
+  id: 1, name: 'Volte', epithet: 'Le Pistolet Vivant', speedPercent: 42, color: '#ffd23d', // vitesse +20%
   attackLabel: 'Echange de position avec le pistolet (tir 360 automatique)', attackCd: 0.2,
   a1Label: 'Chaos mobile', a1Cd: 14,
   a2Label: 'Salve autour du pistolet', a2Cd: 6,
@@ -83,7 +83,7 @@ CHARACTERS[1] = {
     Particles.burst(px, py, 10, '#ffd23d', { maxSpeed: 140 });
     Particles.burst(gx, gy, 10, '#7fd8ff', { maxSpeed: 140 });
     Particles.lightning(px, py, gx, gy, '#ffe98a');
-    Audio2.zap();
+    Audio2.teleport(); // echange de place : son de teleportation (doux)
     player.attackCooldown = 0.2;
   },
 
@@ -173,11 +173,11 @@ const NYX_DMG = 0.7;
 const NYX_TRAMP_RANGE = 80, NYX_JUMP_DIST = 240, NYX_TRAMP_MAX = 3, NYX_ATTACK_CD = 0.7;
 const NYX_JUMP_TIME = 0.55, NYX_SHOT_DMG = 22, NYX_SHOT_SPEED = 400;
 CHARACTERS[2] = {
-  id: 2, name: 'Nyx', epithet: 'Le Sauteur', speedPercent: 60, color: '#c77aff',
+  id: 2, name: 'Rebond', epithet: 'Le Sauteur', speedPercent: 60, color: '#c77aff',
   attackLabel: 'Pose un trampoline (3 max) · atterrissage = 4 projectiles', attackCd: NYX_ATTACK_CD,
   a1Label: 'Echange avec tourelle', a1Cd: 8,
   a2Label: 'Trainee de feu', a2Cd: 10,
-  a3Label: 'Retour en arriere (1s)', a3Cd: 7,
+  a3Label: 'Retour en arriere (1 s) + 1 s invincible', a3Cd: 6,
 
   init(player) { player.state = { dashTimer: 0, trail: [], tramps: [], jump: null, room: null }; },
 
@@ -247,9 +247,9 @@ CHARACTERS[2] = {
     const d0 = normalize(player.aim.x - player.x, player.aim.y - player.y);
     const dir = (d0.x || d0.y) ? d0 : vecFromAngle(player.facing);
     const dist = clamp(Math.hypot(player.aim.x - player.x, player.aim.y - player.y), 36, NYX_TRAMP_RANGE); // pose tout pres de Nyx
-    const spot = parkourSafeSpot(world, player.x + dir.x * dist, player.y + dir.y * dist, 18);
+    const spot = roomSafeSpot(world, player.x + dir.x * dist, player.y + dir.y * dist, 18);
     if (!spot) return;
-    const land = parkourSafeSpot(world, spot.x + dir.x * NYX_JUMP_DIST, spot.y + dir.y * NYX_JUMP_DIST, player.radius + 2) || { x: spot.x, y: spot.y };
+    const land = roomSafeSpot(world, spot.x + dir.x * NYX_JUMP_DIST, spot.y + dir.y * NYX_JUMP_DIST, player.radius + 2) || { x: spot.x, y: spot.y };
     if (st.tramps.length >= NYX_TRAMP_MAX) st.tramps.splice(Math.floor(Math.random() * st.tramps.length), 1); // le 4e en remplace un au hasard
     st.tramps.push({ x: spot.x, y: spot.y, lx: land.x, ly: land.y, bounce: 0 });
     Particles.ring(spot.x, spot.y, 22, '#c77aff', 0.25);
@@ -266,7 +266,7 @@ CHARACTERS[2] = {
     damageEnemy(world, t, 30 * NYX_DMG, player);
     Particles.burst(player.x, player.y, 14, '#c77aff', { maxSpeed: 160 });
     Particles.burst(px, py, 14, '#c77aff', { maxSpeed: 160 });
-    Audio2.zap();
+    Audio2.teleport();
     player.cooldowns.a1 = 8;
   },
 
@@ -283,10 +283,11 @@ CHARACTERS[2] = {
     const from = { x: player.x, y: player.y };
     const p = playerSampleHistory(player, 1);
     player.x = p.x; player.y = p.y;
+    playerSetInvincible(player, 1); // equilibrage : le retour en arriere protege aussi 1 s
     Particles.burst(player.x, player.y, 16, '#c77aff', { maxSpeed: 160 });
     Particles.ring(from.x, from.y, 40, '#c77aff', 0.3);
     Audio2.teleport();
-    player.cooldowns.a3 = 7;
+    player.cooldowns.a3 = 7 - 1; // 7 s -> 6 s
   },
 
   draw(ctx, player) {
@@ -345,11 +346,11 @@ CHARACTERS[2] = {
 const KIP_BOOM_SPEED = 520 * 0.7; // -30% vitesse
 const KIP_CATCH_CD = 0.5;
 CHARACTERS[3] = {
-  id: 3, name: 'Kip', epithet: 'Le Boomerang', speedPercent: 75, color: '#5dff9d',
+  id: 3, name: 'Retour', epithet: 'Le Boomerang', speedPercent: 75, color: '#5dff9d',
   attackLabel: 'Lance le boomerang', attackCd: KIP_CATCH_CD,
   a1Label: 'Surcharge (+dmg / -vitesse)', a1Cd: 3,
   a2Label: 'Boomerang curseur', a2Cd: 0,
-  a3Label: 'Zones de glace x5', a3Cd: 12,
+  a3Label: 'Piste de glace x5 (boomerang +60%)', a3Cd: 12,
 
   init(player) {
     player.state = { boom: null, dmgMult: 1, speedMult: 1, cursorBoom: false, ice: [] };
@@ -363,7 +364,7 @@ CHARACTERS[3] = {
       for (const z of world.zones) {
         if (z.terrainType === 'boomIce' && zoneContainsPoint(z, b.x, b.y)) onIce = true;
       }
-      const speedMult = onIce ? 1.3 : 1;
+      const speedMult = onIce ? 1.6 : 1; // glace : +60% de vitesse (avant +30%)
       if (b.state === 'out') {
         b.x += b.vx * speedMult * dt; b.y += b.vy * speedMult * dt;
         let hit = false;
@@ -461,10 +462,12 @@ CHARACTERS[3] = {
   },
 
   ability3(world, player) {
+    // equilibrage : les 5 plaques forment une piste vers la visee (avant : au hasard dans la salle)
+    const dir = normalize(player.aim.x - player.x, player.aim.y - player.y);
     for (let i = 0; i < 5; i++) {
-      const p = randomValidPointInRoom(world, { margin: 40, avoidPlayerRadius: 20 });
+      const p = { x: player.x + dir.x * (70 + i * 85), y: player.y + dir.y * (70 + i * 85) };
       world.zones.push(makeZone({
-        x: p.x, y: p.y, radius: 50, duration: 8, tickInterval: 999,
+        x: p.x, y: p.y, radius: 50, duration: 10, tickInterval: 999,
         color: 'rgba(157,232,255,0.3)', edgeColor: COLORS.ice, terrainType: 'boomIce',
       }));
       Particles.ring(p.x, p.y, 50, COLORS.ice, 0.35);
@@ -531,10 +534,10 @@ const FERRO_KNIFE_DMG = 27 * 0.7 * 1.4; // -30% puis +40% de degats
 const FERRO_ATTACK_CD = 0.35 * 3 * 2;  // delai d'attaque x3 puis encore x2
 const FERRO_KNIFE_LIFE = 6 * 0.65; // portee -35% (vitesse constante => duree de vie -35%)
 CHARACTERS[5] = {
-  id: 5, name: 'Ferro', epithet: 'Le Rebond', speedPercent: 100, color: '#7fd8ff',
+  id: 5, name: 'Ricochet', epithet: 'Le Lanceur de Lames', speedPercent: 100, color: '#7fd8ff',
   attackLabel: 'Deux projectiles rebondissants (devant + derriere)', attackCd: FERRO_ATTACK_CD,
   a1Label: 'Poussee', a1Cd: 9 * 1.4,
-  a2Label: 'Mur 1x1', a2Cd: 10 * 1.4,
+  a2Label: 'Mur 150x40 (10 s)', a2Cd: 10 * 1.4,
   a3Label: 'Rebonds prolonges (+0.3s/rebond)', a3Cd: 8 * 1.4,
 
   init(player) { player.state = { extendLifeQueued: false }; },
@@ -574,8 +577,10 @@ CHARACTERS[5] = {
   },
 
   ability2(world, player) {
+    // equilibrage : un vrai mur (150x40 au lieu de 48x48) pose en travers de la visee, 10 s
     const dir = vecFromAngle(player.facing);
-    world.walls.push(makeWall({ x: player.x + dir.x * 55, y: player.y + dir.y * 55, w: 48, h: 48, duration: 8 }));
+    const across = Math.abs(dir.x) > Math.abs(dir.y);
+    world.walls.push(makeWall({ x: player.x + dir.x * 60, y: player.y + dir.y * 60, w: across ? 40 : 150, h: across ? 150 : 40, duration: 10 }));
     Audio2.impact();
     player.cooldowns.a2 = 10 * 1.4; // +40% recharge
   },
@@ -622,12 +627,14 @@ CHARACTERS[5] = {
 // PERSONNAGE 6 — LE METEORE
 // ============================================================
 const METEOR_MAX_DMG = 70 * 0.65; // -35% degats
+const CENDRE_INVISIBLE_TIME = 2; // C2 : invisible ET invincible 2 s
+const CENDRE_ATTACK_CD = 1;      // 1 s de recharge entre deux meteorites
 const CENDRE_FIRE_TIME = 3.5, CENDRE_FIRE_RADIUS = 0.85, CENDRE_FIRE_DMG = 4; // zone de feu laissee a l'impact (degats / 0,5 s)
 CHARACTERS[6] = {
   id: 6, name: 'Cendre', epithet: 'Le Meteore', speedPercent: 100, color: '#ff7a3d',
-  attackLabel: 'Charger puis lacher une meteorite',
+  attackLabel: 'Charger puis lacher une meteorite', attackCd: CENDRE_ATTACK_CD,
   a1Label: 'Quatre meteorites', a1Cd: 9,
-  a2Label: 'Invincibilite (0.5s)', a2Cd: 6,
+  a2Label: 'Invisible + invincible (2 s)', a2Cd: 6,
   a3Label: 'Zone de charge (15/s)', a3Cd: 10,
 
   init(player) { player.state = { charging: false, chargeTime: 0, quadNext: false, zoneDmgArmed: false }; },
@@ -649,7 +656,7 @@ CHARACTERS[6] = {
 
   onAttackHeld(world, player, dt, down) {
     const st = player.state;
-    if (down && !st.charging) { st.charging = true; st.chargeTime = 0; }
+    if (down && !st.charging && !(player.attackCooldown > 0)) { st.charging = true; st.chargeTime = 0; }
   },
 
   onAttackRelease(world, player) {
@@ -687,6 +694,7 @@ CHARACTERS[6] = {
     }
     Audio2.whoosh();
     st.zoneDmgArmed = false;
+    player.attackCooldown = CENDRE_ATTACK_CD;
   },
 
   ability1(world, player) {
@@ -697,8 +705,12 @@ CHARACTERS[6] = {
   },
 
   ability2(world, player) {
-    playerSetInvincible(player, 0.5);
-    Particles.ring(player.x, player.y, 24, '#ffe08a', 0.5);
+    // Invisible + invincible 2 s : les ennemis perdent sa trace et tirent la ou il a disparu
+    player.invisibleTimer = CENDRE_INVISIBLE_TIME;
+    player.ghost = { x: player.x, y: player.y, radius: player.radius, id: player.id, ghost: true };
+    playerSetInvincible(player, CENDRE_INVISIBLE_TIME);
+    Particles.burst(player.x, player.y, 22, '#c9a27a', { maxSpeed: 120, life: 0.5 });
+    Particles.ring(player.x, player.y, 30, '#ffe08a', 0.4);
     Audio2.shield();
     player.cooldowns.a2 = 6;
   },
@@ -846,7 +858,7 @@ CHARACTERS[7] = {
 // ============================================================
 const VEX_DMG = 1.3 * 0.6; // +30% puis -40% de degats
 CHARACTERS[8] = {
-  id: 8, name: 'Vex', epithet: 'Le Gravitateur', speedPercent: 120, color: '#7a7aff',
+  id: 8, name: 'Vortex', epithet: 'Le Gravitateur', speedPercent: 120, color: '#7a7aff',
   attackLabel: 'Attraction gravitationnelle (automatique)',
   a1Label: 'Mine', a1Cd: 7,
   a2Label: 'Repulsion', a2Cd: 8,
@@ -898,7 +910,7 @@ CHARACTERS[8] = {
   },
 
   ability1(world, player) {
-    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 24, dmgPercent: 10 * VEX_DMG, owner: player }));
+    world.mines.push(makeMine({ x: player.aim.x, y: player.aim.y, triggerRadius: 34, dmgPercent: 10 * VEX_DMG * 2.5, owner: player })); // equilibrage : x2,5 degats, declenchement plus large
     Particles.burst(player.aim.x, player.aim.y, 8, '#7a7aff', { maxSpeed: 80, life: 0.3 });
     Audio2.spark();
     player.cooldowns.a1 = 7;
@@ -1003,9 +1015,9 @@ function drawCrocLasers(ctx, angles, t, len) {
   ctx.restore();
 }
 CHARACTERS[9] = {
-  id: 9, name: 'Croc', epithet: 'Le Predateur', speedPercent: 135, color: '#ff5d5d',
+  id: 9, name: 'Brasier', epithet: 'Le Lance-Feu', speedPercent: 135, color: '#ff5d5d',
   attackLabel: 'Lasers de feu chaque seconde (appui : croix / diagonales)',
-  a1Label: 'Bouclier (1s d\'invincibilite)', a1Cd: 8,
+  a1Label: 'Bouclier (2 s d\'invincibilite)', a1Cd: 8,
   a2Label: 'Petit dash', a2Cd: 2.5,
   a3Label: 'Arret global', a3Cd: 25,
 
@@ -1054,7 +1066,7 @@ CHARACTERS[9] = {
 
   // Le bouclier n'est plus automatique : il faut l'activer soi-meme (touche a1).
   ability1(world, player) {
-    playerSetInvincible(player, 1);
+    playerSetInvincible(player, 1 * 2); // equilibrage : 1 s -> 2 s
     Particles.burst(player.x, player.y, 20, '#ffe08a', { maxSpeed: 200 });
     Audio2.shield();
     player.cooldowns.a1 = 8;
@@ -1140,19 +1152,21 @@ CHARACTERS[9] = {
 // ============================================================
 // PERSONNAGE 10 — LES DEUX ORBES
 // ============================================================
-const GEMINI_THIRD_ORB_RADIUS = 155;
-const GEMINI_THIRD_ORB_SPIN = 2.2; // rad/s (avant 5.5)
+const GEMINI_THIRD_ORB_RADIUS = 120;  // rayon de l'orbite
+const GEMINI_THIRD_ORB_SIZE = 28;     // taille de la 3e orbe (avant 9) : c'est elle qui bloque les tirs
+const GEMINI_THIRD_ORB_SPIN = 2.2 / 2; // rad/s : 2x plus lent
+const GEMINI_THIRD_ORB_TIME = 10;     // s (avant 6)
 CHARACTERS[10] = {
-  id: 10, name: 'Gemini', epithet: 'Les Deux Orbes', speedPercent: 100, color: '#ffd23d',
+  id: 10, name: 'Gémeaux', epithet: 'Les Deux Orbes', speedPercent: 100, color: '#ffd23d',
   attackLabel: 'Frappe des deux orbes (charges)',
-  a1Label: 'Melange les orbes', a1Cd: 5,
-  a2Label: 'Troisieme orbe (bloque tout, 6s)', a2Cd: 12,
+  a1Label: 'Orbes projetees au curseur', a1Cd: 6,
+  a2Label: 'Grande 3e orbe (bloque les tirs, 10 s)', a2Cd: 12,
   a3Label: 'Gel des deux plus proches', a3Cd: 16,
 
   init(player) {
     player.state = {
       phase1: 0, phase2: Math.PI, radius: 100, charge1: true, charge2: true, regen1: 0, regen2: 0,
-      thirdOrbAngle: 0, thirdOrbShield: null,
+      thirdOrbAngle: 0, thirdOrb: null,
     };
   },
 
@@ -1164,12 +1178,21 @@ CHARACTERS[10] = {
     st.orb2 = squarePoint(player.x, player.y, st.radius, st.phase2);
     if (!st.charge1) { st.regen1 += dt; if (st.regen1 >= 1.5) { st.charge1 = true; st.regen1 = 0; } }
     if (!st.charge2) { st.regen2 += dt; if (st.regen2 >= 1.5) { st.charge2 = true; st.regen2 = 0; } }
-    if (st.thirdOrbShield) {
-      if (!world.shields.includes(st.thirdOrbShield)) {
-        st.thirdOrbShield = null;
-      } else {
-        st.thirdOrbAngle += GEMINI_THIRD_ORB_SPIN * dt;
+    // 3e orbe (C2) : une grosse orbe qui tourne lentement ; c'est ELLE (et seulement elle) qui
+    // detruit les tirs ennemis qu'elle touche.
+    if (st.thirdOrb) {
+      st.thirdOrb.t -= dt;
+      st.thirdOrbAngle += GEMINI_THIRD_ORB_SPIN * dt;
+      const ox = player.x + Math.cos(st.thirdOrbAngle) * GEMINI_THIRD_ORB_RADIUS, oy = player.y + Math.sin(st.thirdOrbAngle) * GEMINI_THIRD_ORB_RADIUS;
+      st.thirdOrb.x = ox; st.thirdOrb.y = oy;
+      for (let i = world.projectiles.length - 1; i >= 0; i--) {
+        const pr = world.projectiles[i];
+        const hostile = pr.team === TEAM.ENEMY || (world.pvp && pr.owner && pr.owner !== player && pr.ownerTeam !== player.team);
+        if (!hostile || dist(pr.x, pr.y, ox, oy) > GEMINI_THIRD_ORB_SIZE + (pr.radius || 6)) continue;
+        Particles.burst(pr.x, pr.y, 6, '#8ff0ff', { maxSpeed: 100, life: 0.25 });
+        world.projectiles.splice(i, 1);
       }
+      if (st.thirdOrb.t <= 0) st.thirdOrb = null;
     }
   },
 
@@ -1186,25 +1209,31 @@ CHARACTERS[10] = {
         Particles.lightning(o.x, o.y, o.x + Math.cos(a) * len, o.y + Math.sin(a) * len, '#ffe98a');
       }
     }
-    Audio2.zap();
+    Audio2.orbStrike(); // coup de maillet accorde a la musique
   },
 
+  // equilibrage : l'ancien "melange des orbes" etait presque inutile. Les deux orbes frappent
+  // maintenant au curseur (2 x 25 degats, rayon 60) et les charges reviennent aussitot.
   ability1(world, player) {
     const st = player.state;
-    st.phase1 = randRange(0, Math.PI * 2);
-    st.phase2 = randRange(0, Math.PI * 2);
-    Audio2.spark();
-    player.cooldowns.a1 = 5;
+    const ax = player.aim.x, ay = player.aim.y;
+    for (let k = 0; k < 2; k++) {
+      for (const e of enemiesInRadius(world, ax, ay, 60, player)) damageEnemy(world, e, 25, player);
+    }
+    st.charge1 = true; st.charge2 = true;
+    Particles.ring(ax, ay, 60, '#ffd23d', 0.35);
+    Particles.burst(ax, ay, 22, '#fff3c8', { maxSpeed: 220, life: 0.35 });
+    for (const o of [st.orb1, st.orb2]) if (o) Particles.lightning(o.x, o.y, ax, ay, '#ffe98a');
+    Audio2.orbStrike();
+    player.cooldowns.a1 = 6;
   },
 
   ability2(world, player) {
     const st = player.state;
     // Tourne 2x plus longtemps (6s), plus lentement, et sur une orbite qui englobe celle des
     // deux autres orbes (le carre de demi-cote 100 a ses coins a ~141).
-    const shield = makeShield({ x: player.x, y: player.y, radius: GEMINI_THIRD_ORB_RADIUS, duration: 6, color: '#8ff0ff', follow: player, ownerTeam: player.team });
-    world.shields.push(shield);
-    st.thirdOrbShield = shield;
-    st.thirdOrbAngle = 0;
+    st.thirdOrb = { t: GEMINI_THIRD_ORB_TIME, x: player.x, y: player.y };
+    st.thirdOrbAngle = Math.atan2(player.aim.y - player.y, player.aim.x - player.x);
     Particles.burst(player.x, player.y, 22, '#8ff0ff', { maxSpeed: 220, life: 0.4 });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
@@ -1253,21 +1282,22 @@ CHARACTERS[10] = {
         ctx.restore();
       }
     }
-    if (st.thirdOrbShield) {
-      const shieldRadius = st.thirdOrbShield.radius;
+    if (st.thirdOrb) {
+      const R = st.thirdOrb.radius || GEMINI_THIRD_ORB_RADIUS, S = st.thirdOrb.size || GEMINI_THIRD_ORB_SIZE;
       ctx.save();
-      ctx.strokeStyle = 'rgba(143,240,255,0.35)';
+      ctx.strokeStyle = 'rgba(143,240,255,0.22)';
       ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 5]);
-      ctx.beginPath(); ctx.arc(0, 0, shieldRadius, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([3, 7]);
+      ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
-      const ox = Math.cos(st.thirdOrbAngle) * shieldRadius, oy = Math.sin(st.thirdOrbAngle) * shieldRadius;
-      const og = ctx.createRadialGradient(0, 0, 0, 0, 0, 9);
-      og.addColorStop(0, '#ffffff'); og.addColorStop(0.5, '#8ff0ff'); og.addColorStop(1, 'rgba(143,240,255,0.2)');
+      const ox = Math.cos(st.thirdOrbAngle) * R, oy = Math.sin(st.thirdOrbAngle) * R;
       ctx.translate(ox, oy);
+      const og = ctx.createRadialGradient(-S * 0.3, -S * 0.3, 0, 0, 0, S);
+      og.addColorStop(0, '#ffffff'); og.addColorStop(0.45, '#8ff0ff'); og.addColorStop(1, 'rgba(60,170,200,0.35)');
       ctx.fillStyle = og;
-      ctx.shadowColor = '#8ff0ff'; ctx.shadowBlur = 14;
-      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowColor = '#8ff0ff'; ctx.shadowBlur = 18;
+      ctx.beginPath(); ctx.arc(0, 0, S, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.stroke();
       ctx.restore();
     }
   },
@@ -1289,7 +1319,7 @@ CHARACTERS[11] = {
   attackLabel: 'Pose un bloc de vent chaud', attackCd: 0.4,
   a1Label: 'Vent vertical (anti-projectiles)', a1Cd: 10,
   a2Label: 'Vent puissant (3x)', a2Cd: 11,
-  a3Label: 'Inversion des vents', a3Cd: 6,
+  a3Label: 'Inversion des vents (puissants 4 s)', a3Cd: 6,
 
   init(player) { player.state = {}; },
   update() {},
@@ -1331,8 +1361,9 @@ CHARACTERS[11] = {
   },
 
   ability3(world, player) {
-    for (const w of world.winds) if (w.owner === player) { w.dirX *= -1; w.dirY *= -1; Particles.ring(w.x, w.y, Math.max(w.w, w.h) / 2, '#bfe8ff', 0.3); }
-    Audio2.zap();
+    // equilibrage : en plus d'inverser tes vents, ils deviennent puissants 4 s (ecrasent contre les murs)
+    for (const w of world.winds) if (w.owner === player) { w.dirX *= -1; w.dirY *= -1; if (!w.strong) { w.strong = true; w._strongUntil = (w.age || 0) + 4; } Particles.ring(w.x, w.y, Math.max(w.w, w.h) / 2, '#bfe8ff', 0.3); }
+    Audio2.gust();
     player.cooldowns.a3 = 6;
   },
 
@@ -1367,6 +1398,4 @@ CHARACTERS[11] = {
 
 // Repli sur Colt pour un id disparu (ex : Braise, supprime) encore present dans une sauvegarde ou un defi perso.
 function getCharacter(id) { return CHARACTERS[id] || CHARACTERS[1]; }
-// Persos "normaux" (expedition, defis, salle de test) ; les persos de parcours sont a part.
-function allCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => !CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }
-function parkourCharacterIds() { return Object.keys(CHARACTERS).map(Number).filter((id) => CHARACTERS[id].parkourOnly).sort((a, b) => a - b); }
+function allCharacterIds() { return Object.keys(CHARACTERS).map(Number).sort((a, b) => a - b); }

@@ -4,7 +4,7 @@
 // rounds, tirages aleatoires et resultats sont decides ici.
 //
 // Interface utilisee par le serveur Node (server/core/match.js) :
-//   const ctl = mpCreateMatch(cfg)  cfg = { mode, seed, challengeId, players: [{ netId, name, team, characterId }] }
+//   const ctl = mpCreateMatch(cfg)  cfg = { mode, seed, players: [{ netId, name, team, characterId }] }
 //   ctl.setInput(netId, input)     intentions du joueur pour le prochain pas
 //   ctl.setLatency(netId, ms)      latence mesuree (compensation de latence)
 //   ctl.step(dt)                   un pas de simulation (1/60 s)
@@ -153,7 +153,7 @@ function mpBuildArena(ctl) {
   }
   world.room = {
     bounds, obstacles, terrainZones, part: 0, index: 0, isBoss: false,
-    parkour: { time: 0, spikes: [], lasers: [], boosts: [], shooters: [], teleporters: [], trampolines: [] },
+    props: makeRoomProps(),
   };
   world.themeIndex = themeIndex;
   world.theme = ROOM_THEMES[themeIndex] || ROOM_THEMES[1];
@@ -252,7 +252,7 @@ function mpCreateMatch(cfg) {
   const ctl = {
     mode, world: mpFreshWorld(), roster: cfg.players.map((p) => Object.assign({}, p)),
     phase: 'countdown', phaseTimer: MP.COUNTDOWN, elapsed: 0, round: 1,
-    feed: [], over: false, result: null, roomVersion: 0, challengeId: cfg.challengeId || null,
+    feed: [], over: false, result: null, roomVersion: 0,
   };
   const world = ctl.world;
   world.onHostileHit = (w, target, amount, attacker) => mpOnHostileHit(ctl, w, target, amount, attacker);
@@ -263,14 +263,13 @@ function mpCreateMatch(cfg) {
   ctl.playerByNet = (netId) => world.players.find((q) => q.netId === netId) || null;
   ctl.roomPayload = () => ({
     bounds: world.room.bounds, theme: world.themeIndex || 1, decorations: world.decorations || [],
-    parkour: world.room.parkour ? { teleporters: world.room.parkour.teleporters || [], trampolines: world.room.parkour.trampolines || [] } : null,
+    props: world.room.props ? { teleporters: world.room.props.teleporters || [], trampolines: world.room.props.trampolines || [] } : null,
     isBoss: !!world.room.isBoss, version: ctl.roomVersion,
   });
 
   if (mode.kind === 'versus') mpSetupVersus(ctl);
   else if (mode.kind === 'foot') mpSetupFoot(ctl);
-  else if (mode.kind === 'survivor') mpSetupSurvivor(ctl);
-  else mpSetupCoop(ctl);
+  else mpSetupSurvivor(ctl);
 
   ctl.step = (dt) => {
     if (ctl.over) return;
@@ -308,7 +307,7 @@ function mpCreateMatch(cfg) {
     if (r) { r.forfeit = true; r.connected = false; }
     const p = ctl.playerByNet(netId);
     if (p) {
-      if (ctl.mode.kind === 'foot' || ctl.mode.kind === 'coop') { p.absent = true; if (ctl.dropBallOf) ctl.dropBallOf(p); }
+      if (ctl.mode.kind === 'foot') { p.absent = true; if (ctl.dropBallOf) ctl.dropBallOf(p); }
       else { p.absent = true; mpKill(ctl, p, 'forfeit'); }
     }
     if (ctl.checkForfeitEnd) ctl.checkForfeitEnd();
@@ -616,58 +615,3 @@ function mpSetupSurvivor(ctl) {
   });
 }
 
-// ================= COOP (defis normaux a 2, jamais les parcours) =================
-function mpSetupCoop(ctl) {
-  const world = ctl.world;
-  world.pvp = false;
-  const def = Challenges.get(ctl.challengeId);
-  if (!def || def.parkour || def.custom) throw new Error('defi coop invalide');
-  ctl.roster.forEach((r, i) => {
-    r.team = 'A'; r.currentChar = r.characterId;
-    mpSpawnPlayer(world, r, r.characterId, 0, i * 40);
-  });
-  world.player = world.players[0];
-  Challenges.start(world, ctl.challengeId);
-  ctl.lastRoom = null;
-  const placeAll = () => {
-    const lead = world.player;
-    const n = world.players.length;
-    world.players.forEach((p, i) => {
-      p.x = lead.x; p.y = lead.y + (i - (n - 1) / 2) * 44;
-      p.jump = null; p.airborne = false; p.airScale = 1;
-    });
-  };
-  const syncRoom = () => {
-    if (world.room !== ctl.lastRoom) {
-      ctl.lastRoom = world.room;
-      for (const o of world.room.obstacles) if (o.id == null) o.id = uid();
-      for (const z of world.room.terrainZones || []) if (z.id == null) z.id = uid();
-      world.themeIndex = def.theme || 1;
-      if (MP.COOP_ENEMY_HP_SCALE !== 1) for (const e of world.enemies) { e.hp *= MP.COOP_ENEMY_HP_SCALE; e.maxHp *= MP.COOP_ENEMY_HP_SCALE; }
-      placeAll();
-      ctl.roomVersion++;
-    }
-  };
-  syncRoom();
-  ctl.stepPlaying = (dt) => {
-    // le "joueur principal" des defis (positions de salle) doit etre present
-    if (!world.player || world.player.absent) world.player = world.players.find((p) => !p.absent) || world.player;
-    if (Challenges.transitionTimer > 0 && !Challenges.finished) Challenges.update(world, dt); // fondu : monde fige
-    else {
-      stepWorld(world, dt * GLOBAL_SPEED_MULT * (world.userSpeedMult || 1), dt);
-      Challenges.update(world, dt);
-    }
-    syncRoom();
-    if (Challenges.finished) mpFinish(ctl, { kind: 'coop', challengeId: ctl.challengeId, timeMs: Math.round(Challenges.elapsedMs) });
-  };
-  ctl.checkForfeitEnd = () => {
-    if (ctl.roster.every((r) => r.forfeit)) mpFinish(ctl, { kind: 'coop', challengeId: ctl.challengeId, timeMs: null, abandoned: true });
-  };
-  ctl.modeState = () => ({
-    kind: 'coop', phase: ctl.phase, timer: ctl.phaseTimer, challengeId: ctl.challengeId,
-    roomNum: Challenges.roomNum, rooms: CHALLENGE_ROOMS, elapsedMs: Challenges.elapsedMs,
-    transition: Challenges.transitionPhase, abilityGate: world.abilityGate,
-    roster: ctl.roster.map((r) => ({ netId: r.netId, name: r.name, team: r.team, cur: r.characterId, connected: r.connected !== false, forfeit: !!r.forfeit })),
-    feed: ctl.feed, result: ctl.result,
-  });
-}

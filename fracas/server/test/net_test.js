@@ -17,7 +17,7 @@ const PROTOCOL = 1;
 const OVERRIDES = {
   ROUND_TIME: 25, COUNTDOWN: 0.5, ROUND_END_PAUSE: 0.8, PVP_DAMAGE_TO_PERCENT: 0.6,
   FOOT_TIME: 45, FOOT_GOALS_TO_WIN: 2, FOOT_RESPAWN_DELAY: 1, SUDDEN_DEATH_AT: 20,
-  RECONNECT_GRACE_MS: 3000, COOP_ENEMY_HP_SCALE: 0.03, CAPZONE_TIME: 1,
+  RECONNECT_GRACE_MS: 3000, CAPZONE_TIME: 1,
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -145,7 +145,8 @@ const enemyHunter = (bot, me) => {
   const foes = bot.list('E').filter((e) => !e.dead && e.kind !== 'crystal');
   foes.sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y));
   const t = foes[0];
-  if (!t) return {};
+  // salle videe : on traverse la porte de sortie (bord droit)
+  if (!t) { const ex = bot.g && bot.g.exit; return ex && ex.open ? toward(me, ex.x + 30, ex.y) : {}; }
   return Object.assign(toward(me, t.x, t.y, 110), { ax: t.x, ay: t.y, attack: true, a1: true, a2: true, a3: true });
 };
 const footPlayer = (bot, me) => {
@@ -180,7 +181,7 @@ async function waitFor(pred, ms, label) {
 async function makeLobby(mode, chars, extra) {
   const bots = [];
   for (let i = 0; i < chars.length; i++) bots.push(await new Bot(`${mode}-${i}`).connect());
-  bots[0].send({ t: 'lobby.create', mode, challengeId: extra && extra.challengeId });
+  bots[0].send({ t: 'lobby.create', mode });
   await waitFor(() => bots[0].lobby, 3000, 'lobby cree');
   const code = bots[0].lobby.code;
   for (let i = 1; i < bots.length; i++) bots[i].send({ t: 'lobby.join', code });
@@ -329,34 +330,6 @@ const SCENARIOS = {
     const r = bots[0].result;
     check('un gagnant (dernier vivant) + classement', r && r.winners && r.winners.length >= 1 && r.placements.length === 4, JSON.stringify(r));
     bots.forEach((x) => x.close());
-  },
-
-  async coop() {
-    console.log('\n[Coop] defi normal a 2 clients');
-    const { bots } = await makeLobby('coop', [9, 1], { challengeId: 5 });
-    check('defi choisi', bots[0].lobby.challengeId === 5);
-    await launch(bots);
-    check('2 joueurs dans la meme salle', bots[0].list('P').length === 2 && bots[1].list('P').length === 2);
-    check('ennemis synchronises', bots[0].list('E').length > 0 && bots[0].list('E').length === bots[1].list('E').length);
-    bots.forEach((b) => b.startInputs(enemyHunter));
-    await waitFor(() => bots[0].g && bots[0].g.roomNum >= 2, 40000, 'salle 2');
-    check('progression de salle en coop', bots[0].g.roomNum >= 2);
-    await waitFor(() => bots.every((x) => x.result), 90000, 'fin du defi');
-    const r = bots[0].result;
-    check('defi coop termine ensemble', r && r.kind === 'coop' && r.timeMs > 0, JSON.stringify(r));
-    bots.forEach((x) => x.close());
-  },
-
-  async parkourSolo() {
-    console.log('\n[Parcours] impossible en coop');
-    const b = await new Bot('pk').connect();
-    b.send({ t: 'lobby.create', mode: 'coop', challengeId: 'P1' });
-    await waitFor(() => b.lobby, 2000, 'lobby');
-    check('un parcours est refuse a la creation (defi normal impose)', b.lobby && b.lobby.challengeId !== 'P1', `defi : ${b.lobby && b.lobby.challengeId}`);
-    b.send({ t: 'lobby.challenge', id: 'P3' });
-    await waitFor(() => b.errors.includes('bad_challenge'), 2000, 'refus');
-    check('choisir un parcours en coop est refuse par le serveur', b.errors.includes('bad_challenge'));
-    b.close();
   },
 
   async disconnect() {

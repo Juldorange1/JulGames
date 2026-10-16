@@ -25,9 +25,9 @@ const Audio2 = {
     return this.ctx;
   },
 
-  setOn(on) { this.on = on; Save.setSoundOn(on); },
+  setOn(on) { this.on = on; Save.setSoundOn(on); if (typeof Music !== 'undefined' && Music.file) Music.applyFileMix(0.3); },
   toggle() { this.setOn(!this.on); },
-  setVolume(v) { this.volume = clamp(v, 0, 1); Save.setVolume(this.volume); },
+  setVolume(v) { this.volume = clamp(v, 0, 1); Save.setVolume(this.volume); if (typeof Music !== 'undefined' && Music.file) Music.applyFileMix(0.3); },
 
   _ready() { return this.on && this.volume > 0 && this._ensureCtx(); },
 
@@ -46,7 +46,9 @@ const Audio2 = {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
     comp.connect(ctx.destination);
-    const dry = ctx.createGain(); dry.gain.value = 1; dry.connect(comp);
+    // filtre doux : enleve les aigus agressifs (clics, souffles) qui fatiguent l'oreille
+    const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 9000; soft.Q.value = 0.5; soft.connect(comp);
+    const dry = ctx.createGain(); dry.gain.value = 0.85; dry.connect(soft);
     const verb = ctx.createConvolver();
     const len = Math.floor(ctx.sampleRate * 1.1);
     const ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -56,7 +58,7 @@ const Audio2 = {
     }
     verb.buffer = ir;
     const wet = ctx.createGain(); wet.gain.value = 0.16;
-    verb.connect(wet).connect(comp);
+    verb.connect(wet).connect(soft);
     this._bus = { ctx, dry, verb };
     return this._bus;
   },
@@ -143,8 +145,8 @@ const Audio2 = {
   gunshot(v) {
     if (!this._ready() || !this._can('gun', 45)) return;
     const k = v == null ? 1 : v;
-    this._burst({ noise: 'white', type: 'highpass', freq: 1400, dur: 0.09, gain: 0.32 * k, space: 0.5 });
-    this._burst({ noise: 'white', type: 'bandpass', freq: 3200, q: 1.2, dur: 0.03, gain: 0.25 * k });
+    this._burst({ noise: 'pink', type: 'bandpass', freq: 1500, q: 0.7, dur: 0.08, gain: 0.22 * k, space: 0.45 });
+    this._burst({ noise: 'white', type: 'bandpass', freq: 2600, q: 1.2, dur: 0.025, gain: 0.12 * k });
     this._tone({ freq: 160, freqTo: 48, dur: 0.14, gain: 0.3 * k });
   },
   // Tir d'une tourelle / d'un boss : plus sourd et metallique, pour se distinguer des tirs du joueur.
@@ -162,21 +164,21 @@ const Audio2 = {
     const osc2 = ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 180 + Math.random() * 40;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 1.4;
     const g = ctx.createGain();
-    const peak = 0.13 * this.volume;
+    const peak = 0.08 * this.volume;
     g.gain.setValueAtTime(0.0001, t0);
     // gain "hache" au hasard : c'est ce qui donne le grezillement d'un arc
     for (let t = 0; t < d; t += 0.008) g.gain.setValueAtTime(Math.random() < 0.65 ? peak * (0.3 + Math.random() * 0.7) : 0.0001, t0 + t);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.02);
     osc.connect(bp); osc2.connect(bp); bp.connect(g).connect(this._dest(0.25));
     osc.start(t0); osc2.start(t0); osc.stop(t0 + d + 0.05); osc2.stop(t0 + d + 0.05);
-    this._clicks(9, d, { freq: 3500, gain: 0.16 });
-    this._burst({ noise: 'white', type: 'highpass', freq: 5000, dur: 0.05, gain: 0.12 });
+    this._clicks(5, d, { freq: 3000, gain: 0.08 });
+    this._burst({ noise: 'white', type: 'highpass', freq: 4000, dur: 0.04, gain: 0.06 });
   },
   // Etincelle / petit claquement electrique.
   spark() {
     if (!this._ready() || !this._can('spark', 50)) return;
-    this._clicks(4, 0.06, { freq: 4000, gain: 0.14 });
-    this._tone({ wave: 'triangle', freq: 2400, freqTo: 1900, dur: 0.08, gain: 0.04 });
+    this._clicks(2, 0.03, { freq: 2600, gain: 0.06 });
+    this._tone({ freq: 1320, freqTo: 1180, dur: 0.12, gain: 0.06, space: 0.3 });
   },
   // Lame qui fend l'air puis tinte (couteaux de Ferro).
   knifeThrow() {
@@ -269,7 +271,7 @@ const Audio2 = {
   charge(dur) {
     if (!this._ready() || !this._can('charge', 120)) return;
     const d = dur || 0.6;
-    this._tone({ wave: 'sawtooth', freq: 70, freqTo: 320, dur: d, gain: 0.07, lp: 900, attack: d * 0.6 });
+    this._tone({ wave: 'triangle', freq: 110, freqTo: 330, dur: d, gain: 0.07, attack: d * 0.6 });
     this._burst({ noise: 'pink', type: 'bandpass', freq: 400, freqTo: 2400, q: 2, dur: d, gain: 0.07, attack: d * 0.6 });
   },
   // Gravite : grondement qui "aspire" (vibrato grave).
@@ -282,6 +284,18 @@ const Audio2 = {
     lfo.start(t.t0); lfo.stop(t.t0 + 0.85);
     this._burst({ noise: 'brown', type: 'lowpass', freq: 300, dur: 0.7, gain: 0.25, attack: 0.1 });
   },
+  // Frappe des orbes (Gemeaux) : coup de maillet doux sur une note de la gamme pentatonique
+  // (s'accorde avec la musique) + petit choc grave.
+  orbStrike() {
+    if (!this._ready() || !this._can('orb', 90)) return;
+    const notes = [523.25, 587.33, 659.25, 783.99, 880];
+    const f = notes[Math.floor(Math.random() * notes.length)];
+    this._tone({ freq: f, dur: 0.38, gain: 0.07, attack: 0.006, space: 0.45 });
+    this._tone({ wave: 'triangle', freq: f * 2, dur: 0.18, gain: 0.02, attack: 0.004 });
+    this._tone({ freq: 150, freqTo: 70, dur: 0.12, gain: 0.12 });
+    this._burst({ noise: 'pink', type: 'lowpass', freq: 900, dur: 0.06, gain: 0.06 });
+  },
+
   // Capacite generique : impulsion d'energie courte.
   ability() {
     if (!this._ready() || !this._can('ability', 80)) return;
@@ -309,6 +323,88 @@ const Audio2 = {
       this._tone({ freq: f, dur: 0.7, gain: 0.07, delay: d, space: 0.7 });
       this._tone({ freq: f * 2.76, dur: 0.3, gain: 0.012, delay: d });
     });
+  },
+
+  // ---------- Interface et jeu (ajouts) ----------
+  // Clic de menu : petit "tic" boise.
+  uiClick() {
+    if (!this._ready() || !this._can('ui', 40)) return;
+    this._tone({ wave: 'triangle', freq: 1250, freqTo: 900, dur: 0.05, gain: 0.07 });
+    this._burst({ noise: 'white', type: 'bandpass', freq: 3200, q: 2, dur: 0.02, gain: 0.05 });
+  },
+  // Survol d'un bouton : souffle tres leger.
+  uiHover() {
+    if (!this._ready() || !this._can('uih', 60)) return;
+    this._tone({ wave: 'sine', freq: 1900, dur: 0.03, gain: 0.025 });
+  },
+  // Achat : pieces qui tombent + caisse enregistreuse.
+  purchase() {
+    if (!this._ready()) return;
+    this.coins();
+    [[1568, 0.06], [2093, 0.14]].forEach(([f, d]) => this._tone({ freq: f, dur: 0.35, gain: 0.06, delay: d, space: 0.5 }));
+  },
+  // Pas assez d'argent / impossible : buzz grave court.
+  denied() {
+    if (!this._ready() || !this._can('deny', 120)) return;
+    this._tone({ wave: 'square', freq: 140, dur: 0.12, gain: 0.06, lp: 800 });
+    this._tone({ wave: 'square', freq: 110, dur: 0.14, gain: 0.06, lp: 800, delay: 0.1 });
+  },
+  // Pieces (argent gagne).
+  coins() {
+    if (!this._ready() || !this._can('coins', 90)) return;
+    for (let i = 0; i < 5; i++) {
+      const f = 2600 + Math.random() * 1400;
+      this._tone({ freq: f, dur: 0.12, gain: 0.035, delay: i * 0.045 + Math.random() * 0.02, space: 0.3 });
+      this._tone({ freq: f * 1.5, dur: 0.07, gain: 0.012, delay: i * 0.045 });
+    }
+  },
+  // Porte en bois qui s'ouvre : grincement + choc sourd des battants.
+  doorOpen() {
+    if (!this._ready() || !this._can('door', 300)) return;
+    const b = this._burst({ noise: 'pink', type: 'bandpass', freq: 520, freqTo: 900, sweep: 0.5, q: 9, dur: 0.6, gain: 0.12, attack: 0.08, space: 0.4 });
+    const lfo = this.ctx.createOscillator(); lfo.frequency.value = 23;
+    const depth = this.ctx.createGain(); depth.gain.value = 0.06 * this.volume;
+    lfo.connect(depth).connect(b.g.gain); lfo.start(b.t0); lfo.stop(b.t0 + 0.65);
+    this._tone({ freq: 95, freqTo: 55, dur: 0.25, gain: 0.3, delay: 0.55, space: 0.5 });
+    this._burst({ noise: 'brown', type: 'lowpass', freq: 500, dur: 0.2, gain: 0.25, delay: 0.55 });
+  },
+  // Passage de la porte : pas + souffle.
+  doorPass() {
+    if (!this._ready() || !this._can('dpass', 300)) return;
+    this._burst({ noise: 'brown', type: 'lowpass', freq: 400, dur: 0.08, gain: 0.2 });
+    this._burst({ noise: 'brown', type: 'lowpass', freq: 380, dur: 0.08, gain: 0.18, delay: 0.16 });
+    this._burst({ noise: 'pink', type: 'bandpass', freq: 600, freqTo: 1800, dur: 0.35, gain: 0.1, attack: 0.1 });
+  },
+  // Trampoline : "boing" elastique.
+  bounce() {
+    if (!this._ready() || !this._can('bounce', 80)) return;
+    const t = this._tone({ freq: 140, freqTo: 420, sweep: 0.18, dur: 0.32, gain: 0.22 });
+    const lfo = this.ctx.createOscillator(); lfo.frequency.value = 18;
+    const depth = this.ctx.createGain(); depth.gain.value = 25;
+    lfo.connect(depth).connect(t.osc.frequency); lfo.start(t.t0); lfo.stop(t.t0 + 0.35);
+    this.whoosh();
+  },
+  // Atterrissage : choc mat.
+  land() {
+    if (!this._ready() || !this._can('land', 80)) return;
+    this._tone({ freq: 120, freqTo: 50, dur: 0.12, gain: 0.25 });
+    this._burst({ noise: 'brown', type: 'lowpass', freq: 700, dur: 0.1, gain: 0.2 });
+  },
+  // Ramassage (boost) : tintement ascendant.
+  pickup() {
+    if (!this._ready() || !this._can('pick', 80)) return;
+    [[880, 0], [1319, 0.06], [1760, 0.12]].forEach(([f, d]) => this._tone({ wave: 'triangle', freq: f, dur: 0.15, gain: 0.06, delay: d }));
+  },
+  // 0% de degats / echec : chute grave.
+  defeat() {
+    if (!this._ready() || !this._can('defeat', 500)) return;
+    this._tone({ wave: 'sawtooth', freq: 220, freqTo: 55, sweep: 0.8, dur: 0.9, gain: 0.12, lp: 900, space: 0.6 });
+    this.explosion(0.8);
+  },
+  // Compte a rebours (en ligne, tutoriel).
+  tick() {
+    if (!this._ready()) return;
+    this._tone({ wave: 'triangle', freq: 1046, dur: 0.08, gain: 0.08 });
   },
 
   // Anciens noms (compatibilite) redirigés vers les sons realistes correspondants.

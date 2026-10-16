@@ -29,8 +29,10 @@ const HUB_CHARACTER = {
   },
 };
 
-// Disposition de depart : bloc de 3x3 cases. Les 5 portes + la case de depart en occupent 6.
+// Disposition de depart : bloc de 3x3 cases. Les 4 portes + la case de depart en occupent 5.
 // La liste des personnages (et l'acces a la salle de test) est dans le Repertoire.
+// La BASE est fixe (plus personnalisable) : on y arrive apres avoir fini les 3 parties d'une partie.
+// Portails : repartir (suite de la partie), defi du jour, en ligne, Codex, parametres.
 function defaultHubLayout() {
   const cells = [];
   for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) cells.push({ gx, gy });
@@ -38,27 +40,29 @@ function defaultHubLayout() {
     version: HUB_LAYOUT_VERSION,
     cells,
     doors: {
-      world: { gx: -1, gy: -1 },
-      defi: { gx: 1, gy: -1 },      // en haut a droite
-      spawn: { gx: 0, gy: 0 },
-      bestiary: { gx: -1, gy: 1 },  // Codex en bas a gauche
-      market: { gx: 1, gy: 1 },
-      online: { gx: 0, gy: -1 },    // En ligne : en haut au milieu
+      run: { gx: 1, gy: 0 },        // repartir : a droite (comme les portes des salles)
+      spawn: { gx: -1, gy: 0 },
+      daily: { gx: 0, gy: -1 },     // defi du jour : en haut
+      online: { gx: 0, gy: 1 },     // en ligne : en bas
+      bestiary: { gx: -1, gy: -1 }, // Codex
+      settings: { gx: -1, gy: 1 },  // parametres
     },
     decor: [],
   };
 }
+let _hubLayout = null;
+function hubLayout() { return _hubLayout || (_hubLayout = defaultHubLayout()); }
 
 // Les portes navigables (tout sauf "spawn", qui est un bloc principal mais pas une porte). La
 // salle de test n'y figure pas : on y accede uniquement depuis la liste des personnages.
-function hubKeyList() { return ['world', 'defi', 'bestiary', 'market', 'online'].filter((k) => Save.data.hub.doors[k]); }
+function hubKeyList() { return ['run', 'daily', 'online', 'bestiary', 'settings']; }
 
 function hubDoorMeta() {
   return {
-    world: { labelKey: 'btnMonde', action: () => { Game.pendingCharSelectMode = 'expedition'; Game.setState(STATE.CHAR_SELECT); } },
-    defi: { labelKey: 'btnDefi', action: () => Game.setState(STATE.CHALLENGE_SELECT) },
+    run: { labelKey: 'baseRun', action: () => Game.resumeFromBase() }, // suite de la partie
+    daily: { labelKey: 'dailyTitle', action: () => Game.setState(STATE.DAILY) },
     bestiary: { labelKey: 'btnBestiary', action: () => Game.setState(STATE.BESTIARY) },
-    market: { labelKey: 'btnFeatures', action: () => Game.setState(STATE.MARKET) }, // marche + parametres
+    settings: { labelKey: 'settingsTitle', action: () => Game.setState(STATE.SETTINGS) },
     online: { labelKey: 'btnOnline', action: () => Game.setState(STATE.ONLINE_MENU) }, // multijoueur en ligne
   };
 }
@@ -66,11 +70,11 @@ function hubDoorMeta() {
 function hubCellKey(gx, gy) { return gx + ',' + gy; }
 function hubCellsSet() {
   const set = new Set();
-  for (const c of Save.data.hub.cells) set.add(hubCellKey(c.gx, c.gy));
+  for (const c of hubLayout().cells) set.add(hubCellKey(c.gx, c.gy));
   return set;
 }
 function hubBounds() {
-  const cells = Save.data.hub.cells;
+  const cells = hubLayout().cells;
   let minGx = Infinity, maxGx = -Infinity, minGy = Infinity, maxGy = -Infinity;
   for (const c of cells) {
     minGx = Math.min(minGx, c.gx); maxGx = Math.max(maxGx, c.gx);
@@ -105,7 +109,7 @@ function buildHubRoom() {
   const teleporters = [];
   const winds = [];
   const trampolines = [], boosts = [];
-  for (const d of Save.data.hub.decor) {
+  for (const d of hubLayout().decor) {
     if (d.type === 'trampoline') {
       const a = hubCellCenter(d.gx, d.gy), l = hubCellCenter(d.lgx, d.lgy);
       trampolines.push({ x: a.x, y: a.y, lx: l.x, ly: l.y });
@@ -123,11 +127,11 @@ function buildHubRoom() {
   }
   const meta = hubDoorMeta();
   const doors = hubKeyList().map((key) => {
-    const pos = Save.data.hub.doors[key];
+    const pos = hubLayout().doors[key];
     const c = hubCellCenter(pos.gx, pos.gy);
     return Object.assign({ key, x: c.x, y: c.y, r: HUB_DOOR_RADIUS }, meta[key]);
   });
-  const spawnPos = hubCellCenter(Save.data.hub.doors.spawn.gx, Save.data.hub.doors.spawn.gy);
+  const spawnPos = hubCellCenter(hubLayout().doors.spawn.gx, hubLayout().doors.spawn.gy);
   return { bounds, obstacles, doors, teleporters, winds, trampolines, boosts, spawn: spawnPos };
 }
 
@@ -358,10 +362,10 @@ function renderHubFloor(ctx, camera, world) {
 // Portes de la base : cercle de pierre grave, portail d'energie tourbillonnant a la couleur du
 // menu, runes qui tournent, icone du menu au centre et plaque de nom.
 const HUB_DOOR_STYLE = {
-  world: { color: [127, 216, 255], icon: 'world' },
-  defi: { color: [255, 210, 61], icon: 'defi' },
+  run: { color: [127, 255, 156], icon: 'run' },
+  daily: { color: [255, 210, 61], icon: 'daily' },
   bestiary: { color: [199, 122, 255], icon: 'codex' },
-  market: { color: [93, 255, 157], icon: 'gear' },
+  settings: { color: [127, 216, 255], icon: 'gear' },
   online: { color: [255, 122, 209], icon: 'online' },
 };
 
@@ -374,14 +378,6 @@ function drawHubDoorIcon(ctx, kind, col) {
     ctx.beginPath(); ctx.arc(0, 0, 11, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(0, 0, 5, 11, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(-9.5, -5.5); ctx.lineTo(9.5, -5.5); ctx.moveTo(-9.5, 5.5); ctx.lineTo(9.5, 5.5); ctx.stroke();
-  } else if (kind === 'defi') {
-    // trophee
-    ctx.beginPath();
-    ctx.moveTo(-8, -10); ctx.lineTo(8, -10); ctx.lineTo(7, -2); ctx.quadraticCurveTo(0, 6, -7, -2); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.arc(-9, -6, 4, Math.PI * 0.5, Math.PI * 1.5); ctx.stroke();
-    ctx.beginPath(); ctx.arc(9, -6, 4, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();
-    ctx.fillRect(-1.5, 2, 3, 5);
-    ctx.fillRect(-6, 7, 12, 3);
   } else if (kind === 'codex') {
     // livre ouvert
     ctx.beginPath();
@@ -390,6 +386,15 @@ function drawHubDoorIcon(ctx, kind, col) {
     ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 10); ctx.stroke();
     ctx.lineWidth = 1.2;
     for (const y of [-3, 1, 5]) { ctx.beginPath(); ctx.moveTo(-9, y - 1); ctx.lineTo(-3, y); ctx.moveTo(3, y); ctx.lineTo(9, y - 1); ctx.stroke(); }
+  } else if (kind === 'run') {
+    // double fleche vers la droite : repartir
+    ctx.beginPath(); ctx.moveTo(-10, -9); ctx.lineTo(0, 0); ctx.lineTo(-10, 9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(10, 0); ctx.lineTo(0, 9); ctx.stroke();
+  } else if (kind === 'daily') {
+    // calendrier
+    ctx.beginPath(); ctx.roundRect(-11, -9, 22, 20, 3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-11, -3); ctx.lineTo(11, -3); ctx.moveTo(-5, -12); ctx.lineTo(-5, -6); ctx.moveTo(5, -12); ctx.lineTo(5, -6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 4, 3, 0, Math.PI * 2); ctx.fill();
   } else if (kind === 'online') {
     // deux joueurs relies (en ligne)
     ctx.beginPath(); ctx.arc(-6, -4, 3.5, 0, Math.PI * 2); ctx.arc(6, -4, 3.5, 0, Math.PI * 2); ctx.fill();

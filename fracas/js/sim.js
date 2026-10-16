@@ -21,18 +21,19 @@ function stepWorld(world, simDt, realDt) {
   } else if (world.player) {
     updatePlayer(world, world.player, simDt, realDt);
   }
-  if (world.room && world.room.parkour) updateParkourObjects(world, simDt);
+  if (world.room && world.room.props) updateRoomObjects(world, simDt);
   updateMovingWalls(world, simDt);
   updateProjectiles(world, simDt);
   updateZones(world, simDt);
   updateWalls(world, simDt);
   updateShields(world, simDt);
   updateWinds(world, simDt);
+  updateWindStrength(world); // Zephyr C3 : vents puissants temporaires
   updateMeteors(world, simDt);
   updateFrozenTimers(world, simDt);
   for (const e of world.enemies) {
     if (e.kind === 'turret') updateTurret(world, e, simDt);
-    else if (e.kind === 'boss') { updateBoss(world, e, simDt); updateBossSpecials(world, e, simDt); }
+    else if (e.kind === 'boss') { BOSS_SCOPE = true; updateBoss(world, e, simDt); updateBossSpecials(world, e, simDt); BOSS_SCOPE = false; }
   }
   updateHazards(world, simDt);
   resolveCollisions(world, simDt, realDt);

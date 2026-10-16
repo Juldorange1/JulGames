@@ -35,7 +35,20 @@ demandes utilisateur, ne les réintroduis pas sans qu'on te le redemande.
   maîtrise 0-3 (nouveau/reconnu/mémorisé/solide), calcul de difficulté par mot. L'intervalle
   calculé dans `applyResult()` est multiplié par `intervalMultiplier()`, qui lit
   `Store.getSettings().intervalMultiplier` (réglable dans ⚙️ Réglages, comme le "interval
-  modifier" d'Anki — 1 par défaut, borné entre 0.1 et 5).
+  modifier" d'Anki — 1 par défaut, borné entre 0.1 et 5). Tous les paliers `STEPS` sont
+  allongés de 40 % (`BASE_SCALE`, demande utilisateur). Les trois notes ont des effets
+  franchement distincts (table `GRADE`) : ❌ repart de zéro (~3 min), 😐 avance d'un palier avec
+  intervalle ÷2, ✅ avance de deux paliers avec bonus ×1.2 — ex. mot au palier ~6 h : ✅ ≈ 7 j,
+  😐 ≈ 18 h, ❌ ≈ 3 min. Après une réponse, l'AUTRE sens du mot est repoussé à la même échéance
+  ("cartes sœurs enterrées" comme Anki) : sinon le sens jamais demandé faisait revenir le mot
+  aussitôt et annulait la note.
+  Côté sessions (`buildSession` + `recordResult`) : chaque mot n'apparaît qu'UNE fois par
+  session (plus de répétition en boucle pour remplir le quota) ; ❌ revient ~6 questions plus
+  tard, 😐 ~12, ✅ pas dans la session. La "Révision nulle et ennuyeuse" ne propose qu'un mot
+  déjà vu arrivé à échéance (+ des nouveaux plafonnés), sinon toast "prochain mot dans X".
+  `Analyzer.isReviewable()` / `isPlausibleTerm()` est le filtre unique "peut devenir une
+  flashcard" : écarte les non-mots ("d", "d)", "st", "4d"...) à l'analyse, dans toutes les
+  sessions, et `cleanupLegacyItems()` (app.js) supprime ceux déjà enregistrés.
 - `js/visuals.js` — dictionnaire emoji pour la mémoire visuelle + astuces pour les faux amis
   fréquents. **Pas d'astuce générique de découpage syllabique** (supprimée à la demande de
   l'utilisateur — "invente" un truc mnémotechnique sans rapport réel avec le mot) : pour un mot

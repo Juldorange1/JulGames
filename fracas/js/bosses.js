@@ -4,15 +4,23 @@
 // poussee, ou invocation de renforts). Certaines salles de boss peuvent en faire apparaitre deux
 // a la fois (voir rooms.js) : les PV individuels sont alors reduits pour rester equitable.
 
-// PV -30% supplementaires (compense par davantage de projectiles dans chaque pattern de tir).
+// PV de base : 650 MAXIMUM (BOSS_BASE_HP_MAX), avant les reglages de difficulte. Les ecarts entre
+// boss sont gardes : tout est ramene a l'echelle pour que le plus resistant (Le Centre) ait 650.
+const BOSS_BASE_HP_MAX = 650;
+const BOSS_HP_SCALE = BOSS_BASE_HP_MAX / (3000 * 0.7) * 1.3; // ~0,31, puis +30% de PV pour tous les boss
 const BOSS_DEFS = {
-  B1: { name: 'Le Noeud', hp: 1250 * 0.7, contact: 10, color: '#8ad9ff', radius: 38 },
-  B2: { name: 'Le Jardin', hp: 1550 * 0.7, contact: 12, color: '#5dff9d', radius: 36 },
-  B3: { name: 'La Mitraille', hp: 1350 * 0.7, contact: 0, color: '#ffb85d', radius: 30 },
-  B4: { name: 'Le Rail', hp: 1700 * 0.7, contact: 10, color: '#c74dff', radius: 32 },
-  B5: { name: 'Le Colosse', hp: 2550 * 0.7, contact: 20, color: '#8a6a55', radius: 48 },
-  B6: { name: 'Le Centre', hp: 3000 * 0.7, contact: 18, color: '#ff5d5d', radius: 40 },
+  B1: { name: 'Le Noeud', hp: Math.round(1250 * 0.7 * BOSS_HP_SCALE), contact: 10, color: '#8ad9ff', radius: 38 },
+  B2: { name: 'Le Jardin', hp: Math.round(1550 * 0.7 * BOSS_HP_SCALE), contact: 12, color: '#5dff9d', radius: 36 },
+  B3: { name: 'La Mitraille', hp: Math.round(1350 * 0.7 * BOSS_HP_SCALE), contact: 0, color: '#ffb85d', radius: 30 },
+  B4: { name: 'Le Rail', hp: Math.round(1700 * 0.7 * BOSS_HP_SCALE), contact: 10, color: '#c74dff', radius: 32 },
+  B5: { name: 'Le Colosse', hp: Math.round(2550 * 0.7 * BOSS_HP_SCALE), contact: 20, color: '#8a6a55', radius: 48 },
+  B6: { name: 'Le Noyau', hp: Math.round(3000 * 0.7 * BOSS_HP_SCALE), contact: 18, color: '#ff5d5d', radius: 40 },
+  // Boss FINAL (Fracas Infini, fin de chaque 3e partie) : immense, reprend tour a tour les
+  // attaques des 6 autres boss ("aspects"), salves dorees en phase finale.
+  B7: { name: 'Le Coeur du Fracas', hp: Math.round(BOSS_BASE_HP_MAX * 1.3), contact: 20, color: '#ffd23d', radius: 66 }, // 650 +30% ; en Infini x2 en plus
 };
+const B7_ASPECT_TIME = 7.5;        // s par aspect (5 s en phase 3)
+const B7_ASPECT_TIME_P3 = 5;
 
 function createBoss(type, room, opts) {
   const def = BOSS_DEFS[type];
@@ -27,6 +35,11 @@ function createBoss(type, room, opts) {
     contactDmgPercent: def.contact, phase: 1, timer: 0, color: def.color, state: {},
   };
   if (type === 'B4') b.state.rails = buildBossRails(room);
+  if (type === 'B7') {
+    b.aspectOrder = shuffle(['B1', 'B2', 'B3', 'B4', 'B5', 'B6']);
+    b.aspectIdx = 0; b.aspect = b.aspectOrder[0]; b.aspectTimer = 0; b.aspectStates = {}; b.burstTimer = 0;
+    b.final = true;
+  }
   return b;
 }
 
@@ -64,7 +77,7 @@ function bossZoneStrike(world, x, y, radius, dmgPercent, telegraph) {
     x, y, radius, telegraph: telegraph != null ? telegraph : 0.9, duration: 0.2, tickInterval: 999,
     color: COLORS.danger, edgeColor: COLORS.dangerEdge, team: TEAM.ENEMY,
     onActivate(z) {
-      for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) playerApplyDamage(pl, dmgPercent);
+      for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) enemyHitPlayer(world, pl, dmgPercent, true);
       Particles.burst(x, y, 16, COLORS.dangerEdge, { maxSpeed: 160 });
     },
   }));
@@ -95,7 +108,7 @@ function bossKnockbackPlayer(world, b, radius, force, dmgPercent) {
     if (d > radius) continue;
     const dir = normalize(player.x - b.x, player.y - b.y) || { x: 1, y: 0 };
     pushPlayer(world, player, dir.x * force, dir.y * force);
-    if (dmgPercent) playerApplyDamage(player, dmgPercent);
+    if (dmgPercent) enemyHitPlayer(world, player, dmgPercent, true);
     any = true;
   }
   if (!any) return false;
@@ -169,6 +182,7 @@ function updateBoss(world, b, dt) {
     case 'B4': updateBoss4(world, b, dt); break;
     case 'B5': updateBoss5(world, b, dt); break;
     case 'B6': updateBoss6(world, b, dt); break;
+    case 'B7': updateBoss7(world, b, dt); break;
   }
   clampToRoom(world, b);
 }
@@ -185,6 +199,101 @@ function homeToward(world, b, speed, dt) {
   if (!tp) return;
   const dir = normalize(tp.x - b.x, tp.y - b.y);
   b.x += dir.x * speed * dt; b.y += dir.y * speed * dt;
+}
+
+// ---------- BOSS FINAL — LE COEUR DU FRACAS ----------
+// Change d'aspect toutes les 7,5 s (5 s en phase 3) : il reprend alors le comportement complet
+// (deplacement, salves, zones, attaques speciales) d'un des 6 boss, avec un etat propre a chaque
+// aspect. Les zones laissees par l'aspect precedent disparaissent quand il change.
+const B7_ASPECT_FN = { B1: (w, b, dt) => updateBoss1(w, b, dt), B2: (w, b, dt) => updateBoss2(w, b, dt), B3: (w, b, dt) => updateBoss3(w, b, dt),
+  B4: (w, b, dt) => updateBoss4(w, b, dt), B5: (w, b, dt) => updateBoss5(w, b, dt), B6: (w, b, dt) => updateBoss6(w, b, dt) };
+function updateBoss7(world, b, dt) {
+  b.aspectTimer += dt;
+  if (b.aspectTimer >= (b.phase === 3 ? B7_ASPECT_TIME_P3 : B7_ASPECT_TIME)) {
+    for (const z of world.zones) if (z._b7) z.dead = true;
+    b.aspectIdx = (b.aspectIdx + 1) % b.aspectOrder.length;
+    b.aspect = b.aspectOrder[b.aspectIdx];
+    b.aspectTimer = 0; b.timer = 0; b.charging = false;
+    b.aspectFx = 0.8;
+    Particles.ring(b.x, b.y, b.radius * 2.6, BOSS_DEFS[b.aspect].color, 0.7);
+    Particles.burst(b.x, b.y, 50, BOSS_DEFS[b.aspect].color, { maxSpeed: 320, life: 0.8 });
+    if (Game.shakeCamera) Game.shakeCamera(8, 0.35);
+    Audio2.boss();
+  }
+  if (b.aspectFx > 0) b.aspectFx -= dt;
+  const st = b.aspectStates[b.aspect] || (b.aspectStates[b.aspect] = b.aspect === 'B4' ? { rails: buildBossRails(world.room) } : {});
+  const root = b.state, nz = world.zones.length;
+  st.phaseChangeFx = root.phaseChangeFx;
+  b.state = st;
+  B7_ASPECT_FN[b.aspect](world, b, dt);
+  b.state = root;
+  for (let i = nz; i < world.zones.length; i++) world.zones[i]._b7 = true;
+  // phase 3 : salves dorees en plus de l'aspect en cours
+  if (b.phase === 3) {
+    b.burstTimer += dt * ENEMY_FIRE_RATE_MULT;
+    if (b.burstTimer >= 2.6) {
+      b.burstTimer = 0;
+      const off = Math.random() * Math.PI;
+      for (let i = 0; i < 18; i++) fireAt(world, b, off + (Math.PI * 2 * i) / 18, { speed: 140, dmgPercent: 8, radius: 9, color: '#ffd23d' });
+      Audio2.enemyShot();
+    }
+  }
+}
+
+// Silhouette du Coeur : aura sombre, couronne de pointes qui tourne, 6 eclats (un par boss)
+// en orbite, noyau dore qui prend la couleur de l'aspect en cours.
+function drawBossBody7(ctx, b) {
+  const t = performance.now() / 1000, R = b.radius;
+  const asp = (b.aspect && BOSS_DEFS[b.aspect]) ? BOSS_DEFS[b.aspect].color : '#ffd23d';
+  ctx.save();
+  const aura = ctx.createRadialGradient(0, 0, R * 0.4, 0, 0, R * 2.1);
+  aura.addColorStop(0, 'rgba(255,210,61,0.28)'); aura.addColorStop(0.55, 'rgba(120,20,40,0.22)'); aura.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = aura;
+  ctx.beginPath(); ctx.arc(0, 0, R * (2.05 + 0.06 * Math.sin(t * 3)), 0, Math.PI * 2); ctx.fill();
+  // couronne de pointes
+  ctx.save();
+  ctx.rotate(t * 0.35);
+  ctx.fillStyle = '#2a1b10'; ctx.strokeStyle = '#ffd23d'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  const spikes = 16;
+  for (let i = 0; i <= spikes * 2; i++) {
+    const a = (i / (spikes * 2)) * Math.PI * 2, r = i % 2 === 0 ? R * 1.32 : R * 1.06;
+    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  // anneaux
+  for (let i = 0; i < 2; i++) {
+    ctx.save(); ctx.rotate(-t * (0.8 + i * 0.5));
+    ctx.strokeStyle = i === 0 ? asp : 'rgba(255,210,61,0.7)'; ctx.lineWidth = 3;
+    ctx.setLineDash([R * 0.35, R * 0.18]);
+    ctx.beginPath(); ctx.arc(0, 0, R * (0.98 - i * 0.16), 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.setLineDash([]);
+  // 6 eclats en orbite : couleur de chaque boss, l'aspect actif est plus gros et brille
+  const order = b.aspectOrder || ['B1', 'B2', 'B3', 'B4', 'B5', 'B6'];
+  order.forEach((k, i) => {
+    const a = t * 0.9 + (i / order.length) * Math.PI * 2, r = R * 1.55;
+    const on = k === b.aspect, s = on ? R * 0.2 : R * 0.12;
+    ctx.save(); ctx.translate(Math.cos(a) * r, Math.sin(a) * r); ctx.rotate(a + t);
+    ctx.fillStyle = BOSS_DEFS[k].color; ctx.strokeStyle = '#120a06'; ctx.lineWidth = 1.5;
+    if (on) { ctx.shadowColor = BOSS_DEFS[k].color; ctx.shadowBlur = 16; }
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.7, 0); ctx.lineTo(0, s); ctx.lineTo(-s * 0.7, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  });
+  // noyau
+  const pulse = 1 + 0.06 * Math.sin(t * 6) + (b.aspectFx > 0 ? b.aspectFx * 0.25 : 0);
+  const core = ctx.createRadialGradient(0, 0, 2, 0, 0, R * 0.78 * pulse);
+  core.addColorStop(0, '#fffbe6'); core.addColorStop(0.35, '#ffd23d'); core.addColorStop(0.8, asp); core.addColorStop(1, '#3a1206');
+  ctx.fillStyle = core; ctx.strokeStyle = '#1a0c05'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + Math.PI / 8; const r = R * 0.78 * pulse; if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // oeil
+  ctx.fillStyle = '#120a06';
+  ctx.beginPath(); ctx.ellipse(0, 0, R * 0.12, R * 0.3 * (0.75 + 0.25 * Math.abs(Math.sin(t * 1.3))), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 // ---------- BOSS 1 — LE NOEUD (creature de glace, tentacules noueux) ----------
@@ -600,7 +709,7 @@ function drawBossBody6(ctx, b) {
 
 const BOSS_BODY = {
   B1: drawBossBody1, B2: drawBossBody2, B3: drawBossBody3,
-  B4: drawBossBody4, B5: drawBossBody5, B6: drawBossBody6,
+  B4: drawBossBody4, B5: drawBossBody5, B6: drawBossBody6, B7: drawBossBody7,
 };
 
 function drawBoss(ctx, camera, b) {
@@ -615,7 +724,7 @@ function drawBoss(ctx, camera, b) {
     ctx.globalAlpha = 1;
   }
   const bodyFn = BOSS_BODY[b.type] || drawBossBody6;
-  try { bodyFn(ctx, b); } catch (e) { /* apercu indisponible */ }
+  if (typeof Sprites !== 'undefined' && Sprites.draw(ctx, 'boss', b.type, b.radius, 0)) { /* sprite */ } else try { bodyFn(ctx, b); } catch (e) { /* apercu indisponible */ }
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 10px Segoe UI';
   ctx.textAlign = 'center';
@@ -647,26 +756,28 @@ function renderBossBars(ctx, world) {
   bosses.forEach((b, i) => {
     // salle de test : la barre de choix des persos occupe deja le haut de l'ecran
     const top = Game.state === STATE.TEST_ROOM ? 78 : 26;
-    const x = W / 2 - barW / 2, y = top + i * 44;
+    const bw = b.final ? Math.min(760, W * 0.6) : barW; // boss final : barre plus large
+    const x = W / 2 - bw / 2, y = top + i * 44;
     const f = clamp(b.hp / b.maxHp, 0, 1);
     b._barShown = b._barShown == null ? f : lerp(b._barShown, f, 0.08); // trainee de degats
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.beginPath(); ctx.roundRect(x - 3, y - 3, barW + 6, barH + 6, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(x - 3, y - 3, bw + 6, barH + 6, 6); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillRect(x, y, barW * b._barShown, barH);
+    ctx.fillRect(x, y, bw * b._barShown, barH);
     const g = ctx.createLinearGradient(0, y, 0, y + barH);
     g.addColorStop(0, b.color); g.addColorStop(1, 'rgba(0,0,0,0.35)');
-    ctx.fillStyle = b.color; ctx.fillRect(x, y, barW * f, barH);
-    ctx.fillStyle = g; ctx.fillRect(x, y, barW * f, barH);
+    ctx.fillStyle = b.color; ctx.fillRect(x, y, bw * f, barH);
+    ctx.fillStyle = g; ctx.fillRect(x, y, bw * f, barH);
     // reperes des phases (70% et 35%)
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    for (const p of [0.7, 0.35]) ctx.fillRect(x + barW * p - 1, y, 2, barH);
+    for (const p of [0.7, 0.35]) ctx.fillRect(x + bw * p - 1, y, 2, barH);
     ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, barW - 1, barH - 1);
+    ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, barH - 1);
     ctx.font = 'bold 13px Segoe UI'; ctx.textBaseline = 'bottom';
     ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 4;
-    ctx.textAlign = 'left'; ctx.fillText(b.name.toUpperCase(), x, y - 4);
-    ctx.textAlign = 'right'; ctx.fillText(`${Math.ceil(b.hp)} / ${Math.round(b.maxHp)}`, x + barW, y - 4);
+    ctx.textAlign = 'left'; if (b.final && typeof Icons !== 'undefined') Icons.draw(ctx, 'crown', '#ffd23d', x, y - 20, 16); // couronne dessinee
+    ctx.fillText(b.name.toUpperCase(), b.final ? x + 20 : x, y - 4);
+    ctx.textAlign = 'right'; ctx.fillText(`${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`, x + bw, y - 4);
     ctx.shadowBlur = 0;
   });
   ctx.restore();

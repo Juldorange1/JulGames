@@ -1566,7 +1566,7 @@ async function finishCombat() {
   C.busy = true;
   const res = C.ended || 'flee';
   await wait(450);
-  if (!SIM) Music.duck(0.3, 2.4);
+  if (!SIM) { if (C.boss && res === 'win') Music.jingle('victory'); else if (C.boss && res === 'fail') Music.jingle('defeat'); else Music.duck(0.3, 2.4); }
   if (res === 'win') { Sfx.win(); C.banner = { txt: C.boss ? 'BOSS VAINCU !' : C.kind === 'survie' ? 'SURVIE RÉUSSIE' : C.kind === 'chasse' ? 'VOLEUR ATTRAPÉ' : 'VICTOIRE', color: C.boss ? '#ffd166' : '#6dffae', t0: performance.now() }; }
   else if (res === 'fail') { Sfx.fail(); C.banner = { txt: 'LE BOSS S’ENFUIT…', color: '#ff6b6b', t0: performance.now() }; }
   else if (res === 'escape') { Sfx.fail(); C.banner = { txt: 'LE VOLEUR S’ENFUIT…', color: '#ff6b6b', t0: performance.now() }; }

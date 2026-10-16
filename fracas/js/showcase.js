@@ -394,8 +394,8 @@ const CHARACTER_SHOWCASE = {
           for (let i = 0; i < 3; i++) { const a = Math.random() * Math.PI * 2; scBolt(s.fx, o.x, o.y, o.x + Math.cos(a) * 20, o.y + Math.sin(a) * 20, '#ffe98a', 0.2); }
         }
       }
-      if (s.cycle < 4.5) { st.thirdOrbShield = { radius: 56 }; st.thirdOrbAngle = (st.thirdOrbAngle || 0) + GEMINI_THIRD_ORB_SPIN * dt; }
-      else st.thirdOrbShield = null;
+      if (s.cycle < 4.5) { st.thirdOrb = { t: 1, radius: 56, size: 14 }; st.thirdOrbAngle = (st.thirdOrbAngle || 0) + GEMINI_THIRD_ORB_SPIN * dt; }
+      else st.thirdOrb = null;
     },
     draw(ctx, s, c, fake) { scDrawCharacter(ctx, c, fake, 0, 0); scDrawFx(ctx, s.fx); },
   },
@@ -429,88 +429,6 @@ const CHARACTER_SHOWCASE = {
 
 // ---------- Persos de parcours (12 a 15) ----------
 Object.assign(CHARACTER_SHOWCASE, {
-  // Orbis : deux orbes en orbite ; teleportation alternee sur l'une puis l'autre.
-  12: {
-    init(s) { s.t = 0; s.which = 1; s.pos = { x: 0, y: 0 }; },
-    update(s, dt, c, fake) {
-      const st = fake.state;
-      st.ang = (st.ang || 0) + ORBIS_SPIN * dt;
-      s.t += dt;
-      const k = 0.5;
-      if (s.t > 1.2 && !st.cast) st.cast = { which: s.which, t: ORBIS_CAST };
-      if (st.cast) {
-        st.cast.t -= dt;
-        if (st.cast.t <= 0) {
-          const sign = st.cast.which === 1 ? 1 : -1;
-          const to = { x: clamp(s.pos.x + sign * Math.cos(st.ang) * ORBIS_RADIUS * k, -70, 70), y: clamp(s.pos.y + sign * Math.sin(st.ang) * ORBIS_RADIUS * k, -30, 30) };
-          scBolt(s.fx, s.pos.x, s.pos.y, to.x, to.y, sign > 0 ? '#8ff0ff' : '#ff8ad8', 0.25);
-          scRing(s.fx, to.x, to.y, 4, 18, 0.3, sign > 0 ? '#8ff0ff' : '#ff8ad8', 2);
-          s.pos = to; st.cast = null; s.t = 0; s.which = 3 - s.which;
-        }
-      }
-    },
-    draw(ctx, s, c, fake) {
-      ctx.save(); ctx.translate(s.pos.x, s.pos.y); ctx.scale(0.5, 0.5);
-      fake.x = s.pos.x; fake.y = s.pos.y;
-      try { c.draw(ctx, fake, null); } catch (e) { /* apercu indisponible */ }
-      ctx.restore();
-      scDrawFx(ctx, s.fx);
-    },
-  },
-  // Trait : charge immobile puis dash vers la droite.
-  13: {
-    init(s) { s.t = 0; s.x = -70; },
-    update(s, dt, c, fake) {
-      const st = fake.state;
-      s.t += dt;
-      if (s.t < 1.1) { st.charging = true; st.charge = (s.t / 1.1) * TRAIT_MAX_CHARGE; s.x = -70; }
-      else if (s.t < 1.45) { if (st.charging) scBurst(s.fx, s.x, 0, 14, '#ff9d3d', 110); st.charging = false; s.x = lerp(-70, 70, (s.t - 1.1) / 0.35); scBurst(s.fx, s.x - 8, 0, 1, '#ffb14d', 30); }
-      else if (s.t > 2.3) s.t = 0;
-    },
-    draw(ctx, s, c, fake) {
-      fake.aim = { x: s.x + 200, y: 0 };
-      ctx.save(); ctx.beginPath(); ctx.rect(-s.bounds.hw, -s.bounds.hh, s.bounds.hw * 2, s.bounds.hh * 2); ctx.clip();
-      scDrawCharacter(ctx, c, fake, s.x, 0);
-      ctx.restore();
-      scDrawFx(ctx, s.fx);
-    },
-  },
-  // Janus : entre dans un teleporteur et ressort par l'autre, un bloc de vent derriere.
-  14: {
-    init(s) { s.t = 0; },
-    update(s, dt, c, fake) {
-      s.t = (s.t + dt) % 2.4;
-      const st = fake.state;
-      st.winds = [{ x: -55, y: 0, size: 56, dx: 1, dy: 0, age: 1 }];
-      s.x = s.t < 1.0 ? lerp(-80, -25, s.t / 1.0) : lerp(35, 80, (s.t - 1.0) / 1.4);
-      if (s.t >= 1.0 && s.t - dt < 1.0) { scBurst(s.fx, -25, 0, 10, '#b47cff', 90); scRing(s.fx, 35, 0, 4, 20, 0.3, '#b47cff', 2); }
-    },
-    draw(ctx, s, c, fake) {
-      fake.state.portals = [{ x: -25, y: 0 }, { x: 35, y: 0 }];
-      scDrawCharacter(ctx, c, fake, s.x, 0);
-      scDrawFx(ctx, s.fx);
-    },
-  },
-  // Elan : maintient, bondit vers le haut, puis glisse.
-  15: {
-    init(s) { s.t = 0; s.x = -40; s.y = 30; },
-    update(s, dt, c, fake) {
-      const st = fake.state;
-      s.t += dt;
-      // Bonds alternes : un vers le haut, le suivant vers le bas.
-      const startY = elanDir(st) < 0 ? 30 : -28, endY = -startY + (elanDir(st) < 0 ? 2 : 0);
-      if (s.t < 1.3) { st.holding = true; st.hold = (s.t / 1.3) * ELAN_MAX_HOLD * 0.35; st.sliding = false; if (s.t < dt * 1.5) s.x = -40; s.x += 10 * dt; s.y = startY; }
-      else if (st.holding) { st.holding = false; scBolt(s.fx, s.x, s.y, s.x, endY, '#5dff9d', 0.25); scRing(s.fx, s.x, endY, 4, 18, 0.3, '#5dff9d', 2); s.y = endY; st.jumps = (st.jumps || 0) + 1; }
-      else if (s.t < 2.8) { st.sliding = true; st.slideTime = (s.t - 1.3) * 1.2; s.x += 55 * dt; }
-      else { st.sliding = false; s.t = 0; }
-    },
-    draw(ctx, s, c, fake) {
-      ctx.save(); ctx.beginPath(); ctx.rect(-s.bounds.hw, -s.bounds.hh, s.bounds.hw * 2, s.bounds.hh * 2); ctx.clip();
-      scDrawCharacter(ctx, c, fake, s.x, s.y);
-      ctx.restore();
-      scDrawFx(ctx, s.fx);
-    },
-  },
 });
 
 // ---------- Scenes des tourelles ----------
@@ -819,23 +737,11 @@ function createShowcase(kind, id) {
     s.t = 0;
     update = (dt) => {
       s.t += dt;
-      if (id === 'shooter' && s.t % 1.2 < dt) {
-        for (const a of [-0.2, 0, 0.2]) scBullet(s.fx, { x: 0, y: -38, vx: Math.sin(a) * 120, vy: 120, life: 0.9, color: '#ff7a3d', r: 4 });
-      }
       if (id === 'teleporter' && s.t % 1.6 < dt) { scBurst(s.fx, -45, 8, 10, '#7fd8ff', 80); scRing(s.fx, 45, 8, 4, 20, 0.3, '#b47cff', 2); }
     };
     draw = () => {
       const t = s.t;
       if (['ice', 'mud', 'accel', 'slow', 'damage', 'wind'].includes(id)) drawTerrainZone(ctx, 0, 0, { x: 0, y: 0, radius: 48, terrainType: id, windAngle: 0 });
-      else if (id === 'spike') {
-        const ph = t % 2.2;
-        drawSpikePad(ctx, -34, -34, { w: 68, h: 68 }, ph > 1.4 ? 'out' : ph > 0.95 ? 'warn' : 'in', t);
-      } else if (id === 'laser') {
-        const ph = t % 2.4;
-        const fake = { ax: 0, ay: -48, bx: 0, by: 48, period: 2.4, on: 0.8, warn: 0.55, offset: 0 };
-        const P = { lasers: [fake], shooters: [], time: t };
-        renderParkourLasers(ctx, { x: 0, y: 0 }, { room: { parkour: P }, zoom: 1 });
-      } else if (id === 'shooter') drawShooterTrap(ctx, 0, -40, Math.PI / 2, (t % 1.2) > 0.9);
       else if (id === 'teleporter') { drawTeleporterPad(ctx, -45, 8, t, true); drawTeleporterPad(ctx, 45, 8, t, false); }
       else if (id === 'trampoline') {
         drawTrampoline(ctx, { x: -45, y: 18, lx: 45, ly: 18, bounce: (t % 1.4) < 0.3 ? 0.3 - (t % 1.4) : 0 }, { x: 0, y: 0 }, t);

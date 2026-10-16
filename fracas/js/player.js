@@ -39,18 +39,9 @@ function playerApplyDamage(player, percent) {
     Audio2.hurt();
     return;
   }
-  // Parcours : un coup ne touche pas les degats mais ralentit le joueur.
-  if (player.parkour) {
-    const loss = percent * PARKOUR_DAMAGE_TO_SPEED;
-    player.parkourSpeed = clamp((player.parkourSpeed || 1) - loss / 100, PARKOUR_MIN_SPEED, 1);
-    Particles.text(player.x, player.y - 24, `-${Math.round(loss)}% ${S('hudSpeedShort')}`, '#ff5d5d');
-    Particles.burst(player.x, player.y, 10, '#ff5d5d', { maxSpeed: 140 });
-    Audio2.hurt();
-    if (Game.shakeCamera) Game.shakeCamera(4, 0.15);
-    return;
-  }
-  const applied = percent * PLAYER_DAMAGE_TAKEN_MULT;
-  player.damageMultiplier = clamp(player.damageMultiplier - applied / 100, DMG_MIN, Math.max(player.dmgMax || DMG_MAX, player.damageMultiplier));
+  const applied = percent * PLAYER_DAMAGE_TAKEN_MULT * (1 - (player.resist || 0)) * (player.modTaken || 1); // resistance + benedictions
+  const floor = player.dmgMin != null ? player.dmgMin : DMG_MIN; // Fracas Infini : on peut tomber a 0%
+  player.damageMultiplier = clamp(player.damageMultiplier - applied / 100, floor, Math.max(player.dmgMax || DMG_MAX, player.damageMultiplier));
   Particles.text(player.x, player.y - 24, `-${Math.round(applied)}%`, '#ff5d5d');
   Particles.burst(player.x, player.y, 10, '#ff5d5d', { maxSpeed: 140 });
   Audio2.hurt();
@@ -58,10 +49,9 @@ function playerApplyDamage(player, percent) {
 }
 
 function playerHeal(player, percent) {
-  if (percent <= 0) return;
-  if (player.parkour) { player.parkourSpeed = clamp((player.parkourSpeed || 1) + percent / 100, PARKOUR_MIN_SPEED, 1); player.healFx = 0.4; return; }
+  if (percent <= 0 || player.noHeal) return; // Fracas Infini : aucune regeneration
   if (player.speedMode) { player.speedPct = Math.min(player.speedMax || 1, (player.speedPct || 1) + percent / 100); player.healFx = 0.4; return; }
-  player.damageMultiplier = clamp(player.damageMultiplier + percent / 100, DMG_MIN, player.dmgMax || DMG_MAX);
+  player.damageMultiplier = clamp(player.damageMultiplier + percent / 100, player.dmgMin != null ? player.dmgMin : DMG_MIN, player.dmgMax || DMG_MAX);
   Particles.text(player.x, player.y - 24, `+${Math.round(percent)}%`, '#7fff9c');
   player.healFx = 0.4;
 }
@@ -118,6 +108,7 @@ function updatePlayer(world, player, dt, realDt) {
     if (player.invincibleTimer <= 0) { player.invincibleTimer = 0; player.invincible = false; }
   }
   if (player.healFx > 0) player.healFx -= realDt;
+  if (player.invisibleTimer > 0) player.invisibleTimer -= realDt; // Cendre C2 : invisible
 
   // Terrain sous le joueur (partie 1)
   player.speedMult = 1;
@@ -129,7 +120,9 @@ function updatePlayer(world, player, dt, realDt) {
   let inDamageZone = null;
   // En l'air (saut de trampoline) : aucun effet de terrain.
   if (world.room && world.room.terrainZones && !player.airborne) {
+    const light = world.mods && world.mods.lightStep; // bonus : les zones au sol ne genent plus
     for (const tz of world.room.terrainZones) {
+      if (light && tz.terrainType !== 'accel') continue;
       if (zoneContainsPoint(tz, player.x, player.y)) {
         applyTerrainEffect(tz.terrainType, player, world, dt, tz);
         if (tz.terrainType === 'damage') inDamageZone = tz;
@@ -138,20 +131,19 @@ function updatePlayer(world, player, dt, realDt) {
   }
   for (const z of world.zones) {
     if (player.airborne) break;
+    if (world.mods && world.mods.lightStep && z.terrainType !== 'accel') continue;
     if (z.terrainType && TERRAIN_TYPES.includes(z.terrainType) && z.telegraphAge >= z.telegraph && zoneContainsPoint(z, player.x, player.y)) {
       applyTerrainEffect(z.terrainType, player, world, dt, z);
       if (z.terrainType === 'damage') inDamageZone = z;
     }
   }
+  if (world.mods && world.mods.slippery) player.onIce = true; // malus : tout le sol glisse
   if (inDamageZone) {
     player._dmgZoneTimer = (player._dmgZoneTimer || 0) + dt;
     // Brulure franche : ~7% de multiplicateur perdu par seconde passee dedans.
-    if (player._dmgZoneTimer >= 0.5) { player._dmgZoneTimer = 0; playerApplyDamage(player, TERRAIN_DAMAGE_TICK); }
+    if (player._dmgZoneTimer >= 0.5) { player._dmgZoneTimer = 0; playerApplyDamage(player, TERRAIN_DAMAGE_TICK * PVE_LOSS_MULT); }
   } else player._dmgZoneTimer = 0;
 
-  // Glisse volontaire (perso de parcours "Elan") : tout le sol devient glissant mais plus rapide.
-  if (player.state && player.state.sliding) { player.onIce = true; player.speedMult *= PARKOUR_SLIDE_SPEED; player.slideGrip = true; }
-  else player.slideGrip = false;
 
   // Fige par un adversaire (Croc C3, gel de Gemini...) : ni deplacement ni action.
   if (player.frozenUntilTouched) { player.frozenUntilTouched = false; player.frozen = Math.max(player.frozen || 0, 2.5); }
@@ -167,7 +159,7 @@ function updatePlayer(world, player, dt, realDt) {
   if (player.controlInvertV) mv = { x: mv.x, y: -mv.y };
 
   const dashOverride = player.state.movementOverride;
-  let speed = BASE_SPEED * (player.character.speedPercent / 100) * player.speedMult;
+  let speed = BASE_SPEED * (player.character.speedPercent / 100) * player.speedMult * (player.modSpeed || 1);
   let vx = mv.x * speed, vy = mv.y * speed;
   // Glace : forte inertie, le joueur glisse et met du temps a changer de direction / s'arreter.
   if (player.onIce && !dashOverride) {
@@ -176,13 +168,8 @@ function updatePlayer(world, player, dt, realDt) {
     vy = lerp(player.vy || 0, vy, k);
   }
   if (dashOverride) { vx = dashOverride.vx; vy = dashOverride.vy; }
-  if (!player.parkour && player.boostTimer > 0) { vx *= PARKOUR_BOOST_MULT; vy *= PARKOUR_BOOST_MULT; }
+  if (player.boostTimer > 0) { vx *= BOOST_MULT; vy *= BOOST_MULT; }
   if (player.speedMode && !dashOverride) { const k = player.speedPct != null ? player.speedPct : 1; vx *= k; vy *= k; } // Foot : % de vitesse
-  if (player.parkour) {
-    // +30% de vitesse de base dans tous les parcours
-    const k = PARKOUR_MOVE_BONUS * (player.parkourSpeed || 1) * (player.boostTimer > 0 ? PARKOUR_BOOST_MULT : 1);
-    vx *= k; vy *= k;
-  }
 
   player.vx = vx; player.vy = vy;
   // Deplacement en sous-pas : a tres grande vitesse (dash de parcours...), un pas unique pourrait
@@ -216,6 +203,11 @@ function updatePlayer(world, player, dt, realDt) {
   // Visee : point du monde vise (calcule a partir de la souris par sampleLocalInput en solo,
   // recu du client en ligne).
   if (inp.hasAim) { player.aim.x = inp.ax; player.aim.y = inp.ay; }
+  if (world.mods && world.mods.shakyAim) { // malus : la visee tremble autour du joueur
+    const w = Math.sin(player.totalTime * 2.3) * 0.13 + Math.sin(player.totalTime * 5.1) * 0.05;
+    const dx = player.aim.x - player.x, dy = player.aim.y - player.y, c = Math.cos(w), s = Math.sin(w);
+    player.aim.x = player.x + dx * c - dy * s; player.aim.y = player.y + dx * s + dy * c;
+  }
   if (dist2(player.aim.x, player.aim.y, player.x, player.y) > 4) {
     player.facing = angleTo(player.x, player.y, player.aim.x, player.aim.y);
   }
@@ -227,14 +219,13 @@ function updatePlayer(world, player, dt, realDt) {
 
   // Cooldowns (non affectes par l'echelle de simulation, bases sur dt reel). Un ralentisseur
   // freine aussi le rechargement de l'attaque et des competences.
-  const cdDt = realDt * (player.cdRateMult || 1);
+  const cdDt = realDt * (player.cdRateMult || 1) * (player.modCd || 1);
   if (player.cooldowns.a1 > 0) player.cooldowns.a1 = Math.max(0, player.cooldowns.a1 - cdDt);
   if (player.cooldowns.a2 > 0) player.cooldowns.a2 = Math.max(0, player.cooldowns.a2 - cdDt);
   if (player.cooldowns.a3 > 0) player.cooldowns.a3 = Math.max(0, player.cooldowns.a3 - cdDt);
   if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - cdDt);
 
   if (player.character.update) player.character.update(world, player, dt, realDt);
-  if (world.editorMode) return; // editeur : deplacement seulement (le clic sert a placer)
 
   // Entrees d'attaque / competences.
   // Maintenir le clic equivaut a cliquer en continu : les attaques a declenchement "press"
@@ -304,7 +295,7 @@ function resolvePlayerPosition(world, player, nx, ny, prevX, prevY) {
   ny = clamp(ny, b.y + player.radius, b.y + b.h - player.radius);
   // Repousse hors de l'obstacle le long du vecteur point-le-plus-proche -> joueur : une approche
   // parfaitement rectiligne ne doit jamais traverser l'obstacle.
-  for (const ob of world.room.obstacles) {
+  for (const ob of roomSolids(world.room)) {
     if (!circleRect(nx, ny, player.radius, ob.x, ob.y, ob.w, ob.h)) continue;
     const cx = clamp(nx, ob.x, ob.x + ob.w);
     const cy = clamp(ny, ob.y, ob.y + ob.h);
@@ -341,7 +332,7 @@ function applyTerrainEffect(type, player, world, dt, zone) {
     case 'invertV': player.controlInvertV = true; break;
     case 'wind': {
       const a = zone && zone.windAngle != null ? zone.windAngle : 0;
-      const push = WIND_ZONE_PUSH * (player.parkour ? PARKOUR_WIND_MULT : 1); // vent plus doux en parcours
+      const push = WIND_ZONE_PUSH;
       player.x += Math.cos(a) * push * dt;
       player.y += Math.sin(a) * push * dt;
       break;
@@ -378,7 +369,11 @@ function drawPlayer(ctx, camera, world, player) {
   }
   // En l'air (trampoline) : le personnage grossit comme s'il se rapprochait de la camera
   if (player.airScale && player.airScale !== 1) ctx.scale(player.airScale, player.airScale);
-  if (player.character.draw) {
+  // Invisible (Cendre C2) : a peine une silhouette qui ondule, les ennemis ne le voient plus
+  if (player.invisibleTimer > 0) ctx.globalAlpha *= 0.22 + 0.08 * Math.sin(performance.now() / 50);
+  if (typeof Sprites !== 'undefined' && Sprites.draw(ctx, 'char', player.character.id, player.radius, player.aim ? Math.atan2(player.aim.y - player.y, player.aim.x - player.x) : 0)) {
+    // sprite (art/) a la place du dessin
+  } else if (player.character.draw) {
     player.character.draw(ctx, player, world);
   } else {
     ctx.fillStyle = COLORS.player;

@@ -12,7 +12,10 @@
     all.forEach((it) => {
       const tooLong = (it.en && it.en.length > 180) || (it.fr && it.fr.length > 180);
       const emptyTranslationSentence = it.type === 'example_sentence' && !it.fr;
-      if (tooLong || emptyTranslationSentence) {
+      // Un "mot" qui n'en est pas un (ex: "d", reste de numérotation) créé par une ancienne
+      // version de l'analyseur. Un élément ajouté à la main et encore vide (en === '') est gardé.
+      const notAWord = it.en && !Analyzer.isPlausibleTerm(it.en);
+      if (tooLong || emptyTranslationSentence || notAWord) {
         Store.deleteItem(it.id);
         removed++;
       }

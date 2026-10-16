@@ -127,13 +127,12 @@ const NetClient = {
   },
 
   // ---- actions de lobby (le serveur valide tout) ----
-  createLobby(mode, isPrivate, challengeId) { this.send({ t: 'lobby.create', mode, isPrivate, challengeId }); },
+  createLobby(mode, isPrivate) { this.send({ t: 'lobby.create', mode, isPrivate }); },
   joinLobby(code) { this.send({ t: 'lobby.join', code }); },
   leaveLobby() { this.send({ t: 'lobby.leave' }); this.lobby = null; },
   pickCharacter(c) { this.send({ t: 'lobby.char', c }); },
   pickTeam(team) { this.send({ t: 'lobby.team', team }); },
   setReady(ready) { this.send({ t: 'lobby.ready', ready }); },
-  pickChallenge(id) { this.send({ t: 'lobby.challenge', id }); },
   startMatch() { this.send({ t: 'lobby.start' }); },
   setName(name) { Save.setPlayerName(name); this.send({ t: 'name', name }); },
   me() { return this.lobby ? this.lobby.players.find((p) => p.id === (this.you && this.you.id)) : null; },

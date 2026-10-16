@@ -149,7 +149,7 @@ function updateT3(world, t, dt) {
       for (let d = 20; d < 900; d += 20) {
         const px = t.x + dir.x * d, py = t.y + dir.y * d;
         const hitP = worldPlayers(world).find((pl) => dist(px, py, pl.x, pl.y) < 14);
-        if (hitP) { playerApplyDamage(hitP, TURRET_LOSS.T3 * 0.25); break; }
+        if (hitP) { enemyHitPlayer(world, hitP, TURRET_LOSS.T3 * 0.25); break; }
       }
     }
     if (s.phaseTimer >= 0.7) { s.phase = 'idle'; s.phaseTimer = 0; }
@@ -258,7 +258,7 @@ function updateT12(world, t, dt) {
       x: s.target.x, y: s.target.y, radius: 80, telegraph: 0.65, duration: 0.15, tickInterval: 999,
       color: COLORS.danger, edgeColor: COLORS.dangerEdge, team: TEAM.ENEMY,
       onActivate(z) {
-        for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) playerApplyDamage(pl, TURRET_LOSS.T12);
+        for (const pl of worldPlayers(world)) if (zoneContainsPoint(z, pl.x, pl.y)) enemyHitPlayer(world, pl, TURRET_LOSS.T12);
       },
       onExpire() { s.pending = false; },
     }));
@@ -269,6 +269,7 @@ function updateDummy(world, t, dt) {
   // La cible d'entrainement peut vraiment mourir (pour tester les effets "a la mort")
   // puis reapparait pleine vie apres un court delai.
   if (t.dead) {
+    if (t.noRespawn) return; // tutoriel : une cible detruite le reste
     t._respawnTimer = (t._respawnTimer || 0) + dt;
     if (t._respawnTimer >= 2.2) {
       t._respawnTimer = 0; t.dead = false; t.hp = t.maxHp;
@@ -430,13 +431,19 @@ function drawTurret(ctx, camera, t) {
   const sx = t.x - camera.x, sy = t.y - camera.y;
   ctx.save();
   ctx.translate(sx, sy);
+  const gw = typeof Game !== 'undefined' && Game.world;
+  if (gw && gw.mods && gw.mods.ghosts && gw.player) { // malus fantomes : invisibles loin du joueur (barre de vie comprise)
+    const ga = clamp(1 - (dist(t.x, t.y, gw.player.x, gw.player.y) - 180) / 120, 0, 1);
+    if (ga < 0.06) { ctx.restore(); return; }
+    ctx.globalAlpha *= ga; t._ghostA = ga;
+  }
   const color = t.type === 'DUMMY' ? '#5a5a66' : (TURRET_COLOR[t.type] || COLORS.enemy);
   drawGroundShadow(ctx, t.radius * 0.55, t.radius * 0.85);
   ctx.shadowColor = color;
   ctx.shadowBlur = t.charging ? 14 : 4;
-  if ((t.state && t.state.phase === 'charge') || t.charging) { ctx.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now() / 55); }
+  if ((t.state && t.state.phase === 'charge') || t.charging) { ctx.globalAlpha *= 0.6 + 0.4 * Math.sin(performance.now() / 55); }
   const bodyFn = TURRET_BODY[t.type] || bodyT1;
-  bodyFn(ctx, t, color);
+  if (!(typeof Sprites !== 'undefined' && Sprites.draw(ctx, 'turret', t.type, t.radius || 16, t.aimAngle || 0))) bodyFn(ctx, t, color);
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
   ctx.restore();

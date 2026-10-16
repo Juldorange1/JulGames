@@ -162,7 +162,7 @@ function buildRoomFloor(room, theme, decorations, res, opts) {
     // marquages de peinture uses
     for (let i = 0; i < 2 + area / 150000; i++) {
       const x = rx(), y = ry(), horiz = Math.random() < 0.5, len = 80 + Math.random() * 160;
-      ctx.save(); ctx.globalAlpha = 0.1; ctx.fillStyle = '#c8a832';
+      ctx.save(); ctx.globalAlpha = 0.07; ctx.fillStyle = '#6a7a88'; // gris : le jaune faisait penser a un danger
       for (let k = 0; k < len; k += 14) if (Math.random() > 0.15) { if (horiz) ctx.fillRect(x + k, y, 9, 3); else ctx.fillRect(x, y + k, 3, 9); }
       ctx.restore();
     }
@@ -174,12 +174,12 @@ function buildRoomFloor(room, theme, decorations, res, opts) {
     for (let i = 0; i < area / 25000; i++) floorBlotch(ctx, rx(), ry(), 20 + Math.random() * 50, p.dirt, 0.4);
     // dalles fissurees
     for (let i = 0; i < area / 3500; i++) floorCrack(ctx, rx(), ry(), 25 + Math.random() * 45, 1.3, '#060302', 0.55);
-    // fissures qui rougeoient faiblement (halo large tres transparent, pas de point brillant)
+    // grandes fissures SOMBRES (plus de lueur orange : on la confondait avec les zones de feu)
     for (let i = 0; i < area / 40000; i++) {
       const x = rx(), y = ry(), len = 40 + Math.random() * 60;
       const seed = Math.floor(Math.random() * 1e6) + 1;
-      floorCrack(ctx, x, y, len, 6, '#ff5a1e', 0.05, floorRng(seed));
-      floorCrack(ctx, x, y, len, 1.2, '#d8662a', 0.3, floorRng(seed));
+      floorCrack(ctx, x, y, len, 4, '#000000', 0.18, floorRng(seed));
+      floorCrack(ctx, x, y, len, 1.2, '#2a1810', 0.5, floorRng(seed));
     }
     for (let i = 0; i < area / 14000; i++) floorPebble(ctx, rx(), ry(), 2.5 + Math.random() * 4, { light: '#3e2a20', dark: '#140c08' });
   }
@@ -189,11 +189,10 @@ function buildRoomFloor(room, theme, decorations, res, opts) {
     const x = d.x - b.x, y = d.y - b.y, s = d.scale || 1;
     switch (d.type) {
       case 'grass': for (let i = 0; i < 4; i++) floorTuft(ctx, x + (Math.random() - 0.5) * 22 * s, y + (Math.random() - 0.5) * 14 * s, 6 * s + Math.random() * 3, 0.8); break;
-      case 'rock': floorPebble(ctx, x, y, 7 * s, { light: '#555d52', dark: '#1e231c' }); break;
+      case 'rock': floorPebble(ctx, x, y, 6 * s, { light: '#3c4439', dark: '#1a1f18' }); break; // peu contraste : ce n'est pas un objet
       case 'ashrock': floorPebble(ctx, x, y, 7 * s, { light: '#402b21', dark: '#140c08' }); break;
       case 'pipe': {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot || 0); ctx.globalAlpha = 0.7;
-        ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.roundRect(-18, -3, 38, 11, 5); ctx.fill();
+        ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot || 0); ctx.globalAlpha = 0.35; // tuyau a plat, sans ombre (ce n'est pas un mur)
         const pg = ctx.createLinearGradient(0, -5, 0, 5); pg.addColorStop(0, '#34424f'); pg.addColorStop(1, '#18202a');
         ctx.fillStyle = pg; ctx.beginPath(); ctx.roundRect(-18, -5, 36, 10, 5); ctx.fill();
         ctx.fillStyle = '#243240'; ctx.fillRect(-6, -6, 4, 12); ctx.fillRect(8, -6, 4, 12);
@@ -210,14 +209,15 @@ function buildRoomFloor(room, theme, decorations, res, opts) {
         break;
       }
       case 'stripe': {
-        ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot || 0); ctx.globalAlpha = 0.14;
-        ctx.fillStyle = '#b8962a'; ctx.fillRect(-20, -5, 40, 10);
-        ctx.fillStyle = '#0a0a0a'; for (let k = -18; k < 20; k += 9) ctx.fillRect(k, -5, 4, 10);
+        // grille d'aeration grise (plus de bandes jaunes et noires qui faisaient penser a un danger)
+        ctx.save(); ctx.translate(x, y); ctx.rotate(d.rot || 0); ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#0b1117'; ctx.fillRect(-16, -8, 32, 16);
+        ctx.fillStyle = '#2a3642'; for (let k = -13; k < 14; k += 5) ctx.fillRect(k, -6, 2, 12);
         ctx.restore();
         break;
       }
-      case 'crack': floorCrack(ctx, x, y, 30 * s, 1.4, '#d8662a', 0.25); break;
-      case 'ember': floorBlotch(ctx, x, y, 14 * s, '#8a2e10', 0.35); break;
+      case 'crack': floorCrack(ctx, x, y, 30 * s, 1.4, '#1c100a', 0.5); break; // fissure sombre
+      case 'ember': floorBlotch(ctx, x, y, 14 * s, '#2c2420', 0.4); break; // tas de cendres (plus de braise orange : confusion avec le feu)
       default: break;
     }
   }
