@@ -225,28 +225,28 @@ function genReward(r, diff) {
 }
 function rewardTitle(rw) {
   switch (rw.type) {
-    case 'skill': return `Nouvelle compétence : ${SKILLS[rw.key].name}`;
-    case 'upgrade': return `Amélioration : ${UPGRADES[rw.key].name}`;
-    case 'rule': return `Règle : ${RULES[rw.key].name}`;
-    case 'pact': return `Pacte : ${PACTS[rw.key].name}`;
-    case 'rest': return 'Repos';
-    case 'prolong': return 'Sablier';
-    case 'mutation': return 'Mutation';
-    case 'transfert': return 'Transfert';
+    case 'skill': return `${tr('Nouvelle compétence')} : ${tr(SKILLS[rw.key].name)}`;
+    case 'upgrade': return `${tr('Amélioration')} : ${tr(UPGRADES[rw.key].name)}`;
+    case 'rule': return `${tr('Règle')} : ${tr(RULES[rw.key].name)}`;
+    case 'pact': return `${tr('Pacte')} : ${tr(PACTS[rw.key].name)}`;
+    case 'rest': return tr('Repos');
+    case 'prolong': return tr('Sablier');
+    case 'mutation': return tr('Mutation');
+    case 'transfert': return tr('Transfert');
   }
   return '?';
 }
 function rewardDesc(rw) {
   const v = rw.v;
   switch (rw.type) {
-    case 'skill': return `Pour ${HEROES[S.heroes[rw.hero].key].name} : ${SKILLS[rw.key].desc} (${DUR.skill * v} salles)`;
-    case 'upgrade': return `Sur la compétence de ton choix : ${UPGRADES[rw.key].desc(v)} (${DUR.upgrade} salles)`;
-    case 'rule': return `${RULES[rw.key].desc} (${DUR.rule * v} salles)`;
-    case 'pact': return `Bonus : ${PACTS[rw.key].bonus(v)}. Malus : ${PACTS[rw.key].malus}. (${DUR.pact} salles)`;
-    case 'rest': return `+${15 * v} % à tous les héros.`;
-    case 'prolong': return `+${3 * v} salles à tous tes effets temporaires.`;
-    case 'mutation': return v > 1 ? 'Transforme une compétence : tu choisis parmi 3 nouvelles (améliorations gardées).' : 'Transforme une compétence en une autre au hasard (améliorations gardées).';
-    case 'transfert': return `Donne une compétence à un autre héros${v > 1 ? ' et +3 salles de durée' : ''}.`;
+    case 'skill': return `${tr('Pour')} ${HEROES[S.heroes[rw.hero].key].name} : ${tr(SKILLS[rw.key].desc)} ${tr(`(${DUR.skill * v} salles)`)}`;
+    case 'upgrade': return `${tr('Sur la compétence de ton choix')} : ${tr(UPGRADES[rw.key].desc(v))} ${tr(`(${DUR.upgrade} salles)`)}`;
+    case 'rule': return `${tr(RULES[rw.key].desc)} ${tr(`(${DUR.rule * v} salles)`)}`;
+    case 'pact': return `${tr('Bonus')} : ${tr(PACTS[rw.key].bonus(v))}. ${tr('Malus')} : ${tr(PACTS[rw.key].malus)}. ${tr(`(${DUR.pact} salles)`)}`;
+    case 'rest': return tr(`+${15 * v} % à tous les héros.`);
+    case 'prolong': return tr(`+${3 * v} salles à tous tes effets temporaires.`);
+    case 'mutation': return tr(v > 1 ? 'Transforme une compétence : tu choisis parmi 3 nouvelles (améliorations gardées).' : 'Transforme une compétence en une autre au hasard (améliorations gardées).');
+    case 'transfert': return tr(v > 1 ? 'Donne une compétence à un autre héros et +3 salles de durée.' : 'Donne une compétence à un autre héros.');
   }
   return '';
 }
@@ -821,7 +821,7 @@ function planSkill(u, s, tx, ty) {
 }
 
 /* ---------- textes flottants & effets ---------- */
-function ftext(x, y, txt, color, big) { if (SIM) return; C.texts.push({ x, y, txt, color, t0: performance.now(), big: !!big }); }
+function ftext(x, y, txt, color, big) { if (SIM) return; C.texts.push({ x, y, txt: tr(txt), color, t0: performance.now(), big: !!big }); }
 function fx(o) { if (SIM) return; o.t0 = performance.now(); C.fx.push(o); }
 function lunge(u, tx, ty) { const dx = tx - u.x, dy = ty - u.y, l = Math.hypot(dx, dy) || 1; u.ox = dx / l * 0.35; u.oy = dy / l * 0.35; }
 
@@ -2107,12 +2107,12 @@ function tickDurations() {
     const hn = HEROES[h.key].name;
     h.slots.forEach((s, si) => {
       if (!s) return;
-      s.mods = s.mods.filter(m => { if (m.perm) return true; m.dur--; if (m.dur <= 0) { expired.push(`${UPGRADES[m.key].name} (${SKILLS[s.key].name}, ${hn})`); return false; } return true; });
-      if (!s.perm) { s.dur--; if (s.dur <= 0) { expired.push(`${SKILLS[s.key].name} (${hn})`); h.slots[si] = null; } }
+      s.mods = s.mods.filter(m => { if (m.perm) return true; m.dur--; if (m.dur <= 0) { expired.push(`${tr(UPGRADES[m.key].name)} (${tr(SKILLS[s.key].name)}, ${hn})`); return false; } return true; });
+      if (!s.perm) { s.dur--; if (s.dur <= 0) { expired.push(`${tr(SKILLS[s.key].name)} (${hn})`); h.slots[si] = null; } }
     });
   });
-  S.rules = S.rules.filter(r => { if (r.perm) return true; r.dur--; if (r.dur <= 0) { expired.push(`Règle ${RULES[r.key].name}`); return false; } return true; });
-  S.pacts = S.pacts.filter(p => { p.dur--; if (p.dur <= 0) { expired.push(`Pacte ${PACTS[p.key].name}`); return false; } return true; });
+  S.rules = S.rules.filter(r => { if (r.perm) return true; r.dur--; if (r.dur <= 0) { expired.push(`${tr('Règle')} ${tr(RULES[r.key].name)}`); return false; } return true; });
+  S.pacts = S.pacts.filter(p => { p.dur--; if (p.dur <= 0) { expired.push(`${tr('Pacte')} ${tr(PACTS[p.key].name)}`); return false; } return true; });
   return expired;
 }
 
@@ -2131,19 +2131,19 @@ function roomComplete(res) {
   if (goalOk) {
     S.stats.goals++;
     for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + GOAL_HEAL);
-    notes.push({ t: `Défi « ${GOALS[card.goal].name} » réussi : +${GOAL_HEAL} % à tous les héros${card.boss ? ' et or ×1,5' : ''} !`, c: 'gold' });
+    notes.push({ t: `${tr('Défi')} « ${tr(GOALS[card.goal].name)} » ${tr(`réussi : +${GOAL_HEAL} % à tous les héros${card.boss ? ' et or ×1,5' : ''} !`)}`, c: 'gold' });
     addLog(`Défi ${GOALS[card.goal].name} réussi.`);
-  } else if (res === 'win' && card.goal) notes.push({ t: `Défi « ${GOALS[card.goal].name} » raté.`, c: 'dim' });
+  } else if (res === 'win' && card.goal) notes.push({ t: `${tr('Défi')} « ${tr(GOALS[card.goal].name)} » ${tr('raté.')}`, c: 'dim' });
   if (card.boss) {
     S.bossesSeen++; S.sinceBoss = 0;
     if (res === 'win') {
       const m = Math.round(bossMoney(card) * (goalOk ? 1.5 : 1)); S.money += m; S.stats.moneyTotal += m; S.bossesKilled++;
-      notes.push({ t: `Boss battu : ${BOSSES[card.boss].name} (+${m} or)`, c: 'gold' });
+      notes.push({ t: `${tr('Boss battu')} : ${tr(BOSSES[card.boss].name)} ${tr(`(+${m} or)`)}`, c: 'gold' });
       if (!S.daily && lvl() >= unlockedLevel()) { setUnlocked(lvl() + 1); notes.push({ t: `Difficulté ${lvl() + 1} débloquée !`, c: 'gold' }); addLog(`Difficulté ${lvl() + 1} débloquée.`); }
       addLog(`Boss battu : ${BOSSES[card.boss].name} (+${m} or).`);
     } else {
       S.bossesFailed++;
-      notes.push({ t: `${BOSSES[card.boss].name} s’est enfui : pas d’or.`, c: 'bad' });
+      notes.push({ t: `${tr(BOSSES[card.boss].name)} ${tr('s’est enfui : pas d’or.')}`, c: 'bad' });
       addLog(`${BOSSES[card.boss].name} s’est enfui.`);
     }
   } else {
@@ -2155,22 +2155,22 @@ function roomComplete(res) {
   const won = res === 'win';
   const fresh = lifeAdd({ rooms: 1, kills: kills.reduce((a, b) => a + b, 0), falls, perfect: perfect ? 1 : 0, goals: goalOk ? 1 : 0, d2: won && card.diff === 2 ? 1 : 0, bosses: won && card.boss ? 1 : 0, perfectBoss: won && card.boss && perfect ? 1 : 0 },
     Object.assign({ maxDepth: S.depth }, won && card.boss ? { maxLvlBoss: lvl(), mutBoss: (card.mods || []).length } : {}), won && card.boss ? card.boss : null);
-  for (const f of fresh) notes.push({ t: `Haut fait : ${f.name} — ${f.desc}`, c: 'gold' });
+  for (const f of fresh) notes.push({ t: `${tr('Haut fait')} : ${tr(f.name)} — ${tr(f.desc)}`, c: 'gold' });
   // Épreuve du jour : points
   if (S.daily) {
     const p = (won ? (card.boss ? 60 : 10) * card.diff : 0) + (goalOk ? 10 : 0) + (perfect ? 5 : 0);
     S.daily.pts += p;
     if (p) notes.push({ t: `Épreuve : +${p} points (total ${S.daily.pts})`, c: 'gold' });
   }
-  for (const x of expired) notes.push({ t: `Expiré : ${x}`, c: 'dim' });
-  for (const k in ENEMIES) if (ENEMIES[k].minDepth === S.depth && S.depth > 0) { notes.push({ t: `Nouvel ennemi : ${ENEMIES[k].name} — ${ENEMIES[k].desc}`, c: 'bad' }); addLog(`Nouvel ennemi : ${ENEMIES[k].name}.`); }
-  if (S.depth % 10 === 0) { const e = eraData(S.depth); notes.push({ t: `Nouvelle ère : ${e.name} — ${e.desc}`, c: 'gold' }); addLog(`Nouvelle ère : ${e.name}.`); }
+  for (const x of expired) notes.push({ t: `${tr('Expiré')} : ${x}`, c: 'dim' });
+  for (const k in ENEMIES) if (ENEMIES[k].minDepth === S.depth && S.depth > 0) { notes.push({ t: `${tr('Nouvel ennemi')} : ${tr(ENEMIES[k].name)} — ${tr(ENEMIES[k].desc)}`, c: 'bad' }); addLog(`Nouvel ennemi : ${ENEMIES[k].name}.`); }
+  if (S.depth % 10 === 0) { const e = eraData(S.depth); notes.push({ t: `${tr('Nouvelle ère')} : ${tr(e.name)} — ${tr(e.desc)}`, c: 'gold' }); addLog(`Nouvelle ère : ${e.name}.`); }
   if (S.depth === 4) notes.push({ t: 'Les boss peuvent maintenant apparaître derrière une porte. Eux seuls donnent de l’or.', c: 'gold' });
   if (expired.length) addLog(`Expiré : ${expired.join(', ')}.`);
   if (S.daily && S.depth >= DAILY_ROOMS) {
     S.daily.done = true; save();
     const rec = saveDailyRecord(S.daily.pts);
-    for (const f of lifeAdd({ daily: 1 }, { dailyBest: S.daily.pts })) notes.push({ t: `Haut fait : ${f.name} — ${f.desc}`, c: 'gold' });
+    for (const f of lifeAdd({ daily: 1 }, { dailyBest: S.daily.pts })) notes.push({ t: `${tr('Haut fait')} : ${tr(f.name)} — ${tr(f.desc)}`, c: 'gold' });
     UI.showDailyEnd(rec, notes);
     return;
   }

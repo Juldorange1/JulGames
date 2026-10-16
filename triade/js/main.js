@@ -7,6 +7,7 @@
   try { UI.autoEnd = localStorage.getItem('binome_auto') !== '0'; UI.showPreview = localStorage.getItem('binome_prev') !== '0'; } catch (e) { }
   UI.reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+  I18N.start();
   Render.init($('#board'));
   $('#btn-ch-help').innerHTML = icon('help', 18);
   $('#btn-ch-codex').innerHTML = icon('rule', 18);
@@ -14,8 +15,8 @@
   $('#btn-ch-menu').innerHTML = icon('menu', 18);
   $('#btn-cb-menu').innerHTML = icon('menu', 18);
   $('#btn-atelier').innerHTML = `${icon('anvil', 16)} Atelier`;
-  $('#btn-danger').innerHTML = `${icon('eye', 16)} Danger`;
-  $('#btn-preview').innerHTML = `${icon('arrow', 16)} Prévision`;
+  $('#btn-danger').innerHTML = `${icon('eye', 16)} <span>Danger</span>`;
+  $('#btn-preview').innerHTML = `${icon('arrow', 16)} <span>Prévision</span>`;
   $('#btn-undo').innerHTML = `${icon('undo', 16)} Annuler`;
 
   /* ---------- écrans ---------- */
@@ -31,6 +32,8 @@
     else UI.showPick();
   };
   $('#btn-help').onclick = () => UI.showHelp();
+  if (window.triadeNative) { $('#btn-quit').style.display = ''; $('#btn-quit').onclick = () => window.triadeNative.quit(); }
+  $('#btn-keep-portrait').onclick = () => { document.body.classList.add('keep-portrait'); requestAnimationFrame(() => Render.resize()); };
   $('#btn-daily').onclick = () => { Sfx.click(); UI.showDaily(); };
   $('#btn-feats').onclick = () => { Sfx.click(); UI.showFeats(); };
   $('#btn-pick-back').onclick = () => UI.showTitle();
@@ -192,5 +195,7 @@
   // rafraîchissement léger des panneaux pendant les animations
   setInterval(() => { if (C && document.body.dataset.screen === 'scr-combat') UI.refreshCombat(); }, 160);
 
+  // application installable (téléphone, tablette) et jeu hors ligne : pas en file:// ni dans le programme Windows
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.triadeNative && !/[?&](muet|harvest)/.test(location.search)) navigator.serviceWorker.register('sw.js').catch(() => { });
   UI.showTitle();
 })();

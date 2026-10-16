@@ -1,0 +1,16 @@
+{
+  "name": "Triade",
+  "short_name": "Triade",
+  "description": "Stratégie tour par tour : trois héros, des salles sans fin.",
+  "lang": "fr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0d15",
+  "theme_color": "#0a0d15",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

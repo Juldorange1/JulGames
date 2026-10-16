@@ -123,6 +123,7 @@ const UI = {
     }
     const L = lifeStats();
     $('#title-rec').innerHTML = (L.rooms ? [chip('door', L.maxDepth || 0, '', 'Salle la plus profonde atteinte'), chip('crown', L.bosses || 0, 'gold', 'Boss battus (toutes parties)'), chip('skullx', L.kills || 0, '', 'Ennemis tués (toutes parties)'), chip('skullx', 'niv. ' + unlockedLevel(), 'red', 'Difficulté maximum débloquée')].join('') : '');
+    $('#title-lang').innerHTML = UI.langHtml(); UI.bindLang();
     const fd = featsDone(), nf = FEATS.filter(f => fd[f.id]).length;
     $('#btn-feats').innerHTML = `${icon('crown', 18)} Hauts faits <small>${nf}/${FEATS.length}</small>`;
     const dl = loadDaily(), rec = dailyRecords(), td = rec.days && rec.days[todayStr()];
@@ -163,7 +164,7 @@ const UI = {
     const n = FEATS.filter(f => done[f.id]).length;
     const rows = FEATS.map(f => {
       const v = Math.min(f.goal, featValue(L, f)), ok = !!done[f.id];
-      return `<div class="feat ${ok ? 'ok' : ''}" title="${esc(f.desc + (ok ? ' Obtenu le ' + done[f.id] + '.' : ''))}"><span class="fi">${icon(ok ? 'crown' : 'star', 26)}</span><span style="flex:1"><b>${f.name}</b><small>${esc(f.desc)}</small>${ok ? '' : `<div class="fbar"><i style="width:${v / f.goal * 100}%"></i></div><small>${v} / ${f.goal}</small>`}</span></div>`;
+      return `<div class="feat ${ok ? 'ok' : ''}" title="${esc(tr(f.desc) + (ok ? ' ' + tr('Obtenu le') + ' ' + done[f.id] + '.' : ''))}"><span class="fi">${icon(ok ? 'crown' : 'star', 26)}</span><span style="flex:1"><b>${f.name}</b><small>${esc(f.desc)}</small>${ok ? '' : `<div class="fbar"><i style="width:${v / f.goal * 100}%"></i></div><small>${v} / ${f.goal}</small>`}</span></div>`;
     }).join('');
     const rec = dailyRecords();
     const life = [['door', L.maxDepth || 0, 'Salle la plus profonde'], ['door', L.rooms || 0, 'Salles jouées'], ['crown', L.bosses || 0, 'Boss battus'], ['skullx', L.kills || 0, 'Ennemis tués'], ['pit', L.falls || 0, 'Ennemis tombés'], ['heart', L.perfect || 0, 'Salles sans perte'], ['star', L.goals || 0, 'Défis réussis'], ['skullx', unlockedLevel(), 'Difficulté max débloquée'], ['star', rec.best || 0, 'Record de l’Épreuve du jour']]
@@ -267,8 +268,8 @@ const UI = {
     UI.show('scr-combat');
     UI.refreshCombat(true);
     Music.play(card.boss ? 'boss' : 'combat');
-    if (card.boss) UI.toast(`${BOSSES[card.boss].name} — ne tombe pas à 40 % !`, 'bad', 3000);
-    else if (C.kind !== 'normal') UI.toast(`${ROOM_KINDS[C.kind].name} : ${ROOM_KINDS[C.kind].tip}`, '', 3000);
+    if (card.boss) UI.toast(`${tr(BOSSES[card.boss].name)} — ${tr('ne tombe pas à 40 % !')}`, 'bad', 3000);
+    else if (C.kind !== 'normal') UI.toast(`${tr(ROOM_KINDS[C.kind].name)} : ${tr(ROOM_KINDS[C.kind].tip)}`, '', 3000);
   },
 
   /* ---------- combat ---------- */
@@ -300,7 +301,7 @@ const UI = {
       const ph = Math.max(...bosses.map(u => u.phase || 0));
       const marks = (B.phases || []).map(p => `<em style="left:${p.at * 100}%"></em>`).join('');
       const phName = ph > 0 && B.phases && B.phases[ph - 1] ? B.phases[ph - 1].name : '';
-      const bm = (bosses[0].mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', 'Mutation : ' + MODS[m].tip + '. ' + MODS[m].desc)).join('');
+      const bm = (bosses[0].mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', tr('Mutation') + ' : ' + tr(MODS[m].tip) + '. ' + tr(MODS[m].desc))).join('');
       UI.setHtml(bb, `<b>${icon('crown', 18)} ${B.name}</b>${bm}${phName ? `<span class="bb-ph">Phase ${ph + 1} : ${phName}</span>` : ''}<div class="bb-bar"><i style="width:${hp / mx * 100}%"></i>${marks}</div><span class="bb-hp">${Math.ceil(hp)}</span>`);
       bb.classList.add('on');
     } else bb.classList.remove('on');
@@ -530,7 +531,7 @@ const UI = {
     m.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
       const r = rows[+b.dataset.e], c = engraveCost(r.kind); if (S.money < c) return;
       S.money -= c; S.engraved[r.kind]++; r.fn(); Sfx.gold(); addLog('Gravure effectuée.'); save(); UI.showAtelier();
-      for (const f of lifeAdd({ engraved: 1 })) UI.toast(`Haut fait : ${f.name} — ${f.desc}`, 'gold', 3600);
+      for (const f of lifeAdd({ engraved: 1 })) UI.toast(`${tr('Haut fait')} : ${tr(f.name)} — ${tr(f.desc)}`, 'gold', 3600);
     });
     m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
       const k = b.dataset.t, c = talentCost(k); if (S.money < c) return;
@@ -554,6 +555,8 @@ const UI = {
         <label class="slider" title="Volume des effets sonores">${icon('sound', 20)}<span>Effets</span><input type="range" min="0" max="1" step="0.05" value="${Sfx.volume}" id="s-svol"></label>
         <button class="btn ghost" id="s-mute" title="Couper ou remettre tout le son (M)">${icon(Sfx.muted ? 'mute' : 'sound', 20)} ${Sfx.muted ? 'Son coupé' : 'Son activé'}</button>
       </div>
+      <h3>${icon('rule', 20)} Langue</h3>${UI.langHtml()}
+      ${window.triadeNative || document.fullscreenEnabled ? `<h3>${icon('eye', 20)} Affichage</h3><div class="menu-opts"><button class="btn ghost" id="s-full">${icon('eye', 20)} Plein écran : ${UI.isFull() ? 'oui' : 'non'} <kbd>F11</kbd></button></div>` : ''}
       <h3>${icon('dash', 20)} Jeu</h3>
       <div class="menu-opts">
         <button class="btn ghost" id="s-speed" title="Vitesse des animations (V)">${icon('dash', 20)} Animations : ${ANIM >= 1 ? 'normales' : ANIM >= 0.5 ? 'rapides' : 'éclair'}</button>
@@ -566,6 +569,8 @@ const UI = {
     $('#s-svol').onchange = () => Sfx.select();
     $('#s-mute').onclick = () => { Sfx.setMuted(!Sfx.muted); UI.showSettings(); };
     $('#s-speed').onclick = () => { UI.cycleSpeed(); UI.showSettings(); };
+    UI.bindLang();
+    if ($('#s-full')) $('#s-full').onclick = () => { UI.toggleFull(); setTimeout(() => UI.showSettings(), 400); };
     $('#s-auto').onclick = () => { UI.autoEnd = !UI.autoEnd; try { localStorage.setItem('binome_auto', UI.autoEnd ? '1' : '0'); } catch (e) { } UI.showSettings(); };
   },
 
@@ -584,6 +589,7 @@ const UI = {
         <button class="btn ghost" id="m-help">${icon('help', 20)} Aide <kbd>H</kbd></button>
         <button class="btn ghost" id="m-feats">${icon('crown', 20)} Hauts faits</button>
         <button class="btn ghost" id="m-credits">${icon('music', 20)} Crédits musique</button>
+        ${UI.langHtml()}
       </div>`, [
       { label: 'Reprendre', cls: '' },
       { label: 'Écran titre', cls: 'ghost', fn: () => { if (inCombat) { C = null; } UI.showTitle(); } },
@@ -596,6 +602,7 @@ const UI = {
     $('#m-speed').onclick = () => { UI.cycleSpeed(); UI.showMenu(); };
     $('#m-auto').onclick = () => { UI.autoEnd = !UI.autoEnd; try { localStorage.setItem('binome_auto', UI.autoEnd ? '1' : '0'); } catch (e) { } UI.showMenu(); };
     $('#m-codex').onclick = () => UI.showCodex();
+    UI.bindLang();
     $('#m-help').onclick = () => UI.showHelp();
     $('#m-feats').onclick = () => UI.showFeats();
     $('#m-credits').onclick = () => UI.modal(`${icon('music', 24)} Crédits musique`, `<p class="intro">Musiques libres de droits (CC0), trouvées sur OpenGameArt.org :</p><ul class="credits">
@@ -604,6 +611,16 @@ const UI = {
       <li><b>Fairy Battles</b> — MintoDog (combat)</li>
       <li><b>Boss Battle #2 [Symphonic Metal]</b> — nene (boss)</li></ul>`, [{ label: 'Fermer', cls: 'ghost' }]);
   },
+  isFull() { return window.triadeNative ? window.triadeNative.isFullscreen() : !!document.fullscreenElement; },
+  toggleFull() {
+    if (window.triadeNative) return window.triadeNative.setFullscreen(!window.triadeNative.isFullscreen());
+    if (document.fullscreenElement) { document.exitFullscreen().catch(() => { }); return; }
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => { try { screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } }).catch(() => { });
+  },
+  langHtml() {
+    return `<div class="lang-row" title="Langue du jeu"><span>${icon('rule', 18)} Langue</span>${Object.keys(I18N.LANGS).map(l => `<button class="btn ghost small lang-b ${l === I18N.lang ? 'on2' : ''}" data-lang="${l}" translate="no">${I18N.LANGS[l]}</button>`).join('')}</div>`;
+  },
+  bindLang() { document.querySelectorAll('.lang-b').forEach(b => b.onclick = () => { if (b.dataset.lang !== I18N.lang) { save && S && save(); I18N.set(b.dataset.lang); } }); },
   cycleSpeed() {
     ANIM = ANIM >= 1 ? 0.5 : ANIM >= 0.5 ? 0.2 : 1;
     try { localStorage.setItem('binome_anim', String(ANIM)); } catch (e) { }
@@ -628,7 +645,8 @@ const UI = {
         <div><kbd>Espace</kbd>/<kbd>F</kbd> fin du tour</div><div><kbd>Z</kbd> annuler</div>
         <div><kbd>←↑→↓</kbd> + <kbd>E</kbd> curseur</div><div><kbd>P</kbd> prévision · <kbd>D</kbd> danger</div>
         <div><kbd>V</kbd> vitesse · <kbd>M</kbd> son</div><div>Portes : <kbd>1</kbd>-<kbd>4</kbd> · <kbd>A</kbd> Atelier</div>
-      </div></div>`, [{ label: 'Compris', cls: '' }], { wide: true });
+      </div>
+      <p class="pad-help">${icon('star', 16)} Manette : <b>A</b> valider · <b>B</b> annuler · <b>X</b> fin du tour · <b>Y</b> annuler le déplacement · <b>LB/RB</b> héros · <b>LT/RT</b> compétence · <b>Start</b> menu</p></div>`, [{ label: 'Compris', cls: '' }], { wide: true });
   },
 };
 
@@ -715,7 +733,7 @@ function rewardLine(rw) {
     case 'skill': return `${chip(null, HEROES[S.heroes[rw.hero].key].name)}${chip('hourglass', DUR.skill * v)}`;
     case 'upgrade': return `<span class="dl">${esc(UPGRADES[rw.key].desc(v))}</span>${chip('hourglass', DUR.upgrade)}`;
     case 'rule': return `<span class="dl">${esc(RULES[rw.key].desc)}</span>${chip('hourglass', DUR.rule * v)}`;
-    case 'pact': return `<span class="dl good">+ ${esc(PACTS[rw.key].bonus(v))}</span><span class="dl bad">− ${esc(PACTS[rw.key].malus)}</span>${chip('hourglass', DUR.pact)}`;
+    case 'pact': return `<span class="dl good">+ ${esc(tr(PACTS[rw.key].bonus(v)))}</span><span class="dl bad">− ${esc(tr(PACTS[rw.key].malus))}</span>${chip('hourglass', DUR.pact)}`;
     case 'rest': return `<span class="dl">à tous les héros</span>`;
     case 'prolong': return `<span class="dl">à tous tes effets temporaires</span>`;
     case 'mutation': return `<span class="dl">Change une compétence${v > 1 ? ' (au choix parmi 3)' : ''}</span>`;
@@ -741,16 +759,16 @@ function miniMap(room) {
 function roomContentChips(c, room) {
   const counts = {};
   for (const e of room.enemies) if (!e.boss) counts[e.kind] = (counts[e.kind] || 0) + 1;
-  const foes = Object.keys(counts).map(k => `<span class="foe" style="--c:${ENEMIES[k].color}" title="${esc(ENEMIES[k].name + ' — ' + (TIPS[k] || ''))}"><i class="sh-${ENEMIES[k].shape}"></i><b>${counts[k]}</b></span>`).join('');
+  const foes = Object.keys(counts).map(k => `<span class="foe" style="--c:${ENEMIES[k].color}" title="${esc(tr(ENEMIES[k].name) + ' — ' + tr(TIPS[k] || ''))}"><i class="sh-${ENEMIES[k].shape}"></i><b>${counts[k]}</b></span>`).join('');
   const elites = room.enemies.filter(e => e.elite).length;
   const ms = {}; for (const e of room.enemies) for (const m of e.mods || []) ms[m] = (ms[m] || 0) + 1;
-  const modChips = Object.keys(ms).map(m => chip(MODS[m].icon, ms[m], 'mod', 'Élite ' + MODS[m].name + ' : ' + MODS[m].tip)).join('');
+  const modChips = Object.keys(ms).map(m => chip(MODS[m].icon, ms[m], 'mod', tr('Élite') + ' ' + tr(MODS[m].name) + ' : ' + tr(MODS[m].tip))).join('');
   const hz = [];
   let pits = 0, lava = 0; for (const row of room.grid) for (const t of row) { if (t.t === 'pit') pits++; if (t.t === 'lava') lava++; }
   if (pits) hz.push(chip('pit', pits, '', 'Fosses')); if (lava) hz.push(chip('lava', lava, 'red', 'Lave'));
   if (room.objs.some(o => o.kind === 'baril')) hz.push(chip('barrel', room.objs.filter(o => o.kind === 'baril').length, '', 'Barils explosifs'));
   const zs = {}; for (const row of room.grid) for (const t of row) if (t.z) zs[t.z] = (zs[t.z] || 0) + 1;
-  for (const z in zs) hz.push(chip(ZONE_ICON[z], z === 'portail' ? zs[z] / 2 : zs[z], '', ZONES[z].name + ' — ' + ZONES[z].tip));
+  for (const z in zs) hz.push(chip(ZONE_ICON[z], z === 'portail' ? zs[z] / 2 : zs[z], '', tr(ZONES[z].name) + ' — ' + tr(ZONES[z].tip)));
   return `${miniMap(room)}<div class="foes">${foes}${elites ? chip('star', elites, 'gold', 'Élites') : ''}${modChips}</div>${hz.length ? `<div class="hz">${hz.join('')}</div>` : ''}`;
 }
 function doorHtml(c, i) {
@@ -759,16 +777,16 @@ function doorHtml(c, i) {
   if (c.boss) {
     const B = BOSSES[c.boss];
     const marge = Math.max(0, Math.round(lowestPct() - FLOOR_PCT));
-    return `<button class="door boss d${c.diff}" data-i="${i}" style="--c:${B.color}" title="${esc(`Boss : ${B.name}. ${B.desc} Seule source d’or. Si un héros tombe à 40 %, il s’enfuit.`)}"><span class="door-num">${i + 1}</span>
+    return `<button class="door boss d${c.diff}" data-i="${i}" style="--c:${B.color}" title="${esc(`${tr('Boss')} : ${tr(B.name)}. ${tr(B.desc)} ${tr('Seule source d’or. Si un héros tombe à 40 %, il s’enfuit.')}`)}"><span class="door-num">${i + 1}</span>
       <div class="door-top"><span class="stars">${'★'.repeat(c.diff)}</span>${chip('crown', 'BOSS', 'gold')}</div>
       <div class="door-arch">${icon('crown', 46)}</div>
       <h3>${B.name}</h3>
-      <div class="door-chips">${(c.mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', 'Mutation : ' + MODS[m].tip + '. ' + MODS[m].desc)).join('')}${chip('gold', '+' + bossMoney(c), 'gold', 'Or si tu gagnes')}${chip('skullx', (B.phases || []).length + 1, 'red', 'Phases')}${chip('heart', marge + ' %', marge < 20 ? 'red' : 'green', 'Marge avant 40 % (héros le plus faible)')}${goalHtml}</div>
+      <div class="door-chips">${(c.mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', tr('Mutation') + ' : ' + tr(MODS[m].tip) + '. ' + tr(MODS[m].desc))).join('')}${chip('gold', '+' + bossMoney(c), 'gold', 'Or si tu gagnes')}${chip('skullx', (B.phases || []).length + 1, 'red', 'Phases')}${chip('heart', marge + ' %', marge < 20 ? 'red' : 'green', 'Marge avant 40 % (héros le plus faible)')}${goalHtml}</div>
       ${roomContentChips(c, room)}
     </button>`;
   }
   const rw = c.reward, K = ROOM_KINDS[c.kind || 'normal'];
-  return `<button class="door d${c.diff}" data-i="${i}" title="${esc(`${K.name} : ${K.tip} Récompense — ${rewardTitle(rw)} : ${rewardDesc(rw)}${c.diff > 1 ? ' (★★ : plus dur, gains ×2)' : ''}`)}"><span class="door-num">${i + 1}</span>
+  return `<button class="door d${c.diff}" data-i="${i}" title="${esc(`${tr(K.name)} : ${tr(K.tip)} ${tr('Récompense')} — ${rewardTitle(rw)} : ${rewardDesc(rw)}${c.diff > 1 ? ' ' + tr('(★★ : plus dur, gains ×2)') : ''}`)}"><span class="door-num">${i + 1}</span>
     <div class="door-top"><span class="stars">${'★'.repeat(c.diff)}</span>${c.diff > 1 ? '<span class="mult">×2</span>' : ''}${chip(K.icon, K.name, c.kind && c.kind !== 'normal' ? 'kind' : '', K.tip)}</div>
     <div class="door-arch rw-${rw.type}">${icon(REWARD_ICON[rw.type], 46)}</div>
     <div class="door-kind">${REWARD_KIND[rw.type]}</div>
@@ -812,7 +830,7 @@ function heroPanel(hi) {
     fut = after < now ? `<div class="fut bad" title="Ton % après le tour ennemi si tu finis ton tour maintenant">${icon('arrow', 16)} <b>${after} %</b> <small>(−${now - after})</small></div>` : `<div class="fut ok" title="Aucun dégât prévu">${icon('check', 16)} <b>intact</b></div>`;
   }
   return `<div class="hp-in ${sel ? 'sel' : ''} ${done ? 'done' : ''}" data-h="${hi}" style="--c:${H.color}">
-    <div class="hp-head"><img class="tok-img" src="${Render.portrait(h.key)}" alt="" title="${esc(H.name + ' — ' + H.desc)}"><b class="nm" title="Clique pour choisir ce héros (Tab)">${H.name}</b><div class="sts">${st}</div></div>
+    <div class="hp-head"><img class="tok-img" src="${Render.portrait(h.key)}" alt="" title="${esc(H.name + ' — ' + tr(H.desc))}"><b class="nm" title="Clique pour choisir ce héros (Tab)">${H.name}</b><div class="sts">${st}</div></div>
     ${pctBar(h)}${fut}
     <div class="skills">${sk}</div></div>`;
 }
@@ -846,7 +864,7 @@ function tileInfo(x, y) {
       const st = [];
       const ord = enemyOrder().indexOf(o); if (ord >= 0) st.push(chip(null, '#' + (ord + 1), '', 'Ordre d’action'));
       if (o.elite) st.push(chip('star', 'élite', 'gold', 'Élite : plus de PV et de dégâts'));
-      for (const m of o.mods || []) st.push(chip(MODS[m].icon, MODS[m].name, 'mod', MODS[m].tip + '. ' + MODS[m].desc));
+      for (const m of o.mods || []) st.push(chip(MODS[m].icon, MODS[m].name, 'mod', tr(MODS[m].tip) + '. ' + tr(MODS[m].desc)));
       if (o.stun) st.push(chip('snow', o.stun, 'blue', 'Étourdi'));
       else if (o.stunRes) st.push(chip('snow', '✕', 'off', 'Vient d’être étourdi : résiste au prochain étourdissement'));
       if (o.poison) st.push(chip('drop', o.poison.dmg + '×' + o.poison.turns, 'green', 'Poison'));
@@ -858,7 +876,7 @@ function tileInfo(x, y) {
       if (o.piece || o.noHeal) st.push(chip('heart', '0', 'off', 'Ne soigne pas'));
       if (o.boss && o.phase) st.push(chip('skullx', 'phase ' + (o.phase + 1), 'red'));
       const tip = o.boss ? D.desc : (TIPS[o.kind] || D.desc);
-      const mtx = (o.mods || []).map(m => `<b>${MODS[m].name}</b> : ${esc(MODS[m].tip)}`).join(' · ');
+      const mtx = (o.mods || []).map(m => `<b>${tr(MODS[m].name)}</b> : ${esc(tr(MODS[m].tip))}`).join(' · ');
       parts.push(`<div class="inf-h">${o.kind === 'ombre' ? 'Ombre de ' + HEROES[S.heroes[o.mirror].key].name : D.name} ${chip('heart', Math.ceil(o.hp) + '/' + o.maxHp)}${dmg ? chip('blade', dmg + '%', 'red') : ''}${chip('foot', o.move, 'blue')}${st.join('')}</div><p>${esc(tip)}</p>${mtx ? `<p class="inf-mods">${mtx}</p>` : ''}`);
     }
   }

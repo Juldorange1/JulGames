@@ -386,6 +386,7 @@ const Render = (() => {
   /* ---------- petites étiquettes DANS les cases ---------- */
   function badgeNum(X, Y, n, color, corner) { badgeText(X, Y, String(n), color, corner); }
   function badgeText(X, Y, txt, color, corner) {
+    txt = tr(txt);
     ctx.font = font('900', 0.2); ctx.textAlign = 'center';
     const w = Math.max(ts * 0.26, ctx.measureText(txt).width + 8), h = ts * 0.26;
     const bx = corner && corner[1] === 'r' ? X - w : X, by = corner && corner[0] === 'b' ? Y - h : Y;
@@ -394,6 +395,7 @@ const Render = (() => {
   }
   /* étiquette centrée sur une case, toujours gardée dans le plateau */
   function label(x, y, txt, color, big) {
+    txt = tr(txt);
     ctx.font = font('900', big ? 0.26 : 0.22); ctx.textAlign = 'center';
     const w = ctx.measureText(txt).width + 12, h = ts * (big ? 0.34 : 0.3);
     let X = px(x), Y = py(y);
@@ -405,6 +407,7 @@ const Render = (() => {
   }
   /* avertissement (attaque annoncée) : triangle + dégâts, dans le coin de la case */
   function warnLabel(x, y, txt, color) {
+    txt = tr(txt);
     ctx.font = font('900', 0.2); ctx.textAlign = 'left';
     const w = ctx.measureText(txt).width + ts * 0.32, h = ts * 0.27;
     const X = Math.min(ox + x * ts + 3, ox + GRID_W * ts - w - 2), Y = oy + y * ts + 3;
@@ -953,9 +956,9 @@ const Render = (() => {
     ctx.fillStyle = g; ctx.fillRect(0, H / 2 - 70, W, 140);
     ctx.textAlign = 'center';
     ctx.font = `900 ${Math.min(64, W / 10) * (1 + (1 - k) * 0.4)}px Cinzel, serif`; ctx.fillStyle = b.color; ctx.shadowColor = b.color; ctx.shadowBlur = 20;
-    ctx.fillText(b.txt, W / 2, H / 2 + 4);
+    ctx.fillText(tr(b.txt), W / 2, H / 2 + 4);
     ctx.shadowBlur = 0; ctx.font = `800 ${Math.min(26, W / 22)}px system-ui`; ctx.fillStyle = '#fff';
-    ctx.fillText(`${b.sub}${b.tip ? ' — ' + b.tip : ''}`, W / 2, H / 2 + 42);
+    ctx.fillText(`${tr(b.sub)}${b.tip ? ' — ' + tr(b.tip) : ''}`, W / 2, H / 2 + 42);
     ctx.restore();
   }
   /* bandeau discret de début de tour (glisse depuis le haut puis disparaît) */
@@ -965,12 +968,12 @@ const Render = (() => {
     const k = a < 0.2 ? a / 0.2 : a > 0.75 ? (1 - a) / 0.25 : 1, e = 1 - Math.pow(1 - Math.min(1, a / 0.2), 3);
     ctx.save(); ctx.globalAlpha = k;
     ctx.font = `900 ${Math.max(16, Math.min(28, W / 40))}px Cinzel, serif`; ctx.textAlign = 'center';
-    const w = ctx.measureText(b.txt).width + 60, h = Math.max(34, Math.min(48, W / 28)), y = 10 + e * 14 - 14;
+    const txt = tr(b.txt), w = ctx.measureText(txt).width + 60, h = Math.max(34, Math.min(48, W / 28)), y = 10 + e * 14 - 14;
     const g = ctx.createLinearGradient(W / 2 - w / 2, 0, W / 2 + w / 2, 0);
     g.addColorStop(0, 'rgba(10,12,20,0)'); g.addColorStop(0.2, 'rgba(10,12,20,0.88)'); g.addColorStop(0.8, 'rgba(10,12,20,0.88)'); g.addColorStop(1, 'rgba(10,12,20,0)');
     ctx.fillStyle = g; ctx.fillRect(W / 2 - w / 2, y + 14, w, h);
     ctx.fillStyle = b.color; ctx.fillRect(W / 2 - w * 0.3, y + 14 + h - 2, w * 0.6, 2);
-    ctx.shadowColor = b.color; ctx.shadowBlur = 14; ctx.fillStyle = b.color; ctx.fillText(b.txt, W / 2, y + 14 + h * 0.68);
+    ctx.shadowColor = b.color; ctx.shadowBlur = 14; ctx.fillStyle = b.color; ctx.fillText(txt, W / 2, y + 14 + h * 0.68);
     ctx.restore();
   }
   function drawBanner(t) {
@@ -983,11 +986,11 @@ const Render = (() => {
     ctx.font = `900 ${Math.min(64, W / 12)}px Cinzel, serif`; ctx.textAlign = 'center';
     const sc = 0.85 + 0.15 * e;
     ctx.translate(W / 2, H / 2 + 20); ctx.scale(sc, sc);
-    ctx.globalAlpha = k; ctx.fillStyle = C.banner.color; ctx.shadowColor = C.banner.color; ctx.shadowBlur = 28; ctx.fillText(C.banner.txt, 0, 0);
+    ctx.globalAlpha = k; ctx.fillStyle = C.banner.color; ctx.shadowColor = C.banner.color; ctx.shadowBlur = 28; ctx.fillText(tr(C.banner.txt), 0, 0);
     ctx.shadowBlur = 0;
     const sw = ((a * 0.8) % 1.4 - 0.2) * W * 0.8;
     const gl = ctx.createLinearGradient(sw - 60, 0, sw + 60, 0); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,0.55)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = gl; ctx.fillText(C.banner.txt, 0, 0);
+    ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = gl; ctx.fillText(tr(C.banner.txt), 0, 0);
     ctx.restore();
     if (C.banner.color === '#6dffae' || C.banner.color === '#ffd166') { if (!C.banner.conf) { C.banner.conf = 1; for (let i = 0; i < 4; i++) emit(GRID_W / 2 + (i - 1.5) * 1.5, GRID_H / 2, 14, i % 2 ? C.banner.color : '#ffffff', { up: 1 }); } }
   }

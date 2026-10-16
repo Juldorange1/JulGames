@@ -1,0 +1,33 @@
+{
+  "name": "triade",
+  "productName": "Triade",
+  "version": "1.0.0",
+  "description": "Triade - stratégie tour par tour (version programme pour Windows / Steam)",
+  "author": "Juldorange",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:muet": "electron . --muet",
+    "test": "electron . --test",
+    "build": "electron-builder --win dir portable",
+    "build:dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.juldorange.triade",
+    "productName": "Triade",
+    "copyright": "Juldorange",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "package.json"],
+    "extraResources": [
+      { "from": "..", "to": "game", "filter": ["index.html", "style.css", "icon.png", "manifest.webmanifest", "js/**/*", "music/**/*"] }
+    ],
+    "win": { "icon": "../icon.png", "target": ["dir", "portable"] },
+    "portable": { "artifactName": "Triade-${version}-portable.exe" },
+    "asar": true
+  }
+}

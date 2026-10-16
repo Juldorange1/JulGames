@@ -3,9 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <title>Triade — JulGame</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141826'/%3E%3Ccircle cx='22' cy='34' r='12' fill='%23ff8a3d'/%3E%3Ccircle cx='42' cy='30' r='12' fill='%235ad0ff'/%3E%3Cpath d='M10 54h44' stroke='%23ffd166' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0d15">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -25,8 +31,10 @@
       <button class="btn big daily" id="btn-daily" title="La même partie pour tout le monde aujourd’hui : 20 salles, un score à battre">Épreuve du jour</button>
       <div class="title-row"><button class="btn ghost" id="btn-feats" title="Objectifs à long terme (gardés d’une partie à l’autre)">Hauts faits</button>
       <button class="btn ghost" id="btn-help">Comment jouer</button></div>
+      <button class="btn ghost" id="btn-quit" style="display:none">Quitter le jeu</button>
     </div>
     <div class="title-rec" id="title-rec"></div>
+    <div class="title-lang" id="title-lang"></div>
     <a class="back" href="../index.html">← JulGame</a>
   </div>
 </section>
@@ -95,10 +103,13 @@
   </footer>
 </section>
 
+<div class="rotate-hint" id="rotate-hint"><div class="ph"></div><p id="rot-txt">Tourne ton appareil pour jouer à l’horizontale</p><button class="btn ghost" id="btn-keep-portrait">Rester à la verticale</button></div>
 <div id="modal" class="modal"></div>
 <div id="toasts" class="toasts"></div>
 <div id="tip" class="tip"></div>
 
+<script src="js/i18n.js"></script>
+<script src="js/lang/en.js"></script>
 <script src="js/data.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/engine.js"></script>
@@ -106,5 +117,6 @@
 <script src="js/ui.js"></script>
 <script src="js/codex.js"></script>
 <script src="js/main.js"></script>
+<script src="js/gamepad.js"></script>
 </body>
 </html>
