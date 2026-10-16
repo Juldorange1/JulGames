@@ -33,7 +33,7 @@ const SKILLS = {
                desc: 'Tire en ligne droite : touche la première cible.' },
   entaille:  { name: 'Entaille', icon: 'blade', type: 'line', range: 1, dmg: 13, cd: 0, basic: true,
                desc: 'Frappe puissante sur une case voisine.' },
-  eclat:     { name: 'Éclat', icon: 'spark', type: 'point', area: 'single', range: 3, dmg: 7, cd: 0, basic: true,
+  eclat:     { name: 'Éclat', icon: 'spark', type: 'point', area: 'single', range: 3, dmg: 8, cd: 0, basic: true,
                desc: 'Frappe une case à portée, sans ligne de vue.' },
 
   // --- compétences à découvrir ---
@@ -48,7 +48,7 @@ const SKILLS = {
   grappin:   { name: 'Grappin', icon: 'hook', type: 'line', range: 5, dmg: 4, pull: true, cd: 2,
                desc: 'Attire la cible jusqu’à soi (au-dessus d’une fosse, elle tombe !).' },
   meteore:   { name: 'Météore', icon: 'meteor', type: 'point', area: 'plus', range: 4, dmg: 10, cd: 3, ff: true,
-               desc: 'Écrase une zone en croix. Touche aussi ton allié.' },
+               desc: 'Écrase une zone en croix. Touche aussi tes alliés.' },
   bond:      { name: 'Bond', icon: 'leap', type: 'leap', area: 'ring4', range: 3, dmg: 7, cd: 2,
                desc: 'Saute sur une case libre et frappe les 4 cases autour de l’atterrissage.' },
   egide:     { name: 'Égide', icon: 'shield', type: 'ally', range: 3, shield: 1, cd: 3,
@@ -64,7 +64,7 @@ const SKILLS = {
   rempart:   { name: 'Mur de pierre', icon: 'wall', type: 'place', place: 'wall', range: 3, cd: 2,
                desc: 'Fait surgir un rocher pendant 3 tours (bloque, sert de mur pour les collisions).' },
   ordre:     { name: 'Ordre', icon: 'flag', type: 'ally', range: 6, order: true, otherOnly: true, cd: 4,
-               desc: 'Ton allié peut rejouer : il récupère son action et son déplacement.' },
+               desc: 'Un allié peut rejouer : il récupère son action et son déplacement.' },
   foudre:    { name: "Chaîne d'éclairs", icon: 'bolt', type: 'point', area: 'single', range: 4, dmg: 8, chain: 2, cd: 3, needUnit: true,
                desc: 'Frappe une cible puis rebondit sur 2 ennemis proches.' },
   morsure:   { name: 'Morsure', icon: 'fang', type: 'line', range: 1, dmg: 8, lifesteal: 6, cd: 2,
@@ -98,26 +98,26 @@ const UPGRADES = {
   rapidite:  { name: 'Rapidité', desc: v => `recharge −${v}`, ok: s => s.cd > 0, apply: (s, v) => { s.cd = Math.max(0, s.cd - v); } },
   recul:     { name: 'Recul', desc: v => `repousse de +${v} case${v > 1 ? 's' : ''}`, ok: s => s.dmg > 0 || s.push > 0, apply: (s, v) => { s.push += v; } },
   venin:     { name: 'Venin', desc: v => `empoisonne (${3 * v} par tour, 3 tours)`, ok: s => s.dmg > 0, apply: (s, v) => { s.poison += 3 * v; } },
-  sonnant:   { name: 'Sonnant', desc: v => `étourdit ${v} tour${v > 1 ? 's' : ''}`, ok: s => s.dmg > 0, apply: (s, v) => { s.stun = Math.max(s.stun, v); } },
+  sonnant:   { name: 'Sonnant', desc: v => `étourdit ${v} tour${v > 1 ? 's' : ''}`, ok: s => s.dmg > 0 && s.cd >= 2, apply: (s, v) => { s.stun = Math.max(s.stun, v); } },
   percant:   { name: 'Perçant', desc: v => v > 1 ? 'traverse toutes les cibles et +25 % de dégâts' : 'traverse toutes les cibles', ok: s => s.type === 'line' && s.range > 1 && !s.pierce, apply: (s, v) => { s.pierce = true; if (v > 1) s.dmg *= 1.25; } },
   eclats:    { name: 'Éclats', desc: v => `${40 * v} % des dégâts sur les cases voisines de la cible`, ok: s => s.dmg > 0, apply: (s, v) => { s.splash += 0.4 * v; } },
   sangsue:   { name: 'Sangsue', desc: v => `chaque coup te rend ${2 * v} %`, ok: s => s.dmg > 0, apply: (s, v) => { s.lifesteal += 2 * v; } },
   echo:      { name: 'Écho', desc: v => `frappe une 2e fois à ${40 * v} %`, ok: s => s.dmg > 0, apply: (s, v) => { s.echo += 0.4 * v; } },
   bourreau:  { name: 'Bourreau', desc: v => `×${1 + v} de dégâts sur une cible sous 50 % de ses PV`, ok: s => s.dmg > 0, apply: (s, v) => { s.exec += v; } },
-  plafond:   { name: 'Plafond', desc: v => `+${50 * v} % de dégâts maximum`, ok: s => s.dmg > 0, apply: (s, v) => { s.capMult += 0.5 * v; } },
+  plafond:   { name: 'Plafond', desc: v => `+${30 * v} % de dégâts maximum`, ok: s => s.dmg > 0, apply: (s, v) => { s.capMult += 0.3 * v; } },
   rebond:    { name: 'Rebond', desc: v => `rebondit sur ${v} autre${v > 1 ? 's' : ''} ennemi${v > 1 ? 's' : ''}`, ok: s => s.dmg > 0 && (s.type === 'line' || s.area === 'single'), apply: (s, v) => { s.chain += v; } },
 };
 
-/* ---------- Règles (changent le jeu pour les deux héros) ---------- */
+/* ---------- Règles (changent le jeu pour tous les héros) ---------- */
 const RULES = {
   diagonales: { name: 'Diagonales', desc: 'Les héros se déplacent aussi en diagonale.' },
   adrenaline: { name: 'Adrénaline', desc: 'Tuer un ennemi rend l’action du héros (1 fois par tour).' },
-  explosifs:  { name: 'Cadavres explosifs', desc: 'Les ennemis tués explosent (5 dégâts autour d’eux).' },
+  explosifs:  { name: 'Cadavres explosifs', desc: 'Les ennemis tués explosent : 5 dégâts aux ennemis autour (les héros ne sont pas touchés).' },
   gravite:    { name: 'Gravité', desc: 'Toutes les poussées vont 1 case plus loin.' },
-  lien:       { name: 'Lien vital', desc: 'Quand un héros tue, l’autre récupère aussi 3 %.' },
+  lien:       { name: 'Lien vital', desc: 'Quand un héros tue, les autres récupèrent aussi 3 %.' },
   ferveur:    { name: 'Ferveur', desc: 'Tuer un ennemi soigne de +5 % en plus.' },
   percussion: { name: 'Percussion', desc: 'Les collisions font 2× plus de dégâts (10).' },
-  souffle:    { name: 'Second souffle', desc: 'Au début de chaque salle : +10 % aux deux héros.' },
+  souffle:    { name: 'Second souffle', desc: 'Au début de chaque salle : +10 % à tous les héros.' },
   riposte:    { name: 'Riposte', desc: 'Un héros frappé au corps à corps renvoie 6 dégâts.' },
   relais:     { name: 'Relais', desc: 'Un héros peut se déplacer sur son allié pour échanger leurs places.' },
   initiative: { name: 'Initiative', desc: 'Les ennemis sont étourdis au premier tour de chaque salle.' },
@@ -132,13 +132,13 @@ const RULES = {
 const PACTS = {
   verre:    { name: 'Canon de verre', bonus: v => `+${40 * v} % de dégâts infligés`, malus: 'dégâts subis +50 %' },
   frenesie: { name: 'Frénésie', bonus: v => v > 1 ? '2 actions par tour, +1 portée' : '2 actions par tour', malus: 'déplacement limité à 1 case' },
-  nuee:     { name: 'Nuée', bonus: v => `tuer soigne +${5 * v} % en plus`, malus: '+2 ennemis par salle' },
+  nuee:     { name: 'Nuée', bonus: v => `tuer soigne +${5 * v} % en plus`, malus: '+1 ennemi par salle' },
   sang:     { name: 'Pacte de sang', bonus: v => `les soins des kills ×${v + 1}`, malus: '−10 % au début de chaque salle' },
   tempete:  { name: 'Tempête', bonus: v => `+${30 * v} % de dégâts`, malus: 'la foudre frappe 2 cases au hasard chaque tour (annoncées)' },
-  titan:    { name: 'Peau de titan', bonus: v => `−${25 * v} % de dégâts subis`, malus: '−25 % de dégâts infligés' },
+  titan:    { name: 'Peau de titan', bonus: v => `−${25 * v} % de dégâts subis`, malus: '−15 % de dégâts infligés' },
   brume:    { name: 'Brume', bonus: v => `+${35 * v} % de dégâts`, malus: 'portée −1 (minimum 1)' },
   hate:     { name: 'Hâte', bonus: v => `recharges −${v}`, malus: 'ennemis +1 déplacement' },
-  colere:   { name: 'Colère', bonus: v => `poussées +${v}, collisions ×2`, malus: 'vos héros perdent 3 % au début de chaque tour' },
+  colere:   { name: 'Colère', bonus: v => `poussées +${v}, collisions ×2`, malus: 'un héros qui n’a pas attaqué à son tour perd 2 %' },
 };
 
 /* ---------- Ennemis ----------
@@ -250,13 +250,13 @@ const ERAS = [
 /* ---------- Talents définitifs (achetés avec l'or des boss) ---------- */
 /* aucun niveau maximum : chaque achat coûte plus cher (base × croissance^niveau) */
 const TALENTS = {
-  vigueur:    { name: 'Vigueur', desc: '+10 % de maximum pour les deux héros.', base: 14, grow: 1.45 },
+  vigueur:    { name: 'Vigueur', desc: '+10 % de maximum pour tous les héros.', base: 14, grow: 1.55 },
   soif:       { name: 'Soif', desc: '+2 % de soin par kill.', base: 12, grow: 1.5 },
   robustesse: { name: 'Robustesse', desc: '−10 % des dégâts subis restants.', base: 16, grow: 1.55 },
   egide:      { name: 'Égide innée', desc: '+1 bouclier au début de chaque salle.', base: 30, grow: 2 },
   choix:      { name: 'Clairvoyance', desc: '+1 porte au choix.', base: 34, grow: 2.4 },
   prosperite: { name: 'Prospérité', desc: '+25 % d’or gagné.', base: 20, grow: 1.6 },
-  repos:      { name: 'Convalescence', desc: '+3 % aux deux héros après chaque salle.', base: 18, grow: 1.55 },
+  repos:      { name: 'Convalescence', desc: '+3 % à tous les héros après chaque salle.', base: 18, grow: 1.55 },
 };
 
 /* coût pour graver (rendre définitif) un effet temporaire ; augmente à chaque gravure du même type */
@@ -280,8 +280,8 @@ const ZONES = {
              desc: 'Un héros qui commence son tour dessus récupère 5 %. Un ennemi dessus récupère 5 PV au tour ennemi.' },
   glace:   { name: 'Glace', minDepth: 5, w: 2.5, color: '#bfeaff', tip: 'Poussé dessus = glisse loin',
              desc: 'Une unité poussée sur la glace continue de glisser jusqu’au premier obstacle (on marche dessus normalement).' },
-  rune:    { name: 'Rune de puissance', minDepth: 5, w: 1.8, color: '#ffd166', tip: 'Maximum des compétences ×2',
-             desc: 'Un héros qui attaque depuis cette case a le MAXIMUM de dégâts de ses compétences doublé (ses dégâts normaux ne changent pas). Utile quand une compétence affiche « 40/16 ».' },
+  rune:    { name: 'Rune de puissance', minDepth: 5, w: 1.8, color: '#ffd166', tip: 'Maximum des compétences ×1,5',
+             desc: 'Un héros qui attaque depuis cette case a le MAXIMUM de dégâts de ses compétences augmenté de 50 % (ses dégâts normaux ne changent pas). Utile quand une compétence affiche « 40/16 ».' },
   portail: { name: 'Téléporteurs', minDepth: 2, w: 2, color: '#d68bff', tip: 'Ressort par le portail jumeau',
              desc: 'Entrer dans un téléporteur fait ressortir par son jumeau (même lettre), s’il est libre. Marche, poussée et glissade comprises.' },
   soin:    { name: 'Petit soin', minDepth: 0, w: 2, color: '#6dffae', tip: '+6 % (ou +5 PV), une fois',
@@ -343,12 +343,91 @@ const BONUS = {
 const ORBS = {
   fureur:   { name: 'Fureur', tip: '+40 % de dégâts pour la salle', color: '#ff6b6b' },
   portee:   { name: 'Portée', tip: '+1 portée des compétences pour la salle', color: '#7cc4ff' },
-  soin:     { name: 'Soin', tip: '+12 % aux deux héros', color: '#6dffae' },
-  egide:    { name: 'Égide', tip: '+1 bouclier aux deux héros', color: '#9fe0ff' },
+  soin:     { name: 'Soin', tip: '+12 % à tous les héros', color: '#6dffae' },
+  egide:    { name: 'Égide', tip: '+1 bouclier à tous les héros', color: '#9fe0ff' },
 };
 ZONES.cercle = { name: 'Cercle de pouvoir', minDepth: 999, w: 0, color: '#ffd166', tip: '2 tours dedans = or + soin',
-  desc: 'Un héros qui commence son tour dans le cercle le charge. Après 2 tours de charge : or et +8 % aux deux héros.' };
+  desc: 'Un héros qui commence son tour dans le cercle le charge. Après 2 tours de charge : or et +8 % à tous les héros.' };
 /* chaque compétence a des dégâts maximum (par coup), relevables (amélioration Plafond, talent Maîtrise) */
 const CAP_MULT = 2;
-const RUNE_CAP = 2;    // une rune double le maximum
+const RUNE_CAP = 1.5;  // une rune relève le maximum de 50 %
 const NB_HEROES = 3;  // taille de l'équipe
+
+/* ---------- Pouvoirs d'élite et mutations de boss ----------
+   une élite (étoile) reçoit un pouvoir à partir de la salle 8 (deux en difficulté 5+) ;
+   les boss reçoivent une mutation de plus chaque fois que tu as battu les 6 boss */
+const MODS = {
+  blinde:   { name: 'Blindé', icon: 'shield', color: '#9fb7d9', tip: 'Attaques directes −40 %',
+              desc: 'Les attaques directes des héros lui font 40 % de dégâts en moins. Collisions, chutes, explosions, feu, poison et pièges font des dégâts normaux.' },
+  vif:      { name: 'Vif', icon: 'run', color: '#f7c948', tip: '+1 déplacement',
+              desc: 'Se déplace d’une case de plus que les autres de son espèce.' },
+  vampire:  { name: 'Vampire', icon: 'drop', color: '#ff5a7a', tip: 'Se soigne en frappant',
+              desc: 'Chaque coup qu’il porte à un héros lui rend 15 % de ses PV max (5 % pour un boss).' },
+  explosif: { name: 'Explosif', icon: 'bomb', color: '#ff9a3d', tip: 'Explose en mourant', noBoss: true,
+              desc: 'En mourant, il explose sur les 8 cases autour : 8 PV aux ennemis, 6 % aux héros. Tue-le au milieu de ses alliés, loin de toi.' },
+  lourd:    { name: 'Inébranlable', icon: 'anchor', color: '#a8adbd', tip: 'Impossible à pousser', noBoss: true,
+              desc: 'Ne peut être ni poussé, ni attiré. Il faut le frapper.' },
+  regen:    { name: 'Régénérant', icon: 'revive', color: '#6dffae', tip: '+10 % PV par tour',
+              desc: 'Récupère 10 % de ses PV max à chaque tour ennemi (4 % pour un boss). Concentre tes coups sur lui.' },
+  epines:   { name: 'Épineux', icon: 'spikes', color: '#c6e05a', tip: 'Le frapper au contact coûte 3 %',
+              desc: 'Un héros qui le frappe depuis une case voisine perd 3 %. Frappe-le de loin.' },
+  protege:  { name: 'Protégé', icon: 'gem', color: '#9fe0ff', tip: 'Bouclier tous les 3 tours',
+              desc: 'Commence avec un bouclier et en regagne un tous les 3 tours. Un bouclier bloque un coup entier : casse-le d’abord avec une petite attaque.' },
+  escorte:  { name: 'Escorte', icon: 'crown', color: '#ffd166', tip: '2 élites en plus', bossOnly: true,
+              desc: 'Le boss arrive avec 2 élites en plus.' },
+  furie:    { name: 'Furieux', icon: 'bolt', color: '#ff6b6b', tip: '+25 % de dégâts', bossOnly: true,
+              desc: 'Le boss frappe 25 % plus fort.' },
+};
+const ELITE_MODS = Object.keys(MODS).filter(k => !MODS[k].bossOnly);
+const BOSS_MODS = Object.keys(MODS).filter(k => !MODS[k].noBoss);
+
+/* ---------- Hauts faits (objectifs à long terme, gardés d'une partie à l'autre) ----------
+   ils ne donnent aucune puissance : seul l'or rend les choses définitives */
+const FEATS = [
+  ['boss1', 'Premier trophée', 'Battre un boss.', 'bosses', 1],
+  ['boss10', 'Chasseur', 'Battre 10 boss.', 'bosses', 10],
+  ['boss50', 'Fléau des boss', 'Battre 50 boss.', 'bosses', 50],
+  ['boss250', 'Légende', 'Battre 250 boss.', 'bosses', 250],
+  ['boss1000', 'Mythe', 'Battre 1000 boss.', 'bosses', 1000],
+  ['allboss', 'Collection', 'Battre chacun des 6 boss.', 'kinds', 6],
+  ['mut1', 'Mutant', 'Battre un boss qui a une mutation.', 'mutBoss', 1],
+  ['mut2', 'Chimère', 'Battre un boss qui a 2 mutations.', 'mutBoss', 2],
+  ['mut3', 'Abomination', 'Battre un boss qui a 3 mutations.', 'mutBoss', 3],
+  ['pboss', 'Sans une égratignure', 'Battre un boss sans perdre le moindre %.', 'perfectBoss', 1],
+  ['pboss10', 'Danseur', 'Battre 10 boss sans perdre le moindre %.', 'perfectBoss', 10],
+  ['d25', 'Explorateur', 'Atteindre la salle 25.', 'maxDepth', 25],
+  ['d50', 'Aventurier', 'Atteindre la salle 50.', 'maxDepth', 50],
+  ['d100', 'Pionnier', 'Atteindre la salle 100.', 'maxDepth', 100],
+  ['d250', 'Abyssal', 'Atteindre la salle 250.', 'maxDepth', 250],
+  ['d500', 'Sans fond', 'Atteindre la salle 500.', 'maxDepth', 500],
+  ['d1000', 'Infini', 'Atteindre la salle 1000.', 'maxDepth', 1000],
+  ['l3', 'Aguerri', 'Battre un boss en difficulté 3.', 'maxLvlBoss', 3],
+  ['l5', 'Vétéran', 'Battre un boss en difficulté 5.', 'maxLvlBoss', 5],
+  ['l10', 'Maître', 'Battre un boss en difficulté 10.', 'maxLvlBoss', 10],
+  ['l20', 'Grand maître', 'Battre un boss en difficulté 20.', 'maxLvlBoss', 20],
+  ['l35', 'Inhumain', 'Battre un boss en difficulté 35.', 'maxLvlBoss', 35],
+  ['l50', 'Divin', 'Battre un boss en difficulté 50.', 'maxLvlBoss', 50],
+  ['k100', 'Combattant', 'Tuer 100 ennemis.', 'kills', 100],
+  ['k1000', 'Massacre', 'Tuer 1 000 ennemis.', 'kills', 1000],
+  ['k10000', 'Armée à toi seul', 'Tuer 10 000 ennemis.', 'kills', 10000],
+  ['k100000', 'Apocalypse', 'Tuer 100 000 ennemis.', 'kills', 100000],
+  ['p10', 'Intouchable', 'Finir 10 salles sans perdre de %.', 'perfect', 10],
+  ['p100', 'Fantôme', 'Finir 100 salles sans perdre de %.', 'perfect', 100],
+  ['p1000', 'Insaisissable', 'Finir 1 000 salles sans perdre de %.', 'perfect', 1000],
+  ['g25', 'Perfectionniste', 'Réussir 25 défis de salle.', 'goals', 25],
+  ['g250', 'Virtuose', 'Réussir 250 défis de salle.', 'goals', 250],
+  ['g2500', 'Génie tactique', 'Réussir 2 500 défis de salle.', 'goals', 2500],
+  ['f50', 'Gravité', 'Faire tomber 50 ennemis dans le vide.', 'falls', 50],
+  ['f500', 'Le grand vide', 'Faire tomber 500 ennemis dans le vide.', 'falls', 500],
+  ['s50', 'Téméraire', 'Gagner 50 salles ★★.', 'd2', 50],
+  ['s500', 'Inconscient', 'Gagner 500 salles ★★.', 'd2', 500],
+  ['e10', 'Graveur', 'Graver 10 effets.', 'engraved', 10],
+  ['e100', 'Orfèvre', 'Graver 100 effets.', 'engraved', 100],
+  ['j1', 'Épreuve', 'Finir une Épreuve du jour.', 'daily', 1],
+  ['j30', 'Assidu', 'Finir 30 Épreuves du jour.', 'daily', 30],
+  ['j365', 'Une année', 'Finir 365 Épreuves du jour.', 'daily', 365],
+  ['js300', 'Bon score', 'Faire 300 points à une Épreuve du jour.', 'dailyBest', 300],
+  ['js550', 'Excellent', 'Faire 550 points à une Épreuve du jour.', 'dailyBest', 550],
+  ['js800', 'Parfait', 'Faire 800 points à une Épreuve du jour.', 'dailyBest', 800],
+].map(([id, name, desc, stat, goal]) => ({ id, name, desc, stat, goal }));
+const DAILY_ROOMS = 20;

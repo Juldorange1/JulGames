@@ -470,7 +470,7 @@ const Render = (() => {
     skull: 'M12 3a7 7 0 0 0-5 12v4h10v-4a7 7 0 0 0-5-12z M9 11h.01 M15 11h.01', coin: 'M12 3a9 9 0 1 0 0.01 0 M12 7v10 M9 9h5a2 2 0 0 1 0 4h-4a2 2 0 0 0 0 4h5',
     swap: 'M4 8h15l-4-4 M20 16H5l4 4', push: 'M4 12h14 M13 6l6 6-6 6', anchor: 'M12 4v16 M5 13a7 7 0 0 0 14 0 M8 7h8', revive: 'M20 12a8 8 0 1 1-3-6.2 M20 4v5h-5',
     gem: 'M12 3l7 7-7 11-7-11z', up: 'M12 20V5 M6 11l6-6 6 6', snow: 'M12 2v20 M3 7l18 10 M21 7L3 17', fire: 'M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 2 2 3 3 3 0-3-1-5 0-7z',
-    bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', sprout: 'M3 20l3-8 3 8 3-8 3 8 3-8 3 8', mirror: 'M12 3v18 M5 8l4 4-4 4 M19 8l-4 4 4 4', run: 'M4 6l6 6-6 6 M12 6l6 6-6 6', star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+    bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', drop: 'M12 3c4 6 6 9 6 12a6 6 0 0 1-12 0c0-3 2-6 6-12z', crown: 'M3 18h18 M4 18l-1-10 5 4 4-7 4 7 5-4-1 10', spikes: 'M3 20l3-8 3 8 3-8 3 8 3-8 3 8', sprout: 'M3 20l3-8 3 8 3-8 3 8 3-8 3 8', mirror: 'M12 3v18 M5 8l4 4-4 4 M19 8l-4 4 4 4', run: 'M4 6l6 6-6 6 M12 6l6 6-6 6', star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
   };
   const P2D = {};
   function badge(name, X, Y, s, color, bg) {
@@ -593,7 +593,9 @@ const Render = (() => {
     // capacité spéciale (coin bas-droit)
     const b = KIND_BADGE[u.kind];
     if (b) badge(b, X + ts * 0.84, Y + ts * 0.82, ts * 0.26, u.boss ? '#ffd166' : '#e8ecf6');
-    if (u.elite) badge('star', X + ts * 0.16, Y + ts * 0.82, ts * 0.24, '#ffd166');
+    const mods = u.mods || [];
+    if (mods.length) mods.forEach((m, i) => badge(MODS[m].icon, X + ts * (0.16 + i * 0.23), Y + ts * 0.84, ts * 0.22, MODS[m].color, 'rgba(40,30,8,0.92)'));
+    else if (u.elite) badge('star', X + ts * 0.16, Y + ts * 0.82, ts * 0.24, '#ffd166');
     if (u.reviving) badge('revive', X + ts * 0.16, Y + ts * 0.32, ts * 0.26, '#ff9ad5');
     if (u.poison) badge('plus', X + ts * 0.16, Y + ts * 0.58, ts * 0.2, '#9dff6b', 'rgba(20,40,10,0.9)');
   }

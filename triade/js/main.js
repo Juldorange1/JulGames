@@ -31,6 +31,8 @@
     else UI.showPick();
   };
   $('#btn-help').onclick = () => UI.showHelp();
+  $('#btn-daily').onclick = () => { Sfx.click(); UI.showDaily(); };
+  $('#btn-feats').onclick = () => { Sfx.click(); UI.showFeats(); };
   $('#btn-pick-back').onclick = () => UI.showTitle();
   $('#btn-start').onclick = () => {
     if (UI.pickSel.length !== NB_HEROES) return;

@@ -304,6 +304,35 @@ const Codex = (() => {
     return sc;
   }
 
+  /* pouvoirs d'élite et mutations de boss */
+  function modScene(k) {
+    const sc = { W: 5, H: 3, period: 2.8 };
+    const M = MODS[k];
+    sc.setup = D => {
+      const h = hero(k === 'epines' ? 2 : 0, 1, 0); D.units.push(h);
+      const e = M.bossOnly ? boss('colosse', 3, 1) : foe('brute', 3, 1, { elite: true });
+      e.mods = [k]; if (k === 'protege') e.shield = 1;
+      D.units.push(e);
+      if (k === 'escorte') { const a = foe('rodeur', 4, 0, { elite: true, mods: ['vif'] }), b = foe('archer', 4, 2, { elite: true, mods: ['blinde'] }); D.units.push(a, b); }
+      if (k === 'explosif') D.units.push(foe('rodeur', 4, 0), foe('archer', 4, 2));
+      return { h, e };
+    };
+    const shot = (D, s) => fx({ type: 'proj', x: s.h.x, y: s.h.y, x2: s.e.x, y2: s.e.y, color: '#ff8a3d', dur: 220 });
+    switch (k) {
+      case 'blinde': sc.ev = [[0.5, shot], [0.75, (D, s) => { hit(s.e, '−6 au lieu de 10', '#9fb7d9'); }]]; break;
+      case 'vif': sc.ev = [[0.5, (D, s) => { s.e.x = 1; s.e.y = 1; }], [1.0, (D, s) => { fx({ type: 'slash', x: 0, y: 1, color: '#ff6b6b', dur: 250 }); hit(s.h, '−8%', '#ff6b6b'); ftext(2, 0, '+1 case', '#f7c948', true); }]]; break;
+      case 'vampire': sc.ev = [[0.5, (D, s) => { s.e.x = 1; }], [0.9, (D, s) => { fx({ type: 'slash', x: 0, y: 1, color: '#ff6b6b', dur: 250 }); hit(s.h, '−8%', '#ff6b6b'); }], [1.2, (D, s) => { s.e.hp = s.e.maxHp; ftext(1, 0, '+15 % PV', '#ff5a7a', true); }]]; break;
+      case 'explosif': sc.ev = [[0.5, shot], [0.75, (D, s) => { s.e.dead = true; fx({ type: 'boom', x: 3, y: 1, color: '#ff9a3d', dur: 600, r: 1.5 }); for (const u of D.units) if (u.team === 'enemy' && !u.dead) hit(u, '−8'); }]]; break;
+      case 'lourd': sc.ev = [[0.5, shot], [0.75, (D, s) => { hit(s.e, 'Inébranlable', '#a8adbd'); }]]; break;
+      case 'regen': sc.ev = [[0.5, shot], [0.75, (D, s) => { s.e.hp = Math.round(s.e.maxHp * 0.6); hit(s.e, '−10'); }], [1.6, (D, s) => { s.e.hp = Math.round(s.e.maxHp * 0.7); ftext(3, 0, '+10 % PV', '#6dffae', true); }]]; break;
+      case 'epines': sc.ev = [[0.5, (D, s) => { fx({ type: 'slash', x: 3, y: 1, color: '#ff8a3d', dur: 250 }); hit(s.e, '−11'); }], [0.8, (D, s) => { hit(s.h, '−3% Épines', '#c6e05a'); }]]; break;
+      case 'protege': sc.ev = [[0.5, shot], [0.75, (D, s) => { s.e.shield = 0; ftext(3, 1, 'Bloqué', '#9fe0ff', true); }], [1.3, shot], [1.55, (D, s) => hit(s.e, '−10')]]; break;
+      case 'escorte': sc.ev = [[0.6, () => ftext(3, 0, '+2 élites', '#ffd166', true)]]; break;
+      case 'furie': sc.ev = [[0.5, (D, s) => { s.e.x = 1; }], [0.9, (D, s) => { fx({ type: 'slash', x: 0, y: 1, color: '#ff6b6b', dur: 250 }); hit(s.h, '−13% (+25 %)', '#ff6b6b'); }]]; break;
+    }
+    return sc;
+  }
+
   /* ---------- entrées du Codex ---------- */
   const TERRAIN = ['piques', 'courant', 'autel', 'glace', 'rune', 'portail', 'buisson', 'boue', 'cercle', 'soin', 'foyer', 'trampoline', 'machoire', 'fosse', 'lave', 'vide'];
   const TERRAIN_INFO = {
@@ -320,6 +349,9 @@ const Codex = (() => {
       case 'terrain': return TERRAIN.map(k => { const Z = ZONES[k]; const I = TERRAIN_INFO[k]; return { id: k, name: Z ? Z.name : I[0], icon: ZONE_ICON[k] || (k === 'lave' ? 'lava' : 'pit'), desc: Z ? Z.desc : I[1], chips: Z && Z.tip ? chip(null, Z.tip) : '', scene: () => zoneScene(k) }; })
         .concat(['coffre', 'orbe', 'baril', 'cristal'].map(k => ({ id: k, name: { coffre: 'Coffre', orbe: 'Orbe', baril: 'Baril explosif', cristal: 'Cristal (Rituel)' }[k], icon: { coffre: 'gold', orbe: 'star', baril: 'barrel', cristal: 'gem' }[k],
           desc: { coffre: 'Casse-le avec un héros : de l’or.', orbe: 'Casse-la : bonus pour toute la salle. ' + Object.keys(ORBS).map(o => ORBS[o].name + ' : ' + ORBS[o].tip).join(' · '), baril: 'Explose quand on le touche : 10 dégâts (−8 % aux héros) autour.', cristal: 'Tant qu’un cristal tient, les ennemis font +30 % de dégâts et récupèrent 3 PV par tour.' }[k], chips: '', scene: () => objScene(k) })));
+      case 'pouvoirs': return Object.keys(MODS).map(k => ({ id: k, name: MODS[k].name, icon: MODS[k].icon, desc: MODS[k].desc + (MODS[k].bossOnly ? ' (mutation de boss uniquement)' : MODS[k].noBoss ? ' (élites uniquement)' : ' (élites et boss)'), chips: chip(MODS[k].icon, MODS[k].tip, 'mod'), scene: () => modScene(k) }))
+        .concat([{ id: '_elite', name: 'Élites', icon: 'star', desc: 'Une élite (étoile) a plus de PV et frappe plus fort. Dès la salle 8, chaque élite a un pouvoir (deux en difficulté 5 et plus). Ses pouvoirs sont dessinés en bas à gauche de sa case.', chips: '' },
+          { id: '_mut', name: 'Mutations des boss', icon: 'crown', desc: 'Chaque fois que tu as battu les 6 boss, ils gagnent une mutation de plus (jusqu’à 3). Elles sont affichées sur la porte du boss et dans sa barre de vie.', chips: '' }]);
       case 'ameliorations': return Object.keys(UPGRADES).map(k => ({ id: k, name: UPGRADES[k].name, icon: 'up', desc: `★ : ${UPGRADES[k].desc(1)} · ★★ : ${UPGRADES[k].desc(2)}`, chips: '' }));
       case 'salles': return Object.keys(ROOM_KINDS).map(k => ({ id: k, name: ROOM_KINDS[k].name, icon: ROOM_KINDS[k].icon, desc: ROOM_KINDS[k].tip, chips: '' }))
         .concat(Object.keys(TRAITS).map(k => ({ id: 't_' + k, name: TRAITS[k].name, icon: TRAITS[k].bad ? 'taunt' : 'star', desc: TRAITS[k].desc, chips: chip(null, 'particularité de salle') })));
@@ -329,7 +361,11 @@ const Codex = (() => {
       case 'mecaniques': return [
         ['arrow', 'Prévision', 'Flèches rouges = qui frappe qui. Silhouettes = où vont les ennemis. Croix jaune = va mourir. Numéros = ordre d’action. Sous chaque héros : son % après le tour ennemi.'],
         ['heart', '% de dégâts', 'Pas de PV : chaque coup reçu baisse ton %, et tes attaques font ce % de leurs dégâts. Jamais sous 40 %. Tuer = +5 %.'],
-        ['up', 'Dégâts maximum', 'Chaque compétence a un plafond par coup (2× ses dégâts de base). « 40/16 » = elle ferait 40 mais est limitée à 16. Relève le plafond avec l’amélioration Plafond.'],
+        ['up', 'Dégâts maximum', 'Chaque compétence a un plafond par coup (2× ses dégâts de base). « 40/16 » = elle ferait 40 mais est limitée à 16. Relève le plafond avec l’amélioration Plafond (+30 %) ou en attaquant depuis une Rune (+50 %). Le bonus d’Exécution / Bourreau relève aussi le plafond.'],
+        ['snow', 'Étourdissement', 'Une unité étourdie passe son tour. En sortant d’un étourdissement, elle résiste au suivant jusqu’à ce qu’elle ait rejoué (un boss résiste deux tours). Impossible de bloquer un ennemi pour toujours.'],
+        ['star', 'Élites et mutations', 'Les élites ont des pouvoirs (Blindé, Vampire, Explosif…), les boss gagnent des mutations à chaque tour complet des 6 boss. Voir l’onglet Pouvoirs.'],
+        ['door', 'Épreuve du jour', `Chaque jour, une partie identique pour tout le monde : mêmes héros, mêmes portes, mêmes salles. ${DAILY_ROOMS} salles, puis le score : 10 × ★ par salle gagnée, 60 × ★ par boss, +10 par défi, +5 par salle sans perte.`],
+        ['crown', 'Hauts faits', 'Des objectifs pour toute ta vie de joueur (écran titre). Ils ne donnent aucun pouvoir : seul l’or rend les choses définitives.'],
         ['dash', 'Ordre d’action', 'Les ennemis jouent de gauche à droite puis de haut en bas, les boss en dernier.'],
         ['hourglass', 'Début du tour ennemi', '1) arrivées 2) courants 3) bombes 4) attaques annoncées 5) poison, feu, lave, autels 6) chaque ennemi joue.'],
         ['push', 'Collisions', 'Poussé contre un obstacle ou une unité : 5 dégâts aux deux (−4 % pour un héros).'],
@@ -340,7 +376,7 @@ const Codex = (() => {
     }
     return [];
   }
-  const TABS = { heros: ['star', 'Héros'], ennemis: ['skullx', 'Ennemis'], boss: ['crown', 'Boss'], competences: ['blade', 'Compétences'], terrain: ['spikes', 'Terrain & objets'], ameliorations: ['up', 'Améliorations'], salles: ['door', 'Salles'], regles: ['rule', 'Règles & talents'], mecaniques: ['cog', 'Mécaniques'] };
+  const TABS = { heros: ['star', 'Héros'], ennemis: ['skullx', 'Ennemis'], boss: ['crown', 'Boss'], competences: ['blade', 'Compétences'], terrain: ['spikes', 'Terrain & objets'], ameliorations: ['up', 'Améliorations'], salles: ['door', 'Salles'], pouvoirs: ['bolt', 'Pouvoirs'], regles: ['rule', 'Règles & talents'], mecaniques: ['cog', 'Mécaniques'] };
 
   /* ---------- fenêtre ---------- */
   function open(t, id) {

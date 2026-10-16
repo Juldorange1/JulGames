@@ -16,6 +16,8 @@ kbd { font: 700 12px system-ui; background: rgba(255,255,255,0.1); border: 1px s
 .ch b { font-weight: 800; }
 .ch i { font-style: normal; font-weight: 800; background: rgba(255,255,255,0.14); border-radius: 6px; padding: 0 5px; margin-left: 2px; font-size: 12px; }
 .ch.red { color: #ffb0a8; background: rgba(255,90,90,0.12); border-color: rgba(255,90,90,0.25); }
+.ch.mod { color: #ffcf8a; background: rgba(255,150,60,0.14); border-color: rgba(255,170,80,0.4); }
+.inf-mods { color: #ffcf8a; }
 .ch.gold, .ch.goalc { color: var(--gold); background: rgba(255,209,102,0.12); border-color: rgba(255,209,102,0.28); }
 .ch.green { color: var(--good); background: rgba(109,255,174,0.1); border-color: rgba(109,255,174,0.25); }
 .ch.blue { color: var(--blue); background: rgba(124,196,255,0.1); border-color: rgba(124,196,255,0.25); }
@@ -70,6 +72,18 @@ kbd { font: 700 12px system-ui; background: rgba(255,255,255,0.1); border: 1px s
 .tagline { color: var(--dim); font-size: 19px; margin: 0 0 30px; }
 .title-btns { display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .title-btns .btn { min-width: 300px; }
+.title-row { display: flex; gap: 12px; }
+.title-row .btn { min-width: 144px !important; }
+.btn.daily { background: linear-gradient(180deg, #7a5cff, #5536d6); border-color: #9d86ff; }
+.feats { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; max-height: 60vh; overflow: auto; padding-right: 4px; }
+.feat { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.feat.ok { background: rgba(255,209,102,0.1); border-color: rgba(255,209,102,0.35); }
+.feat .fi { color: #666b80; } .feat.ok .fi { color: var(--gold); }
+.feat b { display: block; } .feat small { color: #9aa0b8; display: block; }
+.feat .fbar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-top: 4px; overflow: hidden; }
+.feat .fbar i { display: block; height: 100%; background: var(--gold); }
+.daily-box { text-align: center; } .daily-box .dh { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.daily-score { font-size: 54px; font-weight: 900; color: var(--gold); line-height: 1.1; }
 .logo-tokens { display: flex; justify-content: center; }
 .logo-tokens span { width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c) 40%, white), var(--c) 55%, color-mix(in srgb, var(--c) 50%, black)); border: 3px solid rgba(255,255,255,0.85); animation: bob 2.4s ease-in-out infinite; box-shadow: 0 0 30px var(--c); }
 .logo-tokens span + span { margin-left: -10px; animation-delay: -1.2s; }

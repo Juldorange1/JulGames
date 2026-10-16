@@ -76,6 +76,8 @@ const ICONS = {
   check: '<path d="M4 12l5 5L20 6"/>',
   cross: '<path d="M6 6l12 12 M18 6L6 18"/>',
   minus: '<path d="M5 12h14"/>',
+  anchor: '<path d="M12 4v16 M5 13a7 7 0 0 0 14 0 M8 7h8"/>',
+  revive: '<path d="M20 12a8 8 0 1 1-3-6.2 M20 4v5h-5"/>',
 };
 function icon(name, size) { return `<svg class="ico" viewBox="0 0 24 24" width="${size || 20}" height="${size || 20}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ICONS.plus}</svg>`; }
 const $ = s => document.querySelector(s);
@@ -107,8 +109,50 @@ const UI = {
     const c = $('#btn-continue');
     if (sv) { c.style.display = ''; c.innerHTML = `${icon('door', 22)} Continuer <small>Salle ${sv.depth + 1} · ${icon('skullx', 14)} ${sv.level || 1} · ${icon('gold', 14)} ${sv.money}</small>`; }
     else c.style.display = 'none';
+    const fd = featsDone(), nf = FEATS.filter(f => fd[f.id]).length;
+    $('#btn-feats').innerHTML = `${icon('crown', 18)} Hauts faits <small>${nf}/${FEATS.length}</small>`;
+    const dl = loadDaily(), rec = dailyRecords(), td = rec.days && rec.days[todayStr()];
+    $('#btn-daily').innerHTML = `${icon('star', 22)} Épreuve du jour <small>${dl && !dl.daily.done ? `en cours · salle ${dl.depth + 1}/${DAILY_ROOMS}` : td != null ? `record du jour : ${td}` : 'nouvelle !'}</small>`;
     Music.play('explore');
     UI.show('scr-title');
+  },
+
+  /* ---------- Épreuve du jour ---------- */
+  showDaily() {
+    const date = todayStr(), d = dailySetup(date), cur = loadDaily(), rec = dailyRecords(), td = rec.days && rec.days[date];
+    const heroes = d.keys.map(k => `<span class="ch" style="color:${HEROES[k].color}"><b>${HEROES[k].name}</b></span>`).join('');
+    const going = cur && !cur.daily.done;
+    const start = () => { newDaily(); UI.showChoice([{ t: `Épreuve du jour : ${DAILY_ROOMS} salles, fais le meilleur score !`, c: 'gold' }]); };
+    UI.modal(`${icon('star', 26)} Épreuve du jour`, `<div class="daily-box">
+      <p class="intro">Aujourd’hui (${date}), tout le monde joue <b>exactement la même partie</b> : mêmes héros, mêmes portes, mêmes salles.<br>
+      ${DAILY_ROOMS} salles, puis le score est compté. Pas de talents ni de gravures de ta partie principale.</p>
+      <div class="dh">${heroes}${chip('skullx', d.level, 'red', 'Difficulté imposée')}${chip('door', DAILY_ROOMS, '', 'Salles')}</div>
+      <p>${chip('blade', '10 × ★', '', 'Salle gagnée')} ${chip('crown', '60 × ★', 'gold', 'Boss battu')} ${chip('star', '+10', 'goalc', 'Défi réussi')} ${chip('heart', '+5', 'green', 'Salle sans perdre de %')}</p>
+      <p>${chip('star', td != null ? td : '—', 'gold', 'Ton record du jour')} record du jour · ${chip('crown', rec.best || 0, 'gold', 'Ton meilleur score')} record absolu · ${chip('door', rec.played || 0, '', 'Épreuves finies')} finies</p>
+      ${going ? `<p class="hint">Épreuve en cours : salle ${cur.depth + 1}/${DAILY_ROOMS}, ${cur.daily.pts} points.</p>` : ''}</div>`,
+      [{ label: 'Retour', cls: 'ghost' },
+       going ? { label: 'Continuer', fn: () => { S = cur; if (S.pending) { startCombat(S.pending); UI.show('scr-combat'); UI.refreshCombat(); } else UI.showChoice(); } } : null,
+       { label: going ? 'Recommencer' : (td != null ? 'Rejouer' : 'Commencer'), cls: going ? 'danger' : '', fn: start }].filter(Boolean), { wide: true });
+  },
+  showDailyEnd(rec, notes) {
+    const pts = S.daily.pts, date = S.daily.date;
+    (notes || []).filter(n => n.c === 'gold' && /Haut fait/.test(n.t)).forEach((n, i) => setTimeout(() => UI.toast(n.t, 'gold', 3600), i * 300));
+    S = null;
+    UI.modal(`${icon('crown', 26)} Épreuve terminée`, `<div class="daily-box"><div class="daily-score">${pts}</div><p>points</p>
+      <p>${chip('star', rec.days[date], 'gold', 'Record du jour')} record du jour · ${chip('crown', rec.best, 'gold', 'Record absolu')} record absolu</p>
+      <p class="hint">Reviens demain pour une nouvelle épreuve, ou rejoue celle-ci pour battre ton score.</p></div>`,
+      [{ label: 'Écran titre', fn: () => UI.showTitle() }], { wide: true });
+  },
+  /* ---------- Hauts faits ---------- */
+  showFeats() {
+    const L = lifeStats(), done = featsDone();
+    const n = FEATS.filter(f => done[f.id]).length;
+    const rows = FEATS.map(f => {
+      const v = Math.min(f.goal, featValue(L, f)), ok = !!done[f.id];
+      return `<div class="feat ${ok ? 'ok' : ''}" title="${esc(f.desc + (ok ? ' Obtenu le ' + done[f.id] + '.' : ''))}"><span class="fi">${icon(ok ? 'crown' : 'star', 26)}</span><span style="flex:1"><b>${f.name}</b><small>${esc(f.desc)}</small>${ok ? '' : `<div class="fbar"><i style="width:${v / f.goal * 100}%"></i></div><small>${v} / ${f.goal}</small>`}</span></div>`;
+    }).join('');
+    UI.modal(`${icon('crown', 26)} Hauts faits <small>${n}/${FEATS.length}</small>`, `<p class="intro">Des objectifs pour toute ta vie de joueur (gardés d’une partie à l’autre). Ils ne donnent aucun pouvoir : juste la gloire.</p><div class="feats">${rows}</div>`,
+      [{ label: 'Fermer', cls: 'ghost' }], { huge: true });
   },
 
   /* ---------- difficulté (1 à l'infini) ---------- */
@@ -118,7 +162,7 @@ const UI = {
       const left = 10 - (S.depth % 10);
       return `<div class="lvl locked" title="On ne peut changer la difficulté que toutes les 10 salles">
         <div class="lvl-n">${icon('skullx', 20)}<b class="lvl-v">${L}</b></div>
-        ${chip('hourglass', left, '', `Changement possible dans ${left} salle${left > 1 ? 's' : ''}`)}
+        ${S.daily ? chip('star', 'imposée', '', 'Épreuve du jour : difficulté imposée') : chip('hourglass', left, '', `Changement possible dans ${left} salle${left > 1 ? 's' : ''}`)}
         <div class="lvl-fx">${chip('heart', '×' + f.hp.toFixed(1), 'red', 'PV des ennemis')}${chip('blade', '×' + f.dmg.toFixed(2), 'red', 'Dégâts des ennemis')}${chip('gold', '×' + f.gold, 'gold', 'Or gagné sur les boss')}</div></div>`;
     }
     return `<div class="lvl">
@@ -169,8 +213,8 @@ const UI = {
     const era = eraData(S.depth);
     document.documentElement.style.setProperty('--accent', era.accent);
     document.documentElement.style.setProperty('--era-bg', era.bg);
-    $('#ch-depth').textContent = `Salle ${S.depth + 1}`;
-    $('#ch-era').textContent = era.name;
+    $('#ch-depth').textContent = S.daily ? `Épreuve · salle ${S.depth + 1}/${DAILY_ROOMS}` : `Salle ${S.depth + 1}`;
+    $('#ch-era').textContent = S.daily ? `${S.daily.pts} points · ${era.name}` : era.name;
     $('#ch-era').title = era.desc;
     $('#ch-gold').innerHTML = `${icon('gold', 22)} ${S.money}`;
     $('#ch-level').innerHTML = `${icon('cog', 20)} Paramètres <span class="ch red">${icon('skullx', 15)}<b>${lvl()}</b></span>`;
@@ -230,7 +274,8 @@ const UI = {
       const ph = Math.max(...bosses.map(u => u.phase || 0));
       const marks = (B.phases || []).map(p => `<em style="left:${p.at * 100}%"></em>`).join('');
       const phName = ph > 0 && B.phases && B.phases[ph - 1] ? B.phases[ph - 1].name : '';
-      UI.setHtml(bb, `<b>${icon('crown', 18)} ${B.name}</b>${phName ? `<span class="bb-ph">Phase ${ph + 1} : ${phName}</span>` : ''}<div class="bb-bar"><i style="width:${hp / mx * 100}%"></i>${marks}</div><span class="bb-hp">${Math.ceil(hp)}</span>`);
+      const bm = (bosses[0].mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', 'Mutation : ' + MODS[m].tip + '. ' + MODS[m].desc)).join('');
+      UI.setHtml(bb, `<b>${icon('crown', 18)} ${B.name}</b>${bm}${phName ? `<span class="bb-ph">Phase ${ph + 1} : ${phName}</span>` : ''}<div class="bb-bar"><i style="width:${hp / mx * 100}%"></i>${marks}</div><span class="bb-hp">${Math.ceil(hp)}</span>`);
       bb.classList.add('on');
     } else bb.classList.remove('on');
     if (C.phase === 'hero' && !C.busy && !C.ended && (!C.preview || C.preview.ver !== C.ver) && !UI.pvPending) {
@@ -385,7 +430,7 @@ const UI = {
       case 'upgrade': {
         const U = UPGRADES[rw.key];
         const el = allSkills((s, hi, si) => U.ok(skillStats(hi, si)));
-        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % aux deux héros`); }
+        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % à tous les héros`); }
         UI.choose(`${icon('up', 22)} ${U.name}`, `<b>${U.desc(v)}</b> · ${DUR.upgrade} salles`, el.map(o => skillOpt(o)),
           o => { S.heroes[o.hi].slots[o.si].mods.push({ key: rw.key, v, dur: DUR.upgrade, perm: false }); fin(`${U.name} sur ${SKILLS[S.heroes[o.hi].slots[o.si].key].name}`); },
           { label: 'Refuser', fn: () => fin('Amélioration refusée', 'dim') });
@@ -397,7 +442,7 @@ const UI = {
       case 'prolong': prolongAll(3 * v); return fin(`Sablier : +${3 * v} salles à tout`);
       case 'mutation': {
         const el = allSkills((s, hi, si) => si > 0);
-        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % aux deux héros`); }
+        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % à tous les héros`); }
         UI.choose(`${icon('mutate', 22)} Mutation`, 'Quelle compétence transformer ?', el.map(o => skillOpt(o)), o => {
           const inst = S.heroes[o.hi].slots[o.si];
           const owned = new Set(S.heroes[o.hi].slots.filter(Boolean).map(s => s.key));
@@ -412,8 +457,8 @@ const UI = {
       }
       case 'transfert': {
         const el = allSkills((s, hi, si) => si > 0 && S.heroes.some((h2, j) => j !== hi && !h2.slots.some(x => x && x.key === s.key)));
-        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % aux deux héros`); }
-        UI.choose(`${icon('transfer', 22)} Transfert`, 'Donner quelle compétence à l’autre héros ?', el.map(o => skillOpt(o)), o => {
+        if (!el.length) { for (const h of S.heroes) h.pct = Math.min(maxPct(), h.pct + 10 * v); return fin(`+${10 * v} % à tous les héros`); }
+        UI.choose(`${icon('transfer', 22)} Transfert`, 'Donner quelle compétence à un autre héros ?', el.map(o => skillOpt(o)), o => {
           const inst = S.heroes[o.hi].slots[o.si];
           const targets = S.heroes.map((h2, j) => j).filter(j => j !== o.hi && !S.heroes[j].slots.some(x => x && x.key === inst.key));
           const go = to => {
@@ -459,6 +504,7 @@ const UI = {
     m.querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
       const r = rows[+b.dataset.e], c = engraveCost(r.kind); if (S.money < c) return;
       S.money -= c; S.engraved[r.kind]++; r.fn(); Sfx.gold(); addLog('Gravure effectuée.'); save(); UI.showAtelier();
+      for (const f of lifeAdd({ engraved: 1 })) UI.toast(`Haut fait : ${f.name} — ${f.desc}`, 'gold', 3600);
     });
     m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
       const k = b.dataset.t, c = talentCost(k); if (S.money < c) return;
@@ -474,7 +520,7 @@ const UI = {
     const can = canChangeLevel();
     const body = `<h3>${icon('skullx', 20)} Difficulté</h3>
       <div id="set-level">${UI.levelHtml(lvl(), !can)}</div>
-      <p class="hint">${can ? 'Tu peux changer la difficulté maintenant (toutes les 10 salles).' : `Changement possible dans ${10 - (S.depth % 10)} salle(s) : la difficulté ne se change que toutes les 10 salles.`}
+      <p class="hint">${S.daily ? 'Épreuve du jour : la difficulté est la même pour tout le monde.' : can ? 'Tu peux changer la difficulté maintenant (toutes les 10 salles).' : `Changement possible dans ${10 - (S.depth % 10)} salle(s) : la difficulté ne se change que toutes les 10 salles.`}
         Niveau maximum débloqué : <b>${unlockedLevel()}</b> (bats un boss au niveau ${unlockedLevel()} pour débloquer le suivant).</p>
       <h3>${icon('sound', 20)} Son</h3>
       <div class="menu-opts">
@@ -510,11 +556,12 @@ const UI = {
         <button class="btn ghost" id="m-auto">${icon('hourglass', 20)} Fin de tour automatique : ${UI.autoEnd ? 'oui' : 'non'}</button>
         <button class="btn ghost" id="m-codex">${icon('rule', 20)} Codex <kbd>K</kbd></button>
         <button class="btn ghost" id="m-help">${icon('help', 20)} Aide <kbd>H</kbd></button>
+        <button class="btn ghost" id="m-feats">${icon('crown', 20)} Hauts faits</button>
         <button class="btn ghost" id="m-credits">${icon('music', 20)} Crédits musique</button>
       </div>`, [
       { label: 'Reprendre', cls: '' },
       { label: 'Écran titre', cls: 'ghost', fn: () => { if (inCombat) { C = null; } UI.showTitle(); } },
-      { label: 'Supprimer la partie', cls: 'danger', fn: () => UI.modal('Supprimer la partie ?', '<p>Toute la progression sera perdue.</p>', [{ label: 'Annuler', cls: 'ghost' }, { label: 'Supprimer', cls: 'danger', fn: () => { wipeSave(); S = null; C = null; UI.showTitle(); } }]) },
+      { label: 'Supprimer la partie', cls: 'danger', fn: () => UI.modal('Supprimer la partie ?', '<p>Toute la progression sera perdue.</p>', [{ label: 'Annuler', cls: 'ghost' }, { label: 'Supprimer', cls: 'danger', fn: () => { wipeSave(S && S.daily ? DAILY_KEY : SAVE_KEY); S = null; C = null; UI.showTitle(); } }]) },
     ]);
     $('#m-mvol').oninput = e => Music.setVolume(+e.target.value);
     $('#m-svol').oninput = e => Sfx.setVolume(+e.target.value);
@@ -524,6 +571,7 @@ const UI = {
     $('#m-auto').onclick = () => { UI.autoEnd = !UI.autoEnd; try { localStorage.setItem('binome_auto', UI.autoEnd ? '1' : '0'); } catch (e) { } UI.showMenu(); };
     $('#m-codex').onclick = () => UI.showCodex();
     $('#m-help').onclick = () => UI.showHelp();
+    $('#m-feats').onclick = () => UI.showFeats();
     $('#m-credits').onclick = () => UI.modal(`${icon('music', 24)} Crédits musique`, `<p class="intro">Musiques libres de droits (CC0), trouvées sur OpenGameArt.org :</p><ul class="credits">
       <li><b>Dungeon Ambience</b> — yd (exploration)</li>
       <li><b>Heartfelt Battle</b> — request (combat)</li>
@@ -583,7 +631,7 @@ function effectChips(s) {
   if (s.exec) e.push(chip('skull', '×' + (1 + s.exec), 'red', 'Cible sous 50 %'));
   if (s.shield) e.push(chip('shield', '', 'blue', 'Bouclier'));
   if (s.fire) e.push(chip('fire', '', 'red', 'Feu'));
-  if (s.ff) e.push(chip('taunt', 'allié', 'red', 'Touche aussi ton allié'));
+  if (s.ff) e.push(chip('taunt', 'allié', 'red', 'Touche aussi tes alliés'));
   return e.join('');
 }
 function dmgHtml(raw, cap) {
@@ -638,10 +686,10 @@ function rewardLine(rw) {
     case 'upgrade': return `<span class="dl">${esc(UPGRADES[rw.key].desc(v))}</span>${chip('hourglass', DUR.upgrade)}`;
     case 'rule': return `<span class="dl">${esc(RULES[rw.key].desc)}</span>${chip('hourglass', DUR.rule * v)}`;
     case 'pact': return `<span class="dl good">+ ${esc(PACTS[rw.key].bonus(v))}</span><span class="dl bad">− ${esc(PACTS[rw.key].malus)}</span>${chip('hourglass', DUR.pact)}`;
-    case 'rest': return `<span class="dl">aux deux héros</span>`;
+    case 'rest': return `<span class="dl">à tous les héros</span>`;
     case 'prolong': return `<span class="dl">à tous tes effets temporaires</span>`;
     case 'mutation': return `<span class="dl">Change une compétence${v > 1 ? ' (au choix parmi 3)' : ''}</span>`;
-    case 'transfert': return `<span class="dl">Donne une compétence à l’autre héros</span>`;
+    case 'transfert': return `<span class="dl">Donne une compétence à un autre héros</span>`;
   }
   return '';
 }
@@ -650,13 +698,15 @@ function roomContentChips(c, room) {
   for (const e of room.enemies) if (!e.boss) counts[e.kind] = (counts[e.kind] || 0) + 1;
   const foes = Object.keys(counts).map(k => `<span class="foe" style="--c:${ENEMIES[k].color}" title="${esc(ENEMIES[k].name + ' — ' + (TIPS[k] || ''))}"><i class="sh-${ENEMIES[k].shape}"></i><b>${counts[k]}</b></span>`).join('');
   const elites = room.enemies.filter(e => e.elite).length;
+  const ms = {}; for (const e of room.enemies) for (const m of e.mods || []) ms[m] = (ms[m] || 0) + 1;
+  const modChips = Object.keys(ms).map(m => chip(MODS[m].icon, ms[m], 'mod', 'Élite ' + MODS[m].name + ' : ' + MODS[m].tip)).join('');
   const hz = [];
   let pits = 0, lava = 0; for (const row of room.grid) for (const t of row) { if (t.t === 'pit') pits++; if (t.t === 'lava') lava++; }
   if (pits) hz.push(chip('pit', pits, '', 'Fosses')); if (lava) hz.push(chip('lava', lava, 'red', 'Lave'));
   if (room.objs.some(o => o.kind === 'baril')) hz.push(chip('barrel', room.objs.filter(o => o.kind === 'baril').length, '', 'Barils explosifs'));
   const zs = {}; for (const row of room.grid) for (const t of row) if (t.z) zs[t.z] = (zs[t.z] || 0) + 1;
   for (const z in zs) hz.push(chip(ZONE_ICON[z], z === 'portail' ? zs[z] / 2 : zs[z], '', ZONES[z].name + ' — ' + ZONES[z].tip));
-  return `<div class="foes">${foes}${elites ? chip('star', elites, 'gold', 'Élites') : ''}</div>${hz.length ? `<div class="hz">${hz.join('')}</div>` : ''}`;
+  return `<div class="foes">${foes}${elites ? chip('star', elites, 'gold', 'Élites') : ''}${modChips}</div>${hz.length ? `<div class="hz">${hz.join('')}</div>` : ''}`;
 }
 function doorHtml(c, i) {
   const room = genRoom(c);
@@ -668,7 +718,7 @@ function doorHtml(c, i) {
       <div class="door-top"><span class="stars">${'★'.repeat(c.diff)}</span>${chip('crown', 'BOSS', 'gold')}</div>
       <div class="door-arch">${icon('crown', 46)}</div>
       <h3>${B.name}</h3>
-      <div class="door-chips">${chip('gold', '+' + bossMoney(c), 'gold', 'Or si tu gagnes')}${chip('skullx', (B.phases || []).length + 1, 'red', 'Phases')}${chip('heart', marge + ' %', marge < 20 ? 'red' : 'green', 'Marge avant 40 % (héros le plus faible)')}${goalHtml}</div>
+      <div class="door-chips">${(c.mods || []).map(m => chip(MODS[m].icon, MODS[m].name, 'mod', 'Mutation : ' + MODS[m].tip + '. ' + MODS[m].desc)).join('')}${chip('gold', '+' + bossMoney(c), 'gold', 'Or si tu gagnes')}${chip('skullx', (B.phases || []).length + 1, 'red', 'Phases')}${chip('heart', marge + ' %', marge < 20 ? 'red' : 'green', 'Marge avant 40 % (héros le plus faible)')}${goalHtml}</div>
       ${roomContentChips(c, room)}
     </button>`;
   }
@@ -750,8 +800,10 @@ function tileInfo(x, y) {
       const dmg = Math.round(o.dmg * enemyPower(o) * G().taken);
       const st = [];
       const ord = enemyOrder().indexOf(o); if (ord >= 0) st.push(chip(null, '#' + (ord + 1), '', 'Ordre d’action'));
-      if (o.elite) st.push(chip('star', 'élite', 'gold'));
+      if (o.elite) st.push(chip('star', 'élite', 'gold', 'Élite : plus de PV et de dégâts'));
+      for (const m of o.mods || []) st.push(chip(MODS[m].icon, MODS[m].name, 'mod', MODS[m].tip + '. ' + MODS[m].desc));
       if (o.stun) st.push(chip('snow', o.stun, 'blue', 'Étourdi'));
+      else if (o.stunRes) st.push(chip('snow', '✕', 'off', 'Vient d’être étourdi : résiste au prochain étourdissement'));
       if (o.poison) st.push(chip('drop', o.poison.dmg + '×' + o.poison.turns, 'green', 'Poison'));
       if (o.shield) st.push(chip('shield', '', 'blue', 'Bouclier'));
       if (o.armed) st.push(chip('bomb', 'armée', 'red'));
@@ -760,7 +812,8 @@ function tileInfo(x, y) {
       if (o.piece || o.noHeal) st.push(chip('heart', '0', 'off', 'Ne soigne pas'));
       if (o.boss && o.phase) st.push(chip('skullx', 'phase ' + (o.phase + 1), 'red'));
       const tip = o.boss ? D.desc : (TIPS[o.kind] || D.desc);
-      parts.push(`<div class="inf-h">${o.kind === 'ombre' ? 'Ombre de ' + HEROES[S.heroes[o.mirror].key].name : D.name} ${chip('heart', Math.ceil(o.hp) + '/' + o.maxHp)}${dmg ? chip('blade', dmg + '%', 'red') : ''}${chip('foot', o.move, 'blue')}${st.join('')}</div><p>${esc(tip)}</p>`);
+      const mtx = (o.mods || []).map(m => `<b>${MODS[m].name}</b> : ${esc(MODS[m].tip)}`).join(' · ');
+      parts.push(`<div class="inf-h">${o.kind === 'ombre' ? 'Ombre de ' + HEROES[S.heroes[o.mirror].key].name : D.name} ${chip('heart', Math.ceil(o.hp) + '/' + o.maxHp)}${dmg ? chip('blade', dmg + '%', 'red') : ''}${chip('foot', o.move, 'blue')}${st.join('')}</div><p>${esc(tip)}</p>${mtx ? `<p class="inf-mods">${mtx}</p>` : ''}`);
     }
   }
   const tz = [];
