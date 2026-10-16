@@ -147,6 +147,19 @@ const Codex = (() => {
         sc.setup = D => { const e = foe(k, 4, 1), a = foe('rodeur', 3, 0, { hp: 3 }), h = hero(0, 0, 1); D.units.push(e, a, h); return { e, a, h }; };
         sc.ev = [[0.6, () => fx({ type: 'proj', x: 0, y: 0, x2: 3, y2: 0, color: '#5ad0ff', dur: 220 })], [0.85, (D, s) => { s.a.dead = true; fx({ type: 'burst', x: 3, y: 0, color: '#e2574c', dur: 500 }); }], [1.1, (D, s) => { s.e.scale = 1.15; ftext(4, 1, 'Festin ! +4', '#d8d870', true); }]];
         return sc;
+      case 'sapeur':
+        sc.setup = D => { const e = foe(k, 4, 1), h = hero(1, 1); D.units.push(e, h); return { e, h }; };
+        sc.ev = [[0.5, D => { D.telegraphs.push({ tiles: [[1, 1]], center: [1, 1], pct: 12, color: '#d8a060', label: 'Fosse' }); fx({ type: 'proj', x: 4, y: 1, x2: 1, y2: 1, color: '#d8a060', dur: 260, arc: true }); }],
+          [1.7, (D, s) => { D.telegraphs = []; D.grid[1][1].t = 'pit'; fx({ type: 'boom', x: 1, y: 1, color: '#b08a5a', dur: 500, r: 0.9 }); s.h.falling = performance.now(); hit(s.h, '−12%', '#ff6b6b'); }], [2.1, (D, s) => { s.h.falling = 0; s.h.x = 0; s.h.rx = 0; }]];
+        return sc;
+      case 'etendard':
+        sc.setup = D => { const e = foe(k, 4, 1), a = foe('rodeur', 3, 1), h = hero(1, 1); D.units.push(e, a, h); return { e, a, h }; };
+        sc.ev = [[0.6, (D, s) => ftext(4, 0, '+30 %', '#e0b84a', true)], [1.2, (D, s) => { s.a.x = 2; }], [1.5, (D, s) => { lunge(s.a, 1, 1); fx({ type: 'slash', x: 1, y: 1, color: '#ff6b6b', dur: 260 }); hit(s.h, '−7%', '#ff6b6b'); }]];
+        return sc;
+      case 'sentinelle':
+        sc.setup = D => { const e = foe(k, 4, 1), h = hero(1, 0); D.units.push(e, h); return { e, h }; };
+        sc.ev = [[0.6, (D, s) => { s.h.y = 1; }], [0.9, (D, s) => { ftext(4, 0, 'Guet !', '#ff8f6b', true); fx({ type: 'proj', x: 4, y: 1, x2: 1, y2: 1, color: '#ff8f6b', dur: 220 }); }], [1.15, (D, s) => hit(s.h, `−${E.dmg}%`, '#ff6b6b')], [2.0, (D, s) => { s.h.y = 2; }]];
+        return sc;
       case 'brute':
         sc.setup = D => { const e = foe(k, 3, 1), h = hero(1, 1); D.units.push(e, h); return { e, h }; };
         sc.ev = [[0.4, (D, s) => { s.e.x = 2; }], [0.8, (D, s) => { lunge(s.e, 1, 1); hit(s.h, `−${E.dmg}%`, '#ff6b6b'); }], [1.0, (D, s) => { s.h.x = 0; ftext(0, 1, 'Repoussé', '#ffb36b'); }]];
@@ -174,6 +187,8 @@ const Codex = (() => {
         [1.5, (D, s) => { D.telegraphs = []; fx({ type: 'boom', x: 0, y: 1, color: '#ff7b3a', dur: 600, r: 1.5 }); hit(s.h, `−${B.special}%`, '#ff6b6b'); for (const [x, y] of areaTiles(0, 1, 'square')) D.grid[y][x].fire = 3; }], ph(2.3)]; break;
       case 'hydre': sc.ev = [[0.5, (D, s) => { fx({ type: 'proj', x: 4, y: 0, x2: 0, y2: 1, color: '#4fd18b', dur: 250 }); }], [0.8, (D, s) => hit(s.h, `−${B.dmg}%`, '#ff6b6b')], [1.4, (D, s) => { s.heads[1].dead = true; fx({ type: 'burst', x: 5, y: 2, color: '#4fd18b', dur: 500 }); ftext(4, 0, 'Rage !', '#ff6b6b', true); ftext(4, 3, 'Rage !', '#ff6b6b', true); }],
         [2.4, (D, s) => { s.heads[0].alpha = 0.2; }], [2.7, (D, s) => { s.heads[0].x = 1; s.heads[0].y = 1; s.heads[0].rx = 1; s.heads[0].ry = 1; s.heads[0].alpha = 1; ftext(1, 1, 'Traque !', '#ff5a5a', true); }]]; break;
+      case 'geolier': sc.ev = [[0.5, (D, s) => { fx({ type: 'bolt', x: 4, y: 1, x2: 0, y2: 3, color: '#cfd6ea', dur: 350 }); s.h2.chain = 2; s.h2.chainBy = s.b.uid; ftext(0, 3, 'Enchaîné !', '#cfd6ea', true); }], ph(1.3), [1.5, (D, s) => { s.h2.x = 1; s.h2.rx = 1; ftext(1, 3, 'Traction', '#cfd6ea'); }],
+        [2.4, (D, s) => { fx({ type: 'slash', x: 4, y: 1, color: '#ff8a3d', dur: 250 }); hit(s.b, '−10'); s.h2.chain = 0; ftext(1, 3, 'Chaîne brisée !', '#cfd6ea', true); }]]; break;
       case 'reflet': sc.ev = [[0.5, D => { D.units.push(foe('ombre', 5, 1, { mirror: 0, alpha: 0 })); ftext(5, 1, 'Reflet !', '#b9c0ff', true); }], [1.3, (D, s) => { fx({ type: 'proj', x: 4, y: 1, x2: 0, y2: 1, color: '#9aa3ff', dur: 250 }); hit(s.h, `−${B.dmg}%`, '#ff6b6b'); }], ph(2.2)]; break;
     }
     return sc;
@@ -420,5 +435,7 @@ const Codex = (() => {
     raf = requestAnimationFrame(tick);
   }
   function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
-  return { open, stop };
+  /* petite scène animée hors du Codex (écran de choix des héros) */
+  function playHero(canvas, k) { stop(); start(canvas, Object.assign(skillScene(HEROES[k].basic, 0), { heroKey: k })); }
+  return { open, stop, playHero };
 })();

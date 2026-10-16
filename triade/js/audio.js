@@ -241,6 +241,12 @@ const Music = (() => {
       if (!p) fallback();
       else setTimeout(() => { if (cur === p && !p.ok) fallback(); }, 3000);
     },
+    /* baisse la musique un instant (jingle de victoire, changement de phase) puis la remonte doucement */
+    duck(k, secs) {
+      const p = cur; if (!p) return;
+      setGain(p, level() * k, 0.12);
+      clearTimeout(p.duckId); p.duckId = setTimeout(() => { if (cur === p) setGain(p, level(), 0.8); }, secs * 1000);
+    },
     refresh() { if (!Sfx.muted) Sfx.musicBus(); if (cur) setGain(cur, level(), 0.3); if (Sfx.muted) Sfx.synthStop(); else if (cur && !cur.ok) fallback(); },
   };
 })();

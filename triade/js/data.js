@@ -11,13 +11,17 @@ const KILL_HEAL = 5;       // soin (en points de %) pour le héros qui tue
 /* ---------- Héros ---------- */
 const HEROES = {
   brann: { name: 'Brann', title: 'Le Rempart', color: '#ff8a3d', basic: 'coup', move: 3,
-    desc: 'Corps à corps. Son attaque repousse : parfait pour envoyer les ennemis dans les fosses.' },
+    desc: 'Corps à corps. Son attaque repousse : parfait pour envoyer les ennemis dans les fosses.',
+    tips: ['Pousse un ennemi dans une fosse ou le vide : il meurt sur le coup.', 'Pousse-le contre un mur ou un autre ennemi : collision, dégâts aux deux.', 'Place-le devant tes héros fragiles.'] },
   lyse:  { name: 'Lyse', title: 'La Flèche', color: '#5ad0ff', basic: 'tir', move: 3,
-    desc: 'Tire en ligne droite de loin. Fragile si on la laisse se faire encercler.' },
+    desc: 'Tire en ligne droite de loin. Fragile si on la laisse se faire encercler.',
+    tips: ['Garde des alliés entre elle et les ennemis.', 'Ses tirs s’arrêtent sur la première cible : vise les lignes dégagées.', 'Elle ne voit pas dans les buissons (sauf au contact).'] },
   kael:  { name: 'Kael', title: "L'Ombre", color: '#c08cff', basic: 'entaille', move: 4,
-    desc: 'Très mobile (4 cases) et frappe fort au contact.' },
+    desc: 'Très mobile (4 cases) et frappe fort au contact.',
+    tips: ['Va finir les ennemis isolés et les archers en retrait.', 'Ses 4 cases de déplacement lui permettent de frapper puis de rester hors d’atteinte… si tu calcules bien.', 'Parfait pour tuer le Voleur des salles de Chasse.'] },
   mira:  { name: 'Mira', title: "L'Étincelle", color: '#6dffae', basic: 'eclat', move: 3,
-    desc: 'Frappe n’importe quelle case à portée, même derrière un mur.' },
+    desc: 'Frappe n’importe quelle case à portée, même derrière un mur.',
+    tips: ['Touche les ennemis cachés derrière les rochers et dans les buissons.', 'Reste à 3 cases : hors de portée des corps à corps, à portée de tir.', 'Idéale pour casser coffres, orbes et cristaux de loin.'] },
 };
 
 /* ---------- Compétences ----------
@@ -200,6 +204,12 @@ const ENEMIES = {
                 desc: 'Renvoie 40 % des dégâts directs reçus au héros qui l’attaque (en %). Utilise les collisions, le feu, les chutes…' },
   coureur:    { name: 'Coureur', hp: 11, move: 4, ai: 'skirmish', dmg: 5, shape: 'triangle', color: '#f7c948', minDepth: 7, w: 1.6,
                 desc: 'Frappe puis recule de 2 cases. Difficile à coincer.' },
+  sapeur:     { name: 'Sapeur', hp: 13, move: 2, ai: 'sapper', range: 4, dmg: 0, shape: 'square', color: '#b08a5a', minDepth: 16, w: 1.3,
+                desc: 'Annonce l’effondrement de la case d’un héros : au tour ennemi suivant, elle devient une fosse (qui y est encore tombe : −12 %). 4 fosses au plus.' },
+  etendard:   { name: 'Porte-étendard', hp: 16, move: 1, ai: 'banner', dmg: 0, shape: 'spear', color: '#e0b84a', minDepth: 12, w: 1.3,
+                desc: 'N’attaque pas. Les ennemis à 2 cases ou moins de lui frappent 30 % plus fort. Il reste derrière ses alliés : va le chercher.' },
+  sentinelle: { name: 'Sentinelle', hp: 12, move: 2, ai: 'ranged', range: 5, dmg: 4, shape: 'triangle', color: '#ff8f6b', minDepth: 19, w: 1.3, watch: true,
+                desc: 'Fait le guet sur sa ligne et sa colonne (5 cases) : un héros qui s’arrête dans sa ligne de mire PENDANT TON TOUR se fait tirer dessus (une fois par tour). Tire aussi à son tour.' },
   voleur:     { name: 'Voleur', hp: 10, move: 2, ai: 'flee', dmg: 0, shape: 'triangle', color: '#ffd166', minDepth: 999, w: 0,
                 desc: 'Ne se bat pas : il fuit. Tue-le avant la fin du compte à rebours.' },
 };
@@ -221,7 +231,9 @@ const BOSSES = {
 };
 BOSSES.reflet = { name: 'Le Reflet', hp: 70, move: 2, dmg: 8, range: 4, color: '#9aa3ff', shape: 'diamond',
   desc: 'Tire en ligne. Au début puis tous les 3 tours, crée l’Ombre d’un héros (elle copie ses mouvements en miroir).' };
-const BOSS_ORDER = ['colosse', 'reine', 'oracle', 'forgeron', 'hydre', 'reflet'];
+BOSSES.geolier = { name: 'Le Geôlier', hp: 85, move: 2, dmg: 9, color: '#9aa0b4', shape: 'hex',
+  desc: 'Frappe au corps à corps. Tous les 2 tours, enchaîne le héros le plus loin de lui : il ne peut plus bouger pendant 2 tours (il peut encore attaquer). Un héros enchaîné qui frappe le Geôlier brise sa chaîne.' };
+const BOSS_ORDER = ['colosse', 'reine', 'oracle', 'forgeron', 'hydre', 'reflet', 'geolier'];
 
 /* ---------- Traits de salle ---------- */
 const TRAITS = {
@@ -312,6 +324,7 @@ BOSSES.oracle.phases   = [{ at: 0.6, name: 'Croisée', tip: 'Laser en croix' }, 
 BOSSES.forgeron.phases = [{ at: 0.6, name: 'Forge ardente', tip: 'Marteau à chaque tour' }, { at: 0.3, name: 'Fournaise', tip: 'Anneau de feu autour de lui' }];
 BOSSES.reflet.phases   = [{ at: 0.6, name: 'Miroirs', tip: 'Ombre tous les 2 tours' }, { at: 0.3, name: 'Échange', tip: 'Prend la place d’une Ombre' }];
 BOSSES.hydre.phases    = [];
+BOSSES.geolier.phases  = [{ at: 0.6, name: 'Traction', tip: 'Les chaînes attirent les héros vers lui' }, { at: 0.3, name: 'Cachot', tip: 'Enferme un héros entre des murs' }];
 
 /* ---------- Types de salles ---------- */
 const ROOM_KINDS = {
@@ -331,7 +344,7 @@ const TIPS = {
   souffleur: 'Te repousse de 2 cases', grappineur: 'T’attire à lui', tisseur: 'Crée des murs près de toi', charognard: 'Grandit à chaque mort',
   voleur: 'Fuit : tue-le vite', eveille: 'Plus fort chaque tour', enrage: 'Plus fort à chaque coup reçu', gardien: '−2 déplacement autour',
   semeur: 'Fait pousser des piques', pyromane: 'Embrase une croix (annoncée)', martyr: 'Soigne ses alliés en mourant', miroir: 'Renvoie 40 % des dégâts',
-  coureur: 'Frappe et recule',
+  coureur: 'Frappe et recule', sapeur: 'Creuse une fosse sous toi', etendard: '+30 % de dégâts autour de lui', sentinelle: 'Tire si tu t’arrêtes dans sa ligne',
 };
 
 /* ---------- Bonus dans les salles ---------- */
@@ -355,7 +368,7 @@ const NB_HEROES = 3;  // taille de l'équipe
 
 /* ---------- Pouvoirs d'élite et mutations de boss ----------
    une élite (étoile) reçoit un pouvoir à partir de la salle 8 (deux en difficulté 5+) ;
-   les boss reçoivent une mutation de plus chaque fois que tu as battu les 6 boss */
+   les boss reçoivent une mutation de plus chaque fois que tu as battu tous les boss */
 const MODS = {
   blinde:   { name: 'Blindé', icon: 'shield', color: '#9fb7d9', tip: 'Attaques directes −40 %',
               desc: 'Les attaques directes des héros lui font 40 % de dégâts en moins. Collisions, chutes, explosions, feu, poison et pièges font des dégâts normaux.' },
@@ -389,7 +402,7 @@ const FEATS = [
   ['boss50', 'Fléau des boss', 'Battre 50 boss.', 'bosses', 50],
   ['boss250', 'Légende', 'Battre 250 boss.', 'bosses', 250],
   ['boss1000', 'Mythe', 'Battre 1000 boss.', 'bosses', 1000],
-  ['allboss', 'Collection', 'Battre chacun des 6 boss.', 'kinds', 6],
+  ['allboss', 'Collection', 'Battre chacun des 7 boss.', 'kinds', 7],
   ['mut1', 'Mutant', 'Battre un boss qui a une mutation.', 'mutBoss', 1],
   ['mut2', 'Chimère', 'Battre un boss qui a 2 mutations.', 'mutBoss', 2],
   ['mut3', 'Abomination', 'Battre un boss qui a 3 mutations.', 'mutBoss', 3],

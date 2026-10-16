@@ -96,6 +96,7 @@ const UI = {
   pvPending: false,
   pickLevel: 1,
   show(id) {
+    if (id !== 'scr-pick' && typeof Codex !== 'undefined') Codex.stop();
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
     const tp = $('#tip'); if (tp) tp.classList.remove('on');
     if (id === 'scr-combat') { requestAnimationFrame(() => { Render.resize(); Render.start(); }); } else Render.stop();
@@ -109,6 +110,19 @@ const UI = {
     const c = $('#btn-continue');
     if (sv) { c.style.display = ''; c.innerHTML = `${icon('door', 22)} Continuer <small>Salle ${sv.depth + 1} · ${icon('skullx', 14)} ${sv.level || 1} · ${icon('gold', 14)} ${sv.money}</small>`; }
     else c.style.display = 'none';
+    // héros du logo et ennemis qui flottent en arrière-plan
+    const lt = document.querySelectorAll('.logo-tokens span');
+    ['brann', 'lyse', 'kael'].forEach((k, i) => { if (lt[i]) { lt[i].style.backgroundImage = `url(${Render.portrait(k)})`; lt[i].classList.add('pt'); } });
+    const bg = $('.title-bg');
+    if (bg && !bg.dataset.ok) {
+      bg.dataset.ok = '1';
+      const ks = Object.keys(ENEMIES).filter(k => ENEMIES[k].w > 0);
+      let h = '';
+      for (let i = 0; i < 16; i++) { const k = ks[(i * 7) % ks.length], E = ENEMIES[k]; h += `<i class="tf sh-${E.shape}" style="--c:${E.color};left:${(i * 61) % 100}%;--d:${16 + (i * 5) % 14}s;--dl:-${(i * 3.7) % 20}s;--s:${0.6 + ((i * 13) % 10) / 10}"></i>`; }
+      bg.innerHTML = h;
+    }
+    const L = lifeStats();
+    $('#title-rec').innerHTML = (L.rooms ? [chip('door', L.maxDepth || 0, '', 'Salle la plus profonde atteinte'), chip('crown', L.bosses || 0, 'gold', 'Boss battus (toutes parties)'), chip('skullx', L.kills || 0, '', 'Ennemis tués (toutes parties)'), chip('skullx', 'niv. ' + unlockedLevel(), 'red', 'Difficulté maximum débloquée')].join('') : '');
     const fd = featsDone(), nf = FEATS.filter(f => fd[f.id]).length;
     $('#btn-feats').innerHTML = `${icon('crown', 18)} Hauts faits <small>${nf}/${FEATS.length}</small>`;
     const dl = loadDaily(), rec = dailyRecords(), td = rec.days && rec.days[todayStr()];
@@ -151,7 +165,10 @@ const UI = {
       const v = Math.min(f.goal, featValue(L, f)), ok = !!done[f.id];
       return `<div class="feat ${ok ? 'ok' : ''}" title="${esc(f.desc + (ok ? ' Obtenu le ' + done[f.id] + '.' : ''))}"><span class="fi">${icon(ok ? 'crown' : 'star', 26)}</span><span style="flex:1"><b>${f.name}</b><small>${esc(f.desc)}</small>${ok ? '' : `<div class="fbar"><i style="width:${v / f.goal * 100}%"></i></div><small>${v} / ${f.goal}</small>`}</span></div>`;
     }).join('');
-    UI.modal(`${icon('crown', 26)} Hauts faits <small>${n}/${FEATS.length}</small>`, `<p class="intro">Des objectifs pour toute ta vie de joueur (gardés d’une partie à l’autre). Ils ne donnent aucun pouvoir : juste la gloire.</p><div class="feats">${rows}</div>`,
+    const rec = dailyRecords();
+    const life = [['door', L.maxDepth || 0, 'Salle la plus profonde'], ['door', L.rooms || 0, 'Salles jouées'], ['crown', L.bosses || 0, 'Boss battus'], ['skullx', L.kills || 0, 'Ennemis tués'], ['pit', L.falls || 0, 'Ennemis tombés'], ['heart', L.perfect || 0, 'Salles sans perte'], ['star', L.goals || 0, 'Défis réussis'], ['skullx', unlockedLevel(), 'Difficulté max débloquée'], ['star', rec.best || 0, 'Record de l’Épreuve du jour']]
+      .map(([ic, v, t]) => `<div title="${esc(t)}">${icon(ic, 20)}<b>${v}</b><small>${t}</small></div>`).join('');
+    UI.modal(`${icon('crown', 26)} Hauts faits <small>${n}/${FEATS.length}</small>`, `<div class="life">${life}</div><p class="intro">Des objectifs pour toute ta vie de joueur (gardés d’une partie à l’autre). Ils ne donnent aucun pouvoir : juste la gloire.</p><div class="feats">${rows}</div>`,
       [{ label: 'Fermer', cls: 'ghost' }], { huge: true });
   },
 
@@ -188,7 +205,7 @@ const UI = {
     box.innerHTML = Object.keys(HEROES).map(k => {
       const H = HEROES[k], B = SKILLS[H.basic];
       return `<button class="pick-card" data-k="${k}" style="--c:${H.color}">
-        <div class="pick-token"><span>${H.name[0]}</span></div>
+        <div class="pick-token"><img src="${Render.portrait(k)}" alt=""></div>
         <b>${H.name}</b>
         <div class="pick-chips">${chip(B.icon, B.dmg, '', B.name)}${chip(B.type === 'line' && B.range > 1 ? 'arrow' : B.type === 'point' ? 'target' : 'fist', B.range, '', 'Portée')}${chip('foot', H.move, 'blue', 'Déplacement')}</div>
         <p>${H.desc}</p>
@@ -197,10 +214,19 @@ const UI = {
     box.querySelectorAll('.pick-card').forEach(b => b.onclick = () => {
       Sfx.click();
       const k = b.dataset.k, i = UI.pickSel.indexOf(k);
+      showDemo(k);
       if (i >= 0) UI.pickSel.splice(i, 1); else { UI.pickSel.push(k); if (UI.pickSel.length > NB_HEROES) UI.pickSel.shift(); }
       box.querySelectorAll('.pick-card').forEach(x => { const j = UI.pickSel.indexOf(x.dataset.k); x.classList.toggle('sel', j >= 0); x.dataset.n = j >= 0 ? j + 1 : ''; });
       $('#btn-start').disabled = UI.pickSel.length !== NB_HEROES;
     });
+    const showDemo = k => {
+      const H = HEROES[k], B = SKILLS[H.basic];
+      $('#pick-info').innerHTML = `<h3 style="color:${H.color}">${H.name} <small>${H.title}</small></h3><p>${chip(B.icon, B.name)} ${esc(B.desc)}</p><ul>${(H.tips || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+      $('#pick-demo').style.setProperty('--c', H.color);
+      Codex.playHero($('#pick-canvas'), k);
+    };
+    box.querySelectorAll('.pick-card').forEach(b => b.addEventListener('mouseenter', () => showDemo(b.dataset.k)));
+    showDemo(Object.keys(HEROES)[0]);
     const lv = $('#pick-level');
     const draw = () => { lv.innerHTML = UI.levelHtml(UI.pickLevel); UI.bindLevel(lv, () => UI.pickLevel, v => { UI.pickLevel = v; draw(); }); };
     draw();
@@ -213,7 +239,7 @@ const UI = {
     const era = eraData(S.depth);
     document.documentElement.style.setProperty('--accent', era.accent);
     document.documentElement.style.setProperty('--era-bg', era.bg);
-    $('#ch-depth').textContent = S.daily ? `Épreuve · salle ${S.depth + 1}/${DAILY_ROOMS}` : `Salle ${S.depth + 1}`;
+    $('#ch-depth').innerHTML = S.daily ? `Épreuve · salle <span class="num">${S.depth + 1}/${DAILY_ROOMS}</span>` : `Salle <span class="num">${S.depth + 1}</span>`;
     $('#ch-era').textContent = S.daily ? `${S.daily.pts} points · ${era.name}` : era.name;
     $('#ch-era').title = era.desc;
     $('#ch-gold').innerHTML = `${icon('gold', 22)} ${S.money}`;
@@ -283,7 +309,7 @@ const UI = {
       // tâche à part : la simulation ne doit jamais se mêler à une animation en cours
       setTimeout(() => { computePreview().then(() => { UI.pvPending = false; UI.refreshCombat(); }, () => { UI.pvPending = false; }); }, 0);
     }
-    UI.setHtml($('#cb-depth'), `${S.depth + 1}<small>tour ${C.turn}</small>`);
+    UI.setHtml($('#cb-depth'), `<span class="cbd-room" title="Numéro de la salle">${icon('door', 16)}<b>${S.daily ? `${S.depth + 1}/${DAILY_ROOMS}` : S.depth + 1}</b></span><span class="cbd-turn" title="Tour en cours">${icon('hourglass', 15)}<b>Tour ${C.turn}</b></span>`);
     for (let hi = 0; hi < NB_HEROES; hi++) UI.setHtml($(`#hp-${hi}`), S.heroes[hi] ? heroPanel(hi) : '');
     const myTurn = C.phase === 'hero' && !C.busy && !C.ended;
     const btn = $('#btn-end');
@@ -593,6 +619,9 @@ const UI = {
       ${row('hourglass', '<b>Tout est temporaire</b> (en salles). L’<b>or</b> des boss sert à <b>graver</b> pour toujours.')}
       ${row('crown', '<b>Boss</b> = seule source d’or. Si un héros tombe à 40 %, il s’enfuit.')}
       ${row('pit', 'Pousse les ennemis dans les <b>fosses</b>, contre les murs, dans la lave… (attention, toi aussi tu peux tomber !)')}
+      ${row('star', '<b>Élites</b> (étoile) : elles ont des <b>pouvoirs</b> (Blindé, Vampire, Explosif…). Les <b>boss mutent</b> à chaque tour complet des boss.')}
+      ${row('up', 'Chaque compétence a des <b>dégâts maximum</b> : « 40/16 » = limitée à 16. Le Plafond et les Runes le relèvent.')}
+      ${row('door', '<b>Épreuve du jour</b> (écran titre) : la même partie pour tout le monde, un score à battre. Les <b>Hauts faits</b> suivent toute ta vie de joueur.')}
       ${row('rule', 'Tout le reste : <b>Codex</b> <kbd>K</kbd> ou survol d’une case.')}
       <div class="keys">
         <div><kbd>1</kbd>-<kbd>4</kbd> attaque (2× = sur soi)</div><div><kbd>Tab</kbd>/<kbd>Q</kbd> héros</div>
@@ -651,15 +680,16 @@ function heroSummary(h, hi) {
     g.taken < 1 ? chip('shield', '−' + Math.round((1 - g.taken) * 100) + ' %', 'blue', 'Dégâts subis en moins') : (g.taken > 1 ? chip('shield', '+' + Math.round((g.taken - 1) * 100) + ' %', 'red', 'Dégâts subis en plus') : ''),
     S.talents.egide ? chip('shield', S.talents.egide, 'blue', 'Boucliers au début de chaque salle') : '',
   ].join('');
+  const free = h.slots.filter(s => !s).length;
   const rows = h.slots.map((sl, si) => {
-    if (!sl) return `<div class="hrow empty">${icon('plus', 20)}<span>Emplacement libre</span></div>`;
+    if (!sl) return '';
     const D = SKILLS[sl.key], st = skillStats(hi, si), raw = rawDmg(hi, st);
     const mods = sl.mods.map(m => chip('up', UPGRADES[m.key].name + (m.perm ? ' ∞' : ' ' + m.dur), 'gold', UPGRADES[m.key].desc(m.v))).join('');
     return `<div class="hrow" title="${esc(D.desc)}"><span class="hr-ico">${icon(D.icon, 22)}</span><b>${D.name}</b>
       ${st.dmg ? `<span class="ch red">${icon('blade', 15)}${dmgHtml(raw, st.cap)}</span>` : ''}${chip('target', skillKindText(st))}${st.cd ? chip('hourglass', st.cd, '', 'Recharge (tours)') : ''}${si > 0 ? (sl.perm ? chip('star', '∞', 'gold', 'Définitive') : chip('hourglass', sl.dur + ' salles', '', 'Durée restante')) : ''}${mods}</div>`;
-  }).join('');
+  }).join('') + (free ? `<div class="hrow empty" title="Les portes « Compétence » remplissent ces emplacements">${icon('plus', 18).repeat(free)}<span>${free} emplacement${free > 1 ? 's' : ''} libre${free > 1 ? 's' : ''}</span></div>` : '');
   return `<div class="hsum" style="--c:${H.color}">
-    <div class="hsum-top"><div class="tok">${H.name[0]}</div><div class="hs-name"><b>${H.name}</b><small>${H.title}</small></div>${pctBar(h)}</div>
+    <div class="hsum-top"><img class="tok-img" src="${Render.portrait(h.key)}" alt=""><div class="hs-name"><b>${H.name}</b><small>${H.title}</small></div>${pctBar(h)}</div>
     <div class="hs-stats">${stats}</div>
     <div class="hs-rows">${rows}</div></div>`;
 }
@@ -693,6 +723,21 @@ function rewardLine(rw) {
   }
   return '';
 }
+function miniMap(room) {
+  const H = room.grid.length, W = room.grid[0].length, s = 10;
+  const col = { floor: '#2c3346', rock: '#5b6480', pit: '#06070c', lava: '#e0521a' };
+  const zc = { piques: '#b9bcc9', courant: '#4fa8ff', autel: '#6dffae', glace: '#bfeaff', rune: '#ffd166', portail: '#d68bff', buisson: '#4c9a52', boue: '#7a5a3a', soin: '#6dffae', foyer: '#ff7a2a', trampoline: '#ff9ad5', machoire: '#d9b55a', cercle: '#ffd166' };
+  let r = '';
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = room.grid[y][x]; if (t.t === 'void') continue;
+    r += `<rect x="${x * s}" y="${y * s}" width="${s - 1}" height="${s - 1}" rx="1.5" fill="${col[t.t] || col.floor}"/>`;
+    if (t.z && zc[t.z]) r += `<rect x="${x * s + 2.5}" y="${y * s + 2.5}" width="${s - 6}" height="${s - 6}" rx="1" fill="${zc[t.z]}" opacity="0.8"/>`;
+  }
+  for (const [x, y] of room.heroSpawns) r += `<circle cx="${x * s + 4.5}" cy="${y * s + 4.5}" r="3.4" fill="#6dffae" stroke="#fff" stroke-width="0.8"/>`;
+  for (const o of room.objs) r += `<rect x="${o.x * s + 2}" y="${o.y * s + 2}" width="5" height="5" fill="${o.kind === 'cristal' ? '#d68bff' : o.kind === 'coffre' ? '#ffd166' : o.kind === 'orbe' ? '#7cc4ff' : '#c0392b'}"/>`;
+  for (const e of room.enemies) { const c = e.boss ? BOSSES[e.kind].color : ENEMIES[e.kind].color; r += `<circle cx="${e.x * s + 4.5}" cy="${e.y * s + 4.5}" r="${e.boss ? 4.4 : 3.2}" fill="${c}" stroke="${e.elite || e.boss ? '#ffd166' : '#000'}" stroke-width="${e.elite || e.boss ? 1.4 : 0.6}"/>`; }
+  return `<svg class="minimap" viewBox="-1 -1 ${W * s + 1} ${H * s + 1}" title="Aperçu de la salle : vert = tes héros, ronds de couleur = ennemis (bord doré = élite), carrés = coffres, orbes, cristaux, barils">${r}</svg>`;
+}
 function roomContentChips(c, room) {
   const counts = {};
   for (const e of room.enemies) if (!e.boss) counts[e.kind] = (counts[e.kind] || 0) + 1;
@@ -706,7 +751,7 @@ function roomContentChips(c, room) {
   if (room.objs.some(o => o.kind === 'baril')) hz.push(chip('barrel', room.objs.filter(o => o.kind === 'baril').length, '', 'Barils explosifs'));
   const zs = {}; for (const row of room.grid) for (const t of row) if (t.z) zs[t.z] = (zs[t.z] || 0) + 1;
   for (const z in zs) hz.push(chip(ZONE_ICON[z], z === 'portail' ? zs[z] / 2 : zs[z], '', ZONES[z].name + ' — ' + ZONES[z].tip));
-  return `<div class="foes">${foes}${elites ? chip('star', elites, 'gold', 'Élites') : ''}${modChips}</div>${hz.length ? `<div class="hz">${hz.join('')}</div>` : ''}`;
+  return `${miniMap(room)}<div class="foes">${foes}${elites ? chip('star', elites, 'gold', 'Élites') : ''}${modChips}</div>${hz.length ? `<div class="hz">${hz.join('')}</div>` : ''}`;
 }
 function doorHtml(c, i) {
   const room = genRoom(c);
@@ -746,7 +791,7 @@ function heroPanel(hi) {
   const h = S.heroes[hi], H = HEROES[h.key], u = heroUnit(hi);
   const sel = C.sel === hi;
   const done = u && C.phase === 'hero' && u.actions <= 0 && !u.hasMove;
-  const st = u ? `${u.frozen ? chip('snow', '−2', 'blue', 'Gardien de givre : −2 déplacement') : ''}${chip('foot', u.hasMove ? u.moveBudget : 0, u.hasMove ? 'blue' : 'off', 'Déplacement')}${chip('star', Math.max(0, u.actions), u.actions > 0 ? 'gold' : 'off', 'Actions')}${u.shield ? chip('shield', u.shield, 'blue', 'Bouclier') : ''}` : '';
+  const st = u ? `${u.chain > 0 ? chip('link', u.chain, 'red', 'Enchaîné par le Geôlier : ne peut pas bouger (frappe-le avec ce héros pour briser la chaîne)') : ''}${u.frozen ? chip('snow', '−2', 'blue', 'Gardien de givre : −2 déplacement') : ''}${chip('foot', u.hasMove ? u.moveBudget : 0, u.hasMove ? 'blue' : 'off', 'Déplacement')}${chip('star', Math.max(0, u.actions), u.actions > 0 ? 'gold' : 'off', 'Actions')}${u.shield ? chip('shield', u.shield, 'blue', 'Bouclier') : ''}` : '';
   const sk = h.slots.map((s, si) => {
     if (!s) return `<button class="skb empty" disabled><span class="k">${si + 1}</span>${icon('plus', 22)}</button>`;
     const D = SKILLS[s.key], st2 = skillStats(hi, si);
@@ -767,7 +812,7 @@ function heroPanel(hi) {
     fut = after < now ? `<div class="fut bad" title="Ton % après le tour ennemi si tu finis ton tour maintenant">${icon('arrow', 16)} <b>${after} %</b> <small>(−${now - after})</small></div>` : `<div class="fut ok" title="Aucun dégât prévu">${icon('check', 16)} <b>intact</b></div>`;
   }
   return `<div class="hp-in ${sel ? 'sel' : ''} ${done ? 'done' : ''}" data-h="${hi}" style="--c:${H.color}">
-    <div class="hp-head"><div class="tok" title="${esc(H.name + ' — ' + H.desc)}">${H.name[0]}</div><b class="nm" title="Clique pour choisir ce héros (Tab)">${H.name}</b><div class="sts">${st}</div></div>
+    <div class="hp-head"><img class="tok-img" src="${Render.portrait(h.key)}" alt="" title="${esc(H.name + ' — ' + H.desc)}"><b class="nm" title="Clique pour choisir ce héros (Tab)">${H.name}</b><div class="sts">${st}</div></div>
     ${pctBar(h)}${fut}
     <div class="skills">${sk}</div></div>`;
 }
@@ -785,7 +830,7 @@ function tileInfo(x, y) {
   if (o) {
     if (o.team === 'hero') {
       const h = S.heroes[o.hero], H = HEROES[h.key];
-      parts.push(`<div class="inf-h" style="color:${H.color}">${H.name} ${chip('heart', Math.round(h.pct) + '%')}${chip('foot', heroMove(o.hero), 'blue')}${o.shield ? chip('shield', o.shield, 'blue') : ''}</div>`);
+      parts.push(`<div class="inf-h" style="color:${H.color}">${H.name} ${chip('heart', Math.round(h.pct) + '%')}${chip('foot', heroMove(o.hero), 'blue')}${o.shield ? chip('shield', o.shield, 'blue') : ''}${o.chain > 0 ? chip('link', 'enchaîné ' + o.chain, 'red', 'Ne peut pas bouger. Frappe le Geôlier avec ce héros pour briser la chaîne.') : ''}</div>`);
     } else if (o.kind === 'cristal') {
       parts.push(`<div class="inf-h">${icon('gem', 20)} Cristal ${chip('heart', Math.ceil(o.hp))}</div><p>Tant qu’il tient : ennemis +30 % et +3 PV/tour.</p>`);
     } else if (o.kind === 'coffre') {
@@ -809,6 +854,7 @@ function tileInfo(x, y) {
       if (o.armed) st.push(chip('bomb', 'armée', 'red'));
       if (o.reviving) st.push(chip('spin', 'revient', 'red'));
       if (totemNear(o)) st.push(chip('shield', '½', 'gold', 'Protégé par un Totem'));
+      if (bannerNear(o)) st.push(chip('flag', '+30 %', 'red', 'Près d’un Porte-étendard : frappe 30 % plus fort'));
       if (o.piece || o.noHeal) st.push(chip('heart', '0', 'off', 'Ne soigne pas'));
       if (o.boss && o.phase) st.push(chip('skullx', 'phase ' + (o.phase + 1), 'red'));
       const tip = o.boss ? D.desc : (TIPS[o.kind] || D.desc);
