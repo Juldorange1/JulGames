@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stratajium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== Menu ===== -->
+<section id="menu" class="screen on">
+  <div class="menu-box">
+    <h1>Stratajium</h1>
+    <p class="tag">Recrute, place, active. Tue les dieux adverses… ou 4 de leurs guerriers.</p>
+
+    <div class="opt">
+      <h3>Adversaire</h3>
+      <div class="seg" data-k="mode">
+        <button data-v="self">Contre soi-même</button>
+        <button data-v="facile">Bot facile</button>
+        <button data-v="normal">Bot normal</button>
+        <button data-v="impossible">Bot impossible</button>
+      </div>
+    </div>
+
+    <div class="opt">
+      <h3>Temps de chaque joueur (pour toute la partie)</h3>
+      <div class="seg" data-k="time">
+        <button data-v="15">15 min</button>
+        <button data-v="20">20 min</button>
+        <button data-v="30">30 min</button>
+        <button data-v="45" title="1 contre 1, sans événement, 45 minutes">Compétition · 45 min</button>
+      </div>
+    </div>
+
+    <div class="opt" id="optEvent">
+      <h3>Événement</h3>
+      <div class="seg" data-k="event">
+        <button data-v="none">Aucun</button>
+        <button data-v="random">Tirer au hasard</button>
+        <button data-v="pick">Choisir…</button>
+      </div>
+      <select id="evPick" hidden></select>
+      <p class="note" id="compNote" hidden>Compétition : 1 contre 1, sans événement.</p>
+    </div>
+
+    <div class="menu-actions">
+      <button class="big" id="btnPlay">Jouer</button>
+      <button class="ghost" id="btnRulesMenu">Règles</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Tirage / pari ===== -->
+<section id="pre" class="screen">
+  <div class="menu-box" id="preBox"></div>
+</section>
+
+<!-- ===== Partie ===== -->
+<section id="game" class="screen">
+  <header class="bar">
+    <button class="ghost sm" id="btnMenu" title="Retour au menu">☰ Menu</button>
+    <div id="evBadge" class="badge" hidden></div>
+    <div class="grow"></div>
+    <button class="ghost sm" id="btnSound" title="Son">🔊</button>
+    <button class="ghost sm" id="btnRules">Règles</button>
+  </header>
+
+  <div class="layout">
+    <div class="col left">
+      <div class="pp" id="pp1"></div>
+      <div class="pp" id="pp0"></div>
+    </div>
+
+    <div class="col mid">
+      <div class="turnline" id="turnline"></div>
+      <div class="boardwrap"><div id="board"></div></div>
+      <div class="hint" id="hint"></div>
+      <div class="opts" id="opts"></div>
+    </div>
+
+    <div class="col right">
+      <div class="card" id="poolCard">
+        <h3 id="poolTitle">Réserve commune</h3>
+        <div id="pool"></div>
+      </div>
+      <div class="card" id="infoCard"><div class="muted">Survole ou touche un perso pour voir ce qu'il fait.</div></div>
+      <div class="card logcard">
+        <h3>Journal</h3>
+        <ul id="log"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Fenêtres ===== -->
+<div class="modal" id="rulesModal" hidden>
+  <div class="mbox wide">
+    <button class="x" data-close>×</button>
+    <div id="rulesBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="endModal" hidden>
+  <div class="mbox">
+    <h2 id="endTitle"></h2>
+    <p id="endWhy"></p>
+    <div class="menu-actions">
+      <button class="big" id="btnAgain">Rejouer</button>
+      <button class="ghost" id="btnEndMenu">Menu</button>
+      <button class="ghost" id="btnEndLook">Voir le plateau</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
