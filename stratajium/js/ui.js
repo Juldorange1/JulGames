@@ -46,18 +46,71 @@
     <linearGradient id="gr1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6d8ff"/><stop offset=".55" stop-color="#9468f0"/><stop offset="1" stop-color="#4b2499"/></linearGradient>
     <linearGradient id="grn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4efe6"/><stop offset=".6" stop-color="#bdb3a3"/><stop offset="1" stop-color="#7d7364"/></linearGradient>
   </defs></svg>`);
+  // Un dessin propre à chaque perso (traits = couleur C, remplissages = F)
+  const GLYPH = {
+    // mages
+    ma: 'F<polygon points="57,22 33,54 47,54 41,79 67,44 53,44 60,22"/>', // éclair
+    mb: 'S<path d="M30 40 H68 M59 31 L68 40 L59 49 M70 62 H32 M41 53 L32 62 L41 71"/>', // échange
+    mc: 'S<path d="M32 28 H68 M50 24 V34 M36 28 L44 52 M64 28 L56 52"/><circle cx="50" cy="56" r="7" fill="C" stroke="none"/><path d="M50 63 V74 M42 70 H58"/>', // marionnette
+    md: 'F<path d="M28 44 H40 L64 30 V70 L40 56 H28 Z"/><path d="M70 40 Q76 50 70 60" fill="none" stroke="C" stroke-width="5" stroke-linecap="round"/>', // trompette
+    me: 'S<circle cx="50" cy="50" r="21"/><path d="M50 37 V63 M37 50 H63"/>', // invocation
+    pa: 'S<path d="M37 28 H63 L37 72 H63 Z"/><path d="M44 64 H56" stroke-width="8"/>', // sablier
+    pb: 'S<path d="M26 66 H74 M30 52 L40 40 L47 56 L55 34 L62 54 L70 44"/>', // séisme
+    pc: 'S<ellipse cx="50" cy="44" rx="19" ry="7"/><path d="M31 44 V62 Q50 72 69 62 V44 M33 24 L46 38 M67 24 L54 38"/>', // tambour
+    pd: 'S<path d="M36 76 V26"/><path d="M36 28 H66 L57 39 L66 50 H36 Z" fill="C"/>', // bannière
+    pe: 'S<path d="M41 47 V38 A9 9 0 0 1 59 38 V47"/><rect x="34" y="46" width="32" height="26" rx="4" fill="C" stroke="none"/>', // cadenas
+    pf: 'S<circle cx="50" cy="50" r="21"/><path d="M35 65 L65 35"/>', // interdit
+    pg: 'F<path d="M50 24 Q68 47 66 58 A16 16 0 0 1 34 58 Q32 47 50 24 Z"/>', // goutte de sang
+    // gardes
+    g1: 'S<circle cx="40" cy="48" r="13"/><circle cx="60" cy="48" r="13"/>', // jumeaux
+    g2: 'F<path d="M33 70 V36 H39 V28 H46 V36 H54 V28 H61 V36 H67 V70 Z"/>', // tour
+    g3: 'S<path d="M42 26 Q68 48 42 70 M42 26 V70 M28 48 H66 M59 41 L66 48 L59 55"/>', // arc
+    g4: 'S<path d="M50 40 C42 24 24 30 30 44 C34 52 43 49 41 42 M50 40 C58 24 76 30 70 44 C66 52 57 49 59 42 M43 46 L50 70 L57 46"/>', // bélier
+    g5: 'S<path d="M34 50 L50 34 L66 50 M34 66 L50 50 L66 66"/>', // double avance
+    g6: 'S<path d="M50 26 V36 M50 60 V70 M28 48 H38 M62 48 H72 M35 33 L41 39 M59 57 L65 63 M65 33 L59 39 M41 57 L35 63"/><circle cx="50" cy="48" r="7" fill="C" stroke="none"/>', // tourbillon
+    g7: 'S<path d="M30 68 L43 50 L55 62 L69 38 M60 38 H69 V47"/>', // pas de danse en diagonale
+    // champions de l'extension
+    c1: 'S<path d="M28 66 Q50 18 72 66 M63 61 L72 66 L74 56"/>', // saut
+    c2: 'F<path d="M50 24 Q68 42 61 70 H39 Q32 42 50 24 Z"/>', // mitre
+    c3: 'S<path d="M26 48 Q50 28 74 48 Q50 68 26 48 Z"/><circle cx="50" cy="48" r="7" fill="C" stroke="none"/>', // œil
+    c4: 'S<path d="M28 46 Q50 32 72 46 M28 46 L50 54 L72 46 M50 26 V72 M43 33 L50 26 L57 33"/>', // arbalète
+    c5: 'S<circle cx="60" cy="38" r="9" fill="C" stroke="none"/><path d="M53 45 L30 68 M49 37 L31 53 M61 49 L46 68"/>', // comète
+    c6: 'S<path d="M43 26 H57 M46 26 V42 L31 70 H69 L54 42 V26"/><path d="M38 58 H62 L67 68 H33 Z" fill="C" stroke="none"/>', // fiole
+    c7: 'S<circle cx="50" cy="48" r="15"/><path d="M50 24 V38 M50 58 V72 M26 48 H40 M60 48 H74"/>', // viseur
+    c8: 'S<circle cx="39" cy="38" r="7"/><circle cx="61" cy="38" r="7"/><path d="M30 52 Q50 72 70 52"/>', // grenouille
+    // soldat
+    s: 'S<path d="M28 58 A22 22 0 0 1 72 58 Z" fill="C"/><path d="M24 62 H76 M50 36 V24"/>', // casque
+  };
+  function glyph(id, tc) {
+    const g = GLYPH[id] || '';
+    const body = g.slice(1).replace(/"C"/g, `"${tc}"`);
+    return g[0] === 'F'
+      ? `<g fill="${tc}">${body}</g>`
+      : `<g fill="none" stroke="${tc}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">${body}</g>`;
+  }
   function token(ti, o) {
     const t = T[ti];
     const fill = o === 0 ? 'url(#gr0)' : o === 1 ? 'url(#gr1)' : 'url(#grn)';
     const stroke = o === 0 ? '#5a3a06' : o === 1 ? '#271055' : '#4a4338';
     const tc = o === 1 ? '#fff' : '#2b1c03';
-    let shape;
-    if (t.cat === 'M') shape = `<polygon points="50,3 91,26 91,74 50,97 9,74 9,26" fill="${fill}" stroke="${stroke}" stroke-width="5"/><polygon points="50,15 80,32 80,68 50,85 20,68 20,32" fill="none" stroke="${stroke}" stroke-opacity=".35" stroke-width="2.5"/>`;
-    else if (t.cat === 'G') shape = `<path d="M50 4 L90 17 L86 56 Q80 82 50 96 Q20 82 14 56 L10 17 Z" fill="${fill}" stroke="${stroke}" stroke-width="5"/>`;
-    else shape = `<circle cx="50" cy="50" r="44" fill="${fill}" stroke="${stroke}" stroke-width="6"/><circle cx="50" cy="50" r="13" fill="${stroke}" fill-opacity=".55"/>`;
-    const txt = t.cat === 'S' ? '' : `<text x="50" y="${t.cat === 'G' ? 61 : 64}" text-anchor="middle" font-size="${t.cat === 'M' ? 46 : 44}" fill="${tc}">${t.sym}</text>`;
-    const ext = t.ext ? `<text x="86" y="22" text-anchor="middle" font-size="26" fill="#7fd3ff" stroke="#0b1a26" stroke-width="2" paint-order="stroke">✦</text>` : '';
-    return `<svg class="tk" viewBox="0 0 100 100">${shape}${txt}${ext}</svg>`;
+    let shape, inner;
+    if (t.cat === 'M') {
+      // hexagone + couronne : les dieux
+      shape = `<polygon points="50,3 91,26 91,74 50,97 9,74 9,26" fill="${fill}" stroke="${stroke}" stroke-width="5"/>
+        <path d="M35 22 L35 9 L43 15 L50 5 L57 15 L65 9 L65 22 Z" fill="${tc}" opacity=".85"/>`;
+      inner = `<g transform="translate(50 57) scale(.9) translate(-50 -50)">${glyph(t.id, tc)}</g>`;
+    } else if (t.cat === 'G') {
+      // bouclier : les gardes
+      shape = `<path d="M50 4 L90 17 L86 56 Q80 82 50 96 Q20 82 14 56 L10 17 Z" fill="${fill}" stroke="${stroke}" stroke-width="5"/>`;
+      inner = `<g transform="translate(50 46) scale(1) translate(-50 -48)">${glyph(t.id, tc)}</g>`;
+    } else {
+      // rond : les soldats
+      shape = `<circle cx="50" cy="50" r="44" fill="${fill}" stroke="${stroke}" stroke-width="6"/>`;
+      inner = glyph('s', tc);
+    }
+    const badge = t.cat === 'S' ? '' : `<circle cx="81" cy="81" r="15" fill="${stroke}" stroke="${o === 1 ? '#d8c2ff' : '#ffe9a8'}" stroke-width="2.5"/><text x="81" y="88" text-anchor="middle" font-size="21" fill="#fff">${t.sym}</text>`;
+    const ext = t.ext ? `<text x="86" y="24" text-anchor="middle" font-size="26" fill="#7fd3ff" stroke="#0b1a26" stroke-width="2" paint-order="stroke">✦</text>` : '';
+    return `<svg class="tk" viewBox="0 0 100 100">${shape}${inner}${badge}${ext}</svg>`;
   }
 
   // ---------- menu ----------

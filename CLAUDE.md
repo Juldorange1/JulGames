@@ -18,5 +18,7 @@ Voir [README.md](README.md) pour la liste des jeux et l'arborescence complète.
 - Le dossier `.claude/` (settings locaux) n'est pas suivi par git — c'est voulu.
 - **Tests toujours sans son** : ouvrir les jeux avec `?muet` dans l'adresse (chaque jeu qui fait du son a un petit
   script dans son `<head>` qui coupe tout l'audio dans ce cas). Un nouveau jeu avec du son doit recevoir ce script.
+- **Aucun texte sélectionnable** dans les jeux : `body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }`
+  (garder `user-select: text` sur les `input`/`textarea` s'il y en a). À mettre dans tout nouveau jeu.
 - `index.html` à la racine est une simple page d'accueil qui liste les jeux ; ce n'est pas
   un jeu en soi.
