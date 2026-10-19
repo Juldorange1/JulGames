@@ -283,6 +283,9 @@ body.in-game #menu { display: none; }
 #hud-sub { transform: translateX(-50%) scale(var(--hs)); transform-origin: 50% 0; top: calc(50% + 34px * var(--hs)) !important; }
 #hud-center { font-size: calc(84px * var(--hs)) !important; }
 .hud-b { transform: scale(var(--hs)); transform-origin: 100% 100%; }
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
 </style>
 </head>
 <body>

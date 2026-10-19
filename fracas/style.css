@@ -1064,3 +1064,7 @@ fx-ico.ico-wrap { display: inline-flex !important; align-items: center; justify-
 .rep-boons-list { gap: 5px 8px !important; }
 
 .inf-panel { justify-content: center; }
+
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }

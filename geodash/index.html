@@ -96,6 +96,9 @@
   #analyzeCloseBtn{flex:none;background:transparent;border:1px solid currentColor;color:inherit;
     border-radius:6px;padding:2px 8px;cursor:pointer;font-size:1em;}
   .insp-range{width:120px;}
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
 </style>
 </head>
 <body>

@@ -211,3 +211,7 @@ details.aide li{margin:6px 0;}
   .pochette.grande{width:96px;height:96px;}
   .champ-titre{font-size:1.4em;}
 }
+
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }

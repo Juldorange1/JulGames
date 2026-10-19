@@ -114,6 +114,9 @@
     .blob,.logo,a.card{animation:none !important;}
     a.card{opacity:1;transform:none;}
   }
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
 </style>
 </head>
 <body>

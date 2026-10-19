@@ -540,3 +540,7 @@ html, body {
 .editor-analysis-impossible { color: #ff6e6e; font-size: 0.82rem; line-height: 1.4; }
 
 ::selection { background: rgba(110,231,255,0.3); }
+
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }

@@ -171,6 +171,9 @@ body.mobile-layout #settingsBtn,body.mobile-layout #rulesBtn{padding:8px 10px;fo
 }
 #boxDiff.hero-flash{animation:heroFlash .5s ease-out;}
 .chaos-btn{background:linear-gradient(90deg,#5533aa,#9944cc);border-color:#cc99ff !important;}
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
 </style>
 </head>
 <body>

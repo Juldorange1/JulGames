@@ -166,3 +166,7 @@ textarea{resize:vertical;min-height:160px;}
   .exercise-card{padding:24px 16px;min-height:220px;}
   .exercise-prompt{font-size:1.35em;}
 }
+
+/* aucun texte sélectionnable (les champs de saisie restent utilisables) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
