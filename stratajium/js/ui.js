@@ -5,15 +5,16 @@
   const T = E.T;
   const $ = id => document.getElementById(id);
   const PN = ['Or', 'Améthyste'];
-  const COLS = 'abcdefgh';
-  const sqName = q => COLS[q & 7] + (8 - (q >> 3));
+  const COLS = 'abcdefghijkl';
+  const sqName = q => { const g = G ? G.s.g : { W: 8, H: 8 }; return COLS[q % g.W] + (g.H - ((q / g.W) | 0)); };
   const CATN = { M: 'Mage · dieu (Primage)', G: 'Garde · guerrier (Champion)', S: 'Soldat · simple' };
   const LEVELN = { facile: 'Bot facile', normal: 'Bot normal', impossible: 'Bot impossible' };
 
   // ---------- sauvegarde des réglages ----------
   function lsGet(k, d) { try { const v = localStorage.getItem('stratajium.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem('stratajium.' + k, JSON.stringify(v)); } catch (e) { } }
-  const cfg = Object.assign({ mode: 'normal', time: '20', event: 'none', pick: 'inverse' }, lsGet('cfg', {}));
+  const cfg = Object.assign({ mode: 'normal', time: '20', event: 'none', pick: 'inverse', first: 'rand', map: 'aleatoire' }, lsGet('cfg', {}));
+  const isDesktop = /Electron/i.test(navigator.userAgent);
 
   // ---------- sons (synthétisés) ----------
   let soundOn = lsGet('son', true), ac = null;
@@ -130,8 +131,29 @@
     $('optEvent').querySelectorAll('.seg button').forEach(b => b.disabled = comp);
     $('compNote').hidden = !comp;
     evSel.hidden = comp || cfg.event !== 'pick';
+    const self = cfg.mode === 'self';
+    $('firstMe').textContent = self ? 'Or' : 'Moi';
+    $('firstOpp').textContent = self ? 'Améthyste' : 'Le bot';
+    renderScores();
+  }
+  // ---------- points et records (contre les bots) ----------
+  const PTS = { facile: 1, normal: 2, impossible: 5 };
+  function scores() { return Object.assign({ points: 0, wins: { facile: 0, normal: 0, impossible: 0 }, best: { facile: [], normal: [], impossible: [] } }, lsGet('scores', {})); }
+  function fmtDur(ms) { const t = Math.round(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = t % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0'); }
+  function renderScores() {
+    const sc = scores(), ad = lsGet('adapt', null);
+    let h = `<h2>Tes points</h2><div class="pts">${sc.points}<small>battre le bot : facile +1 · normal +2 · impossible +5</small></div>`;
+    for (const lv of ['facile', 'normal', 'impossible']) {
+      const b = sc.best[lv] || [], n = sc.wins[lv] || 0;
+      h += `<div class="botrec"><div class="bh">${LEVELN[lv]} <span>+${PTS[lv]}</span></div>
+        <div class="wins">${n} victoire${n > 1 ? 's' : ''} · tes 3 victoires les plus rapides :</div>
+        <ol>${[0, 1, 2].map(i => b[i] !== undefined ? `<li>${fmtDur(b[i])}</li>` : '<li class="none">—</li>').join('')}</ol></div>`;
+    }
+    if (ad && ad.games) h += `<div class="learn">Le bot impossible a étudié ${ad.games} de tes parties et s’adapte à ta façon de jouer.</div>`;
+    $('scoreBox').innerHTML = h;
   }
   syncMenu();
+  if (isDesktop) { $('btnQuit').hidden = false; $('btnQuit').onclick = () => window.close(); }
   function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
 
   // ---------- préparation (événement + pari) ----------
@@ -139,13 +161,14 @@
   $('btnPlay').onclick = () => {
     snd('sel');
     const comp = cfg.time === '45';
+    const inf = cfg.time === 'inf';
     let ev = null;
     if (!comp) {
       if (cfg.event === 'random') ev = E.EVENTS[Math.floor(Math.random() * E.EVENTS.length)].id;
       else if (cfg.event === 'pick') ev = cfg.pick;
     }
     const humans = cfg.mode === 'self' ? [true, true] : [true, false];
-    pre = { ev, humans, level: cfg.mode === 'self' ? null : cfg.mode, minutes: +cfg.time, comp, bet: [null, null] };
+    pre = { ev, humans, level: cfg.mode === 'self' ? null : cfg.mode, minutes: inf ? Infinity : +cfg.time, inf, comp, bet: [null, null], first: cfg.first, mapKind: cfg.map };
     if (!ev) return startGame(pre);
     showPre();
   };
@@ -177,39 +200,44 @@
   let worker = null, wreq = 0;
   const wcb = {};
   try {
-    const src = 'var E=(' + StratEngine.toString() + ')();onmessage=function(e){var d=e.data;postMessage({id:d.id,a:E.think(d.s,d.level)});};';
+    const src = 'var E=(' + StratEngine.toString() + ')();onmessage=function(e){var d=e.data;postMessage({id:d.id,a:E.think(d.s,d.level,d.opt)});};';
     worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
     worker.onmessage = e => { const cb = wcb[e.data.id]; delete wcb[e.data.id]; if (cb) cb(e.data.a); };
     worker.onerror = () => { worker = null; for (const k in wcb) { const cb = wcb[k]; delete wcb[k]; cb(null); } };
   } catch (e) { worker = null; }
-  function askBot(s, level, cb) {
-    const sync = () => setTimeout(() => cb(E.think(s, level)), 20);
+  function askBot(s, level, opt, cb) {
+    const sync = () => setTimeout(() => cb(E.think(s, level, opt)), 20);
     if (!worker) return sync();
     const id = ++wreq;
     wcb[id] = a => a ? cb(a) : sync();
-    try { worker.postMessage({ id, s, level }); } catch (e) { delete wcb[id]; sync(); }
+    try { worker.postMessage({ id, s, level, opt }); } catch (e) { delete wcb[id]; sync(); }
   }
 
   // ---------- partie ----------
   let G = null, gid = 0;
   function startGame(o) {
     gid++;
-    const first = Math.random() < .5 ? 0 : 1;
-    const s = E.newGame({ event: o.ev, first });
+    const first = o.first === 'me' ? 0 : o.first === 'opp' ? 1 : (Math.random() < .5 ? 0 : 1);
+    const map = E.makeMap(o.mapKind);
+    const s = E.newGame({ event: o.ev, first, map });
     if (o.ev === 'pari') s.bet = o.bet.slice();
     G = {
       id: gid, o, s, humans: o.humans, level: o.level,
       times: [o.minutes * 60000, o.minutes * 60000], last: performance.now(),
       sel: null, flash: [], legal: null, ver: 0, over: false, paused: false, thinking: false,
+      inf: !!o.inf, elapsed: 0, history: [], usage: {},
     };
+    buildBoard(map);
+    $('mapBadge').textContent = 'Carte : ' + map.name;
     $('log').innerHTML = '';
     const evo = E.EVENTS.find(x => x.id === o.ev);
     $('evBadge').hidden = !evo && !o.comp;
     $('evBadge').textContent = evo ? '★ ' + evo.name : 'Compétition';
     $('evBadge').title = evo ? evo.desc : '1 contre 1, sans événement, 45 minutes.';
-    sys(o.comp ? 'Compétition : 45 minutes chacun, sans événement.' : `${o.minutes} minutes chacun pour toute la partie.`);
+    sys(o.comp ? 'Compétition : 45 minutes chacun, sans événement.' : o.inf ? 'Temps infini.' : `${o.minutes} minutes chacun pour toute la partie.`);
+    sys(`Carte : ${map.name}.`);
     if (evo) sys(`Événement : ${evo.name}.`);
-    sys(`Tirage au sort : ${PN[first]} commence.`);
+    sys(o.first === 'rand' ? `Tirage au sort : ${PN[first]} commence.` : `${PN[first]} commence.`);
     if (s.phase === 'draft') sys('Draft : on se partage toute la réserve, chacun son tour.');
     $('endModal').hidden = true;
     show('game');
@@ -227,8 +255,10 @@
   setInterval(() => {
     const now = performance.now();
     if (!G || G.over || G.paused) { if (G) G.last = now; return; }
-    const p = G.s.turn;
-    G.times[p] -= now - G.last; G.last = now;
+    const p = G.s.turn, dt = now - G.last;
+    G.last = now; G.elapsed += dt;
+    if (G.inf) return;
+    G.times[p] -= dt;
     if (G.times[p] <= 0) {
       G.times[p] = 0;
       G.s.winner = 1 - p; G.s.why = `Temps écoulé pour ${PN[p]}.`;
@@ -246,8 +276,8 @@
     for (const p of [0, 1]) {
       const el = document.querySelector(`#pp${p} .clock`);
       if (!el) continue;
-      el.textContent = fmt(G.times[p]);
-      el.classList.toggle('low', G.times[p] < 60000);
+      el.textContent = G.inf ? '∞' : fmt(G.times[p]);
+      el.classList.toggle('low', !G.inf && G.times[p] < 60000);
     }
   }
 
@@ -257,7 +287,19 @@
     G.thinking = true;
     const id = G.id, ver = G.ver, t0 = performance.now();
     render();
-    askBot(G.s, G.level, a => {
+    const opt = {};
+    if (G.level === 'impossible') {
+      const left = G.times[G.s.turn];
+      opt.budget = G.inf ? 9000 : Math.round(Math.min(7000, Math.max(1200, left / 18)));
+      opt.canExtend = G.inf || left > 120000;
+      const ad = lsGet('adapt', null);
+      if (ad) {
+        const mx = Math.max(1, ...Object.values(ad.freq || {}));
+        const opp = {}; for (const k in ad.freq || {}) opp[k] = ad.freq[k] / mx;
+        opt.adapt = { wG: ad.wG || 1, wM: ad.wM || 1, opp };
+      }
+    }
+    askBot(G.s, G.level, opt, a => {
       const wait = Math.max(0, 450 - (performance.now() - t0));
       setTimeout(() => {
         if (!G || G.id !== id || G.ver !== ver || G.over) return;
@@ -270,6 +312,16 @@
   // ---------- exécution d'une action ----------
   function doAction(a) {
     const s = G.s, p = s.turn, before = E.clone(s);
+    if (G.humans[p]) {
+      // pour « annuler le coup » : on garde la position d'avant chaque action d'un humain
+      G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA });
+      if (G.history.length > 400) G.history.shift();
+      if (!(G.humans[0] && G.humans[1])) {
+        // ce que tu joues, pour que le bot impossible apprenne tes habitudes
+        const k = a.k === 'act' ? T[E.tix(s.b[a.from])].id : a.k === 'rec' ? 'rec:' + T[a.t].id : null;
+        if (k) G.usage[k] = (G.usage[k] || 0) + 1;
+      }
+    }
     const betBefore = s.betDone;
     s._dead = []; s._martyr = 0;
     E.apply(s, a);
@@ -304,17 +356,55 @@
     $('endTitle').textContent = title;
     $('endTitle').style.color = w === 2 ? '' : (w === 0 ? 'var(--gold)' : 'var(--vio)');
     $('endWhy').textContent = s.why;
+    $('endScore').textContent = '';
+    if (G.level && w !== 2 && !G.recorded) {
+      G.recorded = true;
+      const humanWon = G.humans[w];
+      if (humanWon) {
+        const sc = scores(), lv = G.level, ms = Math.round(G.elapsed);
+        sc.points += PTS[lv];
+        sc.wins[lv] = (sc.wins[lv] || 0) + 1;
+        const best = (sc.best[lv] || []).concat([ms]).sort((x, y) => x - y);
+        const rank = best.indexOf(ms);
+        sc.best[lv] = best.slice(0, 3);
+        lsSet('scores', sc);
+        $('endScore').textContent = `+${PTS[lv]} point${PTS[lv] > 1 ? 's' : ''} (total ${sc.points}) · temps ${fmtDur(ms)}${rank === 0 ? ' · nouveau record !' : rank < 3 ? ` · ${rank + 1}ᵉ meilleur temps !` : ''}`;
+      }
+      learn(humanWon, s);
+    }
     sys(`Fin : ${title} ${s.why}`);
     snd(w !== 2 && (G.humans[w]) ? 'win' : 'lose');
     setTimeout(() => { $('endModal').hidden = false; }, 500);
     render();
   }
+  // apprentissage : le bot retient tes habitudes et renforce ce qui l'a fait perdre
+  function learn(humanWon, s) {
+    const ad = Object.assign({ wG: 1, wM: 1, games: 0, freq: {} }, lsGet('adapt', {}));
+    for (const k in ad.freq) ad.freq[k] *= 0.9;
+    for (const k in G.usage) ad.freq[k] = (ad.freq[k] || 0) + G.usage[k];
+    if (humanWon) {
+      if (/gardes|Champions/.test(s.why)) ad.wG = Math.min(1.8, ad.wG * 1.1);
+      if (/mages|Primages|dieux/.test(s.why)) ad.wM = Math.min(1.8, ad.wM * 1.1);
+    } else { ad.wG = 1 + (ad.wG - 1) * 0.95; ad.wM = 1 + (ad.wM - 1) * 0.95; }
+    ad.games++;
+    lsSet('adapt', ad);
+  }
+  function undo() {
+    if (!G || !G.history.length) return toast('Aucun coup à annuler.');
+    const h = G.history.pop();
+    G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log;
+    G.ver++; G.thinking = false; G.sel = null; G.flash = []; G.over = false;
+    $('endModal').hidden = true;
+    sys('Coup annulé.');
+    snd('sel'); render(); maybeBot();
+  }
+  $('btnUndo').onclick = undo;
   $('btnAgain').onclick = () => { $('endModal').hidden = true; if (pre) { if (pre.ev && cfg.event === 'random') { $('btnPlay').click(); } else startGame(pre); } };
-  $('btnEndMenu').onclick = () => { $('endModal').hidden = true; G = null; show('menu'); };
+  $('btnEndMenu').onclick = () => { $('endModal').hidden = true; G = null; renderScores(); show('menu'); };
   $('btnEndLook').onclick = () => { $('endModal').hidden = true; };
   $('btnMenu').onclick = () => {
     if (G && !G.over && !confirm('Quitter la partie en cours ?')) return;
-    G = null; show('menu');
+    G = null; renderScores(); show('menu');
   };
   $('btnSound').onclick = () => { soundOn = !soundOn; lsSet('son', soundOn); $('btnSound').textContent = soundOn ? '🔊' : '🔇'; snd('sel'); };
   $('btnSound').textContent = soundOn ? '🔊' : '🔇';
@@ -323,7 +413,7 @@
   const tname = i => `${T[i].name} (${T[i].sym}${T[i].ext ? '✦' : ''})`;
   function optLabel(x) {
     if (x === 'bord') return 'les contours';
-    if (x === 'centre') return 'les 4 cases centrales';
+    if (x === 'centre') return 'le centre';
     if (x === 'anneau') return 'le contour intérieur';
     if (x === 'go') return '';
     if (x[0] === 'r') return 'recrute ' + T[+x.slice(1)].name;
@@ -443,13 +533,19 @@
 
   // ---------- rendu ----------
   const boardEl = $('board');
-  const sqEls = [];
-  for (let q = 0; q < 64; q++) {
-    const d = document.createElement('div');
-    d.className = 'sq ' + (E.isDark(q) ? 'd' : 'l');
-    d.addEventListener('click', () => clickSq(q));
-    d.addEventListener('mouseenter', () => { if (G && G.s.b[q] > 0) showInfo(E.tix(G.s.b[q]), E.own(G.s.b[q])); });
-    boardEl.appendChild(d); sqEls.push(d);
+  let sqEls = [];
+  function buildBoard(g) {
+    boardEl.innerHTML = ''; sqEls = [];
+    document.documentElement.style.setProperty('--cols', g.W);
+    document.documentElement.style.setProperty('--rows', g.H);
+    for (let q = 0; q < g.N; q++) {
+      const d = document.createElement('div');
+      if (g.ex[q]) {
+        d.addEventListener('click', () => clickSq(q));
+        d.addEventListener('mouseenter', () => { if (G && G.s.b[q] > 0) showInfo(E.tix(G.s.b[q]), E.own(G.s.b[q])); });
+      }
+      boardEl.appendChild(d); sqEls.push(d);
+    }
   }
 
   function render() {
@@ -465,10 +561,16 @@
     }
     const declSq = new Set(); for (const p of [0, 1]) if (s.decl[p] && s.decl[p].k === 'act') declSq.add(s.decl[p].from);
     const showHome = G.sel && G.sel.k === 'place';
-    for (let q = 0; q < 64; q++) {
+    const g = s.g;
+    // coordonnées : sous la case la plus basse de chaque colonne, à gauche de la plus à gauche de chaque ligne
+    const botOf = [], leftOf = [];
+    for (let q = 0; q < g.N; q++) if (g.ex[q]) { const r = (q / g.W) | 0, c = q % g.W; if (botOf[c] === undefined || r > botOf[c]) botOf[c] = r; if (leftOf[r] === undefined || c < leftOf[r]) leftOf[r] = c; }
+    for (let q = 0; q < g.N; q++) {
       const el = sqEls[q], c = s.b[q];
-      let cls = 'sq ' + (E.isDark(q) ? 'd' : 'l');
-      if (E.isHome(q, 0)) cls += ' home0'; if (E.isHome(q, 1)) cls += ' home1';
+      if (!g.ex[q]) { el.className = 'sq void'; el.innerHTML = ''; continue; }
+      const r = (q / g.W) | 0, col = q % g.W;
+      let cls = 'sq ' + (E.isDark(g, q) ? 'd' : 'l');
+      if (g.zone[0][q]) cls += ' zone0 home0'; if (g.zone[1][q]) cls += ' zone1 home1';
       if (showHome) cls += ' showhome';
       if (c < 0) cls += ' wall';
       if (lastSq.has(q)) cls += ' last';
@@ -479,8 +581,8 @@
       if (G.flash.includes(q)) cls += ' boom';
       el.className = cls;
       let h = '';
-      if ((q >> 3) === 7) h += `<span class="crd f">${COLS[q & 7]}</span>`;
-      if ((q & 7) === 0) h += `<span class="crd r">${8 - (q >> 3)}</span>`;
+      if (botOf[col] === r) h += `<span class="crd f">${COLS[col]}</span>`;
+      if (leftOf[r] === col) h += `<span class="crd r">${g.H - r}</span>`;
       if (c > 0) { const t = T[E.tix(c)]; h += `<div class="pc ${t.cat}">${token(E.tix(c), E.own(c))}</div>`; }
       h += '<div class="mk"></div>';
       el.innerHTML = h;
@@ -611,7 +713,7 @@
       h = 'Annonce ta prochaine action : recruter, placer, ou touche un de tes persos pour annoncer que tu l’activeras.';
       o.push(`<button data-o="decl:rec">Annoncer : recruter</button>`, `<button data-o="decl:pla">Annoncer : placer</button>`);
     } else if (G.sel && G.sel.k === 'place') {
-      h = `Place ${T[G.sel.t].name} sur une de tes 2 rangées.` + (s.ev === 'noir' ? ' Les cases vertes (noires) sont gratuites.' : '');
+      h = `Place ${T[G.sel.t].name} dans ta zone de placement (cases encadrées de ta couleur).` + (s.ev === 'noir' ? ' Les cases vertes (noires) sont gratuites.' : '');
       o.push(`<button data-o="cancel">Annuler</button>`);
     } else if (G.sel) {
       const t = T[E.tix(s.b[G.sel.from])];
@@ -619,7 +721,7 @@
       if (v.sq.size) h += ' <span class="muted">— choisis une case en surbrillance.</span>';
       for (const x of v.strs) {
         if (x[0] === 'r') { const i = +x.slice(1); o.push(`<button data-o="s:${x}">${token(i, -1)} ${T[i].name}</button>`); }
-        else o.push(`<button class="main" data-o="s:${x}" data-zone="${x}">${x === 'go' ? 'Activer ' + t.name : (x === 'bord' ? '⚡ Les contours' : x === 'centre' ? '⚡ Les 4 cases centrales' : '⚡ Le contour intérieur')}</button>`);
+        else o.push(`<button class="main" data-o="s:${x}" data-zone="${x}">${x === 'go' ? 'Activer ' + t.name : (x === 'bord' ? '⚡ Les contours' : x === 'centre' ? '⚡ Le centre' : '⚡ Le contour intérieur')}</button>`);
       }
       if (v.complete) o.push(`<button class="main" data-o="finish">Valider (s’arrêter là)</button>`);
       o.push(`<button data-o="cancel">Annuler</button>`);
@@ -650,19 +752,20 @@
       };
       const z = b.dataset.zone;
       if (z) {
-        const zone = z === 'bord' ? E.BORDER : z === 'centre' ? E.CENTER : z === 'anneau' ? E.RING2 : zoneAdj(G.sel.from);
+        const gg = G.s.g, zone = z === 'bord' ? gg.border : z === 'centre' ? gg.center : z === 'anneau' ? gg.ring2 : zoneAdj(G.sel.from);
         b.onmouseenter = () => zone.forEach(q => sqEls[q].classList.add('zone'));
         b.onmouseleave = () => sqEls.forEach(e => e.classList.remove('zone'));
       }
     });
   }
   function zoneAdj(q) {
-    const t = T[E.tix(G.s.b[q])];
+    const g = G.s.g, t = T[E.tix(G.s.b[q])];
     if (t.id !== 'g6') return [];
-    const out = [], r = q >> 3, c = q & 7;
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if ((dr || dc) && r + dr >= 0 && r + dr < 8 && c + dc >= 0 && c + dc < 8) out.push((r + dr) * 8 + c + dc);
+    const out = [];
+    for (let d = 0; d < 8; d++) { const x = g.mv[d * g.N + q]; if (x >= 0) out.push(x); }
     return out;
   }
+
 
   function showInfo(i, o) {
     const t = T[i];
@@ -674,6 +777,7 @@
   }
 
   document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && G && $('game').classList.contains('on')) { e.preventDefault(); return undo(); }
     if (e.key === 'Escape') {
       if (!$('rulesModal').hidden) return closeRules();
       if (G && G.sel) { G.sel = null; render(); }
@@ -685,18 +789,22 @@
     const grp = (ids, title) => `<h3>${title}</h3><div class="ptable">${ids.map(id => { const i = E.TI[id], t = T[i]; return `<div class="prow">${token(i, 0)}<div><b>${t.sym} · ${t.name}${t.cost ? ` <span style="color:#7fd3ff">${t.cost} mana</span>` : ''}</b><small>${t.desc}</small></div></div>`; }).join('')}</div>`;
     return `<h2>Stratajium — règles</h2>
     <ul>
-      <li>Chaque joueur a un temps pour <b>toute sa partie</b> : 15, 20 ou 30 minutes (Compétition : 45 minutes, sans événement). Temps écoulé = défaite.</li>
-      <li>On peut tirer un <b>événement</b> aléatoire avant de commencer.</li>
+      <li>Chaque joueur a un temps pour <b>toute sa partie</b> : 15, 20, 30 minutes ou <b>infini</b> (Compétition : 45 minutes, sans événement). Temps écoulé = défaite.</li>
+      <li>On choisit qui commence (ou au hasard), et on peut tirer un <b>événement</b> aléatoire avant de commencer.</li>
       <li>Chaque joueur commence avec <b>100 mana</b>. Les mages coûtent du mana pour s’activer.</li>
-      <li>Pendant ton tour tu fais <b>une seule action</b> parmi : <b>recruter</b> 1 perso, <b>placer</b> 1 perso déjà recruté, ou <b>activer</b> 1 perso qui est sur le plateau.</li>
+      <li>Pendant ton tour tu fais <b>une seule action</b> parmi : <b>recruter</b> 1 perso, <b>placer</b> 1 perso déjà recruté, ou <b>activer</b> 1 perso qui est sur la carte.</li>
       <li><b>But</b> : tuer <b>tous les dieux</b> (mages) adverses, ou <b>4 guerriers</b> (gardes) adverses.</li>
-      <li>Plateau de 8×8 comme aux échecs. Or joue en bas, Améthyste en haut. « En avant » = vers l’adversaire.</li>
+      <li><b>La carte change à chaque partie</b> : forme, taille (de 6 à 10 cases de large) et zones de placement sont tirées au hasard, mais toujours symétriques pour que ce soit juste. (Le menu permet aussi de jouer sur le plateau classique 8×8.) Or joue en bas, Améthyste en haut.</li>
+      <li>On place ses persos dans <b>sa zone de placement</b> (cases encadrées de sa couleur).</li>
+      <li><b>Seuls les soldats ont un sens</b> : ils avancent vers l’adversaire. Les gardes (Éclaireur compris) et tous les autres vont aussi bien vers le haut, le bas, la gauche ou la droite.</li>
       <li>La réserve commune contient <b>5 mages, 14 gardes (2 de chaque) et 8 soldats</b>. Un perso recruté est retourné du côté de ta couleur.</li>
+      <li>Contre un bot, tu peux <b>annuler ton dernier coup</b> (bouton ↶ ou Ctrl+Z). Battre le bot facile rapporte 1 point, le normal 2 points, l’impossible 5 points ; tes 3 victoires les plus rapides contre chaque bot sont gardées.</li>
     </ul>
     <p class="interp">Précisions choisies pour que tout soit jouable (les règles d’origine ne le disaient pas) :<br>
-    • On place un perso sur une case vide de <b>ses 2 premières rangées</b>.<br>
     • Comme aux échecs, on prend un ennemi en arrivant sur sa case. Les attaques de zone ne tuent que les ennemis.<br>
-    • « Tous les dieux » : tu gagnes quand l’adversaire a perdu au moins 1 mage et qu’il ne lui en reste aucun (ni sur le plateau, ni à placer). Un mage jamais posé ne peut pas mourir !<br>
+    • Les cases manquantes de la carte sont des trous : on ne peut pas y aller, et un perso poussé dedans meurt (comme hors de la carte).<br>
+    • « Le centre » = les 4 cases (ou un peu plus) les plus proches du milieu de la carte.<br>
+    • « Tous les dieux » : tu gagnes quand l’adversaire a perdu au moins 1 mage et qu’il ne lui en reste aucun (ni sur la carte, ni à placer). Un mage jamais posé ne peut pas mourir !<br>
     • Le mage <b>e</b> n’avait pas de prix : il coûte 30 mana. La règle disait 4 mages mais en listait 5 : les 5 sont dans la réserve.<br>
     • Si tu n’as aucune action possible, tu passes. 150 tours sans aucune élimination = partie nulle.</p>
     ${grp(['ma', 'mb', 'mc', 'md', 'me'], 'Mages (dieux)')}
@@ -710,8 +818,8 @@
     <ul>
       <li><b>Recruter</b> : clique un perso dans la réserve commune (à droite).</li>
       <li><b>Placer</b> : clique un perso de ta liste « À placer », puis une case en surbrillance.</li>
-      <li><b>Activer</b> : clique ton perso sur le plateau, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les attaques de zone et les pouvoirs ont des boutons sous le plateau.</li>
-      <li>Échap ou « Annuler » pour changer d’avis. Survole un perso pour voir ce qu’il fait.</li>
+      <li><b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les attaques de zone et les pouvoirs ont des boutons sous le plateau.</li>
+      <li>Échap ou « Annuler » pour changer d’avis. ↶ ou Ctrl+Z pour revenir un coup en arrière. Survole un perso pour voir ce qu’il fait.</li>
     </ul>`;
   }
   function openRules() { $('rulesBody').innerHTML = rulesHTML(); $('rulesModal').hidden = false; if (G) G.paused = true; }
@@ -721,5 +829,6 @@
   $('rulesModal').addEventListener('click', e => { if (e.target === $('rulesModal') || e.target.hasAttribute('data-close')) closeRules(); });
 
   // accès pour les tests
-  window.STRAT = { get G() { return G; }, E, doAction: a => doAction(a) };
+  window.STRAT_TOKEN = token;
+  window.STRAT = { get G() { return G; }, E, doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo() };
 })();

@@ -5,14 +5,14 @@
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stratajium</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap">
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- ===== Menu ===== -->
 <section id="menu" class="screen on">
+  <div class="menu-wrap">
   <div class="menu-box">
     <h1>Stratajium</h1>
     <p class="tag">Recrute, place, active. Tue les dieux adverses… ou 4 de leurs guerriers.</p>
@@ -28,12 +28,30 @@
     </div>
 
     <div class="opt">
+      <h3>Qui commence ?</h3>
+      <div class="seg" data-k="first">
+        <button data-v="me" id="firstMe">Moi</button>
+        <button data-v="opp" id="firstOpp">Le bot</button>
+        <button data-v="rand">Au hasard</button>
+      </div>
+    </div>
+
+    <div class="opt">
       <h3>Temps de chaque joueur (pour toute la partie)</h3>
       <div class="seg" data-k="time">
         <button data-v="15">15 min</button>
         <button data-v="20">20 min</button>
         <button data-v="30">30 min</button>
+        <button data-v="inf">∞ Infini</button>
         <button data-v="45" title="1 contre 1, sans événement, 45 minutes">Compétition · 45 min</button>
+      </div>
+    </div>
+
+    <div class="opt">
+      <h3>Carte</h3>
+      <div class="seg" data-k="map">
+        <button data-v="aleatoire">Aléatoire (forme, taille, zones)</button>
+        <button data-v="classique">Classique 8×8</button>
       </div>
     </div>
 
@@ -51,7 +69,11 @@
     <div class="menu-actions">
       <button class="big" id="btnPlay">Jouer</button>
       <button class="ghost" id="btnRulesMenu">Règles</button>
+      <button class="ghost" id="btnQuit" hidden>Quitter</button>
     </div>
+  </div>
+
+  <aside class="menu-box score-box" id="scoreBox"></aside>
   </div>
 </section>
 
@@ -64,7 +86,9 @@
 <section id="game" class="screen">
   <header class="bar">
     <button class="ghost sm" id="btnMenu" title="Retour au menu">☰ Menu</button>
+    <button class="ghost sm" id="btnUndo" title="Revenir un coup en arrière (Ctrl+Z)">↶ Annuler le coup</button>
     <div id="evBadge" class="badge" hidden></div>
+    <div id="mapBadge" class="badge map"></div>
     <div class="grow"></div>
     <button class="ghost sm" id="btnSound" title="Son">🔊</button>
     <button class="ghost sm" id="btnRules">Règles</button>
@@ -109,6 +133,7 @@
   <div class="mbox">
     <h2 id="endTitle"></h2>
     <p id="endWhy"></p>
+    <p id="endScore"></p>
     <div class="menu-actions">
       <button class="big" id="btnAgain">Rejouer</button>
       <button class="ghost" id="btnEndMenu">Menu</button>

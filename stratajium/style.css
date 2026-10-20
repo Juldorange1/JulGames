@@ -1,3 +1,4 @@
+@font-face { font-family: 'Cinzel'; src: url(fonts/cinzel-latin.woff2) format('woff2'); font-weight: 400 900; font-display: swap; }
 :root {
   --bg: #0f0d14;
   --bg2: #18141f;
@@ -13,7 +14,8 @@
   --dark: #5a4433;
   --danger: #ff5c6c;
   --ok: #5ee39a;
-  --sq: min(10.6vw, 8.2vh, 70px);
+  --cols: 8; --rows: 8;
+  --sq: min(calc((100vw - 680px) / var(--cols)), calc((100vh - 230px) / var(--rows)), calc(620px / max(var(--cols), var(--rows))));
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -34,6 +36,19 @@ h1, h2, h3 { margin: 0; }
 
 /* ----- menu ----- */
 #menu.on, #pre.on { display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.menu-wrap { display: flex; gap: 18px; align-items: flex-start; justify-content: center; width: 100%; max-width: 1040px; flex-wrap: wrap; }
+.menu-wrap > .menu-box { flex: 1 1 520px; }
+.score-box { flex: 0 1 340px !important; padding: 22px 20px; }
+.score-box h2 { font-family: Cinzel, Georgia, serif; font-size: 22px; text-align: center; }
+.score-box .pts { text-align: center; font-size: 46px; font-weight: 800; color: var(--gold); line-height: 1.1; margin: 4px 0 14px; }
+.score-box .pts small { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
+.botrec { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; background: var(--bg2); }
+.botrec .bh { display: flex; justify-content: space-between; font-weight: 700; }
+.botrec .bh span { color: var(--gold); }
+.botrec ol { margin: 6px 0 0; padding-left: 22px; font-variant-numeric: tabular-nums; }
+.botrec li.none { color: var(--muted); }
+.botrec .wins { font-size: 12px; color: var(--muted); }
+.score-box .learn { font-size: 12px; color: var(--muted); margin-top: 12px; text-align: center; }
 .menu-box { width: 100%; max-width: 640px; background: rgba(31, 26, 40, .85); border: 1px solid var(--line); border-radius: 18px; padding: 28px 26px; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
 h1 { font-family: Cinzel, Georgia, serif; font-weight: 800; font-size: clamp(34px, 8vw, 56px); letter-spacing: .04em; text-align: center;
   background: linear-gradient(90deg, var(--gold), #fff3d0 45%, var(--vio)); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -61,10 +76,11 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 #game.on { display: flex; flex-direction: column; min-height: 100vh; }
 .bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(15, 13, 20, .7); }
 .grow { flex: 1; }
+.badge.map { border-color: var(--line); color: var(--muted); }
 .badge { font-size: 13px; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--gold); color: var(--gold); cursor: help; }
 .layout { flex: 1; display: grid; grid-template-columns: minmax(220px, 280px) auto minmax(240px, 320px); gap: 18px; padding: 16px; justify-content: center; align-items: start; }
 .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.left { justify-content: space-between; height: calc(var(--sq) * 8 + 54px); }
+.left { justify-content: space-between; min-height: calc(var(--sq) * var(--rows) + 54px); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
 .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
 
@@ -108,7 +124,7 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 .turnline .p0 { color: var(--gold); }
 .turnline .p1 { color: var(--vio); }
 .boardwrap { padding: 10px; border-radius: 16px; background: linear-gradient(135deg, #3a2a1e, #22180f); box-shadow: 0 20px 50px rgba(0, 0, 0, .5), inset 0 0 0 1px #5a4433; }
-#board { display: grid; grid-template-columns: repeat(8, var(--sq)); grid-template-rows: repeat(8, var(--sq)); border-radius: 6px; overflow: hidden; position: relative; touch-action: manipulation; }
+#board { display: grid; grid-template-columns: repeat(var(--cols), var(--sq)); grid-template-rows: repeat(var(--rows), var(--sq)); border-radius: 6px; overflow: hidden; position: relative; touch-action: manipulation; }
 .sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
 .sq.l { background: var(--light); }
 .sq.d { background: var(--dark); }
@@ -125,7 +141,10 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 .sq:hover .pc { transform: translateY(-2px); }
 .sq.selp .pc { transform: scale(1.08); filter: drop-shadow(0 0 8px #fff) drop-shadow(0 3px 3px rgba(0, 0, 0, .45)); }
 .sq.wall { background-image: repeating-linear-gradient(45deg, #2b2521 0 6px, #3a322c 6px 12px); }
+.sq.void { background: radial-gradient(circle at 50% 40%, #07060a 0 55%, #110d16 100%); box-shadow: inset 0 0 0 1px #000, inset 0 0 calc(var(--sq) * .25) #000; cursor: default; }
 .sq.wall::before { content: "✝"; color: #8a7f76; font-size: calc(var(--sq) * .45); }
+.sq.zone0 { box-shadow: inset 0 0 0 2px rgba(242, 193, 78, .45); }
+.sq.zone1 { box-shadow: inset 0 0 0 2px rgba(180, 140, 255, .45); }
 .sq.last { box-shadow: inset 0 0 0 3px rgba(127, 211, 255, .55); }
 .sq.decl { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .7); }
 .sq .mk { position: absolute; z-index: 3; pointer-events: none; }
@@ -142,8 +161,8 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 .sq .pc.pop { animation: pop .25s ease-out; }
 @keyframes pop { from { transform: scale(.5); opacity: .3; } to { transform: scale(1); opacity: 1; } }
 
-.hint { text-align: center; color: var(--muted); min-height: 22px; max-width: calc(var(--sq) * 8 + 20px); margin: 0 auto; }
-.opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 40px; max-width: calc(var(--sq) * 8 + 20px); margin: 0 auto; }
+.hint { text-align: center; color: var(--muted); min-height: 22px; max-width: max(calc(var(--sq) * var(--cols) + 20px), 420px); margin: 0 auto; }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 40px; max-width: max(calc(var(--sq) * var(--cols) + 20px), 420px); margin: 0 auto; }
 .opts button { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); display: inline-flex; align-items: center; gap: 6px; }
 .opts button:hover { border-color: var(--gold); }
 .opts button.main { background: linear-gradient(135deg, rgba(242, 193, 78, .3), rgba(242, 193, 78, .12)); border-color: var(--gold); }
@@ -170,6 +189,8 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 .mbox { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px; max-width: 460px; width: 100%; max-height: 90vh; overflow: auto; position: relative; text-align: center; }
 .mbox.wide { max-width: 860px; text-align: left; }
 .mbox .x { position: absolute; top: 10px; right: 12px; border: 0; background: none; font-size: 26px; color: var(--muted); }
+#endScore { color: var(--gold); font-weight: 700; }
+#endScore:empty { display: none; }
 #endTitle { font-family: Cinzel, Georgia, serif; font-size: 30px; }
 #rulesBody h2 { font-family: Cinzel, Georgia, serif; color: var(--gold); margin: 6px 0 10px; }
 #rulesBody h3 { color: var(--vio); margin: 18px 0 8px; font-size: 16px; }
@@ -186,12 +207,13 @@ select { margin-top: 10px; width: 100%; padding: 10px; border-radius: 10px; back
 
 /* ----- petits écrans ----- */
 @media (max-width: 1100px) {
+  :root { --sq: min(calc((100vw - 400px) / var(--cols)), calc(560px / max(var(--cols), var(--rows)))); }
   .layout { grid-template-columns: auto minmax(240px, 320px); }
   .left { grid-column: 1 / -1; flex-direction: row; order: -1; height: auto; }
   .left .pp { flex: 1; }
 }
 @media (max-width: 760px) {
-  :root { --sq: min(calc((100vw - 52px) / 8), 62px); }
+  :root { --sq: min(calc((100vw - 52px) / var(--cols)), calc(560px / max(var(--cols), var(--rows)))); }
   .layout { grid-template-columns: 1fr; padding: 10px 16px; gap: 12px; }
   .left { display: contents; }
   #pp1 { order: 1; } .mid { order: 2; } #pp0 { order: 3; } .right { order: 4; }
