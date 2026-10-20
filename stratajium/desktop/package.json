@@ -20,13 +20,38 @@
     "appId": "com.juldorange.stratajium",
     "productName": "Stratajium",
     "copyright": "Juldorange",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "package.json"],
-    "extraResources": [
-      { "from": "..", "to": "game", "filter": ["index.html", "style.css", "icon.png", "js/**/*", "fonts/**/*"] }
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
     ],
-    "win": { "icon": "../icon.png", "target": ["dir", "portable"] },
-    "portable": { "artifactName": "Stratajium-${version}-portable.exe" },
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "game",
+        "filter": [
+          "index.html",
+          "style.css",
+          "icon.png",
+          "js/**/*",
+          "fonts/**/*",
+          "music/**/*",
+          "sfx/**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "../icon.png",
+      "target": [
+        "dir",
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Stratajium-${version}-portable.exe"
+    },
     "asar": true
   }
 }

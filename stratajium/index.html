@@ -9,89 +9,60 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="bgForest" aria-hidden="true"></div>
 
 <!-- ===== Menu ===== -->
 <section id="menu" class="screen on">
   <div class="menu-wrap">
-  <div class="menu-box">
-    <h1>Stratajium</h1>
-    <p class="tag">Recrute, place, active. Tue les dieux adverses… ou 4 de leurs guerriers.</p>
-
-    <div class="opt">
-      <h3>Adversaire</h3>
-      <div class="seg" data-k="mode">
-        <button data-v="self">Contre soi-même</button>
-        <button data-v="facile">Bot facile</button>
-        <button data-v="normal">Bot normal</button>
-        <button data-v="impossible">Bot impossible</button>
+    <div class="glass menu-main">
+      <h1>Stratajium</h1>
+      <p class="tag">Recrute, place, active. Tue les dieux adverses… ou 4 de leurs gardes.</p>
+      <h3 class="sub">Tes parties</h3>
+      <div id="slots"></div>
+      <div class="menu-actions">
+        <button class="ghost" id="btnCodexMenu">📖 Codex</button>
+        <button class="ghost" id="btnSetMenu">⚙️ Paramètres</button>
+        <button class="ghost" id="btnQuit" hidden>Quitter</button>
       </div>
     </div>
-
-    <div class="opt">
-      <h3>Qui commence ?</h3>
-      <div class="seg" data-k="first">
-        <button data-v="me" id="firstMe">Moi</button>
-        <button data-v="opp" id="firstOpp">Le bot</button>
-        <button data-v="rand">Au hasard</button>
-      </div>
-    </div>
-
-    <div class="opt">
-      <h3>Temps de chaque joueur (pour toute la partie)</h3>
-      <div class="seg" data-k="time">
-        <button data-v="15">15 min</button>
-        <button data-v="20">20 min</button>
-        <button data-v="30">30 min</button>
-        <button data-v="inf">∞ Infini</button>
-        <button data-v="45" title="1 contre 1, sans événement, 45 minutes">Compétition · 45 min</button>
-      </div>
-    </div>
-
-    <div class="opt">
-      <h3>Carte</h3>
-      <div class="seg" data-k="map">
-        <button data-v="aleatoire">Aléatoire (forme, taille, zones)</button>
-        <button data-v="classique">Classique 8×8</button>
-      </div>
-    </div>
-
-    <div class="opt" id="optEvent">
-      <h3>Événement</h3>
-      <div class="seg" data-k="event">
-        <button data-v="none">Aucun</button>
-        <button data-v="random">Tirer au hasard</button>
-        <button data-v="pick">Choisir…</button>
-      </div>
-      <select id="evPick" hidden></select>
-      <p class="note" id="compNote" hidden>Compétition : 1 contre 1, sans événement.</p>
-    </div>
-
-    <div class="menu-actions">
-      <button class="big" id="btnPlay">Jouer</button>
-      <button class="ghost" id="btnRulesMenu">Règles</button>
-      <button class="ghost" id="btnQuit" hidden>Quitter</button>
-    </div>
-  </div>
-
-  <aside class="menu-box score-box" id="scoreBox"></aside>
+    <aside class="glass score-box" id="scoreBox"></aside>
   </div>
 </section>
 
-<!-- ===== Tirage / pari ===== -->
+<!-- ===== Nouvelle partie ===== -->
+<section id="newrun" class="screen">
+  <div class="glass panel-mid">
+    <h2 class="title">Nouvelle partie</h2>
+    <p class="muted center">Choisis l’intelligence du bot pour toute cette partie. Tu commences avec 3 dieux et 4 sortes de gardes, sur le plateau classique et sans événement ; chaque affrontement gagné fait évoluer la partie.</p>
+    <div class="levels" id="levels"></div>
+    <div class="menu-actions"><button class="ghost" id="btnNewBack">Retour</button></div>
+  </div>
+</section>
+
+<!-- ===== Partie (entre deux affrontements) ===== -->
+<section id="run" class="screen">
+  <div class="glass panel-mid" id="runBox"></div>
+</section>
+
+<!-- ===== Avant l'affrontement (événement / pari) ===== -->
 <section id="pre" class="screen">
-  <div class="menu-box" id="preBox"></div>
+  <div class="glass panel-mid" id="preBox"></div>
 </section>
 
-<!-- ===== Partie ===== -->
+<!-- ===== Affrontement ===== -->
 <section id="game" class="screen">
   <header class="bar">
-    <button class="ghost sm" id="btnMenu" title="Retour au menu">☰ Menu</button>
+    <button class="ghost sm" id="btnMenu" title="Retour à la partie (l’affrontement est gardé)">☰ Partie</button>
     <button class="ghost sm" id="btnUndo" title="Revenir un coup en arrière (Ctrl+Z)">↶ Annuler le coup</button>
+    <div id="runBadge" class="badge run"></div>
     <div id="evBadge" class="badge" hidden></div>
     <div id="mapBadge" class="badge map"></div>
     <div class="grow"></div>
-    <button class="ghost sm" id="btnSound" title="Son">🔊</button>
-    <button class="ghost sm" id="btnRules">Règles</button>
+    <div id="timer" class="badge time" title="Durée de l’affrontement">0:00</div>
+    <button class="ghost sm icon" id="btnMusic" title="Musique">🎵</button>
+    <button class="ghost sm icon" id="btnSfx" title="Effets sonores">🔊</button>
+    <button class="ghost sm" id="btnCodex">📖 Codex</button>
+    <button class="ghost sm icon" id="btnSet" title="Paramètres">⚙️</button>
   </header>
 
   <div class="layout">
@@ -99,21 +70,22 @@
       <div class="pp" id="pp1"></div>
       <div class="pp" id="pp0"></div>
     </div>
-
     <div class="col mid">
       <div class="turnline" id="turnline"></div>
-      <div class="boardwrap"><div id="board"></div></div>
+      <div id="terrain">
+        <div id="board"></div>
+        <div id="fx"></div>
+      </div>
       <div class="hint" id="hint"></div>
       <div class="opts" id="opts"></div>
     </div>
-
     <div class="col right">
-      <div class="card" id="poolCard">
+      <div class="glass card" id="poolCard">
         <h3 id="poolTitle">Réserve commune</h3>
         <div id="pool"></div>
       </div>
-      <div class="card" id="infoCard"><div class="muted">Survole ou touche un perso pour voir ce qu'il fait.</div></div>
-      <div class="card logcard">
+      <div class="glass card" id="infoCard"><div class="muted">Survole ou touche un perso pour voir ce qu’il fait.</div></div>
+      <div class="glass card logcard">
         <h3>Journal</h3>
         <ul id="log"></ul>
       </div>
@@ -122,29 +94,45 @@
 </section>
 
 <!-- ===== Fenêtres ===== -->
-<div class="modal" id="rulesModal" hidden>
-  <div class="mbox wide">
+<div class="modal" id="codexModal" hidden>
+  <div class="mbox wide glass codex">
     <button class="x" data-close>×</button>
-    <div id="rulesBody"></div>
+    <h2 class="title">📖 Codex</h2>
+    <div class="tabs" id="codexTabs"></div>
+    <div id="codexBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="setModal" hidden>
+  <div class="mbox glass settings">
+    <button class="x" data-close>×</button>
+    <h2 class="title">⚙️ Paramètres</h2>
+    <div id="setBody"></div>
   </div>
 </div>
 
 <div class="modal" id="endModal" hidden>
-  <div class="mbox">
+  <div class="mbox glass">
     <h2 id="endTitle"></h2>
     <p id="endWhy"></p>
     <p id="endScore"></p>
-    <div class="menu-actions">
-      <button class="big" id="btnAgain">Rejouer</button>
-      <button class="ghost" id="btnEndMenu">Menu</button>
-      <button class="ghost" id="btnEndLook">Voir le plateau</button>
-    </div>
+    <div class="menu-actions" id="endActions"></div>
+  </div>
+</div>
+
+<div class="modal" id="evoModal" hidden>
+  <div class="mbox wide glass">
+    <h2 class="title" id="evoTitle">Évolution</h2>
+    <p class="muted center" id="evoSub">Choisis ce qui change pour tous les prochains affrontements de cette partie.</p>
+    <div class="evos" id="evos"></div>
   </div>
 </div>
 
 <div id="toast" hidden></div>
 
 <script src="js/engine.js"></script>
+<script src="js/decor.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

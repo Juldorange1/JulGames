@@ -23,7 +23,7 @@ function createWindow() {
     width: display.width, height: display.height, minWidth: 900, minHeight: 600,
     fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Stratajium',
     icon: path.join(GAME_DIR, 'icon.png'), autoHideMenuBar: true, show: false,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
   });
   Menu.setApplicationMenu(null);
   win.loadFile(path.join(GAME_DIR, 'index.html'), MUET ? { query: { muet: '1' } } : undefined);
@@ -37,13 +37,15 @@ function createWindow() {
         await new Promise(r => setTimeout(r, 500));
         out.quitButton = await js('!document.getElementById("btnQuit").hidden');
         out.font = await js('document.fonts.check("800 20px Cinzel")');
-        await js(`document.querySelector('[data-k=mode] [data-v=impossible]').click(); document.querySelector('[data-k=first] [data-v=me]').click(); document.querySelector('[data-k=event] [data-v=none]').click(); document.getElementById('btnPlay').click(); true`);
+        out.music = await js('fetch("music/partie.mp3").then(r => r.ok)');
+        out.sfx = await js('fetch("sfx/prise.ogg").then(r => r.ok)');
+        await js(`document.querySelector('[data-new="0"]').click(); document.querySelector('[data-lv="impossible"]').click(); document.getElementById('btnStart').click(); true`);
         await js(`STRAT.doAction(STRAT.E.gen(STRAT.G.s, true).find(a => a.k === 'rec')); true`);
         const t0 = Date.now();
         while (Date.now() - t0 < 20000 && await js('STRAT.G.s.turn !== 0')) await new Promise(r => setTimeout(r, 200));
         out.botMs = Date.now() - t0;
         out.botPlayed = await js('STRAT.G.s.ply');
-        out.map = await js('STRAT.G.s.g.name');
+        out.decor = await js('document.querySelectorAll("#terrain canvas").length');
         out.errors = errors.slice(0, 5);
       } catch (err) { out.exception = String(err); }
       console.log('STRATAJIUM_TEST ' + JSON.stringify(out));
