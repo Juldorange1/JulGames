@@ -74,7 +74,17 @@ function StratEngine() {
     { id: 'avantgarde', name: 'Avant-garde', desc: 'Chaque joueur commence avec 2 soldats déjà posés dans sa zone.' },
     { id: 'maree', name: 'Marée de mana', desc: 'Au début de chacun de tes tours, tu gagnes 10 mana.' },
     { id: 'fragile', name: 'Sol fragile', desc: 'Là où un perso meurt, le sol s’effondre : la case devient un trou pour toujours.' },
+    { id: 'objectif', name: 'Objectif mystère', weight: 3, desc: 'Le but de l’affrontement est tiré au sort et remplace le but habituel (voir les objectifs). Cet événement tombe 3 fois plus souvent que les autres.' },
   ];
+  // buts possibles de l'« Objectif mystère » ; au bout de 60 tours chacun (30 pour l'Endurance), celui qui a perdu le moins de persos gagne
+  const GOALS = [
+    { id: 'colline', name: 'Roi de la colline', desc: 'Au début de ton tour, si tu es le seul à avoir un perso au centre, tu marques 1 point. Le premier à 3 points gagne.' },
+    { id: 'massacre', name: 'Massacre', desc: 'Le premier à tuer 5 persos adverses (n’importe lesquels) gagne.' },
+    { id: 'chasse', name: 'Chasse au dieu', desc: 'Le premier à tuer un dieu adverse gagne.' },
+    { id: 'percee', name: 'Percée', desc: 'Le premier à amener un garde ou un soldat dans la zone de placement adverse gagne.' },
+    { id: 'endurance', name: 'Endurance', desc: 'Après 30 tours chacun, celui qui a perdu le moins de persos gagne.' },
+  ];
+  const GOAL_LIMIT = { endurance: 60 }; // en demi-tours ; 120 pour les autres
 
   // ---------- Cases ----------
   // case : -2 trou (hors carte), -1 mur (perso mort retourné), 0 vide, sinon (type<<1 | joueur) + 1
@@ -91,7 +101,7 @@ function StratEngine() {
   // ---------- Cartes ----------
   // carte = { W, H, N, ex (case existe), zone [mask0, mask1], border, ring2, center, mv (voisins), name }
   // Toujours symétrique par rotation d'un demi-tour : les deux joueurs ont exactement la même situation.
-  function buildGeo(W, H, ex, zone0, name) {
+  function buildGeo(W, H, ex, zone0, name, spec, info) {
     const N = W * H;
     const at = (r, c) => (r >= 0 && r < H && c >= 0 && c < W && ex[r * W + c]) ? r * W + c : -1;
     const mv = new Int16Array(8 * N).fill(-1);
@@ -123,7 +133,8 @@ function StratEngine() {
       const row = []; for (let c = 0; c < W; c++) if (ex[r * W + c]) row.push(r * W + c);
       for (const k of [0, 1]) { if (row.length > k) side[k].gauche.push(row[k]); if (row.length > k) side[k].droite.push(row[row.length - 1 - k]); }
     }
-    return { W, H, N, ex, zone, border, ring2, center, mv, name, nCells, side };
+    const zl = [[], []]; for (let q = 0; q < N; q++) { if (zone[0][q]) zl[0].push(q); if (zone[1][q]) zl[1].push(q); }
+    return { W, H, N, ex, zone, zl, border, ring2, center, mv, name, nCells, side, spec: spec || new Uint8Array(N), info: info || null };
   }
 
   const SIDES = ['haut', 'bas', 'gauche', 'droite'];
@@ -135,7 +146,7 @@ function StratEngine() {
   }
   // les 2 ennemis les plus précieux d'une zone (dieux d'abord) : un sort de zone n'en tue pas plus
   function zoneVictims(s, sqs, p) {
-    const v = sqs.filter(q => foe(s, q, p));
+    const v = sqs.filter(q => foe(s, q, p) && !cover(s, q));
     if (v.length <= 2) return v;
     v.sort((x, y) => (CATN[tix(s.b[x])] - CATN[tix(s.b[y])]) || (VAL[tix(s.b[y])] - VAL[tix(s.b[x])]));
     return v.slice(0, 2);
@@ -143,35 +154,74 @@ function StratEngine() {
   function classicMap() {
     const ex = new Uint8Array(64).fill(1), z = [];
     for (let q = 48; q < 64; q++) z.push(q);
-    return buildGeo(8, 8, ex, z, 'Classique 8×8');
+    return buildGeo(8, 8, ex, z, 'Classique 8×8', null, { kinds: ['classique'], zk: 'rangees' });
   }
 
-  const SHAPES = {
-    plein: 'Pleine', coins: 'Coins coupés', trous: 'Trouée', losange: 'Losange', croix: 'Croix',
-    anneau: 'Anneau', lacs: 'Lacs', dentele: 'Dentelée',
-  };
+  // les cartes : [id, nom, niveau de sauvagerie minimum, description]
+  const MAPS = [
+    ['classique', 'Classique', 0, 'Le plateau 8×8 des échecs, zones sur les 2 rangées du fond.'],
+    ['plaine', 'Plaine', 1, 'Un rectangle sans trou, de 6 à 10 cases de large.'],
+    ['coins', 'Coins coupés', 2, 'Les 4 coins sont rognés.'],
+    ['croix', 'Croix', 2, 'Des rectangles retirés aux 4 coins : la carte forme une croix.'],
+    ['losange', 'Losange', 2, 'Les bords sont taillés en biais : plus large au milieu.'],
+    ['dentele', 'Dentelée', 2, 'Des cases manquent au hasard le long des bords.'],
+    ['arene', 'Arène', 2, 'Un octogone aux coins très coupés.'],
+    ['trous', 'Trouée', 3, 'Quelques trous isolés au milieu de la carte.'],
+    ['lacs', 'Lacs', 3, 'Deux petits lacs face à face.'],
+    ['anneau', 'Anneau', 3, 'Le centre est un trou : on se bat autour.'],
+    ['sablier', 'Sablier', 3, 'La carte se resserre au milieu.'],
+    ['riviere', 'Rivière', 3, 'Une rivière coupe la carte en deux, avec deux gués pour passer.'],
+    ['colonnes', 'Colonnes', 3, 'Des piliers (trous d’une case) en quadrillage.'],
+    ['iles', 'Deux îles', 4, 'Deux grandes îles reliées par deux ponts.'],
+    ['escalier', 'Escalier', 4, 'Des trous en diagonale, comme les marches d’un escalier.'],
+    ['couloirs', 'Couloirs', 4, 'Deux longs murs de trous avec un passage chacun.'],
+    ['etoile', 'Étoile', 4, 'Une étoile à 4 branches.'],
+  ];
+  const MAP_NAME = {}; for (const m of MAPS) MAP_NAME[m[0]] = m[1];
   const ZONES = {
     rangees: 'rangées du fond', flancs: 'flancs', eparpille: 'éparpillée', pointe: 'en pointe', damier: 'en damier', centre: 'au centre',
   };
+  // cases spéciales (peu nombreuses, surtout sur les cartes sauvages)
+  const SPECIALS = [
+    null,
+    { id: 'source', name: 'Source de mana', desc: 'Au début de ton tour, si un de tes persos est dessus : +10 mana.' },
+    { id: 'bosquet', name: 'Bosquet', desc: 'Un perso dessus est à couvert : ni les tirs (Archer, Arbalétrier, Baliste, Lancier) ni les sorts de zone ne peuvent le tuer.' },
+  ];
+  const SHAPES = MAP_NAME;
   function randomMap(level) {
     if (level === undefined) level = 4;
-    for (let tries = 0; tries < 200; tries++) {
+    for (let tries = 0; tries < 300; tries++) {
       const W = 6 + rnd(5), H = 7 + rnd(4), N = W * H;
       const ex = new Uint8Array(N).fill(1);
       const off = (r, c) => { if (r >= 0 && r < H && c >= 0 && c < W) { ex[r * W + c] = 0; ex[N - 1 - (r * W + c)] = 0; } };
       const cr = (H - 1) / 2, cc = (W - 1) / 2;
-      // niveau 1 : seule la taille change ; 2 : formes simples ; 3 : trous, lacs, anneau ; 4 : tout, et parfois 2 formes
-      const kinds = level <= 1 ? ['plein'] : level === 2 ? ['plein', 'coins', 'croix', 'losange', 'dentele'] : Object.keys(SHAPES);
+      const kinds = MAPS.filter(m => m[2] >= 1 && m[2] <= Math.max(1, level)).map(m => m[0]);
       const shapes = [kinds[rnd(kinds.length)]];
-      if (level >= 4 && Math.random() < .35) shapes.push(kinds[1 + rnd(kinds.length - 1)]);
+      if (level >= 4 && Math.random() < .3) { const o = kinds.filter(k => k !== 'plaine' && k !== shapes[0]); shapes.push(o[rnd(o.length)]); }
+      // bande horizontale au milieu (rivière, îles) : vide sauf deux passages face à face
+      const band = (thick) => {
+        const rows = H % 2 ? [] : [];
+        if (H % 2) { const m = (H - 1) / 2; for (let k = -(thick >> 1); k <= (thick >> 1); k++) rows.push(m + k); }
+        else { const m = H / 2; for (let k = 0; k < Math.max(1, thick >> 1); k++) { rows.push(m - 1 - k); rows.push(m + k); } }
+        const f = 1 + rnd(Math.max(1, W - 2)), fords = new Set([f, W - 1 - f]);
+        for (const r of rows) for (let c = 0; c < W; c++) if (!fords.has(c)) ex[r * W + c] = 0;
+      };
       for (const k of shapes) {
         if (k === 'coins') { const n = 1 + rnd(2); for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (r + c < n || r + (W - 1 - c) < n) off(r, c); }
+        if (k === 'arene') { const n = 2 + rnd(2); for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (r + c < n || r + (W - 1 - c) < n) off(r, c); }
         if (k === 'trous') { const n = 1 + rnd(3); for (let i = 0; i < n; i++) off(2 + rnd(Math.max(1, H - 4)), rnd(W)); }
         if (k === 'losange') { const lim = 1.2 + Math.random() * .25; for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (Math.abs(r - cr) / (H / 2) + Math.abs(c - cc) / (W / 2) > lim) off(r, c); }
-        if (k === 'croix') { const a = 1 + rnd(2), b = 1 + rnd(2); for (let r = 0; r < a; r++) for (let c = 0; c < b; c++) { off(r, c); off(r, W - 1 - c); } }
+        if (k === 'etoile') { for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (Math.abs(r - cr) > 1.1 && Math.abs(c - cc) > 1.1 && Math.abs(r - cr) / (H / 2) + Math.abs(c - cc) / (W / 2) > 1) off(r, c); }
+        if (k === 'croix') { const a = 1 + rnd(2), b2 = 1 + rnd(2); for (let r = 0; r < a; r++) for (let c = 0; c < b2; c++) { off(r, c); off(r, W - 1 - c); } }
         if (k === 'anneau') { for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) if (Math.abs(r - cr) < 1 && Math.abs(c - cc) < (W > 7 ? 1.6 : 1)) off(r, c); }
         if (k === 'lacs') { const r = 2 + rnd(Math.max(1, Math.floor(cr) - 1)), c = rnd(W); off(r, c); const d = D8[rnd(8)]; off(r + d[0], c + d[1]); }
         if (k === 'dentele') { for (let c = 0; c < W; c++) if (Math.random() < .35) off(0, c); for (let r = 2; r < H - 2; r++) if (Math.random() < .25) off(r, 0); }
+        if (k === 'sablier') { const kk = W > 7 ? 2 : 1; for (let r = 0; r < H; r++) if (Math.abs(r - cr) <= 1) for (let c = 0; c < kk; c++) { off(r, c); off(r, W - 1 - c); } }
+        if (k === 'riviere') band(1);
+        if (k === 'iles') band(H >= 9 ? 3 : 2);
+        if (k === 'colonnes') { for (let r = 2; r < H - 2; r++) for (let c = 1; c < W - 1; c++) if (r % 3 === 2 && c % 3 === 1) off(r, c); }
+        if (k === 'escalier') { for (let r = 2; r < H - 2; r++) for (let c = 1; c < W - 1; c++) if ((c - r + 40) % 4 === 0 && Math.random() < .7) off(r, c); }
+        if (k === 'couloirs') { if (W < 8) { off(2, 1); continue; } const gap = 2 + rnd(Math.max(1, H - 4)); for (let r = 1; r < H - 1; r++) if (r !== gap) off(r, 2); }
       }
       // garder la plus grande partie d'un seul tenant
       const comp = new Int16Array(N).fill(-1); let best = -1, bestN = 0, id = 0;
@@ -188,7 +238,7 @@ function StratEngine() {
       // zone de placement du joueur du bas (celle d'en haut en est le reflet)
       const zk = level <= 1 ? 'rangees' : level === 2 ? ['rangees', 'flancs', 'centre'][rnd(3)] : Object.keys(ZONES)[rnd(6)];
       const back = []; for (let r = H - 1; r >= 0; r--) { let any = false; for (let c = 0; c < W; c++) if (ex[r * W + c]) any = true; if (any) back.push(r); }
-      const rows = back.slice(0, 4); // les 4 rangées du fond qui existent
+      const rows = back.slice(0, 4);
       const deep = r => rows.indexOf(r);
       let z = [];
       for (let q = 0; q < N; q++) {
@@ -204,11 +254,29 @@ function StratEngine() {
       }
       if (zk === 'eparpille') z = shuffle(z).slice(0, 10 + rnd(5));
       if (z.length < 8 || z.length > 18) continue;
-      return buildGeo(W, H, ex, z, `${shapes.map(k => SHAPES[k]).join(' + ')} ${W}×${H}, zones ${ZONES[zk]}`);
+      // cases spéciales, par paires symétriques, loin des zones de placement
+      const spec = new Uint8Array(N);
+      const pairs = level <= 1 ? 0 : level === 2 ? rnd(2) : level === 3 ? 1 : 1 + rnd(2);
+      const zs = new Set(z.concat(z.map(q => N - 1 - q)));
+      for (let i = 0, t = 0; i < pairs && t < 60; t++) {
+        const q = rnd(N), m = N - 1 - q, r = q / W | 0;
+        if (!ex[q] || q === m || spec[q] || zs.has(q) || zs.has(m)) continue;
+        if (Math.abs(r - cr) > H / 2 - 2) continue;
+        spec[q] = spec[m] = 1 + rnd(2); i++;
+      }
+      const name = `${shapes.map(k => MAP_NAME[k]).join(' + ')} ${W}×${H}, zones ${ZONES[zk]}`;
+      return buildGeo(W, H, ex, z, name, spec, { kinds: shapes, zk });
     }
     return classicMap();
   }
   function makeMap(kind, level) { if (kind === 'classique' || level === 0) return classicMap(); return randomMap(level); }
+  // tirages reproductibles (défi du jour) : Math.random est remplacé le temps de fn
+  function withSeed(seed, fn) {
+    let v = (seed >>> 0) % 2147483647 || 1;
+    const old = Math.random;
+    Math.random = () => { v = (v * 16807) % 2147483647; return (v - 1) / 2147483646; };
+    try { return fn(); } finally { Math.random = old; }
+  }
 
   // ---------- État ----------
   function newGame(o) {
@@ -237,7 +305,9 @@ function StratEngine() {
       ply: 0, quiet: 0,
       last: null,
       first0: o.first || 0,
+      goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
     };
+    if (o.mana) s.mana = o.mana.slice();
     let mages = o.gods || BASE_M, gards = o.gards || BASE_G;
     if (ev === 'extension') {
       // invités surprise : 2 dieux et 2 sortes de gardes de plus, au hasard
@@ -266,7 +336,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser,
+      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0],
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
   }
@@ -309,6 +379,7 @@ function StratEngine() {
   const nx = (g, q, d) => g.mv[d * g.N + q];
   // ennemi qu'on peut tuer (pas sur une case bénie)
   const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q); };
+  const cover = (s, q) => s.g.spec && s.g.spec[q] === 2; // bosquet
   const canLand = (s, q, p) => s.b[q] === 0 || foe(s, q, p);
   const mini = s => ({ g: s.g, b: s.b.slice(), ev: s.ev, lost: [[0, 0, 0], [0, 0, 0]], bl: s.bl });
   const KNIGHT = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
@@ -343,7 +414,7 @@ function StratEngine() {
       let t = nx(g, q, d), k = 1;
       while (t >= 0) {
         const c = b[t];
-        if (c !== 0) { if (foe(s, t, p) && k >= minD) out.push(t); break; }
+        if (c !== 0) { if (foe(s, t, p) && k >= minD && !cover(s, t)) out.push(t); break; }
         t = nx(g, t, d); k++;
       }
     }
@@ -415,7 +486,7 @@ function StratEngine() {
         }
         break;
       case 'g5': out.push(...multiStep(s, from, p, pawnTargets, 2)); break;
-      case 'g6': if (enemiesIn(s, adjOf(s, from), p)) out.push(['go']); break;
+      case 'g6': if (adjOf(s, from).some(q => foe(s, q, p) && !cover(s, q))) out.push(['go']); break;
       case 'g7': out.push(...multiStep(s, from, p, (st, q, pp) => stepTargets(st, q, pp, DIAG), 2)); break;
       case 'c1': {
         const r = from / g.W | 0, c = from % g.W;
@@ -522,7 +593,8 @@ function StratEngine() {
         for (const d of ORTH) {
           const a1 = nx(g, from, d); if (a1 < 0) continue;
           const a2 = nx(g, a1, d), a3 = a2 >= 0 ? nx(g, a2, d) : -1;
-          if (foe(s, a1, p) || (a2 >= 0 && foe(s, a2, p)) || (a3 >= 0 && foe(s, a3, p))) out.push([a1]);
+          const hitL = x => x >= 0 && foe(s, x, p) && !cover(s, x);
+          if (hitL(a1) || hitL(a2) || hitL(a3)) out.push([a1]);
         }
         break;
       case 'cv': {
@@ -582,7 +654,7 @@ function StratEngine() {
       case 'c7': { // la Baliste transperce : le 1er ennemi de la ligne, puis le suivant derrière lui
         kill(s, cl[0]);
         const d = ORTH.find(dd => { let x = nx(g, from, dd); while (x >= 0 && x !== cl[0] && s.b[x] === 0) x = nx(g, x, dd); return x === cl[0]; });
-        if (d !== undefined) { let x = nx(g, cl[0], d); while (x >= 0 && s.b[x] === 0) x = nx(g, x, d); if (x >= 0 && foe(s, x, p)) kill(s, x); }
+        if (d !== undefined) { let x = nx(g, cl[0], d); while (x >= 0 && s.b[x] === 0) x = nx(g, x, d); if (x >= 0 && foe(s, x, p) && !cover(s, x)) kill(s, x); }
         break;
       }
       case 'g4': {
@@ -590,7 +662,7 @@ function StratEngine() {
         for (const q of cl) { const d = ALL.find(dd => nx(g, pos, dd) === q); pos = pushLine(s, pos, d, true); }
         break;
       }
-      case 'g6': for (const z of adjOf(s, from)) if (s.b[z] > 0 && own(s.b[z]) === opp) kill(s, z); break;
+      case 'g6': for (const z of adjOf(s, from)) if (s.b[z] > 0 && own(s.b[z]) === opp && !cover(s, z)) kill(s, z); break;
       case 'c6': s.mana[p] += 40; s.acts += 1; break; // +40 mana et une action de plus
       case 'ma': case 'pb': for (const z of zoneVictims(s, areaOf(g, t.id, cl[0]), p)) kill(s, z); break;
       case 'mb': { const x = s.b[cl[0]]; s.b[cl[0]] = s.b[cl[1]]; s.b[cl[1]] = x; break; }
@@ -606,7 +678,7 @@ function StratEngine() {
       case 'lc': {
         const d = ORTH.find(dd => nx(g, from, dd) === cl[0]);
         const a2 = nx(g, cl[0], d), a3 = a2 >= 0 ? nx(g, a2, d) : -1;
-        for (const z of [cl[0], a2, a3]) if (z >= 0 && foe(s, z, p)) kill(s, z);
+        for (const z of [cl[0], a2, a3]) if (z >= 0 && foe(s, z, p) && !cover(s, z)) kill(s, z);
         break;
       }
       case 'gu': { const i = +cl[0].slice(1); s.dead[p][i]--; s.lost[p][1]--; s.b[cl[1]] = enc(i, p); break; }
@@ -675,6 +747,23 @@ function StratEngine() {
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
     if (s.ev === 'maree') s.mana[q] += 10;
+    // sources de mana
+    const spec = s.g.spec;
+    if (spec) for (let x = 0; x < s.g.N; x++) if (spec[x] === 1 && s.b[x] > 0 && own(s.b[x]) === q) s.mana[q] += 10;
+    if (s.goal) {
+      if (s.goal === 'colline') {
+        let mine = 0, theirs = 0;
+        for (const x of s.g.center) if (s.b[x] > 0) { if (own(s.b[x]) === q) mine++; else theirs++; }
+        if (mine && !theirs) s.hold[q]++;
+      }
+      checkWin(s);
+      const lim = GOAL_LIMIT[s.goal] || 120;
+      if (s.winner === null && s.ply >= lim) {
+        const t0 = s.lost[0][0] + s.lost[0][1] + s.lost[0][2], t1 = s.lost[1][0] + s.lost[1][1] + s.lost[1][2];
+        s.winner = t0 < t1 ? 0 : t1 < t0 ? 1 : 2;
+        s.why = s.winner === 2 ? 'Temps écoulé, autant de pertes des deux côtés : match nul.' : 'Temps écoulé : moins de pertes.';
+      }
+    }
     if (s.pend[q]) {
       s.pend[q] = 0;
       const dead = s.lost[q][0] + s.lost[q][1] + s.lost[q][2];
@@ -687,8 +776,28 @@ function StratEngine() {
     if (s.ev === 'illimite') return s.lost[p][0] >= 2 || s.lost[p][1] >= 6;
     return s.lost[p][1] >= 4 || (s.lost[p][0] >= 1 && aliveMages(s, p) === 0);
   }
+  function goalWinner(s) {
+    const tot = p => s.lost[p][0] + s.lost[p][1] + s.lost[p][2];
+    const won = [false, false];
+    for (const p of [0, 1]) {
+      const o = 1 - p;
+      if (s.goal === 'massacre') won[p] = tot(o) >= 5;
+      else if (s.goal === 'chasse') won[p] = s.lost[o][0] >= 1;
+      else if (s.goal === 'colline') won[p] = s.hold[p] >= 3;
+      else if (s.goal === 'percee') { const z = s.g.zl[o]; for (const x of z) { const c = s.b[x]; if (c > 0 && own(c) === p && CATN[tix(c)] > 0) { won[p] = true; break; } } }
+    }
+    return won;
+  }
+  const GOAL_WHY = { massacre: '5 persos adverses tués.', chasse: 'Un dieu adverse tué.', colline: '3 points au centre.', percee: 'Percée dans la zone adverse.' };
   function checkWin(s) {
     if (s.winner !== null) return;
+    if (s.goal) {
+      const w = goalWinner(s);
+      if (!w[0] && !w[1]) return;
+      s.winner = w[0] && w[1] ? s.turn : w[0] ? 0 : 1;
+      s.why = GOAL_WHY[s.goal];
+      return;
+    }
     const l0 = loses(s, 0), l1 = loses(s, 1);
     if (!l0 && !l1) return;
     if (l0 && l1) s.winner = s.turn; else s.winner = l0 ? 1 : 0;
@@ -754,6 +863,21 @@ function StratEngine() {
   const GPRESS = [0, 2.5, 6, 12, 20, 30, 45, 60];
   // poids réglés par l'apprentissage (voir UI : le bot impossible s'adapte à tes parties)
   let W8 = { wG: 1, wM: 1, opp: null };
+  // caractère du bot (léger pour l'impossible, qui s'adapte surtout à la position)
+  const PERSOS = {
+    agressif: { name: 'l’Agressif', desc: 'Il fonce sur tes persos et cherche les prises.' },
+    prudent: { name: 'le Prudent', desc: 'Il protège ses persos et garde des réserves.' },
+    mage: { name: 'le Mage', desc: 'Il aime le mana et les sorts de ses dieux.' },
+    batisseur: { name: 'le Bâtisseur', desc: 'Il recrute beaucoup pour priver la réserve.' },
+  };
+  let F = { appr: 1, mine: 1, theirs: 1, res: 1, mana: 1 };
+  function setPerso(id, k) {
+    F = { appr: 1, mine: 1, theirs: 1, res: 1, mana: 1 };
+    if (id === 'agressif') { F.appr = 1 + .6 * k; F.mine = 1 + .15 * k; }
+    if (id === 'prudent') { F.theirs = 1 + .3 * k; F.res = 1 + .08 * k; }
+    if (id === 'mage') F.mana = 1 + .35 * k;
+    if (id === 'batisseur') F.res = 1 + .18 * k;
+  }
   let X = 1; // 1 = lecture fine du bot impossible (menaces en 2 pas, reprises, mana des mages…) ; 0 = comme avant (bot normal)
 
   function magesOnBoard(s, p) { let n = 0; const b = s.b; for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && T[tix(c)].cat === 'M') n++; } return n; }
@@ -773,6 +897,13 @@ function StratEngine() {
     let v = 0, m = 0, gd = 0;
     for (const c of codes) { const t = T[tix(c)]; v += t.val; if (t.cat === 'M') m++; else if (t.cat === 'G') gd++; }
     const L = s.lost[q];
+    if (s.goal) {
+      const tot = L[0] + L[1] + L[2];
+      if (s.goal === 'massacre') return tot + codes.length >= 5 ? WINCAP : v + codes.length * 4;
+      if (s.goal === 'chasse') return m ? WINCAP : v;
+      if (s.goal === 'endurance') return v + codes.length * 6;
+      return v + codes.length * 1.5;
+    }
     if (s.ev === 'illimite') { if (L[0] + m >= 2 || L[1] + gd >= 6) return WINCAP; v += m * 12; }
     else {
       if (L[1] + gd >= 4) return WINCAP;
@@ -836,7 +967,7 @@ function StratEngine() {
     // 1er perso rencontré dans la direction d, s'il est ennemi (mv : le tireur se déplace s'il est collé)
     const ray = (f, d, code, moves) => {
       let x = mv[d * N + f], k = 1; while (x >= 0 && b[x] === 0) { x = mv[d * N + x]; k++; }
-      if (x >= 0 && isEnemy(x)) { const v = killGain(s, [x], am); if (moves === 2 || (moves === 1 && k === 1)) addM(v, x, code); else add(v, x); }
+      if (x >= 0 && isEnemy(x)) { const v = killGain(s, [x], am); if (moves === 2 || (moves === 1 && k === 1)) addM(v, x, code); else if (!cover(s, x)) add(v, x); }
     };
     const adj = (f, dirs, code) => { for (const d of dirs) { const x = mv[d * N + f]; if (x >= 0 && isEnemy(x)) addM(killGain(s, [x], am), x, code); } };
     for (let f = 0; f < N; f++) {
@@ -867,7 +998,7 @@ function StratEngine() {
         case 'g3': for (const d of DIAG) ray(f, d, c, 1); break;
         case 'c7': for (const d of ORTH) ray(f, d, c, 0); break;
         case 'c4': for (const d of DIAG) ray(f, d, c, 0); break;
-        case 'g6': { const z = adjOf(s, f).filter(isEnemy); if (z.length) add(killGain(s, z, am), z.length === 1 ? z[0] : undefined); break; }
+        case 'g6': { const z = adjOf(s, f).filter(x => isEnemy(x) && !cover(s, x)); if (z.length) add(killGain(s, z, am), z.length === 1 ? z[0] : undefined); break; }
         case 'ma': case 'pb':
           for (const k of (t.id === 'ma' ? SIDES.concat(['centre']) : SIDES)) {
             const z = zoneVictims(s, areaOf(g, t.id, k), q);
@@ -887,7 +1018,7 @@ function StratEngine() {
           for (const d of ORTH) {
             const x = mv[d * N + f]; if (x < 0) continue;
             const y = mv[d * N + x], y2 = y >= 0 ? mv[d * N + y] : -1, z = [];
-            if (isEnemy(x)) z.push(x); if (y >= 0 && isEnemy(y)) z.push(y); if (y2 >= 0 && isEnemy(y2)) z.push(y2);
+            for (const t of [x, y, y2]) if (t >= 0 && isEnemy(t) && !cover(s, t)) z.push(t);
             if (z.length) add(killGain(s, z, am), z.length === 1 ? z[0] : undefined);
           }
           break;
@@ -950,7 +1081,7 @@ function StratEngine() {
         if (mp.length) {
           let md = 9;
           for (let k = 0; k < mp.length; k++) { const m = mp[k]; const dr = Math.abs(ROW[m] - r), dc = Math.abs(COL[m] - cc); const dd = dr > dc ? dr : dc; if (dd < md) md = dd; }
-          if (md < 9) v += (8 - md) * (cat === 1 ? 0.07 : 0.04);
+          if (md < 9) v += (8 - md) * (cat === 1 ? 0.07 : 0.04) * (o === p ? F.appr : 1);
         }
       }
       sc += o === p ? v : -v;
@@ -960,15 +1091,18 @@ function StratEngine() {
     // une seule recrue par type sert (elle fait gagner l'action de recruter), les suivantes ne valent rien
     if (s.ev === 'illimite') for (let i = 0; i < NT; i++) sc += ((rp[i] ? 1 : 0) - (ro[i] ? 1 : 0)) * VAL[i] * 0.4;
     else for (let i = 0; i < NT; i++) {
-      const d = rp[i] - ro[i];
+      const d = (rp[i] - ro[i]) * F.res;
       // un mage sans assez de mana pour son sort ne sert plus qu'à rester en vie
       if (MAGEV && X && CATN[i] === 0) { if (rp[i] || ro[i]) sc += rp[i] * (mana[p] >= COST[i] ? VAL[i] * 0.75 : MAGEV) - ro[i] * (mana[1 - p] >= COST[i] ? VAL[i] * 0.75 : MAGEV); }
       else if (d) sc += d * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8);
     }
-    sc += manaVal(s, p) - manaVal(s, 1 - p);
-    sc += (GPRESS[Math.min(s.lost[1 - p][1], 7)] - GPRESS[Math.min(s.lost[p][1], 7)]) * W8.wG;
-    if (s.ev === 'illimite') sc += (s.lost[1 - p][0] - s.lost[p][0]) * 12;
-    else sc += (danger(s, 1 - p, am[1 - p], onB[1 - p]) - danger(s, p, am[p], onB[p])) * W8.wM;
+    sc += (manaVal(s, p) - manaVal(s, 1 - p)) * F.mana;
+    if (s.goal) sc += goalEval(s, p, onB);
+    else {
+      sc += (GPRESS[Math.min(s.lost[1 - p][1], 7)] - GPRESS[Math.min(s.lost[p][1], 7)]) * W8.wG;
+      if (s.ev === 'illimite') sc += (s.lost[1 - p][0] - s.lost[p][0]) * 12;
+      else sc += (danger(s, 1 - p, am[1 - p], onB[1 - p]) - danger(s, p, am[p], onB[p])) * W8.wM;
+    }
     if (s.noAct[1 - p]) sc += 1.5 * s.noAct[1 - p];
     if (s.noAct[p]) sc -= 1.5 * s.noAct[p];
     if (s.noPlace[1 - p]) sc += 0.6 * s.noPlace[1 - p];
@@ -990,14 +1124,38 @@ function StratEngine() {
       let th = 0;
       if (mine[0] >= WINCAP) th = 3000;            // victoire au prochain coup
       else {
-        th = 0.8 * mine[0];
+        th = 0.8 * mine[0] * (stm === p ? F.mine : 1);
         if (theirs[0] >= WINCAP && theirs[1] >= WINCAP) th -= 1500; // deux menaces gagnantes : imparable
-        else th -= 0.45 * Math.min(theirs[0], 60) + 0.25 * Math.min(theirs[1], 60);
+        else th -= (0.45 * Math.min(theirs[0], 60) + 0.25 * Math.min(theirs[1], 60)) * (stm === p ? F.theirs : 1);
       }
       sc += stm === p ? th : -th;
     }
     // 150 tours sans élimination = nulle : plus on s'en approche, moins l'avance compte (celui qui mène cherche à prendre)
     if (X && s.quiet > 40) sc *= Math.max(0.1, (150 - s.quiet) / 110);
+    return sc;
+  }
+
+  // objectifs mystère : ce qui compte vraiment pour gagner
+  function goalEval(s, p, onB) {
+    const o = 1 - p, tot = x => s.lost[x][0] + s.lost[x][1] + s.lost[x][2];
+    let sc = 0;
+    if (s.goal === 'massacre') sc += (tot(o) - tot(p)) * 5;
+    else if (s.goal === 'endurance') sc += (tot(o) - tot(p)) * 7;
+    else if (s.goal === 'chasse') sc += (onB[o] - onB[p]) * 9;
+    else if (s.goal === 'colline') {
+      sc += (s.hold[p] - s.hold[o]) * 14;
+      for (const x of s.g.center) if (s.b[x] > 0) sc += own(s.b[x]) === p ? 3 : -3;
+    } else if (s.goal === 'percee') {
+      const g = s.g, W = g.W, best = [9, 9];
+      for (let q = 0; q < g.N; q++) {
+        const c = s.b[q]; if (c <= 0 || CATN[tix(c)] === 0) continue;
+        const w = own(c), r = q / W | 0, cc = q % W;
+        for (const z of g.zl[1 - w]) { const d = Math.max(Math.abs((z / W | 0) - r), Math.abs(z % W - cc)); if (d < best[w]) best[w] = d; }
+      }
+      sc += (best[o] - best[p]) * 2.2;
+    }
+    // le temps presse : les pertes comptent de plus en plus
+    sc += (tot(o) - tot(p)) * 1.5;
     return sc;
   }
 
@@ -1019,7 +1177,7 @@ function StratEngine() {
     mix(s.mana[0]); mix(s.mana[1]); mix(s.turn); mix(s.acts);
     mix(s.lost[0][0] * 64 + s.lost[0][1] * 8 + s.lost[0][2]); mix(s.lost[1][0] * 64 + s.lost[1][1] * 8 + s.lost[1][2]);
     mix(s.noPlace[0] * 16 + s.noPlace[1] * 4 + s.pend[0] * 2 + s.pend[1]); mix(s.noAct[0] * 4 + s.noAct[1]);
-    mix(s.phase === 'play' ? 1 : 2); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
+    mix(s.phase === 'play' ? 1 : 2); if (s.goal) mix(s.hold[0] * 7 + s.hold[1]); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
     if (s.dead) { let d = 0; for (let i = 0; i < NT; i++) d = d * 3 + s.dead[0][i] * 7 + s.dead[1][i] | 0; mix(d); }
     return (h1 >>> 0) * 4194304 + ((h2 >>> 0) & 4194303);
   }
@@ -1047,6 +1205,7 @@ function StratEngine() {
     W8 = { wG: 1, wM: 1, opp: null };
     X = level === 'impossible' ? 1 : 0;
     if (level === 'impossible' && opt.adapt) W8 = Object.assign(W8, opt.adapt);
+    setPerso(opt.perso, level === 'impossible' ? .3 : level === 'normal' ? 1 : 1.3);
     if (s0.phase === 'draft') return draftPick(s0, level);
     if (s0.phase === 'decl') return chooseDecl(s0, level);
     const s = clone(s0); s.declOn = false;
@@ -1262,7 +1421,7 @@ function StratEngine() {
   }
 
   return {
-    T, NT, TI, EVENTS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo,
+    T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

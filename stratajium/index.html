@@ -16,35 +16,38 @@
   <div class="menu-wrap">
     <div class="glass menu-main">
       <h1>Stratajium</h1>
-      <p class="tag">Recrute, place, active. Tue les dieux adverses… ou 4 de leurs gardes.</p>
-      <h3 class="sub">Tes parties</h3>
+      <p class="tag" data-l="Recrute, place, active. Tue les dieux adverses… ou 4 de leurs gardes."></p>
+      <p class="hello" id="hello"></p>
+      <h3 class="sub" data-l="Tes parties"></h3>
       <div id="slots"></div>
       <div class="menu-actions">
-        <button class="ghost" id="btnCodexMenu">📖 Codex</button>
-        <button class="ghost" id="btnSetMenu">⚙️ Paramètres</button>
-        <button class="ghost" id="btnQuit" hidden>Quitter</button>
+        <button class="ghost" id="btnTutoMenu" data-l="🎓 Tutoriel"></button>
+        <button class="ghost" id="btnCodexMenu" data-l="📖 Codex"></button>
+        <button class="ghost" id="btnSetMenu" data-l="⚙️ Paramètres"></button>
+        <button class="ghost" id="btnQuit" hidden data-l="Quitter"></button>
       </div>
     </div>
-    <aside class="glass score-box" id="scoreBox"></aside>
+    <aside class="glass score-box" id="dailyBox"></aside>
   </div>
 </section>
 
 <!-- ===== Nouvelle partie ===== -->
 <section id="newrun" class="screen">
   <div class="glass panel-mid">
-    <h2 class="title">Nouvelle partie</h2>
-    <p class="muted center">Choisis l’intelligence du bot pour toute cette partie. Tu commences avec 3 dieux et 4 sortes de gardes, sur le plateau classique et sans événement ; chaque affrontement gagné fait évoluer la partie.</p>
+    <h2 class="title" data-l="Nouvelle partie"></h2>
+    <p class="muted center" data-l="Choisis l’intelligence du bot pour toute cette partie. Tu commences avec 3 dieux et 4 sortes de gardes, sur le plateau classique et sans événement ; tes victoires font évoluer la partie."></p>
     <div class="levels" id="levels"></div>
-    <div class="menu-actions"><button class="ghost" id="btnNewBack">Retour</button></div>
+    <div id="duoNames" hidden></div>
+    <div class="menu-actions"><button class="ghost" id="btnNewBack" data-l="Retour"></button></div>
   </div>
 </section>
 
 <!-- ===== Partie (entre deux affrontements) ===== -->
 <section id="run" class="screen">
-  <div class="glass panel-mid" id="runBox"></div>
+  <div class="glass panel-mid wide" id="runBox"></div>
 </section>
 
-<!-- ===== Avant l'affrontement (événement / pari) ===== -->
+<!-- ===== Avant l'affrontement (événement / pari / défi) ===== -->
 <section id="pre" class="screen">
   <div class="glass panel-mid" id="preBox"></div>
 </section>
@@ -52,17 +55,17 @@
 <!-- ===== Affrontement ===== -->
 <section id="game" class="screen">
   <header class="bar">
-    <button class="ghost sm" id="btnMenu" title="Retour à la partie (l’affrontement est gardé)">☰ Partie</button>
-    <button class="ghost sm" id="btnUndo" title="Revenir un coup en arrière (Ctrl+Z)">↶ Annuler le coup</button>
+    <button class="ghost sm" id="btnMenu" data-l="☰ Retour"></button>
+    <button class="ghost sm" id="btnUndo" data-l="↶ Annuler le coup"></button>
     <div id="runBadge" class="badge run"></div>
     <div id="evBadge" class="badge" hidden></div>
+    <div id="goalBadge" class="badge goal" hidden></div>
     <div id="mapBadge" class="badge map"></div>
     <div class="grow"></div>
-    <div id="timer" class="badge time" title="Durée de l’affrontement">0:00</div>
-    <button class="ghost sm icon" id="btnMusic" title="Musique">🎵</button>
-    <button class="ghost sm icon" id="btnSfx" title="Effets sonores">🔊</button>
-    <button class="ghost sm" id="btnCodex">📖 Codex</button>
-    <button class="ghost sm icon" id="btnSet" title="Paramètres">⚙️</button>
+    <button class="ghost sm icon" id="btnMusic">🎵</button>
+    <button class="ghost sm icon" id="btnSfx">🔊</button>
+    <button class="ghost sm" id="btnCodex" data-l="📖 Codex"></button>
+    <button class="ghost sm icon" id="btnSet">⚙️</button>
   </header>
 
   <div class="layout">
@@ -81,12 +84,12 @@
     </div>
     <div class="col right">
       <div class="glass card" id="poolCard">
-        <h3 id="poolTitle">Réserve commune</h3>
+        <h3 id="poolTitle"></h3>
         <div id="pool"></div>
       </div>
-      <div class="glass card" id="infoCard"><div class="muted">Survole ou touche un perso pour voir ce qu’il fait.</div></div>
+      <div class="glass card" id="infoCard"></div>
       <div class="glass card logcard">
-        <h3>Journal</h3>
+        <h3 data-l="Journal"></h3>
         <ul id="log"></ul>
       </div>
     </div>
@@ -97,7 +100,7 @@
 <div class="modal" id="codexModal" hidden>
   <div class="mbox wide glass codex">
     <button class="x" data-close>×</button>
-    <h2 class="title">📖 Codex</h2>
+    <h2 class="title" data-l="📖 Codex"></h2>
     <div class="tabs" id="codexTabs"></div>
     <div id="codexBody"></div>
   </div>
@@ -106,7 +109,7 @@
 <div class="modal" id="setModal" hidden>
   <div class="mbox glass settings">
     <button class="x" data-close>×</button>
-    <h2 class="title">⚙️ Paramètres</h2>
+    <h2 class="title" data-l="⚙️ Paramètres"></h2>
     <div id="setBody"></div>
   </div>
 </div>
@@ -122,15 +125,24 @@
 
 <div class="modal" id="evoModal" hidden>
   <div class="mbox wide glass">
-    <h2 class="title" id="evoTitle">Évolution</h2>
-    <p class="muted center" id="evoSub">Choisis ce qui change pour tous les prochains affrontements de cette partie.</p>
+    <h2 class="title" id="evoTitle"></h2>
+    <p class="muted center" id="evoSub"></p>
     <div class="evos" id="evos"></div>
+  </div>
+</div>
+
+<div class="modal" id="tutoModal" hidden>
+  <div class="mbox glass tuto">
+    <button class="x" data-close>×</button>
+    <div id="tutoBody"></div>
   </div>
 </div>
 
 <div id="toast" hidden></div>
 
 <script src="js/engine.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/lang_en.js"></script>
 <script src="js/decor.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/ui.js"></script>

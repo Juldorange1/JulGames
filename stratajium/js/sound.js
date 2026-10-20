@@ -1,4 +1,6 @@
 /* Stratajium — musique (vrais morceaux CC0, voir music/CREDITS.md) et bruitages (sfx/CREDITS.md).
+   Pas d'à-coups : les morceaux montent et descendent en fondus lents (environ 3 s), et chaque morceau en boucle
+   repart en fondu enchaîné avec lui-même avant sa fin (aucune coupure au bouclage).
    Avec ?muet dans l'adresse, le script du <head> rend toute lecture muette. */
 const Sound = (function () {
   'use strict';
@@ -6,37 +8,55 @@ const Sound = (function () {
   function set(k, v) { try { localStorage.setItem('stratajium.' + k, JSON.stringify(v)); } catch (e) { } }
   let musicOn = get('musique', true), sfxOn = get('effets', true), musicVol = get('volMusique', .8), sfxVol = get('volEffets', .9);
   const MUSIC_VOL = { menu: .45, partie: .38, foret: .28, tension: .4, victoire: .5, defaite: .5 };
+  const LOOP = { menu: 1, partie: 1, foret: 1, tension: 1 };
+  const FADE_S = 3;        // durée d'un fondu de changement de morceau
+  const XFADE_S = 4;       // fondu enchaîné au bouclage
+  // chaque piste a 2 lecteurs pour pouvoir se fondre en elle-même au bouclage
   const tracks = {};
   function track(name) {
     if (!tracks[name]) {
-      const a = new Audio('music/' + name + '.mp3');
-      a.loop = name !== 'victoire' && name !== 'defaite';
-      a.preload = 'auto'; a.volume = 0;
-      tracks[name] = a;
+      const mk = () => { const a = new Audio('music/' + name + '.mp3'); a.preload = 'auto'; a.volume = 0; a.loop = false; return a; };
+      tracks[name] = { name, a: [mk(), mk()], cur: 0, gain: 0, xf: null };
     }
     return tracks[name];
   }
-  // fondu enchaîné entre les pistes voulues (ex. ['partie', 'foret'])
-  // dans le programme (Electron), la musique peut démarrer tout de suite ; dans un navigateur il faut un premier clic
-  let wanted = [], fadeT = 0, unlocked = /Electron/i.test(navigator.userAgent);
+  let wanted = [], tick = 0, unlocked = /Electron/i.test(navigator.userAgent), last = performance.now();
+  function startTick() { if (!tick) { last = performance.now(); tick = setInterval(step, 50); } }
   function want(list) {
+    // une piste unique (victoire, défaite) qu'on redemande repart du début seulement si elle était éteinte
     wanted = list;
     if (!unlocked) return;
-    for (const n of list) { const a = track(n); if (a.paused && musicOn) { if (!a.loop) a.currentTime = 0; a.play().catch(() => { }); } }
-    if (!fadeT) fadeT = setInterval(fadeStep, 60);
+    for (const n of list) {
+      const t = track(n), a = t.a[t.cur];
+      if (musicOn && a.paused) { if (!LOOP[n] && t.gain < .05) a.currentTime = 0; a.play().catch(() => { }); }
+    }
+    startTick();
   }
-  function fadeStep() {
+  const ease = x => x * x * (3 - 2 * x);
+  function step() {
+    const now = performance.now(), dt = Math.min(.2, (now - last) / 1000); last = now;
     let busy = false;
     for (const n in tracks) {
-      const a = tracks[n], target = musicOn && wanted.includes(n) ? MUSIC_VOL[n] * musicVol : 0;
-      const v = a.volume + Math.sign(target - a.volume) * Math.min(.03, Math.abs(target - a.volume));
-      a.volume = Math.max(0, Math.min(1, v));
-      if (Math.abs(a.volume - target) > .001) busy = true;
-      else if (target === 0 && !a.paused) a.pause();
+      const t = tracks[n];
+      const target = musicOn && wanted.includes(n) ? 1 : 0;
+      if (t.gain !== target) { const d = dt / FADE_S; t.gain = target > t.gain ? Math.min(target, t.gain + d) : Math.max(target, t.gain - d); }
+      const base = MUSIC_VOL[n] * musicVol * ease(t.gain);
+      const a = t.a[t.cur], b = t.a[1 - t.cur];
+      // bouclage en fondu enchaîné
+      if (LOOP[n] && t.gain > 0 && !a.paused && a.duration && a.currentTime > a.duration - XFADE_S && !t.xf) {
+        t.xf = now; b.currentTime = 0; b.volume = 0; b.play().catch(() => { });
+      }
+      if (t.xf) {
+        const k = Math.min(1, (now - t.xf) / (XFADE_S * 1000));
+        a.volume = base * (1 - ease(k)); b.volume = base * ease(k);
+        if (k >= 1) { a.pause(); t.cur = 1 - t.cur; t.xf = null; }
+      } else a.volume = base;
+      if (t.gain > 0 || t.xf) busy = true;
+      else for (const x of t.a) if (!x.paused) x.pause();
+      if (t.gain > 0 && musicOn && a.paused && !a.ended && wanted.includes(n) && unlocked) a.play().catch(() => { });
     }
-    if (!busy) { clearInterval(fadeT); fadeT = 0; }
+    if (!busy && !wanted.length) { clearInterval(tick); tick = 0; }
   }
-  // les navigateurs n'acceptent le son qu'après un premier clic
   function unlock() { if (unlocked) return; unlocked = true; want(wanted); }
   window.addEventListener('pointerdown', unlock, { capture: true });
   window.addEventListener('keydown', unlock, { capture: true });
@@ -60,10 +80,10 @@ const Sound = (function () {
   return {
     want, sfx,
     get music() { return musicOn; }, get effects() { return sfxOn; },
-    setMusic(on) { musicOn = !!on; set('musique', musicOn); want(wanted); if (!fadeT) fadeT = setInterval(fadeStep, 60); },
+    setMusic(on) { musicOn = !!on; set('musique', musicOn); want(wanted); startTick(); },
     setEffects(on) { sfxOn = !!on; set('effets', sfxOn); },
     get musicVol() { return musicVol; }, get sfxVol() { return sfxVol; },
-    setMusicVol(v) { musicVol = Math.max(0, Math.min(1, v)); set('volMusique', musicVol); if (!fadeT) fadeT = setInterval(fadeStep, 60); },
+    setMusicVol(v) { musicVol = Math.max(0, Math.min(1, v)); set('volMusique', musicVol); startTick(); },
     setSfxVol(v) { sfxVol = Math.max(0, Math.min(1, v)); set('volEffets', sfxVol); },
   };
 })();

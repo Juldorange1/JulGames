@@ -359,3 +359,48 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 body.anim-off #fx { display: none; }
 body.anim-fast .fxe { animation-duration: .35s !important; }
 body.no-coords .crd { display: none; }
+
+/* ----- ajouts : progression, choix, défi, tutoriel, cases spéciales, raccourcis ----- */
+input, textarea { -webkit-user-select: text; user-select: text; }
+input[type=text], input:not([type]) { font: inherit; color: var(--txt); background: rgba(255, 255, 255, .06); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; outline: none; }
+input:not([type]):focus { border-color: var(--gold); }
+kbd { display: inline-block; font: 600 11px/1 system-ui, sans-serif; padding: 3px 6px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .35); color: var(--muted); vertical-align: middle; }
+.hello { text-align: center; margin: -10px 0 8px; color: var(--muted); }
+.hello b { color: var(--gold); }
+.panel-mid.wide { max-width: 980px; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.trk { display: grid; grid-template-columns: 1fr 120px 40px; align-items: center; gap: 8px; font-size: 13px; margin: 6px 0; }
+.trk small { color: var(--muted); text-align: right; }
+.trk.done { display: block; color: var(--ok); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 6px; }
+.choice { position: relative; padding: 18px 16px; border-radius: 16px; border: 1px solid var(--line2); background: linear-gradient(180deg, rgba(242, 193, 78, .14), rgba(255, 255, 255, .02)); text-align: center; transition: transform .15s, box-shadow .15s; }
+.choice:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(242, 193, 78, .2); }
+.choice.hard { border-color: rgba(255, 106, 106, .5); background: linear-gradient(180deg, rgba(255, 106, 106, .16), rgba(255, 255, 255, .02)); }
+.choice .ic { font-size: 34px; display: block; }
+.choice b { display: block; font-size: 18px; margin: 4px 0; }
+.choice small { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.choice small.gold { color: var(--gold); }
+.choice kbd { position: absolute; top: 10px; right: 10px; }
+.evcard.hardc { border-color: rgba(255, 106, 106, .6); background: rgba(255, 106, 106, .08); }
+.names { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.names input { width: 200px; }
+.tuto { max-width: 560px; text-align: center; }
+.tutostep { color: var(--muted); font-size: 12px; }
+.tutotxt { text-align: left; margin: 10px 0; }
+.tutotxt input { width: 100%; }
+.tutoic { display: flex; gap: 10px; justify-content: center; margin: 6px 0 10px; }
+.tutoic .tk { width: 56px; height: 56px; }
+.sq .specic { position: absolute; width: 34%; height: 34%; right: 4%; bottom: 4%; z-index: 1; pointer-events: none; filter: drop-shadow(0 0 6px rgba(127, 211, 255, .6)); }
+.sq.spec2 .specic { width: 56%; height: 56%; right: -6%; bottom: -8%; opacity: .9; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .5)); }
+.sq.spec1 { box-shadow: inset 0 0 14px rgba(127, 211, 255, .55); }
+.sq.hill::after { content: ""; position: absolute; inset: 3px; border-radius: 4px; border: 2px dashed rgba(255, 220, 120, .8); pointer-events: none; z-index: 1; }
+.specline { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.specline .specic { width: 26px; height: 26px; flex: none; }
+.specbig .specic { width: 54px; height: 54px; }
+.mapprev i.s1 { background: #7fd3ff; } .mapprev i.s2 { background: #4f9440; }
+.keys { width: 100%; border-collapse: collapse; }
+.keys td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.keys td:first-child { width: 170px; }
+.badge.goal { border-color: #ff9a5a; color: #ffb88a; }
+.opts kbd { margin-left: 2px; }
+@media (max-width: 760px) { .cols2, .choices { grid-template-columns: 1fr; } }

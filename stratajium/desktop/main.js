@@ -39,13 +39,17 @@ function createWindow() {
         out.font = await js('document.fonts.check("800 20px Cinzel")');
         out.music = await js('fetch("music/partie.mp3").then(r => r.ok)');
         out.sfx = await js('fetch("sfx/prise.ogg").then(r => r.ok)');
-        await js(`document.querySelector('[data-new="0"]').click(); document.querySelector('[data-lv="impossible"]').click(); document.getElementById('btnStart').click(); true`);
-        await js(`STRAT.doAction(STRAT.E.gen(STRAT.G.s, true).find(a => a.k === 'rec')); true`);
+        await js(`localStorage.setItem('stratajium.tutoFait','true'); document.getElementById('tutoModal').hidden = true; document.querySelector('[data-new="0"]').click(); document.querySelector('[data-lv="impossible"]').click(); document.getElementById('btnStart').click(); true`);
+        await new Promise(r => setTimeout(r, 300));
         const t0 = Date.now();
+        // le premier joueur est tiré au sort : on attend notre tour, on joue, puis on attend la réponse du bot
         while (Date.now() - t0 < 20000 && await js('STRAT.G.s.turn !== 0')) await new Promise(r => setTimeout(r, 200));
+        await js(`STRAT.doAction(STRAT.E.gen(STRAT.G.s, true).find(a => a.k === 'rec')); true`);
+        while (Date.now() - t0 < 40000 && await js('STRAT.G.s.turn !== 0')) await new Promise(r => setTimeout(r, 200));
         out.botMs = Date.now() - t0;
         out.botPlayed = await js('STRAT.G.s.ply');
         out.decor = await js('document.querySelectorAll("#terrain canvas").length');
+        out.english = await js(`I18N.setLang('en'); I18N.L('Victoire !')`);
         out.errors = errors.slice(0, 5);
       } catch (err) { out.exception = String(err); }
       console.log('STRATAJIUM_TEST ' + JSON.stringify(out));
