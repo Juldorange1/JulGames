@@ -7,8 +7,13 @@ const Sound = (function () {
   function get(k, d) { try { const v = localStorage.getItem('stratajium.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
   function set(k, v) { try { localStorage.setItem('stratajium.' + k, JSON.stringify(v)); } catch (e) { } }
   let musicOn = get('musique', true), sfxOn = get('effets', true), musicVol = get('volMusique', .8), sfxVol = get('volEffets', .9);
-  const MUSIC_VOL = { menu: .45, partie: .38, foret: .28, tension: .4, victoire: .5, defaite: .5 };
-  const LOOP = { menu: 1, partie: 1, foret: 1, tension: 1 };
+  // ambiances : chacune a plusieurs morceaux, joués au hasard l'un après l'autre (fondu enchaîné)
+  const GROUPS = { menu: ['menu', 'menu2', 'menu3'], partie: ['partie', 'partie2', 'partie3'], foret: ['foret'], tension: ['tension', 'tension2'], boss: ['boss'], victoire: ['victoire', 'victoire2'], defaite: ['defaite'] };
+  const MUSIC_VOL = { menu: .45, menu2: .45, menu3: .42, partie: .38, partie2: .34, partie3: .36, foret: .28, tension: .4, tension2: .38, boss: .4, victoire: .5, victoire2: .5, defaite: .5 };
+  const LOOP = { menu: 1, partie: 1, foret: 1, tension: 1, boss: 1 };
+  const groupOf = {}; for (const g in GROUPS) for (const f of GROUPS[g]) groupOf[f] = g;
+  const curFile = {}; // ambiance -> morceau en cours
+  const pickFile = (g, not) => { const l = GROUPS[g].filter(f => f !== not); return l.length ? l[Math.floor(Math.random() * l.length)] : GROUPS[g][0]; };
   const FADE_S = 3;        // durée d'un fondu de changement de morceau
   const XFADE_S = 4;       // fondu enchaîné au bouclage
   // chaque piste a 2 lecteurs pour pouvoir se fondre en elle-même au bouclage
@@ -22,13 +27,19 @@ const Sound = (function () {
   }
   let wanted = [], tick = 0, unlocked = /Electron/i.test(navigator.userAgent), last = performance.now();
   function startTick() { if (!tick) { last = performance.now(); tick = setInterval(step, 50); } }
-  function want(list) {
-    // une piste unique (victoire, défaite) qu'on redemande repart du début seulement si elle était éteinte
+  function want(groups) {
+    // une ambiance qu'on (re)demande garde son morceau en cours ; sinon on en tire un au hasard
+    const list = [];
+    for (const g of groups) {
+      if (!GROUPS[g]) continue;
+      if (!curFile[g] || !wanted.includes(curFile[g])) { const t0 = curFile[g] && tracks[curFile[g]]; if (!t0 || t0.gain < .05) curFile[g] = pickFile(g); }
+      list.push(curFile[g]);
+    }
     wanted = list;
     if (!unlocked) return;
     for (const n of list) {
       const t = track(n), a = t.a[t.cur];
-      if (musicOn && a.paused) { if (!LOOP[n] && t.gain < .05) a.currentTime = 0; a.play().catch(() => { }); }
+      if (musicOn && a.paused) { if (!LOOP[groupOf[n]] && t.gain < .05) a.currentTime = 0; a.play().catch(() => { }); }
     }
     startTick();
   }
@@ -40,11 +51,17 @@ const Sound = (function () {
       const t = tracks[n];
       const target = musicOn && wanted.includes(n) ? 1 : 0;
       if (t.gain !== target) { const d = dt / FADE_S; t.gain = target > t.gain ? Math.min(target, t.gain + d) : Math.max(target, t.gain - d); }
-      const base = MUSIC_VOL[n] * musicVol * ease(t.gain);
+      const base = (MUSIC_VOL[n] || .4) * musicVol * ease(t.gain);
       const a = t.a[t.cur], b = t.a[1 - t.cur];
       // bouclage en fondu enchaîné
-      if (LOOP[n] && t.gain > 0 && !a.paused && a.duration && a.currentTime > a.duration - XFADE_S && !t.xf) {
-        t.xf = now; b.currentTime = 0; b.volume = 0; b.play().catch(() => { });
+      if (LOOP[groupOf[n]] && t.gain > 0 && !a.paused && a.duration && a.currentTime > a.duration - XFADE_S - 1 && !t.xf && wanted.includes(n)) {
+        const g = groupOf[n];
+        if (GROUPS[g].length > 1) {
+          // au lieu de reboucler : on passe en fondu à un autre morceau de la même ambiance
+          const next = pickFile(g, n);
+          curFile[g] = next; wanted = wanted.map(f => f === n ? next : f);
+          const nt = track(next), na = nt.a[nt.cur]; na.currentTime = 0; if (musicOn) na.play().catch(() => { });
+        } else { t.xf = now; b.currentTime = 0; b.volume = 0; b.play().catch(() => { }); }
       }
       if (t.xf) {
         const k = Math.min(1, (now - t.xf) / (XFADE_S * 1000));

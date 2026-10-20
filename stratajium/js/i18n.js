@@ -4,10 +4,12 @@
 const I18N = (function () {
   'use strict';
   const LANGS = [['fr', 'Français'], ['en', 'English']];
-  const DICT = { fr: null, en: { ui: {}, T: {}, EV: {}, GOAL: {}, MAP: {}, ZONE: {}, PERSO: {}, SPEC: {}, THEME: {}, LEVEL: [] } };
+  const empty = () => ({ ui: {}, T: {}, EV: {}, GOAL: {}, MAP: {}, ZONE: {}, PERSO: {}, SPEC: {}, THEME: {}, LEVEL: [] });
+  const DICT = { fr: null, en: empty() };
   function get(k, d) { try { const v = localStorage.getItem('stratajium.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
-  let lang = get('langue', null) || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en');
-  if (!DICT.hasOwnProperty(lang)) lang = 'fr';
+  // langue voulue : celle choisie dans les paramètres, sinon celle de l'appareil (si elle existe), sinon le français
+  const wanted = get('langue', null) || (navigator.language || 'fr').toLowerCase().slice(0, 2);
+  let lang = DICT.hasOwnProperty(wanted) ? wanted : 'fr';
   const D = () => DICT[lang];
   function L(s, vars) {
     const d = D();
@@ -20,7 +22,15 @@ const I18N = (function () {
   let ENG = null;
   const eng = () => ENG || (ENG = StratEngine());
   return {
-    LANGS, DICT, L,
+    LANGS, DICT, L, KEYS: [],
+    // une langue en plus : ui = traductions dans l'ordre de I18N.KEYS (voir lang_keys.js)
+    addLang(code, label, d) {
+      const D = Object.assign(empty(), d, { ui: {} });
+      (d.ui || []).forEach((t, i) => { if (t && this.KEYS[i] !== undefined) D.ui[this.KEYS[i]] = t; });
+      DICT[code] = D;
+      if (!LANGS.some(l => l[0] === code)) LANGS.push([code, label]);
+      if (wanted === code) lang = code;
+    },
     get lang() { return lang; },
     setLang(l) { if (DICT.hasOwnProperty(l)) { lang = l; try { localStorage.setItem('stratajium.langue', JSON.stringify(l)); } catch (e) { } } },
     name: t => pickT('T', t.id, 0, t.name),

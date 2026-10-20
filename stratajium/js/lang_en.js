@@ -211,4 +211,44 @@
   Object.assign(D.ZONE, { rangees: ['back rows'], flancs: ['flanks'], eparpille: ['scattered'], pointe: ['wedge'], damier: ['checkered'], centre: ['centre'] });
   Object.assign(D.THEME, { ete: ['Summer forest'], automne: ['Autumn forest'], hiver: ['Winter forest'], desert: ['Desert'], marais: ['Swamp'] });
   D.LEVEL = ['Classic 8×8 board', 'The map size changes', 'Simple shapes (corners, cross, diamond, arena…)', 'Holes, lakes, rivers, pillars, varied deployment zones', 'Anything goes: islands, corridors, staircases, mixed shapes'];
+  // ---- boss, exploits, talents, nouvelle interface ----
+  Object.assign(D.ui, {
+    'Bot stratège': 'Strategist bot', 'Le plus fort : il calcule plusieurs coups à l’avance.': 'The strongest: it calculates several moves ahead.', 'Boss': 'Boss',
+    'Gagne un « Roi de la colline »': 'Win a “King of the hill”', 'Gagne une « Percée »': 'Win a “Breakthrough”', 'Gagne un « Massacre »': 'Win a “Massacre”',
+    'Gagne une « Chasse au dieu »': 'Win a “God hunt”', 'Gagne une « Endurance »': 'Win an “Endurance”', 'Gagne sans perdre un seul perso': 'Win without losing a single unit',
+    'Gagne après avoir perdu 3 gardes': 'Win after losing 3 guards', 'Bats un boss': 'Beat a boss',
+    '+10 mana au début de chaque affrontement': '+10 mana at the start of every battle', 'Un soldat offert dans ta réserve à chaque affrontement': 'A free soldier in your reserve every battle',
+    'Choix parmi 4 au lieu de 3 quand tu débloques un perso': 'Choose among 4 instead of 3 when you unlock a unit', 'Encore +10 mana au début de chaque affrontement': 'Another +10 mana at the start of every battle',
+    'Chaque nouvelle partie commence avec 1 garde de plus': 'Every new run starts with 1 more guard', 'Chaque nouvelle partie commence avec 1 dieu de plus': 'Every new run starts with 1 more god',
+    'Sûr ?': 'Sure?', 'à découvrir': 'to discover', 'Carte': 'Map', 'Événements': 'Events', 'Carte plus sauvage : victoires': 'Wilder map: wins', 'Plus d’événements : victoires': 'More events: wins',
+    'Exploits': 'Feats', 'Affrontement de boss : {b}': 'Boss battle: {b}', 'Tue le boss pour gagner. Récompense : un perso au choix parmi tous ceux à découvrir.': 'Kill the boss to win. Reward: a unit of your choice among all those still locked.',
+    '🏅 Exploit ! {x} rejoint ta réserve.': '🏅 Feat! {x} joins your pool.', 'Récompense du boss !': 'Boss reward!',
+    'Le bot stratège veut ta peau : tiens le plus de tours possible (et gagne si tu peux).': 'The strategist bot is out to get you: last as many turns as you can (and win if you can).',
+    'Aujourd’hui : {p} pts': 'Today: {p} pts', 'Rejouer': 'Play again', 'Talents : {n}/{t}': 'Talents: {n}/{t}', 'prochain à {p} pts : {x}': 'next at {p} pts: {x}',
+    'Affrontement de boss !': 'Boss battle!', 'Il a des sbires. Tue le boss (chaque coup lui retire un point de vie) pour gagner.': 'It has minions. Kill the boss (each hit takes away one life point) to win.',
+    'Boss : {b} ({h} points de vie).': 'Boss: {b} ({h} life points).', 'Le boss perd {n} point(s) de vie ({h} restant(s)).': 'The boss loses {n} life point(s) ({h} left).',
+    '🎁 Nouveau talent : {x}': '🎁 New talent: {x}', 'Rien à placer': 'Nothing to place', 'Ouvrir la réserve': 'Open the pool', 'Recruter': 'Recruit',
+    'Codex : page précédente / suivante': 'Codex: previous / next page', '👹 Soldat & boss': '👹 Soldier & bosses',
+    'Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.': 'Every 10 battles, a boss awaits you with its minions. Each hit takes away one life point; kill it to win.',
+    'case spéciale': 'special square',
+    'Le plus fort : il calcule plusieurs coups à l’avance et lit les menaces, en environ 1,5 seconde. Il n’a aucun avantage, et on peut le battre, même en difficile.': 'The strongest: it calculates several moves ahead and reads threats, in about 1.5 seconds. It has no advantage, and it can be beaten, even in hard mode.',
+    'À chaque affrontement, le bot reçoit un caractère tiré au hasard. Il change sa façon de jouer, pas sa force.': 'Each battle, the bot gets a random personality. It changes how it plays, not how strong it is.',
+    'Défaites': 'Losses', 'chaque défaite rapporte quand même une demi-victoire normale vers le prochain garde et le prochain dieu.': 'each loss still counts as half a normal win towards the next guard and the next god.',
+    'Récompense : un perso au choix parmi tous ceux à découvrir.': 'Reward: a unit of your choice among all those still locked.', 'Ces persos ne se débloquent que par un exploit :': 'These units are only unlocked by a feat:',
+    'Défi du jour et talents': 'Daily challenge and talents',
+    'Chaque jour, la même carte, la même réserve et le même objectif pour tout le monde. Ton meilleur score du jour s’ajoute à tes points de défi du jour, qui débloquent des talents pour toujours :': 'Every day, the same map, pool and goal for everyone. Your best score of the day is added to your daily challenge points, which unlock talents forever:',
+    'pts': 'pts',
+    '<b>Une partie</b> est une suite d’<b>affrontements</b> contre un bot dont tu choisis l’intelligence. Le temps est infini.': 'A <b>run</b> is a series of <b>battles</b> against a bot whose intelligence you choose. Time is unlimited.',
+    'Celui qui commence est <b>tiré au sort</b>. Tu peux <b>annuler ton dernier coup</b> (↶, Ctrl+Z ou U), même après la fin d’un affrontement.': 'Who starts is <b>drawn at random</b>. You can <b>undo your last move</b> (↶, Ctrl+Z or U), even after a battle has ended.',
+    '<b>Recruter</b> : ouvre la réserve commune (bouton ➕ Recruter ou touche R) et clique un perso.': '<b>Recruit</b>: open the common pool (➕ Recruit button or R key) and click a unit.',
+    '<b>Recruter</b> un perso dans la réserve commune ;': '<b>Recruit</b> a unit from the common pool;',
+    'Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Tes victoires débloquent de nouveaux dieux, de nouveaux gardes, des cartes plus sauvages et des événements. Tous les 10 affrontements, un boss t’attend !': 'Before each battle, choose <b>normal</b> or <b>hard</b>. Your wins unlock new gods, new guards, wilder maps and events. Every 10 battles, a boss awaits you!',
+    'Réserve': 'Pool', 'Infos': 'Info', 'Le boss est vaincu !': 'The boss is defeated!',
+  });
+  Object.assign(D.T, {
+    bt: ['Stone titan', 'Boss, 4 life points. At the end of each of its side’s turns, it moves one square towards your nearest unit; every other turn, it crushes one of your units next to it.'],
+    bn: ['Necromancer', 'Boss, 3 life points. At the end of each of its side’s turns, she raises a minion next to her (5 at most); every other turn, she steals 15 mana from you.'],
+    bd: ['Dragon', 'Boss, 4 life points. Every other turn, it breathes fire in a straight line: the first 2 of your units on that line (4 squares) die.'],
+    mi: ['Minion', 'The boss’s servant: takes 1 step in any direction and captures by moving onto an enemy.'],
+  });
 })();

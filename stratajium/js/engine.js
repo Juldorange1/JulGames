@@ -46,7 +46,13 @@ function StratEngine() {
     { id: 'lc', cat: 'G', sym: '16', name: 'Lancier', val: 3.8, desc: 'Frappe les 3 cases devant lui en ligne droite (haut, bas, gauche ou droite), sans bouger.' },
     { id: 'cv', cat: 'G', sym: '17', name: 'Cavalier', val: 3.6, desc: 'Saute en L comme le cavalier aux échecs, par-dessus tout.' },
     { id: 'gd', cat: 'G', sym: '18', name: 'Gardien', val: 3.2, desc: 'Fait 1 pas dans n’importe quelle direction (comme le roi aux échecs).' },
+    // boss (un affrontement sur 10) : ils agissent tout seuls à la fin du tour de leur camp
+    { id: 'bt', cat: 'B', sym: 'T', name: 'Titan de pierre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, il avance d’une case vers ton perso le plus proche ; un tour sur deux, il écrase un de tes persos collés à lui.' },
+    { id: 'bn', cat: 'B', sym: 'N', name: 'Nécromancienne', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle fait sortir de terre un sbire à côté d’elle (5 au plus) ; un tour sur deux, elle te vole 15 mana.' },
+    { id: 'bd', cat: 'B', sym: 'D', name: 'Dragon', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Un tour sur deux, il crache du feu en ligne droite : les 2 premiers de tes persos sur cette ligne (4 cases) meurent.' },
+    { id: 'mi', cat: 'S', sym: 's', name: 'Sbire', val: 1.2, desc: 'Serviteur du boss : fait 1 pas dans n’importe quelle direction et prend en arrivant sur un ennemi.' },
   ];
+  const BOSSES = ['bt', 'bn', 'bd'];
   const NT = T.length;
   const TI = {}; T.forEach((t, i) => { TI[t.id] = i; t.i = i; });
   const BASE_M = ['ma', 'mb', 'mc', 'md', 'me'];
@@ -58,6 +64,7 @@ function StratEngine() {
   const START_M = ['ma', 'mc', 'md'], START_G = ['g2', 'g3', 'g5', 'g7'];
   const S_I = TI.s, MA_I = TI.ma, PB_I = TI.pb;
   const IS_M = T.map(t => t.cat === 'M'), MAGE_T = T.filter(t => t.cat === 'M').map(t => t.i);
+  const CATB = T.map(t => t.cat === 'B');
   const VAL = Float64Array.from(T, t => t.val), COST = Int16Array.from(T, t => t.cost || 0), CATN = Int8Array.from(T, t => t.cat === 'M' ? 0 : t.cat === 'G' ? 1 : 2);
 
   // ---------- Événements ----------
@@ -306,6 +313,7 @@ function StratEngine() {
       last: null,
       first0: o.first || 0,
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
+      boss: null,
     };
     if (o.mana) s.mana = o.mana.slice();
     let mages = o.gods || BASE_M, gards = o.gards || BASE_G;
@@ -322,6 +330,7 @@ function StratEngine() {
       for (const id of gards) s.pool[TI[id]] += 2;
       s.pool[S_I] = 8;
     }
+    if (o.boss) placeBoss(s, o.boss);
     if (ev === 'avantgarde') for (const p of [0, 1]) {
       const z = shuffle(homeEmpty(s, p)).slice(0, 2);
       for (const q of z) s.b[q] = enc(S_I, p);
@@ -336,7 +345,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0],
+      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? Object.assign({}, s.boss) : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
   }
@@ -353,9 +362,18 @@ function StratEngine() {
   }
 
   const isBl = (s, q) => !!s.bl && (s.bl[0] === q || s.bl[1] === q);
+  const isBoss = (s, q) => !!s.boss && s.boss.hp > 0 && s.boss.q === q;
   function kill(s, q, wallOk) {
     const c = s.b[q];
     if (c <= 0 || isBl(s, q)) return; // case bénie : rien n'y meurt
+    if (isBoss(s, q)) {
+      s.boss.hp--; s._k = (s._k || 0) + 1; s.quiet = -1;
+      if (s._hits) s._hits.push(q);
+      if (s.boss.hp > 0) return;
+      if (s._dead) s._dead.push(q);
+      s.b[q] = 0;
+      return;
+    }
     const p = own(c), t = T[tix(c)];
     s.lost[p][catIdx(t.cat)]++;
     if (s.dead) s.dead[p][tix(c)]++;
@@ -367,6 +385,7 @@ function StratEngine() {
 
   // déplacement simple vers une case vide ou ennemie ; renvoie la nouvelle position
   function stepTo(s, from, to) {
+    if (isBoss(s, to)) { kill(s, to); return from; } // on frappe le boss sans prendre sa place
     if (s.b[to] > 0) {
       kill(s, to);
       if (s.ev === 'murs') return from; // le mort bloque : l'attaquant reste devant
@@ -433,7 +452,7 @@ function StratEngine() {
     const line = [];
     let t = first;
     while (t >= 0 && b[t] !== 0 && b[t] !== VOID) {
-      if (b[t] === -1 || isBl(s, t)) return -1; // mur, ou perso béni : inamovible
+      if (b[t] === -1 || isBl(s, t) || isBoss(s, t)) return -1; // mur, perso béni ou boss : inamovible
       line.push(t); t = nx(g, t, d);
     }
     if (!doIt) return first;
@@ -469,7 +488,8 @@ function StratEngine() {
     if (t.cost && s.mana[p] < t.cost) return out;
     switch (t.id) {
       case 's': for (const q of pawnTargets(s, from, p)) out.push([q]); break;
-      case 'g1': for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && !isBl(s, q)) out.push([q]); break;
+      case 'g1': for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && !isBl(s, q) && !isBoss(s, q)) out.push([q]); break;
+      case 'mi': for (const q of stepTargets(s, from, p, ALL)) out.push([q]); break;
       case 'g2': for (const q of slideTargets(s, from, p, ORTH)) out.push([q]); break;
       case 'g3':
         for (const q of stepTargets(s, from, p, DIAG)) out.push([q]);
@@ -531,7 +551,7 @@ function StratEngine() {
         break;
       case 'pb': for (const k of SIDES) if (enemiesIn(s, g.side[1][k], p)) out.push([k]); break;
       case 'mb': {
-        const pcs = []; for (let q = 0; q < g.N; q++) if (b[q] > 0) pcs.push(q);
+        const pcs = []; for (let q = 0; q < g.N; q++) if (b[q] > 0 && !isBoss(s, q)) pcs.push(q);
         for (const x of pcs) for (const y of pcs) {
           if (x === y || (!full && x > y)) continue;
           if (own(b[x]) === own(b[y]) && tix(b[x]) === tix(b[y])) continue; // échange inutile
@@ -555,7 +575,7 @@ function StratEngine() {
         break;
       }
       case 'md': {
-        const al = []; for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p) al.push(q);
+        const al = []; for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p && !isBoss(s, q)) al.push(q);
         for (const a1 of al) for (const t1 of pawnTargets(s, a1, p)) {
           out.push([a1, t1]);
           const s2 = mini(s);
@@ -639,7 +659,7 @@ function StratEngine() {
     const g = s.g, c0 = s.b[from], p = own(c0), t = T[tix(c0)], opp = 1 - p;
     if (t.cost) s.mana[p] -= t.cost;
     switch (t.id) {
-      case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': {
+      case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': case 'mi': {
         let pos = from;
         for (const q of cl) pos = stepTo(s, pos, q);
         break;
@@ -738,6 +758,7 @@ function StratEngine() {
 
   function endTurn(s) {
     const p = s.turn;
+    if (s.boss && s.boss.hp > 0 && p === s.boss.owner) { bossAct(s); checkWin(s); }
     if (s.noPlace[p]) s.noPlace[p]--;
     if (s.noAct[p]) s.noAct[p]--;
     s.decl[p] = s._newDecl || null; s._newDecl = null;
@@ -772,6 +793,57 @@ function StratEngine() {
     }
   }
 
+  // ---------- boss ----------
+  function placeBoss(s, kind) {
+    const g = s.g, own2 = 1, z = g.zl[own2].filter(q => s.b[q] === 0);
+    if (!z.length) return;
+    // le boss au milieu de sa zone, 3 sbires autour
+    let cx = 0, cy = 0; for (const q of z) { cx += q % g.W; cy += q / g.W | 0; } cx /= z.length; cy /= z.length;
+    z.sort((a, b2) => Math.hypot(a % g.W - cx, (a / g.W | 0) - cy) - Math.hypot(b2 % g.W - cx, (b2 / g.W | 0) - cy));
+    const t = T[TI[kind]];
+    s.b[z[0]] = enc(TI[kind], own2);
+    s.boss = { q: z[0], hp: t.hp, max: t.hp, kind, owner: own2, cd: 0 };
+    for (const q of z.slice(1, 4)) s.b[q] = enc(TI.mi, own2);
+  }
+  function bossAct(s) {
+    const B = s.boss, g = s.g, me = B.owner, opp = 1 - me, W = g.W;
+    B.cd++;
+    const foes = []; for (let q = 0; q < g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === opp) foes.push(q);
+    const dist = (a, b2) => Math.max(Math.abs((a / W | 0) - (b2 / W | 0)), Math.abs(a % W - b2 % W));
+    const bestAdj = () => {
+      let best = -1, bv = -1;
+      for (const z of adjOf(s, B.q)) if (s.b[z] > 0 && own(s.b[z]) === opp && !isBl(s, z)) { const v = VAL[tix(s.b[z])]; if (v > bv) { bv = v; best = z; } }
+      return best;
+    };
+    if (B.kind === 'bt') {
+      // avance d'une case vers le perso ennemi le plus proche, puis en écrase un collé à lui
+      if (foes.length && bestAdj() < 0) {
+        let to = -1, bd = 99;
+        for (const z of adjOf(s, B.q)) if (s.b[z] === 0) { const d = Math.min(...foes.map(f => dist(z, f))); if (d < bd) { bd = d; to = z; } }
+        if (to >= 0) { s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; }
+      }
+      if (B.cd % 2 === 0) { const v = bestAdj(); if (v >= 0) { s._smash = v; kill(s, v); } } // il n'écrase qu'un tour sur deux
+    } else if (B.kind === 'bn') {
+      let n = 0; for (let q = 0; q < g.N; q++) if (s.b[q] > 0 && tix(s.b[q]) === TI.mi && own(s.b[q]) === me) n++;
+      if (n < 5) {
+        const free = adjOf(s, B.q).filter(z => s.b[z] === 0);
+        if (free.length) { free.sort((a, b2) => Math.min(99, ...foes.map(f => dist(a, f))) - Math.min(99, ...foes.map(f => dist(b2, f)))); s.b[free[0]] = enc(TI.mi, me); }
+      }
+      if (B.cd % 2 === 0) { const d = Math.min(15, s.mana[opp]); s.mana[opp] -= d; s.mana[me] += d; }
+    } else if (B.kind === 'bd') {
+      if (B.cd % 2 === 0) {
+        // feu dans la direction où il y a le plus d'ennemis (4 cases, 2 victimes au plus)
+        let best = null, bn = 0;
+        for (const d of ORTH) {
+          const vic = []; let q = B.q;
+          for (let k = 0; k < 4; k++) { q = nx(g, q, d); if (q < 0 || s.b[q] === -1 || s.b[q] === VOID) break; if (s.b[q] > 0 && own(s.b[q]) === opp && !cover(s, q) && !isBl(s, q)) vic.push(q); if (vic.length >= 2) break; }
+          if (vic.length > bn) { bn = vic.length; best = vic; }
+        }
+        if (best) { s._fire = best.slice(); for (const q of best) kill(s, q); }
+      }
+    }
+  }
+
   function loses(s, p) {
     if (s.ev === 'illimite') return s.lost[p][0] >= 2 || s.lost[p][1] >= 6;
     return s.lost[p][1] >= 4 || (s.lost[p][0] >= 1 && aliveMages(s, p) === 0);
@@ -791,6 +863,7 @@ function StratEngine() {
   const GOAL_WHY = { massacre: '5 persos adverses tués.', chasse: 'Un dieu adverse tué.', colline: '3 points au centre.', percee: 'Percée dans la zone adverse.' };
   function checkWin(s) {
     if (s.winner !== null) return;
+    if (s.boss && s.boss.hp <= 0) { s.winner = 1 - s.boss.owner; s.why = 'Le boss est vaincu !'; return; }
     if (s.goal) {
       const w = goalWinner(s);
       if (!w[0] && !w[1]) return;
@@ -861,7 +934,7 @@ function StratEngine() {
   const MAGEV = 1.5; // valeur d'un mage qui n'a plus assez de mana pour lancer son sort
   const PLAK = 6; // dans l'arbre de recherche : nombre de cases de placement essayées par perso
   const GPRESS = [0, 2.5, 6, 12, 20, 30, 45, 60];
-  // poids réglés par l'apprentissage (voir UI : le bot impossible s'adapte à tes parties)
+  // poids neutres : le bot n'apprend pas ta façon de jouer, il raisonne seulement sur la position
   let W8 = { wG: 1, wM: 1, opp: null };
   // caractère du bot (léger pour l'impossible, qui s'adapte surtout à la position)
   const PERSOS = {
@@ -894,6 +967,7 @@ function StratEngine() {
   // idem, à partir des codes des persos tués (tous du même joueur)
   function killGainC(s, codes, am) {
     const q = own(codes[0]);
+    if (s.boss && codes.some(c => CATB[tix(c)])) return s.boss.hp <= 1 ? WINCAP : 14;
     let v = 0, m = 0, gd = 0;
     for (const c of codes) { const t = T[tix(c)]; v += t.val; if (t.cat === 'M') m++; else if (t.cat === 'G') gd++; }
     const L = s.lost[q];
@@ -1103,6 +1177,7 @@ function StratEngine() {
       if (s.ev === 'illimite') sc += (s.lost[1 - p][0] - s.lost[p][0]) * 12;
       else sc += (danger(s, 1 - p, am[1 - p], onB[1 - p]) - danger(s, p, am[p], onB[p])) * W8.wM;
     }
+    if (s.boss && s.boss.hp > 0) sc += (s.boss.owner === p ? 1 : -1) * s.boss.hp * 9;
     if (s.noAct[1 - p]) sc += 1.5 * s.noAct[1 - p];
     if (s.noAct[p]) sc -= 1.5 * s.noAct[p];
     if (s.noPlace[1 - p]) sc += 0.6 * s.noPlace[1 - p];
@@ -1177,7 +1252,7 @@ function StratEngine() {
     mix(s.mana[0]); mix(s.mana[1]); mix(s.turn); mix(s.acts);
     mix(s.lost[0][0] * 64 + s.lost[0][1] * 8 + s.lost[0][2]); mix(s.lost[1][0] * 64 + s.lost[1][1] * 8 + s.lost[1][2]);
     mix(s.noPlace[0] * 16 + s.noPlace[1] * 4 + s.pend[0] * 2 + s.pend[1]); mix(s.noAct[0] * 4 + s.noAct[1]);
-    mix(s.phase === 'play' ? 1 : 2); if (s.goal) mix(s.hold[0] * 7 + s.hold[1]); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
+    mix(s.phase === 'play' ? 1 : 2); if (s.goal) mix(s.hold[0] * 7 + s.hold[1]); if (s.boss) mix(s.boss.hp * 1000 + s.boss.q * 3 + (s.boss.cd & 1)); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
     if (s.dead) { let d = 0; for (let i = 0; i < NT; i++) d = d * 3 + s.dead[0][i] * 7 + s.dead[1][i] | 0; mix(d); }
     return (h1 >>> 0) * 4194304 + ((h2 >>> 0) & 4194303);
   }
@@ -1199,12 +1274,11 @@ function StratEngine() {
     return best;
   }
 
-  // think(état, niveau, options) — options : { budget (ms), adapt: { wG, wM, opp: {typeId: fréquence} } }
+  // think(état, niveau, options) — options : { budget (ms), maxMs, perso, canExtend }
   function think(s0, level, opt) {
     opt = opt || {};
     W8 = { wG: 1, wM: 1, opp: null };
     X = level === 'impossible' ? 1 : 0;
-    if (level === 'impossible' && opt.adapt) W8 = Object.assign(W8, opt.adapt);
     setPerso(opt.perso, level === 'impossible' ? .3 : level === 'normal' ? 1 : 1.3);
     if (s0.phase === 'draft') return draftPick(s0, level);
     if (s0.phase === 'decl') return chooseDecl(s0, level);
@@ -1421,7 +1495,7 @@ function StratEngine() {
   }
 
   return {
-    T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    BOSSES, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

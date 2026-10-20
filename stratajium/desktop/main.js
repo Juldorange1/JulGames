@@ -49,7 +49,10 @@ function createWindow() {
         out.botMs = Date.now() - t0;
         out.botPlayed = await js('STRAT.G.s.ply');
         out.decor = await js('document.querySelectorAll("#terrain canvas").length');
+        out.creatures = await js('document.querySelectorAll("#board .crit, .pp .crit").length');
+        out.languages = await js('I18N.LANGS.map(l => l[0]).join(",")');
         out.english = await js(`I18N.setLang('en'); I18N.L('Victoire !')`);
+        out.japanese = await js(`I18N.setLang('ja'); I18N.L('Victoire !')`);
         out.errors = errors.slice(0, 5);
       } catch (err) { out.exception = String(err); }
       console.log('STRATAJIUM_TEST ' + JSON.stringify(out));

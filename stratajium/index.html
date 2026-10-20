@@ -18,7 +18,6 @@
       <h1>Stratajium</h1>
       <p class="tag" data-l="Recrute, place, active. Tue les dieux adverses… ou 4 de leurs gardes."></p>
       <p class="hello" id="hello"></p>
-      <h3 class="sub" data-l="Tes parties"></h3>
       <div id="slots"></div>
       <div class="menu-actions">
         <button class="ghost" id="btnTutoMenu" data-l="🎓 Tutoriel"></button>
@@ -27,7 +26,7 @@
         <button class="ghost" id="btnQuit" hidden data-l="Quitter"></button>
       </div>
     </div>
-    <aside class="glass score-box" id="dailyBox"></aside>
+    <div class="glass daily" id="dailyBox"></div>
   </div>
 </section>
 
@@ -37,7 +36,6 @@
     <h2 class="title" data-l="Nouvelle partie"></h2>
     <p class="muted center" data-l="Choisis l’intelligence du bot pour toute cette partie. Tu commences avec 3 dieux et 4 sortes de gardes, sur le plateau classique et sans événement ; tes victoires font évoluer la partie."></p>
     <div class="levels" id="levels"></div>
-    <div id="duoNames" hidden></div>
     <div class="menu-actions"><button class="ghost" id="btnNewBack" data-l="Retour"></button></div>
   </div>
 </section>
@@ -55,16 +53,19 @@
 <!-- ===== Affrontement ===== -->
 <section id="game" class="screen">
   <header class="bar">
-    <button class="ghost sm" id="btnMenu" data-l="☰ Retour"></button>
-    <button class="ghost sm" id="btnUndo" data-l="↶ Annuler le coup"></button>
+    <button class="ghost sm" id="btnMenu">☰ <span class="lbl" data-l="Retour"></span></button>
+    <button class="ghost sm" id="btnUndo">↶ <span class="lbl" data-l="Annuler le coup"></span></button>
     <div id="runBadge" class="badge run"></div>
     <div id="evBadge" class="badge" hidden></div>
     <div id="goalBadge" class="badge goal" hidden></div>
     <div id="mapBadge" class="badge map"></div>
     <div class="grow"></div>
+    <button class="ghost sm dockb" id="btnSheetPool">➕ <span class="lbl" data-l="Réserve"></span></button>
+    <button class="ghost sm dockb" id="btnSheetInfo">ℹ️ <span class="lbl" data-l="Infos"></span></button>
+    <button class="ghost sm dockb" id="btnSheetLog">📜 <span class="lbl" data-l="Journal"></span></button>
     <button class="ghost sm icon" id="btnMusic">🎵</button>
     <button class="ghost sm icon" id="btnSfx">🔊</button>
-    <button class="ghost sm" id="btnCodex" data-l="📖 Codex"></button>
+    <button class="ghost sm icon" id="btnCodex" title="Codex (C)">📖</button>
     <button class="ghost sm icon" id="btnSet">⚙️</button>
   </header>
 
@@ -75,14 +76,15 @@
     </div>
     <div class="col mid">
       <div class="turnline" id="turnline"></div>
-      <div id="terrain">
+      <div id="boardBox"><div id="terrain">
         <div id="board"></div>
         <div id="fx"></div>
-      </div>
+      </div></div>
       <div class="hint" id="hint"></div>
       <div class="opts" id="opts"></div>
     </div>
     <div class="col right">
+      <button class="x sheetx" id="sheetClose">×</button>
       <div class="glass card" id="poolCard">
         <h3 id="poolTitle"></h3>
         <div id="pool"></div>
@@ -103,6 +105,7 @@
     <h2 class="title" data-l="📖 Codex"></h2>
     <div class="tabs" id="codexTabs"></div>
     <div id="codexBody"></div>
+    <div class="pager" id="codexPager"></div>
   </div>
 </div>
 
@@ -141,8 +144,17 @@
 <div id="toast" hidden></div>
 
 <script src="js/engine.js"></script>
+<script src="js/art.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/lang_keys.js"></script>
 <script src="js/lang_en.js"></script>
+<script src="js/lang_es.js"></script>
+<script src="js/lang_de.js"></script>
+<script src="js/lang_it.js"></script>
+<script src="js/lang_pt.js"></script>
+<script src="js/lang_ru.js"></script>
+<script src="js/lang_zh.js"></script>
+<script src="js/lang_ja.js"></script>
 <script src="js/decor.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/ui.js"></script>
