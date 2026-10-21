@@ -71,7 +71,7 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 .tag { text-align: center; color: var(--muted); margin: 4px 0 6px; }
 
 /* ----- menu : titre et parties au centre, défi du jour dessous ----- */
-#menu.on, #newrun.on, #run.on, #pre.on, #duel.on { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 16px; gap: 14px; }
+#menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #season.on { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 16px; gap: 14px; }
 .menu-main { width: 100%; max-width: 760px; padding: 20px 24px; }
 .hello { text-align: center; margin: 0 0 12px; color: var(--muted); }
 .hello b { color: var(--gold); }
@@ -482,7 +482,7 @@ body.no-coords .crd { display: none; }
   .pp .chip .tk { width: 32px; height: 32px; }
 
   /* menus */
-  #menu.on, #newrun.on, #run.on, #pre.on, #duel.on { padding: 8px 10px; gap: 10px; justify-content: center; }
+  #menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #season.on { padding: 8px 10px; gap: 10px; justify-content: center; }
   .menu-main, .panel-mid { padding: 14px 14px; }
   .daily { grid-template-columns: 1fr auto; gap: 8px 14px; padding: 12px 14px; }
   .daily .dright { grid-column: 1 / -1; max-width: none; display: flex; align-items: center; gap: 12px; justify-content: space-between; text-align: left; }
@@ -689,4 +689,43 @@ body.no-coords .crd { display: none; }
 @media (max-width: 899px), (max-height: 600px) {
   .bcols { grid-template-columns: 1fr; overflow: auto; align-content: start; }
   .bscore { gap: 10px; } .bscore b { font-size: 24px; } .bscore > div { min-width: 70px; }
+}
+
+/* ===================== extensions (DLC) ===================== */
+.dlcs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.dlc { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: rgba(255, 255, 255, .03); opacity: .7; }
+.dlc.on { opacity: 1; border-color: var(--line2); background: linear-gradient(180deg, rgba(127, 211, 255, .1), rgba(255, 255, 255, .02)); }
+.dlc:last-child.on { background: linear-gradient(180deg, rgba(180, 140, 255, .14), rgba(255, 255, 255, .02)); }
+.dlchead { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.dlchead h3 { font-family: Cinzel, Georgia, serif; font-size: 22px; color: var(--gold); }
+.dlc ul { margin: 8px 0; padding-left: 20px; font-size: 16.5px; }
+.dlc li { margin: 4px 0; }
+.dlc .menu-actions { margin-top: 8px; }
+.tag2.dlc { border-color: #7fd3ff; color: #bfeaff; }
+/* histoire */
+.chaps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.chap { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); text-align: left; font-size: 17px; min-height: 56px; }
+.chap .cn { font-family: Cinzel, Georgia, serif; font-size: 24px; color: var(--gold); width: 26px; text-align: center; }
+.chap.done { border-color: rgba(126, 227, 154, .5); } .chap.done b { color: var(--ok); }
+.chap.next { border-color: var(--gold); background: rgba(242, 193, 78, .12); box-shadow: 0 0 16px rgba(242, 193, 78, .25); }
+.chap.lock { opacity: .45; cursor: default; }
+.chap .cb2 { margin-left: auto; width: 40px; height: 40px; }
+.evcard.story { font-size: 18px; font-style: italic; }
+.gold { color: var(--gold); }
+/* saison */
+.seasoncols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+.seasoncols h3 { font-size: 15.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.board { margin: 0; padding-left: 24px; font-size: 17px; }
+.board li { margin: 2px 0; } .board li.gold b { color: var(--gold); } .board small { color: var(--muted); margin-left: 6px; }
+.sq .specic.cur { width: 70%; height: 70%; right: 15%; bottom: 15%; opacity: .75; filter: drop-shadow(0 0 6px #7fd3ff); }
+.sq.spec3 { box-shadow: inset 0 0 14px rgba(80, 180, 255, .55); }
+@media (max-width: 760px) { .dlcs, .chaps, .seasoncols { grid-template-columns: 1fr; } .chap { min-height: 44px; padding: 6px 10px; } }
+@media (max-width: 600px) {
+  #ext p.muted { display: none; }
+  .dlcs { gap: 8px; margin-top: 4px; }
+  .dlc { padding: 8px 10px; }
+  .dlchead h3 { font-size: 19px; }
+  .dlc ul { font-size: 14.5px; margin: 4px 0; padding-left: 18px; }
+  .dlc li { margin: 2px 0; }
+  .dlc .menu-actions { margin-top: 4px; }
 }

@@ -50,7 +50,17 @@ const Decor = (function () {
       flowers: ['#c8c8e8', '#e8e0a0'], stone: ['#6a6e64', '#2a2e28'], moss: '#4a6a3a',
       water: ['#2a4a3a', '#0a1a14'], berries: '#a83a5a', particles: 'mist', bladeDensity: 110, pools: true,
     },
+    // DLC « Les Abysses » : le fond de la mer (algues, coraux, bulles)
+    abysses: {
+      name: 'Abysses', ground: ['#0e2a3e', '#061624'], blot: ['#164a5e', '#020a12'], dirt: '#2a3a3e', under: '#1a2a30',
+      blades: ['#1e6a5a', '#0e4a44'], tufts: ['#1e7a6a', '#2a8a5a', '#14605a', '#3a9a7a'],
+      bush: [['#0e3a3a', '#1a6a5a', '#3aa88a'], ['#3a0e2a', '#8a2a5a', '#e0608a'], ['#3a1a0e', '#a84a2a', '#f0905a']],
+      tree: [['#0a2a2a', '#145a4a', '#2a8a6a'], ['#2a0a2a', '#6a1a4a', '#c04a7a']],
+      flowers: ['#ff8aa8', '#ffb05a', '#8af0e0', '#f0e08a'], stone: ['#5a6a70', '#1e282c'], moss: '#2a8a6a',
+      water: ['#0a3a5a', '#02121e'], berries: '#ff6a8a', particles: 'bubble', bladeDensity: 160,
+    },
   };
+  const BASE_THEMES = ['ete', 'automne', 'hiver', 'desert', 'marais'];
   const THEME_IDS = Object.keys(THEMES);
 
   function blotch(ctx, x, y, r, color, alpha) {
@@ -254,6 +264,7 @@ const Decor = (function () {
       if (k === 'leaf') for (let i = 0; i < 26; i++) parts.push({ k: 'leaf', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 10 + R() * 14, rot: R() * 6, col: pick(R, ['#d0682a', '#e0b23a', '#c03a2a', '#b8902e', '#8a4a1a']) });
       if (k === 'snow') for (let i = 0; i < Math.round((CW + CH) / 6); i++) parts.push({ k: 'snow', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 14 + R() * 26, r: .8 + R() * 2 });
       if (k === 'dust') for (let i = 0; i < Math.round((CW + CH) / 14); i++) parts.push({ k: 'dust', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 10 + R() * 20, r: .6 + R() * 1.4 });
+      if (k === 'bubble') for (let i = 0; i < Math.round((CW + CH) / 18); i++) parts.push({ k: 'bubble', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 12 + R() * 24, r: 1 + R() * 3 });
       if (k === 'mist') for (let i = 0; i < 7; i++) parts.push({ k: 'mist', x: R() * CW, y: R() * CH, r: 90 + R() * 120, ph: R() * 6.3 });
       for (let i = 0; i < 5; i++) parts.push({ k: 'shade', x: R() * CW, y: R() * CH, r: 60 + R() * 90, ph: R() * 6.3 });
     }
@@ -267,6 +278,12 @@ const Decor = (function () {
       for (const p of parts) {
         if (p.k === 'shade') blotch(ctx, p.x + Math.sin(t * .15 + p.ph) * 30, p.y + Math.cos(t * .11 + p.ph) * 20, p.r, '#000', .08);
         else if (p.k === 'mist') blotch(ctx, (p.x + t * 8) % (CW + 200) - 100, p.y + Math.sin(t * .2 + p.ph) * 20, p.r, '#c8d8c8', .12);
+        else if (p.k === 'bubble') {
+          p.y -= p.sp / 60; const x = p.x + Math.sin(t * 1.3 + p.ph) * 4;
+          if (p.y < -6) { p.y = CH + 6; p.x = Math.random() * CW; }
+          ctx.globalAlpha = .55; ctx.strokeStyle = '#bff0ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = .35; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x - p.r * .35, p.y - p.r * .35, p.r * .3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
         else if (p.k === 'fly') {
           const x = p.x + Math.sin(t * p.sp + p.ph) * 22, y = p.y + Math.cos(t * p.sp * .8 + p.ph * 1.3) * 16;
           const a = .25 + .55 * Math.max(0, Math.sin(t * 1.7 + p.ph * 3));
@@ -340,5 +357,5 @@ const Decor = (function () {
     function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
     return { build, scene, setTheme, stop };
   }
-  return { create, THEMES, THEME_IDS };
+  return { create, THEMES, THEME_IDS, BASE_THEMES };
 })();
