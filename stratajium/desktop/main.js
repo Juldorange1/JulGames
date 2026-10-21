@@ -1,4 +1,4 @@
-// Échec aux Dieux (ancien nom : Stratajium) — version programme (Electron) : le jeu se lance dans sa propre fenêtre, sans navigateur.
+// Totem (ancien nom : Stratajium) — version programme (Electron) : le jeu se lance dans sa propre fenêtre, sans navigateur.
 // F11 ou Alt+Entrée : plein écran. Les points, records et l'apprentissage du bot sont gardés par le programme.
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
@@ -21,7 +21,7 @@ let win = null;
 function createWindow() {
   win = new BrowserWindow({
     width: display.width, height: display.height, minWidth: 900, minHeight: 600,
-    fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Échec aux Dieux',
+    fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Totem',
     icon: path.join(GAME_DIR, 'icon.png'), autoHideMenuBar: true, show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
   });

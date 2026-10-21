@@ -1,4 +1,4 @@
-/* Échec aux Dieux — les persos sont des créatures vivantes (pas seulement des humains).
+/* Totem — les persos sont des créatures vivantes (pas seulement des humains).
    Chaque dessin tient dans une boîte 100×100 ; les yeux sont dans <g class="eye"> (ils clignent),
    tout le corps est dans <g class="crit"> (il respire). Le cadre (hexagone = dieu, bouclier = garde,
    rond = soldat, couronne de pics = boss) porte la couleur du camp. */
@@ -100,6 +100,35 @@ const Art = (function () {
     bd: `<path d="M30 30 L22 12 L38 26 M70 30 L78 12 L62 26" fill="#8a1a1a" stroke="#5a0a0a" stroke-width="1.6"/><path d="M26 40 Q50 16 74 40 L70 66 Q50 86 30 66 Z" fill="#c8302a"/>
       <path d="M36 66 Q50 80 64 66 L60 74 Q50 82 40 74 Z" fill="#e86a3a"/>${eye(40, 46, 5.4, '#ffcc22', 1)}${eye(60, 46, 5.4, '#ffcc22', 1)}<path d="M33 38 L46 42 M67 38 L54 42" stroke="#5a0a0a" stroke-width="3" stroke-linecap="round"/>
       <ellipse cx="45" cy="66" rx="2.4" ry="1.6" fill="#3a0a0a"/><ellipse cx="55" cy="66" rx="2.4" ry="1.6" fill="#3a0a0a"/><path d="M42 74 L44 79 L46 74 M54 74 L56 79 L58 74" fill="#fff"/>`,
+    // ---------- nouveaux boss ----------
+    bh: `<path d="M50 84 Q26 84 30 62 L36 46" fill="none" stroke="#2f7a52" stroke-width="10" stroke-linecap="round"/><path d="M50 84 Q74 84 70 62 L64 46" fill="none" stroke="#2f7a52" stroke-width="10" stroke-linecap="round"/><path d="M50 84 L50 40" stroke="#3a9a66" stroke-width="11" stroke-linecap="round"/>
+      <ellipse cx="34" cy="40" rx="11" ry="9" fill="#2f7a52"/><ellipse cx="66" cy="40" rx="11" ry="9" fill="#2f7a52"/><ellipse cx="50" cy="30" rx="13" ry="11" fill="#3a9a66"/>
+      ${eye(30, 38, 3, '#ffdd33', 1)}${eye(70, 38, 3, '#ffdd33', 1)}${eye(45, 28, 3.6, '#ffdd33', 1)}${eye(55, 28, 3.6, '#ffdd33', 1)}<path d="M44 36 L50 39 L56 36" stroke="#a8242c" stroke-width="2.4" fill="none"/><path d="M32 46 l2 3 M68 46 l-2 3" stroke="#fff" stroke-width="1.6"/>`,
+    bq: `<ellipse cx="50" cy="66" rx="16" ry="18" fill="#f2b724"/><path d="M36 60 H64 M35 70 H65 M38 79 H62" stroke="#2a1a08" stroke-width="5"/><ellipse cx="30" cy="48" rx="12" ry="8" fill="#dff4ff" opacity=".8" transform="rotate(-30 30 48)"/><ellipse cx="70" cy="48" rx="12" ry="8" fill="#dff4ff" opacity=".8" transform="rotate(30 70 48)"/>
+      <circle cx="50" cy="40" r="14" fill="#2a1a08"/><path d="M38 24 L42 14 L46 22 L50 12 L54 22 L58 14 L62 24 Z" fill="#ffd84a" stroke="#a8781a" stroke-width="1.4"/>${eye(44, 40, 4.2, '#5a2a8a', 1)}${eye(56, 40, 4.2, '#5a2a8a', 1)}<path d="M44 26 Q40 18 36 18 M56 26 Q60 18 64 18" stroke="#2a1a08" stroke-width="2" fill="none"/>`,
+    bk: `<path d="M24 62 Q10 70 16 84 M36 70 Q30 86 40 90 M64 70 Q70 86 60 90 M76 62 Q90 70 84 84" fill="none" stroke="#a83a6a" stroke-width="7" stroke-linecap="round"/><circle cx="17" cy="82" r="2" fill="#f2c4d8"/><circle cx="83" cy="82" r="2" fill="#f2c4d8"/>
+      <path d="M26 58 Q24 16 50 14 Q76 16 74 58 Q62 70 50 70 Q38 70 26 58 Z" fill="#c24a80"/><circle cx="38" cy="30" r="3" fill="#e27aa8"/><circle cx="62" cy="26" r="2.4" fill="#e27aa8"/><circle cx="56" cy="36" r="2" fill="#e27aa8"/>
+      ${eye(40, 50, 6, '#ffcc33', 1)}${eye(60, 50, 6, '#ffcc33', 1)}<path d="M44 62 Q50 66 56 62" stroke="#5a1030" stroke-width="2.4" fill="none"/>`,
+    bg: `<path d="M18 86 L30 40 L50 30 L70 40 L82 86 Z" fill="#cfe9ff"/><path d="M30 86 L38 46 L50 40 L62 46 L70 86 Z" fill="#7fb8e8"/><circle cx="50" cy="40" r="13" fill="#eaf6ff"/>
+      <path d="M34 30 L40 10 L46 26 L50 6 L54 26 L60 10 L66 30 Z" fill="#a8e4ff" stroke="#4a8ac8" stroke-width="1.6"/>${eye(45, 40, 3.8, '#2a6ad8', 1)}${eye(55, 40, 3.8, '#2a6ad8', 1)}<path d="M46 48 Q50 50 54 48" stroke="#4a6a9a" stroke-width="1.8" fill="none"/>
+      <path d="M78 58 l6 -6 M81 55 l-6 0 M81 55 l0 -6" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M14 60 l6 6 M17 63 l6 0 M17 63 l0 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
+    bv: `<path d="M16 84 L30 40 Q50 30 70 40 L84 84 Z" fill="#3a2a26"/><path d="M30 40 Q50 30 70 40 L64 48 Q50 40 36 48 Z" fill="#ff6a1a"/><path d="M38 84 L44 60 L50 70 L56 58 L62 84" fill="#ff8a2a"/><path d="M44 84 L48 70 L52 76 L56 84" fill="#ffd84a"/>
+      ${glow(41, 56, 5, '#ffcc33')}${glow(59, 56, 5, '#ffcc33')}<path d="M40 30 Q42 18 48 22 Q50 10 56 20 Q62 16 60 30" fill="#ffb02a" opacity=".85"/><path d="M24 70 l6 -3 M76 70 l-6 -3" stroke="#ff6a1a" stroke-width="2.4"/>`,
+    bw: `<path d="M50 50 L10 26 M50 50 L8 50 M50 50 L12 74 M50 50 L26 90 M50 50 L90 26 M50 50 L92 50 M50 50 L88 74 M50 50 L74 90" stroke="#2a1a2a" stroke-width="4.4" stroke-linecap="round"/><path d="M10 26 L4 34 M8 50 L2 60 M90 26 L96 34 M92 50 L98 60" stroke="#2a1a2a" stroke-width="3.4" stroke-linecap="round"/>
+      <ellipse cx="50" cy="62" rx="17" ry="15" fill="#4a2a4a"/><path d="M42 58 L50 52 L58 58 L50 72 Z" fill="#d82a3a"/><circle cx="50" cy="38" r="13" fill="#5a3a5a"/>
+      ${eye(44, 36, 3.2, '#ff3a5a', 1)}${eye(56, 36, 3.2, '#ff3a5a', 1)}${glow(48, 30, 1.6, '#ff7a8a')}${glow(52, 30, 1.6, '#ff7a8a')}<path d="M45 47 L44 52 M55 47 L56 52" stroke="#eee" stroke-width="2"/>`,
+    bs: `<path d="M24 86 Q18 70 24 50 Q26 18 50 16 Q74 18 76 50 Q82 70 76 86 L68 78 L60 88 L50 78 L40 88 L32 78 Z" fill="#d8e8ff" opacity=".85"/><path d="M32 50 Q34 28 50 26 Q66 28 68 50" fill="#eef6ff" opacity=".7"/>
+      ${glow(41, 46, 6, '#5ad8ff')}${glow(59, 46, 6, '#5ad8ff')}<ellipse cx="50" cy="64" rx="7" ry="9" fill="#1a2a4a" opacity=".8"/><path d="M18 60 Q10 54 14 44 M82 60 Q90 54 86 44" stroke="#d8e8ff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>`,
+    bp: `<path d="M50 70 Q20 64 10 34 Q30 44 36 40 Q28 24 34 14 Q42 30 50 30 Q58 30 66 14 Q72 24 64 40 Q70 44 90 34 Q80 64 50 70 Z" fill="#ff7a1a"/><path d="M50 66 Q30 60 24 44 Q38 50 50 46 Q62 50 76 44 Q70 60 50 66 Z" fill="#ffcc33"/>
+      <path d="M40 70 L36 90 L46 78 L50 92 L54 78 L64 90 L60 70 Z" fill="#e8401a"/><circle cx="50" cy="44" r="11" fill="#ff9a2a"/>${eye(45, 42, 3.4, '#a8240a', 1)}${eye(55, 42, 3.4, '#a8240a', 1)}<path d="M47 50 L50 56 L53 50 Z" fill="#ffd84a" stroke="#a8600a" stroke-width="1"/>`,
+    bb: `<path d="M20 80 Q12 60 30 54 Q48 50 44 70 Q42 86 64 84 Q84 82 82 66" fill="none" stroke="#5a7a2a" stroke-width="11" stroke-linecap="round"/><path d="M20 80 Q12 60 30 54 Q48 50 44 70 Q42 86 64 84 Q84 82 82 66" fill="none" stroke="#a8c84a" stroke-width="3" stroke-dasharray="3 6"/>
+      <ellipse cx="62" cy="40" rx="20" ry="15" fill="#6a8a2a"/><path d="M48 28 L52 16 L58 26 L64 14 L68 26 L76 18 L76 32" fill="#c8302a"/>
+      ${glow(56, 38, 5, '#ffe22a')}${glow(70, 38, 5, '#ffe22a')}<path d="M54 50 L50 58 M56 50 L60 56" stroke="#c8302a" stroke-width="2" stroke-linecap="round"/><path d="M48 46 Q62 52 78 46" stroke="#3a4a1a" stroke-width="2" fill="none"/>`,
+    bc: `<path d="M20 86 L26 52 Q50 40 74 52 L80 86 Z" fill="#5a3a2a"/><path d="M26 56 L74 56 L72 66 L28 66 Z" fill="#8a8a8a"/><circle cx="50" cy="40" r="17" fill="#7aa84a"/>
+      <path d="M32 30 L22 20 L34 26 M68 30 L78 20 L66 26" fill="#e8e2d0" stroke="#e8e2d0" stroke-width="3"/><path d="M34 30 Q50 18 66 30 L66 36 L34 36 Z" fill="#8a8a8a" stroke="#5a5a5a" stroke-width="1.4"/>
+      ${eye(43, 42, 3.4, '#ff3a1a', 1)}${eye(57, 42, 3.4, '#ff3a1a', 1)}<path d="M42 52 Q50 48 58 52" stroke="#2a3a1a" stroke-width="2.4" fill="none"/><path d="M43 52 L44 47 M57 52 L56 47" stroke="#fff" stroke-width="2.4"/><path d="M80 30 L86 88" stroke="#8a6a3a" stroke-width="4"/><path d="M76 24 L92 30 L80 40 Z" fill="#c8c8c8"/>`,
+    ab: `<ellipse cx="50" cy="58" rx="16" ry="20" fill="#ffc21a"/><path d="M35 52 H65 M34 62 H66 M37 72 H63" stroke="#2a1a08" stroke-width="5"/><ellipse cx="32" cy="38" rx="13" ry="8" fill="#e8f6ff" opacity=".85" transform="rotate(-25 32 38)"/><ellipse cx="68" cy="38" rx="13" ry="8" fill="#e8f6ff" opacity=".85" transform="rotate(25 68 38)"/>
+      <circle cx="50" cy="34" r="11" fill="#2a1a08"/>${eye(45, 34, 3.6, '#3a2a0a', 1)}${eye(55, 34, 3.6, '#3a2a0a', 1)}<path d="M46 24 Q42 14 38 14 M54 24 Q58 14 62 14" stroke="#2a1a08" stroke-width="2" fill="none"/><path d="M50 78 L50 86" stroke="#2a1a08" stroke-width="3"/>`,
   };
   return { get: id => A[id] || '' };
 })();

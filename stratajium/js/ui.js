@@ -1,4 +1,4 @@
-/* Échec aux Dieux — interface : parties à affrontements (normal, difficile, boss tous les 10) qui font progresser la réserve,
+/* Totem — interface : parties à affrontements (normal, difficile, boss tous les 10) qui font progresser la réserve,
    exploits, défi du jour (ses points débloquent des talents), plateau en forêt, créatures animées, sons, raccourcis,
    tutoriel, plusieurs langues (voir i18n.js : L('texte français')). Tout tient à l'écran, sans défilement. */
 (function () {
@@ -72,6 +72,8 @@
     <path d="M22 50 l-6 -6 M40 40 l2 -8 M62 47 l6 -5 M80 33 l2 -8 M30 55 l-5 6 M52 70 l-7 3 M72 78 l3 7" stroke="#c9d89a" stroke-width="3"/></g>
     <g fill="#3f6a2a"><ellipse cx="45" cy="42" rx="7" ry="3.5" transform="rotate(-30 45 42)"/><ellipse cx="68" cy="76" rx="7" ry="3.5" transform="rotate(20 68 76)"/></g>
     <g fill="#b8323a"><circle cx="33" cy="58" r="3"/><circle cx="74" cy="32" r="3"/></g></svg>`;
+  const WEB = `<svg class="bramble" viewBox="0 0 100 100"><g fill="none" stroke="#e8e8f0" stroke-width="2.4" opacity=".9"><path d="M50 4 V96 M4 50 H96 M14 14 L86 86 M86 14 L14 86"/><path d="M50 22 L70 30 L78 50 L70 70 L50 78 L30 70 L22 50 L30 30 Z"/><path d="M50 38 L59 41 L62 50 L59 59 L50 62 L41 59 L38 50 L41 41 Z"/></g></svg>`;
+  const STONE = `<svg class="bramble" viewBox="0 0 100 100"><path d="M18 78 L24 40 L42 22 L66 24 L82 44 L80 76 Z" fill="#8a8a84" stroke="#4a4a44" stroke-width="3"/><path d="M34 46 L44 40 M58 34 L66 48 M40 64 L56 60" stroke="#5a5a54" stroke-width="2.4"/><circle cx="44" cy="52" r="3" fill="#5a5a54"/><circle cx="60" cy="52" r="3" fill="#5a5a54"/></svg>`;
   const SPEC_SVG = [null,
     `<svg class="specic" viewBox="0 0 100 100"><polygon points="50,8 72,40 50,92 28,40" fill="#7fd3ff" stroke="#1a5a8a" stroke-width="5"/><polygon points="50,8 60,40 50,92" fill="#c4ecff" opacity=".7"/></svg>`,
     `<svg class="specic" viewBox="0 0 100 100"><circle cx="38" cy="55" r="22" fill="#3d7a35"/><circle cx="62" cy="50" r="24" fill="#4f9440"/><circle cx="50" cy="34" r="20" fill="#62a84e"/></svg>`];
@@ -114,7 +116,7 @@
   function show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
     if (id !== 'game') { boardDecor.stop(); closeSheet(); }
-    if (id === 'menu' || id === 'newrun' || id === 'run') Sound.want(['menu']);
+    if (id === 'menu' || id === 'newrun' || id === 'run' || id === 'duel') Sound.want(['menu']);
   }
   let toastT = 0;
   function toast(txt, ms) { const t = $('toast'); t.innerHTML = txt; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms || 3200); }
@@ -166,8 +168,10 @@
     mana2: L('Encore +10 mana au début de chaque affrontement'), garde: L('Chaque nouvelle partie commence avec 1 garde de plus'), dieu: L('Chaque nouvelle partie commence avec 1 dieu de plus'),
   })[id];
   const dailyData = () => Object.assign({ total: 0, days: {} }, lsGet('daily', {}));
+  // statistiques gardées pour toujours : points des persos (+1 à chaque recrutement, placement ou activation), affrontements par sorte…
+  const statsData = () => Object.assign({ pts: {}, used: {}, usedW: {}, modes: {}, bosses: {}, kills: 0, lost: 0, battles: 0, turns: 0, ms: 0 }, lsGet('stats', {}));
   const hasTalent = id => { const t = TALENTS.find(x => x.id === id); return t && dailyData().total >= t.pts; };
-  const BOSS_ORDER = ['bt', 'bn', 'bd'];
+  const BOSS_ORDER = E.BOSSES; // chaque partie les rencontre dans un ordre tiré au hasard (r.bossSeq)
   // ---------- Cercles : la difficulté monte sans fin ----------
   // Cercle 0 = bot facile, 1 = normal, 2 = stratège ; ensuite chaque Cercle ajoute un fardeau, puis +1 point de vie aux boss par Cercle.
   // Quand tout est débloqué, on peut monter au Cercle suivant : la réserve repart du début (débloquer à l'infini).
@@ -187,7 +191,7 @@
   const cercleNew = c => c <= 2 ? `${LEVELIC[cercleBot(c)]} ${levelName(cercleBot(c))}` : (c - 2 <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 3], c) : fardeauText('pv', c));
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
-  const bossOf = r => BOSS_ORDER[(Math.floor(r.n / bossEvery(r)) - 1) % BOSS_ORDER.length];
+  const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
   const rollHard = r => shuffle(HARD).slice(0, hasF(r, 'hard3') ? 3 : 2);
   const allUnlocked = r => E.ALL_M.every(x => r.gods.includes(x)) && E.ALL_G.every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
@@ -199,6 +203,7 @@
     if (hasTalent('garde') && lockG.length) r.gards.push(pick(lockG));
     if (hasTalent('dieu') && lockM.length) r.gods.push(pick(lockM));
     r.hard = rollHard(r);
+    r.bossSeq = shuffle(E.BOSSES);
   }
   function newRun(cercle) {
     const r = { cercle, level: cercleBot(cercle), wins: 0, winsH: 0, losses: 0, news: [], created: Date.now() };
@@ -225,6 +230,7 @@
     if (!r.news) r.news = [];
     if (!r.exploits) r.exploits = [];
     if (r.winsH === undefined) r.winsH = 0;
+    if (!r.bossSeq || r.bossSeq.length !== E.BOSSES.length) r.bossSeq = shuffle(E.BOSSES);
     return r;
   }
   RUNS = RUNS.map(migrate);
@@ -459,10 +465,12 @@
     $('preBox').innerHTML = h;
     $('preBox').querySelectorAll('[data-bet]').forEach(seg => seg.onclick = ev => { const b = ev.target.closest('button'); if (!b) return; pre.bet[0] = +b.dataset.v; showPre(daily); });
     $('btnGo').onclick = () => { if (ready) beginMatch(); };
-    $('btnPreBack').onclick = () => { if (pre.mode === 'daily') { renderMenu(); show('menu'); } else openRun(cur); };
+    $('btnPreBack').onclick = () => { if (pre.mode === 'daily') { renderMenu(); show('menu'); } else if (pre.mode === 'duel') { renderDuel(); show('duel'); } else openRun(cur); };
     show('pre'); sfx('sort');
   }
   function curNames() {
+    if (pre && pre.names) return pre.names.slice();
+    if (pre && pre.ctl && pre.ctl[1] === 'me') return [pseudo(), L('Joueur 2')];
     const lv = pre ? pre.level : 'normal', ps = pre && pre.mode !== 'daily' ? pre.perso : null;
     return [pseudo(), levelName(lv) + (ps ? ' · ' + I18N.persoName(ps) : '')];
   }
@@ -490,8 +498,47 @@
   let G = null, gid = 0;
   function newG(s, extra) {
     gid++;
-    return Object.assign({ id: gid, s, humans: [true, false], level: 'normal', mode: 'normal', perso: null, daily: null, hard: [],
-      sel: null, legal: null, ver: 0, over: false, thinking: false, history: [], seed: 1 + rnd(1e6), lastA: null, committed: false, names: ['', ''] }, extra || {});
+    const G0 = Object.assign({ id: gid, s, ctl: ['me', 'bot'], me: 0, flip: false, net: false, level: 'normal', mode: 'normal', perso: null, daily: null, hard: [],
+      sel: null, legal: null, ver: 0, over: false, thinking: false, history: [], seed: 1 + rnd(1e6), lastA: null, committed: false, names: ['', ''], st: newBattleStats() }, extra || {});
+    G0.humans = G0.ctl.map(c => c === 'me'); // camps joués sur cet écran
+    return G0;
+  }
+  // ---------- suivi de l'affrontement (pour le bilan) ----------
+  function newBattleStats() {
+    return { act: [[0, 0, 0, 0], [0, 0, 0, 0]], kills: [[0, 0, 0], [0, 0, 0]], mana: [0, 0], pts: {}, pieces: {}, moments: [], forces: [], hits: 0, t0: Date.now() };
+  }
+  const catOf = i => ({ M: 0, G: 1 })[T[i].cat] ?? 2;
+  function forces(s) {
+    const f = [0, 0];
+    for (let q = 0; q < s.g.N; q++) { const c = s.b[q]; if (c > 0) f[E.own(c)] += T[E.tix(c)].val; }
+    for (const p of [0, 1]) for (let i = 0; i < E.NT; i++) f[p] += s.res[p][i] * T[i].val;
+    return [Math.round(f[0] * 10) / 10, Math.round(f[1] * 10) / 10];
+  }
+  const pieceLabel = (o, i) => `<b class="p${o}">${tn(i)}</b>`;
+  function track(before, s, a, dead, p) {
+    const st = G.st, k = { rec: 0, draft: 0, pioche: 0, pla: 1, act: 2, pass: 3 }[a.k];
+    if (k !== undefined) st.act[p][k]++;
+    const spent = before.mana[p] - s.mana[p]; if (spent > 0) st.mana[p] += spent;
+    const pc = (o, id) => st.pieces[o + ':' + id] || (st.pieces[o + ':' + id] = { act: 0, kills: 0, died: 0 });
+    // points : +1 au perso recruté, placé ou activé par un joueur de cet écran
+    const ti = a.k === 'act' ? E.tix(before.b[a.from]) : (a.k === 'rec' || a.k === 'pla' || (a.k === 'draft' && before.ev !== 'inverse')) ? a.t : -1;
+    if (ti >= 0 && G.ctl[p] === 'me') st.pts[T[ti].id] = (st.pts[T[ti].id] || 0) + 1;
+    if (a.k === 'act') pc(p, T[ti].id).act++;
+    const actor = a.k === 'act' ? ti : -1, bossDead = s._bossDead || [];
+    const turnN = Math.floor(before.ply / 2) + 1;
+    st.forces.push(forces(s));
+    for (const q of dead) {
+      const c = before.b[q]; if (c <= 0) continue;
+      const vo = E.own(c), vi = E.tix(c), byBoss = bossDead.includes(q) && before.boss;
+      const ko = byBoss ? before.boss.owner : p, ki = byBoss ? E.TI[before.boss.kind] : actor;
+      pc(vo, T[vi].id).died++;
+      if (vo !== ko) { st.kills[ko][catOf(vi)]++; if (ki >= 0) pc(ko, T[ki].id).kills++; }
+      st.moments.push({ i: st.forces.length - 1, o: vo, txt: L('Tour {n}', { n: turnN }) + ' · ' + (ki >= 0 && vo !== ko ? L('{a} tue {v}', { a: pieceLabel(ko, ki), v: pieceLabel(vo, vi) }) : L('{v} meurt', { v: pieceLabel(vo, vi) })) });
+    }
+    if (before.boss && s.boss && s.boss.hp < before.boss.hp) {
+      st.hits += before.boss.hp - s.boss.hp;
+      st.moments.push({ i: st.forces.length - 1, o: before.boss.owner, txt: L('Tour {n}', { n: turnN }) + ' · ' + L('{a} frappe le boss ({h} PV restants)', { a: actor >= 0 ? pieceLabel(p, actor) : esc(PN[p]), h: Math.max(0, s.boss.hp) }) });
+    }
   }
   function beginMatch() {
     const hs = pre.hard || [];
@@ -508,13 +555,14 @@
       if (fs.includes('soldat')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI.s, 1); }
       if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
     }
-    // talents du défi du jour (pas pendant le défi lui-même)
-    if (pre.mode !== 'daily') {
+    // talents du défi du jour (pas pendant le défi lui-même, ni en duel)
+    if (pre.mode !== 'daily' && pre.mode !== 'duel') {
       if (hasTalent('mana1')) s.mana[0] += 10;
       if (hasTalent('mana2')) s.mana[0] += 10;
       if (hasTalent('recrue')) s.res[0][E.TI.s]++;
     }
-    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, hard: hs, names: curNames() });
+    if (pre.mana) s.mana = [pre.mana, pre.mana];
+    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (SET.decor === 'auto') { setTheme(otherTheme(), true); scheduleTheme(); }
     sys(L('Carte : {m}.', { m: I18N.mapName(s.g) }));
@@ -531,7 +579,7 @@
     let d;
     try { d = deser(r.match); } catch (e) { r.match = null; saveRuns(); renderRun(); return toast(L('Affrontement illisible : il a été effacé.')); }
     pre = { level: r.level, perso: d.perso || null, mode: d.mode || 'normal' };
-    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [] });
+    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats() });
     G.names = curNames();
     $('log').innerHTML = d.log || '';
     sys(L('Affrontement repris.'));
@@ -540,7 +588,7 @@
   }
   function saveMatch() {
     if (!G || G.mode === 'daily' || cur < 0 || G.committed) return;
-    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard });
+    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard, st: G.st });
     saveRuns();
   }
   function enterGame() {
@@ -552,7 +600,8 @@
     $('goalBadge').hidden = !gl;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; }
     $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
-    $('runBadge').textContent = G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
+    $('btnUndo').hidden = G.net;
+    $('runBadge').textContent = G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     show('game');
     buildBoard(G.s.g);
     layoutBoard(); render(); maybeBot();
@@ -566,7 +615,7 @@
 
   // ---------- bot : rapide (le stratège réfléchit environ 1,5 s) ----------
   function maybeBot() {
-    if (!G || G.over || G.humans[G.s.turn] || G.thinking) return;
+    if (!G || G.over || G.ctl[G.s.turn] !== 'bot' || G.thinking) return;
     G.thinking = true;
     const id = G.id, ver = G.ver, t0 = performance.now();
     const opt = { perso: G.perso, canExtend: false };
@@ -586,11 +635,14 @@
   // ---------- exécution d'une action ----------
   function doAction(a) {
     const s = G.s, p = s.turn, before = E.clone(s);
-    if (G.humans[p]) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA }); if (G.history.length > 300) G.history.shift(); }
+    if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st) }); if (G.history.length > 300) G.history.shift(); }
+    if (G.net && G.ctl[p] === 'me') netSend({ t: 'act', a, ply: before.ply });
+    const iceBefore = s.boss && s.boss.ice ? s.boss.ice.join() : '', warnBefore = s.boss && s.boss.warn ? s.boss.warn.join() : '';
     const betBefore = s.betDone, holdBefore = s.hold ? s.hold.slice() : null, hpBefore = s.boss ? s.boss.hp : 0;
-    s._dead = []; s._hits = []; s._martyr = 0; s._fire = null; s._smash = -1;
+    s._dead = []; s._hits = []; s._martyr = 0; s._fire = null; s._smash = -1; s._bossDead = null;
     E.apply(s, a);
     const dead = s._dead, hits = s._hits, fire = s._fire, smash = s._smash; s._dead = null; s._hits = null; s._fire = null;
+    track(before, s, a, dead, p); s._bossDead = null;
     G.ver++; G.sel = null;
     logLine(describe(before, a, dead), p);
     if (a.k === 'pioche') toast(L('Tu as pioché : {x}', { x: tn(a.t) }));
@@ -599,6 +651,9 @@
     if (s.phase === 'play' && before.phase === 'draft') sys(L('Draft terminé, l’affrontement commence.'));
     if (holdBefore) for (const q of [0, 1]) if (s.hold[q] > holdBefore[q]) sys(L('{p} tient le centre : {n}/3.', { p: PN[q], n: s.hold[q] }));
     if (s.boss && s.boss.hp < hpBefore) sys(L('Le boss perd {n} point(s) de vie ({h} restant(s)).', { n: hpBefore - s.boss.hp, h: Math.max(0, s.boss.hp) }));
+    if (s.boss && s.boss.hp > hpBefore) sys(L('Le phénix renaît de ses cendres !'));
+    if (s.boss && s.boss.ice && s.boss.ice.join() !== iceBefore) sys(L('Gel : {n} de tes persos ne pourront pas agir à ton prochain tour.', { n: s.boss.ice.length }));
+    if (s.boss && s.boss.warn && s.boss.warn.join() !== warnBefore) sys(L('Attention : le boss menace les cases marquées en rouge !'));
     G.lastA = a;
     render();
     animate(before, s, a, dead, hits, fire, smash);
@@ -610,7 +665,7 @@
 
   // ---------- animations et sons ----------
   const fxEl = $('fx');
-  function sqXY(q) { const g = G.s.g; return { x: (q % g.W) * G.sq, y: ((q / g.W) | 0) * G.sq }; }
+  function sqXY(q) { const g = G.s.g, v = G.flip ? g.N - 1 - q : q; return { x: (v % g.W) * G.sq, y: ((v / g.W) | 0) * G.sq }; }
   function addFx(cls, q, html, opts) {
     const d = document.createElement('div');
     d.className = 'fxe ' + cls;
@@ -728,33 +783,50 @@
   }
 
   // ---------- fin d'un affrontement (le résultat n'est compté qu'en continuant : on peut encore annuler son coup) ----------
+  function endTitle() {
+    const w = G.s.winner;
+    if (G.mode === 'daily') return L('Défi terminé');
+    if (w === 2) return L('Match nul');
+    if (G.ctl[0] === 'me' && G.ctl[1] === 'me') return L('{p} a gagné', { p: esc(PN[w]) });
+    return w === G.me ? L('Victoire !') : L('Défaite…');
+  }
   function endGame() {
     if (G.over) return;
     G.over = true; G.sel = null; G.thinking = false;
-    const s = G.s, w = s.winner;
-    let title;
-    if (G.mode === 'daily') title = L('Défi terminé');
-    else if (w === 2) title = L('Match nul');
-    else title = w === 0 ? L('Victoire !') : L('Défaite…');
-    $('endTitle').textContent = title;
-    $('endTitle').style.color = w === 2 ? '' : (w === 0 ? 'var(--gold)' : 'var(--vio)');
-    $('endWhy').textContent = I18N.why(s.why);
-    $('endScore').textContent = G.mode === 'daily' ? L('{p} points de défi du jour', { p: dailyScore(G) }) : '';
+    const s = G.s, w = s.winner, title = endTitle();
     sys(L('Fin : {t}', { t: title }) + ' ' + I18N.why(s.why));
-    const good = w === 0 || (G.mode === 'daily' && dailyScore(G) > 0);
+    const good = w === G.me || (G.mode === 'daily' && dailyScore(G) > 0);
     Sound.want([good ? 'victoire' : 'defaite']);
-    $('endActions').innerHTML = `<button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button>`;
-    $('btnNext').onclick = endNext;
-    if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
-    $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
+    bilanTab = 'resume';
+    renderBilan();
     setTimeout(() => { if (G && G.over && $('game').classList.contains('on')) $('endModal').hidden = false; }, 700);
     render();
+  }
+  // applique le résultat à une partie (pour de vrai, ou sur une copie pour l'aperçu du bilan)
+  function runResult(r, s, mode) {
+    const w = s.winner;
+    if (w === 0) { r.wins++; if (mode === 'hard') r.winsH++; grantWin(r, mode, s); }
+    else if (w === 1) { r.losses++; lossProgress(r); }
+    r.n++; r.match = null; r.hard = rollHard(r);
+  }
+  function recordStats() {
+    const d = statsData(), st = G.st, s = G.s, w = s.winner, me = G.me, duo = G.ctl[0] === 'me' && G.ctl[1] === 'me';
+    const m = d.modes[G.mode] || (d.modes[G.mode] = { n: 0, w: 0, l: 0 });
+    m.n++; if (!duo) { if (w === me) m.w++; else if (w === 1 - me) m.l++; }
+    for (const id in st.pts) { d.pts[id] = (d.pts[id] || 0) + st.pts[id]; d.used[id] = (d.used[id] || 0) + 1; if (!duo && w === me) d.usedW[id] = (d.usedW[id] || 0) + 1; }
+    if (s.boss && !duo) { const b = d.bosses[s.boss.kind] || (d.bosses[s.boss.kind] = { w: 0, l: 0 }); if (w === 1 - s.boss.owner) b.w++; else b.l++; }
+    d.kills += st.kills[me][0] + st.kills[me][1] + st.kills[me][2];
+    d.lost += s.lost[me][0] + s.lost[me][1] + s.lost[me][2];
+    d.battles++; d.turns += Math.ceil(s.ply / 2); d.ms += Math.min(4 * 3600e3, Date.now() - st.t0);
+    lsSet('stats', d);
   }
   // compte le résultat (une seule fois)
   function commit() {
     if (!G || !G.over || G.committed) return;
     G.committed = true;
-    const s = G.s, w = s.winner;
+    recordStats();
+    const s = G.s;
+    if (G.mode === 'duel') return;
     if (G.mode === 'daily') {
       const pts = dailyScore(G), d = dailyData(), c = G.daily, old = d.days[c.date];
       const before = TALENTS.filter(t => d.total >= t.pts).length;
@@ -763,25 +835,99 @@
       if (nowT.length > before) toast(L('🎁 Nouveau talent : {x}', { x: talentName(nowT[nowT.length - 1].id) }), 6000);
       return;
     }
-    const r = run();
-    if (w === 0) { r.wins++; if (G.mode === 'hard') r.winsH++; grantWin(r, G.mode, s); }
-    else if (w === 1) { r.losses++; lossProgress(r); }
-    r.n++; r.match = null; r.hard = rollHard(r);
+    runResult(run(), s, G.mode);
     saveRuns();
+  }
+  function leaveGame() {
+    const mode = G ? G.mode : null;
+    if (G && G.net) netClose();
+    G = null;
+    if (mode === 'daily') { renderMenu(); show('menu'); }
+    else if (mode === 'duel') { renderDuel(); show('duel'); }
+    else openRun(cur);
   }
   function endNext() {
     $('endModal').hidden = true;
     commit();
-    if (G && G.mode === 'daily') { G = null; renderMenu(); show('menu'); return; }
-    G = null;
-    openRun(cur);
+    leaveGame();
+  }
+
+  // ---------- le bilan : clair, précis, sans défilement ----------
+  let bilanTab = 'resume';
+  function forceChart(st, me) {
+    const F = st.forces;
+    if (F.length < 2) return `<p class="muted">${L('Affrontement trop court pour une courbe.')}</p>`;
+    const W = 320, H = 130, n = F.length, max = Math.max(1, ...F.map(f => Math.max(f[0], f[1])));
+    const X = i => 6 + (W - 12) * i / (n - 1), Y = v => H - 8 - (H - 18) * v / max;
+    const line = o => F.map((f, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(f[o]).toFixed(1)}`).join(' ');
+    const dots = st.moments.filter(m => m.i >= 0 && m.i < n).map(m => `<circle cx="${X(m.i).toFixed(1)}" cy="${Y(F[m.i][m.o]).toFixed(1)}" r="3.4" class="dot${m.o === me ? '0' : '1'}"/>`).join('');
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}"><line x1="6" x2="${W - 6}" y1="${H - 8}" y2="${H - 8}" class="axis"/>
+      <path d="${line(1 - me)}" class="l1"/><path d="${line(me)}" class="l0"/>${dots}</svg>
+      <div class="legend2"><span class="k0">${esc(PN[me])}</span><span class="k1">${esc(PN[1 - me])}</span><span class="kd">${L('● = un perso mort')}</span></div>`;
+  }
+  function bilanGains() {
+    const out = [], st = G.st;
+    const pts = Object.values(st.pts).reduce((a, b) => a + b, 0);
+    if (pts) out.push(`<li>⭐ ${L('+{n} points pour tes persos', { n: pts })}</li>`);
+    if (G.mode === 'daily') { out.push(`<li class="gold">📅 ${L('{p} points de défi du jour', { p: dailyScore(G) })}</li>`); return out; }
+    if (G.mode === 'duel' || cur < 0 || G.committed) return out;
+    const r0 = run(), r1 = JSON.parse(JSON.stringify(r0));
+    runResult(r1, G.s, G.mode);
+    const rows = [['gN', TRACKS.gard.normal, L('Nouveau garde : victoires normales')], ['gH', TRACKS.gard.hardStreak, L('… ou victoires difficiles d’affilée')],
+      ['dN', TRACKS.god.normal, L('Nouveau dieu : victoires normales')], ['dH', TRACKS.god.hard, L('… ou victoires difficiles')],
+      ['map', TRACKS.map, L('Carte plus sauvage : victoires')], ['ev', TRACKS.event, L('Plus d’événements : victoires')]];
+    for (const [k, max, lab] of rows) {
+      const a = r0.t[k], b = r1.t[k];
+      if (a === b) continue;
+      out.push(`<li>${lab} : <b>${fmt1(a)} → ${b < a ? '✓' : fmt1(b)}</b>${b < a ? '' : ` / ${max}`}</li>`);
+    }
+    for (const pd of r1.pending.slice(r0.pending.length)) out.push(`<li class="gold">🎁 ${pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !')}</li>`);
+    for (const n of r1.news.slice(r0.news.length)) out.push(`<li class="gold">${n}</li>`);
+    if (!out.length) out.push(`<li class="muted">${L('Rien de nouveau cette fois.')}</li>`);
+    return out;
+  }
+  function renderBilan() {
+    const s = G.s, st = G.st, me = G.me, op = 1 - me, w = s.winner;
+    const title = endTitle(), col = w === 2 ? '' : (w === me ? 'var(--gold)' : 'var(--vio)');
+    const myTurns = Math.ceil(s.ply / 2), mins = Math.floor((Date.now() - st.t0) / 60000), secs = Math.floor((Date.now() - st.t0) / 1000) % 60;
+    const modeName = { normal: L('Affrontement normal'), hard: L('Affrontement difficile'), boss: L('Affrontement de boss !'), daily: L('Défi du jour'), duel: L('Duel') }[G.mode];
+    const sum = a => a[0] + a[1] + a[2];
+    const row = (lab, a, b, lowGood) => { const ga = lowGood ? a < b : a > b, gb = lowGood ? b < a : b > a; return `<tr><td>${lab}</td><td class="${ga ? 'best' : ''}">${a}</td><td class="${gb ? 'best' : ''}">${b}</td></tr>`; };
+    const table = `<table class="cmp"><tr><th></th><th class="p${me}">${esc(PN[me])}</th><th class="p${op}">${esc(PN[op])}</th></tr>
+      ${row(L('Persos tués'), sum(st.kills[me]), sum(st.kills[op]))}
+      ${row(L('Dieux perdus'), s.lost[me][0], s.lost[op][0], 1)}${row(L('Gardes perdus'), s.lost[me][1], s.lost[op][1], 1)}${row(L('Soldats perdus'), s.lost[me][2], s.lost[op][2], 1)}
+      ${row(L('Mana dépensé'), st.mana[me], st.mana[op])}
+      ${row(L('Recrutements'), st.act[me][0], st.act[op][0])}${row(L('Placements'), st.act[me][1], st.act[op][1])}${row(L('Activations'), st.act[me][2], st.act[op][2])}
+      ${s.boss ? row(L('Coups portés au boss'), s.boss.owner === op ? st.hits : 0, s.boss.owner === me ? st.hits : 0) : ''}</table>`;
+    // tes persos : les plus utiles d'abord
+    const mine = Object.entries(st.pieces).filter(([k]) => +k[0] === me).map(([k, v]) => ({ id: k.slice(2), ...v, pts: st.pts[k.slice(2)] || 0 }))
+      .sort((a, b) => (b.kills * 3 + b.act) - (a.kills * 3 + a.act));
+    const best = mine.length && (mine[0].kills || mine[0].act) ? mine[0].id : null;
+    const pcs = mine.slice(0, 6).map(x => { const i = E.TI[x.id]; return `<div class="bpc ${x.id === best ? 'mvp' : ''}">${token(i, me)}<div><b>${tn(i)}</b>${x.id === best ? ` <span class="tag2 gold">⭐ ${L('Meilleur perso')}</span>` : ''}
+      <small>${L('{a} activation(s)', { a: x.act })} · ${L('{k} ennemi(s) tué(s)', { k: x.kills })}${x.died ? ' · ☠ ' + L('{d} mort(s)', { d: x.died }) : ''}</small></div></div>`; }).join('') || `<p class="muted">${L('Aucun de tes persos n’a été activé.')}</p>`;
+    const moments = st.moments.slice(-7).map(m => `<li class="${m.o === me ? 'bad' : 'good'}">${m.txt}</li>`).join('') || `<li class="muted">${L('Personne n’est mort.')}</li>`;
+    $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${I18N.why(s.why)}</p>
+        <div class="bchips"><span>${modeName}</span>${cur >= 0 && G.mode !== 'duel' && G.mode !== 'daily' ? `<span>${cercleLabel(run().cercle)}</span>` : ''}<span>🗺️ ${I18N.mapName(s.g)}</span><span>⏱ ${L('{t} tours', { t: myTurns })} · ${mins}:${String(secs).padStart(2, '0')}</span></div></div>
+      <div class="btabs">${[['resume', L('Résumé')], ['forces', L('Déroulé')], ['persos', L('Tes persos')]].map(([k, l]) => `<button data-bt="${k}" class="${bilanTab === k ? 'sel' : ''}">${l}</button>`).join('')}</div>
+      <div class="bgrid" data-tab="${bilanTab}">
+        <section class="bcard t-resume"><h3>${L('Comparaison')}</h3>${table}</section>
+        <section class="bcard t-resume"><h3>${L('Ce que tu gagnes')}</h3><ul class="gains">${bilanGains().join('')}</ul></section>
+        <section class="bcard t-forces"><h3>${L('Rapport de forces')}</h3>${forceChart(st, me)}</section>
+        <section class="bcard t-forces"><h3>${L('Moments clés')}</h3><ul class="moments">${moments}</ul></section>
+        <section class="bcard t-persos wide2"><h3>${L('Tes persos')}</h3><div class="bpcs">${pcs}</div></section>
+      </div>
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button></div>`;
+    $('btnNext').onclick = endNext;
+    if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
+    $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
+    $('bilan').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { bilanTab = b.dataset.bt; renderBilan(); });
   }
   function undo() {
     if (!G) return;
     if (!G.history.length) return toast(L('Aucun coup à annuler.'));
     if (G.committed) return toast(L('L’affrontement est fini.'));
     const h = G.history.pop();
-    G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log;
+    G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log; if (h.st) G.st = JSON.parse(h.st);
     G.ver++; G.thinking = false; G.sel = null; G.over = false;
     $('endModal').hidden = true;
     sys(L('Coup annulé.'));
@@ -790,9 +936,9 @@
   $('btnUndo').onclick = undo;
   $('btnMenu').onclick = () => {
     if (G && G.over) commit();
-    if (G && G.mode === 'daily') { G = null; renderMenu(); show('menu'); return; }
+    if (G && G.net && !G.over) netSend({ t: 'bye' });
     if (G && !G.over) saveMatch();
-    G = null; openRun(cur);
+    leaveGame();
   };
 
   // ---------- textes du journal ----------
@@ -867,6 +1013,7 @@
       const s = G.s, t = T[E.tix(s.b[q])];
       let why = L('Ce perso n’a aucune action possible pour l’instant.');
       if (s.noAct[s.turn]) why = L('Tu ne peux plus activer de perso (Silence).');
+      else if (E.isIce(s, q)) why = L('Ce perso est gelé : il ne peut pas agir ce tour-ci.');
       else if (t.cost && s.mana[s.turn] < t.cost) why = L('Pas assez de mana ({c} nécessaires).', { c: t.cost });
       else if (s.decl[s.turn] && legal().some(a => a.k !== 'pass')) why = L('Tu dois faire l’action que tu as annoncée.');
       toast(why); sfx('erreur');
@@ -903,8 +1050,10 @@
         d.addEventListener('click', () => clickSq(q));
         d.addEventListener('mouseenter', () => { if (!G) return; if (G.s.b[q] > 0) showInfo(E.tix(G.s.b[q]), E.own(G.s.b[q]), q); else showSpec(q); });
       }
-      boardEl.appendChild(d); sqEls.push(d);
+      sqEls.push(d);
     }
+    // le 2e joueur en ligne voit la carte de son côté (retournée)
+    (G && G.flip ? sqEls.slice().reverse() : sqEls).forEach(d => boardEl.appendChild(d));
   }
   let lastLayout = '';
   function layoutBoard() {
@@ -932,7 +1081,9 @@
     const showHome = G.sel && G.sel.k === 'place';
     const centerSet = s.goal === 'colline' ? new Set(g.center) : null;
     const botOf = [], leftOf = [];
-    for (let q = 0; q < g.N; q++) if (g.ex[q]) { const r = (q / g.W) | 0, c = q % g.W; if (botOf[c] === undefined || r > botOf[c]) botOf[c] = r; if (leftOf[r] === undefined || c < leftOf[r]) leftOf[r] = c; }
+    const fl = G.flip;
+    for (let q = 0; q < g.N; q++) if (g.ex[q]) { const r = (q / g.W) | 0, c = q % g.W; if (botOf[c] === undefined || (fl ? r < botOf[c] : r > botOf[c])) botOf[c] = r; if (leftOf[r] === undefined || (fl ? c > leftOf[r] : c < leftOf[r])) leftOf[r] = c; }
+    const B = s.boss && s.boss.hp > 0 ? s.boss : null;
     for (let q = 0; q < g.N; q++) {
       const el = sqEls[q], c = s.b[q];
       if (!g.ex[q]) { el.className = 'sq void'; el.innerHTML = ''; continue; }
@@ -945,6 +1096,8 @@
       if (g.spec[q]) cls += ' spec' + g.spec[q];
       if (centerSet && centerSet.has(q)) cls += ' hill';
       if (E.isBl(s, q)) cls += ' blessed';
+      if (B && B.warn && B.warn.includes(q)) cls += ' warn';
+      if (B && B.ice && B.ice.includes(q)) cls += ' ice';
       if (lastSq.has(q)) cls += ' last';
       if (declSq.has(q)) cls += ' decl';
       if (v.sq.has(q)) cls += ' ' + v.sq.get(q);
@@ -955,10 +1108,10 @@
       if (botOf[col] === r) h += `<span class="crd f">${COLS[col]}</span>`;
       if (leftOf[r] === col) h += `<span class="crd r">${g.H - r}</span>`;
       if (g.spec[q]) h += SPEC_SVG[g.spec[q]];
-      if (c < 0) h += BRAMBLE;
+      if (c < 0) h += B && B.webs && B.webs.includes(q) ? WEB : B && B.stones && B.stones.includes(q) ? STONE : (s.boss && ((s.boss.webs || []).includes(q))) ? WEB : (s.boss && (s.boss.stones || []).includes(q)) ? STONE : BRAMBLE;
       if (c > 0) {
         const t = T[E.tix(c)];
-        h += `<div class="pc ${t.cat}">${token(E.tix(c), E.own(c))}</div>`;
+        h += `<div class="pc ${t.cat}${t.cat === 'B' && s.boss && s.boss.ghost ? ' ghost' : ''}">${token(E.tix(c), E.own(c))}</div>`;
         if (t.cat === 'B' && s.boss && s.boss.q === q) h += `<div class="hp">${'❤'.repeat(Math.max(0, s.boss.hp))}<span>${'♡'.repeat(Math.max(0, s.boss.max - s.boss.hp))}</span></div>`;
       }
       h += '<div class="mk"></div>';
@@ -998,7 +1151,7 @@
     const placeable = new Set();
     if (humanTurn() && s.phase === 'play') for (const a of legal()) if (a.k === 'pla') placeable.add(a.t);
     for (const p of [0, 1]) {
-      const el = $('pp' + p);
+      const el = $('pp' + (G.flip ? 1 - p : p)); // en ligne, le 2e joueur voit son panneau en bas
       el.className = `pp p${p}` + (!G.over && s.turn === p ? ' active' : '');
       const gNeed = s.ev === 'illimite' ? 6 : 4, am = E.aliveMages(s, p);
       let pips = '';
@@ -1155,13 +1308,14 @@
   // =====================================================================
   //  Raccourcis clavier
   // =====================================================================
-  function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal'].find(id => !$(id).hidden); }
+  function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal'].find(id => !$(id).hidden); }
   document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
     const k = e.key, ctrl = e.ctrlKey || e.metaKey, m = modalOpen();
     if (k === 'Escape') {
       if (m === 'codexModal') return closeCodex();
       if (m === 'setModal') return closeSettings();
+      if (m === 'statsModal') return closeStats();
       if (m === 'tutoModal') return closeTuto();
       if (m === 'endModal') { $('endModal').hidden = true; return; }
       if (sheet) return closeSheet();
@@ -1172,8 +1326,10 @@
     if (m === 'endModal') { if (k === 'Enter' || k === ' ') { e.preventDefault(); $('btnNext').click(); } if ((k === 'u' || k === 'U' || (ctrl && (k === 'z' || k === 'Z')))) { e.preventDefault(); undo(); } return; }
     if (m === 'tutoModal') { if (k === 'ArrowRight' || k === 'Enter') tutoStep(1); if (k === 'ArrowLeft') tutoStep(-1); return; }
     if (m === 'codexModal') { if (k === 'ArrowRight') codexPage(1); if (k === 'ArrowLeft') codexPage(-1); return; }
+    if (m === 'statsModal') { if (k === 'ArrowRight') statsPage(1); if (k === 'ArrowLeft') statsPage(-1); return; }
     if (m) return;
     if (k === 'c' || k === 'C') return openCodex();
+    if (k === 's' || k === 'S') return openStats();
     if (k === 'o' || k === 'O' || k === ',') return openSettings();
     if (k === 'm' || k === 'M') return toggleMusic();
     if (k === 'n' || k === 'N') return toggleSfx();
@@ -1185,6 +1341,7 @@
       if (k === 'Backspace') $('btnRunMenu').click();
       return;
     }
+    if (scr === 'duel') { if (k === 'Enter' && $('btnDuelGo')) $('btnDuelGo').click(); if (k === 'Backspace') $('btnDuelBack').click(); return; }
     if (scr === 'pre') { if (k === 'Enter') $('btnGo').click(); const n = +k; if ((n === 1 || n === 2) && document.querySelector('[data-bet] button')) document.querySelectorAll('[data-bet] button')[n - 1].click(); return; }
     if (scr === 'newrun') { if (k === 'Enter') { $('levels').querySelector('[data-c="0"]').click(); return; } const n = +k; if (n >= 1 && n <= 3) $('levels').querySelectorAll('button')[n - 1].click(); if (k === 'Backspace') $('btnNewBack').click(); return; }
     if (scr === 'menu') { const n = +k; if (n >= 1 && n <= 3) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector(`[data-new="${n - 1}"]`); if (b) b.click(); } if (k === 'j' || k === 'J') $('btnDaily').click(); return; }
@@ -1208,7 +1365,7 @@
   const SHORTCUTS = () => [
     ['Esc', L('Annuler la sélection, fermer une fenêtre')], ['Ctrl+Z / U', L('Annuler le coup')], ['Tab / ⇧+Tab', L('Choisir le perso suivant / précédent')],
     ['1 … 9', L('Boutons sous la carte (sorts, choix, recrues…)')], ['↵ / ␣', L('Valider, continuer')], ['P', L('Passer son tour')], ['R', L('Ouvrir la réserve')],
-    ['C', L('Codex')], ['O', L('Paramètres')], ['M / N', L('Musique / effets sonores')], ['H / F1', L('Tutoriel')], ['F11', L('Plein écran')],
+    ['C', L('Codex')], ['S', L('Statistiques')], ['O', L('Paramètres')], ['M / N', L('Musique / effets sonores')], ['H / F1', L('Tutoriel')], ['F11', L('Plein écran')],
     ['1, 2, 3', L('Menu : ouvrir une partie')], ['J', L('Menu : défi du jour')], ['↵ / D', L('Partie : affrontement normal / difficile')], ['← →', L('Codex : page précédente / suivante')],
   ];
 
@@ -1242,7 +1399,7 @@
     for (let q = 0; q < 49; q++) { const c = s.b[q], light = (((q / DIAG_W) | 0) + q % DIAG_W) % 2 === 0; h += `<i class="${light ? 'l' : ''} ${cls[q]}">${q === DIAG_C ? token(E.tix(c), 0) : c > 0 ? `<b class="${E.own(c) ? 'en' : 'al'}"></b>` : ''}</i>`; }
     return h + '</div>';
   }
-  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, bt: 1, bn: 1, bd: 1 };
+  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1 }; E.BOSSES.forEach(b => NODIAG[b] = 1);
   function pieceCards(ids) {
     const r = cur >= 0 ? run() : null;
     return ids.map(id => {
@@ -1271,7 +1428,7 @@
     if (tab === 'regles') return rulesBlocks();
     if (tab === 'dieux') return pieceCards(E.ALL_M);
     if (tab === 'gardes') return pieceCards(E.ALL_G);
-    if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(['bt', 'bn', 'bd', 'mi']));
+    if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(E.BOSSES.concat(['mi', 'ab'])));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
       .concat(E.GOALS.map(gl => card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id))));
@@ -1324,15 +1481,10 @@
     ];
   }
   const previews = [];
-  function renderCodex() {
-    $('codexTabs').innerHTML = CTABS().map(([k, l]) => `<button data-tab="${k}" class="${k === codexTab ? 'sel' : ''}">${l}</button>`).join('');
-    $('codexTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { codexTab = b.dataset.tab; codexPg = 0; sfx('page'); renderCodex(); });
-    while (previews.length) previews.pop().stop();
-    const body = $('codexBody'), blocks = codexBlocks(codexTab);
-    // pagination : on range les blocs en colonnes, page après page, sans jamais dépasser la hauteur
-    const isText = codexTab === 'regles' || codexTab === 'progression' || codexTab === 'raccourcis';
-    const gap = 10, W = body.clientWidth, H = body.clientHeight, minW = isText ? 400 : 330;
-    const N = Math.max(1, Math.min(isText ? 2 : 3, Math.floor((W + gap) / (minW + gap)))), colW = (W - gap * (N - 1)) / N;
+  // pagination : on range les blocs en colonnes, page après page, sans jamais dépasser la hauteur (aucun défilement)
+  function paginate(body, blocks, minW, pgWanted, maxCols, seq) {
+    const gap = 10, W = body.clientWidth, H = body.clientHeight - 4;
+    const N = Math.max(1, Math.min(maxCols || 3, Math.floor((W + gap) / (minW + gap)))), colW = (W - gap * (N - 1)) / N;
     body.innerHTML = `<div style="width:${colW}px">${blocks.map(b => `<div class="cb">${b}</div>`).join('')}</div>`;
     const hs = [...body.querySelectorAll('.cb')].map(e => e.offsetHeight);
     const pages = [];
@@ -1341,18 +1493,28 @@
       if (pg) {
         let best = -1;
         for (let c = 0; c < N; c++) if (pg.h[c] + (pg.h[c] ? gap : 0) + hs[i] <= H && (best < 0 || pg.h[c] < pg.h[best])) best = c;
+        if (seq) { best = -1; for (let c = pg.last; c < N; c++) if (pg.h[c] + (pg.h[c] ? gap : 0) + hs[i] <= H) { best = c; pg.last = c; break; } } // lecture colonne par colonne
         if (best >= 0) { pg.cols[best].push(i); pg.h[best] += (pg.h[best] ? gap : 0) + hs[i]; return; }
       }
-      pg = { cols: Array.from({ length: N }, () => []), h: new Array(N).fill(0) };
+      pg = { cols: Array.from({ length: N }, () => []), h: new Array(N).fill(0), last: 0 };
       pg.cols[0].push(i); pg.h[0] = hs[i]; pages.push(pg);
     });
-    codexPages = Math.max(1, pages.length);
-    if (codexPg >= codexPages) codexPg = codexPages - 1;
-    const P = pages[codexPg];
+    const n = Math.max(1, pages.length), k = Math.min(pgWanted, n - 1), P = pages[k];
     body.innerHTML = P ? `<div class="cpage">${P.cols.map(c => `<div class="ccol">${c.map(i => `<div class="cb">${blocks[i]}</div>`).join('')}</div>`).join('')}</div>` : '';
-    $('codexPager').innerHTML = codexPages > 1 ? `<button class="ghost sm" id="cPrev" ${codexPg ? '' : 'disabled'}>◀</button><span>${codexPg + 1} / ${codexPages}</span><button class="ghost sm" id="cNext" ${codexPg < codexPages - 1 ? '' : 'disabled'}>▶</button>` : '';
-    if ($('cPrev')) $('cPrev').onclick = () => codexPage(-1);
-    if ($('cNext')) $('cNext').onclick = () => codexPage(1);
+    return { pages: n, pg: k };
+  }
+  function pagerHtml(el, pg, pages, go) {
+    el.innerHTML = pages > 1 ? `<button class="ghost sm" data-pg="-1" ${pg ? '' : 'disabled'}>◀</button><span>${pg + 1} / ${pages}</span><button class="ghost sm" data-pg="1" ${pg < pages - 1 ? '' : 'disabled'}>▶</button>` : '';
+    el.querySelectorAll('[data-pg]').forEach(b => b.onclick = () => go(+b.dataset.pg));
+  }
+  function renderCodex() {
+    $('codexTabs').innerHTML = CTABS().map(([k, l]) => `<button data-tab="${k}" class="${k === codexTab ? 'sel' : ''}">${l}</button>`).join('');
+    $('codexTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { codexTab = b.dataset.tab; codexPg = 0; sfx('page'); renderCodex(); });
+    while (previews.length) previews.pop().stop();
+    const body = $('codexBody'), isText = codexTab === 'regles' || codexTab === 'progression' || codexTab === 'raccourcis';
+    const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3);
+    codexPages = r.pages; codexPg = r.pg;
+    pagerHtml($('codexPager'), codexPg, codexPages, codexPage);
     body.querySelectorAll('[data-theme]').forEach(el => { const d = Decor.create(); d.scene(el, 7 + Decor.THEME_IDS.indexOf(el.dataset.theme), el.dataset.theme); d.stop(); previews.push(d); });
   }
   function codexPage(d) { const n = codexPg + d; if (n < 0 || n >= codexPages) return; codexPg = n; sfx('page'); renderCodex(); }
@@ -1361,6 +1523,170 @@
   $('btnCodex').onclick = () => openCodex();
   $('btnCodexMenu').onclick = () => { const c = cur; cur = -1; openCodex(); cur = c; };
   $('codexModal').addEventListener('click', e => { if (e.target === $('codexModal') || e.target.hasAttribute('data-close')) closeCodex(); });
+
+  // =====================================================================
+  //  Duel : contre un bot, à deux sur le même écran, ou en ligne contre un ami
+  // =====================================================================
+  const DUEL = Object.assign({ opp: 'normal', res: 'start', map: '0', ev: 'none', boss: 'non', mana: 100, first: 'rnd' }, lsGet('duel', {}));
+  function duelSeg(key, opts) { return `<div class="seg" data-duel="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(DUEL[key]) === String(v) ? 'sel' : ''}">${l}</button>`).join('')}</div>`; }
+  function renderDuel() {
+    const online = DUEL.opp === 'net';
+    $('duelBox').innerHTML = `<h2 class="title">⚔️ ${L('Duel')}</h2><p class="muted center">${L('Un affrontement libre, avec tes réglages. Il ne compte pas pour tes parties, mais tes persos gagnent leurs points.')}</p>
+      <div class="dopts">
+        <div class="dopt"><b>${L('Adversaire')}</b>${duelSeg('opp', [['facile', '🌱 ' + L('Bot facile')], ['normal', '⚔️ ' + L('Bot normal')], ['impossible', '🧠 ' + L('Bot stratège')], ['deux', '👥 ' + L('À deux (même écran)')], ['net', '🌐 ' + L('En ligne')]])}</div>
+        <div class="dopt"><b>${L('Persos')}</b>${duelSeg('res', [['start', L('Ceux du départ')], ['rnd', L('Au hasard')], ['all', L('Tous')]])}</div>
+        <div class="dopt"><b>${L('Carte')}</b>${duelSeg('map', [['0', L('Classique')], ['1', L('Niveau {n}', { n: 1 })], ['2', L('Niveau {n}', { n: 2 })], ['3', L('Niveau {n}', { n: 3 })], ['4', L('Niveau {n}', { n: 4 })], ['rnd', L('Au hasard')]])}</div>
+        <div class="dopt"><b>${L('Événement')}</b>${duelSeg('ev', [['none', L('Aucun')], ['rnd', L('Au hasard')], ['objectif', I18N.evName('objectif')]])}</div>
+        <div class="dopt"><b>${L('Boss')}</b>${duelSeg('boss', [['non', L('Non')], ['oui', L('Oui (au hasard, dans le camp adverse)')]])}</div>
+        <div class="dopt"><b>${L('Mana de départ')}</b>${duelSeg('mana', [[100, '100'], [150, '150'], [200, '200']])}</div>
+        <div class="dopt"><b>${L('Qui commence')}</b>${duelSeg('first', [['rnd', L('Au hasard')], ['me', L('Moi')], ['opp', L('L’adversaire')]])}</div>
+      </div>
+      ${online ? `<div class="netbox"><button class="big" id="btnHost">${L('Créer une salle')}</button><span class="or">${L('ou')}</span><input id="joinCode" maxlength="4" placeholder="${L('Code')}"><button class="ghost" id="btnJoin">${L('Rejoindre')}</button></div><p class="center" id="netStatus">${L('Le joueur qui crée la salle choisit les réglages.')}</p>`
+        : `<div class="menu-actions"><button class="big" id="btnDuelGo">${L('Commencer le duel')} <kbd>↵</kbd></button></div>`}
+      <div class="menu-actions"><button class="ghost" id="btnDuelBack">${L('Retour')}</button></div>`;
+    $('duelBox').querySelectorAll('[data-duel]').forEach(seg => seg.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      let v = b.dataset.v; if (seg.dataset.duel === 'mana') v = +v;
+      DUEL[seg.dataset.duel] = v; lsSet('duel', DUEL); if (seg.dataset.duel === 'opp') netClose(); renderDuel();
+    });
+    if ($('btnDuelGo')) $('btnDuelGo').onclick = () => startDuel(null);
+    if ($('btnHost')) $('btnHost').onclick = hostRoom;
+    if ($('btnJoin')) $('btnJoin').onclick = () => joinRoom($('joinCode').value);
+    if ($('joinCode')) $('joinCode').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') joinRoom($('joinCode').value); };
+    $('btnDuelBack').onclick = () => { netClose(); renderMenu(); show('menu'); };
+  }
+  function openDuel() { cur = -1; myCercle = 0; renderDuel(); show('duel'); }
+  // prépare un duel ; en ligne, guestName = nom de l'ami qui a rejoint
+  function startDuel(guestName) {
+    const o = DUEL, bot = ['facile', 'normal', 'impossible'].includes(o.opp), online = o.opp === 'net';
+    const gods = o.res === 'all' ? E.ALL_M.slice() : o.res === 'rnd' ? shuffle(E.ALL_M).slice(0, 5) : E.START_M.slice();
+    const gards = o.res === 'all' ? E.ALL_G.slice() : o.res === 'rnd' ? shuffle(E.ALL_G).slice(0, 7) : E.START_G.slice();
+    const mapLv = o.map === 'rnd' ? rnd(5) : +o.map;
+    let ev = o.ev === 'rnd' ? pickEvent() : o.ev === 'objectif' ? 'objectif' : null;
+    if (online) while (ev === 'cache' || ev === 'pari') ev = pickEvent(); // en ligne : pas de pioche au hasard ni de pari
+    const first = o.first === 'rnd' ? rnd(2) : o.first === 'me' ? 0 : 1;
+    pre = { mode: 'duel', level: bot ? o.opp : 'normal', ev, map: E.makeMap(mapLv === 0 ? 'classique' : 'aleatoire', mapLv), first, bet: [null, null],
+      perso: bot ? pick(Object.keys(E.PERSOS)) : null, gods, gards, boss: o.boss === 'oui' ? pick(E.BOSSES) : null, mana: o.mana,
+      ctl: bot ? ['me', 'bot'] : online ? ['me', 'net'] : ['me', 'me'], names: online ? [pseudo(), guestName || L('Ami')] : null };
+    if (pre.ev === 'objectif') pre.goal = pick(E.GOALS).id;
+    if (online) { if (pre.ev === 'pari') pre.ev = null; beginMatch(); netSend({ t: 'start', s: ser(G.s), names: G.names, log: $('log').innerHTML }); return; }
+    if (pre.ev || pre.boss) showPre(false); else beginMatch();
+  }
+
+  // ---------- en ligne : pair à pair avec PeerJS (aucun serveur à nous) ----------
+  let net = null;
+  const CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const ROOM = c => 'totem-jeu-salle-' + c.toUpperCase();
+  function loadPeer() {
+    return new Promise((ok, ko) => {
+      if (window.Peer) return ok();
+      const sc = document.createElement('script');
+      sc.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+      sc.onload = () => window.Peer ? ok() : ko(); sc.onerror = ko;
+      document.head.appendChild(sc);
+    });
+  }
+  function netStatus(h) { if ($('netStatus')) $('netStatus').innerHTML = h; }
+  function netSend(m) { try { if (net && net.conn && net.conn.open) net.conn.send(JSON.stringify(m)); } catch (e) { } }
+  function netClose() { const n = net; net = null; if (!n) return; clearInterval(n.hb); try { n.conn && n.conn.close(); } catch (e) { } try { n.peer && n.peer.destroy(); } catch (e) { } }
+  async function hostRoom() {
+    netClose(); netStatus(L('Connexion…'));
+    try { await loadPeer(); } catch (e) { return netStatus(L('Le mode en ligne ne se charge pas (pas d’Internet ?).')); }
+    const code = Array.from({ length: 4 }, () => CODE_CH[rnd(CODE_CH.length)]).join('');
+    const n = net = { peer: new window.Peer(ROOM(code)), host: true, code, conn: null };
+    n.peer.on('open', () => netStatus(L('Salle créée ! Donne ce code à ton ami :') + ` <b class="code">${code}</b><br><small class="muted">${L('En attente de ton ami…')}</small>`));
+    n.peer.on('error', e => netStatus(L('Erreur de connexion ({e}).', { e: esc(e && e.type || '?') })));
+    n.peer.on('connection', conn => { if (n.conn) { conn.close(); return; } n.conn = conn; bindConn(n, conn); });
+  }
+  async function joinRoom(code) {
+    code = String(code || '').trim().toUpperCase();
+    if (code.length !== 4) return netStatus(L('Le code a 4 caractères.'));
+    netClose(); netStatus(L('Connexion…'));
+    try { await loadPeer(); } catch (e) { return netStatus(L('Le mode en ligne ne se charge pas (pas d’Internet ?).')); }
+    const n = net = { peer: new window.Peer(), host: false, code, conn: null };
+    n.peer.on('error', e => netStatus(e && e.type === 'peer-unavailable' ? L('Aucune salle avec ce code.') : L('Erreur de connexion ({e}).', { e: esc(e && e.type || '?') })));
+    n.peer.on('open', () => { const conn = n.peer.connect(ROOM(code), { reliable: true }); n.conn = conn; bindConn(n, conn); conn.on('open', () => netSend({ t: 'hello', name: pseudo() })); });
+  }
+  function bindConn(n, conn) {
+    n.seen = Date.now();
+    conn.on('data', d => { if (net !== n) return; n.seen = Date.now(); const m = typeof d === 'string' ? JSON.parse(d) : d; if (m.t !== 'ping') onNet(m); });
+    // battement : si l'ami ne répond plus pendant 20 s, on le considère comme parti
+    n.hb = setInterval(() => { if (net !== n) return clearInterval(n.hb); if (conn.open) netSend({ t: 'ping' }); if (conn.open && Date.now() - n.seen > 20000) lost(); }, 4000);
+    const lost = () => {
+      clearInterval(n.hb);
+      if (net !== n) return;
+      net = null;
+      if (G && G.net && !G.over) { toast(L('Ton adversaire s’est déconnecté.'), 6000); G.s.winner = G.me; G.s.why = 'Ton adversaire a quitté la partie.'; endGame(); }
+      else netStatus(L('Connexion fermée.'));
+    };
+    conn.on('close', lost);
+  }
+  function onNet(m) {
+    if (m.t === 'hello' && net.host) { netStatus(L('{p} a rejoint la salle !', { p: esc(m.name) })); startDuel(String(m.name || '').slice(0, 18)); }
+    else if (m.t === 'start' && !net.host) {
+      cur = -1; myCercle = 0;
+      pre = { mode: 'duel', names: m.names };
+      G = newG(deser(m.s), { mode: 'duel', ctl: ['net', 'me'], me: 1, flip: true, net: true, names: m.names.slice() });
+      $('log').innerHTML = m.log || '';
+      sys(L('Connecté ! Tu joues contre {p}.', { p: esc(m.names[0]) }));
+      enterGame();
+    }
+    else if (m.t === 'act' && G && G.net && !G.over) { if (m.ply !== G.s.ply) netSend({ t: 'need' }); else doAction(m.a); }
+    else if (m.t === 'need' && net.host && G) netSend({ t: 'sync', s: ser(G.s) });
+    else if (m.t === 'sync' && G) { G.s = deser(m.s); G.ver++; G.sel = null; render(); if (G.s.winner !== null) endGame(); }
+    else if (m.t === 'bye' && G && G.net && !G.over) { G.s.winner = G.me; G.s.why = 'Ton adversaire a abandonné.'; endGame(); }
+  }
+
+  // =====================================================================
+  //  Statistiques : points des persos, affrontements, boss
+  // =====================================================================
+  let statsTab = 'persos', statsPg = 0, statsPages = 1;
+  const pct = (a, b) => b ? Math.round(100 * a / b) + ' %' : '–';
+  function statsBlocks() {
+    const d = statsData();
+    if (statsTab === 'persos') {
+      const ids = E.ALL_M.concat(E.ALL_G, ['s']);
+      const max = Math.max(1, ...ids.map(id => d.pts[id] || 0));
+      const sorted = ids.slice().sort((a, b) => (d.pts[b] || 0) - (d.pts[a] || 0) || tn(E.TI[a]).localeCompare(tn(E.TI[b])));
+      const low = ids.slice().sort((a, b) => (d.pts[a] || 0) - (d.pts[b] || 0)).slice(0, 5);
+      return [textBlock(`<h3>${L('Les points de tes persos')}</h3><p class="muted">${L('Un perso gagne 1 point chaque fois que tu le recrutes, le places ou l’actives.')}</p>
+          <p>${L('Les moins utilisés :')} ${low.map(id => `<span class="chip ic" title="${esc(tn(E.TI[id]))}">${token(E.TI[id], 0)}</span>`).join(' ')}</p>`)]
+        .concat(sorted.map((id, k) => { const i = E.TI[id], n = d.pts[id] || 0, u = d.used[id] || 0;
+          return `<div class="srow">${k < 3 && n ? `<span class="rank">${k + 1}</span>` : '<span class="rank"></span>'}${token(i, 0)}<div class="sname"><b>${tn(i)}</b><small>${L('{u} affrontement(s)', { u })} · ${L('{p} de victoires', { p: pct(d.usedW[id] || 0, u) })}</small></div>
+            <div class="sbar"><i style="width:${100 * n / max}%"></i></div><b class="snum">${n}</b></div>`; }));
+    }
+    if (statsTab === 'affrontements') {
+      const M = d.modes, kinds = [['normal', L('Affrontement normal')], ['hard', L('Affrontement difficile')], ['boss', L('Affrontement de boss !')], ['daily', L('Défi du jour')], ['duel', L('Duel')]];
+      const runN = ['normal', 'hard', 'boss'].reduce((a, k) => a + (M[k] ? M[k].n : 0), 0);
+      const totW = Object.values(M).reduce((a, m) => a + m.w, 0), totL = Object.values(M).reduce((a, m) => a + m.l, 0);
+      const h = Math.floor(d.ms / 3600e3), mn = Math.floor(d.ms / 60000) % 60;
+      return [
+        textBlock(`<h3>${L('En tout')}</h3><div class="bigstats"><div><b>${d.battles}</b><small>${L('affrontements')}</small></div><div><b>${pct(totW, totW + totL)}</b><small>${L('de victoires')}</small></div>
+          <div><b>${d.kills}</b><small>${L('persos ennemis tués')}</small></div><div><b>${d.lost}</b><small>${L('persos perdus')}</small></div><div><b>${d.turns}</b><small>${L('tours joués')}</small></div><div><b>${h} h ${String(mn).padStart(2, '0')}</b><small>${L('de jeu')}</small></div></div>`),
+        textBlock(`<h3>${L('Sortes d’affrontements')}</h3><table class="cmp stab"><tr><th></th><th>${L('Part')}</th><th>${L('Joués')}</th><th>${L('Victoires')}</th><th>${L('Réussite')}</th></tr>
+          ${kinds.map(([k, lab]) => { const m = M[k] || { n: 0, w: 0, l: 0 }; const share = ['normal', 'hard', 'boss'].includes(k) ? pct(m.n, runN) : '–';
+            return `<tr><td>${lab}</td><td>${share}</td><td>${m.n}</td><td>${m.w}</td><td class="best">${pct(m.w, m.w + m.l)}</td></tr>`; }).join('')}</table>
+          <p class="muted">${L('« Part » = la part de tes affrontements de partie qui étaient simples, compliqués ou contre un boss.')}</p>`),
+        textBlock(`<h3>${L('Boss')}</h3><div class="bossgrid">${E.BOSSES.map(b => { const x = d.bosses[b] || { w: 0, l: 0 }, seen = x.w + x.l;
+          return `<div class="bstat ${seen ? '' : 'unseen'}">${token(E.TI[b], 1)}<small>${seen ? tn(E.TI[b]) : '?'}</small><b>${seen ? `${x.w} / ${seen}` : '–'}</b></div>`; }).join('')}</div>
+          <p class="muted">${L('Victoires / combats contre chaque boss.')}</p>`),
+      ];
+    }
+    return [];
+  }
+  function renderStats() {
+    $('statsTabs').innerHTML = [['persos', L('⭐ Persos')], ['affrontements', L('⚔️ Affrontements')]].map(([k, l]) => `<button data-tab="${k}" class="${k === statsTab ? 'sel' : ''}">${l}</button>`).join('');
+    $('statsTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { statsTab = b.dataset.tab; statsPg = 0; sfx('page'); renderStats(); });
+    const r = paginate($('statsBody'), statsBlocks(), statsTab === 'persos' ? 380 : 420, statsPg, 3, statsTab === 'persos');
+    statsPages = r.pages; statsPg = r.pg;
+    pagerHtml($('statsPager'), statsPg, statsPages, statsPage);
+  }
+  function statsPage(d) { const n = statsPg + d; if (n < 0 || n >= statsPages) return; statsPg = n; sfx('page'); renderStats(); }
+  function openStats() { statsPg = 0; $('statsModal').hidden = false; renderStats(); sfx('page'); }
+  function closeStats() { $('statsModal').hidden = true; sfx('page'); }
+  $('statsModal').addEventListener('click', e => { if (e.target === $('statsModal') || e.target.hasAttribute('data-close')) closeStats(); });
+  $('btnStatsMenu').onclick = openStats;
+  $('btnDuelMenu').onclick = openDuel;
 
   // =====================================================================
   //  Paramètres
@@ -1405,7 +1731,7 @@
   // =====================================================================
   let tutoI = 0;
   const TUTO = () => [
-    { t: L('Bienvenue dans Échec aux Dieux !'), b: `<p>${L('Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?')}</p><input id="tutoPseudo" maxlength="18" value="${esc(lsGet('pseudo', ''))}" placeholder="${L('Ton pseudo')}">` },
+    { t: L('Bienvenue dans Totem !'), b: `<p>${L('Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?')}</p><input id="tutoPseudo" maxlength="18" value="${esc(lsGet('pseudo', ''))}" placeholder="${L('Ton pseudo')}">` },
     { t: L('Le but'), b: `<div class="tutoic">${token(E.TI.ma, 1)}${token(E.TI.mc, 1)}${token(E.TI.g2, 1)}${token(E.TI.g3, 1)}</div><p>${L('Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).')}</p>` },
     { t: L('Une action par tour'), b: `<p>${L('À ton tour tu fais <b>une seule chose</b> :')}</p><ul><li>${L('<b>Recruter</b> un perso dans la réserve commune ;')}</li><li>${L('<b>Placer</b> un perso recruté dans ta zone (cases encadrées d’or) ;')}</li><li>${L('<b>Activer</b> un de tes persos sur la carte : il se déplace, attaque ou lance un sort.')}</li></ul>` },
     { t: L('Dieux et mana'), b: `<div class="tutoic">${token(E.TI.ma, 0)}${token(E.TI.mc, 0)}${token(E.TI.md, 0)}</div><p>${L('Les dieux ne bougent pas : ils lancent des sorts qui coûtent du mana (tu en as 100 au départ). Un dieu posé sur la carte peut être tué ; dans ta réserve, il est à l’abri.')}</p>` },

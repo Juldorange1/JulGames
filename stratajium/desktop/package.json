@@ -1,8 +1,8 @@
 {
   "name": "stratajium",
-  "productName": "Échec aux Dieux",
+  "productName": "Totem",
   "version": "1.0.0",
-  "description": "Échec aux Dieux - stratégie façon échecs (programme pour Windows)",
+  "description": "Totem - stratégie façon échecs (programme pour Windows)",
   "author": "Juldorange",
   "private": true,
   "main": "main.js",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.juldorange.stratajium",
-    "productName": "Échec aux Dieux",
+    "productName": "Totem",
     "copyright": "Juldorange",
     "directories": {
       "output": "dist"
@@ -50,9 +50,9 @@
       ]
     },
     "portable": {
-      "artifactName": "Echec-aux-Dieux-${version}-portable.exe"
+      "artifactName": "Totem-${version}-portable.exe"
     },
     "asar": true,
-    "executableName": "EchecAuxDieux"
+    "executableName": "Totem"
   }
 }
