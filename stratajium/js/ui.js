@@ -1,4 +1,4 @@
-/* Totem — interface : parties à affrontements (normal, difficile, boss tous les 10) qui font progresser la réserve,
+/* Panthéa — interface : parties à affrontements (normal, difficile, boss tous les 10) qui font progresser la réserve,
    exploits, défi du jour (ses points débloquent des talents), plateau en forêt, créatures animées, sons, raccourcis,
    tutoriel, plusieurs langues (voir i18n.js : L('texte français')). Tout tient à l'écran, sans défilement. */
 (function () {
@@ -537,7 +537,7 @@
       const ko = byBoss ? before.boss.owner : p, ki = byBoss ? E.TI[before.boss.kind] : actor;
       pc(vo, T[vi].id).died++;
       if (vo !== ko) { st.kills[ko][catOf(vi)]++; if (ki >= 0) pc(ko, T[ki].id).kills++; }
-      st.moments.push({ i: st.forces.length - 1, o: vo, txt: L('Tour {n}', { n: turnN }) + ' · ' + (ki >= 0 && vo !== ko ? L('{a} tue {v}', { a: pieceLabel(ko, ki), v: pieceLabel(vo, vi) }) : L('{v} meurt', { v: pieceLabel(vo, vi) })) });
+      st.moments.push({ i: st.forces.length - 1, o: vo, vi, ki: vo !== ko ? ki : -1, turn: turnN, h: G.history.length, txt: L('Tour {n}', { n: turnN }) + ' · ' + (ki >= 0 && vo !== ko ? L('{a} tue {v}', { a: pieceLabel(ko, ki), v: pieceLabel(vo, vi) }) : L('{v} meurt', { v: pieceLabel(vo, vi) })) });
     }
     if (before.boss && s.boss && s.boss.hp < before.boss.hp) {
       st.hits += before.boss.hp - s.boss.hp;
@@ -808,7 +808,6 @@
     sys(L('Fin : {t}', { t: title }) + ' ' + I18N.why(s.why));
     const good = w === G.me || (G.mode === 'daily' && dailyScore(G) > 0);
     Sound.want([good ? 'victoire' : 'defaite']);
-    bilanTab = 'resume';
     renderBilan();
     setTimeout(() => { if (G && G.over && $('game').classList.contains('on')) $('endModal').hidden = false; }, 700);
     render();
@@ -864,74 +863,80 @@
   }
 
   // ---------- le bilan : clair, précis, sans défilement ----------
-  let bilanTab = 'resume';
-  function forceChart(st, me) {
-    const F = st.forces;
-    if (F.length < 2) return `<p class="muted">${L('Affrontement trop court pour une courbe.')}</p>`;
-    const W = 320, H = 130, n = F.length, max = Math.max(1, ...F.map(f => Math.max(f[0], f[1])));
-    const X = i => 6 + (W - 12) * i / (n - 1), Y = v => H - 8 - (H - 18) * v / max;
-    const line = o => F.map((f, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(f[o]).toFixed(1)}`).join(' ');
-    const dots = st.moments.filter(m => m.i >= 0 && m.i < n).map(m => `<circle cx="${X(m.i).toFixed(1)}" cy="${Y(F[m.i][m.o]).toFixed(1)}" r="3.4" class="dot${m.o === me ? '0' : '1'}"/>`).join('');
-    return `<svg class="chart" viewBox="0 0 ${W} ${H}"><line x1="6" x2="${W - 6}" y1="${H - 8}" y2="${H - 8}" class="axis"/>
-      <path d="${line(1 - me)}" class="l1"/><path d="${line(me)}" class="l0"/>${dots}</svg>
-      <div class="legend2"><span class="k0">${esc(PN[me])}</span><span class="k1">${esc(PN[1 - me])}</span><span class="kd">${L('● = un perso mort')}</span></div>`;
+  // revenir juste avant un coup (h = longueur de l'historique au moment de ce coup)
+  function rewindTo(h) {
+    if (!G || G.net || G.committed || h < 1 || h > G.history.length) return;
+    const e = G.history[h - 1];
+    G.history.length = h - 1;
+    G.s = e.s; G.lastA = e.lastA; $('log').innerHTML = e.log; if (e.st) G.st = JSON.parse(e.st);
+    G.ver++; G.thinking = false; G.sel = null; G.over = false;
+    $('endModal').hidden = true;
+    sfx('annule'); render(); saveMatch(); maybeBot();
   }
   function bilanGains() {
     const out = [], st = G.st;
     const pts = Object.values(st.pts).reduce((a, b) => a + b, 0);
-    if (pts) out.push(`<li>⭐ ${L('+{n} points pour tes persos', { n: pts })}</li>`);
-    if (G.mode === 'daily') { out.push(`<li class="gold">📅 ${L('{p} points de défi du jour', { p: dailyScore(G) })}</li>`); return out; }
+    if (pts) out.push(`⭐ ${L('+{n} points pour tes persos', { n: pts })}`);
+    if (G.mode === 'daily') { out.push(`📅 ${L('{p} points de défi du jour', { p: dailyScore(G) })}`); return out; }
     if (G.mode === 'duel' || cur < 0 || G.committed) return out;
     const r0 = run(), r1 = JSON.parse(JSON.stringify(r0));
     runResult(r1, G.s, G.mode);
-    const rows = [['gN', TRACKS.gard.normal, L('Nouveau garde : victoires normales')], ['gH', TRACKS.gard.hardStreak, L('… ou victoires difficiles d’affilée')],
-      ['dN', TRACKS.god.normal, L('Nouveau dieu : victoires normales')], ['dH', TRACKS.god.hard, L('… ou victoires difficiles')],
-      ['map', TRACKS.map, L('Carte plus sauvage : victoires')], ['ev', TRACKS.event, L('Plus d’événements : victoires')]];
-    for (const [k, max, lab] of rows) {
-      const a = r0.t[k], b = r1.t[k];
-      if (a === b) continue;
-      out.push(`<li>${lab} : <b>${fmt1(a)} → ${b < a ? '✓' : fmt1(b)}</b>${b < a ? '' : ` / ${max}`}</li>`);
-    }
-    for (const pd of r1.pending.slice(r0.pending.length)) out.push(`<li class="gold">🎁 ${pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !')}</li>`);
-    for (const n of r1.news.slice(r0.news.length)) out.push(`<li class="gold">${n}</li>`);
-    if (!out.length) out.push(`<li class="muted">${L('Rien de nouveau cette fois.')}</li>`);
+    for (const pd of r1.pending.slice(r0.pending.length)) out.push(`🎁 ${pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !')}`);
+    for (const n of r1.news.slice(r0.news.length)) out.push(n);
     return out;
+  }
+  // ce qui t'a coûté le combat : tes persos perdus (avec retour en arrière) et quelques conseils simples
+  function bilanErrors() {
+    const s = G.s, st = G.st, me = G.me, op = 1 - me, lostGame = s.winner === op, out = [];
+    const tips = [];
+    if (lostGame && s.lost[me][0] > 0 && E.aliveMages(s, me) === 0) tips.push(L('Ton dernier dieu est mort : garde toujours un dieu à l’abri dans ta réserve.'));
+    if (lostGame && s.lost[me][1] >= 4) tips.push(L('Tu as perdu 4 gardes : garde-les hors de portée des tirs et des sorts adverses.'));
+    if (lostGame && s.mana[me] >= 60) tips.push(L('Tu as fini avec {m} mana : tes dieux auraient pu lancer des sorts.', { m: s.mana[me] }));
+    const left = s.res[me].reduce((a, b) => a + b, 0);
+    if (lostGame && left >= 3) tips.push(L('{n} persos sont restés dans ta réserve sans servir.', { n: left }));
+    if (st.act[me][3] >= 3) tips.push(L('Tu as passé ton tour {n} fois.', { n: st.act[me][3] }));
+    const deaths = st.moments.filter(m => m.o === me && m.vi !== undefined);
+    for (const m of deaths.slice(-6)) {
+      const what = m.ki >= 0 ? L('ton {v} a été tué par {a}', { v: pieceLabel(me, m.vi), a: pieceLabel(op, m.ki) }) : L('ton {v} est mort', { v: pieceLabel(me, m.vi) });
+      const can = !G.net && !G.committed && m.h >= 1 && m.h <= G.history.length;
+      out.push(`<li class="err"><span>${L('Tour {n}', { n: m.turn })} · ${what}</span>${can ? `<button class="ghost sm" data-rw="${m.h}" title="${esc(L('Revenir juste avant ce coup'))}">↶</button>` : ''}</li>`);
+    }
+    if (deaths.length > 6) out.unshift(`<li class="muted">${L('… et {n} autres pertes avant.', { n: deaths.length - 6 })}</li>`);
+    return { tips, list: out };
   }
   function renderBilan() {
     const s = G.s, st = G.st, me = G.me, op = 1 - me, w = s.winner;
     const title = endTitle(), col = w === 2 ? '' : (w === me ? 'var(--gold)' : 'var(--vio)');
     const myTurns = Math.ceil(s.ply / 2), mins = Math.floor((Date.now() - st.t0) / 60000), secs = Math.floor((Date.now() - st.t0) / 1000) % 60;
-    const modeName = { normal: L('Affrontement normal'), hard: L('Affrontement difficile'), boss: L('Affrontement de boss !'), daily: L('Défi du jour'), duel: L('Duel') }[G.mode];
     const sum = a => a[0] + a[1] + a[2];
-    const row = (lab, a, b, lowGood) => { const ga = lowGood ? a < b : a > b, gb = lowGood ? b < a : b > a; return `<tr><td>${lab}</td><td class="${ga ? 'best' : ''}">${a}</td><td class="${gb ? 'best' : ''}">${b}</td></tr>`; };
-    const table = `<table class="cmp"><tr><th></th><th class="p${me}">${esc(PN[me])}</th><th class="p${op}">${esc(PN[op])}</th></tr>
-      ${row(L('Persos tués'), sum(st.kills[me]), sum(st.kills[op]))}
-      ${row(L('Dieux perdus'), s.lost[me][0], s.lost[op][0], 1)}${row(L('Gardes perdus'), s.lost[me][1], s.lost[op][1], 1)}${row(L('Soldats perdus'), s.lost[me][2], s.lost[op][2], 1)}
-      ${row(L('Mana dépensé'), st.mana[me], st.mana[op])}
-      ${row(L('Recrutements'), st.act[me][0], st.act[op][0])}${row(L('Placements'), st.act[me][1], st.act[op][1])}${row(L('Activations'), st.act[me][2], st.act[op][2])}
-      ${s.boss ? row(L('Coups portés au boss'), s.boss.owner === op ? st.hits : 0, s.boss.owner === me ? st.hits : 0) : ''}</table>`;
-    // tes persos : les plus utiles d'abord
-    const mine = Object.entries(st.pieces).filter(([k]) => +k[0] === me).map(([k, v]) => ({ id: k.slice(2), ...v, pts: st.pts[k.slice(2)] || 0 }))
-      .sort((a, b) => (b.kills * 3 + b.act) - (a.kills * 3 + a.act));
-    const best = mine.length && (mine[0].kills || mine[0].act) ? mine[0].id : null;
-    const pcs = mine.slice(0, 6).map(x => { const i = E.TI[x.id]; return `<div class="bpc ${x.id === best ? 'mvp' : ''}">${token(i, me)}<div><b>${tn(i)}</b>${x.id === best ? ` <span class="tag2 gold">⭐ ${L('Meilleur perso')}</span>` : ''}
-      <small>${L('{a} activation(s)', { a: x.act })} · ${L('{k} ennemi(s) tué(s)', { k: x.kills })}${x.died ? ' · ☠ ' + L('{d} mort(s)', { d: x.died }) : ''}</small></div></div>`; }).join('') || `<p class="muted">${L('Aucun de tes persos n’a été activé.')}</p>`;
-    const moments = st.moments.slice(-7).map(m => `<li class="${m.o === me ? 'bad' : 'good'}">${m.txt}</li>`).join('') || `<li class="muted">${L('Personne n’est mort.')}</li>`;
+    const kills = sum(st.kills[me]), lost = sum(s.lost[me]);
+    const err = bilanErrors();
+    // ce qui a marché : ton meilleur perso, tes prises
+    const mine = Object.entries(st.pieces).filter(([k]) => +k[0] === me).map(([k, v]) => ({ id: k.slice(2), ...v })).sort((a, b) => b.kills - a.kills || b.act - a.act);
+    const best = mine.length && mine[0].kills ? mine[0] : null;
+    const good = [];
+    if (best) good.push(`${token(E.TI[best.id], me)}<span>⭐ ${L('Ton meilleur perso : {x}, {k} ennemi(s) tué(s).', { x: pieceLabel(me, E.TI[best.id]), k: best.kills })}</span>`);
+    if (kills && !best) good.push(`<span>⚔️ ${L('{k} ennemi(s) tué(s)', { k: kills })}</span>`);
+    if (st.hits) good.push(`<span>👹 ${L('{n} coup(s) porté(s) au boss.', { n: st.hits })}</span>`);
+    const gains = bilanGains();
     $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${I18N.why(s.why)}</p>
-        <div class="bchips"><span>${modeName}</span>${cur >= 0 && G.mode !== 'duel' && G.mode !== 'daily' ? `<span>${cercleLabel(run().cercle)}</span>` : ''}<span>🗺️ ${I18N.mapName(s.g)}</span><span>⏱ ${L('{t} tours', { t: myTurns })} · ${mins}:${String(secs).padStart(2, '0')}</span></div></div>
-      <div class="btabs">${[['resume', L('Résumé')], ['forces', L('Déroulé')], ['persos', L('Tes persos')]].map(([k, l]) => `<button data-bt="${k}" class="${bilanTab === k ? 'sel' : ''}">${l}</button>`).join('')}</div>
-      <div class="bgrid" data-tab="${bilanTab}">
-        <section class="bcard t-resume"><h3>${L('Comparaison')}</h3>${table}</section>
-        <section class="bcard t-resume"><h3>${L('Ce que tu gagnes')}</h3><ul class="gains">${bilanGains().join('')}</ul></section>
-        <section class="bcard t-forces"><h3>${L('Rapport de forces')}</h3>${forceChart(st, me)}</section>
-        <section class="bcard t-forces"><h3>${L('Moments clés')}</h3><ul class="moments">${moments}</ul></section>
-        <section class="bcard t-persos wide2"><h3>${L('Tes persos')}</h3><div class="bpcs">${pcs}</div></section>
+        <div class="bscore"><div class="k"><b>${kills}</b><small>${L('persos ennemis tués')}</small></div><div class="l"><b>${lost}</b><small>${L('persos perdus')}</small></div>
+          <div><b>${myTurns}</b><small>${L('tours joués')}</small></div><div><b>${mins}:${String(secs).padStart(2, '0')}</b><small>${L('de jeu')}</small></div></div></div>
+      <div class="bcols">
+        <section class="bcard bad"><h3>❌ ${L('Tes erreurs')}</h3>
+          ${err.tips.length ? `<ul class="tips">${err.tips.map(t => `<li>💡 ${t}</li>`).join('')}</ul>` : ''}
+          ${err.list.length ? `<p class="muted small">${L('Les persos que tu as perdus (↶ = revenir juste avant ce coup) :')}</p><ul class="errs">${err.list.join('')}</ul>` : `<p class="okmsg">${L('Aucun perso perdu : bravo !')}</p>`}
+        </section>
+        <section class="bcard goodc"><h3>✅ ${L('Ce qui a marché')}</h3>
+          ${good.length ? `<div class="goods">${good.map(x => `<div class="gd">${x}</div>`).join('')}</div>` : `<p class="muted">${L('Tu n’as tué aucun ennemi cette fois.')}</p>`}
+          ${gains.length ? `<h3>🎁 ${L('Ce que tu gagnes')}</h3><ul class="gains">${gains.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+        </section>
       </div>
       <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button></div>`;
     $('btnNext').onclick = endNext;
     if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
     $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
-    $('bilan').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { bilanTab = b.dataset.bt; renderBilan(); });
+    $('bilan').querySelectorAll('[data-rw]').forEach(b => b.onclick = () => rewindTo(+b.dataset.rw));
   }
   function undo() {
     if (!G) return;
@@ -1742,7 +1747,7 @@
   // =====================================================================
   let tutoI = 0;
   const TUTO = () => [
-    { t: L('Bienvenue dans Totem !'), b: `<p>${L('Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?')}</p><input id="tutoPseudo" maxlength="18" value="${esc(lsGet('pseudo', ''))}" placeholder="${L('Ton pseudo')}">` },
+    { t: L('Bienvenue dans Panthéa !'), b: `<p>${L('Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?')}</p><input id="tutoPseudo" maxlength="18" value="${esc(lsGet('pseudo', ''))}" placeholder="${L('Ton pseudo')}">` },
     { t: L('Le but'), b: `<div class="tutoic">${token(E.TI.ma, 1)}${token(E.TI.mc, 1)}${token(E.TI.g2, 1)}${token(E.TI.g3, 1)}</div><p>${L('Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).')}</p>` },
     { t: L('Une action par tour'), b: `<p>${L('À ton tour tu fais <b>une seule chose</b> :')}</p><ul><li>${L('<b>Recruter</b> un perso dans la réserve commune ;')}</li><li>${L('<b>Placer</b> un perso recruté dans ta zone (cases encadrées d’or) ;')}</li><li>${L('<b>Activer</b> un de tes persos sur la carte : il se déplace, attaque ou lance un sort.')}</li></ul>` },
     { t: L('Dieux et mana'), b: `<div class="tutoic">${token(E.TI.ma, 0)}${token(E.TI.mc, 0)}${token(E.TI.md, 0)}</div><p>${L('Les dieux ne bougent pas : ils lancent des sorts qui coûtent du mana (tu en as 100 au départ). Un dieu posé sur la carte peut être tué ; dans ta réserve, il est à l’abri.')}</p>` },

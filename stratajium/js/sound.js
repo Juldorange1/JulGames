@@ -1,4 +1,4 @@
-/* Totem — musique (vrais morceaux CC0, voir music/CREDITS.md) et bruitages (sfx/CREDITS.md).
+/* Panthéa — musique (vrais morceaux CC0, voir music/CREDITS.md) et bruitages (sfx/CREDITS.md).
    Pas d'à-coups : les morceaux montent et descendent en fondus lents (environ 3 s), et chaque morceau en boucle
    repart en fondu enchaîné avec lui-même avant sa fin (aucune coupure au bouclage).
    Avec ?muet dans l'adresse, le script du <head> rend toute lecture muette. */

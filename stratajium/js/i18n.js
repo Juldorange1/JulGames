@@ -1,4 +1,4 @@
-/* Totem — langues. Les textes sont écrits en français dans le code : L('texte', {variables}).
+/* Panthéa — langues. Les textes sont écrits en français dans le code : L('texte', {variables}).
    Pour une autre langue, on cherche la traduction dans le dictionnaire de cette langue (clé = le texte français).
    Les noms et descriptions des persos, événements, objectifs, cartes… sont traduits par leur identifiant. */
 const I18N = (function () {
@@ -53,7 +53,7 @@ const I18N = (function () {
       if (g.info.kinds[0] === 'classique') return this.mapKind('classique') + ' 8×8';
       return `${g.info.kinds.map(k => this.mapKind(k)).join(' + ')} ${g.W}×${g.H}, ${L('zones')} ${this.zoneName(g.info.zk)}`;
     },
-    themeName: t => pickT('THEME', t, 0, (window.Decor && Decor.THEMES[t] ? Decor.THEMES[t].name : t)),
+    themeName: t => pickT('THEME', t, 0, (typeof Decor !== 'undefined' && Decor.THEMES[t] ? Decor.THEMES[t].name : t)),
     themeShort(t) { return this.themeName(t).replace(/^Forêt d’/, '').replace(/^Forêt d'/, ''); },
     why: s => L(s),
   };

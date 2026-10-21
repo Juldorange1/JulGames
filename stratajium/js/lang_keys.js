@@ -1,4 +1,4 @@
-/* Totem — liste de référence des textes de l’interface (en français), dans un ordre fixe.
+/* Panthéa — liste de référence des textes de l’interface (en français), dans un ordre fixe.
    Les langues autres que l’anglais donnent leurs traductions dans ce même ordre (ui: [ … ]).
    Un texte ajouté plus tard se met À LA FIN ; s’il manque dans une langue, le français s’affiche. */
 I18N.KEYS = [
@@ -296,7 +296,7 @@ I18N.KEYS = [
   "Non",
   "Quitter le plein écran",
   "Plein écran impossible ici.",
-  "Bienvenue dans Totem !",
+  "Bienvenue dans Panthéa !",
   "Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?",
   "Le but",
   "Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).",
@@ -467,4 +467,21 @@ I18N.KEYS = [
   "Des ronces poussent dans ta moitié de carte",
   "L’adversaire a déjà recruté 2 gardes",
   "Tu commences avec un garde déjà perdu",
+  // bilan simple (2026-10-21)
+  "Ton dernier dieu est mort : garde toujours un dieu à l’abri dans ta réserve.",
+  "Tu as perdu 4 gardes : garde-les hors de portée des tirs et des sorts adverses.",
+  "Tu as fini avec {m} mana : tes dieux auraient pu lancer des sorts.",
+  "{n} persos sont restés dans ta réserve sans servir.",
+  "Tu as passé ton tour {n} fois.",
+  "ton {v} a été tué par {a}",
+  "ton {v} est mort",
+  "Revenir juste avant ce coup",
+  "… et {n} autres pertes avant.",
+  "Ton meilleur perso : {x}, {k} ennemi(s) tué(s).",
+  "{n} coup(s) porté(s) au boss.",
+  "Tes erreurs",
+  "Les persos que tu as perdus (↶ = revenir juste avant ce coup) :",
+  "Aucun perso perdu : bravo !",
+  "Ce qui a marché",
+  "Tu n’as tué aucun ennemi cette fois.",
 ];

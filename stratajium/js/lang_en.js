@@ -1,4 +1,4 @@
-/* Totem — English. Keys = the French text used in the code. */
+/* Panthéa — English. Keys = the French text used in the code. */
 (function () {
   'use strict';
   const D = I18N.DICT.en;
@@ -112,7 +112,7 @@
     'Quitter le plein écran': 'Exit fullscreen', 'Apprentissage du bot impossible': 'Impossible bot learning', 'Ce qu’il a retenu de ta façon de jouer': 'What it learned about your play style',
     'Lui faire tout oublier': 'Make it forget everything', 'Tout effacer': 'Erase everything', 'Parties, défis et apprentissage': 'Runs, challenges and learning',
     'Plein écran impossible ici.': 'Fullscreen not available here.', 'Le bot impossible a tout oublié.': 'The impossible bot forgot everything.', 'Tout a été effacé.': 'Everything was erased.',
-    'Bienvenue dans Totem !': 'Welcome to Totem!', 'Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?': 'A turn-based strategy game on a map, a bit like chess. What’s your name?',
+    'Bienvenue dans Panthéa !': 'Welcome to Panthéa!', 'Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?': 'A turn-based strategy game on a map, a bit like chess. What’s your name?',
     'Le but': 'The goal', 'Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).': 'Kill <b>all</b> enemy <b>gods</b> (the crowned hexagons), or <b>4 of its guards</b> (the shields).',
     'Une action par tour': 'One action per turn', 'À ton tour tu fais <b>une seule chose</b> :': 'On your turn you do <b>one thing</b>:',
     '<b>Recruter</b> un perso dans la réserve commune (à droite) ;': '<b>Recruit</b> a unit from the shared pool (on the right);', '<b>Placer</b> un perso recruté dans ta zone (cases encadrées d’or) ;': '<b>Place</b> a recruited unit in your zone (gold-framed squares);',
@@ -387,5 +387,23 @@
     "Des ronces poussent dans ta moitié de carte": "Brambles grow in your half of the map",
     "L’adversaire a déjà recruté 2 gardes": "The opponent has already recruited 2 guards",
     "Tu commences avec un garde déjà perdu": "You start with one guard already lost",
+  });
+  Object.assign(D.ui, {
+    "Ton dernier dieu est mort : garde toujours un dieu à l’abri dans ta réserve.": "Your last god died: always keep a god safe in your reserve.",
+    "Tu as perdu 4 gardes : garde-les hors de portée des tirs et des sorts adverses.": "You lost 4 guards: keep them out of reach of enemy shots and spells.",
+    "Tu as fini avec {m} mana : tes dieux auraient pu lancer des sorts.": "You finished with {m} mana: your gods could have cast spells.",
+    "{n} persos sont restés dans ta réserve sans servir.": "{n} units stayed in your reserve without being used.",
+    "Tu as passé ton tour {n} fois.": "You passed your turn {n} times.",
+    "ton {v} a été tué par {a}": "your {v} was killed by {a}",
+    "ton {v} est mort": "your {v} died",
+    "Revenir juste avant ce coup": "Go back to just before this move",
+    "… et {n} autres pertes avant.": "… and {n} earlier losses.",
+    "Ton meilleur perso : {x}, {k} ennemi(s) tué(s).": "Your best unit: {x}, {k} enemy(ies) killed.",
+    "{n} coup(s) porté(s) au boss.": "{n} hit(s) on the boss.",
+    "Tes erreurs": "Your mistakes",
+    "Les persos que tu as perdus (↶ = revenir juste avant ce coup) :": "The units you lost (↶ = go back to just before this move):",
+    "Aucun perso perdu : bravo !": "No unit lost: well done!",
+    "Ce qui a marché": "What worked",
+    "Tu n’as tué aucun ennemi cette fois.": "You didn’t kill any enemy this time.",
   });
 })();

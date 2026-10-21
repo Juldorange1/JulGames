@@ -1,8 +1,8 @@
 {
   "name": "stratajium",
-  "productName": "Totem",
+  "productName": "Panthéa",
   "version": "1.0.0",
-  "description": "Totem - stratégie façon échecs (programme pour Windows)",
+  "description": "Panthéa - stratégie façon échecs (programme pour Windows)",
   "author": "Juldorange",
   "private": true,
   "main": "main.js",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.juldorange.stratajium",
-    "productName": "Totem",
+    "productName": "Panthéa",
     "copyright": "Juldorange",
     "directories": {
       "output": "dist"
@@ -50,9 +50,9 @@
       ]
     },
     "portable": {
-      "artifactName": "Totem-${version}-portable.exe"
+      "artifactName": "Panthea-${version}-portable.exe"
     },
     "asar": true,
-    "executableName": "Totem"
+    "executableName": "Panthea"
   }
 }

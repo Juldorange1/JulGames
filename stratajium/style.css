@@ -662,3 +662,31 @@ body.no-coords .crd { display: none; }
   .daily .dleft > small:first-of-type { display: none; } /* la description est sur l’écran du défi */
   .slot .inf small { font-size: 14px; }
 }
+
+/* pas de journal à l’écran : il prenait de la place pour rien */
+.logcard, #btnSheetLog { display: none !important; }
+
+/* ===================== bilan simple : tes erreurs d'un coup d'œil ===================== */
+.bscore { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; margin-top: 4px; }
+.bscore > div { text-align: center; min-width: 90px; }
+.bscore b { display: block; font-size: 30px; line-height: 1.1; }
+.bscore small { color: var(--muted); font-size: 15.5px; }
+.bscore .k b { color: var(--ok); } .bscore .l b { color: var(--danger); }
+.bcols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+.bcard.bad { border-color: rgba(255, 106, 106, .4); background: rgba(255, 106, 106, .06); }
+.bcard.goodc { border-color: rgba(126, 227, 154, .35); background: rgba(126, 227, 154, .05); }
+.bcard h3 { font-size: 16px; }
+.tips { margin: 0 0 8px; padding: 0; list-style: none; font-size: 17px; }
+.tips li { margin: 4px 0; padding: 6px 10px; border-radius: 10px; background: rgba(255, 200, 80, .1); }
+.errs { margin: 0; padding: 0; list-style: none; font-size: 17px; }
+.errs li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.errs .ghost.sm { padding: 3px 10px; font-size: 17px; }
+.small { font-size: 15.5px; margin: 4px 0; }
+.okmsg { color: var(--ok); font-size: 18px; }
+.goods .gd { display: flex; align-items: center; gap: 8px; font-size: 17px; margin: 4px 0; }
+.goods .tk { width: 44px; height: 44px; flex: none; }
+.bilanbox .p0 { color: var(--gold); } .bilanbox .p1 { color: var(--vio); }
+@media (max-width: 899px), (max-height: 600px) {
+  .bcols { grid-template-columns: 1fr; overflow: auto; align-content: start; }
+  .bscore { gap: 10px; } .bscore b { font-size: 24px; } .bscore > div { min-width: 70px; }
+}

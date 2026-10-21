@@ -1,4 +1,4 @@
-/* Totem — moteur de règles + bot.
+/* Panthéa — moteur de règles + bot.
    Tout est dans une seule fonction pour pouvoir aussi tourner dans un Web Worker
    (créé depuis le texte de cette fonction : marche aussi hors serveur). */
 function StratEngine() {
@@ -1048,7 +1048,7 @@ function StratEngine() {
   const SEE = 0.6; // part de la valeur du preneur comptée quand il prend sur une case défendue
   const MAGEV = 1.5; // valeur d'un mage qui n'a plus assez de mana pour lancer son sort
   const PLAK = 6; // dans l'arbre de recherche : nombre de cases de placement essayées par perso
-  const GPRESS = [0, 2.5, 6, 12, 20, 30, 45, 60];
+  const GPRESS = [0, 4, 10, 22, 34, 44, 54, 64]; // chaque garde perdu rapproche de la défaite (4 = perdu)
   // poids neutres : le bot n'apprend pas ta façon de jouer, il raisonne seulement sur la position
   let W8 = { wG: 1, wM: 1, opp: null };
   // caractère du bot (léger pour l'impossible, qui s'adapte surtout à la position)
@@ -1072,9 +1072,10 @@ function StratEngine() {
   function danger(s, q, am, onB) {
     if (s.ev === 'illimite') return 0;
     if (am === 0 && s.lost[q][0] === 0) return 0; // aucun dieu engagé : immunisé
-    if (am === 1) return onB ? 12 : 5;
-    if (am === 2) return onB === 2 ? 4 : 1.5;
-    return 0;
+    // tous ses dieux sur la carte = une seule mauvaise surprise et c'est perdu : on garde un dieu à l'abri en réserve
+    if (am === 1) return onB ? 26 : 4;
+    if (am === 2) return onB === 2 ? 11 : onB ? 2.5 : 1;
+    return onB === am ? 5 : 0;
   }
 
   // valeur (pour l'attaquant) de tuer d'un coup l'ensemble `sqs` de persos ennemis de `q`
