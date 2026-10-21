@@ -1,4 +1,4 @@
-/* Stratajium — liste de référence des textes de l’interface (en français), dans un ordre fixe.
+/* Échec aux Dieux — liste de référence des textes de l’interface (en français), dans un ordre fixe.
    Les langues autres que l’anglais donnent leurs traductions dans ce même ordre (ui: [ … ]).
    Un texte ajouté plus tard se met À LA FIN ; s’il manque dans une langue, le français s’affiche. */
 I18N.KEYS = [
@@ -296,7 +296,7 @@ I18N.KEYS = [
   "Non",
   "Quitter le plein écran",
   "Plein écran impossible ici.",
-  "Bienvenue dans Stratajium !",
+  "Bienvenue dans Échec aux Dieux !",
   "Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?",
   "Le but",
   "Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).",
@@ -336,4 +336,30 @@ I18N.KEYS = [
   "Temps écoulé : moins de pertes.",
   "150 tours (75 chacun) sans aucune élimination : partie nulle.",
   "Le boss est vaincu !",
+  // Cercles et progression plus lente (2026-10-21)
+  "Les boss ont {n} point(s) de vie en plus",
+  "Tu commences chaque affrontement avec 20 mana de moins",
+  "Les cartes sont au moins de niveau 2",
+  "Les affrontements difficiles ont 3 handicaps",
+  "Un événement à chaque affrontement",
+  "Un boss tous les 7 affrontements au lieu de 10",
+  "L’adversaire commence avec un soldat déjà posé",
+  "Cercle {n}",
+  "Bienvenue au Cercle {n} !",
+  "Nouveau : {x}",
+  "Fardeaux",
+  "Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.",
+  "Commencer au Cercle 0",
+  "conseillé",
+  "Ou commencer plus haut (c’est affiché dans ta partie) :",
+  "🔁 Monter au Cercle {n}",
+  "Tu as tout débloqué ! Tu recommences avec la réserve de départ, contre un adversaire plus coriace. Tes victoires restent comptées.",
+  "Sûr ? Ta réserve repart de zéro",
+  "{a} victoires normales, ou {b} victoires difficiles d’affilée. Tu choisis parmi 3.",
+  "{a} victoires normales, ou {b} victoires difficiles. Tu choisis parmi 3.",
+  "toutes les {a} victoires (niveau 0 à 4).",
+  "+25 % toutes les {a} victoires.",
+  "Cercles",
+  "Ensuite, chaque Cercle donne 1 point de vie de plus aux boss.",
+  "Plus haut Cercle atteint : {n}",
 ];

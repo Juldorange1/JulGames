@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stratajium</title>
+<title>Échec aux Dieux</title>
 <link rel="icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +15,7 @@
 <section id="menu" class="screen on">
   <div class="menu-wrap">
     <div class="glass menu-main">
-      <h1>Stratajium</h1>
+      <h1>Échec aux Dieux</h1>
       <p class="tag" data-l="Recrute, place, active. Tue les dieux adverses… ou 4 de leurs gardes."></p>
       <p class="hello" id="hello"></p>
       <div id="slots"></div>
@@ -34,7 +34,6 @@
 <section id="newrun" class="screen">
   <div class="glass panel-mid">
     <h2 class="title" data-l="Nouvelle partie"></h2>
-    <p class="muted center" data-l="Choisis l’intelligence du bot pour toute cette partie. Tu commences avec 3 dieux et 4 sortes de gardes, sur le plateau classique et sans événement ; tes victoires font évoluer la partie."></p>
     <div class="levels" id="levels"></div>
     <div class="menu-actions"><button class="ghost" id="btnNewBack" data-l="Retour"></button></div>
   </div>

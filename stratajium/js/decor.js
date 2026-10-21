@@ -1,4 +1,4 @@
-/* Stratajium — décors vus du dessus, dessinés en canvas (rien ne ressemble à une pièce du jeu).
+/* Échec aux Dieux — décors vus du dessus, dessinés en canvas (rien ne ressemble à une pièce du jeu).
    5 décors : été, automne, hiver, désert, marais. Le plateau est une clairière ; les trous de la carte
    deviennent buissons, rochers ou mares. Un canvas fixe + un canvas animé (lucioles, feuilles, neige, poussière, brume).
    Changer de décor se fait en fondu. */

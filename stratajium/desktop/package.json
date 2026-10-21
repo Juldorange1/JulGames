@@ -1,8 +1,8 @@
 {
   "name": "stratajium",
-  "productName": "Stratajium",
+  "productName": "Échec aux Dieux",
   "version": "1.0.0",
-  "description": "Stratajium - stratégie façon échecs (programme pour Windows)",
+  "description": "Échec aux Dieux - stratégie façon échecs (programme pour Windows)",
   "author": "Juldorange",
   "private": true,
   "main": "main.js",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.juldorange.stratajium",
-    "productName": "Stratajium",
+    "productName": "Échec aux Dieux",
     "copyright": "Juldorange",
     "directories": {
       "output": "dist"
@@ -50,8 +50,9 @@
       ]
     },
     "portable": {
-      "artifactName": "Stratajium-${version}-portable.exe"
+      "artifactName": "Echec-aux-Dieux-${version}-portable.exe"
     },
-    "asar": true
+    "asar": true,
+    "executableName": "EchecAuxDieux"
   }
 }

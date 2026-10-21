@@ -1,10 +1,10 @@
-// Stratajium — version programme (Electron) : le jeu se lance dans sa propre fenêtre, sans navigateur.
+// Échec aux Dieux (ancien nom : Stratajium) — version programme (Electron) : le jeu se lance dans sa propre fenêtre, sans navigateur.
 // F11 ou Alt+Entrée : plein écran. Les points, records et l'apprentissage du bot sont gardés par le programme.
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-app.setName('Stratajium');
+app.setName('Stratajium'); // ancien nom gardé exprès : les sauvegardes restent dans %APPDATA%\Stratajium
 const TEST = process.argv.includes('--test'); // auto-test sans fenêtre, dans un dossier jetable
 if (TEST) app.setPath('userData', path.join(app.getPath('temp'), 'stratajium-test-' + process.pid));
 if (!TEST && !app.requestSingleInstanceLock()) app.quit();
@@ -21,7 +21,7 @@ let win = null;
 function createWindow() {
   win = new BrowserWindow({
     width: display.width, height: display.height, minWidth: 900, minHeight: 600,
-    fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Stratajium',
+    fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Échec aux Dieux',
     icon: path.join(GAME_DIR, 'icon.png'), autoHideMenuBar: true, show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
   });
@@ -39,7 +39,7 @@ function createWindow() {
         out.font = await js('document.fonts.check("800 20px Cinzel")');
         out.music = await js('fetch("music/partie.mp3").then(r => r.ok)');
         out.sfx = await js('fetch("sfx/prise.ogg").then(r => r.ok)');
-        await js(`localStorage.setItem('stratajium.tutoFait','true'); document.getElementById('tutoModal').hidden = true; document.querySelector('[data-new="0"]').click(); document.querySelector('[data-lv="impossible"]').click(); document.getElementById('btnStart').click(); true`);
+        await js(`localStorage.setItem('stratajium.tutoFait','true'); document.getElementById('tutoModal').hidden = true; document.querySelector('[data-new="0"]').click(); document.querySelector('[data-c="2"]').click(); document.getElementById('btnStart').click(); true`);
         await new Promise(r => setTimeout(r, 300));
         const t0 = Date.now();
         // le premier joueur est tiré au sort : on attend notre tour, on joue, puis on attend la réponse du bot

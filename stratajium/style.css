@@ -123,6 +123,11 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 .exp.done .tk { filter: none; }
 .exp > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 0; }
+.choices.three { grid-template-columns: 1fr 1fr 1fr; }
+.choice.asc { border-color: rgba(127, 211, 255, .6); background: linear-gradient(180deg, rgba(127, 211, 255, .18), rgba(255, 255, 255, .02)); }
+.fards { margin: 0; padding-left: 18px; font-size: 13.5px; color: #ffc0c0; }
+.newc { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
+.newc .big small { font-weight: 600; opacity: .75; }
 .choices.one { grid-template-columns: minmax(0, 560px); justify-content: center; }
 .choice { position: relative; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line2); background: linear-gradient(180deg, rgba(242, 193, 78, .16), rgba(255, 255, 255, .02)); text-align: center; transition: transform .15s, box-shadow .15s; }
 .choice:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(242, 193, 78, .2); }
@@ -511,6 +516,8 @@ body.no-coords .crd { display: none; }
   .choice .ic { display: none; }
 }
 @media (max-width: 600px) {
+  .choices.three { grid-template-columns: 1fr 1fr; }
+  .choices.three .asc { grid-column: 1 / -1; }
   #btnMusic, #btnSfx { display: none; }
   .bar .badge { max-width: 24vw; }
   .levels { grid-template-columns: 1fr; gap: 8px; }

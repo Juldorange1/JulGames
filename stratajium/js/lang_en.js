@@ -1,4 +1,4 @@
-/* Stratajium — English. Keys = the French text used in the code. */
+/* Échec aux Dieux — English. Keys = the French text used in the code. */
 (function () {
   'use strict';
   const D = I18N.DICT.en;
@@ -112,7 +112,7 @@
     'Quitter le plein écran': 'Exit fullscreen', 'Apprentissage du bot impossible': 'Impossible bot learning', 'Ce qu’il a retenu de ta façon de jouer': 'What it learned about your play style',
     'Lui faire tout oublier': 'Make it forget everything', 'Tout effacer': 'Erase everything', 'Parties, défis et apprentissage': 'Runs, challenges and learning',
     'Plein écran impossible ici.': 'Fullscreen not available here.', 'Le bot impossible a tout oublié.': 'The impossible bot forgot everything.', 'Tout a été effacé.': 'Everything was erased.',
-    'Bienvenue dans Stratajium !': 'Welcome to Stratajium!', 'Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?': 'A turn-based strategy game on a map, a bit like chess. What’s your name?',
+    'Bienvenue dans Échec aux Dieux !': 'Welcome to Échec aux Dieux!', 'Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?': 'A turn-based strategy game on a map, a bit like chess. What’s your name?',
     'Le but': 'The goal', 'Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).': 'Kill <b>all</b> enemy <b>gods</b> (the crowned hexagons), or <b>4 of its guards</b> (the shields).',
     'Une action par tour': 'One action per turn', 'À ton tour tu fais <b>une seule chose</b> :': 'On your turn you do <b>one thing</b>:',
     '<b>Recruter</b> un perso dans la réserve commune (à droite) ;': '<b>Recruit</b> a unit from the shared pool (on the right);', '<b>Placer</b> un perso recruté dans ta zone (cases encadrées d’or) ;': '<b>Place</b> a recruited unit in your zone (gold-framed squares);',
@@ -250,5 +250,33 @@
     bn: ['Necromancer', 'Boss, 3 life points. At the end of each of its side’s turns, she raises a minion next to her (5 at most); every other turn, she steals 15 mana from you.'],
     bd: ['Dragon', 'Boss, 4 life points. Every other turn, it breathes fire in a straight line: the first 2 of your units on that line (4 squares) die.'],
     mi: ['Minion', 'The boss’s servant: takes 1 step in any direction and captures by moving onto an enemy.'],
+  });
+  // ---- Cercles ----
+  Object.assign(D.ui, {
+    "Les boss ont {n} point(s) de vie en plus": "Bosses have {n} extra life point(s)",
+    "Tu commences chaque affrontement avec 20 mana de moins": "You start each battle with 20 less mana",
+    "Les cartes sont au moins de niveau 2": "Maps are at least level 2",
+    "Les affrontements difficiles ont 3 handicaps": "Hard battles have 3 handicaps",
+    "Un événement à chaque affrontement": "An event in every battle",
+    "Un boss tous les 7 affrontements au lieu de 10": "A boss every 7 battles instead of 10",
+    "L’adversaire commence avec un soldat déjà posé": "The opponent starts with a soldier already placed",
+    "Cercle {n}": "Circle {n}",
+    "Bienvenue au Cercle {n} !": "Welcome to Circle {n}!",
+    "Nouveau : {x}": "New: {x}",
+    "Fardeaux": "Burdens",
+    "Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.": "A run is played in Circles. In Circle 0 the bot is easy, in Circle 1 normal, in Circle 2 strategist; after that each Circle adds a burden. Once you have unlocked everything, you can climb to the next Circle: everything starts over, harder.",
+    "Commencer au Cercle 0": "Start at Circle 0",
+    "conseillé": "recommended",
+    "Ou commencer plus haut (c’est affiché dans ta partie) :": "Or start higher (it is shown in your run):",
+    "🔁 Monter au Cercle {n}": "🔁 Climb to Circle {n}",
+    "Tu as tout débloqué ! Tu recommences avec la réserve de départ, contre un adversaire plus coriace. Tes victoires restent comptées.": "You have unlocked everything! You start over with the starting pool, against a tougher opponent. Your wins stay counted.",
+    "Sûr ? Ta réserve repart de zéro": "Sure? Your pool starts from scratch",
+    "{a} victoires normales, ou {b} victoires difficiles d’affilée. Tu choisis parmi 3.": "{a} normal wins, or {b} hard wins in a row. You pick one of 3.",
+    "{a} victoires normales, ou {b} victoires difficiles. Tu choisis parmi 3.": "{a} normal wins, or {b} hard wins. You pick one of 3.",
+    "toutes les {a} victoires (niveau 0 à 4).": "every {a} wins (level 0 to 4).",
+    "+25 % toutes les {a} victoires.": "+25% every {a} wins.",
+    "Cercles": "Circles",
+    "Ensuite, chaque Cercle donne 1 point de vie de plus aux boss.": "Then, each Circle gives bosses 1 more life point.",
+    "Plus haut Cercle atteint : {n}": "Highest Circle reached: {n}",
   });
 })();

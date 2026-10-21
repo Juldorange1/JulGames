@@ -1,4 +1,4 @@
-/* Stratajium — les persos sont des créatures vivantes (pas seulement des humains).
+/* Échec aux Dieux — les persos sont des créatures vivantes (pas seulement des humains).
    Chaque dessin tient dans une boîte 100×100 ; les yeux sont dans <g class="eye"> (ils clignent),
    tout le corps est dans <g class="crit"> (il respire). Le cadre (hexagone = dieu, bouclier = garde,
    rond = soldat, couronne de pics = boss) porte la couleur du camp. */

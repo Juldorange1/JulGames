@@ -1,4 +1,4 @@
-/* Stratajium — langues. Les textes sont écrits en français dans le code : L('texte', {variables}).
+/* Échec aux Dieux — langues. Les textes sont écrits en français dans le code : L('texte', {variables}).
    Pour une autre langue, on cherche la traduction dans le dictionnaire de cette langue (clé = le texte français).
    Les noms et descriptions des persos, événements, objectifs, cartes… sont traduits par leur identifiant. */
 const I18N = (function () {

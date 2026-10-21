@@ -1,4 +1,4 @@
-/* Stratajium — moteur de règles + bot.
+/* Échec aux Dieux — moteur de règles + bot.
    Tout est dans une seule fonction pour pouvoir aussi tourner dans un Web Worker
    (créé depuis le texte de cette fonction : marche aussi hors serveur). */
 function StratEngine() {
