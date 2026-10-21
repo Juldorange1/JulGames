@@ -137,11 +137,15 @@
   let cur = -1, newSlot = 0;
   const run = () => RUNS[cur];
   const TRACKS = { gard: { normal: 5, hardStreak: 3 }, god: { normal: 8, hard: 5 }, map: 4, event: 5 };
-  const HARD = ['mana', 'riche', 'avance', 'premier', 'sauvage', 'evenement', 'dieupris'];
+  const HARD = ['mana', 'riche', 'avance', 'premier', 'sauvage', 'evenement', 'dieupris', 'soldats', 'pauvre', 'silence', 'geole', 'ronces', 'gardespris', 'blesse'];
   const hardName = id => ({
     mana: L('Tu commences avec 60 mana au lieu de 100'), riche: L('L’adversaire commence avec 160 mana'),
     avance: L('L’adversaire a déjà un garde posé'), premier: L('L’adversaire joue en premier'),
     sauvage: L('Carte plus sauvage d’un niveau'), evenement: L('Un événement à coup sûr'), dieupris: L('L’adversaire a déjà recruté un dieu'),
+    soldats: L('L’adversaire commence avec 2 soldats déjà posés'), pauvre: L('La réserve commune n’a qu’un garde de chaque sorte'),
+    silence: L('Tu ne peux pas activer de perso pendant tes 2 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
+    ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
+    blesse: L('Tu commences avec un garde déjà perdu'),
   })[id];
   // exploits : certains persos ne se débloquent QUE par un exploit (dans la partie en cours)
   const EXPLOITS = [
@@ -284,7 +288,7 @@
     const r = run(), t = r.t;
     const allG = E.ALL_G.every(x => r.gards.includes(x) || SPECIAL.has(x)), allD = E.ALL_M.every(x => r.gods.includes(x) || SPECIAL.has(x));
     let h = `<div class="runtop"><h2 class="title">${L('Partie {n}', { n: cur + 1 })} · ${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}</h2>
-      <div class="runhead"><span><b>${r.n}</b> ${L('affrontement')}</span><span class="w"><b>${r.wins}</b> ${L('victoires')}</span><span><b>${r.winsH}</b> ${L('dont difficiles')}</span><span class="l"><b>${r.losses}</b> ${L('défaites')}</span></div></div>
+      <div class="runhead"><span>${L('affrontement n°{n}', { n: r.n })}</span></div></div>
       <div class="runbody"><div class="runcol">
         <h4>${L('Dieux dans la réserve')}</h4><div class="row">${chips(r.gods, E.ALL_M)}</div>
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, E.ALL_G)}</div>
@@ -548,6 +552,13 @@
     if (hs.includes('riche')) s.mana[1] = 160;
     if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(pre.gards)], 1); }
     if (hs.includes('dieupris')) { const av = pre.gods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
+    if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI.s, 1);
+    if (hs.includes('pauvre')) for (const id of pre.gards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
+    if (hs.includes('silence')) s.noAct[0] = 2;
+    if (hs.includes('geole')) s.noPlace[0] = 3;
+    if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
+    if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = pre.gards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
+    if (hs.includes('blesse')) s.lost[0][1] = 1;
     // fardeaux du Cercle
     if (pre.cercle >= 3) {
       const fs = fardeaux(pre.cercle);

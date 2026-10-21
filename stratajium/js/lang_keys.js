@@ -459,4 +459,12 @@ I18N.KEYS = [
   "📊 Statistiques",
   "Ton adversaire a quitté la partie.",
   "Ton adversaire a abandonné.",
+  // malus des combats difficiles (2026-10-21)
+  "L’adversaire commence avec 2 soldats déjà posés",
+  "La réserve commune n’a qu’un garde de chaque sorte",
+  "Tu ne peux pas activer de perso pendant tes 2 premiers tours",
+  "Tu ne peux pas placer de perso pendant tes 3 premiers tours",
+  "Des ronces poussent dans ta moitié de carte",
+  "L’adversaire a déjà recruté 2 gardes",
+  "Tu commences avec un garde déjà perdu",
 ];
