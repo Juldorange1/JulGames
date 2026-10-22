@@ -507,4 +507,37 @@
   D.T.c5[1] = "Lands on any square more than 5 squares away (rows + columns); it can capture a soldier there, or a guard more than 7 squares away, never a god.";
   D.T.g4[1] = "Moves 1 square in any of 8 directions pushing the whole line in front of it (a unit pushed off the map or into a hole dies), then may take a 2nd step onto an empty square or onto an enemy (not a god) to capture it.";
   D.T.g1[1] = "Swaps places with any unit on the map (ally or enemy, even a god). If it picks an enemy next to it, it captures it instead of swapping.";
+  Object.assign(D.ui, {
+    "L’aube arrive : gagne en 50 de tes tours, sinon c’est perdu": "Dawn is coming: win within 50 of your turns, or you lose",
+    "L’adversaire a déjà 2 gardes posés": "The opponent already has 2 guards placed",
+    "L’invasion demande 4 Ombres au lieu de 3": "The invasion needs 4 Shadows instead of 3",
+    "Pas de soldats des Ombres dans la réserve": "No Shadow soldiers in the reserve",
+    "2 lumières sacrées brillent dans ta moitié de carte": "2 sacred lights shine in your half of the map",
+    "{n} emplacements libres": "{n} free slots",
+    "Défi de la semaine": "Weekly challenge",
+    "{p} points de défi de la semaine": "{p} weekly challenge points",
+    "+{n} points pour les talents": "+{n} points for talents",
+    "La lumière du Phare fige ce perso : éloigne-toi ou frappe-le de loin.": "The Lighthouse’s light freezes this unit: move away or hit it from afar.",
+    "L’Archange a aveuglé ce perso : il ne peut pas agir ce tour-ci.": "The Archangel has blinded this unit: it can’t act this turn.",
+    "{n} tours avant l’aube": "{n} turns before dawn",
+    "Les boss de la Lumière": "The bosses of the Light",
+    "Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.": "In a Shadow run, you face them first, instead of the usual bosses.",
+    "Handicaps des parties des Ombres": "Handicaps of Shadow runs",
+    "La Lumière contre-attaque": "The Light strikes back",
+    "Portails": "Portals",
+    "Tu joues l’armée des Ombres contre un boss de la Lumière, sur une carte avec autels, lumières sacrées et portails.": "You play the Shadow army against a boss of the Light, on a map with altars, sacred lights and portals.",
+    "Des portails partout : un perso qui finit son tour dessus passe de l’autre côté de la carte.": "Portals everywhere: a unit that ends its turn on one goes to the other side of the map.",
+    "Chaque fois que tu bats ton meilleur score de la semaine, la différence s’ajoute à tes points de talents.": "Each time you beat your best score of the week, the difference is added to your talent points.",
+    "4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal": "4 bosses of the Light, only for Shadow runs: Archangel, Paladin, Lighthouse, Crystal golem",
+    "3 nouvelles cases spéciales : autels, lumières sacrées et portails": "3 new special squares: altars, sacred lights and portals",
+    "5 handicaps difficiles propres aux parties des Ombres": "5 hard handicaps of their own for Shadow runs",
+    "Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents": "The weekly challenge: a special rule each week, your ranking, and points for talents",
+    "2 emplacements de partie en plus : 5 parties en cours": "2 more run slots: 5 runs in progress",
+    "Invasion : 4 Ombres dans la zone adverse.": "Invasion: 4 Shadows in the enemy zone.",
+    "L’aube s’est levée : les Ombres n’ont pas gagné à temps.": "Dawn has broken: the Shadows didn’t win in time.",
+  });
+  Object.assign(D.T, {"sa": ["Archangel", "Boss of the Light, 4 life points. Every other turn, its light blinds all your units in its row and column: you can’t activate them on your next turn."], "sp": ["Paladin", "Boss of the Light, 3 life points. While 2 of its units are next to it, they protect it: your hits do nothing. Kill its guards first! It advances toward you every other turn (sometimes leaving its guards behind) and strikes a unit next to it every 4 turns."], "sl": ["Lighthouse", "Boss of the Light, 2 life points. It doesn’t move, but its light freezes your guards and soldiers: those 2 squares or closer can’t be activated (your gods can). Hit it from afar! Every 4 turns, it calls a minion."], "sg": ["Crystal golem", "Boss of the Light, 2 life points. Its crystal reflects shots and spells: only melee hits hurt it. Every 4 turns, it crushes a unit next to it."]});
+  D.SPEC[4] = ["Shadow altar", "At the start of your turn, if one of your Shadow units is on it: +20 mana."];
+  D.SPEC[5] = ["Sacred light", "A Shadow unit (not a god) still on it at the end of its side’s turn dies."];
+  D.SPEC[6] = ["Portal", "At the end of your turn, your unit on a portal goes through the twin portal (on the other side of the map), if it is free."];
 })();

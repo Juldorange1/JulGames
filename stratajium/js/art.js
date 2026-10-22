@@ -172,6 +172,19 @@ const Art = (function () {
     ox: `<path d="M50 50 Q30 20 6 30 Q16 40 12 52 Q24 48 30 58 Q40 50 50 62 Q60 50 70 58 Q76 48 88 52 Q84 40 94 30 Q70 20 50 50 Z" fill="#2a1a30"/><ellipse cx="50" cy="52" rx="11" ry="14" fill="#3a2440"/>
       <path d="M42 40 L40 30 L46 38 M58 40 L60 30 L54 38" fill="#3a2440"/>${glow(45, 48, 2.8, '#ff5a5a')}${glow(55, 48, 2.8, '#ff5a5a')}<path d="M46 58 L47 62 M54 58 L53 62" stroke="#fff" stroke-width="1.6"/>`,
     os: `<path d="M30 86 Q26 54 50 46 Q74 54 70 86 L62 78 L56 88 L50 78 L44 88 L38 78 Z" fill="#1a1422"/><circle cx="50" cy="44" r="15" fill="#241c30"/>${glow(44, 44, 3.6, '#a87aff')}${glow(56, 44, 3.6, '#a87aff')}<path d="M44 54 Q50 57 56 54" stroke="#a87aff" stroke-width="1.6" fill="none"/>`,
+    // boss de la Lumière (DLC « Les Ombres »)
+    sa: `<path d="M50 52 Q20 30 6 44 Q14 60 30 60 Q16 70 22 80 Q38 76 46 62 Z" fill="#fff6d8" stroke="#e8c860" stroke-width="2"/><path d="M50 52 Q80 30 94 44 Q86 60 70 60 Q84 70 78 80 Q62 76 54 62 Z" fill="#fff6d8" stroke="#e8c860" stroke-width="2"/>
+      <path d="M36 92 L42 56 Q50 50 58 56 L64 92 Z" fill="#f4ecff" stroke="#c8b070" stroke-width="2"/><circle cx="50" cy="40" r="13" fill="#ffe2c4"/><ellipse cx="50" cy="20" rx="14" ry="4" fill="none" stroke="#ffd34a" stroke-width="3.5"/>
+      ${glow(45, 40, 2.6, '#7fd3ff')}${glow(55, 40, 2.6, '#7fd3ff')}<path d="M70 30 L84 8" stroke="#ffd34a" stroke-width="4" stroke-linecap="round"/><path d="M80 10 L88 4 L86 14 Z" fill="#fff6c8"/>`,
+    sp: `<path d="M24 92 L28 54 Q50 42 72 54 L76 92 Z" fill="#c9d3e0" stroke="#6a7a90" stroke-width="2.5"/><path d="M50 56 V88 M36 70 H64" stroke="#ffd34a" stroke-width="5"/>
+      <path d="M32 46 Q32 16 50 14 Q68 16 68 46 Z" fill="#dfe6f0" stroke="#6a7a90" stroke-width="2.5"/><rect x="36" y="30" width="28" height="6" rx="2" fill="#2a3040"/>${glow(43, 33, 2.4, '#7fd3ff')}${glow(57, 33, 2.4, '#7fd3ff')}
+      <path d="M50 14 Q54 4 62 6" stroke="#ff5a5a" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M8 54 Q8 82 22 90 Q36 82 36 54 Q22 48 8 54 Z" fill="#f2f0e0" stroke="#b09040" stroke-width="2.5"/><path d="M22 58 V84 M12 68 H32" stroke="#d4a020" stroke-width="3.5"/>`,
+    sl: `<path d="M34 92 L40 40 L60 40 L66 92 Z" fill="#f4f0e6" stroke="#8a7a6a" stroke-width="2.5"/><path d="M37 66 L63 66 M38 54 L62 54 M36 80 L64 80" stroke="#d24a3a" stroke-width="6"/>
+      <rect x="36" y="26" width="28" height="14" rx="3" fill="#fff6c0" stroke="#8a7a6a" stroke-width="2.5"/><path d="M34 26 L50 12 L66 26 Z" fill="#d24a3a"/>
+      <path d="M36 33 L4 22 L4 44 Z M64 33 L96 22 L96 44 Z" fill="#fff2a0" opacity=".55"/>${glow(45, 33, 2.4, '#ffb030')}${glow(55, 33, 2.4, '#ffb030')}`,
+    sg: `<path d="M22 88 L18 56 L30 40 L50 32 L70 40 L82 56 L78 88 Z" fill="#9fe0ff" stroke="#3a8ab0" stroke-width="2.5"/><path d="M30 40 L40 60 L50 32 L60 60 L70 40 M18 56 L40 60 L60 60 L82 56 M40 60 L36 88 M60 60 L64 88" stroke="#e6f8ff" stroke-width="2" fill="none" opacity=".8"/>
+      <path d="M36 32 L42 12 L50 22 L58 10 L64 32 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>${glow(42, 46, 3.4, '#ffffff')}${glow(58, 46, 3.4, '#ffffff')}
+      <path d="M8 60 L18 52 L22 68 Z M92 60 L82 52 L78 68 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>`,
   };
   return { get: id => A[id] || '' };
 })();

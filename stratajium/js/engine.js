@@ -83,10 +83,15 @@ function StratEngine() {
     { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 3 cases par-dessus tout ; prend en arrivant sur un ennemi.' },
     { id: 'ol', cat: 'G', sym: 'l', name: 'Lame', val: 3.6, fac: 1, desc: 'Avance de 2 cases en ligne droite (haut, bas, gauche, droite) et tue les ennemis qu’elle traverse.' },
     { id: 'ox', cat: 'G', sym: 'x', name: 'Chauve-souris', val: 3.2, fac: 1, desc: 'Vole à 2 cases (ligne droite ou diagonale) par-dessus tout ; prend en arrivant sur un ennemi.' },
+    { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 4, desc: 'Boss de la Lumière, 4 points de vie. Un tour sur deux, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
+    { id: 'sp', cat: 'B', sym: 'P', name: 'Paladin', val: 14, hp: 4, mins: 3, desc: 'Boss de la Lumière, 4 points de vie. Tant que 2 de ses persos sont collés à lui, ils le protègent : tes coups ne lui font rien. Tue ses gardes d’abord ! Il avance vers toi un tour sur deux (en laissant parfois ses gardes derrière lui) et frappe un perso collé à lui tous les 3 tours.' },
+    { id: 'sl', cat: 'B', sym: 'L', name: 'Phare', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Il ne bouge pas, mais sa lumière fige tes gardes et tes soldats : ceux à 2 cases ou moins de lui ne peuvent pas être activés (tes dieux, si). Touche-le de loin ! Tous les 4 tours, il appelle un sbire.' },
+    { id: 'sg', cat: 'B', sym: 'G', name: 'Golem de cristal', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Son cristal renvoie les tirs et les sorts : seuls les coups au contact le blessent. Tous les 4 tours, il écrase un perso collé à lui.' },
     { id: 'os', cat: 'S', sym: 'o', name: 'Ombre', val: 1, fac: 1, desc: 'Soldat des ombres : fait 1 pas en ligne droite (même en arrière) vers une case vide ; prend en diagonale vers l’avant.' },
   ];
   const BOSSES = ['bt', 'bn', 'bd', 'bh', 'bq', 'bk', 'bg', 'bv', 'bw', 'bs', 'bp', 'bb', 'bc'];
   const BOSSES_DLC = ['bl', 'bm', 'bo', 'bj']; // DLC « Les Abysses »
+  const SH_BOSSES = ['sa', 'sp', 'sl', 'sg']; // DLC « Les Ombres » : les boss de la Lumière
   const DLC_M = ['pv', 'sr'], DLC_G = ['rq', 'mz'];
   // armée des Ombres : 4 dieux, 5 gardes, son soldat
   const SH_M = ['om', 'of', 'oe', 'ou'], SH_G = ['oa', 'ob', 'oc', 'ol', 'ox'], SH_START_M = ['om'], SH_START_G = ['oa', 'oc'];
@@ -232,6 +237,9 @@ function StratEngine() {
     { id: 'source', name: 'Source de mana', desc: 'Au début de ton tour, si un de tes persos est dessus : +10 mana.' },
     { id: 'bosquet', name: 'Bosquet', desc: 'Un perso dessus est à couvert : ni les tirs (Archer, Arbalétrier, Baliste, Lancier) ni les sorts de zone ne peuvent le tuer.' },
     { id: 'courant', name: 'Courant', desc: 'À la fin de ton tour, chacun de tes persos sur un courant est emporté d’une case dans le sens de la flèche (si la case est libre).' },
+    { id: 'autel', name: 'Autel des ombres', desc: 'Au début de ton tour, si un de tes persos des Ombres est dessus : +20 mana.' },
+    { id: 'lumiere', name: 'Lumière sacrée', desc: 'Un perso des Ombres (pas un dieu) qui y est encore à la fin du tour de son camp meurt.' },
+    { id: 'portail', name: 'Portail', desc: 'À la fin de ton tour, ton perso posé sur un portail passe par le portail jumeau (de l’autre côté de la carte), s’il est libre.' },
   ];
   // courants (DLC « Les Abysses ») : des traînées de 2 à 3 cases, symétriques ; g.cdir = direction (indice de D8)
   function addCurrents(g) {
@@ -332,6 +340,19 @@ function StratEngine() {
     }
     return classicMap();
   }
+  // cases des Ombres : 1 paire d'autels et 1 paire de portails (symétriques, hors des zones)
+  function addShadowSpecs(g, kinds) {
+    const N = g.N, zs = new Set(g.zl[0].concat(g.zl[1]));
+    for (const k of kinds || [4, 6]) { // la lumière sacrée ne vient que des handicaps et du défi de la semaine
+      for (let t = 0; t < 80; t++) {
+        const q = rnd(N), m = N - 1 - q, r = q / g.W | 0;
+        if (!g.ex[q] || q === m || g.spec[q] || g.spec[m] || zs.has(q) || zs.has(m)) continue;
+        if (k === 6 ? Math.abs(r - (g.H - 1) / 2) < 1.5 : Math.abs(r - (g.H - 1) / 2) > g.H / 2 - 2) continue; // portails loin du milieu, le reste vers le milieu
+        g.spec[q] = g.spec[m] = k; break;
+      }
+    }
+    return g;
+  }
   function makeMap(kind, level, currents) { const g = (kind === 'classique' || level === 0) ? classicMap() : randomMap(level); return currents ? addCurrents(g) : g; }
   // tirages reproductibles (défi du jour) : Math.random est remplacé le temps de fn
   function withSeed(seed, fn) {
@@ -346,7 +367,7 @@ function StratEngine() {
     o = o || {};
     const ev = o.event || null;
     const g = o.map || classicMap();
-    const b = new Int8Array(g.N);
+    const b = new Int16Array(g.N); // Int16 : au-delà de 63 sortes de persos, les codes dépassent 127
     for (let q = 0; q < g.N; q++) b[q] = g.ex[q] ? 0 : VOID;
     const s = {
       g, b,
@@ -371,6 +392,7 @@ function StratEngine() {
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
       boss: null,
       fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres)
+      invN: o.invN || 0, // persos à faire entrer pour gagner par invasion (0 = 3)
     };
     if (o.mana) s.mana = o.mana.slice();
     let mages = o.gods || BASE_M, gards = o.gards || BASE_G;
@@ -409,7 +431,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac,
+      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
   }
@@ -429,7 +451,12 @@ function StratEngine() {
   const cloneBoss = B => Object.assign({}, B, { warn: B.warn && B.warn.slice(), ice: B.ice && B.ice.slice(), webs: B.webs && B.webs.slice(), stones: B.stones && B.stones.slice(), coral: B.coral && B.coral.slice() });
   // tout le monde peut recruter les persos de base ; seuls les Ombres peuvent recruter les persos des Ombres
   const canRec = (s, p, i) => !FAC[i] || (!!s.fac && s.fac[p] === 1);
-  const isIce = (s, q) => !!s.boss && !!s.boss.ice && s.boss.ice.includes(q);
+  const isIce = (s, q) => {
+    const B = s.boss; if (!B || B.hp <= 0) return false;
+    if (B.ice && B.ice.includes(q)) return true;
+    if (B.kind === 'sl' && s.b[q] > 0 && own(s.b[q]) !== B.owner && !IS_M[tix(s.b[q])]) { const W = s.g.W; return Math.max(Math.abs((q / W | 0) - (B.q / W | 0)), Math.abs(q % W - B.q % W)) <= 2; } // les dieux résistent à sa lumière
+    return false;
+  };
   const isBoss = (s, q) => !!s.boss && s.boss.hp > 0 && s.boss.q === q;
   function kill(s, q, wallOk) {
     const c = s.b[q];
@@ -437,6 +464,8 @@ function StratEngine() {
     if (isBoss(s, q)) {
       const B = s.boss;
       if (B.ghost) return; // spectre intangible : le coup le traverse
+      if (B.kind === 'sp' && adjOf(s, q).filter(z => s.b[z] > 0 && own(s.b[z]) === B.owner).length >= 2) { s._blocked = (s._blocked || 0) + 1; return; } // le Paladin est protégé par 2 de ses persos
+      if (B.kind === 'sg' && !s._melee) { s._blocked = (s._blocked || 0) + 1; return; } // le Golem de cristal renvoie les tirs et les sorts
       B.hp--; s._k = (s._k || 0) + 1; s.quiet = -1;
       if (s._hits) s._hits.push(q);
       if (B.hp > 0) { if (B.kind === 'bh') spawnNear(s, q, TI.mi, B.owner, 99); return; }
@@ -466,7 +495,7 @@ function StratEngine() {
 
   // déplacement simple vers une case vide ou ennemie ; renvoie la nouvelle position
   function stepTo(s, from, to) {
-    if (isBoss(s, to)) { kill(s, to); return from; } // on frappe le boss sans prendre sa place
+    if (isBoss(s, to)) { s._melee = 1; kill(s, to); s._melee = 0; return from; } // on frappe le boss sans prendre sa place
     if (s.b[to] > 0) {
       kill(s, to);
       if (s.ev === 'murs') return from; // le mort bloque : l'attaquant reste devant
@@ -914,18 +943,28 @@ function StratEngine() {
       for (let q = 0; q < s.g.N; q++) if (cd[q] >= 0 && s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q)) { const to = nx(s.g, q, cd[q]); if (to >= 0 && s.b[to] === 0) mv2.push([q, to]); }
       for (const [q, to] of mv2) if (s.b[to] === 0 && s.b[q] > 0) { s.b[to] = s.b[q]; s.b[q] = 0; }
     }
+    const sp2 = s.g.spec;
+    if (sp2 && s.fac) {
+      for (let q = 0; q < s.g.N; q++) if (sp2[q] === 5 && s.b[q] > 0 && own(s.b[q]) === p && FAC[tix(s.b[q])] && !IS_M[tix(s.b[q])] && !isBl(s, q)) kill(s, q);
+    }
+    if (sp2) { // portails : de l'autre côté de la carte
+      const tp = [];
+      for (let q = 0; q < s.g.N; q++) if (sp2[q] === 6 && s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q) && s.b[s.g.N - 1 - q] === 0) tp.push(q);
+      for (const q of tp) { const m = s.g.N - 1 - q; if (s.b[m] === 0 && s.b[q] > 0) { s.b[m] = s.b[q]; s.b[q] = 0; } }
+    }
     if (s.noPlace[p]) s.noPlace[p]--;
     if (s.noAct[p]) s.noAct[p]--;
     s.decl[p] = s._newDecl || null; s._newDecl = null;
     s.turn = 1 - p; s.acts = 1; s.ply++;
     s.quiet++;
+    if (s.dawn && s.winner === null && s.ply >= s.dawn * 2) { s.winner = 1; s.why = 'L’aube s’est levée : les Ombres n’ont pas gagné à temps.'; } // handicap « L’aube »
     if (s.quiet >= 150 && s.winner === null) { s.winner = 2; s.why = '150 tours (75 chacun) sans aucune élimination : partie nulle.'; }
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
     if (s.ev === 'maree') s.mana[q] += 10;
     // sources de mana
     const spec = s.g.spec;
-    if (spec) for (let x = 0; x < s.g.N; x++) if (spec[x] === 1 && s.b[x] > 0 && own(s.b[x]) === q) s.mana[q] += 10;
+    if (spec) for (let x = 0; x < s.g.N; x++) if (s.b[x] > 0 && own(s.b[x]) === q) { if (spec[x] === 1) s.mana[q] += 10; else if (spec[x] === 4 && FAC[tix(s.b[x])]) s.mana[q] += 20; }
     if (s.goal) {
       if (s.goal === 'colline') {
         let mine = 0, theirs = 0;
@@ -1073,6 +1112,17 @@ function StratEngine() {
         opts.sort((a, b2) => (s.b[b2] > 0) - (s.b[a] > 0) || dmin(a) - dmin(b2) || a - b2);
         if (dmin(opts[0]) < dmin(m) || s.b[opts[0]] > 0) stepTo(s, m, opts[0]);
       }
+    } else if (B.kind === 'sa') {
+      // Archange : un tour sur deux, il aveugle tes persos sur sa ligne et sa colonne
+      if (B.cd % 2 === 0) { const r0 = B.q / W | 0, c0 = B.q % W; B.ice = foes.filter(q => !isBl(s, q) && ((q / W | 0) === r0 || q % W === c0)); if (!B.ice.length) B.ice = null; }
+      if (foes.length && bestAdj() < 0) { let to = -1, bd = 99; for (const z of adjOf(s, B.q)) if (s.b[z] === 0) { const d = Math.min(...foes.map(f => dist(z, f))); if (d < bd) { bd = d; to = z; } } if (to >= 0 && B.cd % 2 === 1) { s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; } }
+    } else if (B.kind === 'sp') {
+      if (foes.length && bestAdj() < 0 && B.cd % 2 === 1) { let to = -1, bd = 99; for (const z of adjOf(s, B.q)) if (s.b[z] === 0) { const d = Math.min(...foes.map(f => dist(z, f))); if (d < bd) { bd = d; to = z; } } if (to >= 0) { s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; } }
+      if (B.cd % 3 === 0) { const v = bestAdj(); if (v >= 0) { s._smash = v; kill(s, v); } }
+    } else if (B.kind === 'sl') {
+      if (B.cd % 4 === 0) spawnNear(s, B.q, TI.mi, me, 3);
+    } else if (B.kind === 'sg') {
+      if (B.cd % 4 === 0) { const v = bestAdj(); if (v >= 0) { s._smash = v; kill(s, v); } }
     } else if (B.kind === 'bl') {
       // Léviathan : plonge (intouchable) en visant ton meilleur perso, puis ressurgit dessous et le dévore
       if (!B.warn) {
@@ -1167,12 +1217,12 @@ function StratEngine() {
   function invasion(s, p) {
     if (!s.fac || !s.fac[p]) return false;
     let n = 0; for (const x of s.g.zl[1 - p]) if (s.b[x] > 0 && own(s.b[x]) === p) n++;
-    return n >= 3;
+    return n >= (s.invN || 3);
   }
   function checkWin(s) {
     if (s.winner !== null) return;
     if (s.boss && s.boss.hp <= 0) { s.winner = 1 - s.boss.owner; s.why = 'Le boss est vaincu !'; return; }
-    if (s.fac) for (const p of [s.turn, 1 - s.turn]) if (invasion(s, p)) { s.winner = p; s.why = 'Invasion : 3 Ombres dans la zone adverse.'; return; }
+    if (s.fac) for (const p of [s.turn, 1 - s.turn]) if (invasion(s, p)) { s.winner = p; s.why = s.invN === 4 ? 'Invasion : 4 Ombres dans la zone adverse.' : 'Invasion : 3 Ombres dans la zone adverse.'; return; }
     if (s.goal) {
       const w = goalWinner(s);
       if (!w[0] && !w[1]) return;
@@ -1490,7 +1540,7 @@ function StratEngine() {
       else sc += (danger(s, 1 - p, am[1 - p], onB[1 - p]) - danger(s, p, am[p], onB[p])) * W8.wM;
     }
     if (s.boss && s.boss.hp > 0) sc += (s.boss.owner === p ? 1 : -1) * s.boss.hp * 9;
-    if (s.fac) for (const o of [0, 1]) if (s.fac[o]) { let n = 0; for (const x of g.zl[1 - o]) if (b[x] > 0 && own(b[x]) === o) n++; sc += (o === p ? 1 : -1) * [0, 4, 14, 0][Math.min(n, 3)]; }
+    if (s.fac) for (const o of [0, 1]) if (s.fac[o]) { let n = 0; for (const x of g.zl[1 - o]) if (b[x] > 0 && own(b[x]) === o) n++; const need = s.invN || 3; sc += (o === p ? 1 : -1) * (n >= need ? 0 : n === need - 1 ? 14 : n === need - 2 ? 4 : 0); }
     if (s.noAct[1 - p]) sc += 1.5 * s.noAct[1 - p];
     if (s.noAct[p]) sc -= 1.5 * s.noAct[p];
     if (s.noPlace[1 - p]) sc += 0.6 * s.noPlace[1 - p];
@@ -1808,7 +1858,7 @@ function StratEngine() {
   }
 
   return {
-    BOSSES, BOSSES_DLC, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

@@ -742,3 +742,6 @@ body.no-coords .crd { display: none; }
 #terrain[data-theme="hiver"] { --l1: #f2f6fa; --l2: #d8e2ec; --l3: #c6d2de; --d1: #8c9caa; --d2: #748494; --d3: #647280; }
 #terrain[data-theme="desert"] { --l1: #f4deaa; --l2: #dec28a; --l3: #ccaa72; --d1: #aa824c; --d2: #8c6c3c; --d3: #7c5c30; }
 #terrain[data-theme="marais"] { --l1: #cacaa2; --l2: #b0b088; --l3: #9c9c76; --d1: #5c5c40; --d2: #4a4a30; --d3: #3e3e28; }
+/* DLC « Les Ombres » : lumière du Phare, bouton du défi de la semaine */
+.sq.aura::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(255, 238, 150, .34), rgba(255, 220, 90, .12) 70%); box-shadow: inset 0 0 0 2px rgba(255, 226, 122, .55); border-radius: inherit; }
+#dailyBox .dright #btnWeekly { margin-top: 6px; }
