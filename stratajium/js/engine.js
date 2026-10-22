@@ -1532,6 +1532,8 @@ function StratEngine() {
       if (MAGEV && X && CATN[i] === 0) { if (rp[i] || ro[i]) sc += rp[i] * (mana[p] >= COST[i] ? VAL[i] * 0.75 : MAGEV) - ro[i] * (mana[1 - p] >= COST[i] ? VAL[i] * 0.75 : MAGEV); }
       else if (d) sc += d * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8);
     }
+    // persos que seule ton armée peut recruter : ils t'attendent dans la réserve commune, inutile de perdre un tour à les prendre tôt
+    if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) if (s.fac[o]) for (let i = 0; i < NT; i++) if (FAC[i] && s.pool[i]) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5;
     sc += (manaVal(s, p) - manaVal(s, 1 - p)) * F.mana;
     if (s.goal) sc += goalEval(s, p, onB);
     else {

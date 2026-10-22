@@ -48,7 +48,8 @@
     const t = T[ti];
     const bg = o === 0 ? 'url(#bg0)' : o === 1 ? 'url(#bg1)' : 'url(#bgn)';
     const st = o === 0 ? '#7a4e08' : o === 1 ? '#2e1466' : '#5a5246';
-    const ring = o === 0 ? '#ffd86a' : o === 1 ? '#c8a8ff' : '#e8e0d0';
+    const cbm = typeof SET !== 'undefined' && SET.vision === 'daltonien';
+    const ring = o === 0 ? '#ffd86a' : o === 1 ? (cbm ? '#8fd0ff' : '#c8a8ff') : '#e8e0d0';
     let frame, k = .9, cy = 52;
     if (t.cat === 'M') {
       frame = `<polygon points="50,3 92,26 92,74 50,97 8,74 8,26" fill="${bg}" stroke="${st}" stroke-width="5"/><polygon points="50,9 87,29 87,71 50,91 13,71 13,29" fill="none" stroke="${ring}" stroke-width="2.4" opacity=".9"/>`;
@@ -67,7 +68,9 @@
     const moon = t.fac ? `<circle cx="81" cy="80" r="11" fill="#14081f" stroke="#c8a8ff" stroke-width="2"/><path d="M84 72 A9 9 0 1 0 84 88 A7 7 0 1 1 84 72 Z" fill="#e8dcff"/>` : '';
     const crown = t.cat === 'M' ? `<path d="M38 16 L38 6 L44 11 L50 3 L56 11 L62 6 L62 16 Z" fill="${o === 0 ? CROWN[Math.min(myCercle, CROWN.length - 1)] : st}" stroke="${ring}" stroke-width="1.2"/>` : '';
     const d = ((tokSeed++ * 7919) % 4700) / 1000;
-    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s">${Art.get(t.id)}</g></g>${crown}${moon}</svg>`;
+    // mode daltoniens : triangle pour toi (camp 0), carré pour l'adversaire, en plus de la couleur
+    const cbBadge = cbm && o >= 0 ? (o === 0 ? '<g><circle cx="16" cy="18" r="11" fill="#1a1206" stroke="#ffd86a" stroke-width="2.5"/><path d="M16 11 L23 23 L9 23 Z" fill="#ffd86a"/></g>' : '<g><circle cx="16" cy="18" r="11" fill="#06121f" stroke="#8fd0ff" stroke-width="2.5"/><rect x="10.5" y="12.5" width="11" height="11" fill="#8fd0ff"/></g>') : '';
+    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s"><g class="ink">${Art.get(t.id)}</g>${Art.get(t.id)}</g></g><ellipse class="gloss" cx="36" cy="26" rx="22" ry="11" transform="rotate(-28 36 26)"/>${crown}${moon}${cbBadge}</svg>`;
   }
   const BRAMBLE = `<svg class="bramble" viewBox="0 0 100 100"><g fill="none" stroke-linecap="round">
     <path d="M10 70 Q30 30 55 45 T92 25" stroke="#5a7a2a" stroke-width="7"/><path d="M8 35 Q40 60 60 80 T95 72" stroke="#4a6a22" stroke-width="6"/>
@@ -89,11 +92,12 @@
     `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="52" rx="30" ry="38" fill="#2a1450" stroke="#9a6bff" stroke-width="7"/><ellipse cx="50" cy="52" rx="18" ry="25" fill="none" stroke="#5ad1ff" stroke-width="5" stroke-dasharray="12 8"/><circle cx="50" cy="52" r="7" fill="#d9c6ff"/></svg>`];
 
   // ---------- réglages ----------
-  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true }, lsGet('reglages', {}));
+  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale' }, lsGet('reglages', {}));
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
     document.body.classList.toggle('no-coords', !SET.coords);
+    document.body.classList.toggle('cb', SET.vision === 'daltonien');
   }
   applySettings();
 
@@ -453,7 +457,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <small>${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)}${c.ev ? ' · 🎲 ' + I18N.evName(c.ev) : ''}</small></div>
       <div class="dmid"><div class="pts">${d.total}</div><small>${L('points de défi du jour')}</small>
         <small>${best ? L('Aujourd’hui : {p} pts', { p: best.best }) : L('Pas encore joué aujourd’hui.')}</small></div>
-      <div class="dright"><button class="big" id="btnDaily">${best ? L('Rejouer') : L('Jouer le défi')} <kbd>J</kbd></button>${dlcOn('ombres') ? `<button class="ghost" id="btnWeekly">🗓️ ${L('Défi de la semaine')} <kbd>S</kbd></button>` : ''}
+      <div class="dright"><button class="big" id="btnDaily">${best ? L('Rejouer') : L('Jouer le défi')} <kbd>J</kbd></button>${dlcOn('ombres') ? `<button class="ghost" id="btnWeekly">🗓️ ${L('Défi de la semaine')} <kbd>W</kbd></button>` : ''}
         <small>${L('Talents : {n}/{t}', { n: got, t: TALENTS.length })}${next ? ' · ' + L('prochain à {p} pts : {x}', { p: next.pts, x: talentName(next.id) }) : ''}</small></div>`;
     $('btnDaily').onclick = startDaily;
     if ($('btnWeekly')) $('btnWeekly').onclick = () => openSeason('menu');
@@ -658,7 +662,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     let d;
     try { d = deser(r.match); } catch (e) { r.match = null; saveRuns(); renderRun(); return toast(L('Affrontement illisible : il a été effacé.')); }
     pre = { level: r.level, perso: d.perso || null, mode: d.mode || 'normal' };
-    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats() });
+    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats(), rec: d.rec || null });
     G.names = curNames();
     $('log').innerHTML = d.log || '';
     sys(L('Affrontement repris.'));
@@ -666,8 +670,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.s.winner !== null) endGame();
   }
   function saveMatch() {
-    if (!G || G.mode === 'daily' || cur < 0 || G.committed) return;
-    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard, st: G.st });
+    if (!G || G.replay || G.mode === 'daily' || G.mode === 'tuto' || cur < 0 || G.committed) return;
+    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard, st: G.st, rec: G.rec });
     saveRuns();
   }
   function enterGame() {
@@ -679,8 +683,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('goalBadge').hidden = !gl;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; }
     $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
-    $('btnUndo').hidden = G.net;
-    $('runBadge').textContent = G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
+    $('btnUndo').hidden = G.net || !!G.replay;
+    $('runBadge').textContent = G.replay ? '🎬 ' + L('Revoir la partie') : G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     show('game');
     $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
@@ -695,6 +699,7 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- bot : rapide (le stratège réfléchit environ 1,5 s) ----------
   function maybeBot() {
+    if (G && !G.over && G.ctl[G.s.turn] === 'tuto') return guideOpp();
     if (!G || G.over || G.ctl[G.s.turn] !== 'bot' || G.thinking) return;
     G.thinking = true;
     const id = G.id, ver = G.ver, t0 = performance.now();
@@ -714,8 +719,10 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- exécution d'une action ----------
   function doAction(a) {
+    if (G.tuto && G.humans[G.s.turn]) { const st = guideStep(); if (st && !st.free && !st.ok(a, G.s)) { G.sel = null; render(); toast('🎓 ' + st.t, 4500); sfx('annule'); return; } }
     const s = G.s, p = s.turn, before = E.clone(s);
-    if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st) }); if (G.history.length > 300) G.history.shift(); }
+    if (!G.rec && !G.replay) G.rec = [frameOf(before, null)];
+    if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st), rf: G.rec ? G.rec.length : 0 }); if (G.history.length > 300) G.history.shift(); }
     if (G.net && G.ctl[p] === 'me') netSend({ t: 'act', a, ply: before.ply });
     const iceBefore = s.boss && s.boss.ice ? s.boss.ice.join() : '', warnBefore = s.boss && s.boss.warn ? s.boss.warn.join() : '';
     const minions = st => { let n = 0; for (let q = 0; q < st.g.N; q++) { const c = st.b[q]; if (c > 0) { const id = T[E.tix(c)].id; if (id === 'mi' || id === 'ab') n++; } } return n; };
@@ -725,6 +732,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     E.apply(s, a);
     const dead = s._dead, hits = s._hits, fire = s._fire, smash = s._smash; s._dead = null; s._hits = null; s._fire = null;
     track(before, s, a, dead, p); s._bossDead = null;
+    if (G.rec) { G.rec.push(frameOf(s, a)); if (G.rec.length > 400) G.rec.splice(1, 1); }
     const tide = s._tide; s._tide = 0;
     if (s.boss) {
       if (fire || smash >= 0) sfx('rugir', .55, 120);
@@ -747,6 +755,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (s.boss && s.boss.ice && s.boss.ice.join() !== iceBefore) sys(L('Gel : {n} de tes persos ne pourront pas agir à ton prochain tour.', { n: s.boss.ice.length }));
     if (s.boss && s.boss.warn && s.boss.warn.join() !== warnBefore) sys(L('Attention : le boss menace les cases marquées en rouge !'));
     G.lastA = a;
+    if (G.tuto) guideAfter(before, s, a, p);
     render();
     animate(before, s, a, dead, hits, fire, smash);
     if (G.daily && G.daily.goal === 'carnage' && s.winner === null && Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2) > 25) { s.winner = 2; s.why = L('25 tours joués.'); }
@@ -809,10 +818,25 @@ const isSh = id => !!T[E.TI[id]].fac;
     fxEl.appendChild(d); setTimeout(() => d.remove(), cls ? 800 : 500);
   }
   function pcEl(q) { return sqEls[q] && sqEls[q].querySelector('.pc'); }
+  const IS_MAGE = c => c > 0 && T[E.tix(c)].cat === 'M';
   function slide(el, pts, dur) {
     if (!el || !el.animate || SET.anim === 'aucune') return;
     if (SET.anim === 'rapide') dur *= .5;
     el.animate(pts.map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` })), { duration: dur, easing: 'cubic-bezier(.3,.7,.3,1)' });
+  }
+  // un coup : deux traits qui se croisent sur la victime
+  function slashFx(q, color) {
+    const c = color || '#fff6e0';
+    addFx('slash', q, `<svg viewBox="0 0 100 100"><path d="M14 22 Q50 46 86 80" stroke="${c}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M84 18 Q52 50 18 84" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round" style="animation-delay:.07s"/></svg>`, { size: 1.15, life: 520 });
+  }
+  // l'âme du perso tué s'envole
+  const SOUL = o => `<svg viewBox="0 0 100 100"><path d="M50 14 C30 14 24 32 26 50 C28 66 22 78 30 88 C36 80 40 90 46 84 C50 92 56 84 60 90 C66 80 74 84 72 70 C78 54 74 14 50 14 Z" fill="${o === 0 ? '#fff3c8' : '#e2d4ff'}" opacity=".85"/><circle cx="41" cy="42" r="4.5" fill="#2a2030"/><circle cx="59" cy="42" r="4.5" fill="#2a2030"/><ellipse cx="50" cy="56" rx="5" ry="3.5" fill="#2a2030" opacity=".7"/></svg>`;
+  // le perso qui frappe à distance prend son élan vers sa cible
+  function lunge(from, to) {
+    const el = pcEl(from); if (!el || !el.animate || SET.anim === 'aucune') return;
+    const A = sqXY(from), B = sqXY(to), dx = B.x - A.x, dy = B.y - A.y, n = Math.hypot(dx, dy) || 1, k = Math.min(G.sq * .28, n * .4);
+    el.animate([{ transform: 'none' }, { transform: `translate(${-dx / n * k * .35}px, ${-dy / n * k * .35}px) scale(.96)`, offset: .35 }, { transform: `translate(${dx / n * k}px, ${dy / n * k}px) scale(1.08)`, offset: .6 }, { transform: 'none' }],
+      { duration: SET.anim === 'rapide' ? 220 : 380, easing: 'ease-out' });
   }
   function animate(before, after, a, dead, hits, fire, smash) {
     if (!G.sq) return;
@@ -842,11 +866,22 @@ const isSh = id => !!T[E.TI[id]].fac;
         setTimeout(() => addFx('dust', q, '', { size: 1.4, life: 600 }), 260);
       }
     }
-    for (const q of dead) {
-      const c = before.b[q];
-      if (c > 0) { const d = addFx('ghost-pc', q, token(E.tix(c), E.own(c)), { size: .86, life: 800 }); d.style.animationDelay = (moved ? 120 : 0) + 'ms'; }
-      setTimeout(() => sparks(q, 12), moved ? 140 : 20);
-    }
+    // qui frappe ? (le perso activé, s'il n'a pas pris la place de sa victime, prend son élan)
+    const atk = a.k === 'act' && before.b[a.from] > 0 ? a.from : -1, atkAt = atk >= 0 && after.b[atk] === before.b[atk] ? atk : -1;
+    if (atkAt >= 0 && dead.length && !dead.includes(atkAt) && !IS_MAGE(before.b[atk])) lunge(atkAt, dead[0]);
+    const quick = SET.anim === 'aucune';
+    dead.forEach((q, i) => {
+      const c = before.b[q], delay = (moved ? 130 : 60) + i * 70;
+      if (!quick) setTimeout(() => slashFx(q, c > 0 && E.own(c) === 0 ? '#ffd0d0' : '#fff6e0'), delay);
+      if (c > 0) {
+        const d = addFx('ghost-pc', q, token(E.tix(c), E.own(c)), { size: .86, life: 900 }); d.style.animationDelay = delay + 'ms';
+        if (!quick) {
+          const s = addFx('soul', q, SOUL(E.own(c)), { size: .55, life: 1500 }); s.style.animationDelay = (delay + 220) + 'ms';
+          if (T[E.tix(c)].cat === 'M') setTimeout(() => { addFx('ring', q, '', { color: '#ffd86a', size: 2.2 }); sparks(q, 16, '#ffd86a'); }, delay + 120);
+        }
+      }
+      setTimeout(() => sparks(q, 12), delay + 20);
+    });
     for (const q of hits) if (!dead.includes(q)) { floatText(q, '−1 ❤', '#ff8a8a'); sparks(q, 10, '#ff4a4a'); const el = pcEl(q); if (el && el.animate) el.animate([{ transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'none' }], { duration: 260 }); sfx('coup'); }
     if (fire) { const B = after.boss; for (const q of fire) { if (B) arrowFx(B.q, q, 'flame'); addFx('flash', q, '', { life: 700 }); } sfx('foudre'); }
     if (smash >= 0) { addFx('ring', smash, '', { color: '#c8a070', size: 1.8 }); $('terrain').classList.remove('shake'); void $('terrain').offsetWidth; $('terrain').classList.add('shake'); sfx('mur'); }
@@ -915,10 +950,17 @@ const isSh = id => !!T[E.TI[id]].fac;
     d.battles++; d.turns += Math.ceil(s.ply / 2); d.ms += Math.min(4 * 3600e3, Date.now() - st.t0);
     lsSet('stats', d);
   }
-  // compte le résultat (une seule fois)
+  // compte le résultat (une seule fois), garde de quoi revoir la partie, vérifie les succès
   function commit() {
+    if (!G || !G.over || G.committed || G.replay) return;
+    commitInner();
+    saveReplay();
+    checkAch(G);
+  }
+  function commitInner() {
     if (!G || !G.over || G.committed) return;
     G.committed = true;
+    if (G.mode === 'tuto') { lsSet('tutoJoue', true); return; }
     recordStats();
     const s = G.s;
     if (G.mode === 'duel') return;
@@ -941,13 +983,15 @@ const isSh = id => !!T[E.TI[id]].fac;
     saveRuns();
   }
   function leaveGame() {
-    const mode = G ? G.mode : null;
+    if (G && G.replay && G.replay.play) clearInterval(G.replay.play);
+    const mode = G ? (G.replay ? G.replay.back : G.mode) : null;
     if (G && G.net) netClose();
     G = null;
     if (mode === 'daily') { renderMenu(); show('menu'); }
     else if (mode === 'duel') { renderDuel(); show('duel'); }
     else if (mode === 'story') { renderStory(); show('story'); }
     else if (mode === 'season') { renderSeason(); show('season'); }
+    else if (mode === 'tuto' || cur < 0) { renderMenu(); show('menu'); }
     else openRun(cur);
   }
   function endNext() {
@@ -1028,8 +1072,9 @@ const isSh = id => !!T[E.TI[id]].fac;
           ${gains.length ? `<h3>🎁 ${L('Ce que tu gagnes')}</h3><ul class="gains">${gains.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         </section>
       </div>
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button></div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
+    if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
     if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
     $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
     $('bilan').querySelectorAll('[data-rw]').forEach(b => b.onclick = () => rewindTo(+b.dataset.rw));
@@ -1040,6 +1085,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.committed) return toast(L('L’affrontement est fini.'));
     const h = G.history.pop();
     G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log; if (h.st) G.st = JSON.parse(h.st);
+    if (G.rec && h.rf) G.rec.length = h.rf;
     G.ver++; G.thinking = false; G.sel = null; G.over = false;
     $('endModal').hidden = true;
     sys(L('Coup annulé.'));
@@ -1217,6 +1263,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (v.sq.has(q)) cls += ' ' + v.sq.get(q);
       if (v.path.includes(q)) cls += ' path';
       if (G.sel && G.sel.k === 'piece' && G.sel.from === q) cls += ' selp';
+      if (padOn && padBoard && G.padQ === q) cls += ' padq';
       el.className = cls;
       let h = '';
       if (botOf[col] === r) h += `<span class="crd f">${COLS[col]}</span>`;
@@ -1364,6 +1411,15 @@ const isSh = id => !!T[E.TI[id]].fac;
     });
   }
   function renderHint(v) {
+    if (G.replay) return replayHint();
+    renderHint0(v);
+    const st = guideStep();
+    if (st && !G.over) {
+      $('hint').innerHTML = `<div class="tutohint">🎓 ${st.t}${st.skip ? ` <button class="ghost sm" id="btnGuideSkip">${L('Passer')}</button>` : ''}</div>` + $('hint').innerHTML;
+      if ($('btnGuideSkip')) $('btnGuideSkip').onclick = guideSkip;
+    }
+  }
+  function renderHint0(v) {
     const s = G.s, hint = $('hint'), opts = $('opts');
     let h = '', o = [];
     if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="next">${L('Continuer')}</button>`); if (G.history.length && !G.committed) o.push(`<button data-o="undo">↶ ${L('Annuler le coup')}</button>`); }
@@ -1444,7 +1500,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Raccourcis clavier
   // =====================================================================
-  function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal'].find(id => !$(id).hidden); }
+  function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal', 'achModal', 'replayModal'].find(id => !$(id).hidden); }
   document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
     const k = e.key, ctrl = e.ctrlKey || e.metaKey, m = modalOpen();
@@ -1452,6 +1508,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (m === 'codexModal') return closeCodex();
       if (m === 'setModal') return closeSettings();
       if (m === 'statsModal') return closeStats();
+      if (m === 'achModal') return closeAch();
+      if (m === 'replayModal') return closeReplays();
       if (m === 'tutoModal') return closeTuto();
       if (m === 'endModal') { $('endModal').hidden = true; return; }
       if (sheet) return closeSheet();
@@ -1463,6 +1521,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (m === 'tutoModal') { if (k === 'ArrowRight' || k === 'Enter') tutoStep(1); if (k === 'ArrowLeft') tutoStep(-1); return; }
     if (m === 'codexModal') { if (k === 'ArrowRight') codexPage(1); if (k === 'ArrowLeft') codexPage(-1); return; }
     if (m === 'statsModal') { if (k === 'ArrowRight') statsPage(1); if (k === 'ArrowLeft') statsPage(-1); return; }
+    if (m === 'achModal') { if (k === 'ArrowRight') achPage(1); if (k === 'ArrowLeft') achPage(-1); return; }
+    if (m === 'replayModal') { if (k === 'ArrowRight') rpPage(1); if (k === 'ArrowLeft') rpPage(-1); return; }
     if (m) return;
     if (k === 'c' || k === 'C') return openCodex();
     if (k === 's' || k === 'S') return openStats();
@@ -1480,8 +1540,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (scr === 'duel') { if (k === 'Enter' && $('btnDuelGo')) $('btnDuelGo').click(); if (k === 'Backspace') $('btnDuelBack').click(); return; }
     if (scr === 'pre') { if (k === 'Enter') $('btnGo').click(); const n = +k; if ((n === 1 || n === 2) && document.querySelector('[data-bet] button')) document.querySelectorAll('[data-bet] button')[n - 1].click(); return; }
     if (scr === 'newrun') { if (k === 'Enter') { $('levels').querySelector('[data-c="0"]').click(); return; } const n = +k; if (n >= 1 && n <= 3) $('levels').querySelectorAll('button')[n - 1].click(); if (k === 'Backspace') $('btnNewBack').click(); return; }
-    if (scr === 'menu') { const n = +k; if (n >= 1 && n <= nSlots()) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector('[data-new]'); if (b) b.click(); } if (k === 'j' || k === 'J') $('btnDaily').click(); if ((k === 's' || k === 'S') && $('btnWeekly')) $('btnWeekly').click(); return; }
+    if (scr === 'menu') { const n = +k; if (n >= 1 && n <= nSlots()) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector('[data-new]'); if (b) b.click(); } if (k === 'j' || k === 'J') $('btnDaily').click(); if ((k === 'w' || k === 'W') && $('btnWeekly')) $('btnWeekly').click(); if (k === 'a' || k === 'A') openAch(); if (k === 'v' || k === 'V') openReplays(); return; }
     if (scr !== 'game' || !G) return;
+    if (G.replay) { if (k === 'ArrowRight') replayCtl('next'); if (k === 'ArrowLeft') replayCtl('prev'); if (k === ' ' || k === 'Enter') { e.preventDefault(); replayCtl('play'); } if (k === 'Home') replayCtl('first'); if (k === 'End') replayCtl('last'); return; }
     if (ctrl && (k === 'z' || k === 'Z')) { e.preventDefault(); return undo(); }
     if (k === 'u' || k === 'U') return undo();
     if (k === 'p' || k === 'P') { const b = document.querySelector('#opts [data-o="pass"]'); if (b) b.click(); return; }
@@ -1502,7 +1563,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     ['Esc', L('Annuler la sélection, fermer une fenêtre')], ['Ctrl+Z / U', L('Annuler le coup')], ['Tab / ⇧+Tab', L('Choisir le perso suivant / précédent')],
     ['1 … 9', L('Boutons sous la carte (sorts, choix, recrues…)')], ['↵ / ␣', L('Valider, continuer')], ['P', L('Passer son tour')], ['R', L('Ouvrir la réserve')],
     ['C', L('Codex')], ['S', L('Statistiques')], ['O', L('Paramètres')], ['M / N', L('Musique / effets sonores')], ['H / F1', L('Tutoriel')], ['F11', L('Plein écran')],
-    ['1, 2, 3', L('Menu : ouvrir une partie')], ['J', L('Menu : défi du jour')], ['↵ / D', L('Partie : affrontement normal / difficile')], ['← →', L('Codex : page précédente / suivante')],
+    ['1 … 5', L('Menu : ouvrir une partie')], ['J', L('Menu : défi du jour')], ['W', L('Défi de la semaine')], ['A', L('🏆 Succès')], ['V', L('🎬 Revoir')], ['← → ␣', '🎬 ' + L('Coup précédent') + ' / ' + L('Coup suivant') + ' / ' + L('Lecture')], ['↵ / D', L('Partie : affrontement normal / difficile')], ['← →', L('Codex : page précédente / suivante')],
   ];
 
   // =====================================================================
@@ -1977,6 +2038,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>🌲 ${L('Décor')}</b></div>${segH('decor', [['auto', L('Auto')]].concat(themeList().map(t => [t, I18N.themeShort(t)])))}</div>
       <div class="setrow"><div class="lab"><b>✨ ${L('Animations')}</b></div>${segH('anim', [['normal', L('Normales')], ['rapide', L('Rapides')], ['aucune', L('Aucune')]])}</div>
       <div class="setrow"><div class="lab"><b>🔤 ${L('Coordonnées sur la carte')}</b></div>${segH('coords', [[true, L('Oui')], [false, L('Non')]])}</div>
+      <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
+      <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };
@@ -1990,6 +2053,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const k = seg.dataset.set; let v = b.dataset.v;
       if (v === 'true') v = true; else if (v === 'false') v = false;
       SET[k] = v; lsSet('reglages', SET); applySettings();
+      if (k === 'vision') { renderMenu(); if (G && $('game').classList.contains('on')) render(); }
       if (k === 'decor') { if (v === 'auto') scheduleTheme(); else setTheme(v); }
       renderSettings();
     });
@@ -2016,7 +2080,8 @@ const isSh = id => !!T[E.TI[id]].fac;
   function renderTuto() {
     const S = TUTO(), st = S[tutoI];
     $('tutoBody').innerHTML = `<div class="tutostep">${tutoI + 1} / ${S.length}</div><h2 class="title">${st.t}</h2><div class="tutotxt">${st.b}</div>
-      <div class="menu-actions">${tutoI ? `<button class="ghost" id="tutoPrev">← ${L('Précédent')}</button>` : ''}<button class="big" id="tutoNext">${tutoI === S.length - 1 ? L('C’est parti !') : L('Suivant') + ' →'}</button></div>`;
+      <div class="menu-actions">${tutoI ? `<button class="ghost" id="tutoPrev">← ${L('Précédent')}</button>` : ''}${tutoI === S.length - 1 ? `<button class="big" id="tutoPlay">🎓 ${L('Jouer le tutoriel')}</button>` : ''}<button class="${tutoI === S.length - 1 ? 'ghost' : 'big'}" id="tutoNext">${tutoI === S.length - 1 ? L('C’est parti !') : L('Suivant') + ' →'}</button></div>`;
+    if ($('tutoPlay')) $('tutoPlay').onclick = startGuided;
     if ($('tutoPrev')) $('tutoPrev').onclick = () => tutoStep(-1);
     $('tutoNext').onclick = () => tutoStep(1);
     if ($('tutoPseudo')) { $('tutoPseudo').focus(); $('tutoPseudo').onkeydown = e => { if (e.key === 'Enter') tutoStep(1); }; }
@@ -2030,14 +2095,365 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function openTuto() { tutoI = 0; renderTuto(); $('tutoModal').hidden = false; }
   function closeTuto() { $('tutoModal').hidden = true; lsSet('tutoFait', true); }
-  $('btnTutoMenu').onclick = openTuto;
+  $('btnTutoMenu').onclick = startGuided;
   $('tutoModal').addEventListener('click', e => { if (e.target === $('tutoModal') || e.target.hasAttribute('data-close')) closeTuto(); });
+
+
+
+
+  // =====================================================================
+  //  Manette (API Gamepad) : la croix déplace, A choisit, B revient
+  // =====================================================================
+  let padOn = false, padBoard = true;
+  const padPrev = {};
+  window.addEventListener('gamepadconnected', () => {
+    if (padOn) return;
+    padOn = true;
+    toast('🎮 ' + L('Manette connectée : croix pour se déplacer, A pour choisir, B pour revenir.'), 4000);
+    padLoop();
+  });
+  function padLoop() {
+    const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    if (!gp) { padOn = false; return; }
+    const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), ax = gp.axes || [];
+    const st = { up: b(12) || ax[1] < -.6, down: b(13) || ax[1] > .6, left: b(14) || ax[0] < -.6, right: b(15) || ax[0] > .6,
+      a: b(0), b: b(1), x: b(2), y: b(3), lb: b(4), rb: b(5), back: b(8), start: b(9) };
+    const now = performance.now(), dirs = ['up', 'down', 'left', 'right'];
+    for (const k in st) {
+      if (!st[k]) { padPrev[k] = 0; continue; }
+      if (!padPrev[k]) { padPrev[k] = now + (dirs.includes(k) ? 230 : 1e9); padPress(k); } // 1re pression
+      else if (dirs.includes(k) && now > padPrev[k]) { padPrev[k] = now + 110; padPress(k); } // maintenue : ça défile
+    }
+    setTimeout(padLoop, 16); // (pas requestAnimationFrame : il s'arrête quand la fenêtre est cachée)
+  }
+  const padKey = key => document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  function padContainer() {
+    const m = modalOpen(); if (m) return $(m);
+    if (sheet) return document.body;
+    return document.querySelector('.screen.on') || document.body;
+  }
+  function padNav(dir) {
+    const root = padContainer();
+    const els = [...root.querySelectorAll('button, select, input, .chip.click, [data-o], [data-t]')].filter(e => e.offsetParent && !e.disabled && !e.closest('[hidden]'));
+    if (!els.length) return;
+    const cur0 = document.activeElement;
+    if (!els.includes(cur0)) { padFocusEl(els[0]); return; }
+    const r0 = cur0.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2, v = dir === 'up' || dir === 'down';
+    let best = null, bd = 1e9;
+    for (const e of els) {
+      if (e === cur0) continue;
+      const r = e.getBoundingClientRect(), dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+      if (!(dir === 'up' ? dy < -4 : dir === 'down' ? dy > 4 : dir === 'left' ? dx < -4 : dx > 4)) continue;
+      const sc = (v ? Math.abs(dy) : Math.abs(dx)) + (v ? Math.abs(dx) : Math.abs(dy)) * 2.5;
+      if (sc < bd) { bd = sc; best = e; }
+    }
+    if (best) padFocusEl(best);
+  }
+  function padFocusEl(e) {
+    document.querySelectorAll('.padfocus').forEach(x => x.classList.remove('padfocus'));
+    e.classList.add('padfocus'); e.focus({ preventScroll: true }); sfx('choix', .35);
+  }
+  // le curseur de la manette sur la carte
+  function padBoardMove(dir) {
+    const g = G.s.g;
+    if (G.padQ === undefined || G.padQ < 0 || !g.ex[G.padQ]) { G.padQ = g.zl[G.me] && g.zl[G.me].length ? g.zl[G.me][0] : g.N >> 1; render(); return; }
+    let dr = dir === 'up' ? -1 : dir === 'down' ? 1 : 0, dc = dir === 'left' ? -1 : dir === 'right' ? 1 : 0;
+    if (G.flip) { dr = -dr; dc = -dc; }
+    let r = (G.padQ / g.W) | 0, c = G.padQ % g.W;
+    for (let k = 0; k < Math.max(g.W, g.H); k++) {
+      r += dr; c += dc;
+      if (r < 0 || r >= g.H || c < 0 || c >= g.W) return;
+      const q = r * g.W + c;
+      if (g.ex[q]) { G.padQ = q; sfx('choix', .3); render(); if (G.s.b[q] > 0) showInfo(E.tix(G.s.b[q]), E.own(G.s.b[q]), q); else showSpec(q); return; }
+    }
+  }
+  function padPress(k) {
+    const scr = (document.querySelector('.screen.on') || {}).id, m = modalOpen();
+    const inBoard = scr === 'game' && G && !m && !sheet && padBoard && !G.replay;
+    if (k === 'b') return padKey('Escape');
+    if (k === 'start') return m === 'setModal' ? closeSettings() : openSettings();
+    if (k === 'back') return m === 'codexModal' ? closeCodex() : openCodex();
+    if (k === 'lb') return padKey('ArrowLeft');
+    if (k === 'rb') return padKey('ArrowRight');
+    if (scr === 'game' && G && G.replay && !m) {
+      if (k === 'left' || k === 'right') return padKey(k === 'left' ? 'ArrowLeft' : 'ArrowRight');
+      if (k === 'a') return replayCtl('play');
+    }
+    if (scr === 'game' && G && !m && k === 'y') return undo();
+    if (scr === 'game' && G && !m && k === 'x') { padBoard = !padBoard; document.querySelectorAll('.padfocus').forEach(x => x.classList.remove('padfocus')); toast(padBoard ? '🎮 ' + L('Manette : la carte') : '🎮 ' + L('Manette : les boutons'), 1400); render(); return; }
+    if (['up', 'down', 'left', 'right'].includes(k)) return inBoard ? padBoardMove(k) : padNav(k);
+    if (k === 'a') {
+      if (inBoard) { if (G.padQ >= 0) clickSq(G.padQ); return; }
+      const e = document.activeElement;
+      if (e && e !== document.body && e.offsetParent) e.click(); else padNav('down');
+    }
+  }
+
+  // =====================================================================
+  //  Tutoriel jouable : tes premiers coups, guidés pas à pas
+  // =====================================================================
+  const GUIDE = () => [
+    { t: L('Chaque tour, tu fais UNE seule action. Commence par <b>recruter un garde</b> : ouvre la réserve commune et choisis un bouclier.'), ok: (a, s) => a.k === 'rec' && T[a.t].cat === 'G', done: a => a.k === 'rec' },
+    { t: L('Bien ! Ton garde attend dans ta réserve. <b>Place-le</b> sur une case de ta zone (en bas, encadrée d’or).'), ok: a => a.k === 'pla', done: a => a.k === 'pla' },
+    { t: L('Maintenant <b>recrute un dieu</b> (un hexagone couronné) : il lancera des sorts.'), ok: a => a.k === 'rec' && T[a.t].cat === 'M', done: a => a.k === 'rec' },
+    { t: L('<b>Place ton dieu</b> dans ta zone. Attention : si tous tes dieux posés meurent, tu perds !'), ok: a => a.k === 'pla', done: a => a.k === 'pla' },
+    { t: L('<b>Active ton garde</b> : touche-le, puis touche une des cases en surbrillance pour le déplacer.'), ok: (a, s) => a.k === 'act' && T[E.tix(s.b[a.from])].cat !== 'M', done: a => a.k === 'act' },
+    { t: L('Un soldat ennemi s’approche ! <b>Prends-le</b> : touche un de tes persos, puis la case rouge où se trouve l’ennemi.'), ok: () => true, done: (a, s0, s) => s.lost[1][0] + s.lost[1][1] + s.lost[1][2] > 0, prey: true },
+    { t: L('Les dieux ne bougent pas mais lancent des <b>sorts</b> qui coûtent du mana (le nombre bleu). <b>Active ton dieu</b> pour essayer.'), ok: () => true, done: (a, s0, s) => a.k === 'act' && T[E.tix(s0.b[a.from])].cat === 'M', skip: true },
+    { t: L('Bravo, tu connais l’essentiel ! Maintenant <b>bats le bot facile</b> : tue ses dieux posés ou 4 de ses gardes. Le Codex (touche C) explique chaque perso.'), free: true },
+  ];
+  function startGuided() {
+    $('tutoModal').hidden = true; lsSet('tutoFait', true);
+    cur = -1; myCercle = 0;
+    const s = E.newGame({ map: E.makeMap('classique', 0), first: 0, gods: E.START_M, gards: E.START_G });
+    pre = { mode: 'tuto', level: 'facile', perso: null };
+    G = newG(s, { mode: 'tuto', ctl: ['me', 'tuto'], level: 'facile', names: [pseudo(), L('Bot facile')], tuto: { i: 0 } });
+    $('log').innerHTML = '';
+    enterGame();
+  }
+  const guideStep = () => G && G.tuto && GUIDE()[G.tuto.i];
+  // l'adversaire du tutoriel attend sans rien faire, puis devient le vrai bot facile
+  function guideOpp() {
+    if (G.thinking) return;
+    G.thinking = true;
+    const id = G.id;
+    setTimeout(() => {
+      if (!G || G.id !== id || G.over) return;
+      G.thinking = false;
+      const st = guideStep();
+      if (st && st.prey && !G.tuto.prey) guidePrey();
+      doAction({ k: 'pass' });
+    }, 450);
+  }
+  // pose un soldat ennemi sur une case qu'un de tes persos peut prendre tout de suite
+  function guidePrey() {
+    const s = G.s, me = 0;
+    let best = -1, bd = 99;
+    for (let x = 0; x < s.g.N; x++) {
+      if (!s.g.ex[x] || s.b[x] !== 0 || s.g.zone[0][x] || s.g.zone[1][x]) continue;
+      const c = E.clone(s); c.b[x] = E.enc(E.TI.s, 1); c.turn = me; c.acts = 1;
+      const can = E.gen(c, true).some(a => { if (a.k !== 'act') return false; const t = E.clone(c); t._dead = []; E.apply(t, a); return t.b[x] <= 0 || E.own(t.b[x]) === me; });
+      const dd = Math.abs(((x / s.g.W) | 0) - 4);
+      if (can && dd < bd) { bd = dd; best = x; }
+    }
+    if (best >= 0) { s.b[best] = E.enc(E.TI.s, 1); G.tuto.prey = best; }
+  }
+  function guideAfter(before, s, a, p) {
+    const st = guideStep();
+    if (!st || st.free || p !== 0) return;
+    if (st.done(a, before, s)) {
+      G.tuto.i++;
+      sfx('evolution', .6, 150);
+      if (guideStep().free) { G.ctl[1] = 'bot'; G.humans = G.ctl.map(c => c === 'me'); }
+    }
+  }
+  function guideSkip() { if (!G || !G.tuto) return; G.tuto.i++; if (guideStep().free) { G.ctl[1] = 'bot'; G.humans = G.ctl.map(c => c === 'me'); } render(); maybeBot(); }
+
+  // =====================================================================
+  //  Succès (pour toujours, dans stratajium.succes)
+  // =====================================================================
+  const ACH = [
+    { id: 'premiere', ic: '🥇', g: c => c.win },
+    { id: 'intact', ic: '🛡️', g: c => c.win && c.lostMe === 0 },
+    { id: 'eclair', ic: '⚡', g: c => c.win && c.myT <= 12 },
+    { id: 'remontee', ic: '🔥', g: c => c.win && c.s.lost[c.me][1] >= 3 },
+    { id: 'carnage', ic: '💀', g: c => c.kills >= 10 },
+    { id: 'deicide', ic: '⚔️', g: c => c.win && c.s.lost[1 - c.me][0] > 0 && E.aliveMages(c.s, 1 - c.me) === 0 },
+    { id: 'difficile', ic: '🌶️', g: c => c.win && c.mode === 'hard' },
+    { id: 'triple', ic: '🌋', g: c => c.win && c.mode === 'hard' && c.hard.length >= 3 },
+    { id: 'boss', ic: '👹', g: c => c.win && !!c.s.boss },
+    { id: 'stratege', ic: '🧠', g: c => c.win && c.mode === 'duel' && c.G.ctl[1] === 'bot' && c.G.level === 'impossible' },
+    { id: 'enligne', ic: '🌐', g: c => !!c.G.net },
+    { id: 'veteran', ic: '🏅', t: d => d.wins >= 10 },
+    { id: 'champion', ic: '🎖️', t: d => d.wins >= 50 },
+    { id: 'legende', ic: '🏆', t: d => d.wins >= 200 },
+    { id: 'tousboss', ic: '🐉', t: d => E.BOSSES.every(b => d.st.bosses[b] && d.st.bosses[b].w > 0) },
+    { id: 'cercle3', ic: '🔁', t: () => cercleMax() >= 3 },
+    { id: 'cercle6', ic: '♾️', t: () => cercleMax() >= 6 },
+    { id: 'cercle10', ic: '🌌', t: () => cercleMax() >= 10 },
+    { id: 'collection', ic: '🗝️', t: () => RUNS.some(r => r && runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x))) },
+    { id: 'touche', ic: '🎭', t: d => E.ALL_M.concat(E.ALL_G, ['s']).every(id => d.st.used[id]) },
+    { id: 'mille', ic: '🌟', t: d => Object.values(d.st.pts).reduce((a, b) => a + b, 0) >= 1000 },
+    { id: 'defi', ic: '📅', t: d => Object.keys(d.daily.days).length >= 1 },
+    { id: 'fidele', ic: '🗓️', t: d => Object.keys(d.daily.days).length >= 7 },
+    { id: 'talents', ic: '✨', t: d => d.daily.total >= TALENTS[TALENTS.length - 1].pts },
+    { id: 'passion', ic: '⏳', t: d => d.st.ms >= 10 * 3600e3 },
+    { id: 'courants', ic: '🌊', dlc: 'abysses', g: c => c.win && !!c.s.g.cdir },
+    { id: 'dieudechu', ic: '👑', dlc: 'abysses', g: c => c.win && !!c.s.boss && c.s.boss.kind === 'bx' },
+    { id: 'ascension', ic: '📖', dlc: 'abysses', t: () => storyDone() >= STORY.length },
+    { id: 'invasion', ic: '🌑', dlc: 'ombres', g: c => c.win && /^Invasion/.test(c.s.why || '') },
+    { id: 'lumiere', ic: '☀️', dlc: 'ombres', g: c => c.win && !!c.s.boss && E.SH_BOSSES.includes(c.s.boss.kind) },
+    { id: 'aube', ic: '🌅', dlc: 'ombres', g: c => c.win && !!c.s.dawn },
+    { id: 'semaine', ic: '📆', dlc: 'ombres', t: () => Object.keys(seasonData()).length >= 1 },
+  ];
+  const achText = id => ({
+    premiere: [L('Premier sang'), L('Gagne ton premier affrontement.')],
+    intact: [L('Sans une égratignure'), L('Gagne un affrontement sans perdre un seul perso.')],
+    eclair: [L('Éclair'), L('Gagne en 12 de tes tours ou moins.')],
+    remontee: [L('Remontée'), L('Gagne après avoir perdu 3 gardes.')],
+    carnage: [L('Carnage'), L('Tue 10 persos ennemis dans un seul affrontement.')],
+    deicide: [L('Déicide'), L('Gagne en tuant tous les dieux adverses.')],
+    difficile: [L('Sans peur'), L('Gagne un affrontement difficile.')],
+    triple: [L('Trois fardeaux'), L('Gagne un affrontement difficile avec 3 handicaps.')],
+    boss: [L('Tueur de boss'), L('Bats un boss.')],
+    stratege: [L('Plus malin que le bot'), L('Gagne un duel contre le bot stratège.')],
+    enligne: [L('Rencontre'), L('Joue un duel en ligne.')],
+    veteran: [L('Vétéran'), L('Gagne 10 affrontements.')],
+    champion: [L('Champion'), L('Gagne 50 affrontements.')],
+    legende: [L('Légende'), L('Gagne 200 affrontements.')],
+    tousboss: [L('Chasseur de légendes'), L('Bats chacun des 13 boss du jeu de base.')],
+    cercle3: [L('Cercle 3'), L('Atteins le Cercle 3.')],
+    cercle6: [L('Cercle 6'), L('Atteins le Cercle 6.')],
+    cercle10: [L('Cercle 10'), L('Atteins le Cercle 10.')],
+    collection: [L('Collectionneur'), L('Débloque tous les dieux et tous les gardes dans une partie.')],
+    touche: [L('Touche-à-tout'), L('Utilise au moins une fois chaque perso du jeu de base.')],
+    mille: [L('Mille points'), L('Gagne 1000 points de persos au total.')],
+    defi: [L('Défi relevé'), L('Joue un défi du jour.')],
+    fidele: [L('Fidèle'), L('Joue le défi du jour 7 jours différents.')],
+    talents: [L('Tous les talents'), L('Débloque les 6 talents.')],
+    passion: [L('Passionné'), L('Joue 10 heures.')],
+    courants: [L('Porté par les flots'), L('Gagne sur une carte avec des courants.')],
+    dieudechu: [L('Le Dieu déchu'), L('Bats le Dieu déchu, à la fin de L’Ascension.')],
+    ascension: [L('L’Ascension'), L('Termine l’histoire.')],
+    invasion: [L('Envahisseur'), L('Gagne par invasion avec l’armée des Ombres.')],
+    lumiere: [L('Briseur de lumière'), L('Bats un boss de la Lumière.')],
+    aube: [L('Avant l’aube'), L('Gagne avec le handicap « L’aube arrive ».')],
+    semaine: [L('Chaque semaine'), L('Joue un défi de la semaine.')],
+  })[id];
+  const achData = () => lsGet('succes', {});
+  const achList = () => ACH.filter(a => !a.dlc || dlcOn(a.dlc));
+  // vérifie les succès ; G0 = l'affrontement qui vient de finir (ou rien) ; quiet = sans annonce (au démarrage)
+  function checkAch(G0, quiet) {
+    const got = achData(), st = statsData(), dd = dailyData(), news = [];
+    const d = { st, daily: dd, wins: Object.values(st.modes).reduce((a, m) => a + (m.w || 0), 0) };
+    let c = null;
+    if (G0 && G0.s && !['replay', 'tuto'].includes(G0.mode)) {
+      const s = G0.s, me = G0.me, duo = G0.ctl[0] === 'me' && G0.ctl[1] === 'me';
+      c = { G: G0, s, me, mode: G0.mode, hard: G0.hard || [], win: !duo && s.winner === me, lostMe: s.lost[me][0] + s.lost[me][1] + s.lost[me][2],
+        kills: duo ? 0 : G0.st.kills[me][0] + G0.st.kills[me][1] + G0.st.kills[me][2], myT: Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2) };
+    }
+    for (const a of ACH) {
+      if (got[a.id]) continue;
+      let ok = false;
+      try { ok = a.g ? !!(c && a.g(c)) : !!a.t(d); } catch (e) { ok = false; }
+      if (ok) { got[a.id] = Date.now(); news.push(a); }
+    }
+    if (!news.length) return;
+    lsSet('succes', got);
+    if (!quiet) { toast(`🏆 ${L('Succès débloqué : {x}', { x: news.map(a => a.ic + ' ' + achText(a.id)[0]).join(', ') })}`, 6500); sfx('evolution', .8, 300); }
+  }
+  let achPg = 0, achPages = 1;
+  function renderAch() {
+    const got = achData(), list = achList(), n = list.filter(a => got[a.id]).length;
+    $('achCount').textContent = L('{n} succès sur {t}', { n, t: list.length });
+    const blocks = list.map(a => { const [nm, ds] = achText(a.id), when = got[a.id];
+      return `<div class="ach ${when ? 'done' : ''}"><span class="aic">${when ? a.ic : '🔒'}</span><div><b>${nm}</b><p>${ds}</p><small>${when ? L('Débloqué le {d}', { d: new Date(when).toLocaleDateString() }) : L('Pas encore débloqué')}</small></div></div>`; });
+    const r = paginate($('achBody'), blocks, 300, achPg, 3);
+    achPages = r.pages; achPg = r.pg;
+    pagerHtml($('achPager'), achPg, achPages, achPage);
+  }
+  function achPage(dd) { const n = achPg + dd; if (n < 0 || n >= achPages) return; achPg = n; sfx('page'); renderAch(); }
+  function openAch() { achPg = 0; $('achModal').hidden = false; renderAch(); sfx('page'); }
+  function closeAch() { $('achModal').hidden = true; sfx('page'); }
+  $('achModal').addEventListener('click', e => { if (e.target === $('achModal') || e.target.hasAttribute('data-close')) closeAch(); });
+  $('btnAchMenu').onclick = openAch;
+
+  // =====================================================================
+  //  Revoir une partie : une image légère de la carte après chaque coup
+  // =====================================================================
+  const packA = a => { let s = ''; for (const v of a) s += String.fromCharCode(v + 51); return s; };
+  const unpackN = (str, Ctor, n) => { const a = new Ctor(n || str.length); for (let i = 0; i < Math.min(a.length, str.length); i++) a[i] = str.charCodeAt(i) - 51; return a; };
+  function frameOf(s, a) {
+    const B = s.boss;
+    return { b: packA(s.b), po: packA(s.pool), r: [packA(s.res[0]), packA(s.res[1])], m: s.mana.slice(), l: s.lost.map(x => x.slice()), t: s.turn, p: s.ply, h: s.hold ? s.hold.slice() : null,
+      bo: B ? { q: B.q, hp: B.hp, max: B.max, kind: B.kind, owner: B.owner, ice: B.ice, warn: B.warn, webs: B.webs, stones: B.stones, coral: B.coral, ghost: B.ghost } : null,
+      a: a && a.k !== 'pass' ? { k: a.k, from: a.from, to: a.to, cl: a.cl } : null, w: s.winner, y: s.why || '' };
+  }
+  function geoOf(g) {
+    const z = []; for (let q = 0; q < g.N; q++) if (g.zone[0][q]) z.push(q);
+    return { W: g.W, H: g.H, ex: packA(g.ex), z, name: g.name, spec: packA(g.spec), info: g.info, cdir: g.cdir ? packA(g.cdir) : null };
+  }
+  function geoFrom(o) {
+    const g = E.buildGeo(o.W, o.H, unpackN(o.ex, Uint8Array), o.z, o.name, unpackN(o.spec, Uint8Array), o.info);
+    if (o.cdir) g.cdir = unpackN(o.cdir, Int8Array);
+    return g;
+  }
+  function saveReplay() {
+    if (!G || !G.rec || G.rec.length < 2 || G.replay || G.mode === 'tuto') return;
+    const list = lsGet('replays', []);
+    list.unshift({ d: Date.now(), badge: $('runBadge').textContent, names: PN.slice(), me: G.me, w: G.s.winner, why: G.s.why, ev: G.s.ev, goal: G.s.goal, fac: G.s.fac, dawn: G.s.dawn || 0, geo: geoOf(G.s.g), fr: G.rec });
+    while (list.length > 8) list.pop();
+    while (list.length) { try { localStorage.setItem('stratajium.replays', JSON.stringify(list)); break; } catch (e) { list.pop(); } }
+  }
+  let rpPg = 0, rpPages = 1;
+  function renderReplays() {
+    const list = lsGet('replays', []);
+    const res = R => R.w === 2 ? L('Match nul') : R.w === R.me ? L('Victoire') : L('Défaite');
+    const blocks = list.length ? list.map((R, i) => `<div class="ccard rpcard"><div class="txt"><b>${esc(R.badge)}</b> <span class="tag2 ${R.w === R.me ? 'on' : ''}">${res(R)}</span>
+        <p>${esc(R.names[0])} — ${esc(R.names[1])} · ${L('{n} coups', { n: R.fr.length - 1 })}</p><small class="muted">${new Date(R.d).toLocaleString()}</small></div><button class="big" data-rp="${i}">▶ ${L('Revoir')}</button></div>`)
+      : [`<div class="ccard"><div class="txt"><p>${L('Aucune partie enregistrée pour l’instant : tes 8 derniers affrontements terminés apparaîtront ici.')}</p></div></div>`];
+    const r = paginate($('replayBody'), blocks, 420, rpPg, 2);
+    rpPages = r.pages; rpPg = r.pg;
+    pagerHtml($('replayPager'), rpPg, rpPages, rpPage);
+    $('replayBody').querySelectorAll('[data-rp]').forEach(b => b.onclick = () => openReplay(+b.dataset.rp, 'daily'));
+  }
+  function rpPage(dd) { const n = rpPg + dd; if (n < 0 || n >= rpPages) return; rpPg = n; sfx('page'); renderReplays(); }
+  function openReplays() { rpPg = 0; $('replayModal').hidden = false; renderReplays(); sfx('page'); }
+  function closeReplays() { $('replayModal').hidden = true; }
+  $('replayModal').addEventListener('click', e => { if (e.target === $('replayModal') || e.target.hasAttribute('data-close')) closeReplays(); });
+  $('btnReplayMenu').onclick = openReplays;
+  // back : où revenir ensuite (le mode de l'affrontement, comme en le quittant ; 'daily' = le menu)
+  function openReplay(i, back) {
+    const R = lsGet('replays', [])[i]; if (!R) return;
+    closeReplays();
+    const base = E.newGame({ map: geoFrom(R.geo), fac: R.fac });
+    base.ev = R.ev || null; base.goal = R.goal || null; base.dawn = R.dawn || 0;
+    G = newG(base, { mode: 'replay', ctl: ['view', 'view'], names: R.names.slice(), seed: R.d % 1e6, replay: { R, base, i: 0, back, play: null } });
+    G.humans = [false, false];
+    replaySet(0);
+    enterGame();
+  }
+  function replaySet(k) {
+    const RP = G.replay, fr = RP.R.fr; RP.i = Math.max(0, Math.min(fr.length - 1, k));
+    const f = fr[RP.i], s = E.clone(RP.base), NT = E.NT;
+    s.b = unpackN(f.b, Int16Array, s.g.N); s.pool = unpackN(f.po, Int16Array, NT); s.res = f.r.map(x => unpackN(x, Int16Array, NT));
+    s.mana = f.m.slice(); s.lost = f.l.map(x => x.slice()); s.turn = f.t; s.ply = f.p; if (f.h) s.hold = f.h.slice();
+    s.boss = f.bo ? Object.assign({ cd: 0 }, JSON.parse(JSON.stringify(f.bo))) : null;
+    G.s = s; G.lastA = f.a; G.ver++; G.sel = null;
+  }
+  function replayGo(k) { replaySet(k); render(); }
+  function replayHint() {
+    const RP = G.replay, n = RP.R.fr.length, f = RP.R.fr[RP.i];
+    let h = L('Coup {i} sur {n}', { i: RP.i, n: n - 1 });
+    if (RP.i === n - 1 && f.w !== null && f.w !== undefined) h += ' · ' + (f.w === 2 ? L('Match nul') : L('{p} a gagné', { p: `<span class="p${f.w}">${esc(PN[f.w])}</span>` })) + (f.y ? ' — ' + I18N.why(f.y) : '');
+    $('hint').innerHTML = h;
+    $('opts').innerHTML = `<button data-rp="first" title="${L('Début')}">⏮</button><button data-rp="prev" title="${L('Coup précédent')}">◀</button><button class="main" data-rp="play">${RP.play ? '⏸ ' + L('Pause') : '▶ ' + L('Lecture')}</button><button data-rp="next" title="${L('Coup suivant')}">▶</button><button data-rp="last" title="${L('Fin')}">⏭</button>`;
+    $('opts').querySelectorAll('[data-rp]').forEach(b => b.onclick = e => { e.stopPropagation(); replayCtl(b.dataset.rp); });
+  }
+  function replayCtl(c) {
+    const RP = G && G.replay; if (!RP) return;
+    const n = RP.R.fr.length;
+    if (c === 'play') {
+      if (RP.play) { clearInterval(RP.play); RP.play = null; render(); return; }
+      if (RP.i >= n - 1) replaySet(0);
+      RP.play = setInterval(() => {
+        if (!G || G.replay !== RP) return clearInterval(RP.play);
+        if (RP.i >= n - 1) { clearInterval(RP.play); RP.play = null; render(); return; }
+        replayGo(RP.i + 1);
+      }, SET.anim === 'rapide' ? 500 : 900);
+      render(); return;
+    }
+    if (RP.play) { clearInterval(RP.play); RP.play = null; }
+    sfx('choix', .5);
+    replayGo(c === 'first' ? 0 : c === 'last' ? n - 1 : RP.i + (c === 'next' ? 1 : -1));
+  }
 
   // ---------- démarrage ----------
   translateStatic();
   renderMenu();
   show('menu');
   if (!lsGet('tutoFait', false)) setTimeout(openTuto, 400);
+  checkAch(null, true); // succès déjà mérités (anciennes parties) : sans annonce
 
   window.STRAT_TOKEN = token;
   window.STRAT = { get G() { return G; }, E, doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo(), get RUNS() { return RUNS; }, openRun: i => openRun(i), startMatch: m => startMatch(m), startDaily: () => startDaily(), get cur() { return cur; }, L, endNext: () => endNext() };
