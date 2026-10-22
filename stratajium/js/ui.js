@@ -63,9 +63,10 @@
       frame = `<circle cx="50" cy="50" r="45" fill="${bg}" stroke="${st}" stroke-width="5.5"/><circle cx="50" cy="50" r="39" fill="none" stroke="${ring}" stroke-width="2.2" opacity=".9"/>`;
       k = 1; cy = 51;
     }
+    const moon = t.fac ? `<circle cx="81" cy="80" r="11" fill="#14081f" stroke="#c8a8ff" stroke-width="2"/><path d="M84 72 A9 9 0 1 0 84 88 A7 7 0 1 1 84 72 Z" fill="#e8dcff"/>` : '';
     const crown = t.cat === 'M' ? `<path d="M38 16 L38 6 L44 11 L50 3 L56 11 L62 6 L62 16 Z" fill="${o === 0 ? CROWN[Math.min(myCercle, CROWN.length - 1)] : st}" stroke="${ring}" stroke-width="1.2"/>` : '';
     const d = ((tokSeed++ * 7919) % 4700) / 1000;
-    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s">${Art.get(t.id)}</g></g>${crown}</svg>`;
+    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s">${Art.get(t.id)}</g></g>${crown}${moon}</svg>`;
   }
   const BRAMBLE = `<svg class="bramble" viewBox="0 0 100 100"><g fill="none" stroke-linecap="round">
     <path d="M10 70 Q30 30 55 45 T92 25" stroke="#5a7a2a" stroke-width="7"/><path d="M8 35 Q40 60 60 80 T95 72" stroke="#4a6a22" stroke-width="6"/>
@@ -97,10 +98,11 @@
   const allM = () => E.ALL_M.concat(dlcOn('abysses') ? E.DLC_M : []);
   const allG = () => E.ALL_G.concat(dlcOn('abysses') ? E.DLC_G : []);
   const bossList = () => E.BOSSES.concat(dlcOn('abysses') ? E.BOSSES_DLC : []);
-  const themeList = () => Decor.BASE_THEMES.concat(dlcOn('abysses') ? ['abysses'] : []);
+  const themeList = () => Decor.BASE_THEMES.concat(dlcOn('abysses') ? ['abysses'] : [], dlcOn('ombres') ? ['nuit'] : []);
   // une partie de l'armée des Ombres (r.fac = 1) débloque les persos des Ombres
-  const runM = r => r.fac ? E.SH_M : allM(), runG = r => r.fac ? E.SH_G : allG();
-  const startM = r => r.fac ? E.SH_START_M : E.START_M, startG = r => r.fac ? E.SH_START_G : E.START_G;
+  const runM = r => r.fac ? allM().concat(E.SH_M) : allM(), runG = r => r.fac ? allG().concat(E.SH_G) : allG();
+  const startM = r => r.fac ? E.START_M.concat(E.SH_START_M) : E.START_M, startG = r => r.fac ? E.START_G.concat(E.SH_START_G) : E.START_G;
+const isSh = id => !!T[E.TI[id]].fac;
   // ---------- décors ----------
   const bgDecor = Decor.create(), boardDecor = Decor.create();
   const bgSeed = 1 + rnd(1e6);
@@ -109,6 +111,7 @@
   function setTheme(t, quiet) {
     if (t === theme) return;
     theme = t;
+    $('terrain').dataset.theme = t;
     bgDecor.setTheme(t);
     if (G && $('game').classList.contains('on')) boardDecor.setTheme(t);
     if (!quiet && G && $('game').classList.contains('on')) sys(L('Le décor change : {d}.', { d: I18N.themeName(t) }));
@@ -197,7 +200,7 @@
   const cercleBot = c => c <= 0 ? 'facile' : c === 1 ? 'normal' : 'impossible';
   const fardeaux = c => FARDEAUX.slice(0, Math.max(0, c - 2));
   const hasF = (r, f) => fardeaux(r.cercle).includes(f);
-  const bossHpBonus = c => (c >= 3 ? 1 : 0) + Math.max(0, c - 2 - FARDEAUX.length);
+  const bossHpBonus = c => Math.min(3, (c >= 3 ? 1 : 0) + Math.max(0, c - 2 - FARDEAUX.length)); // plafonné : le boss reste toujours battable
   const fardeauText = (f, c) => ({
     pv: L('Les boss ont {n} point(s) de vie en plus', { n: bossHpBonus(c) }), mana: L('Tu commences chaque affrontement avec 20 mana de moins'),
     carte: L('Les cartes sont au moins de niveau 2'), hard3: L('Les affrontements difficiles ont 3 handicaps'), event: L('Un événement à chaque affrontement'),
@@ -210,7 +213,13 @@
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
   const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
-  const rollHard = r => shuffle(HARD).slice(0, hasF(r, 'hard3') ? 3 : 2);
+  // poids de chaque malus : on n'en cumule jamais trop, pour que l'affrontement reste gagnable en jouant parfaitement
+  const HARD_W = { mana: 2, riche: 2, avance: 1, premier: 1, sauvage: 1, evenement: 1, dieupris: 2, soldats: 1, pauvre: 1, silence: 2, geole: 1, ronces: 1, gardespris: 2, blesse: 3 };
+  function rollHard(r) {
+    const n = hasF(r, 'hard3') ? 3 : 2, cap = 4; // avec 3 malus, ils sont plus légers
+    for (let t = 0; t < 50; t++) { const h = shuffle(HARD).slice(0, n); if (h.reduce((a, x) => a + HARD_W[x], 0) <= cap) return h; }
+    return ['premier', 'sauvage', 'ronces'].slice(0, n);
+  }
   const allUnlocked = r => runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
   // réserve de départ (nouvelle partie, ou montée au Cercle suivant)
@@ -250,6 +259,7 @@
     if (r.winsH === undefined) r.winsH = 0;
     if (!r.bossSeq || r.bossSeq.length !== bossList().length) r.bossSeq = shuffle(bossList());
     if (r.fac === undefined) r.fac = 0;
+    if (r.fac && !r.gods.some(x => !isSh(x))) { r.gods = E.START_M.concat(r.gods); r.gards = E.START_G.concat(r.gards); } // l'armée des Ombres garde aussi les persos de base
     return r;
   }
   RUNS = RUNS.map(migrate);
@@ -464,9 +474,10 @@
     const first = hs.includes('premier') ? 1 : rnd(2);
     // armée des Ombres : l'adversaire (la Lumière) a autant de sortes de persos que toi
     const more = (base, all, n) => base.concat(shuffle(all.filter(x => !base.includes(x))).slice(0, Math.max(0, n)));
-    const oppM = r.fac ? more(E.START_M, allM(), r.gods.length - E.SH_START_M.length) : r.gods, oppG = r.fac ? more(E.START_G, allG(), r.gards.length - E.SH_START_G.length) : r.gards;
+    // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
+    const oppM = r.gods.filter(x => !isSh(x)), oppG = r.gards.filter(x => !isSh(x));
     pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle,
-      fac: r.fac ? [1, 0] : null, shM: r.fac ? r.gods : null, shG: r.fac ? r.gards : null, theme: currents ? 'abysses' : null };
+      fac: r.fac ? [1, 0] : null, shM: r.fac ? r.gods.filter(isSh) : null, shG: r.fac ? r.gards.filter(isSh) : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
   }
@@ -591,6 +602,7 @@
       if (fs.includes('soldat')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI.s, 1); }
       if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
     }
+    if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') s.mana[0] = Math.max(60, s.mana[0]); // jamais moins de 60 mana au départ
     // talents du défi du jour (pas pendant le défi lui-même, ni en duel)
     if (pre.myMana) s.mana[0] = pre.myMana;
     if (pre.mode !== 'daily' && pre.mode !== 'duel' && pre.mode !== 'story' && pre.mode !== 'season') {
@@ -601,7 +613,7 @@
     if (pre.mana) s.mana = [pre.mana, pre.mana];
     G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
-    if (pre.theme && dlcOn('abysses')) { setTheme(pre.theme, true); scheduleTheme(); }
+    if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
     else if (SET.decor === 'auto') { setTheme(otherTheme(), true); scheduleTheme(); }
     sys(L('Carte : {m}.', { m: I18N.mapName(s.g) }));
     if (s.ev) sys(L('Événement : {e}.', { e: I18N.evName(s.ev) }));
@@ -641,6 +653,7 @@
     $('btnUndo').hidden = G.net;
     $('runBadge').textContent = G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     show('game');
+    $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
     layoutBoard(); render(); maybeBot();
     requestAnimationFrame(() => { if (G && $('game').classList.contains('on')) { layoutBoard(); render(); } });
@@ -676,11 +689,23 @@
     if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st) }); if (G.history.length > 300) G.history.shift(); }
     if (G.net && G.ctl[p] === 'me') netSend({ t: 'act', a, ply: before.ply });
     const iceBefore = s.boss && s.boss.ice ? s.boss.ice.join() : '', warnBefore = s.boss && s.boss.warn ? s.boss.warn.join() : '';
+    const minions = st => { let n = 0; for (let q = 0; q < st.g.N; q++) { const c = st.b[q]; if (c > 0) { const id = T[E.tix(c)].id; if (id === 'mi' || id === 'ab') n++; } } return n; };
+    const minBefore = s.boss ? minions(s) : 0;
     const betBefore = s.betDone, holdBefore = s.hold ? s.hold.slice() : null, hpBefore = s.boss ? s.boss.hp : 0;
     s._dead = []; s._hits = []; s._martyr = 0; s._fire = null; s._smash = -1; s._bossDead = null;
     E.apply(s, a);
     const dead = s._dead, hits = s._hits, fire = s._fire, smash = s._smash; s._dead = null; s._hits = null; s._fire = null;
     track(before, s, a, dead, p); s._bossDead = null;
+    const tide = s._tide; s._tide = 0;
+    if (s.boss) {
+      if (fire || smash >= 0) sfx('rugir', .55, 120);
+      if (tide) { sfx('eau', .8); $('terrain').classList.remove('shake'); void $('terrain').offsetWidth; $('terrain').classList.add('shake'); }
+      if (s.boss.ice && s.boss.ice.join() !== iceBefore) sfx('gel', 1, 200);
+      if (minions(s) > minBefore) sfx('sbire', .7, 250);
+      if (s.boss.hp <= 0 && hpBefore > 0) { sfx('rugir', .9); sfx('chute', 1, 300); }
+    }
+    if (a.k === 'act' && dead.length && T[E.tix(before.b[a.from])] && T[E.tix(before.b[a.from])].fac) sfx('lame', .8, 60);
+    G.lastP = p;
     G.ver++; G.sel = null;
     logLine(describe(before, a, dead), p);
     if (a.k === 'pioche') toast(L('Tu as pioché : {x}', { x: tn(a.t) }));
@@ -698,6 +723,10 @@
     if (G.daily && G.daily.goal === 'carnage' && s.winner === null && Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2) > 25) { s.winner = 2; s.why = L('25 tours joués.'); }
     saveMatch();
     if (s.winner !== null) endGame();
+    else if (G.ctl[s.turn] === 'me' && G.ctl[p] !== 'me') { // c'est à toi : petit signal
+      sfx('tour', .7, 350);
+      const tl = $('turnline'); tl.classList.remove('yourturn'); void tl.offsetWidth; tl.classList.add('yourturn');
+    }
     maybeBot();
   }
 
@@ -1041,7 +1070,8 @@
       if (v.sq.has(x)) continue;
       const c = s.b[x];
       let cls = 'tgt-move';
-      if (c > 0) cls = (SELECT_IDX[tid] || []).includes(n) || E.own(c) === s.turn ? 'tgt-ally' : 'tgt-cap';
+      const g = s.g, near = Math.max(Math.abs(((x / g.W) | 0) - ((sel.from / g.W) | 0)), Math.abs(x % g.W - sel.from % g.W)) === 1;
+      if (c > 0) cls = tid === 'g1' && near && E.own(c) !== s.turn ? 'tgt-cap' : (SELECT_IDX[tid] || []).includes(n) || E.own(c) === s.turn ? 'tgt-ally' : 'tgt-cap';
       else if (tid === 'lc') cls = 'tgt-cap';
       v.sq.set(x, cls);
     }
@@ -1177,8 +1207,28 @@
       if (s.boss && s.boss.hp > 0) t += ` · 👹 ${'❤'.repeat(s.boss.hp)}`;
       tl.innerHTML = t;
     }
+    drawLastArrow();
     $('btnUndo').disabled = !G.history.length || G.committed;
     renderPlayers(); renderPool(); renderHint(v); music();
+  }
+  function drawLastArrow() {
+    const old = $('lastArrow'); if (old) old.remove();
+    const la = G.lastA;
+    if (!la || la.k !== 'act' || !G.sq || SET.anim === 'aucune') return;
+    const nums = la.cl.filter(v => typeof v === 'number');
+    if (!nums.length) return;
+    const to = nums[nums.length - 1]; if (to === la.from) return;
+    const S = G.sq, A = sqXY(la.from), B = sqXY(to), g = G.s.g;
+    const x1 = A.x + S / 2, y1 = A.y + S / 2, x2 = B.x + S / 2, y2 = B.y + S / 2, len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 4) return;
+    const ux = (x2 - x1) / len, uy = (y2 - y1) / len, ex = x2 - ux * S * .3, ey = y2 - uy * S * .3, hw = S * .14;
+    const col = G.lastP === 1 ? '#c8a8ff' : '#ffd86a';
+    const d = document.createElement('div');
+    d.id = 'lastArrow'; d.className = 'fxe lastarrow';
+    d.style.left = '0'; d.style.top = '0'; d.style.width = (g.W * S) + 'px'; d.style.height = (g.H * S) + 'px';
+    d.innerHTML = `<svg width="${g.W * S}" height="${g.H * S}"><line x1="${x1 + ux * S * .3}" y1="${y1 + uy * S * .3}" x2="${ex}" y2="${ey}" stroke="${col}" stroke-width="${Math.max(3, S * .07)}" stroke-linecap="round" stroke-dasharray="${S * .12} ${S * .1}"/>
+      <polygon points="${x2 - ux * S * .12},${y2 - uy * S * .12} ${ex - uy * hw},${ey + ux * hw} ${ex + uy * hw},${ey - ux * hw}" fill="${col}"/></svg>`;
+    fxEl.appendChild(d);
   }
   let hotSince = 0, hotState = false;
   function music() {
@@ -1190,7 +1240,8 @@
     else for (const p of [0, 1]) { if (s.lost[p][1] >= need - 1) hot = true; if (s.ev !== 'illimite' && s.lost[p][0] >= 1 && E.aliveMages(s, p) === 1) hot = true; }
     const now = performance.now();
     if (hot !== hotState) { if (!hotSince) hotSince = now; if (now - hotSince > 6000) { hotState = hot; hotSince = 0; } } else hotSince = 0;
-    Sound.want(hotState ? ['tension', 'foret'] : ['partie', 'foret']);
+    const sea = !!G.s.g.cdir || theme === 'abysses', dark = !!(G.s.fac && (G.s.fac[0] || G.s.fac[1]));
+    Sound.want(hotState ? ['tension', 'foret'] : sea && dlcOn('abysses') ? ['abysses'] : dark && dlcOn('ombres') ? ['ombres', 'foret'] : ['partie', 'foret']);
   }
   setInterval(() => { if (G && !G.over && $('game').classList.contains('on')) music(); }, 2000);
 
@@ -1478,7 +1529,7 @@
     if (tab === 'regles') return rulesBlocks();
     if (tab === 'dieux') return pieceCards(allM());
     if (tab === 'gardes') return pieceCards(allG());
-    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Les Ombres gagnent aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])));
+    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle recrute les persos de base ET les persos des Ombres, que la Lumière ne peut pas prendre. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])));
     if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
@@ -1509,7 +1560,7 @@
   }
   function cercleBlock() {
     return textBlock(`<h3>${L('Cercles')}</h3><p>${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
-      <ul>${FARDEAUX.map((f, i) => `<li><b>${cercleLabel(i + 3)}</b> : ${fardeauText(f, i + 3)}</li>`).join('')}<li>${L('Ensuite, chaque Cercle donne 1 point de vie de plus aux boss.')}</li></ul>
+      <ul>${FARDEAUX.map((f, i) => `<li><b>${cercleLabel(i + 3)}</b> : ${fardeauText(f, i + 3)}</li>`).join('')}<li>${L('Ensuite, chaque Cercle donne 1 point de vie de plus aux boss (3 de plus au maximum, pour qu’ils restent battables).')}</li></ul>
       <p class="muted">${L('Plus haut Cercle atteint : {n}', { n: cercleMax() })}</p>`);
   }
   function rulesBlocks() {
@@ -1623,7 +1674,7 @@
     const first = o.first === 'rnd' ? rnd(2) : o.first === 'me' ? 0 : 1;
     pre = { mode: 'duel', level: bot ? o.opp : 'normal', ev, map: E.makeMap(mapLv === 0 && !cur2 ? 'classique' : 'aleatoire', Math.max(mapLv, cur2 ? 2 : 0), cur2), first, bet: [null, null],
       perso: bot ? pick(Object.keys(E.PERSOS)) : null, gods, gards, boss: o.boss === 'oui' ? pick(bossList()) : null, mana: o.mana,
-      fac: myF || opF ? [myF, opF] : null, shM, shG, theme: cur2 ? 'abysses' : null,
+      fac: myF || opF ? [myF, opF] : null, shM, shG, theme: cur2 ? 'abysses' : myF || opF ? 'nuit' : null,
       ctl: bot ? ['me', 'bot'] : online ? ['me', 'net'] : ['me', 'me'], names: online ? [pseudo(), guestName || L('Ami')] : null };
     if (pre.ev === 'objectif') pre.goal = pick(E.GOALS).id;
     if (online) { if (pre.ev === 'pari') pre.ev = null; beginMatch(); netSend({ t: 'start', s: ser(G.s), names: G.names, log: $('log').innerHTML }); return; }
@@ -1786,7 +1837,7 @@
       gods: R === 'sansdieux' ? [] : R === 'toutourien' || R === 'ombres' ? allM() : E.START_M.concat(['mb', 'pa']),
       gards: R === 'toutourien' || R === 'ombres' || R === 'sansdieux' ? allG() : E.START_G.concat(['g1', 'c1']),
       boss: R === 'invasion' ? c.boss : null, mana: R === 'tempete' ? 250 : null, myMana: R === 'invasion' ? 150 : null,
-      fac: R === 'ombres' ? [1, 0] : null, shM: R === 'ombres' ? E.SH_M : null, shG: R === 'ombres' ? E.SH_G : null, theme: R === 'maree' ? 'abysses' : null };
+      fac: R === 'ombres' ? [1, 0] : null, shM: R === 'ombres' ? E.SH_M : null, shG: R === 'ombres' ? E.SH_G : null, theme: R === 'maree' ? 'abysses' : R === 'ombres' ? 'nuit' : null };
     showPre(false);
   }
 
@@ -1802,7 +1853,7 @@
       ${card('abysses', '🌊', L('Les Abysses'), [L('Un nouveau monde sous-marin, avec ses courants qui emportent les persos'), L('4 persos marins : Requin, Méduse, Pieuvre, Sirène'),
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres et le Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
-      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée à jouer à la place de la Lumière (4 dieux, 5 gardes, ses soldats)'),
+      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée qui garde tous les persos de base et y ajoute les siens (4 dieux, 5 gardes, ses soldats)'),
         L('Sa façon de gagner : avoir 3 persos dans la zone de placement adverse'), L('La saison de la semaine : une règle spéciale qui change chaque semaine, et ton classement'), L('Les statistiques : points de tes persos, réussite de tes affrontements')],
         `<button class="big" id="btnSeason">🗓️ ${L('Saison de la semaine')}</button><button class="ghost" id="btnStats2">📊 ${L('Statistiques')}</button>`)}
       </div>

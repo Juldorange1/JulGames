@@ -20,3 +20,10 @@ trouvées sur OpenGameArt.org et téléchargées le 2026-10-20 à la demande de 
 | `victoire2.mp3` | Medieval: Victory Theme | RandomMind | https://opengameart.org/content/medieval-victory-theme |
 
 Les 7 derniers morceaux ont été ajoutés le 2026-10-20 (tous CC0) pour varier la musique.
+
+| Fichier | Morceau | Auteur | Source |
+|---|---|---|---|
+| `abysses.mp3` | Underwater Theme | Cleyton Kauffman | https://opengameart.org/content/underwater-theme |
+| `ombres.mp3` | Dream 2 (Ambience) | TokyoGeisha | https://opengameart.org/content/dream-2-ambience |
+
+Ces 2 morceaux (CC0) ont été ajoutés le 2026-10-22 pour les extensions Les Abysses et Les Ombres.

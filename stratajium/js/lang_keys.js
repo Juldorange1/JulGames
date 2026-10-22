@@ -556,4 +556,8 @@ I18N.KEYS = [
   "Les statistiques : points de tes persos, réussite de tes affrontements",
   "🧩 Extensions",
   "Invasion : 3 Ombres dans la zone adverse.",
+  // équilibrage et Ombres (2026-10-22)
+  "Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle recrute les persos de base ET les persos des Ombres, que la Lumière ne peut pas prendre. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.",
+  "Ensuite, chaque Cercle donne 1 point de vie de plus aux boss (3 de plus au maximum, pour qu’ils restent battables).",
+  "Le Clan des Ombres : une 2e armée qui garde tous les persos de base et y ajoute les siens (4 dieux, 5 gardes, ses soldats)",
 ];

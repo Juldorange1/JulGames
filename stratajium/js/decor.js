@@ -59,6 +59,15 @@ const Decor = (function () {
       flowers: ['#ff8aa8', '#ffb05a', '#8af0e0', '#f0e08a'], stone: ['#5a6a70', '#1e282c'], moss: '#2a8a6a',
       water: ['#0a3a5a', '#02121e'], berries: '#ff6a8a', particles: 'bubble', bladeDensity: 160,
     },
+    // DLC « Les Ombres » : la forêt de nuit (lucioles, feuillages bleus et violets)
+    nuit: {
+      name: 'Forêt de nuit', ground: ['#14142a', '#08081a'], blot: ['#20203e', '#04040c'], dirt: '#1c1a2c', under: '#222036',
+      blades: ['#26325c', '#1a2246'], tufts: ['#2c3c6c', '#20305e', '#36487e'],
+      bush: [['#0e1430', '#1c2a5a', '#3a4a8a'], ['#160e32', '#2c1c5c', '#5c3c9c']],
+      tree: [['#0a0e24', '#162048', '#2c3c7c'], ['#120a26', '#26164c', '#4c2c8c']],
+      flowers: ['#c8b8ff', '#8af0ff', '#f0e0ff'], stone: ['#4a4a6a', '#1a1a2a'], moss: '#3a4a8a',
+      water: ['#1a2a5a', '#060a1a'], berries: '#c84aff', particles: 'fly', bladeDensity: 100,
+    },
   };
   const BASE_THEMES = ['ete', 'automne', 'hiver', 'desert', 'marais'];
   const THEME_IDS = Object.keys(THEMES);

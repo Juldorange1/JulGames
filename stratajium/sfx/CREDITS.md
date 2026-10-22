@@ -9,3 +9,7 @@ Tous sous licence **CC0** (domaine public), téléchargés le 2026-10-20 à la d
 | `recrute.ogg`, `page.ogg` | RPG Audio (handleSmallLeather, bookFlip1) | Kenney | https://kenney.nl/assets/rpg-audio |
 | `prise.ogg`, `mana.ogg`, `foudre.ogg`, `chute.ogg` | 80 CC0 RPG SFX (blade_02, item_coins_03, spell_fire_04, creature_die_01) | rubberduck | https://opengameart.org/content/80-cc0-rpg-sfx |
 | `sort.ogg`, `echange.ogg`, `evolution.ogg` | Magic Spell SFX (magical_3, magical_6, magical_1) | JaggedStone | https://opengameart.org/content/magic-spell-sfx |
+| `rugir.ogg`, `eau.ogg`, `lame.ogg`, `tour.ogg`, `sbire.ogg` | 80 CC0 RPG SFX (creature_roar_01, creature_slime_02, blade_01, item_gem_01, creature_misc_03) | rubberduck | https://opengameart.org/content/80-cc0-rpg-sfx |
+| `gel.ogg` | Magic Spell SFX (magical_2) | JaggedStone | https://opengameart.org/content/magic-spell-sfx |
+
+Les 6 derniers bruitages ont été ajoutés le 2026-10-22 (boss, gel, courants, Ombres, ton tour, sbires).

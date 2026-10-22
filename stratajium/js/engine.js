@@ -22,20 +22,20 @@ function StratEngine() {
     { id: 'pf', cat: 'M', sym: 'k', name: 'Silence', cost: 45, val: 6, desc: 'L’adversaire ne peut plus activer de perso pendant ses 2 prochains tours.' },
     { id: 'pg', cat: 'M', sym: 'l', name: 'Martyr', cost: 20, val: 5, desc: 'Au début de ton prochain tour : +40 mana pour chacun de tes persos morts.' },
     // Gardes : se déplacent dans tous les sens
-    { id: 'g1', cat: 'G', sym: '1', name: 'Jumeau', val: 3.2, desc: 'Échange sa place avec n’importe quel perso de la carte (allié ou adverse, même un dieu).' },
+    { id: 'g1', cat: 'G', sym: '1', name: 'Jumeau', val: 3.2, desc: 'Échange sa place avec n’importe quel perso de la carte (allié ou adverse, même un dieu). S’il choisit un ennemi collé à lui, il le prend au lieu d’échanger.' },
     { id: 'g2', cat: 'G', sym: '2', name: 'Tour', val: 4.5, desc: 'Avance en ligne droite d’autant de cases que voulu (comme la tour aux échecs) ; prend en arrivant sur un ennemi.' },
     { id: 'g3', cat: 'G', sym: '3', name: 'Archer', val: 4.2, desc: 'Tire en diagonale : tue le 1er ennemi de la diagonale sans bouger. Ou fait 1 pas en diagonale.' },
-    { id: 'g4', cat: 'G', sym: '4', name: 'Bélier', val: 4.2, desc: 'Avance d’1 case dans les 8 directions en poussant toute la file devant lui (un perso poussé hors de la carte ou dans un trou meurt), puis peut faire un 2e pas vers une case vide.' },
-    { id: 'g5', cat: 'G', sym: '5', name: 'Éclaireur', val: 3.4, desc: '2 fois de suite : un pas droit (haut, bas, gauche, droite) sur une case vide, ou une prise en diagonale.' },
-    { id: 'g6', cat: 'G', sym: '6', name: 'Tourbillon', val: 3.8, desc: 'Frappe toutes les cases autour de lui : tous les ennemis collés meurent.' },
-    { id: 'g7', cat: 'G', sym: '7', name: 'Danseur', val: 3.6, desc: 'Fait 2 pas en diagonale (il peut prendre à chaque pas).' },
+    { id: 'g4', cat: 'G', sym: '4', name: 'Bélier', val: 4.2, desc: 'Avance d’1 case dans les 8 directions en poussant toute la file devant lui (un perso poussé hors de la carte ou dans un trou meurt), puis peut faire un 2e pas vers une case vide ou sur un ennemi (pas un dieu) pour le prendre.' },
+    { id: 'g5', cat: 'G', sym: '5', name: 'Éclaireur', val: 3.4, desc: '3 fois de suite : un pas droit (haut, bas, gauche, droite) sur une case vide, ou une prise en diagonale.' },
+    { id: 'g6', cat: 'G', sym: '6', name: 'Tourbillon', val: 3.8, desc: 'Peut d’abord faire 1 ou 2 pas, puis frappe toutes les cases autour de lui : tous les ennemis collés meurent.' },
+    { id: 'g7', cat: 'G', sym: '7', name: 'Danseur', val: 3.6, desc: 'Fait jusqu’à 3 pas en diagonale (il peut prendre à chaque pas).' },
     { id: 'c1', cat: 'G', sym: '8', name: 'Sauteur', val: 3.6, desc: 'Saute par-dessus tout : à 2 cases en diagonale, ou à 2 ou 3 cases en ligne droite.' },
     { id: 'c2', cat: 'G', sym: '9', name: 'Fou', val: 4, desc: 'Avance en diagonale d’autant de cases que voulu (comme le fou aux échecs).' },
     { id: 'c3', cat: 'G', sym: '10', name: 'Ombre', val: 3.4, desc: 'Se téléporte sur une case collée à un soldat (n’importe lequel).' },
-    { id: 'c4', cat: 'G', sym: '11', name: 'Arbalétrier', val: 4.3, desc: 'Tire en diagonale : tue le 1er ennemi de la diagonale sans bouger.' },
-    { id: 'c5', cat: 'G', sym: '12', name: 'Comète', val: 3.4, desc: 'Se pose sur n’importe quelle case à plus de 5 cases (en comptant lignes + colonnes) ; elle peut y prendre un garde ou un soldat, jamais un dieu.' },
-    { id: 'c6', cat: 'G', sym: '13', name: 'Alchimiste', val: 3, desc: 'Te fait gagner 40 mana, et tu rejoues tout de suite (une action de plus).' },
-    { id: 'c7', cat: 'G', sym: '14', name: 'Baliste', val: 4.6, desc: 'Tire en ligne droite sans bouger : tue le 1er ennemi de la ligne, et transperce jusqu’au suivant.' },
+    { id: 'c4', cat: 'G', sym: '11', name: 'Arbalétrier', val: 4.3, desc: 'Tire en diagonale : tue le 1er ennemi de la diagonale sans bouger. Ou fait 1 pas en ligne droite vers une case vide.' },
+    { id: 'c5', cat: 'G', sym: '12', name: 'Comète', val: 3.4, desc: 'Se pose sur n’importe quelle case à plus de 5 cases (en comptant lignes + colonnes) ; elle peut y prendre un soldat, ou un garde à plus de 7 cases, jamais un dieu.' },
+    { id: 'c6', cat: 'G', sym: '13', name: 'Alchimiste', val: 3, desc: 'Change un de tes soldats collés à lui en 40 mana (le soldat disparaît) et tu rejoues tout de suite. Sinon, il te fait gagner 15 mana.' },
+    { id: 'c7', cat: 'G', sym: '14', name: 'Baliste', val: 4.6, desc: 'Tire en ligne droite sans bouger : tue le 1er ennemi de la ligne, et transperce jusqu’au suivant. Ou fait 1 pas en diagonale vers une case vide.' },
     { id: 'c8', cat: 'G', sym: '15', name: 'Grenouille', val: 3.4, desc: 'Fait 1 pas, ou saute par-dessus toute une file de persos collés.' },
     // Soldat
     { id: 's', cat: 'S', sym: '•', name: 'Soldat', val: 1, desc: 'Avance d’1 case vers l’adversaire, prend en diagonale vers l’avant. Rien d’autre.' },
@@ -43,9 +43,9 @@ function StratEngine() {
     { id: 'gu', cat: 'M', sym: 'm', name: 'Guérisseur', cost: 45, val: 5.5, desc: 'Ramène à la vie un de tes gardes morts et le pose dans ta zone de placement (il ne compte plus comme mort).' },
     { id: 'dr', cat: 'M', sym: 'n', name: 'Druide', cost: 20, val: 5, desc: 'Fait pousser des ronces sur 1 ou 2 cases vides (hors zones de placement) : elles bloquent pour toujours.' },
     { id: 'pr', cat: 'M', sym: 'o', name: 'Protecteur', cost: 25, val: 5.5, desc: 'Bénit la case d’un de tes persos : rien ne peut y mourir jusqu’à ton prochain tour.' },
-    { id: 'lc', cat: 'G', sym: '16', name: 'Lancier', val: 3.8, desc: 'Frappe les 3 cases devant lui en ligne droite (haut, bas, gauche ou droite), sans bouger.' },
+    { id: 'lc', cat: 'G', sym: '16', name: 'Lancier', val: 3.8, desc: 'Frappe les 3 cases devant lui en ligne droite (haut, bas, gauche ou droite), sans bouger. S’il n’y a aucun ennemi dans cette direction, il avance d’un pas.' },
     { id: 'cv', cat: 'G', sym: '17', name: 'Cavalier', val: 3.6, desc: 'Saute en L comme le cavalier aux échecs, par-dessus tout.' },
-    { id: 'gd', cat: 'G', sym: '18', name: 'Gardien', val: 3.2, desc: 'Fait 1 pas dans n’importe quelle direction (comme le roi aux échecs).' },
+    { id: 'gd', cat: 'G', sym: '18', name: 'Gardien', val: 3.2, desc: 'Fait 1 ou 2 pas dans n’importe quelle direction (comme le roi aux échecs, deux fois) ; prend en arrivant sur un ennemi.' },
     // boss (un affrontement sur 10) : ils agissent tout seuls à la fin du tour de leur camp
     { id: 'bt', cat: 'B', sym: 'T', name: 'Titan de pierre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, il avance d’une case vers ton perso le plus proche ; un tour sur deux, il écrase un de tes persos collés à lui.' },
     { id: 'bn', cat: 'B', sym: 'N', name: 'Nécromancienne', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle fait sortir de terre un sbire à côté d’elle (5 au plus) ; un tour sur deux, elle te vole 15 mana.' },
@@ -63,8 +63,8 @@ function StratEngine() {
     { id: 'mi', cat: 'S', sym: 's', name: 'Sbire', val: 1.2, desc: 'Serviteur du boss : fait 1 pas dans n’importe quelle direction et prend en arrivant sur un ennemi.' },
     { id: 'ab', cat: 'S', sym: 'a', name: 'Abeille', val: 1.4, desc: 'Servante de la Reine : vole à 2 cases (en ligne droite ou en diagonale) par-dessus tout et prend en arrivant sur un ennemi.' },
     // ---- DLC « Les Abysses » : persos marins ----
-    { id: 'rq', cat: 'G', sym: 'R', name: 'Requin', val: 3.6, dlc: 1, desc: 'Nage en ligne droite (haut, bas, gauche, droite) jusqu’à 3 cases ; prend en arrivant sur un ennemi.' },
-    { id: 'mz', cat: 'G', sym: 'Z', name: 'Méduse', val: 3.2, dlc: 1, desc: 'Fait 1 pas en diagonale, ou pique sans bouger un ennemi collé à elle en ligne droite (haut, bas, gauche, droite).' },
+    { id: 'rq', cat: 'G', sym: 'R', name: 'Requin', val: 3.6, dlc: 1, desc: 'Nage en ligne droite (haut, bas, gauche, droite) jusqu’à 4 cases ; prend en arrivant sur un ennemi.' },
+    { id: 'mz', cat: 'G', sym: 'Z', name: 'Méduse', val: 3.2, dlc: 1, desc: 'Fait 1 pas dans n’importe quelle direction vers une case vide, ou pique sans bouger un ennemi à 1 ou 2 cases en ligne droite (haut, bas, gauche, droite), même par-dessus un perso.' },
     { id: 'pv', cat: 'M', sym: 'P', name: 'Pieuvre', cost: 35, val: 5.5, dlc: 1, desc: 'Ses tentacules attrapent un ennemi à 2 ou 3 cases (dans les 8 directions, par-dessus tout) et le ramènent collé à elle. Pas les dieux ni les boss.' },
     { id: 'sr', cat: 'M', sym: 'S', name: 'Sirène', cost: 40, val: 6, dlc: 1, desc: 'Son chant repousse d’une case tous les ennemis collés à elle ; ceux poussés hors de la carte ou dans un trou meurent.' },
     // ---- DLC « Les Abysses » : boss des profondeurs et boss final de l'histoire ----
@@ -89,7 +89,7 @@ function StratEngine() {
   const BOSSES_DLC = ['bl', 'bm', 'bo', 'bj']; // DLC « Les Abysses »
   const DLC_M = ['pv', 'sr'], DLC_G = ['rq', 'mz'];
   // armée des Ombres : 4 dieux, 5 gardes, son soldat
-  const SH_M = ['om', 'of', 'oe', 'ou'], SH_G = ['oa', 'ob', 'oc', 'ol', 'ox'], SH_START_M = ['om', 'of'], SH_START_G = ['oa', 'oc', 'ob'];
+  const SH_M = ['om', 'of', 'oe', 'ou'], SH_G = ['oa', 'ob', 'oc', 'ol', 'ox'], SH_START_M = ['om'], SH_START_G = ['oa', 'oc'];
   const NT = T.length;
   const TI = {}; T.forEach((t, i) => { TI[t.id] = i; t.i = i; });
   const BASE_M = ['ma', 'mb', 'mc', 'md', 'me'];
@@ -390,7 +390,6 @@ function StratEngine() {
     // l'armée des Ombres a ses propres persos dans la réserve commune (seuls les Ombres peuvent les recruter)
     if (s.fac && (s.fac[0] || s.fac[1])) {
       if (!s.fac[0] || !s.fac[1]) { /* une seule armée d'Ombres : ses persos s'ajoutent */ }
-      if (s.fac[0] && s.fac[1]) { for (let i = 0; i < NT; i++) if (!FAC[i]) s.pool[i] = 0; }
       for (const id of (o.shM || SH_START_M)) s.pool[TI[id]] += 1;
       for (const id of (o.shG || SH_START_G)) s.pool[TI[id]] += 2;
       s.pool[OS_I] = 8;
@@ -428,7 +427,8 @@ function StratEngine() {
 
   const isBl = (s, q) => !!s.bl && (s.bl[0] === q || s.bl[1] === q);
   const cloneBoss = B => Object.assign({}, B, { warn: B.warn && B.warn.slice(), ice: B.ice && B.ice.slice(), webs: B.webs && B.webs.slice(), stones: B.stones && B.stones.slice(), coral: B.coral && B.coral.slice() });
-  const canRec = (s, p, i) => !s.fac ? !FAC[i] : FAC[i] === s.fac[p];
+  // tout le monde peut recruter les persos de base ; seuls les Ombres peuvent recruter les persos des Ombres
+  const canRec = (s, p, i) => !FAC[i] || (!!s.fac && s.fac[p] === 1);
   const isIce = (s, q) => !!s.boss && !!s.boss.ice && s.boss.ice.includes(q);
   const isBoss = (s, q) => !!s.boss && s.boss.hp > 0 && s.boss.q === q;
   function kill(s, q, wallOk) {
@@ -569,12 +569,13 @@ function StratEngine() {
     if (t.cost && s.mana[p] < t.cost) return out;
     switch (t.id) {
       case 's': for (const q of pawnTargets(s, from, p)) out.push([q]); break;
-      case 'g1': for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && !isBl(s, q) && !isBoss(s, q)) out.push([q]); break;
+      case 'g1': { const adj = adjOf(s, from); for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && (!isBl(s, q) && !isBoss(s, q) || adj.includes(q) && foe(s, q, p))) out.push([q]); break; } // ennemi collé : il le prend ; sinon il échange sa place
       case 'mi': for (const q of stepTargets(s, from, p, ALL)) out.push([q]); break;
-      case 'rq': for (const d of ORTH) { let q = from; for (let k = 0; k < 3; k++) { q = nx(g, q, d); if (q < 0) break; if (b[q] === 0) out.push([q]); else { if (foe(s, q, p)) out.push([q]); break; } } } break;
+      case 'rq': for (const d of ORTH) { let q = from; for (let k = 0; k < 4; k++) { q = nx(g, q, d); if (q < 0) break; if (b[q] === 0) out.push([q]); else { if (foe(s, q, p)) out.push([q]); break; } } } break;
       case 'mz':
-        for (const q of stepTargets(s, from, p, DIAG)) out.push([q]);
-        for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && foe(s, q, p)) out.push([q]); }
+        for (const d of ALL) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); }
+        // filaments : pique un ennemi à 1 ou 2 cases en ligne droite, même par-dessus un perso
+        for (const d of ORTH) { const q1 = nx(g, from, d); if (q1 < 0) continue; if (foe(s, q1, p) && !cover(s, q1)) out.push([q1]); const q2 = b[q1] === VOID || b[q1] === -1 ? -1 : nx(g, q1, d); if (q2 >= 0 && foe(s, q2, p) && !cover(s, q2)) out.push([q2]); }
         break;
       case 'pv': {
         for (const d of ALL) {
@@ -625,12 +626,17 @@ function StratEngine() {
           out.push([q1]);
           const s2 = mini(s); pushLine(s2, from, d, true);
           // 2e pas : seulement vers une case vide (seul le 1er pas pousse)
-          for (const e of ALL) { const q2 = nx(g, q1, e); if (q2 >= 0 && s2.b[q2] === 0) out.push([q1, q2]); }
+          for (const e of ALL) { const q2 = nx(g, q1, e); if (q2 >= 0 && (s2.b[q2] === 0 || foe(s2, q2, p) && !IS_M[tix(s2.b[q2])])) out.push([q1, q2]); } // 2e pas : vers une case vide, ou pour prendre un ennemi
         }
         break;
-      case 'g5': out.push(...multiStep(s, from, p, pawnTargets, 2)); break;
-      case 'g6': if (adjOf(s, from).some(q => foe(s, q, p) && !cover(s, q))) out.push(['go']); break;
-      case 'g7': out.push(...multiStep(s, from, p, (st, q, pp) => stepTargets(st, q, pp, DIAG), 2)); break;
+      case 'g5': out.push(...multiStep(s, from, p, pawnTargets, 3)); break;
+      case 'g6': {
+        const hits = at => adjOf(s, at).some(q => q !== from && foe(s, q, p) && !cover(s, q));
+        if (hits(from)) out.push(['go']);
+        for (const q of adjOf(s, from)) if (b[q] === 0) { if (hits(q)) out.push([q]); for (const q2 of adjOf(s, q)) if (q2 !== from && b[q2] === 0 && hits(q2) && !adjOf(s, from).includes(q2)) out.push([q, q2]); } // 1 ou 2 pas, puis le tourbillon
+        break;
+      }
+      case 'g7': out.push(...multiStep(s, from, p, (st, q, pp) => stepTargets(st, q, pp, DIAG), 3)); break;
       case 'c1': {
         const r = from / g.W | 0, c = from % g.W;
         for (const [dr, dc] of D8) for (const k of (dr && dc ? [2] : [2, 3])) {
@@ -648,14 +654,14 @@ function StratEngine() {
         for (const q of ok) out.push([q]);
         break;
       }
-      case 'c4': for (const q of shotTargets(s, from, p, DIAG, 1)) out.push([q]); break;
+      case 'c4': for (const q of shotTargets(s, from, p, DIAG, 1)) out.push([q]); for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); } break;
       case 'c5': {
         const r = from / g.W | 0, c = from % g.W;
-        for (let q = 0; q < g.N; q++) if (g.ex[q] && Math.abs((q / g.W | 0) - r) + Math.abs(q % g.W - c) > 5 && (s.b[q] === 0 || (foe(s, q, p) && T[tix(s.b[q])].cat !== 'M'))) out.push([q]);
+        for (let q = 0; q < g.N; q++) { const dd = Math.abs((q / g.W | 0) - r) + Math.abs(q % g.W - c); if (g.ex[q] && dd > 5 && (s.b[q] === 0 || (foe(s, q, p) && (T[tix(s.b[q])].cat === 'S' || T[tix(s.b[q])].cat === 'G' && dd > 7)))) out.push([q]); }
         break;
       }
-      case 'c6': out.push(['go']); break;
-      case 'c7': for (const q of shotTargets(s, from, p, ORTH, 1)) out.push([q]); break;
+      case 'c6': for (const q of adjOf(s, from)) if (b[q] > 0 && own(b[q]) === p && (tix(b[q]) === S_I || tix(b[q]) === OS_I) && !isBl(s, q)) out.push([q]); out.push(['go']); break;
+      case 'c7': for (const q of shotTargets(s, from, p, ORTH, 1)) out.push([q]); for (const d of DIAG) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); } break;
       case 'c8':
         for (const d of ALL) {
           let q = nx(g, from, d);
@@ -737,7 +743,7 @@ function StratEngine() {
           const a1 = nx(g, from, d); if (a1 < 0) continue;
           const a2 = nx(g, a1, d), a3 = a2 >= 0 ? nx(g, a2, d) : -1;
           const hitL = x => x >= 0 && foe(s, x, p) && !cover(s, x);
-          if (hitL(a1) || hitL(a2) || hitL(a3)) out.push([a1]);
+          if (hitL(a1) || hitL(a2) || hitL(a3) || b[a1] === 0) out.push([a1]); // frappe, ou 1 pas s'il n'y a personne à frapper
         }
         break;
       case 'cv': {
@@ -750,7 +756,7 @@ function StratEngine() {
         }
         break;
       }
-      case 'gd': for (const q of stepTargets(s, from, p, ALL)) out.push([q]); break;
+      case 'gd': out.push(...multiStep(s, from, p, (st, q, pp) => stepTargets(st, q, pp, ALL), 2)); break;
       case 'gu': {
         if (!s.dead) break;
         const he = homeEmpty(s, p); if (!he.length) break;
@@ -787,14 +793,14 @@ function StratEngine() {
         for (const q of cl) pos = stepTo(s, pos, q);
         break;
       }
-      case 'g1': { const x = s.b[cl[0]]; s.b[cl[0]] = s.b[from]; s.b[from] = x; break; }
+      case 'g1': if (adjOf(s, from).includes(cl[0]) && s.b[cl[0]] > 0 && own(s.b[cl[0]]) === opp) { stepTo(s, from, cl[0]); break; } { const x = s.b[cl[0]]; s.b[cl[0]] = s.b[from]; s.b[from] = x; break; }
       case 'g3': {
         const q = cl[0];
         if (DIAG.some(d => nx(g, from, d) === q)) stepTo(s, from, q); else kill(s, q);
         break;
       }
-      case 'c4': kill(s, cl[0]); break;
-      case 'mz': { const q = cl[0]; if (ORTH.some(d => nx(g, from, d) === q)) kill(s, q); else stepTo(s, from, q); break; }
+      case 'c4': if (s.b[cl[0]] === 0) stepTo(s, from, cl[0]); else kill(s, cl[0]); break;
+      case 'mz': if (s.b[cl[0]] > 0) kill(s, cl[0]); else stepTo(s, from, cl[0]); break; // pique sans bouger, ou 1 pas
       case 'pv': { // ramène l'ennemi collé à la pieuvre, dans la même direction
         const q = cl[0], d = ALL.find(dd => { let x = from; for (let k = 0; k < 3; k++) { x = nx(g, x, dd); if (x < 0) return false; if (x === q) return true; } return false; });
         const to = nx(g, from, d); if (to >= 0 && s.b[to] === 0) { s.b[to] = s.b[q]; s.b[q] = 0; }
@@ -810,7 +816,7 @@ function StratEngine() {
       case 'oe': s.noPlace[opp] = Math.max(s.noPlace[opp], 1); s.noAct[opp] = Math.max(s.noAct[opp], 1); break;
       case 'ou': { const q = cl[0]; s.lost[p][catIdx(T[tix(s.b[q])].cat)]++; if (s.dead) s.dead[p][tix(s.b[q])]++; s.b[q] = 0; s.mana[p] += 50; if (s._dead) s._dead.push(q); break; }
       case 'ol': { const d = ORTH.find(dd => { const a = nx(g, from, dd); return a >= 0 && nx(g, a, dd) === cl[0]; }); const q1 = nx(g, from, d); if (s.b[q1] > 0) kill(s, q1); stepTo(s, from, cl[0]); break; }
-      case 'c7': { // la Baliste transperce : le 1er ennemi de la ligne, puis le suivant derrière lui
+      case 'c7': if (s.b[cl[0]] === 0) { stepTo(s, from, cl[0]); break; } { // la Baliste transperce : le 1er ennemi de la ligne, puis le suivant derrière lui
         kill(s, cl[0]);
         const d = ORTH.find(dd => { let x = nx(g, from, dd); while (x >= 0 && x !== cl[0] && s.b[x] === 0) x = nx(g, x, dd); return x === cl[0]; });
         if (d !== undefined) { let x = nx(g, cl[0], d); while (x >= 0 && s.b[x] === 0) x = nx(g, x, d); if (x >= 0 && foe(s, x, p) && !cover(s, x)) kill(s, x); }
@@ -818,11 +824,11 @@ function StratEngine() {
       }
       case 'g4': {
         let pos = from;
-        for (const q of cl) { const d = ALL.find(dd => nx(g, pos, dd) === q); pos = pushLine(s, pos, d, true); }
+        cl.forEach((q, k) => { if (k > 0 && s.b[q] > 0) { pos = stepTo(s, pos, q); return; } const d = ALL.find(dd => nx(g, pos, dd) === q); pos = pushLine(s, pos, d, true); });
         break;
       }
-      case 'g6': for (const z of adjOf(s, from)) if (s.b[z] > 0 && own(s.b[z]) === opp && !cover(s, z)) kill(s, z); break;
-      case 'c6': s.mana[p] += 40; s.acts += 1; break; // +40 mana et une action de plus
+      case 'g6': { let at = from; const nn = cl.filter(v => typeof v === 'number'); if (nn.length) { const dst = nn[nn.length - 1]; s.b[dst] = s.b[from]; s.b[from] = 0; at = dst; } for (const z of adjOf(s, at)) if (s.b[z] > 0 && own(s.b[z]) === opp && !cover(s, z)) kill(s, z); break; }
+      case 'c6': if (cl[0] === 'go') { s.mana[p] += 15; break; } { const q = cl[0]; s.lost[p][2]++; if (s.dead) s.dead[p][tix(s.b[q])]++; s.b[q] = 0; s.mana[p] += 40; s.acts += 1; break; } // un soldat changé en 40 mana, et une action de plus
       case 'ma': case 'pb': for (const z of zoneVictims(s, areaOf(g, t.id, cl[0]), p)) kill(s, z); break;
       case 'mb': { const x = s.b[cl[0]]; s.b[cl[0]] = s.b[cl[1]]; s.b[cl[1]] = x; break; }
       case 'mc': s.b[cl[1]] = s.b[cl[0]]; s.b[cl[0]] = 0; break;
@@ -837,7 +843,9 @@ function StratEngine() {
       case 'lc': {
         const d = ORTH.find(dd => nx(g, from, dd) === cl[0]);
         const a2 = nx(g, cl[0], d), a3 = a2 >= 0 ? nx(g, a2, d) : -1;
-        for (const z of [cl[0], a2, a3]) if (z >= 0 && foe(s, z, p) && !cover(s, z)) kill(s, z);
+        const tg = [cl[0], a2, a3].filter(z => z >= 0 && foe(s, z, p) && !cover(s, z));
+        if (!tg.length && s.b[cl[0]] === 0) { stepTo(s, from, cl[0]); break; } // personne à frapper : il avance
+        for (const z of tg) kill(s, z);
         break;
       }
       case 'gu': { const i = +cl[0].slice(1); s.dead[p][i]--; s.lost[p][1]--; s.b[cl[1]] = enc(i, p); break; }
@@ -1418,7 +1426,7 @@ function StratEngine() {
       const id = T[tix(c)].id;
       if (NOKILL[id]) continue;
       if (decl && (decl.k !== 'act' || decl.from !== f)) continue;
-      const area = id === 'g6' || id === 'ma' || id === 'pb' || id === 'g4' || id === 'lc' || id === 'sr' || id === 'ol';
+      const area = id === 'g6' || id === 'ma' || id === 'pb' || id === 'g4' || id === 'lc' || id === 'sr' || id === 'ol' || id === 'mz';
       for (const cl of genAct(st, f, false)) {
         if (!area) {
           let hit = false;
@@ -1453,7 +1461,7 @@ function StratEngine() {
       else {
         const r = ROW[q], cc = COL[q];
         if (cat === 2) v += (o === 0 ? g.H - 1 - r : r) * 0.05;
-        if (s.fac && s.fac[o]) v += (o === 0 ? g.H - 1 - r : r) * 0.12; // les Ombres gagnent en envahissant la zone adverse
+        if (s.fac && s.fac[o]) v += (o === 0 ? g.H - 1 - r : r) * 0.05; // les Ombres gagnent en envahissant la zone adverse
         // se rapprocher des dieux adverses
         const mp = mpos[1 - o];
         if (mp.length) {
