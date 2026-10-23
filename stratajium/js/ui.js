@@ -49,7 +49,8 @@
     const bg = o === 0 ? 'url(#bg0)' : o === 1 ? 'url(#bg1)' : 'url(#bgn)';
     const st = o === 0 ? '#7a4e08' : o === 1 ? '#2e1466' : '#5a5246';
     const cbm = typeof SET !== 'undefined' && SET.vision === 'daltonien';
-    const ring = o === 0 ? '#ffd86a' : o === 1 ? (cbm ? '#8fd0ff' : '#c8a8ff') : '#e8e0d0';
+    const ring = o === 0 ? (TOK && TOK.gem ? GEMS[TOK.gem] : '#ffd86a') : o === 1 ? (cbm ? '#8fd0ff' : '#c8a8ff') : '#e8e0d0';
+    const mast = o === 0 && TOK ? stars(TOK.pp[t.id]) : 0;
     let frame, k = .9, cy = 52;
     if (t.cat === 'M') {
       frame = `<polygon points="50,3 92,26 92,74 50,97 8,74 8,26" fill="${bg}" stroke="${st}" stroke-width="5"/><polygon points="50,9 87,29 87,71 50,91 13,71 13,29" fill="none" stroke="${ring}" stroke-width="2.4" opacity=".9"/>`;
@@ -70,7 +71,7 @@
     const d = ((tokSeed++ * 7919) % 4700) / 1000;
     // mode daltoniens : triangle pour toi (camp 0), carré pour l'adversaire, en plus de la couleur
     const cbBadge = cbm && o >= 0 ? (o === 0 ? '<g><circle cx="16" cy="18" r="11" fill="#1a1206" stroke="#ffd86a" stroke-width="2.5"/><path d="M16 11 L23 23 L9 23 Z" fill="#ffd86a"/></g>' : '<g><circle cx="16" cy="18" r="11" fill="#06121f" stroke="#8fd0ff" stroke-width="2.5"/><rect x="10.5" y="12.5" width="11" height="11" fill="#8fd0ff"/></g>') : '';
-    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s"><g class="ink">${Art.get(t.id)}</g>${Art.get(t.id)}</g></g><ellipse class="gloss" cx="36" cy="26" rx="22" ry="11" transform="rotate(-28 36 26)"/>${crown}${moon}${cbBadge}</svg>`;
+    return `<svg class="tk" viewBox="0 0 100 100">${frame}<g transform="translate(50 ${cy}) scale(${k}) translate(-50 -52)"><g class="crit" style="--d:-${d.toFixed(2)}s"><g class="ink">${Art.get(t.id)}</g>${Art.get(t.id)}</g></g><ellipse class="gloss" cx="36" cy="26" rx="22" ry="11" transform="rotate(-28 36 26)"/>${crown}${moon}${cbBadge}${mast ? `<g class="mast"><path d="M84 3 L88 12 L98 13 L90.5 19.5 L93 29 L84 24 L75 29 L77.5 19.5 L70 13 L80 12 Z" fill="#ffd86a" stroke="#5a3a08" stroke-width="1.6"/><text x="84" y="21.5" text-anchor="middle" font-size="${mast > 9 ? 8 : 10}" font-weight="900" fill="#3a2404">${mast}</text></g>` : ''}</svg>`;
   }
   const BRAMBLE = `<svg class="bramble" viewBox="0 0 100 100"><g fill="none" stroke-linecap="round">
     <path d="M10 70 Q30 30 55 45 T92 25" stroke="#5a7a2a" stroke-width="7"/><path d="M8 35 Q40 60 60 80 T95 72" stroke="#4a6a22" stroke-width="6"/>
@@ -92,7 +93,7 @@
     `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="52" rx="30" ry="38" fill="#2a1450" stroke="#9a6bff" stroke-width="7"/><ellipse cx="50" cy="52" rx="18" ry="25" fill="none" stroke="#5ad1ff" stroke-width="5" stroke-dasharray="12 8"/><circle cx="50" cy="52" r="7" fill="#d9c6ff"/></svg>`];
 
   // ---------- réglages ----------
-  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale' }, lsGet('reglages', {}));
+  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true }, lsGet('reglages', {}));
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
@@ -140,6 +141,7 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- écrans ----------
   function show(id) {
+    setTimeout(() => { if (typeof padHint !== 'function') return; padHint(); padAutoFocus(); }, 0);
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
     if (id !== 'game') { boardDecor.stop(); closeSheet(); }
     if (['menu', 'newrun', 'run', 'duel', 'ext', 'story', 'season'].includes(id)) Sound.want(['menu']);
@@ -209,6 +211,23 @@ const isSh = id => !!T[E.TI[id]].fac;
   // statistiques gardées pour toujours : points des persos (+1 à chaque recrutement, placement ou activation), affrontements par sorte…
   const statsData = () => Object.assign({ pts: {}, used: {}, usedW: {}, modes: {}, bosses: {}, kills: 0, lost: 0, battles: 0, turns: 0, ms: 0 }, lsGet('stats', {}));
   const hasTalent = id => { const t = TALENTS.find(x => x.id === id); return t && dailyData().total >= t.pts; };
+
+  // ---------- renommée de la partie (sans fin) et maîtrise des persos (étoiles, sans fin) ----------
+  const XPN = n => 40 + 10 * n; // renommée pour passer du niveau n au suivant : ça ralentit doucement
+  function fameLevel(xp) { let n = 0; xp = xp || 0; while (xp >= XPN(n)) { xp -= XPN(n); n++; } return { n, cur: xp, need: XPN(n) }; }
+  const roman = n => { let s = ''; for (const [v, r] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { s += r; n -= v; } return s; };
+  const TITLES = () => [L('Recrue'), L('Écuyer'), L('Soldat'), L('Sergent'), L('Capitaine'), L('Commandant'), L('Champion'), L('Général'), L('Maréchal'), L('Seigneur'), L('Héros'), L('Roi'), L('Empereur'), L('Légende'), L('Demi-dieu'), L('Dieu vivant')];
+  const fameTitle = n => { const T0 = TITLES(); return n < T0.length ? T0[n] : T0[T0.length - 1] + ' ' + roman(n - T0.length + 2); };
+  // couleurs de cadre pour tes persos : une de plus tous les 2 niveaux
+  const GEMS = ['#ffd86a', '#d08a4a', '#e6ebf2', '#ff4a6a', '#3fe08a', '#4aa8ff', '#c070ff', '#ff9a30', '#7ad0a0', '#ff7f9a', '#bff4ff', '#8a7aaa'];
+  const gemLevel = k => 2 * k;
+  const stars = pts => Math.floor(Math.sqrt((pts || 0) / 15)); // 15, 60, 135, 240… points : toujours une étoile de plus, de plus en plus lentement
+  let TOK = null; // { pp, gem } de la partie en cours : étoiles et couleur sur tes persos
+  const setTok = r => { TOK = r ? { pp: r.pp || {}, gem: r.gem || 0 } : null; };
+  function fameGain(r, mode, w) {
+    const base = w === 0 ? (mode === 'boss' ? 24 : mode === 'hard' ? 16 : 10) : w === 1 ? 3 : 4;
+    return Math.round(base * (1 + .1 * Math.min(r.cercle || 0, 10)));
+  }
   const BOSS_ORDER = E.BOSSES; // chaque partie les rencontre dans un ordre tiré au hasard (r.bossSeq)
   // ---------- Cercles : la difficulté monte sans fin ----------
   // Cercle 0 = bot facile, 1 = normal, 2 = stratège ; ensuite chaque Cercle ajoute un fardeau, puis +1 point de vie aux boss par Cercle.
@@ -277,6 +296,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!r.news) r.news = [];
     if (!r.exploits) r.exploits = [];
     if (r.winsH === undefined) r.winsH = 0;
+    if (r.xp === undefined) r.xp = 0;
+    if (!r.pp) r.pp = {};
+    if (r.gem === undefined) r.gem = 0;
     if (!r.bossSeq || r.bossSeq.length !== bossList().length + (r.fac ? E.SH_BOSSES.length : 0)) r.bossSeq = bossSeqFor(r);
     if (r.fac === undefined) r.fac = 0;
     if (r.fac && !r.gods.some(x => !isSh(x))) { r.gods = E.START_M.concat(r.gods); r.gards = E.START_G.concat(r.gards); } // l'armée des Ombres garde aussi les persos de base
@@ -287,12 +309,13 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- menu ----------
   function renderMenu() {
+    setTok(null);
     $('hello').innerHTML = L('Bonjour, <b>{p}</b> !', { p: esc(pseudo()) });
     let h = '';
     const free = [];
     RUNS.slice(0, nSlots()).forEach((r, i) => {
       if (!r) { free.push(i); return; }
-      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${r.fac ? '🌑 ' : ''}${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}</b>
+      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}${dlcOn('ombres') || r.fac ? ` · <span class="army ${r.fac ? 'sh' : 'li'}">${r.fac ? '🌑 ' + L('Armée des Ombres') : '☀️ ' + L('Armée de la Lumière')}</span>` : ''}</b>
         <small>${L('{w} victoire(s) dont {h} difficile(s) · {l} défaite(s)', { w: r.wins, h: r.winsH, l: r.losses })} · ${L('affrontement n°{n}', { n: r.n })}${r.match ? ' ' + L('(en cours)') : ''}</small></div>
         <button class="big" data-open="${i}">${L('Continuer')}</button><button class="ghost sm danger" data-del="${i}" title="${L('Supprimer')}">🗑</button></div>`;
     });
@@ -335,8 +358,14 @@ const isSh = id => !!T[E.TI[id]].fac;
     return on.map(id => { const i = E.TI[id]; return `<span class="chip click${many}" data-info="${i}" title="${esc(tn(i))}">${token(i, 0)}${many ? '' : `<span>${tn(i)}</span>`}</span>`; }).join('') + (off ? `<span class="chip locked">+${off} ${L('à découvrir')}</span>` : '');
   }
   function bar(v, max, label) { return `<div class="trk"><span>${label}</span><div class="meter"><i style="width:${Math.min(100, 100 * v / max)}%"></i></div><small>${fmt1(v)}/${max}</small></div>`; }
+  function fameBlock(r) {
+    const f = fameLevel(r.xp);
+    const gems = GEMS.map((c, k) => { const ok = f.n >= gemLevel(k); return `<button class="gem ${r.gem === k ? 'sel' : ''}" ${ok ? `data-gem="${k}"` : 'disabled'} title="${esc(ok ? L('Couleur de tes persos') : L('Débloquée au niveau {n}', { n: gemLevel(k) }))}" style="--g:${c}">${ok ? '' : '🔒'}</button>`; }).join('');
+    return `<h4>👑 ${L('Renommée')} : <span class="gold">${fameTitle(f.n)}</span> · ${L('niveau {n}', { n: f.n })}</h4><div class="famerow">${bar(f.cur, f.need, '')}<div class="gems" title="${esc(L('Maîtrise : chaque perso gagne des étoiles en jouant (recruter, placer, activer).'))}">${gems}</div></div>`;
+  }
   function renderRun() {
     const r = run(), t = r.t;
+    setTok(r);
     const allG = runG(r).every(x => r.gards.includes(x) || SPECIAL.has(x)), allD = runM(r).every(x => r.gods.includes(x) || SPECIAL.has(x));
     let h = `<div class="runtop"><h2 class="title">${L('Partie {n}', { n: cur + 1 })}${r.fac ? ' · 🌑' : ''} · ${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}</h2>
       <div class="runhead"><span>${L('affrontement n°{n}', { n: r.n })}</span></div></div>
@@ -346,6 +375,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <h4>${L('Carte')} : ${L('niveau {n}', { n: r.mapLv })}/4 · ${L('Événements')} : ${r.evChance} %</h4>
         ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>` : ''}
       </div><div class="runcol">
+        ${fameBlock(r)}
         <h4>${L('Progression')}</h4>
         ${allG ? `<div class="trk done">${L('Tous les gardes sont débloqués')}</div>` : bar(t.gN, TRACKS.gard.normal, L('Nouveau garde : victoires normales')) + bar(t.gH, TRACKS.gard.hardStreak, L('… ou victoires difficiles d’affilée'))}
         ${allD ? `<div class="trk done">${L('Tous les dieux sont débloqués')}</div>` : bar(t.dN, TRACKS.god.normal, L('Nouveau dieu : victoires normales')) + bar(t.dH, TRACKS.god.hard, L('… ou victoires difficiles'))}
@@ -362,7 +392,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       </div><div class="menu-actions">`;
     h += `<button class="ghost sm" id="btnRunCodex">${L('📖 Codex')}</button><button class="ghost sm" id="btnRunMenu">${L('← Menu')}</button></div>`;
     $('runBox').innerHTML = h;
-    $('runBox').querySelectorAll('[data-info]').forEach(c => c.onclick = () => toast(`<b>${tn(+c.dataset.info)}</b> : ${td(+c.dataset.info)}`, 5000));
+    $('runBox').querySelectorAll('[data-info]').forEach(c => c.onclick = () => { const id = T[+c.dataset.info].id, n = stars(r.pp && r.pp[id]); toast(`<b>${tn(+c.dataset.info)}</b> : ${td(+c.dataset.info)}<br>⭐ ${L('Maîtrise')} : ${n} · ${L('{p} points', { p: (r.pp && r.pp[id]) || 0 })}`, 5000); });
+    $('runBox').querySelectorAll('[data-gem]').forEach(b => b.onclick = () => { r.gem = +b.dataset.gem; saveRuns(); sfx('choix'); renderRun(); });
     if ($('btnStart')) $('btnStart').onclick = () => startMatch(isBossBattle(r) ? 'boss' : 'normal');
     if ($('btnHard')) $('btnHard').onclick = () => startMatch('hard');
     if ($('btnResume')) $('btnResume').onclick = resumeMatch;
@@ -506,13 +537,22 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
   }
+  const bossQuote = id => ({
+    bt: L('Je suis la montagne. Les montagnes ne reculent pas.'), bn: L('Tes morts m’appartiennent déjà.'), bd: L('Approche, petit dieu, que je voie si tu brûles bien.'),
+    bh: L('Coupe une tête, il en repousse deux. Tu connais la chanson.'), bq: L('Ma ruche a mille dards. Tu n’as qu’une peau.'), bk: L('Tout ce qui flotte finit au fond.'),
+    bg: L('Reste immobile… pour toujours.'), bv: L('La terre gronde. Écoute-la bien : c’est peut-être ton dernier tour.'), bw: L('Chaque pas te prend un peu plus dans ma toile.'),
+    bs: L('Tu frappes le vide. Moi, je ne te manquerai pas.'), bp: L('Tue-moi. J’adore renaître.'), bb: L('Un seul regard suffit.'), bc: L('J’ai gagné cent batailles. La tienne sera vite oubliée.'),
+    bl: L('Dans les abysses, personne ne t’entendra fuir.'), bm: L('La mer monte, la mer descend. Toi, tu coules.'), bo: L('Je pousse lentement, mais je pousse partout.'), bj: L('Ne touche pas. Trop tard.'),
+    bx: L('Ils m’ont chassé du panthéon. Je reviens prendre ma place.'), sa: L('Baisse les yeux devant la Lumière.'), sp: L('Mes frères me gardent. Qui te garde, toi, Ombre ?'),
+    sl: L('Là où ma lumière tombe, l’ombre se fige.'), sg: L('Frappe-moi de loin, et ton coup se brisera sur moi.'),
+  })[id];
   function showPre(daily) {
     let h = '';
-    if (pre.mode === 'story') h += `<h2 class="title">📖 ${L('Chapitre {n}', { n: pre.story + 1 })} · ${storyTitle(pre.story)}</h2><div class="evcard story">${storyText(pre.story)}</div><p class="center">${LEVELIC[pre.level]} ${levelName(pre.level)} · ${I18N.mapName(pre.map)}</p>`;
+    if (pre.mode === 'story') h += `<h2 class="title">📖 ${L('Chapitre {n}', { n: pre.story + 1 })} · ${storyTitle(pre.story)}</h2><img class="storyimg" src="img/story/${pre.story + 1}.jpg" alt="" onerror="this.remove()"><div class="evcard story">${storyText(pre.story)}</div><p class="center">${LEVELIC[pre.level]} ${levelName(pre.level)} · ${I18N.mapName(pre.map)}</p>`;
     if (pre.mode === 'season') h += `<h2 class="title">🗓️ ${L('Défi de la semaine')}</h2><div class="evcard"><b>${seasonName(pre.season.rule)}</b>${seasonDesc(pre.season.rule)}</div>`;
     if (daily) { const c = pre.daily; h += `<h2 class="title">📅 ${L('Défi du jour')}</h2><div class="evcard"><b>🎯 ${dailyName(c.goal)}</b>${dailyDesc(c.goal)}</div><p class="center">${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)} · ${I18N.mapName(pre.map)}</p>`; }
     if (pre.mode === 'hard') h += `<h2 class="title">🔥 ${L('Affrontement difficile')}</h2><div class="evcard hardc">${pre.hard.map(x => '• ' + hardName(x)).join('<br>')}</div>`;
-    if (pre.boss) { const b = E.TI[pre.boss]; h += `<h2 class="title">${L('Affrontement de boss !')}</h2><div class="evcard hardc bossc">${token(b, 1)}<div><b>${tn(b)}</b>${td(b)}<br><small>${L('Il a des sbires. Tue le boss (chaque coup lui retire un point de vie) pour gagner.')}</small></div></div>`; }
+    if (pre.boss) { const b = E.TI[pre.boss]; h += `<h2 class="title">${L('Affrontement de boss !')}</h2><div class="evcard hardc bossc">${token(b, 1)}<div><b>${tn(b)}</b>${bossQuote(pre.boss) ? `<i class="quote">« ${bossQuote(pre.boss)} »</i>` : ''}${td(b)}<br><small>${L('Il a des sbires. Tue le boss (chaque coup lui retire un point de vie) pour gagner.')}</small></div></div>`; }
     if (pre.ev) {
       h += `<h2 class="title">${L('Événement !')}</h2><div class="evcard"><b>🎲 ${I18N.evName(pre.ev)}</b>${I18N.evDesc(pre.ev)}</div>`;
       if (pre.ev === 'objectif' && !pre.goal) pre.goal = pick(E.GOALS).id;
@@ -684,7 +724,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; }
     $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
     $('btnUndo').hidden = G.net || !!G.replay;
+    $('btnGiveUp').hidden = !!G.replay;
     $('runBadge').textContent = G.replay ? '🎬 ' + L('Revoir la partie') : G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
+    setTok(cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run() : null);
     show('game');
     $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
@@ -762,7 +804,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     saveMatch();
     if (s.winner !== null) endGame();
     else if (G.ctl[s.turn] === 'me' && G.ctl[p] !== 'me') { // c'est à toi : petit signal
-      sfx('tour', .7, 350);
+      sfx('tour', .7, 350); rumble(90, .25);
       const tl = $('turnline'); tl.classList.remove('yourturn'); void tl.offsetWidth; tl.classList.add('yourturn');
     }
     maybeBot();
@@ -910,7 +952,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         default: nums.forEach((q, i) => sfx('pas', 1, i * 160)); if (!nums.length) sfx('sort');
       }
     }
-    if (dead.length) { sfx('coup', 1, 80); sfx('prise', .8, 120); }
+    if (dead.length) { sfx('coup', 1, 80); sfx('prise', .8, 120); rumble(dead.some(q => IS_MAGE(before.b[q])) ? 260 : 140, dead.some(q => before.b[q] > 0 && E.own(before.b[q]) === G.me) ? .9 : .5); }
   }
 
   // ---------- fin d'un affrontement (le résultat n'est compté qu'en continuant : on peut encore annuler son coup) ----------
@@ -935,6 +977,13 @@ const isSh = id => !!T[E.TI[id]].fac;
   // applique le résultat à une partie (pour de vrai, ou sur une copie pour l'aperçu du bilan)
   function runResult(r, s, mode) {
     const w = s.winner;
+    // renommée et maîtrise : elles ne s'arrêtent jamais
+    const lv0 = fameLevel(r.xp).n; r.xp = (r.xp || 0) + fameGain(r, mode, w);
+    const lv1 = fameLevel(r.xp).n;
+    if (lv1 > lv0) { r.news.push(L('👑 Renommée : niveau {n} — {t}', { n: lv1, t: fameTitle(lv1) })); for (let k = 1; k < GEMS.length; k++) if (gemLevel(k) > lv0 && gemLevel(k) <= lv1) r.news.push(L('🎨 Nouvelle couleur pour tes persos (dans la partie)')); }
+    if (!r.pp) r.pp = {};
+    let ms = 0;
+    if (G && G.st) for (const id in G.st.pts) { const a = stars(r.pp[id]); r.pp[id] = (r.pp[id] || 0) + G.st.pts[id]; const b = stars(r.pp[id]); if (b > a && ms++ < 2) r.news.push(L('⭐ Maîtrise : {x} passe à {n} étoile(s)', { x: tn(E.TI[id]), n: b })); }
     if (w === 0) { r.wins++; if (mode === 'hard') r.winsH++; grantWin(r, mode, s); }
     else if (w === 1) { r.losses++; lossProgress(r); }
     r.n++; r.match = null; r.hard = rollHard(r);
@@ -1016,11 +1065,13 @@ const isSh = id => !!T[E.TI[id]].fac;
     const pts = Object.values(st.pts).reduce((a, b) => a + b, 0);
     if (pts) out.push(`⭐ ${L('+{n} points pour tes persos', { n: pts })}`);
     if (G.mode === 'season') out.push(`🗓️ ${L('{p} points de défi de la semaine', { p: seasonScore(G) }) + (weekGain(G) ? ' · ' + L('+{n} points pour les talents', { n: weekGain(G) }) : '')}`);
+    if (G.mode === 'story' && G.s.winner === G.me) out.push(`📜 <i>${storyEnd(pre.story)}</i>`);
     if (G.mode === 'story' && G.s.winner === G.me && pre.story + 1 < STORY.length) out.push(`📖 ${L('Chapitre suivant débloqué : {x}', { x: storyTitle(pre.story + 1) })}`);
     if (G.mode === 'daily') { out.push(`📅 ${L('{p} points de défi du jour', { p: dailyScore(G) })}`); return out; }
     if (G.mode === 'duel' || cur < 0 || G.committed) return out;
     const r0 = run(), r1 = JSON.parse(JSON.stringify(r0));
     runResult(r1, G.s, G.mode);
+    out.push(`👑 ${L('+{n} renommée', { n: (r1.xp || 0) - (r0.xp || 0) })}`);
     for (const pd of r1.pending.slice(r0.pending.length)) out.push(`🎁 ${pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !')}`);
     for (const n of r1.news.slice(r0.news.length)) out.push(n);
     return out;
@@ -1072,7 +1123,7 @@ const isSh = id => !!T[E.TI[id]].fac;
           ${gains.length ? `<h3>🎁 ${L('Ce que tu gagnes')}</h3><ul class="gains">${gains.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         </section>
       </div>
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
     if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
     if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
@@ -1092,6 +1143,19 @@ const isSh = id => !!T[E.TI[id]].fac;
     sfx('annule'); render(); saveMatch(); maybeBot();
   }
   $('btnUndo').onclick = undo;
+  // abandonner : compte comme une défaite (2 appuis pour éviter les erreurs)
+  function giveUp() {
+    if (!G || G.over || G.replay) return;
+    const b = $('btnGiveUp');
+    if (!b.dataset.sure) { b.dataset.sure = 1; b.classList.add('danger'); toast('🏳️ ' + L('Touche encore 🏳️ pour abandonner : ça compte comme une défaite.'), 3000); setTimeout(() => { delete b.dataset.sure; b.classList.remove('danger'); }, 3000); return; }
+    delete b.dataset.sure; b.classList.remove('danger');
+    const loser = G.humans[0] && G.humans[1] ? G.s.turn : G.me;
+    if (G.net) netSend({ t: 'bye' });
+    G.thinking = false; G.ver++; G.sel = null; G.history = [];
+    G.s.winner = 1 - loser; G.s.why = 'Abandon.';
+    sfx('annule'); render(); endGame();
+  }
+  $('btnGiveUp').onclick = giveUp;
   $('btnMenu').onclick = () => {
     if (G && G.over) commit();
     if (G && G.net && !G.over) netSend({ t: 'bye' });
@@ -1857,6 +1921,16 @@ const isSh = id => !!T[E.TI[id]].fac;
     { lv: 'impossible', map: ['aleatoire', 4], all: true },
     { lv: 'impossible', map: ['aleatoire', 4, true], boss: 'bx', all: true, theme: 'abysses' },
   ];
+  const storyEnd = i => [
+    L('Ton rival s’incline. Mais au loin, une source de mana se met à briller…'),
+    L('La source est à toi. Son éclat attire pourtant un ennemi bien plus ancien.'),
+    L('L’Hydre s’effondre dans un dernier sifflement. Sous tes pieds, la terre devient humide : la mer approche.'),
+    L('Tu as dompté les courants. Au loin, la mer se retire… et quelqu’un la commande.'),
+    L('Le Seigneur des marées sombre dans les vagues. Plus bas, dans le noir, quelque chose s’éveille.'),
+    L('Le Léviathan ne chassera plus. Les dieux t’attendent : ils veulent savoir qui tu es.'),
+    L('Le conseil te reconnaît. Mais un dieu chassé, lui, refuse ton nom.'),
+    L('Le Dieu déchu tombe pour de bon. Panthéa est en paix… pour l’instant.'),
+  ][i];
   const storyTitle = i => [L('Le réveil'), L('La source'), L('Le pacte de l’Hydre'), L('Les courants'), L('Le Seigneur des marées'), L('Le Léviathan'), L('Le conseil des dieux'), L('Le Dieu déchu')][i];
   const storyText = i => [
     L('Les dieux de Panthéa se réveillent dans la clairière. Un rival te défie : montre-lui ce que valent tes gardes.'),
@@ -2040,6 +2114,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>🔤 ${L('Coordonnées sur la carte')}</b></div>${segH('coords', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
+      <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };
@@ -2112,6 +2187,21 @@ const isSh = id => !!T[E.TI[id]].fac;
     toast('🎮 ' + L('Manette connectée : croix pour se déplacer, A pour choisir, B pour revenir.'), 4000);
     padLoop();
   });
+  let padAt = 0; // dernière fois que la manette a servi
+  function padHint() {
+    const el = $('padHint'); if (!el) return;
+    const show = padOn && performance.now() - padAt < 20000;
+    el.hidden = !show; if (!show) return;
+    const scr = (document.querySelector('.screen.on') || {}).id, inBoard = scr === 'game' && G && !modalOpen() && padBoard && !G.replay;
+    el.innerHTML = [['A', L('Choisir')], ['B', L('Retour')]].concat(scr === 'game' && G && !G.replay ? [['X', inBoard ? L('Boutons') : L('Carte')], ['Y', L('Annuler le coup')]] : [], [['LB RB', inBoard ? L('Perso suivant') : L('Pages')]])
+      .map(([k, t]) => `<span><kbd class="pad${k.length > 1 ? ' w' : ''}">${k}</kbd>${t}</span>`).join('');
+  }
+  document.addEventListener('mousemove', () => { if (padAt && performance.now() - padAt > 800) { padAt = 0; padHint(); } });
+  function rumble(ms, strong) {
+    if (!padOn || SET.rumble === false || !padAt) return;
+    const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    try { if (gp && gp.vibrationActuator) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: strong * .6 }).catch(() => { }); } catch (e) { }
+  }
   function padLoop() {
     const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
     if (!gp) { padOn = false; return; }
@@ -2137,7 +2227,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const els = [...root.querySelectorAll('button, select, input, .chip.click, [data-o], [data-t]')].filter(e => e.offsetParent && !e.disabled && !e.closest('[hidden]'));
     if (!els.length) return;
     const cur0 = document.activeElement;
-    if (!els.includes(cur0)) { padFocusEl(els[0]); return; }
+    if (!els.includes(cur0)) { padFocusEl(els.find(e => e.matches('.big, .main, .choice, #btnGo, #btnNext')) || els[0]); return; }
     const r0 = cur0.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2, v = dir === 'up' || dir === 'down';
     let best = null, bd = 1e9;
     for (const e of els) {
@@ -2148,6 +2238,13 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (sc < bd) { bd = sc; best = e; }
     }
     if (best) padFocusEl(best);
+  }
+  // manette : sur un nouvel écran, le bouton principal est déjà choisi (A le valide)
+  function padAutoFocus() {
+    if (!padOn || !padAt || performance.now() - padAt > 20000) return;
+    const scr = document.querySelector('.screen.on'); if (!scr || scr.id === 'game') return;
+    const e = [...scr.querySelectorAll('.big, .main, .choice, #btnGo')].find(x => x.offsetParent && !x.disabled);
+    if (e) padFocusEl(e);
   }
   function padFocusEl(e) {
     document.querySelectorAll('.padfocus').forEach(x => x.classList.remove('padfocus'));
@@ -2168,11 +2265,19 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
   }
   function padPress(k) {
+    padAt = performance.now(); setTimeout(padHint, 0);
     const scr = (document.querySelector('.screen.on') || {}).id, m = modalOpen();
     const inBoard = scr === 'game' && G && !m && !sheet && padBoard && !G.replay;
     if (k === 'b') return padKey('Escape');
     if (k === 'start') return m === 'setModal' ? closeSettings() : openSettings();
     if (k === 'back') return m === 'codexModal' ? closeCodex() : openCodex();
+    if ((k === 'lb' || k === 'rb') && scr === 'game' && G && !m && !G.replay && padBoard) { // perso suivant / précédent qu'on peut activer
+      if (!humanTurn() || G.s.phase !== 'play') return;
+      const froms = [...new Set(legal().filter(a => a.k === 'act').map(a => a.from))];
+      if (!froms.length) return toast(L('Aucun perso à activer.'));
+      const i = froms.indexOf(G.padQ), q = froms[(i + (k === 'lb' ? froms.length - 1 : 1)) % froms.length];
+      G.padQ = q; selectPiece(q); return;
+    }
     if (k === 'lb') return padKey('ArrowLeft');
     if (k === 'rb') return padKey('ArrowRight');
     if (scr === 'game' && G && G.replay && !m) {

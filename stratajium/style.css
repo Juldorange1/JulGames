@@ -785,3 +785,20 @@ body.cb .sq.warn::after { background: repeating-linear-gradient(45deg, rgba(255,
 @keyframes die { 0% { transform: scale(1); opacity: 1; filter: brightness(1); } 12% { transform: scale(1.15) rotate(-5deg); filter: brightness(2.6) drop-shadow(0 0 10px #fff); }
   30% { transform: scale(1.08) rotate(8deg) translateY(-6%); } 100% { transform: scale(.35) rotate(60deg) translateY(30%); opacity: 0; filter: brightness(.6) grayscale(1); } }
 body.anim-off .slash, body.anim-off .soul { display: none; }
+/* renommée et couleurs de la partie */
+.gems { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 8px; }
+.gem { width: 24px; height: 24px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .25); background: radial-gradient(circle at 35% 30%, #fff, var(--g) 45%, rgba(0, 0, 0, .55)); font-size: 11px; line-height: 1; }
+.gem[disabled] { background: rgba(255, 255, 255, .06); opacity: .6; cursor: default; }
+.gem.sel { border-color: #fff; box-shadow: 0 0 10px var(--g); }
+.army { font-weight: 700; font-size: .85em; white-space: nowrap; } .army.sh { color: #c8a8ff; } .army.li { color: #ffd86a; }
+/* histoire */
+.storyimg { display: block; width: 100%; max-height: 22vh; object-fit: cover; border-radius: 12px; border: 1px solid rgba(242, 193, 78, .5); box-shadow: 0 6px 18px rgba(0, 0, 0, .45); margin: 4px 0 6px; }
+.evcard .quote { display: block; margin: 4px 0; color: #ffe3b0; font-size: 16px; }
+/* aide de la manette */
+.padhint { position: fixed; right: 8px; bottom: 8px; z-index: 60; display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 12px; background: rgba(10, 12, 10, .82); border: 1px solid var(--line); font-size: 14px; color: #f0e8d8; pointer-events: none; white-space: nowrap; }
+.padhint span { display: flex; align-items: center; gap: 5px; }
+.padhint kbd.pad { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: #2a2a2a; border: 1px solid #888; font-size: 12px; font-weight: 800; }
+.padhint kbd.pad.w { border-radius: 8px; padding: 0 5px; }
+.exps[hidden] { display: none !important; }
+.famerow { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; } .famerow .trk { flex: 1; min-width: 90px; margin: 0; } .famerow .trk > span:first-child { display: none; } .famerow .gems { margin: 0; gap: 3px; } .famerow .gem { width: 20px; height: 20px; font-size: 9px; }
+.famerow .trk { grid-template-columns: 1fr 58px; }
