@@ -813,3 +813,23 @@ body.anim-off .slash, body.anim-off .soul { display: none; }
 .dtab .p0 { color: var(--gold); } .dtab .p1 { color: var(--vio); }
 .fcurve { width: 100%; height: 80px; display: block; }
 @media (max-width: 760px) { .dcols { grid-template-columns: 1fr; overflow: auto; } }
+/* règles de l'affrontement, toujours visibles */
+#rulesCard { flex: none; max-height: 34vh; overflow: auto; }
+#rulesCard:empty { display: none; }
+#rulesCard h3 { font-size: 15px; margin-bottom: 4px; }
+.rules { list-style: none; margin: 0; padding: 0; font-size: 14.5px; line-height: 1.35; }
+.rules li { padding: 3px 0; border-top: 1px solid rgba(255, 255, 255, .06); } .rules li:first-child { border-top: 0; }
+#evBadge, #goalBadge { cursor: pointer; }
+/* revue de la partie (façon chess.com) */
+.review { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.25fr; gap: 12px; }
+.accs { display: flex; gap: 10px; margin-bottom: 8px; }
+.acc { flex: 1; text-align: center; border-radius: 12px; padding: 6px 4px; background: rgba(255, 255, 255, .05); }
+.acc b { display: block; font-size: 30px; line-height: 1.1; } .acc small { display: block; color: var(--muted); font-size: 13.5px; }
+.acc.p0 b { color: var(--gold); } .acc.p1 b { color: var(--vio); }
+.rvtab { width: 100%; border-collapse: collapse; font-size: 15px; }
+.rvtab td { padding: 2px 6px; border-top: 1px solid rgba(255, 255, 255, .06); } .rvtab td.ic { font-weight: 900; width: 28px; text-align: center; }
+.rvtab td.p0, .rvtab td.p1 { text-align: center; width: 44px; font-weight: 700; } .rvtab td.p0 { color: var(--gold); } .rvtab td.p1 { color: var(--vio); }
+.rvmini { color: var(--muted); font-size: 14px; margin: 6px 0; }
+.rvgraph { width: 100%; height: 90px; display: block; border-radius: 8px; }
+.errs.keys li span { line-height: 1.3; }
+@media (max-width: 760px) { .review { grid-template-columns: 1fr; overflow: auto; } }

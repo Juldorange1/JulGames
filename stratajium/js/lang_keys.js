@@ -271,7 +271,7 @@ I18N.KEYS = [
   "Seuls les <b>soldats</b> ont un sens : ils avancent vers l’adversaire. Les gardes vont dans tous les sens ; les dieux ne bougent pas.",
   "On prend un ennemi en arrivant sur sa case. Les sorts de zone ne tuent que des ennemis.",
   "Celui qui commence est <b>tiré au sort</b>. Tu peux <b>annuler ton dernier coup</b> (↶, Ctrl+Z ou U), même après la fin d’un affrontement.",
-  "Précisions : « tous les dieux » = l’adversaire a perdu au moins 1 dieu et il ne lui en reste aucun (ni sur la carte, ni à placer) — un dieu jamais recruté ne peut pas mourir. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. 150 tours sans aucune mort = match nul.",
+  "Précisions : « tous les dieux » = l’adversaire a perdu au moins 1 dieu et il ne lui en reste aucun (ni sur la carte, ni à placer) — un dieu jamais recruté ne peut pas mourir. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 coups sans aucune mort) : celui qui a le plus de mana gagne.",
   "Comment jouer", // 270
   "<b>Recruter</b> : ouvre la réserve commune (bouton ➕ Recruter ou touche R) et clique un perso.",
   "<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.",
@@ -786,4 +786,24 @@ I18N.KEYS = [
   "Détails",
   // Jumeau : prendre (2026-10-23)
   "prend en {c}",
+  // revue de partie façon chess.com, règles visibles (2026-10-23)
+  "Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.",
+  "Règles de cet affrontement",
+  "Coup unique",
+  "Meilleur coup",
+  "Excellent",
+  "Bon",
+  "Imprécision",
+  "Erreur",
+  "Prise ratée",
+  "Gaffe",
+  "En or : tes chances de gagner après chaque coup (au-dessus du milieu, tu menais).",
+  "Mieux : {x}",
+  "Aucune grosse erreur : bien joué !",
+  "précision",
+  "{n} perdu(s)",
+  "{n} tours",
+  "Avantage au fil de la partie",
+  "Partie trop longue : le plus de mana gagne.",
+  "Partie trop longue, autant de mana des deux côtés : match nul.",
 ];

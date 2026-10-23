@@ -1098,7 +1098,11 @@ function StratEngine() {
     s.turn = 1 - p; s.acts = 1; s.ply++;
     s.quiet++;
     if (s.dawn && s.winner === null && s.ply >= s.dawn * 2) { s.winner = 1; s.why = 'L’aube s’est levée : les Ombres n’ont pas gagné à temps.'; } // handicap « L’aube »
-    if (s.quiet >= 150 && s.winner === null) { s.winner = 2; s.why = '150 tours (75 chacun) sans aucune élimination : partie nulle.'; }
+    if ((s.quiet >= 150 || s.ply >= 200) && s.winner === null) { // partie trop longue : celui qui a le plus de mana gagne
+      const m0 = s.mana[0], m1 = s.mana[1];
+      s.winner = m0 === m1 ? 2 : m0 > m1 ? 0 : 1;
+      s.why = m0 === m1 ? 'Partie trop longue, autant de mana des deux côtés : match nul.' : 'Partie trop longue : le plus de mana gagne.';
+    }
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
     if (s.shroud && s.shroud.p === q) s.shroud = null; // le linceul aussi
@@ -1725,8 +1729,9 @@ function StratEngine() {
       }
       sc += stm === p ? th : -th;
     }
-    // 150 tours sans élimination = nulle : plus on s'en approche, moins l'avance compte (celui qui mène cherche à prendre)
-    if (X && s.quiet > 40) sc *= Math.max(0.1, (150 - s.quiet) / 110);
+    // partie trop longue (150 coups sans élimination, ou 200 coups) : le mana décide, il compte de plus en plus en s'approchant de la fin
+    const near = Math.min(1, Math.max(0, (s.quiet - 100) / 50, (s.ply - 150) / 50));
+    if (near > 0) sc = sc * (1 - 0.6 * near) + near * (s.mana[p] - s.mana[1 - p]) * 0.15;
     return sc;
   }
 
@@ -1796,6 +1801,17 @@ function StratEngine() {
   }
 
   // think(état, niveau, options) — options : { budget (ms), maxMs, perso, canExtend }
+  function analyse(s0, played) {
+    if (!s0 || s0.phase !== 'play' || s0.winner !== null) return null;
+    W8 = { wG: 1, wM: 1, opp: null }; X = 1; setPerso(null, .3);
+    const s = clone(s0); s.declOn = false;
+    const p = s.turn, acts = gen(s, false);
+    let best = -1e9, second = -1e9, bestA = null;
+    for (const a of acts) { const v = evalS(child(s, a), p, true); if (v > best) { second = best; best = v; bestA = a; } else if (v > second) second = v; }
+    const pv = evalS(child(s, played), p, true);
+    if (pv > best) { second = best; best = pv; bestA = played; }
+    return { best, played: pv, second: acts.length > 1 ? second : best, bestA, n: acts.length };
+  }
   function think(s0, level, opt) {
     opt = opt || {};
     W8 = { wG: 1, wM: 1, opp: null };
@@ -2016,7 +2032,7 @@ function StratEngine() {
   }
 
   return {
-    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

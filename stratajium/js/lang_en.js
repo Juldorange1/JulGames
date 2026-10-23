@@ -100,7 +100,7 @@
     'Seuls les <b>soldats</b> ont un sens : ils avancent vers l’adversaire. Les gardes vont dans tous les sens ; les dieux ne bougent pas.': 'Only <b>soldiers</b> have a direction: they advance towards the opponent. Guards move in every direction; gods don’t move.',
     'On prend un ennemi en arrivant sur sa case. Les sorts de zone ne tuent que des ennemis.': 'You capture an enemy by moving onto its square. Area spells only kill enemies.',
     'Celui qui commence est <b>tiré au sort</b>. Tu peux <b>annuler ton dernier coup</b> (↶, Ctrl+Z ou U).': 'Who starts is <b>drawn at random</b>. You can <b>undo your last move</b> (↶, Ctrl+Z or U).',
-    'Précisions : « tous les dieux » = l’adversaire a perdu au moins 1 dieu et il ne lui en reste aucun (ni sur la carte, ni à placer) — un dieu jamais recruté ne peut pas mourir. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. 150 tours sans aucune mort = match nul.': 'Details: “all gods” = the opponent has lost at least 1 god and has none left (neither on the map nor to place) — a god never recruited can’t die. Holes in the map can’t be crossed; a unit pushed into one dies. 150 turns without any death = draw.',
+    'Précisions : « tous les dieux » = l’adversaire a perdu au moins 1 dieu et il ne lui en reste aucun (ni sur la carte, ni à placer) — un dieu jamais recruté ne peut pas mourir. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 coups sans aucune mort) : celui qui a le plus de mana gagne.': 'Details: “all gods” = the opponent has lost at least 1 god and has none left (neither on the map nor to place) — a god never recruited can’t die. Holes in the map can’t be crossed; a unit pushed into one dies. Game too long (200 moves, or 150 moves without any death): the most mana wins.',
     'Comment jouer': 'How to play', '<b>Recruter</b> : clique un perso dans la réserve commune (à droite).': '<b>Recruit</b>: click a unit in the shared pool (on the right).',
     '<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.': '<b>Place</b>: click a unit in your “To place” list, then a square of your zone.',
     '<b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les sorts de zone ont des boutons sous la carte (survole-les pour voir la zone).': '<b>Activate</b>: click your unit on the map, then the highlighted squares (green = move, red = attack, dotted blue = pick a unit). Area spells have buttons under the map (hover them to see the area).',
@@ -820,4 +820,25 @@
   D.T.n3[1] = "Bites without moving an enemy next to it (not a god): it dies and you gain 10 mana. Or 1 step to an empty square.";
   D.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It only captures an enemy right next to it (straight).";
   D.T.n8[1] = "1 step in 8 directions (captures the enemy). When she dies, 2 Shadows appear around her.";
+  Object.assign(D.ui, {
+    "Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.": "Shadows: 3 units in the enemy deployment zone = victory. An enemy guard or soldier can’t capture them from more than 4 squares away.",
+    "Règles de cet affrontement": "Rules of this battle",
+    "Coup unique": "Great move",
+    "Meilleur coup": "Best move",
+    "Excellent": "Excellent",
+    "Bon": "Good",
+    "Imprécision": "Inaccuracy",
+    "Erreur": "Mistake",
+    "Prise ratée": "Missed capture",
+    "Gaffe": "Blunder",
+    "En or : tes chances de gagner après chaque coup (au-dessus du milieu, tu menais).": "In gold: your chances of winning after each move (above the middle, you were ahead).",
+    "Mieux : {x}": "Better: {x}",
+    "Aucune grosse erreur : bien joué !": "No big mistake: well played!",
+    "précision": "accuracy",
+    "{n} perdu(s)": "{n} lost",
+    "{n} tours": "{n} turns",
+    "Avantage au fil de la partie": "Advantage over the game",
+    "Partie trop longue : le plus de mana gagne.": "Game too long: the most mana wins.",
+    "Partie trop longue, autant de mana des deux côtés : match nul.": "Game too long, same mana on both sides: draw.",
+  });
 })();
