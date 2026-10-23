@@ -185,9 +185,74 @@ const Art = (function () {
     sg: `<path d="M22 88 L18 56 L30 40 L50 32 L70 40 L82 56 L78 88 Z" fill="#9fe0ff" stroke="#3a8ab0" stroke-width="2.5"/><path d="M30 40 L40 60 L50 32 L60 60 L70 40 M18 56 L40 60 L60 60 L82 56 M40 60 L36 88 M60 60 L64 88" stroke="#e6f8ff" stroke-width="2" fill="none" opacity=".8"/>
       <path d="M36 32 L42 12 L50 22 L58 10 L64 32 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>${glow(42, 46, 3.4, '#ffffff')}${glow(58, 46, 3.4, '#ffffff')}
       <path d="M8 60 L18 52 L22 68 Z M92 60 L82 52 L78 68 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>`,
+    // ---------- armée des Ombres : dieux ----------
+    na: `<path d="M22 90 Q20 56 34 42 L40 20 Q44 14 48 22 L50 40 L54 16 Q58 10 62 18 L62 42 L68 26 Q73 22 75 30 L72 52 Q84 60 78 90 Z" fill="#3a2458" stroke="#1a0e2a" stroke-width="2.5"/>
+      <ellipse cx="54" cy="66" rx="16" ry="11" fill="#e8dcff"/><circle cx="54" cy="66" r="7" fill="#9a4aff"/><circle cx="54" cy="66" r="3" fill="#120818"/><circle cx="51" cy="63" r="1.8" fill="#fff"/>
+      <path d="M20 30 Q28 34 26 44 M84 30 Q76 36 80 46" stroke="#b48cff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".8"/>`,
+    nb: `<path d="M26 54 Q26 22 50 20 Q74 22 74 54 Q74 66 64 70 L64 80 L36 80 L36 70 Q26 66 26 54 Z" fill="#d8d0c0" stroke="#5a5040" stroke-width="2.5"/>
+      <ellipse cx="40" cy="50" rx="7" ry="8" fill="#1a1020"/><ellipse cx="60" cy="50" rx="7" ry="8" fill="#1a1020"/>${glow(40, 50, 2.6, '#7aff5a')}${glow(60, 50, 2.6, '#7aff5a')}
+      <path d="M46 64 L50 58 L54 64 Z" fill="#1a1020"/><path d="M40 80 L40 74 M46 80 L46 74 M52 80 L52 74 M58 80 L58 74" stroke="#5a5040" stroke-width="2"/>
+      <path d="M14 26 Q22 18 30 24 Q24 32 14 26 Z M86 26 Q78 18 70 24 Q76 32 86 26 Z" fill="#7aff5a" opacity=".55"/>`,
+    nc: `<ellipse cx="50" cy="54" rx="34" ry="36" fill="#1a0e2a"/><ellipse cx="50" cy="54" rx="26" ry="28" fill="none" stroke="#9a6bff" stroke-width="5"/><ellipse cx="50" cy="54" rx="16" ry="18" fill="none" stroke="#5ad1ff" stroke-width="3.5" stroke-dasharray="9 6"/>
+      <path d="M36 54 Q50 40 64 54 Q50 68 36 54 Z" fill="#2a1a40"/>${glow(46, 54, 2.6, '#d9c6ff')}${glow(54, 54, 2.6, '#d9c6ff')}`,
+    nd: `<path d="M30 30 Q50 18 70 30 Q78 48 70 66 Q50 76 30 66 Q22 48 30 30 Z" fill="#2c2238" stroke="#120a1a" stroke-width="2.5"/><path d="M30 30 Q24 16 34 20 M70 30 Q76 16 66 20" stroke="#2c2238" stroke-width="6" stroke-linecap="round"/>
+      ${glow(41, 44, 3.4, '#ff5a8a')}${glow(59, 44, 3.4, '#ff5a8a')}<path d="M40 58 Q50 64 60 58" stroke="#ff8ab0" stroke-width="2.5" fill="none"/>
+      <path d="M58 76 Q72 80 76 92 Q64 90 56 84 Z" fill="#7fd3ff" opacity=".85"/><circle cx="74" cy="88" r="5" fill="#bff0ff"/>`,
+    ne: `<circle cx="74" cy="20" r="11" fill="#fff6d0"/><circle cx="78" cy="17" r="10" fill="#1c1428"/>
+      <path d="M28 90 L30 60 L22 44 L30 40 L36 28 L42 40 Q58 36 66 50 L60 60 L58 90 Z" fill="#4a4258" stroke="#1c1428" stroke-width="2.5"/>
+      <path d="M36 28 L32 18 L40 26 Z" fill="#4a4258"/>${glow(44, 46, 2.6, '#ffe85a')}<path d="M60 50 L70 44 L66 54 Z" fill="#1c1428"/>
+      <path d="M68 40 Q78 36 84 38 M70 48 Q80 48 86 52" stroke="#c8b8ff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>`,
+    nf: `<path d="M16 92 L24 60 L76 60 L84 92 Z" fill="#3a3040"/><path d="M38 60 L38 30 Q38 22 50 22 Q62 22 62 30 L62 60" fill="#8a8494" stroke="#2a2430" stroke-width="2.5"/>
+      <path d="M44 34 L56 34 M50 28 L50 44" stroke="#2a2430" stroke-width="3"/><path d="M26 78 Q30 66 34 76 Q38 64 42 76" stroke="#d8d0e8" stroke-width="4" fill="none" stroke-linecap="round"/>
+      ${glow(32, 70, 2, '#9aff9a')}<path d="M60 74 Q64 66 68 74 Q72 66 76 76" stroke="#d8d0e8" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    ng: `<circle cx="50" cy="52" r="20" fill="#2a2234"/><g fill="none" stroke="#9a94a8" stroke-width="5"><ellipse cx="22" cy="40" rx="8" ry="5"/><ellipse cx="14" cy="54" rx="8" ry="5"/><ellipse cx="78" cy="40" rx="8" ry="5"/><ellipse cx="86" cy="54" rx="8" ry="5"/><ellipse cx="50" cy="82" rx="5" ry="8"/></g>
+      ${glow(43, 48, 3, '#ff6a6a')}${glow(57, 48, 3, '#ff6a6a')}<path d="M42 60 L58 60" stroke="#120a1a" stroke-width="2.5"/>`,
+    nh: `<path d="M20 92 L20 40 Q20 12 50 12 Q80 12 80 40 L80 92 Z" fill="#3a3044" stroke="#18101e" stroke-width="3"/><path d="M30 92 L30 42 Q30 22 50 22 Q70 22 70 42 L70 92 Z" fill="#0c0612"/>
+      <path d="M30 92 L30 42 Q30 22 50 22 Q70 22 70 42 L70 92" fill="none" stroke="#9a6bff" stroke-width="2.5" opacity=".9"/>${glow(44, 52, 2.6, '#c88aff')}${glow(56, 52, 2.6, '#c88aff')}
+      <circle cx="50" cy="16" r="3" fill="#ffd34a"/>`,
+    ni: `<path d="M30 90 Q26 60 36 46 Q30 30 44 24 L50 10 L56 24 Q70 30 64 46 Q74 60 70 90 Z" fill="#26201e" stroke="#0e0a0a" stroke-width="2.5"/>
+      <path d="M50 40 Q62 44 66 56 L54 54 Z" fill="#c8b890" stroke="#5a4a30" stroke-width="2"/>${glow(42, 40, 2.6, '#ffe85a')}
+      <circle cx="22" cy="70" r="5" fill="#7a9a3a" opacity=".8"/><circle cx="80" cy="64" r="4" fill="#7a9a3a" opacity=".8"/><circle cx="16" cy="54" r="3" fill="#7a9a3a" opacity=".6"/>`,
+    nj: `<path d="M18 90 Q22 40 50 18 Q78 40 82 90 Z" fill="#e8e2f4" stroke="#8a7ab0" stroke-width="2.5" opacity=".95"/><path d="M30 90 Q34 56 50 40 Q66 56 70 90" fill="none" stroke="#b8a8d8" stroke-width="2"/>
+      ${glow(43, 44, 2.6, '#7a5aff')}${glow(57, 44, 2.6, '#7a5aff')}<path d="M44 54 Q50 57 56 54" stroke="#7a6a9a" stroke-width="2" fill="none"/>`,
+    nk: `<path d="M6 70 Q20 50 34 64 Q46 44 60 62 Q74 42 94 60 L94 94 L6 94 Z" fill="#160e22"/><path d="M6 70 Q20 50 34 64 Q46 44 60 62 Q74 42 94 60" fill="none" stroke="#9a6bff" stroke-width="3"/>
+      <path d="M30 60 Q34 40 44 36 Q54 40 56 58" fill="#241838"/>${glow(40, 48, 2.2, '#c88aff')}${glow(49, 48, 2.2, '#c88aff')}
+      <circle cx="74" cy="30" r="9" fill="#d8d0e8"/><circle cx="78" cy="27" r="8" fill="#0c0612" opacity=".9"/>`,
+    // ---------- armée des Ombres : gardes ----------
+    n1: `<path d="M24 88 L24 46 Q24 18 50 18 Q76 18 76 46 L76 88 L68 80 L60 90 L50 80 L40 90 L32 80 Z" fill="#eef0ff" stroke="#9aa0c8" stroke-width="2.5" opacity=".9"/>
+      <ellipse cx="41" cy="46" rx="6" ry="8" fill="#1a1a2a"/><ellipse cx="59" cy="46" rx="6" ry="8" fill="#1a1a2a"/><ellipse cx="50" cy="64" rx="6" ry="8" fill="#1a1a2a"/>`,
+    n2: `<path d="M24 90 Q20 60 30 48 Q26 30 42 24 L58 24 Q74 30 70 48 Q80 60 76 90 Z" fill="#6a8a6a" stroke="#2a3a2a" stroke-width="2.5"/>
+      ${glow(41, 42, 3.6, '#ffe85a')}${glow(59, 42, 3.6, '#ffe85a')}<path d="M36 58 L64 58 L60 66 L40 66 Z" fill="#2a1a1a"/><path d="M40 58 L42 63 L44 58 L46 63 L48 58 L50 63 L52 58 L54 63 L56 58 L58 63 L60 58" fill="#e8e0c8"/>
+      <path d="M18 70 L28 64 M82 70 L72 64" stroke="#6a8a6a" stroke-width="6" stroke-linecap="round"/>`,
+    n3: `<path d="M12 46 L30 34 L36 54 Z M88 46 L70 34 L64 54 Z" fill="#3a1020"/><path d="M28 90 Q24 56 50 44 Q76 56 72 90 Z" fill="#1c1018"/><path d="M50 44 L40 90 M50 44 L60 90" stroke="#8a1a2a" stroke-width="2"/>
+      <ellipse cx="50" cy="36" rx="14" ry="16" fill="#e8e0ec"/><path d="M36 30 Q50 14 64 30 L58 24 L50 30 L42 24 Z" fill="#1c1018"/>${eye(44, 36, 3.4, '#c8102a')}${eye(56, 36, 3.4, '#c8102a')}
+      <path d="M45 46 L46 50 L47 46 M53 46 L54 50 L55 46" stroke="#fff" stroke-width="1.6" fill="none"/>`,
+    n4: `<g stroke="#1a1018" stroke-width="3.5" fill="none" stroke-linecap="round"><path d="M38 52 L22 40 L12 46 M38 58 L18 58 L10 66 M40 64 L24 74 L20 86 M62 52 L78 40 L88 46 M62 58 L82 58 L90 66 M60 64 L76 74 L80 86"/></g>
+      <ellipse cx="50" cy="62" rx="14" ry="16" fill="#2a1a2e"/><circle cx="50" cy="42" r="11" fill="#3a2440"/>${glow(45, 40, 2, '#ff4a4a')}${glow(55, 40, 2, '#ff4a4a')}${glow(50, 46, 1.6, '#ff4a4a')}
+      <path d="M44 66 L56 66 M46 72 L54 72" stroke="#ff8a3d" stroke-width="2"/><path d="M50 10 L50 31" stroke="#d8d8e8" stroke-width="1.4"/>`,
+    n5: `<path d="M22 86 L34 56 L66 56 L78 86 Z" fill="#8a6a4a" stroke="#4a3420" stroke-width="2.5" transform="rotate(-14 50 70)"/><path d="M30 56 L36 30 L64 30 L70 56" fill="#a8845a" stroke="#4a3420" stroke-width="2.5" transform="rotate(-14 50 70)"/>
+      <path d="M50 14 Q34 18 34 34 Q34 48 50 50 Q66 48 66 34 Q66 18 50 14 Z" fill="#dff4ff" opacity=".85"/>${glow(44, 32, 2.6, '#5ad1ff')}${glow(56, 32, 2.6, '#5ad1ff')}<ellipse cx="50" cy="42" rx="4" ry="3" fill="#1a2a3a"/>`,
+    n6: `<path d="M18 84 Q30 66 46 76 Q62 86 70 70 Q78 54 60 48 Q46 44 52 32" fill="none" stroke="#3a5a2a" stroke-width="13" stroke-linecap="round"/><path d="M18 84 Q30 66 46 76 Q62 86 70 70 Q78 54 60 48 Q46 44 52 32" fill="none" stroke="#7ab84a" stroke-width="5" stroke-dasharray="3 6" stroke-linecap="round"/>
+      <ellipse cx="54" cy="26" rx="12" ry="9" fill="#4a7a32" stroke="#22381a" stroke-width="2"/>${glow(50, 23, 2.2, '#ffe85a')}${glow(58, 23, 2.2, '#ffe85a')}<path d="M64 28 L72 30 L68 32 L72 34 L64 31" stroke="#ff4a6a" stroke-width="1.8" fill="none"/>`,
+    n7: `<path d="M26 90 Q20 58 30 44 L24 20 L38 34 Q50 28 62 34 L76 20 L70 44 Q80 58 74 90 Z" fill="#5a4a3e" stroke="#2a2018" stroke-width="2.5"/>
+      <path d="M38 56 Q50 70 62 56 L58 66 Q50 74 42 66 Z" fill="#e8dcc8"/>${glow(40, 46, 3.2, '#ffcc33')}${glow(60, 46, 3.2, '#ffcc33')}<path d="M44 66 L46 70 L48 66 M52 66 L54 70 L56 66" stroke="#fff" stroke-width="1.5" fill="none"/>
+      <path d="M22 40 L30 44 M78 40 L70 44" stroke="#8a7a68" stroke-width="2"/>`,
+    n8: `<path d="M20 74 Q20 56 34 54 Q36 42 50 42 Q64 42 66 54 Q80 56 80 74 Q80 88 50 88 Q20 88 20 74 Z" fill="#e8d8b0" stroke="#8a7440" stroke-width="2.5"/>
+      <path d="M26 66 Q50 60 74 66 M24 76 Q50 70 76 76" stroke="#b89a5a" stroke-width="2" fill="none"/>${eye(43, 52, 3.4, '#5a2a8a')}${eye(57, 52, 3.4, '#5a2a8a')}${smile(50, 60, 4)}
+      <ellipse cx="80" cy="40" rx="6" ry="8" fill="#d8c8f0" opacity=".9"/><ellipse cx="88" cy="56" rx="5" ry="7" fill="#d8c8f0" opacity=".8"/>`,
+    n9: `<path d="M30 30 L22 8 L40 24 Z M70 30 L78 8 L60 24 Z" fill="#2a0a0a"/><path d="M26 90 Q22 56 32 40 Q50 26 68 40 Q78 56 74 90 Z" fill="#b0281a" stroke="#4a0a0a" stroke-width="2.5"/>
+      ${glow(41, 50, 3.4, '#ffe85a')}${glow(59, 50, 3.4, '#ffe85a')}<path d="M38 66 Q50 76 62 66" stroke="#2a0a0a" stroke-width="3" fill="none"/><path d="M42 67 L44 72 L46 68 M54 68 L56 72 L58 67" stroke="#fff" stroke-width="1.5" fill="none"/>
+      <path d="M74 80 Q90 76 88 60 Q86 70 76 72" fill="#4a0a0a"/>`,
+    nl: `<ellipse cx="50" cy="34" rx="16" ry="17" fill="#ecebe0" stroke="#6a685a" stroke-width="2.5"/><ellipse cx="43" cy="34" rx="5" ry="6" fill="#1a1a1a"/><ellipse cx="57" cy="34" rx="5" ry="6" fill="#1a1a1a"/>${glow(43, 34, 1.6, '#7aff5a')}${glow(57, 34, 1.6, '#7aff5a')}
+      <path d="M44 46 L44 50 M48 46 L48 51 M52 46 L52 51 M56 46 L56 50" stroke="#6a685a" stroke-width="2"/><path d="M50 52 L50 86 M38 60 L62 60 M40 68 L60 68 M42 76 L58 76" stroke="#ecebe0" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M70 50 L86 36" stroke="#ecebe0" stroke-width="5" stroke-linecap="round"/><circle cx="87" cy="34" r="4" fill="#ecebe0"/><circle cx="69" cy="52" r="4" fill="#ecebe0"/>`,
+    nm: `<ellipse cx="50" cy="52" rx="30" ry="38" fill="#a8c8e8" stroke="#4a6a8a" stroke-width="3"/><ellipse cx="50" cy="52" rx="24" ry="32" fill="#dceeff"/>
+      <path d="M50 22 L50 82" stroke="#4a6a8a" stroke-width="1.6" stroke-dasharray="3 3"/><path d="M40 46 Q34 60 44 70 M60 46 Q66 60 56 70" stroke="#7a9ab8" stroke-width="3" fill="none"/>
+      ${eye(42, 44, 3.2, '#6a3ab8')}${eye(58, 44, 3.2, '#6a3ab8')}<path d="M30 30 L38 24 M64 76 L72 70" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+    nn: `<path d="M24 90 Q22 54 34 40 Q30 18 50 16 Q70 18 66 40 Q78 54 76 90 Z" fill="#1a1414" stroke="#080606" stroke-width="2.5"/><path d="M36 40 Q50 32 64 40 L60 52 L40 52 Z" fill="#2a2020"/>
+      ${glow(44, 44, 2.6, '#ff3a3a')}${glow(56, 44, 2.6, '#ff3a3a')}<path d="M78 18 L78 86" stroke="#6a4a2a" stroke-width="4"/><path d="M78 20 Q96 26 94 42 Q86 34 78 36 Z" fill="#b8bcc8" stroke="#5a5e6a" stroke-width="1.6"/>`,
+    no: `<path d="M10 82 Q30 70 50 74 Q70 78 90 70 L90 92 L10 92 Z" fill="#160e1e"/><path d="M24 76 L30 44 Q32 36 38 42 L40 60 L44 30 Q46 22 52 30 L52 60 L58 36 Q62 30 66 38 L62 64 L70 52 Q76 50 74 58 L66 78 Z" fill="#2a1e36" stroke="#0c0612" stroke-width="2.5"/>
+      ${glow(44, 66, 2.6, '#c88aff')}${glow(54, 66, 2.6, '#c88aff')}`,
   };
-  // jumeaux des Ombres : la même créature, passée dans l'ombre
-  const TW = { na: 'ma', nb: 'mb', nc: 'mc', nd: 'md', ne: 'me', nf: 'pa', ng: 'pb', nh: 'pc', ni: 'pd', nj: 'pe', nk: 'pg', n1: 'g1', n2: 'g2', n3: 'g3', n4: 'g4', n5: 'g5', n6: 'g6', n7: 'g7', n8: 'c1', n9: 'c2', nl: 'c4', nm: 'c7', nn: 'cv', no: 'gd' };
-  for (const k in TW) A[k] = `<g filter="url(#shTint)">${A[TW[k]]}</g>`;
   return { get: id => A[id] || '' };
 })();

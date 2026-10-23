@@ -1208,7 +1208,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function sys(txt) { const li = document.createElement('li'); li.className = 'sys'; li.textContent = txt; $('log').prepend(li); }
 
   // ---------- sélection ----------
-  const SELECT_IDX = { mb: [0, 1], mc: [0], md: [0, 2], g1: [0], pc: [0], pr: [0] };
+  const SELECT_IDX = { mb: [0, 1], mc: [0], md: [0, 2], g1: [0], pc: [0], pr: [0], nc: [0], nh: [0], nj: [0] };
   function matching() { const sel = G.sel; return sel.cands.filter(a => sel.pre.every((x, i) => a.cl[i] === x)); }
   function selView() {
     const v = { sq: new Map(), strs: [], complete: null, path: [] };
@@ -1247,6 +1247,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const s = G.s, t = T[E.tix(s.b[q])];
       let why = L('Ce perso n’a aucune action possible pour l’instant.');
       if (s.noAct[s.turn]) why = L('Tu ne peux plus activer de perso (Silence).');
+      else if (E.isIce(s, q) && s.frz && s.frz.some(f => f.q === q)) why = L('Ce perso est enchaîné : il ne peut pas être activé ce tour-ci.');
       else if (E.isIce(s, q)) why = s.boss.kind === 'sl' && !(s.boss.ice && s.boss.ice.includes(q)) ? L('La lumière du Phare fige ce perso : éloigne-toi ou frappe-le de loin.') : s.boss.kind === 'sa' ? L('L’Archange a aveuglé ce perso : il ne peut pas agir ce tour-ci.') : L('Ce perso est gelé : il ne peut pas agir ce tour-ci.');
       else if (t.cost && s.mana[s.turn] < t.cost) why = L('Pas assez de mana ({c} nécessaires).', { c: t.cost });
       else if (s.decl[s.turn] && legal().some(a => a.k !== 'pass')) why = L('Tu dois faire l’action que tu as annoncée.');
@@ -1331,7 +1332,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (centerSet && centerSet.has(q)) cls += ' hill';
       if (E.isBl(s, q)) cls += ' blessed';
       if (B && B.warn && B.warn.includes(q)) cls += ' warn';
-      if (B && B.ice && B.ice.includes(q)) cls += ' ice';
+      if ((B && B.ice && B.ice.includes(q)) || (s.frz && c > 0 && s.frz.some(f => f.q === q && E.own(c) === f.p))) cls += ' ice'; // gelé, ou enchaîné
+      if (s.curse && c > 0 && s.curse.some(k => k.q === q && E.own(c) === k.p)) cls += ' warn'; // maudit : il meurt s'il reste là
       if (B && B.kind === 'sl' && B.hp > 0 && q !== B.q && Math.max(Math.abs(((q / g.W) | 0) - ((B.q / g.W) | 0)), Math.abs(q % g.W - B.q % g.W)) <= 2) cls += ' aura';
       if (lastSq.has(q)) cls += ' last';
       if (declSq.has(q)) cls += ' decl';
@@ -1672,7 +1674,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let q = 0; q < 49; q++) { const c = s.b[q], light = (((q / DIAG_W) | 0) + q % DIAG_W) % 2 === 0; h += `<i class="${light ? 'l' : ''} ${cls[q]}">${q === DIAG_C ? token(E.tix(c), 0) : c > 0 ? `<b class="${E.own(c) ? 'en' : 'al'}"></b>` : ''}</i>`; }
     return h + '</div>';
   }
-  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1); E.SH_M.concat(E.SH_G).forEach(x => { if (NODIAG[mid(x)]) NODIAG[x] = 1; });
+  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1); E.SH_M.forEach(x => NODIAG[x] = 1);
   function pieceCards(ids) {
     const r = cur >= 0 ? run() : null;
     return ids.map(id => {
@@ -1702,7 +1704,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (tab === 'regles') return rulesBlocks();
     if (tab === 'dieux') return pieceCards(allM());
     if (tab === 'gardes') return pieceCards(allG());
-    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle a ses propres persos : un jumeau sombre pour chaque perso de la Lumière (mêmes pouvoirs, ou presque), et aucun perso de la Lumière. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
+    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Tous ses persos ont des pouvoirs à eux : possession, malédictions, portes des ombres, goules, loups-garous… Ses persos se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
     if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
@@ -2043,7 +2045,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${card('abysses', '🌊', L('Les Abysses'), [L('Un nouveau monde sous-marin, avec ses courants qui emportent les persos'), L('4 persos marins : Requin, Méduse, Pieuvre, Sirène'),
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres et le Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
-      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats), sans aucun perso de la Lumière'),
+      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir'),
         L('Sa façon de gagner : avoir 3 persos dans la zone de placement adverse'), L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
         L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'), L('5 handicaps difficiles propres aux parties des Ombres'),
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),

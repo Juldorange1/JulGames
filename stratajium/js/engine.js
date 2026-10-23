@@ -78,9 +78,9 @@ function StratEngine() {
     { id: 'of', cat: 'M', sym: 'f', name: 'Faucheur', cost: 60, val: 7, fac: 1, desc: 'Tue un ennemi (pas un dieu) collé à un de tes persos.' },
     { id: 'oe', cat: 'M', sym: 'e', name: 'Éclipse', cost: 50, val: 6.5, fac: 1, desc: 'Plonge la carte dans le noir : à son prochain tour, l’adversaire ne peut ni placer ni activer de perso.' },
     { id: 'ou', cat: 'M', sym: 'u', name: 'Dévoreur d’âmes', cost: 0, val: 5, fac: 1, desc: 'Sacrifie un de tes persos collés à lui (pas un dieu) : tu gagnes 50 mana.' },
-    { id: 'oa', cat: 'G', sym: 'a', name: 'Assassin', val: 3.6, fac: 1, desc: 'Fait 1 pas vers une case vide, ou bondit à 2 cases (ligne droite ou diagonale, par-dessus tout) ; prend en arrivant sur un ennemi.' },
+    { id: 'oa', cat: 'G', sym: 'a', name: 'Assassin', val: 3.6, fac: 1, desc: 'Fait 1 pas vers une case vide, ou bondit à 2 ou 3 cases (ligne droite ou diagonale, par-dessus tout) ; prend en arrivant sur un ennemi.' },
     { id: 'ob', cat: 'G', sym: 'b', name: 'Brume', val: 3, fac: 1, desc: 'Se téléporte sur une case vide à 3 cases ou moins, ou sur un ennemi à 2 cases ou moins pour le prendre.' },
-    { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 3 cases par-dessus tout ; prend en arrivant sur un ennemi.' },
+    { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 4 cases par-dessus tout ; prend en arrivant sur un ennemi.' },
     { id: 'ol', cat: 'G', sym: 'l', name: 'Lame', val: 3.6, fac: 1, desc: 'Avance de 2 cases en ligne droite (haut, bas, gauche, droite) et tue les ennemis qu’elle traverse.' },
     { id: 'ox', cat: 'G', sym: 'x', name: 'Chauve-souris', val: 3.2, fac: 1, desc: 'Vole à 2 cases (ligne droite ou diagonale) par-dessus tout ; prend en arrivant sur un ennemi.' },
     { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 4, desc: 'Boss de la Lumière, 4 points de vie. Un tour sur deux, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
@@ -88,31 +88,31 @@ function StratEngine() {
     { id: 'sl', cat: 'B', sym: 'L', name: 'Phare', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Il ne bouge pas, mais sa lumière fige tes gardes et tes soldats : ceux à 2 cases ou moins de lui ne peuvent pas être activés (tes dieux, si). Touche-le de loin ! Tous les 4 tours, il appelle un sbire.' },
     { id: 'sg', cat: 'B', sym: 'G', name: 'Golem de cristal', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Son cristal renvoie les tirs et les sorts : seuls les coups au contact le blessent. Tous les 4 tours, il écrase un perso collé à lui.' },
     { id: 'os', cat: 'S', sym: 'o', name: 'Ombre', val: 1, fac: 1, desc: 'Soldat des ombres : fait 1 pas en ligne droite (même en arrière) vers une case vide ; prend en diagonale vers l’avant.' },
-    // jumeaux des Ombres (as = le perso de la Lumière dont ils ont les pouvoirs ; valeur, coût et description viennent de lui)
-    { id: 'na', cat: 'M', sym: 'A', name: 'Tempête noire', as: 'ma', fac: 1 },
-    { id: 'nb', cat: 'M', sym: 'B', name: 'Miroir sombre', as: 'mb', fac: 1 },
-    { id: 'nc', cat: 'M', sym: 'C', name: 'Manipulateur', as: 'mc', fac: 1 },
-    { id: 'nd', cat: 'M', sym: 'D', name: 'Chef de meute', as: 'md', fac: 1 },
-    { id: 'ne', cat: 'M', sym: 'E', name: 'Rabatteur', as: 'me', fac: 1 },
-    { id: 'nf', cat: 'M', sym: 'F', name: 'Sablier noir', as: 'pa', fac: 1 },
-    { id: 'ng', cat: 'M', sym: 'G', name: 'Gouffre', as: 'pb', fac: 1 },
-    { id: 'nh', cat: 'M', sym: 'H', name: 'Cor des ombres', as: 'pc', fac: 1, desc: 'Une de tes Ombres (soldat des ombres) fait 2 pas d’affilée.' },
-    { id: 'ni', cat: 'M', sym: 'I', name: 'Invocateur', as: 'pd', fac: 1, desc: 'Recrute une Ombre (soldat des ombres) et la pose directement dans ta zone de placement.' },
-    { id: 'nj', cat: 'M', sym: 'J', name: 'Chaînes', as: 'pe', fac: 1 },
-    { id: 'nk', cat: 'M', sym: 'K', name: 'Vengeance', as: 'pg', fac: 1 },
-    { id: 'n1', cat: 'G', sym: '1', name: 'Double', as: 'g1', fac: 1 },
-    { id: 'n2', cat: 'G', sym: '2', name: 'Tour noire', as: 'g2', fac: 1 },
-    { id: 'n3', cat: 'G', sym: '3', name: 'Archère sombre', as: 'g3', fac: 1 },
-    { id: 'n4', cat: 'G', sym: '4', name: 'Mastodonte', as: 'g4', fac: 1 },
-    { id: 'n5', cat: 'G', sym: '5', name: 'Rôdeur', as: 'g5', fac: 1 },
-    { id: 'n6', cat: 'G', sym: '6', name: 'Tourment', as: 'g6', fac: 1 },
-    { id: 'n7', cat: 'G', sym: '7', name: 'Feu follet', as: 'g7', fac: 1 },
-    { id: 'n8', cat: 'G', sym: '8', name: 'Gargouille', as: 'c1', fac: 1 },
-    { id: 'n9', cat: 'G', sym: '9', name: 'Prêtre noir', as: 'c2', fac: 1 },
-    { id: 'nl', cat: 'G', sym: 'L', name: 'Arbalète d’os', as: 'c4', fac: 1 },
-    { id: 'nm', cat: 'G', sym: 'M', name: 'Catapulte d’os', as: 'c7', fac: 1 },
-    { id: 'nn', cat: 'G', sym: 'N', name: 'Cavalier sans tête', as: 'cv', fac: 1 },
-    { id: 'no', cat: 'G', sym: 'O', name: 'Sentinelle', as: 'gd', fac: 1 },
+    // armée des Ombres : des pouvoirs qu'aucun perso de la Lumière n'a
+    { id: 'na', cat: 'M', sym: 'A', name: 'Possession', cost: 65, val: 7, fac: 1, desc: 'Prend le contrôle d’un soldat ou d’un garde ennemi collé à un de tes persos : il passe dans ton camp (il compte comme perdu pour l’adversaire).' },
+    { id: 'nb', cat: 'M', sym: 'B', name: 'Malédiction', cost: 30, val: 5.5, fac: 1, desc: 'Maudit un ennemi (pas un dieu) n’importe où sur la carte : s’il est encore sur la même case à la fin du prochain tour de son camp, il meurt.' },
+    { id: 'nc', cat: 'M', sym: 'C', name: 'Passage', cost: 20, val: 5, fac: 1, desc: 'Fait passer un de tes persos (pas un dieu) par les ombres : il ressort sur une case vide collée à un autre de tes persos.' },
+    { id: 'nd', cat: 'M', sym: 'D', name: 'Voleur d’âmes', cost: 20, val: 5.5, fac: 1, desc: 'Vole jusqu’à 30 mana à l’adversaire.' },
+    { id: 'ne', cat: 'M', sym: 'E', name: 'Hurlement', cost: 30, val: 5.5, fac: 1, desc: 'Tous les ennemis (pas les dieux) qui sont dans ta moitié de carte reculent d’une case vers leur camp, si la case est libre.' },
+    { id: 'nf', cat: 'M', sym: 'F', name: 'Appel des morts', cost: 25, val: 5, fac: 1, desc: 'Fait entrer 2 Ombres (soldats des ombres) dans ta réserve, plus 1 par garde que tu as perdu (4 au plus).' },
+    { id: 'ng', cat: 'M', sym: 'G', name: 'Entrave', cost: 35, val: 5.5, fac: 1, desc: 'Enchaîne un perso ennemi (même un dieu) : il ne peut pas être activé pendant les 2 prochains tours de son camp.' },
+    { id: 'nh', cat: 'M', sym: 'H', name: 'Porte des ombres', cost: 45, val: 6, fac: 1, desc: 'Ouvre une porte : un de tes gardes ou soldats ressort sur une case vide de la zone de placement adverse.' },
+    { id: 'ni', cat: 'M', sym: 'I', name: 'Fléau', cost: 40, val: 6, fac: 1, desc: 'Tous les soldats ennemis collés à au moins 2 de tes persos meurent.' },
+    { id: 'nj', cat: 'M', sym: 'J', name: 'Linceul', cost: 25, val: 5.5, fac: 1, desc: 'Couvre un de tes persos et tes persos collés à lui : rien ne peut les tuer jusqu’à ton prochain tour.' },
+    { id: 'nk', cat: 'M', sym: 'K', name: 'Marée noire', cost: 20, val: 5, fac: 1, desc: 'Toutes tes Ombres (soldats des ombres) avancent d’une case vers l’adversaire, si la case est libre.' },
+    { id: 'n1', cat: 'G', sym: '1', name: 'Fantôme', val: 3.4, fac: 1, desc: 'Traverse tout : se pose sur une case vide à 3 cases ou moins (dans les 8 directions). Là où il arrive, les soldats ennemis collés meurent de peur et les gardes ennemis collés ne peuvent pas être activés à leur prochain tour.' },
+    { id: 'n2', cat: 'G', sym: '2', name: 'Goule', val: 3.8, fac: 1, desc: 'Fait 1 pas dans n’importe quelle direction ; prend en arrivant sur un ennemi. Après une prise, elle peut encore faire un pas (3 pas au plus).' },
+    { id: 'n3', cat: 'G', sym: '3', name: 'Vampire', val: 3.6, fac: 1, desc: 'Fait 1 pas vers une case vide (8 directions), ou mord sans bouger un ennemi à 1 ou 2 cases en ligne droite ou en diagonale, par-dessus tout (pas un dieu) : l’ennemi meurt et tu gagnes 20 mana.' },
+    { id: 'n4', cat: 'G', sym: '4', name: 'Araignée', val: 3.4, fac: 1, desc: 'Fait 1 pas en ligne droite vers une case vide, ou lance sa toile sur le 1er perso ennemi en ligne droite à 4 cases ou moins : un soldat y meurt, un garde ou un dieu ne peut plus être activé pendant 2 tours de son camp.' },
+    { id: 'n5', cat: 'G', sym: '5', name: 'Poltergeist', val: 3.4, fac: 1, desc: 'Fait 1 pas en ligne droite vers une case vide, ou attrape un ennemi à 1 ou 2 cases en ligne droite ou en diagonale (pas un dieu) et le projette 2 cases plus loin : s’il tombe hors de la carte, dans un trou ou sur un perso, il meurt.' },
+    { id: 'n6', cat: 'G', sym: '6', name: 'Serpent', val: 3.8, fac: 1, desc: 'Ondule jusqu’à 3 pas droits (haut, bas, gauche, droite) en tournant comme il veut, par des cases vides ; prend en arrivant sur un ennemi.' },
+    { id: 'n7', cat: 'G', sym: '7', name: 'Loup-garou', val: 3.8, fac: 1, desc: 'Fait 1 pas dans n’importe quelle direction (prend en arrivant sur un ennemi). S’il est collé à 2 ennemis ou plus, il peut entrer en furie : tous les ennemis collés à lui meurent (pas les dieux).' },
+    { id: 'n8', cat: 'G', sym: '8', name: 'Larve', val: 3, fac: 1, desc: 'Fait 1 pas droit vers une case vide, ou prend en diagonale. Quand elle meurt, 2 Ombres éclosent autour d’elle.' },
+    { id: 'n9', cat: 'G', sym: '9', name: 'Démon', val: 3.6, fac: 1, desc: 'Fait 1 pas dans n’importe quelle direction (prend en arrivant sur un ennemi), ou surgit sur une case vide collée à un dieu ennemi.' },
+    { id: 'nl', cat: 'G', sym: 'L', name: 'Squelette', val: 3.2, fac: 1, desc: 'Fait 1 pas en ligne droite (prend en arrivant sur un ennemi), ou lance un os sans bouger sur un ennemi à 2 ou 3 cases en ligne droite (pas un dieu). Quand il meurt, il se relève en Ombre juste à côté.' },
+    { id: 'nm', cat: 'G', sym: 'M', name: 'Reflet', val: 3.4, fac: 1, desc: 'Fait 1 pas en ligne droite vers une case vide, ou saute dans son reflet : la case symétrique sur la même rangée, de l’autre côté (gauche ↔ droite) ; il y prend un ennemi, pas un dieu.' },
+    { id: 'nn', cat: 'G', sym: 'N', name: 'Bourreau', val: 3.6, fac: 1, desc: 'Fait 1 pas vers une case vide (8 directions), ou exécute sans bouger un ennemi collé à lui (pas un dieu) qui est aussi collé à un autre de tes persos.' },
+    { id: 'no', cat: 'G', sym: 'O', name: 'Rampant', val: 3.4, fac: 1, desc: 'Rampe tout droit vers l’adversaire, jusqu’à 4 cases, par des cases vides ; prend en arrivant sur un ennemi.' },
   ];
   const BOSSES = ['bt', 'bn', 'bd', 'bh', 'bq', 'bk', 'bg', 'bv', 'bw', 'bs', 'bp', 'bb', 'bc'];
   const BOSSES_DLC = ['bl', 'bm', 'bo', 'bj']; // DLC « Les Abysses »
@@ -121,10 +121,10 @@ function StratEngine() {
   // armée des Ombres : une armée complète à elle (15 dieux, 18 gardes, son soldat), sans aucun perso de la Lumière
   const SH_M = ['na', 'nb', 'nc', 'nd', 'ne', 'nf', 'ng', 'nh', 'ni', 'nj', 'nk', 'om', 'of', 'oe', 'ou'];
   const SH_G = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'nl', 'nm', 'nn', 'no', 'oa', 'ob', 'oc', 'ol', 'ox'];
-  const SH_START_M = ['na', 'nc', 'nd'], SH_START_G = ['n2', 'n3', 'n5', 'n7'];
-  // le perso de la Lumière qui fait face à chaque perso des Ombres (l'adversaire d'une partie des Ombres a les mêmes « sortes » de persos)
-  const TWIN = { na: 'ma', nb: 'mb', nc: 'mc', nd: 'md', ne: 'me', nf: 'pa', ng: 'pb', nh: 'pc', ni: 'pd', nj: 'pe', nk: 'pg', om: 'gu', of: 'pf', oe: 'pr', ou: 'dr',
-    n1: 'g1', n2: 'g2', n3: 'g3', n4: 'g4', n5: 'g5', n6: 'g6', n7: 'g7', n8: 'c1', n9: 'c2', nl: 'c4', nm: 'c7', nn: 'cv', no: 'gd', oa: 'c5', ob: 'c3', oc: 'c8', ol: 'lc', ox: 'c6' };
+  const SH_START_M = ['om', 'of', 'nc'], SH_START_G = ['oa', 'oc', 'n2', 'n3'];
+  // le perso de la Lumière qui fait face à chaque perso des Ombres (l'adversaire d'une partie des Ombres a autant de persos, de force proche)
+  const TWIN = { na: 'ma', nb: 'pb', nc: 'mc', nd: 'md', ne: 'pe', nf: 'me', ng: 'pf', nh: 'pa', ni: 'mb', nj: 'pr', nk: 'pc', om: 'pd', of: 'gu', oe: 'pg', ou: 'dr',
+    n1: 'c1', n2: 'g7', n3: 'g3', n4: 'c4', n5: 'g4', n6: 'g2', n7: 'g6', n8: 'g5', n9: 'c5', nl: 'gd', nm: 'c3', nn: 'lc', no: 'c7', oa: 'cv', ob: 'c8', oc: 'c2', ol: 'g1', ox: 'c6' };
   const NT = T.length;
   const TI = {}; T.forEach((t, i) => { TI[t.id] = i; t.i = i; });
   T.forEach(t => { if (!t.as) return; const b = T[TI[t.as]]; for (const k of ['val', 'cost', 'desc']) if (t[k] === undefined && b[k] !== undefined) t[k] = b[k]; });
@@ -424,6 +424,7 @@ function StratEngine() {
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
       boss: null,
       fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres)
+      frz: null, curse: null, shroud: null, // persos enchaînés, cases maudites, linceul (armée des Ombres)
       invN: o.invN || 0, // persos à faire entrer pour gagner par invasion (0 = 3)
     };
     if (o.mana) s.mana = o.mana.slice();
@@ -464,6 +465,7 @@ function StratEngine() {
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
       winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn,
+      frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
   }
@@ -479,13 +481,14 @@ function StratEngine() {
     return n;
   }
 
-  const isBl = (s, q) => !!s.bl && (s.bl[0] === q || s.bl[1] === q);
+  const isBl = (s, q) => (!!s.bl && (s.bl[0] === q || s.bl[1] === q)) || (!!s.shroud && s.shroud.sq.includes(q) && s.b[q] > 0 && own(s.b[q]) === s.shroud.p);
   const cloneBoss = B => Object.assign({}, B, { warn: B.warn && B.warn.slice(), ice: B.ice && B.ice.slice(), webs: B.webs && B.webs.slice(), stones: B.stones && B.stones.slice(), coral: B.coral && B.coral.slice() });
   // tout le monde peut recruter les persos de base ; seuls les Ombres peuvent recruter les persos des Ombres
   // chaque armée ne recrute que ses persos : les Ombres les leurs, la Lumière les siens
   const canRec = (s, p, i) => !s.fac ? !FAC[i] : FAC[i] ? s.fac[p] === 1 : s.fac[p] !== 1;
   const SOLD = (s, p) => s.fac && s.fac[p] === 1 ? OS_I : S_I; // le soldat de l'armée de p
   const isIce = (s, q) => {
+    if (s.frz) for (const f of s.frz) if (f.q === q && s.b[q] > 0 && own(s.b[q]) === f.p) return true; // enchaîné (Entrave, Araignée)
     const B = s.boss; if (!B || B.hp <= 0) return false;
     if (B.ice && B.ice.includes(q)) return true;
     if (B.kind === 'sl' && s.b[q] > 0 && own(s.b[q]) !== B.owner && !IS_M[tix(s.b[q])]) { const W = s.g.W; return Math.max(Math.abs((q / W | 0) - (B.q / W | 0)), Math.abs(q % W - B.q % W)) <= 2; } // les dieux résistent à sa lumière
@@ -525,6 +528,10 @@ function StratEngine() {
     s.quiet = -1;
     s._k = (s._k || 0) + 1;
     if (s._dead) s._dead.push(q);
+    if ((t.id === 'n8' || t.id === 'nl') && OS_I >= 0) { // la Larve fait éclore 2 Ombres, le Squelette se relève en Ombre à côté
+      const spots = adjOf(s, q).filter(z => s.b[z] === 0).slice(0, t.id === 'n8' ? 2 : 1);
+      if (s.pool) for (const z of spots) if (s.pool[OS_I] > 0) { s.pool[OS_I]--; s.b[z] = enc(OS_I, p); } // (pas dans les simulations rapides)
+    }
   }
 
   // déplacement simple vers une case vide ou ennemie ; renvoie la nouvelle position
@@ -541,7 +548,9 @@ function StratEngine() {
   // ---------- Générateurs de mouvements ----------
   const nx = (g, q, d) => g.mv[d * g.N + q];
   // ennemi qu'on peut tuer (pas sur une case bénie)
-  const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q); };
+  // les persos des Ombres se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre de plus de 4 cases
+  let ATK = -1; const STEALTH = 4;
+  const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q) && !(ATK >= 0 && FAC[tix(c)] && cheb(s.g, ATK, q) > STEALTH); };
   const cover = (s, q) => s.g.spec && s.g.spec[q] === 2; // bosquet
   const canLand = (s, q, p) => s.b[q] === 0 || foe(s, q, p);
   const mini = s => ({ g: s.g, b: s.b.slice(), ev: s.ev, lost: [[0, 0, 0], [0, 0, 0]], bl: s.bl });
@@ -623,10 +632,27 @@ function StratEngine() {
   }
   const enemiesIn = (s, sqs, p) => sqs.some(q => foe(s, q, p));
   function homeEmpty(s, p) { const z = s.g.zone[p], out = []; for (let q = 0; q < s.g.N; q++) if (z[q] && s.b[q] === 0) out.push(q); return out; }
+  const cheb = (g, a, c) => Math.max(Math.abs((a / g.W | 0) - (c / g.W | 0)), Math.abs(a % g.W - c % g.W));
+  // Hurlement : les ennemis (pas les dieux) dans ta moitié de carte, du plus avancé au moins avancé
+  function howlList(s, p) {
+    const g = s.g, out = [];
+    for (let q = 0; q < g.N; q++) { const r = q / g.W | 0; if (s.b[q] > 0 && own(s.b[q]) !== p && !IS_M[tix(s.b[q])] && !isBoss(s, q) && (p === 0 ? r >= g.H / 2 : r < g.H / 2)) out.push(q); }
+    return out.sort((a, c) => p === 0 ? a - c : c - a);
+  }
+  // Fléau : les soldats ennemis collés à au moins 2 de tes persos
+  function plagueList(s, p) {
+    const out = [];
+    for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0 && own(s.b[q]) !== p && T[tix(s.b[q])].cat === 'S' && !isBl(s, q) && !isBoss(s, q) && adjOf(s, q).filter(z => s.b[z] > 0 && own(s.b[z]) === p).length >= 2) out.push(q);
+    return out;
+  }
   function adjOf(s, q) { const out = []; for (const d of ALL) { const t = nx(s.g, q, d); if (t >= 0) out.push(t); } return out; }
 
   // séquences de clics possibles pour activer le perso en `from` (clic = case, ou chaîne pour un bouton)
   function genAct(s, from, full) {
+    const prev = ATK; ATK = IS_M[tix(s.b[from])] ? -1 : from;
+    try { return genAct0(s, from, full); } finally { ATK = prev; }
+  }
+  function genAct0(s, from, full) {
     const g = s.g, b = s.b, c0 = b[from], p = own(c0), t = T[tix(c0)], out = [];
     const opp = 1 - p;
     if (t.cost && s.mana[p] < t.cost) return out;
@@ -651,16 +677,67 @@ function StratEngine() {
       case 'sr': if (adjOf(s, from).some(q => foe(s, q, p) && !isBoss(s, q))) out.push(['go']); break;
       case 'om': { const seen = new Set(); if (s.pool[OS_I] > 0) for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === p) for (const q of adjOf(s, x)) if (b[q] === 0 && !seen.has(q)) { seen.add(q); out.push([q]); } break; }
       case 'of': { const seen = new Set(); for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === p && x !== from) for (const q of adjOf(s, x)) if (foe(s, q, p) && T[tix(b[q])].cat !== 'M' && !seen.has(q)) { seen.add(q); out.push([q]); } break; }
+      // ----- armée des Ombres -----
+      case 'na': { const seen = new Set(); for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === p) for (const q of adjOf(s, x)) if (foe(s, q, p) && !isBoss(s, q) && !IS_M[tix(b[q])] && !seen.has(q)) { seen.add(q); out.push([q]); } break; }
+      case 'nb': for (let q = 0; q < g.N; q++) if (foe(s, q, p) && !isBoss(s, q) && !IS_M[tix(b[q])] && !(s.curse && s.curse.some(c => c.q === q))) out.push([q]); break;
+      case 'nc': {
+        const mine = []; for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === p && !isBoss(s, x)) mine.push(x);
+        const fw = q => { const r = q / g.W | 0; return p === 0 ? -r : r; }; // vers l'adversaire
+        for (const x of mine) {
+          if (IS_M[tix(b[x])] || x === from) continue;
+          const seen = new Set(), dests = [];
+          for (const y of mine) if (y !== x) for (const q of adjOf(s, y)) if (b[q] === 0 && !seen.has(q)) { seen.add(q); dests.push(q); }
+          if (!full) dests.sort((a, c) => fw(c) - fw(a)).splice(4); // le bot ne regarde que les passages les plus en avant
+          for (const q of dests) out.push([x, q]);
+        }
+        break;
+      }
+      case 'nd': if (s.mana[opp] > 0) out.push(['go']); break;
+      case 'ne': if (howlList(s, p).some(q => { const t2 = nx(g, q, p === 0 ? 1 : 6); return t2 >= 0 && b[t2] === 0; })) out.push(['go']); break;
+      case 'nf': if (s.pool[OS_I] > 0) out.push(['go']); break;
+      case 'ng': for (let q = 0; q < g.N; q++) if (foe(s, q, p) && !isBoss(s, q) && !isIce(s, q)) out.push([q]); break;
+      case 'nh': {
+        const zone = g.zl[opp].filter(q => b[q] === 0); if (!zone.length) break;
+        for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === p && !IS_M[tix(b[x])] && !isBoss(s, x)) for (const q of full ? zone : zone.slice(0, 3)) out.push([x, q]);
+        break;
+      }
+      case 'ni': if (plagueList(s, p).length) out.push(['go']); break;
+      case 'nj': for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p && !isBoss(s, q)) out.push([q]); break;
+      case 'nk': { const d = p === 0 ? 1 : 6; for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p && tix(b[q]) === OS_I) { const t2 = nx(g, q, d); if (t2 >= 0 && b[t2] === 0) { out.push(['go']); break; } } break; }
+      case 'n1': for (let q = 0; q < g.N; q++) { const dd = cheb(g, from, q); if (dd >= 1 && dd <= 3 && g.ex[q] && b[q] === 0) out.push([q]); } break;
+      case 'n2': {
+        const walk = (pos, path, depth) => { for (const q of adjOf(s, pos)) { if (path.includes(q)) continue; const v = q === from ? 0 : b[q]; if (v === 0 || foe(s, q, p)) { const np = path.concat([q]); out.push(np); if (v > 0 && depth < 3 && !isBoss(s, q)) walk(q, np, depth + 1); } } };
+        walk(from, [], 1); break;
+      }
+      case 'n3': { for (const q of adjOf(s, from)) if (b[q] === 0) out.push([q]); for (const d of ALL) { let q = from; for (let k = 0; k < 2; k++) { q = nx(g, q, d); if (q < 0) break; if (foe(s, q, p) && !IS_M[tix(b[q])]) out.push([q]); } } break; }
+      case 'n4': for (const d of ORTH) { let q = from; for (let k = 0; k < 4; k++) { q = nx(g, q, d); if (q < 0 || b[q] === VOID) break; if (k === 0 && b[q] === 0) out.push([q]); if (b[q] === 0) continue; if (foe(s, q, p) && !isBoss(s, q) && !isIce(s, q)) out.push([q]); break; } } break;
+      case 'n5': { for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); } for (const d of ALL) { let q = from; for (let k = 0; k < 2; k++) { q = nx(g, q, d); if (q < 0) break; if (foe(s, q, p) && !IS_M[tix(b[q])] && !isBoss(s, q)) out.push([q]); if (b[q] !== 0) break; } } break; }
+      case 'n6': {
+        const dist = new Map([[from, 0]]), qu = [from], seen = new Set();
+        while (qu.length) { const x = qu.shift(), dx = dist.get(x); for (const d of ORTH) { const y = nx(g, x, d); if (y < 0 || dist.has(y)) continue; if (b[y] === 0) { dist.set(y, dx + 1); if (!seen.has(y)) { seen.add(y); out.push([y]); } if (dx + 1 < 3) qu.push(y); } else if (foe(s, y, p) && !seen.has(y)) { seen.add(y); out.push([y]); } } }
+        break;
+      }
+      case 'n7': { let n = 0; for (const q of adjOf(s, from)) { if (b[q] === 0 || foe(s, q, p)) out.push([q]); if (foe(s, q, p) && !IS_M[tix(b[q])] && !isBoss(s, q)) n++; } if (n >= 2) out.push(['go']); break; }
+      case 'n8': for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); } for (const d of DIAG) { const q = nx(g, from, d); if (q >= 0 && foe(s, q, p)) out.push([q]); } break;
+      case 'n9': {
+        const seen = new Set(); for (const q of adjOf(s, from)) if (b[q] === 0 || foe(s, q, p)) { seen.add(q); out.push([q]); }
+        for (let x = 0; x < g.N; x++) if (b[x] > 0 && own(b[x]) === opp && IS_M[tix(b[x])]) for (const q of adjOf(s, x)) if (b[q] === 0 && !seen.has(q)) { seen.add(q); out.push([q]); }
+        break;
+      }
+      case 'nl': for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && (b[q] === 0 || foe(s, q, p))) out.push([q]); let x = q; for (let k = 2; k <= 3 && x >= 0; k++) { x = nx(g, x, d); if (x >= 0 && foe(s, x, p) && !IS_M[tix(b[x])]) out.push([x]); } } break;
+      case 'nm': { for (const d of ORTH) { const q = nx(g, from, d); if (q >= 0 && b[q] === 0) out.push([q]); } const m = (from / g.W | 0) * g.W + (g.W - 1 - from % g.W); if (m !== from && g.ex[m] && (b[m] === 0 || (foe(s, m, p) && !IS_M[tix(b[m])])) && !out.some(c => c[0] === m)) out.push([m]); break; }
+      case 'nn': for (const q of adjOf(s, from)) { if (b[q] === 0) out.push([q]); else if (foe(s, q, p) && !IS_M[tix(b[q])] && !isBoss(s, q) && adjOf(s, q).some(z => z !== from && b[z] > 0 && own(b[z]) === p)) out.push([q]); } break;
+      case 'no': { let q = from; const d = p === 0 ? 1 : 6; for (let k = 0; k < 4; k++) { q = nx(g, q, d); if (q < 0) break; if (b[q] === 0) { out.push([q]); continue; } if (foe(s, q, p)) out.push([q]); break; } break; }
       case 'oe': out.push(['go']); break;
       case 'ou': for (const q of adjOf(s, from)) if (b[q] > 0 && own(b[q]) === p && T[tix(b[q])].cat !== 'M' && !isBl(s, q)) out.push([q]); break;
       case 'oa': {
         for (const q of adjOf(s, from)) if (b[q] === 0) out.push([q]);
         const r = from / g.W | 0, c = from % g.W;
-        for (const [dr, dc] of D8) { const rr = r + 2 * dr, cc = c + 2 * dc; if (rr < 0 || rr >= g.H || cc < 0 || cc >= g.W) continue; const q = rr * g.W + cc; if (g.ex[q] && canLand(s, q, p)) out.push([q]); }
+        for (const [dr, dc] of D8) for (const k of [2, 3]) { const rr = r + k * dr, cc = c + k * dc; if (rr < 0 || rr >= g.H || cc < 0 || cc >= g.W) continue; const q = rr * g.W + cc; if (g.ex[q] && canLand(s, q, p)) out.push([q]); }
         break;
       }
       case 'ob': { const r = from / g.W | 0, c = from % g.W; for (let q = 0; q < g.N; q++) { const dd = Math.max(Math.abs((q / g.W | 0) - r), Math.abs(q % g.W - c)); if (q !== from && (b[q] === 0 && dd <= 3 || dd <= 2 && foe(s, q, p) && !isBoss(s, q))) out.push([q]); } break; }
-      case 'oc': for (const d of DIAG) { let q = from; for (let k = 0; k < 3; k++) { q = nx(g, q, d); if (q < 0) break; if (b[q] === VOID) continue; if (canLand(s, q, p)) out.push([q]); } } break;
+      case 'oc': for (const d of DIAG) { let q = from; for (let k = 0; k < 4; k++) { q = nx(g, q, d); if (q < 0) break; if (b[q] === VOID) continue; if (canLand(s, q, p)) out.push([q]); } } break;
       case 'ol': for (const d of ORTH) { const q1 = nx(g, from, d); if (q1 < 0) continue; const q2 = nx(g, q1, d); if (q2 < 0 || b[q2] !== 0 && !foe(s, q2, p)) continue; if (b[q1] === -1 || b[q1] === VOID || (b[q1] > 0 && !foe(s, q1, p))) continue; out.push([q2]); } break;
       case 'ox': {
         const r = from / g.W | 0, c = from % g.W;
@@ -851,7 +928,7 @@ function StratEngine() {
     const g = s.g, c0 = s.b[from], p = own(c0), t = T[tix(c0)], opp = 1 - p;
     if (t.cost) s.mana[p] -= t.cost;
     switch (MID[t.i]) {
-      case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': case 'mi': case 'ab': case 'rq': case 'oa': case 'ob': case 'oc': case 'ox': case 'os': {
+      case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': case 'mi': case 'ab': case 'rq': case 'oa': case 'ob': case 'oc': case 'ox': case 'os': case 'n2': case 'n6': case 'n8': case 'n9': case 'nm': case 'no': {
         let pos = from;
         for (const q of cl) pos = stepTo(s, pos, q);
         break;
@@ -876,6 +953,29 @@ function StratEngine() {
       } break;
       case 'om': s.pool[OS_I]--; s.b[cl[0]] = enc(OS_I, p); break;
       case 'of': kill(s, cl[0]); break;
+      // ----- armée des Ombres -----
+      case 'na': { const q = cl[0], c = s.b[q], o = own(c); s.lost[o][catIdx(T[tix(c)].cat)]++; if (s.dead) s.dead[o][tix(c)]++; if (s._dead) s._dead.push(q); s.b[q] = enc(tix(c), p); s.quiet = -1; s._k = (s._k || 0) + 1; break; }
+      case 'nb': (s.curse || (s.curse = [])).push({ q: cl[0], p: opp }); break;
+      case 'nc': case 'nh': s.b[cl[1]] = s.b[cl[0]]; s.b[cl[0]] = 0; break;
+      case 'nd': { const x = Math.min(30, s.mana[opp]); s.mana[opp] -= x; s.mana[p] += x; break; }
+      case 'ne': { const d = p === 0 ? 1 : 6; for (const q of howlList(s, p)) { const t2 = nx(g, q, d); if (t2 >= 0 && s.b[t2] === 0) { s.b[t2] = s.b[q]; s.b[q] = 0; } } break; }
+      case 'nf': { const n = Math.min(4, 2 + s.lost[p][1], s.pool[OS_I]); s.pool[OS_I] -= n; s.res[p][OS_I] += n; break; }
+      case 'ng': (s.frz || (s.frz = [])).push({ q: cl[0], p: opp, n: 2 }); break;
+      case 'ni': for (const q of plagueList(s, p)) kill(s, q); break;
+      case 'nj': { const q = cl[0]; s.shroud = { p, sq: [q].concat(adjOf(s, q).filter(z => s.b[z] > 0 && own(s.b[z]) === p)) }; break; }
+      case 'nk': { const d = p === 0 ? 1 : 6, os = []; for (let q = 0; q < g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === p && tix(s.b[q]) === OS_I) os.push(q); os.sort((a, c) => p === 0 ? a - c : c - a); for (const q of os) { const t2 = nx(g, q, d); if (t2 >= 0 && s.b[t2] === 0) { s.b[t2] = s.b[q]; s.b[q] = 0; } } break; }
+      case 'n1': { const to = cl[0]; s.b[to] = s.b[from]; s.b[from] = 0; for (const z of adjOf(s, to)) if (s.b[z] > 0 && own(s.b[z]) === opp && !isBl(s, z) && !isBoss(s, z)) { if (T[tix(s.b[z])].cat === 'S') kill(s, z); else if (T[tix(s.b[z])].cat === 'G') (s.frz || (s.frz = [])).push({ q: z, p: opp, n: 1 }); } break; }
+      case 'n3': case 'nn': { const q = cl[0]; if (s.b[q] > 0) { const bo = isBoss(s, q); kill(s, q); if (t.id === 'n3' && !bo && s.b[q] <= 0) s.mana[p] += 20; } else { s.b[q] = s.b[from]; s.b[from] = 0; } break; }
+      case 'n4': { const q = cl[0]; if (s.b[q] > 0) { if (T[tix(s.b[q])].cat === 'S') kill(s, q); else (s.frz || (s.frz = [])).push({ q, p: opp, n: 2 }); } else { s.b[q] = s.b[from]; s.b[from] = 0; } break; }
+      case 'n5': {
+        const q = cl[0];
+        if (s.b[q] === 0) { s.b[q] = s.b[from]; s.b[from] = 0; break; }
+        const d = ALL.find(dd => nx(g, from, dd) === q || (nx(g, from, dd) >= 0 && nx(g, nx(g, from, dd), dd) === q)), t1 = nx(g, q, d), t2 = t1 >= 0 ? nx(g, t1, d) : -1;
+        if (t2 < 0 || s.b[t2] !== 0) kill(s, q, false); else { s.b[t2] = s.b[q]; s.b[q] = 0; }
+        break;
+      }
+      case 'nl': { const q = cl[0]; if (s.b[q] > 0 && cheb(g, from, q) >= 2) kill(s, q); else stepTo(s, from, q); break; }
+      case 'n7': if (cl[0] === 'go') { for (const q of adjOf(s, from)) if (s.b[q] > 0 && own(s.b[q]) === opp && !IS_M[tix(s.b[q])] && !isBoss(s, q) && !isBl(s, q)) kill(s, q); } else stepTo(s, from, cl[0]); break;
       case 'oe': s.noPlace[opp] = Math.max(s.noPlace[opp], 1); s.noAct[opp] = Math.max(s.noAct[opp], 1); break;
       case 'ou': { const q = cl[0]; s.lost[p][catIdx(T[tix(s.b[q])].cat)]++; if (s.dead) s.dead[p][tix(s.b[q])]++; s.b[q] = 0; s.mana[p] += 50; if (s._dead) s._dead.push(q); break; }
       case 'ol': { const d = ORTH.find(dd => { const a = nx(g, from, dd); return a >= 0 && nx(g, a, dd) === cl[0]; }); const q1 = nx(g, from, d); if (s.b[q1] > 0) kill(s, q1); stepTo(s, from, cl[0]); break; }
@@ -986,6 +1086,9 @@ function StratEngine() {
       for (let q = 0; q < s.g.N; q++) if (sp2[q] === 6 && s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q) && s.b[s.g.N - 1 - q] === 0) tp.push(q);
       for (const q of tp) { const m = s.g.N - 1 - q; if (s.b[m] === 0 && s.b[q] > 0) { s.b[m] = s.b[q]; s.b[q] = 0; } }
     }
+    // fin du tour de p : ses persos maudits encore sur leur case meurent, ses chaînes s'usent
+    if (s.curse) { for (const c of s.curse) if (c.p === p && s.b[c.q] > 0 && own(s.b[c.q]) === p && !isBoss(s, c.q)) kill(s, c.q); s.curse = s.curse.filter(c => c.p !== p); if (!s.curse.length) s.curse = null; }
+    if (s.frz) { for (const f of s.frz) if (f.p === p) f.n--; s.frz = s.frz.filter(f => f.n > 0); if (!s.frz.length) s.frz = null; }
     if (s.noPlace[p]) s.noPlace[p]--;
     if (s.noAct[p]) s.noAct[p]--;
     s.decl[p] = s._newDecl || null; s._newDecl = null;
@@ -995,6 +1098,7 @@ function StratEngine() {
     if (s.quiet >= 150 && s.winner === null) { s.winner = 2; s.why = '150 tours (75 chacun) sans aucune élimination : partie nulle.'; }
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
+    if (s.shroud && s.shroud.p === q) s.shroud = null; // le linceul aussi
     if (s.ev === 'maree') s.mana[q] += 10;
     // sources de mana
     const spec = s.g.spec;
@@ -1403,7 +1507,19 @@ function StratEngine() {
       switch (id) {
         case 's': adj(f, side === 0 ? [0, 2] : [5, 7]); break;
         case 'g5': case 'g7': adj(f, DIAG); for (const d of id === 'g5' ? ORTH : DIAG) { const x = mv[d * N + f]; if (x >= 0 && b[x] === 0) adj(x, DIAG); } break;
-        case 'c8': case 'g6': case 'gd': adj(f, ALL); break;
+        case 'c8': case 'g6': case 'gd': case 'n2': case 'n3': case 'n7': case 'n9': case 'nn': adj(f, ALL); break;
+        case 'n6': adj(f, ORTH); break;
+        case 'nl': for (const d of ORTH) { let x = f; for (let k = 0; k < 3; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; } } break;
+        case 'n4': for (const d of ORTH) { let x = f; for (let k = 0; k < 4; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; if (b[x] !== 0) break; } } break;
+        case 'n8': adj(f, DIAG); break;
+        case 'no': { let x = f; for (let k = 0; k < 3; k++) { x = mv[(side === 0 ? 1 : 6) * N + x]; if (x < 0) break; m[x] = 1; if (b[x] !== 0) break; } break; }
+        // armée des Ombres : sauts et vols par-dessus tout
+        case 'os': adj(f, side === 0 ? [0, 2] : [5, 7]); break;
+        case 'oa': case 'ox': case 'ob': { const r = f / g.W | 0, cc = f % g.W, rr2 = id === 'ob' ? 2 : 2; for (let dr = -rr2; dr <= rr2; dr++) for (let dc = -rr2; dc <= rr2; dc++) { if (!dr && !dc) continue; if (id === 'ox' && Math.max(Math.abs(dr), Math.abs(dc)) === 1) continue; if (id === 'oa' && Math.max(Math.abs(dr), Math.abs(dc)) === 2 && dr && dc && Math.abs(dr) !== Math.abs(dc)) continue; if (id === 'ox' && dr && dc && Math.abs(dr) !== Math.abs(dc)) continue; const r2 = r + dr, c2 = cc + dc; if (r2 >= 0 && r2 < g.H && c2 >= 0 && c2 < g.W) m[r2 * g.W + c2] = 1; } break; }
+        case 'oc': for (const d of DIAG) { let x = f; for (let k = 0; k < 4; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; } } break;
+        case 'ol': for (const d of ORTH) { let x = f; for (let k = 0; k < 2; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; } } break;
+        case 'n5': adj(f, ALL); break;
+        case 'nm': { const mm = (f / g.W | 0) * g.W + (g.W - 1 - f % g.W); if (g.ex[mm]) m[mm] = 1; break; }
         case 'g2': case 'c7': for (const d of ORTH) ray(f, d); break;
         case 'lc': for (const d of ORTH) { let x = f; for (let k = 0; k < 3; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; } } break;
         case 'cv': { const r = f / g.W | 0, cc = f % g.W; for (const [dr, dc] of KNIGHT) { const rr = r + dr, c2 = cc + dc; if (rr >= 0 && rr < g.H && c2 >= 0 && c2 < g.W) m[rr * g.W + c2] = 1; } break; }
@@ -1482,7 +1598,7 @@ function StratEngine() {
           break;
         case 'c1': case 'c3': case 'c5': case 'cv': for (const cl of genAct(s, f, false)) one(cl[0], c); break;
         case 'gd': adj(f, ALL, c); break;
-        case 'rq': case 'mz': case 'oa': case 'oc': case 'ox': case 'os': case 'of': case 'ol': for (const cl of genAct(s, f, false)) for (const x of cl) if (typeof x === 'number') one(x, c); break;
+        case 'rq': case 'mz': case 'oa': case 'oc': case 'ox': case 'os': case 'of': case 'ol': case 'na': case 'n2': case 'n3': case 'n6': case 'n7': case 'n8': case 'n9': case 'nl': case 'nm': case 'nn': case 'no': case 'n5': for (const cl of genAct(s, f, false)) for (const x of cl) if (typeof x === 'number') one(x, c); break;
         case 'lc':
           for (const d of ORTH) {
             const x = mv[d * N + f]; if (x < 0) continue;
@@ -1499,7 +1615,7 @@ function StratEngine() {
   }
 
   // toutes les prises du joueur au trait, déjà jouées : [{ a, c }]
-  const NOKILL = { g1: 1, c6: 1, mb: 1, mc: 1, me: 1, pa: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, pv: 1, om: 1, oe: 1, ou: 1 };
+  const NOKILL = { g1: 1, c6: 1, mb: 1, mc: 1, me: 1, pa: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, pv: 1, om: 1, oe: 1, ou: 1, nb: 1, nc: 1, nd: 1, ne: 1, nf: 1, ng: 1, nh: 1, nj: 1, nk: 1 };
   function capKids(st) {
     const out = [];
     if (st.phase !== 'play' || st.noAct[st.turn]) return out;
@@ -1510,7 +1626,7 @@ function StratEngine() {
       const id = MID[tix(c)];
       if (NOKILL[id]) continue;
       if (decl && (decl.k !== 'act' || decl.from !== f)) continue;
-      const area = id === 'g6' || id === 'ma' || id === 'pb' || id === 'g4' || id === 'lc' || id === 'sr' || id === 'ol' || id === 'mz';
+      const area = id === 'g6' || id === 'ma' || id === 'pb' || id === 'g4' || id === 'lc' || id === 'sr' || id === 'ol' || id === 'mz' || id === 'n1' || id === 'n5' || id === 'n7' || id === 'ni' || id === 'n4';
       for (const cl of genAct(st, f, false)) {
         if (!area) {
           let hit = false;
@@ -1651,6 +1767,7 @@ function StratEngine() {
     mix(s.mana[0]); mix(s.mana[1]); mix(s.turn); mix(s.acts);
     mix(s.lost[0][0] * 64 + s.lost[0][1] * 8 + s.lost[0][2]); mix(s.lost[1][0] * 64 + s.lost[1][1] * 8 + s.lost[1][2]);
     mix(s.noPlace[0] * 16 + s.noPlace[1] * 4 + s.pend[0] * 2 + s.pend[1]); mix(s.noAct[0] * 4 + s.noAct[1]);
+    if (s.frz || s.curse || s.shroud) { for (const f of s.frz || []) mix(f.q * 8 + f.n * 2 + f.p); for (const c of s.curse || []) mix(1000 + c.q * 2 + c.p); if (s.shroud) mix(2000 + s.shroud.sq.length * 2 + s.shroud.p); }
     mix(s.phase === 'play' ? 1 : 2); if (s.goal) mix(s.hold[0] * 7 + s.hold[1]); if (s.boss) mix(s.boss.hp * 1000 + s.boss.q * 3 + (s.boss.cd % 6) * 7 + (s.boss.warn ? s.boss.warn.length * 5 + s.boss.warn[0] : 0) + (s.boss.ice ? 11 + s.boss.ice[0] : 0) + (s.boss.reborn ? 13 : 0)); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
     if (s.dead) { let d = 0; for (let i = 0; i < NT; i++) d = d * 3 + s.dead[0][i] * 7 + s.dead[1][i] | 0; mix(d); }
     return (h1 >>> 0) * 4194304 + ((h2 >>> 0) & 4194303);
