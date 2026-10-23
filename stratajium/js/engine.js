@@ -424,7 +424,7 @@ function StratEngine() {
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
       boss: null,
       fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres)
-      frz: null, curse: null, shroud: null, // persos enchaînés, cases maudites, linceul (armée des Ombres)
+      frz: null, curse: null, shroud: null, tieTo: o.tieTo === 0 || o.tieTo === 1 ? o.tieTo : -1, // en cas d'égalité parfaite (partie trop longue) : le bot gagne // persos enchaînés, cases maudites, linceul (armée des Ombres)
       invN: o.invN || 0, // persos à faire entrer pour gagner par invasion (0 = 3)
     };
     if (o.mana) s.mana = o.mana.slice();
@@ -464,7 +464,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn,
+      winner: s.winner, why: s.why, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
       frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
@@ -1098,10 +1098,11 @@ function StratEngine() {
     s.turn = 1 - p; s.acts = 1; s.ply++;
     s.quiet++;
     if (s.dawn && s.winner === null && s.ply >= s.dawn * 2) { s.winner = 1; s.why = 'L’aube s’est levée : les Ombres n’ont pas gagné à temps.'; } // handicap « L’aube »
-    if ((s.quiet >= 150 || s.ply >= 200) && s.winner === null) { // partie trop longue : celui qui a le plus de mana gagne
-      const m0 = s.mana[0], m1 = s.mana[1];
-      s.winner = m0 === m1 ? 2 : m0 > m1 ? 0 : 1;
-      s.why = m0 === m1 ? 'Partie trop longue, autant de mana des deux côtés : match nul.' : 'Partie trop longue : le plus de mana gagne.';
+    if ((s.quiet >= 150 || s.ply >= 200) && s.winner === null) { // partie trop longue : le plus de persos vivants, puis le plus de mana, puis le bot
+      const a0 = alive(s, 0), a1 = alive(s, 1), m0 = s.mana[0], m1 = s.mana[1];
+      if (a0 !== a1) { s.winner = a0 > a1 ? 0 : 1; s.why = 'Partie trop longue : le plus de persos vivants gagne.'; }
+      else if (m0 !== m1) { s.winner = m0 > m1 ? 0 : 1; s.why = 'Partie trop longue, autant de persos vivants : le plus de mana gagne.'; }
+      else { s.winner = s.tieTo === 0 || s.tieTo === 1 ? s.tieTo : 2; s.why = s.winner === 2 ? 'Partie trop longue, égalité parfaite : match nul.' : 'Partie trop longue, égalité parfaite : le bot gagne.'; }
     }
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
@@ -1359,6 +1360,8 @@ function StratEngine() {
     return won;
   }
   const GOAL_WHY = { massacre: '5 persos adverses tués.', chasse: 'Un dieu adverse tué.', colline: '3 points au centre.', percee: 'Percée dans la zone adverse.' };
+  // persos vivants d'un joueur : sur la carte et dans sa réserve (pas les boss)
+  function alive(s, p) { let n = 0; for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q)) n++; for (let i = 0; i < NT; i++) n += s.res[p][i]; return n; }
   const invNeed = (s, p) => p === 0 && s.invN ? s.invN : 3;
   function invasion(s, p) {
     if (!s.fac || !s.fac[p]) return false;
@@ -1731,7 +1734,7 @@ function StratEngine() {
     }
     // partie trop longue (150 coups sans élimination, ou 200 coups) : le mana décide, il compte de plus en plus en s'approchant de la fin
     const near = Math.min(1, Math.max(0, (s.quiet - 100) / 50, (s.ply - 150) / 50));
-    if (near > 0) sc = sc * (1 - 0.6 * near) + near * (s.mana[p] - s.mana[1 - p]) * 0.15;
+    if (near > 0) sc = sc * (1 - 0.6 * near) + near * ((alive(s, p) - alive(s, 1 - p)) * 3 + (s.mana[p] - s.mana[1 - p]) * 0.03);
     return sc;
   }
 
