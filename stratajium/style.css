@@ -802,3 +802,14 @@ body.anim-off .slash, body.anim-off .soul { display: none; }
 .exps[hidden] { display: none !important; }
 .famerow { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; } .famerow .trk { flex: 1; min-width: 90px; margin: 0; } .famerow .trk > span:first-child { display: none; } .famerow .gems { margin: 0; gap: 3px; } .famerow .gem { width: 20px; height: 20px; font-size: 9px; }
 .famerow .trk { grid-template-columns: 1fr 58px; }
+/* bilan détaillé */
+.dcols { grid-template-columns: 1fr 1fr 1.1fr; }
+.dtab { width: 100%; border-collapse: collapse; font-size: 15px; }
+.dtab th { color: var(--muted); font-weight: 600; font-size: 13.5px; text-align: center; padding: 2px 4px; }
+.dtab td { text-align: center; padding: 2px 4px; border-top: 1px solid rgba(255, 255, 255, .06); }
+.dtab td:first-child { text-align: left; }
+.dtab td.bad { color: var(--danger); font-weight: 700; }
+.dtab .pn { display: flex; align-items: center; gap: 6px; } .dtab .pn .tk { width: 24px; height: 24px; flex: none; }
+.dtab .p0 { color: var(--gold); } .dtab .p1 { color: var(--vio); }
+.fcurve { width: 100%; height: 80px; display: block; }
+@media (max-width: 760px) { .dcols { grid-template-columns: 1fr; overflow: auto; } }

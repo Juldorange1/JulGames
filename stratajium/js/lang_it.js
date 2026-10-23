@@ -47,6 +47,8 @@ I18N.addLang('it', 'Italiano', {
     /* 740 */ "L’avversario inizia con 140 mana", "Arriva l’alba: vinci entro 60 dei tuoi turni, o perdi", "Un 2° esercito, da scegliere al posto della Luce quando inizi una partita o un duello. Ha le sue unità: un gemello oscuro per ogni unità della Luce (stessi poteri, o quasi), e nessuna unità della Luce. Vince anche avendo 3 unità nella zona di schieramento avversaria.", "Il Clan delle Ombre: un 2° esercito completo (15 dei, 18 guardie, i suoi soldati), senza nessuna unità della Luce",
     /* 744 */ "Questa unità è incatenata: non può essere attivata in questo turno.", "Un 2° esercito, da scegliere al posto della Luce quando inizi una partita o un duello. Tutte le sue unità hanno poteri propri: possessione, maledizioni, porte delle ombre, ghoul, lupi mannari… Le sue unità si nascondono nel buio: una guardia o un soldato nemico non può catturarle a più di 4 caselle. Vince anche avendo 3 unità nella zona di schieramento avversaria.", "Il Clan delle Ombre: un 2° esercito completo (15 dei, 18 guardie, i suoi soldati) con poteri che la Luce non ha, nascosto nel buio",
     /* 747 */ "Un 2° esercito, da scegliere al posto della Luce. In una partita delle Ombre, anche l’avversario gioca le Ombre. Tutte le sue unità hanno poteri propri. Si nascondono nel buio: una guardia o un soldato nemico non può catturarle a più di 4 caselle. Vince anche con 3 unità nella zona di schieramento avversaria.",
+    /* 748 */ "Hai mancato {n} cattura/e di una guardia o di un dio nemico: apri «Dettagli» per rivederle.", "Uccisioni", "Morti", "Nessuna unità attivata.", "Dei uccisi", "Guardie uccise", "Soldati uccisi", "Unità perse", "Turni passati", "Mana speso", "Mana guadagnato", "Mana alla fine", "{a} poteva catturare {v}", "… e altre {n} prima.", "Nessuna cattura mancata: ben fatto!", "Sopra la linea: avevi più forze dell’avversario (unità sulla mappa e nella riserva).", "Dettagli dello scontro", "Tu contro l’avversario", "Catture mancate", "Mosse in cui potevi catturare una guardia o un dio nemico e non l’hai fatto (↶ = rigioca quel momento):", "Forze nel corso della partita", "Dettagli",
+    /* 770 */ "cattura in {c}",
   ],
   T: {
     bh: ["Idra", "Boss, 4 punti vita. Ogni volta che perde un punto vita, le spunta accanto una nuova testa (un tirapiedi). Un turno su due, morde una delle tue unità attaccate a lei."],
@@ -214,3 +216,41 @@ I18N.DICT.it.T.nl[1] = "1 passo (cattura), oppure lancia un osso a 2 o 3 caselle
 I18N.DICT.it.T.nm[1] = "1 passo, oppure salta nel suo riflesso (stessa riga, altro lato) e cattura lì.";
 I18N.DICT.it.T.nn[1] = "Uccide un nemico vicino attaccato anche a un’altra tua unità. Oppure 1 passo.";
 I18N.DICT.it.T.no[1] = "Si lancia fino a 4 caselle verso l’avversario; cattura alla fine.";
+// armée des Ombres : descriptions claires
+I18N.DICT.it.T.na[1] = "Un nemico attaccato a una tua unità passa dalla tua parte (non un dio).";
+I18N.DICT.it.T.nb[1] = "Maledice un nemico: se non si è mosso alla fine del suo prossimo turno, muore.";
+I18N.DICT.it.T.nc[1] = "Sposta una tua unità (non un dio) su una casella vuota attaccata a un’altra tua unità.";
+I18N.DICT.it.T.nd[1] = "Toglie 50 mana all’avversario e li dà a te.";
+I18N.DICT.it.T.ne[1] = "I nemici (non gli dei) dalla tua parte della mappa arretrano di una casella.";
+I18N.DICT.it.T.nf[1] = "Aggiunge alla tua riserva 3 Ombre (soldati), +1 per ogni guardia persa.";
+I18N.DICT.it.T.ng[1] = "Un nemico a scelta (anche un dio) non può essere attivato nei suoi 2 prossimi turni.";
+I18N.DICT.it.T.nh[1] = "Sposta una tua guardia o un tuo soldato su una casella vuota della zona avversaria.";
+I18N.DICT.it.T.ni[1] = "Uccide tutti i soldati nemici attaccati ad almeno una tua unità.";
+I18N.DICT.it.T.nj[1] = "Scegli una tua unità: lei e le tue unità attaccate a lei non possono morire fino al tuo prossimo turno.";
+I18N.DICT.it.T.nk[1] = "Ognuna delle tue Ombre (soldati) avanza di una casella verso l’avversario.";
+I18N.DICT.it.T.om[1] = "Piazza un’Ombra (soldato) su una casella vuota attaccata a una tua unità.";
+I18N.DICT.it.T.of[1] = "Uccide un nemico (non un dio) attaccato a una tua unità.";
+I18N.DICT.it.T.oe[1] = "Al suo prossimo turno, l’avversario non può né piazzare né attivare unità.";
+I18N.DICT.it.T.ou[1] = "Sacrifica una tua unità attaccata a lui (non un dio): guadagni 60 mana.";
+I18N.DICT.it.T.oa[1] = "1 passo dritto, o un salto dritto di 2 o 3 caselle sopra tutto. Cattura il nemico sulla casella d’arrivo.";
+I18N.DICT.it.T.ob[1] = "Si teletrasporta su una casella scura vuota a 4 caselle o meno, oppure cattura un nemico attaccato a lei.";
+I18N.DICT.it.T.oc[1] = "Vola in diagonale fino a 4 caselle, sopra tutto. Cattura il nemico sulla casella d’arrivo.";
+I18N.DICT.it.T.ol[1] = "Avanza di 2 caselle in una delle 8 direzioni e uccide tutti i nemici su quelle 2 caselle.";
+I18N.DICT.it.T.ox[1] = "1 passo su una casella vuota, o un volo di 2 caselle nelle 8 direzioni, sopra tutto. Cattura il nemico sulla casella d’arrivo.";
+I18N.DICT.it.T.os[1] = "1 passo dritto su una casella vuota (anche indietro). Cattura in diagonale in avanti.";
+I18N.DICT.it.T.n1[1] = "Si posa su una casella vuota a 3 caselle o meno. Lì i soldati nemici attaccati muoiono e le guardie attaccate restano bloccate 1 turno.";
+I18N.DICT.it.T.n2[1] = "1 passo nelle 8 direzioni, catturando il nemico sulla casella. Dopo una cattura può fare un altro passo (al massimo 3).";
+I18N.DICT.it.T.n3[1] = "Uccide senza muoversi un nemico a 1 o 2 caselle in linea o in diagonale, senza ostacoli in mezzo (non un dio): +10 mana. Oppure 1 passo su una casella vuota.";
+I18N.DICT.it.T.n4[1] = "Lancia la ragnatela sul 1° nemico in linea retta a 4 caselle o meno: un soldato muore, una guardia o un dio resta bloccato 2 turni. Oppure 1 passo in diagonale (cattura il nemico).";
+I18N.DICT.it.T.n5[1] = "Scaglia un nemico a 1 o 2 caselle (non un dio) 2 caselle più in là: muore se esce dalla mappa, cade in un buco o su un’unità. Oppure 1 passo (cattura il nemico).";
+I18N.DICT.it.T.n6[1] = "Avanza fino a 3 passi dritti, girando come vuole, su caselle vuote. Cattura solo un nemico a 2 passi o meno.";
+I18N.DICT.it.T.n7[1] = "1 passo nelle 8 direzioni (cattura il nemico). Se cattura, o se è attaccato a 2 nemici o più, va su tutte le furie: muoiono tutti i nemici attaccati a lui (non gli dei).";
+I18N.DICT.it.T.n8[1] = "1 passo dritto (cattura il nemico), o cattura in diagonale. Quando muore, appaiono 2 Ombre intorno a lei.";
+I18N.DICT.it.T.n9[1] = "1 passo nelle 8 direzioni (cattura il nemico sulla casella), oppure appare su una casella vuota attaccata a un dio nemico.";
+I18N.DICT.it.T.nl[1] = "1 passo dritto (cattura il nemico), oppure uccide senza muoversi un nemico a 2 o 3 caselle in linea retta (non un dio). Quando muore, appare un’Ombra accanto.";
+I18N.DICT.it.T.nm[1] = "1 passo nelle 8 direzioni (cattura il nemico), oppure salta sulla casella speculare dall’altra parte della sua riga o colonna e lì cattura il nemico (non un dio).";
+I18N.DICT.it.T.nn[1] = "1 passo nelle 8 direzioni (cattura il nemico). Oppure uccide senza muoversi un nemico attaccato a lui che è attaccato anche a un’altra tua unità (non un dio).";
+I18N.DICT.it.T.no[1] = "Avanza dritto verso l’avversario quanto vuole, su caselle vuote, e cattura il nemico sulla casella d’arrivo. Oppure 1 passo su una casella vuota.";
+I18N.DICT.it.T.n3[1] = "Morde senza muoversi un nemico attaccato a lui (non un dio): muore e guadagni 10 mana. Oppure 1 passo su una casella vuota.";
+I18N.DICT.it.T.n6[1] = "Avanza fino a 3 passi dritti su caselle vuote, girando come vuole. Cattura solo un nemico attaccato a lui (in linea retta).";
+I18N.DICT.it.T.n8[1] = "1 passo nelle 8 direzioni (cattura il nemico). Quando muore, appaiono 2 Ombre intorno a lei.";

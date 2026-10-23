@@ -47,6 +47,8 @@ I18N.addLang('de', 'Deutsch', {
     /* 740 */ "Der Gegner beginnt mit 140 Mana", "Die Morgendämmerung naht: gewinne in 60 deiner Züge, sonst verlierst du", "Eine 2. Armee, die du statt des Lichts wählen kannst, wenn du eine Partie oder ein Duell beginnst. Sie hat eigene Figuren: einen dunklen Zwilling für jede Figur des Lichts (gleiche Kräfte, oder fast) und keine Figur des Lichts. Sie gewinnt auch mit 3 Figuren in der gegnerischen Aufstellungszone.", "Der Schattenclan: eine vollständige 2. Armee (15 Götter, 18 Wächter, eigene Soldaten), ohne jede Figur des Lichts",
     /* 744 */ "Diese Figur ist angekettet: Sie kann in diesem Zug nicht aktiviert werden.", "Eine 2. Armee, die du statt des Lichts wählen kannst, wenn du eine Partie oder ein Duell beginnst. Alle ihre Figuren haben eigene Kräfte: Besessenheit, Flüche, Schattentore, Ghule, Werwölfe … Ihre Figuren verstecken sich im Dunkeln: Ein feindlicher Wächter oder Soldat kann sie nicht aus mehr als 4 Feldern Entfernung schlagen. Sie gewinnt auch mit 3 Figuren in der gegnerischen Aufstellungszone.", "Der Schattenclan: eine vollständige 2. Armee (15 Götter, 18 Wächter, eigene Soldaten) mit Kräften, die das Licht nicht hat, im Dunkeln versteckt",
     /* 747 */ "Eine 2. Armee, die du statt des Lichts wählen kannst. In einer Schattenpartie spielt auch der Gegner die Schatten. Alle ihre Figuren haben eigene Kräfte. Sie verstecken sich im Dunkeln: Ein feindlicher Wächter oder Soldat kann sie nicht aus mehr als 4 Feldern schlagen. Sie gewinnt auch mit 3 Figuren in der gegnerischen Aufstellungszone.",
+    /* 748 */ "Du hast {n} Schlag/Schläge gegen einen feindlichen Wächter oder Gott verpasst: Öffne „Details“, um sie dir anzusehen.", "Getötet", "Gestorben", "Keine Figur aktiviert.", "Getötete Götter", "Getötete Wächter", "Getötete Soldaten", "Verlorene Figuren", "Ausgesetzte Züge", "Ausgegebenes Mana", "Gewonnenes Mana", "Mana am Ende", "{a} hätte {v} schlagen können", "… und {n} weitere davor.", "Kein verpasster Schlag: gut gespielt!", "Über der Linie: Du hattest mehr Kräfte als der Gegner (Figuren auf der Karte und in der Reserve).", "Details des Kampfes", "Du gegen den Gegner", "Verpasste Schläge", "Züge, in denen du einen feindlichen Wächter oder Gott hättest schlagen können und es nicht getan hast (↶ = diesen Moment nochmal spielen):", "Kräfte im Lauf des Kampfes", "Details",
+    /* 770 */ "schlägt auf {c}",
   ],
   T: {
     bh: ["Hydra", "Boss, 4 Lebenspunkte. Jedes Mal, wenn sie einen Lebenspunkt verliert, wächst neben ihr ein neuer Kopf (ein Scherge). Jeden zweiten Zug beißt sie eine deiner Figuren neben ihr."],
@@ -214,3 +216,41 @@ I18N.DICT.de.T.nl[1] = "1 Schritt (schlägt) oder wirft einen Knochen 2 oder 3 F
 I18N.DICT.de.T.nm[1] = "1 Schritt oder springt in sein Spiegelbild (gleiche Reihe, andere Seite) und schlägt dort.";
 I18N.DICT.de.T.nn[1] = "Tötet einen angrenzenden Feind, der auch neben einer anderen deiner Figuren steht. Oder 1 Schritt.";
 I18N.DICT.de.T.no[1] = "Stürmt bis zu 4 Felder auf den Gegner zu; schlägt am Ende.";
+// armée des Ombres : descriptions claires
+I18N.DICT.de.T.na[1] = "Ein Feind neben einer deiner Figuren wechselt auf deine Seite (kein Gott).";
+I18N.DICT.de.T.nb[1] = "Verflucht einen Feind: Hat er sich bis zum Ende seines nächsten Zuges nicht bewegt, stirbt er.";
+I18N.DICT.de.T.nc[1] = "Versetzt eine deiner Figuren (keinen Gott) auf ein leeres Feld neben einer anderen deiner Figuren.";
+I18N.DICT.de.T.nd[1] = "Nimmt dem Gegner 50 Mana und gibt sie dir.";
+I18N.DICT.de.T.ne[1] = "Feinde (keine Götter) auf deiner Kartenseite weichen ein Feld zurück.";
+I18N.DICT.de.T.nf[1] = "Gibt deiner Reserve 3 Schatten (Soldaten), +1 pro verlorenem Wächter.";
+I18N.DICT.de.T.ng[1] = "Ein Feind deiner Wahl (sogar ein Gott) kann in seinen nächsten 2 Zügen nicht aktiviert werden.";
+I18N.DICT.de.T.nh[1] = "Versetzt einen deiner Wächter oder Soldaten auf ein leeres Feld der gegnerischen Zone.";
+I18N.DICT.de.T.ni[1] = "Tötet alle feindlichen Soldaten, die neben mindestens einer deiner Figuren stehen.";
+I18N.DICT.de.T.nj[1] = "Wähle eine deiner Figuren: Sie und deine Figuren daneben können bis zu deinem nächsten Zug nicht sterben.";
+I18N.DICT.de.T.nk[1] = "Jeder deiner Schatten (Soldaten) rückt ein Feld auf den Gegner zu.";
+I18N.DICT.de.T.om[1] = "Stellt einen Schatten (Soldat) auf ein leeres Feld neben einer deiner Figuren.";
+I18N.DICT.de.T.of[1] = "Tötet einen Feind (keinen Gott) neben einer deiner Figuren.";
+I18N.DICT.de.T.oe[1] = "In seinem nächsten Zug kann der Gegner weder aufstellen noch aktivieren.";
+I18N.DICT.de.T.ou[1] = "Opfert eine deiner Figuren neben ihm (keinen Gott): Du bekommst 60 Mana.";
+I18N.DICT.de.T.oa[1] = "1 gerader Schritt oder ein gerader Sprung über 2 oder 3 Felder über alles hinweg. Schlägt den Feind auf dem Zielfeld.";
+I18N.DICT.de.T.ob[1] = "Teleportiert sich auf ein leeres dunkles Feld in höchstens 4 Feldern oder schlägt einen angrenzenden Feind.";
+I18N.DICT.de.T.oc[1] = "Fliegt diagonal bis zu 4 Felder über alles hinweg. Schlägt den Feind auf dem Zielfeld.";
+I18N.DICT.de.T.ol[1] = "Rückt 2 Felder in eine der 8 Richtungen vor und tötet alle Feinde auf diesen 2 Feldern.";
+I18N.DICT.de.T.ox[1] = "1 Schritt auf ein leeres Feld oder ein Flug über 2 Felder in 8 Richtungen, über alles hinweg. Schlägt den Feind auf dem Zielfeld.";
+I18N.DICT.de.T.os[1] = "1 gerader Schritt auf ein leeres Feld (auch rückwärts). Schlägt diagonal nach vorn.";
+I18N.DICT.de.T.n1[1] = "Landet auf einem leeren Feld in höchstens 3 Feldern. Dort sterben angrenzende feindliche Soldaten, angrenzende Wächter sind 1 Zug gelähmt.";
+I18N.DICT.de.T.n2[1] = "1 Schritt in 8 Richtungen und schlägt den Feind auf dem Feld. Nach einem Schlag darf sie noch einen Schritt machen (höchstens 3).";
+I18N.DICT.de.T.n3[1] = "Tötet, ohne sich zu bewegen, einen Feind in 1 oder 2 Feldern gerade oder diagonal, ohne Hindernis dazwischen (keinen Gott): +10 Mana. Oder 1 Schritt auf ein leeres Feld.";
+I18N.DICT.de.T.n4[1] = "Schießt ihr Netz auf den 1. Feind in gerader Linie in höchstens 4 Feldern: Ein Soldat stirbt, ein Wächter oder Gott ist 2 Züge gelähmt. Oder 1 diagonaler Schritt (schlägt den Feind).";
+I18N.DICT.de.T.n5[1] = "Schleudert einen Feind in 1 oder 2 Feldern (keinen Gott) 2 Felder weiter: Er stirbt, wenn er die Karte verlässt, in ein Loch oder auf eine Figur fällt. Oder 1 Schritt (schlägt den Feind).";
+I18N.DICT.de.T.n6[1] = "Macht bis zu 3 gerade Schritte über leere Felder und biegt ab, wie sie will. Sie schlägt nur einen Feind in höchstens 2 Schritten.";
+I18N.DICT.de.T.n7[1] = "1 Schritt in 8 Richtungen (schlägt den Feind). Wenn er schlägt oder neben 2 oder mehr Feinden steht, gerät er in Raserei: Alle angrenzenden Feinde sterben (keine Götter).";
+I18N.DICT.de.T.n8[1] = "1 gerader Schritt (schlägt den Feind) oder schlägt diagonal. Wenn sie stirbt, erscheinen 2 Schatten um sie herum.";
+I18N.DICT.de.T.n9[1] = "1 Schritt in 8 Richtungen (schlägt den Feind auf dem Feld) oder erscheint auf einem leeren Feld neben einem feindlichen Gott.";
+I18N.DICT.de.T.nl[1] = "1 gerader Schritt (schlägt den Feind) oder tötet, ohne sich zu bewegen, einen Feind in 2 oder 3 Feldern geradeaus (keinen Gott). Wenn es stirbt, erscheint daneben ein Schatten.";
+I18N.DICT.de.T.nm[1] = "1 Schritt in 8 Richtungen (schlägt den Feind) oder springt auf das gespiegelte Feld auf der anderen Seite seiner Reihe oder Spalte und schlägt dort den Feind (keinen Gott).";
+I18N.DICT.de.T.nn[1] = "1 Schritt in 8 Richtungen (schlägt den Feind). Oder tötet, ohne sich zu bewegen, einen angrenzenden Feind, der auch neben einer anderen deiner Figuren steht (keinen Gott).";
+I18N.DICT.de.T.no[1] = "Rückt geradeaus so weit es will über leere Felder auf den Gegner zu und schlägt den Feind auf dem Zielfeld. Oder 1 Schritt auf ein leeres Feld.";
+I18N.DICT.de.T.n3[1] = "Beißt, ohne sich zu bewegen, einen angrenzenden Feind (keinen Gott): Er stirbt und du bekommst 10 Mana. Oder 1 Schritt auf ein leeres Feld.";
+I18N.DICT.de.T.n6[1] = "Macht bis zu 3 gerade Schritte über leere Felder und biegt ab, wie sie will. Sie schlägt nur einen direkt angrenzenden Feind (geradeaus).";
+I18N.DICT.de.T.n8[1] = "1 Schritt in 8 Richtungen (schlägt den Feind). Wenn sie stirbt, erscheinen 2 Schatten um sie herum.";

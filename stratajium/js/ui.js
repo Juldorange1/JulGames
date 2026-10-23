@@ -622,9 +622,24 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   // ---------- suivi de l'affrontement (pour le bilan) ----------
   function newBattleStats() {
-    return { act: [[0, 0, 0, 0], [0, 0, 0, 0]], kills: [[0, 0, 0], [0, 0, 0]], mana: [0, 0], pts: {}, pieces: {}, moments: [], forces: [], hits: 0, t0: Date.now() };
+    return { act: [[0, 0, 0, 0], [0, 0, 0, 0]], kills: [[0, 0, 0], [0, 0, 0]], mana: [0, 0], gain: [0, 0], pts: {}, pieces: {}, moments: [], forces: [], missed: [], hits: 0, t0: Date.now() };
   }
   const catOf = i => ({ M: 0, G: 1 })[T[i].cat] ?? 2;
+  // la meilleure prise possible (un dieu vaut plus qu'un garde) ; null s'il n'y en a pas
+  function bestCapture(st0, acts) {
+    const p = st0.turn, op = 1 - p; let best = null;
+    if (acts.length > 400) return null;
+    for (const a of acts) {
+      if (a.k !== 'act') continue;
+      const c = E.clone(st0); c._dead = []; E.apply(c, a);
+      const gain = (c.lost[op][0] - st0.lost[op][0]) * 3 + (c.lost[op][1] - st0.lost[op][1]);
+      if (gain > 0 && (!best || gain > best.gain)) {
+        let vi = -1; for (let q = 0; q < st0.g.N; q++) { const v = st0.b[q]; if (v > 0 && E.own(v) === op && T[E.tix(v)].cat !== 'S' && (c.b[q] <= 0 || E.own(c.b[q]) !== op)) { vi = E.tix(v); if (T[vi].cat === 'M') break; } }
+        best = { gain, ai: E.tix(st0.b[a.from]), vi };
+      }
+    }
+    return best;
+  }
   function forces(s) {
     const f = [0, 0];
     for (let q = 0; q < s.g.N; q++) { const c = s.b[q]; if (c > 0) f[E.own(c)] += T[E.tix(c)].val; }
@@ -636,6 +651,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     const st = G.st, k = { rec: 0, draft: 0, pioche: 0, pla: 1, act: 2, pass: 3 }[a.k];
     if (k !== undefined) st.act[p][k]++;
     const spent = before.mana[p] - s.mana[p]; if (spent > 0) st.mana[p] += spent;
+    if (!st.gain) st.gain = [0, 0];
+    for (const o of [0, 1]) { const dm = s.mana[o] - before.mana[o] + (o === p && spent > 0 ? spent : 0); if (dm > 0) st.gain[o] += dm; } // mana gagnée (sources, autels, vols…)
     const pc = (o, id) => st.pieces[o + ':' + id] || (st.pieces[o + ':' + id] = { act: 0, kills: 0, died: 0 });
     // points : +1 au perso recruté, placé ou activé par un joueur de cet écran
     const ti = a.k === 'act' ? E.tix(before.b[a.from]) : (a.k === 'rec' || a.k === 'pla' || (a.k === 'draft' && before.ev !== 'inverse')) ? a.t : -1;
@@ -760,7 +777,11 @@ const isSh = id => !!T[E.TI[id]].fac;
     const id = G.id, ver = G.ver, t0 = performance.now();
     const opt = { perso: G.perso, canExtend: false };
     if (G.level === 'normal') opt.budget = 350;
-    if (G.level === 'impossible') { opt.budget = 1500; opt.maxMs = 2000; }
+    if (G.level === 'impossible') {
+      // dans une partie, le stratège monte en puissance avec les Cercles : au Cercle 2 il réfléchit moins longtemps
+      const c = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 99;
+      opt.budget = c <= 2 ? 450 : c === 3 ? 900 : 1500; opt.maxMs = c <= 2 ? 650 : c === 3 ? 1200 : 2000;
+    }
     renderPlayers();
     askBot(G.s, G.level, opt, a => {
       const wait = Math.max(0, (SET.anim === 'normal' ? 380 : 150) - (performance.now() - t0));
@@ -777,6 +798,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.tuto && G.humans[G.s.turn]) { const st = guideStep(); if (st && !st.free && !st.ok(a, G.s)) { G.sel = null; render(); toast('🎓 ' + st.t, 4500); sfx('annule'); return; } }
     const s = G.s, p = s.turn, before = E.clone(s);
     if (!G.rec && !G.replay) G.rec = [frameOf(before, null)];
+    const could = G.humans[p] && !G.replay && !G.tuto && s.phase === 'play' ? bestCapture(before, legal()) : null;
     if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st), rf: G.rec ? G.rec.length : 0 }); if (G.history.length > 300) G.history.shift(); }
     if (G.net && G.ctl[p] === 'me') netSend({ t: 'act', a, ply: before.ply });
     const iceBefore = s.boss && s.boss.ice ? s.boss.ice.join() : '', warnBefore = s.boss && s.boss.warn ? s.boss.warn.join() : '';
@@ -787,6 +809,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     E.apply(s, a);
     const dead = s._dead, hits = s._hits, fire = s._fire, smash = s._smash; s._dead = null; s._hits = null; s._fire = null;
     track(before, s, a, dead, p); s._bossDead = null;
+    if (could) { // il pouvait prendre un garde ou un dieu, et ne l'a pas fait (ou a pris moins bien)
+      const got = (s.lost[1 - p][0] - before.lost[1 - p][0]) * 3 + (s.lost[1 - p][1] - before.lost[1 - p][1]);
+      if (got < could.gain && could.vi >= 0) { if (!G.st.missed) G.st.missed = []; G.st.missed.push({ p, turn: Math.floor(before.ply / 2) + 1, h: G.history.length, ai: could.ai, vi: could.vi }); }
+    }
     if (G.rec) { G.rec.push(frameOf(s, a)); if (G.rec.length > 400) G.rec.splice(1, 1); }
     const tide = s._tide; s._tide = 0;
     if (s.boss) {
@@ -1099,6 +1125,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     const left = s.res[me].reduce((a, b) => a + b, 0);
     if (lostGame && left >= 3) tips.push(L('{n} persos sont restés dans ta réserve sans servir.', { n: left }));
     if (st.act[me][3] >= 3) tips.push(L('Tu as passé ton tour {n} fois.', { n: st.act[me][3] }));
+    const nm = (st.missed || []).filter(m => m.p === me).length;
+    if (nm) tips.push(L('Tu as raté {n} prise(s) d’un garde ou d’un dieu ennemi : ouvre « Détails » pour les revoir.', { n: nm }));
     const deaths = st.moments.filter(m => m.o === me && m.vi !== undefined);
     for (const m of deaths.slice(-6)) {
       const what = m.ki >= 0 ? L('ton {v} a été tué par {a}', { v: pieceLabel(me, m.vi), a: pieceLabel(op, m.ki) }) : L('ton {v} est mort', { v: pieceLabel(me, m.vi) });
@@ -1107,6 +1135,38 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     if (deaths.length > 6) out.unshift(`<li class="muted">${L('… et {n} autres pertes avant.', { n: deaths.length - 6 })}</li>`);
     return { tips, list: out };
+  }
+  // bilan détaillé : tout ce qu'il faut pour progresser
+  function renderBilanDetails() {
+    const s = G.s, st = G.st, me = G.me, op = 1 - me;
+    const sum = a => a[0] + a[1] + a[2];
+    const canRw = h => !G.net && !G.committed && h >= 1 && h <= G.history.length;
+    const rows = Object.entries(st.pieces).filter(([k]) => +k[0] === me).map(([k, v]) => ({ id: k.slice(2), ...v })).sort((a, b) => b.kills - a.kills || b.act - a.act);
+    const ptab = rows.length ? `<table class="dtab"><tr><th></th><th>${L('Activations')}</th><th>${L('Tués')}</th><th>${L('Morts')}</th></tr>${rows.map(r => `<tr><td class="pn">${token(E.TI[r.id], me)}<span>${tn(E.TI[r.id])}</span></td><td>${r.act}</td><td>${r.kills || ''}</td><td class="${r.died ? 'bad' : ''}">${r.died || ''}</td></tr>`).join('')}</table>` : `<p class="muted">${L('Aucun perso activé.')}</p>`;
+    const line = (lbl, a, b) => `<tr><td>${lbl}</td><td class="p${me}">${a}</td><td class="p${op}">${b}</td></tr>`;
+    const gn = st.gain || [0, 0];
+    const cmp = `<table class="dtab cmp2"><tr><th></th><th class="p${me}">${esc(PN[me])}</th><th class="p${op}">${esc(PN[op])}</th></tr>
+      ${line(L('Dieux tués'), st.kills[me][0], st.kills[op][0])}${line(L('Gardes tués'), st.kills[me][1], st.kills[op][1])}${line(L('Soldats tués'), st.kills[me][2], st.kills[op][2])}
+      ${line(L('Persos perdus'), sum(s.lost[me]), sum(s.lost[op]))}${line(L('Recrutements'), st.act[me][0], st.act[op][0])}${line(L('Placements'), st.act[me][1], st.act[op][1])}
+      ${line(L('Activations'), st.act[me][2], st.act[op][2])}${line(L('Tours passés'), st.act[me][3], st.act[op][3])}
+      ${line(L('Mana dépensée'), st.mana[me], st.mana[op])}${line(L('Mana gagnée'), gn[me], gn[op])}${line(L('Mana à la fin'), s.mana[me], s.mana[op])}</table>`;
+    const miss = (st.missed || []).filter(m => m.p === me);
+    const mlist = miss.length ? `<ul class="errs">${miss.slice(-8).map(m => `<li class="err"><span>${L('Tour {n}', { n: m.turn })} · ${L('{a} pouvait prendre {v}', { a: pieceLabel(me, m.ai), v: pieceLabel(op, m.vi) })}</span>${canRw(m.h) ? `<button class="ghost sm" data-rw="${m.h}" title="${esc(L('Revenir juste avant ce coup'))}">↶</button>` : ''}</li>`).join('')}</ul>${miss.length > 8 ? `<p class="muted small">${L('… et {n} autres avant.', { n: miss.length - 8 })}</p>` : ''}` : `<p class="okmsg">${L('Aucune prise ratée : bien joué !')}</p>`;
+    const F = st.forces.map(f => f[me] - f[op]), n = F.length, mx = Math.max(4, ...F.map(Math.abs));
+    const pts = F.map((v, i) => `${(i / Math.max(1, n - 1) * 300).toFixed(1)},${(40 - v / mx * 36).toFixed(1)}`).join(' ');
+    const curve = n > 1 ? `<svg class="fcurve" viewBox="0 0 300 80" preserveAspectRatio="none"><line x1="0" y1="40" x2="300" y2="40" stroke="rgba(255,255,255,.25)" stroke-dasharray="4 4"/><polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2.5"/></svg><p class="muted small">${L('Au-dessus de la ligne : tu avais plus de forces que l’adversaire (persos sur la carte et dans la réserve).')}</p>` : '';
+    $('bilan').innerHTML = `<div class="bhead"><h2>📊 ${L('Détails de l’affrontement')}</h2></div>
+      <div class="bcols dcols">
+        <section class="bcard"><h3>${L('Tes persos')}</h3>${ptab}</section>
+        <section class="bcard"><h3>${L('Toi contre l’adversaire')}</h3>${cmp}</section>
+        <section class="bcard bad"><h3>🎯 ${L('Prises ratées')}</h3><p class="muted small">${L('Coups où tu pouvais prendre un garde ou un dieu ennemi, et ne l’as pas fait (↶ = rejouer ce moment) :')}</p>${mlist}
+          <h3>📈 ${L('Forces au fil de la partie')}</h3>${curve}</section>
+      </div>
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button><button class="ghost" id="btnBack">← ${L('Résumé')}</button></div>`;
+    $('btnNext').onclick = endNext;
+    $('btnBack').onclick = renderBilan;
+    $('bilan').querySelectorAll('[data-rw]').forEach(b => b.onclick = () => rewindTo(+b.dataset.rw));
+    sfx('page');
   }
   function renderBilan() {
     const s = G.s, st = G.st, me = G.me, op = 1 - me, w = s.winner;
@@ -1136,8 +1196,9 @@ const isSh = id => !!T[E.TI[id]].fac;
           ${gains.length ? `<h3>🎁 ${L('Ce que tu gagnes')}</h3><ul class="gains">${gains.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         </section>
       </div>
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnDetails">📊 ${L('Détails')}</button><button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
+    if ($('btnDetails')) $('btnDetails').onclick = renderBilanDetails;
     if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
     if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
     $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
@@ -1184,6 +1245,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (x === 'go') return '';
     if (x[0] === 'r') return L('recrute {x}', { x: tn(+x.slice(1)) });
     if (x[0] === 'v') return L('ranime {x}', { x: tn(+x.slice(1)) });
+    if (/^p\d+$/.test(x)) return L('prend en {c}', { c: sqName(+x.slice(1)) }); // Jumeau : prendre au lieu d'échanger
     return x;
   }
   function declText(d, s) {
@@ -1459,7 +1521,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (hum) for (const a of legal()) if (a.k === 'rec' || a.k === 'draft') recOk.add(a.t);
     $('poolTitle').textContent = s.phase === 'draft' ? (s.ev === 'inverse' ? L('Draft inversé — ce que reçoit l’adversaire') : L('Draft caché')) : L('Réserve commune (recruter)');
     $('btnSheetPool').classList.toggle('glow', recOk.size > 0);
-    let total = 0; for (let i = 0; i < E.NT; i++) total += s.pool[i];
+    // un perso qu'aucun des deux camps ne peut recruter (ex. le soldat de la Lumière en partie des Ombres) n'est pas montré
+    const seen = i => !s.fac || E.canRec(s, 0, i) || E.canRec(s, 1, i);
+    let total = 0; for (let i = 0; i < E.NT; i++) if (seen(i)) total += s.pool[i];
     if (s.phase === 'draft' && s.ev === 'cache') {
       el.innerHTML = `<div class="facedown"><span class="chip"><span class="n">🂠 × ${total}</span></span>${hum ? `<button class="ghost sm" id="btnDraw">${L('Piocher')}</button>` : ''}</div>`;
       if (hum) $('btnDraw').onclick = () => doAction({ k: 'pioche' });
@@ -1471,7 +1535,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (const [cat, lbl] of [['M', L('Dieux')], ['G', L('Gardes')], ['S', L('Soldats')]]) {
       let row = '';
       for (let i = 0; i < E.NT; i++) {
-        if (T[i].cat !== cat || !s.pool[i]) continue;
+        if (T[i].cat !== cat || !s.pool[i] || !seen(i)) continue;
         row += `<span class="chip ic ${recOk.has(i) ? 'click' : (hum ? 'off' : '')}" data-pool="${i}" title="${esc(tn(i))}">${token(i, -1)}<span class="cnt">${unl ? '∞' : s.pool[i]}</span></span>`;
       }
       if (row) h += `<div class="grp">${lbl}</div><div class="row">${row}</div>`;

@@ -756,4 +756,68 @@
   D.T.nm[1] = "1 step, or jumps into its reflection (same row, other side) and captures there.";
   D.T.nn[1] = "Kills an adjacent enemy that is also next to another of your units. Or 1 step.";
   D.T.no[1] = "Rushes up to 4 squares towards the opponent; captures at the end.";
+  Object.assign(D.ui, {
+    "Tu as raté {n} prise(s) d’un garde ou d’un dieu ennemi : ouvre « Détails » pour les revoir.": "You missed {n} capture(s) of an enemy guard or god: open “Details” to see them again.",
+    "Tués": "Kills",
+    "Morts": "Deaths",
+    "Aucun perso activé.": "No unit activated.",
+    "Dieux tués": "Gods killed",
+    "Gardes tués": "Guards killed",
+    "Soldats tués": "Soldiers killed",
+    "Persos perdus": "Units lost",
+    "Tours passés": "Turns passed",
+    "Mana dépensée": "Mana spent",
+    "Mana gagnée": "Mana gained",
+    "Mana à la fin": "Mana at the end",
+    "{a} pouvait prendre {v}": "{a} could capture {v}",
+    "… et {n} autres avant.": "… and {n} more before.",
+    "Aucune prise ratée : bien joué !": "No missed capture: well played!",
+    "Au-dessus de la ligne : tu avais plus de forces que l’adversaire (persos sur la carte et dans la réserve).": "Above the line: you had more strength than the opponent (units on the map and in reserve).",
+    "Détails de l’affrontement": "Battle details",
+    "Toi contre l’adversaire": "You vs the opponent",
+    "Prises ratées": "Missed captures",
+    "Coups où tu pouvais prendre un garde ou un dieu ennemi, et ne l’as pas fait (↶ = rejouer ce moment) :": "Moves where you could capture an enemy guard or god and didn’t (↶ = replay that moment):",
+    "Forces au fil de la partie": "Strength over the battle",
+    "Détails": "Details",
+  });
+  D.T.na[1] = "An enemy next to one of your units joins your side (not a god).";
+  D.T.nb[1] = "Curses an enemy: if it hasn’t moved by the end of its next turn, it dies.";
+  D.T.nc[1] = "Moves one of your units (not a god) to an empty square next to another of your units.";
+  D.T.nd[1] = "Takes 50 mana from the opponent and gives it to you.";
+  D.T.ne[1] = "Enemies (not gods) on your side of the map move back one square.";
+  D.T.nf[1] = "Adds 3 Shadows (soldiers) to your reserve, +1 per guard you have lost.";
+  D.T.ng[1] = "An enemy of your choice (even a god) can’t be activated for its next 2 turns.";
+  D.T.nh[1] = "Moves one of your guards or soldiers to an empty square of the enemy zone.";
+  D.T.ni[1] = "Kills every enemy soldier next to at least one of your units.";
+  D.T.nj[1] = "Choose one of your units: it and your units next to it can’t die until your next turn.";
+  D.T.nk[1] = "Each of your Shadows (soldiers) moves one square towards the opponent.";
+  D.T.om[1] = "Places a Shadow (soldier) on an empty square next to one of your units.";
+  D.T.of[1] = "Kills an enemy (not a god) next to one of your units.";
+  D.T.oe[1] = "On its next turn, the opponent can neither place nor activate units.";
+  D.T.ou[1] = "Sacrifices one of your units next to it (not a god): you gain 60 mana.";
+  D.T.oa[1] = "1 straight step, or a straight jump of 2 or 3 squares over everything. Captures the enemy on its landing square.";
+  D.T.ob[1] = "Teleports to an empty dark square 4 squares away or less, or captures an enemy next to it.";
+  D.T.oc[1] = "Flies diagonally up to 4 squares, over everything. Captures the enemy on its landing square.";
+  D.T.ol[1] = "Moves 2 squares in one of the 8 directions and kills every enemy on those 2 squares.";
+  D.T.ox[1] = "1 step to an empty square, or a 2-square flight in 8 directions, over everything. Captures the enemy on its landing square.";
+  D.T.os[1] = "1 straight step to an empty square (even backwards). Captures diagonally forward.";
+  D.T.n1[1] = "Lands on an empty square 3 squares away or less. There, adjacent enemy soldiers die and adjacent guards are frozen for 1 turn.";
+  D.T.n2[1] = "1 step in 8 directions, capturing the enemy on its square. After a capture, she can take another step (3 steps at most).";
+  D.T.n3[1] = "Kills without moving an enemy 1 or 2 squares away in a line or diagonally, with nothing in between (not a god): +10 mana. Or 1 step to an empty square.";
+  D.T.n4[1] = "Shoots its web at the first enemy in a straight line 4 squares away or less: a soldier dies, a guard or god is frozen for 2 turns. Or 1 diagonal step (captures the enemy).";
+  D.T.n5[1] = "Throws an enemy 1 or 2 squares away (not a god) 2 squares further: it dies if it leaves the map, falls into a hole or onto a unit. Or 1 step (captures the enemy).";
+  D.T.n6[1] = "Moves up to 3 straight steps, turning as it likes, through empty squares. It only captures an enemy 2 steps away or less.";
+  D.T.n7[1] = "1 step in 8 directions (captures the enemy). If it captures, or if it is next to 2 enemies or more, it goes into a frenzy: every enemy next to it dies (not gods).";
+  D.T.n8[1] = "1 straight step (captures the enemy), or captures diagonally. When she dies, 2 Shadows appear around her.";
+  D.T.n9[1] = "1 step in 8 directions (captures the enemy on its square), or appears on an empty square next to an enemy god.";
+  D.T.nl[1] = "1 straight step (captures the enemy), or kills without moving an enemy 2 or 3 squares away in a straight line (not a god). When it dies, a Shadow appears next to it.";
+  D.T.nm[1] = "1 step in 8 directions (captures the enemy), or jumps to the mirror square on the other side of its row or column and captures the enemy there (not a god).";
+  D.T.nn[1] = "1 step in 8 directions (captures the enemy). Or kills without moving an adjacent enemy that is also next to another of your units (not a god).";
+  D.T.no[1] = "Moves straight towards the opponent as far as it likes, through empty squares, and captures the enemy on its landing square. Or 1 step to an empty square.";
+  Object.assign(D.ui, {
+    "prend en {c}": "captures on {c}",
+  });
+  D.T.n3[1] = "Bites without moving an enemy next to it (not a god): it dies and you gain 10 mana. Or 1 step to an empty square.";
+  D.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It only captures an enemy right next to it (straight).";
+  D.T.n8[1] = "1 step in 8 directions (captures the enemy). When she dies, 2 Shadows appear around her.";
 })();

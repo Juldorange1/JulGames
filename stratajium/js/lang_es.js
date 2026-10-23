@@ -47,6 +47,8 @@ I18N.addLang('es', 'Español', {
     /* 740 */ "El rival empieza con 140 de maná", "Llega el alba: gana en 60 de tus turnos o pierdes", "Un 2.º ejército, para elegir en lugar de la Luz al empezar una partida o un duelo. Tiene sus propias unidades: un gemelo oscuro de cada unidad de la Luz (mismos poderes, o casi), y ninguna unidad de la Luz. También gana si tiene 3 unidades en la zona de despliegue rival.", "El Clan de las Sombras: un 2.º ejército completo (15 dioses, 18 guardias, sus soldados), sin ninguna unidad de la Luz",
     /* 744 */ "Esta unidad está encadenada: no puede activarse este turno.", "Un 2.º ejército, para elegir en lugar de la Luz al empezar una partida o un duelo. Todas sus unidades tienen poderes propios: posesión, maldiciones, puertas de las sombras, necrófagos, hombres lobo… Sus unidades se esconden en la oscuridad: un guardia o soldado enemigo no puede capturarlas a más de 4 casillas. También gana si tiene 3 unidades en la zona de despliegue rival.", "El Clan de las Sombras: un 2.º ejército completo (15 dioses, 18 guardias, sus soldados) con poderes que la Luz no tiene, escondido en la oscuridad",
     /* 747 */ "Un 2.º ejército, para elegir en lugar de la Luz. En una partida de las Sombras, el rival también juega con las Sombras. Todas sus unidades tienen poderes propios. Se esconden en la oscuridad: un guardia o soldado enemigo no puede capturarlas a más de 4 casillas. También gana con 3 unidades en la zona de despliegue rival.",
+    /* 748 */ "Has fallado {n} captura(s) de un guardia o dios enemigo: abre «Detalles» para volver a verlas.", "Muertes", "Bajas", "Ninguna unidad activada.", "Dioses muertos", "Guardias muertos", "Soldados muertos", "Unidades perdidas", "Turnos pasados", "Maná gastado", "Maná ganado", "Maná al final", "{a} podía capturar a {v}", "… y {n} más antes.", "Ninguna captura fallada: ¡bien jugado!", "Por encima de la línea: tenías más fuerzas que el rival (unidades en el mapa y en la reserva).", "Detalles del combate", "Tú contra el rival", "Capturas falladas", "Jugadas en las que podías capturar a un guardia o dios enemigo y no lo hiciste (↶ = volver a jugar ese momento):", "Fuerzas a lo largo de la partida", "Detalles",
+    /* 770 */ "captura en {c}",
   ],
   T: {
     bh: ["Hidra", "Jefe, 4 puntos de vida. Cada vez que pierde un punto de vida, le crece una nueva cabeza (un secuaz) a su lado. Un turno de cada dos, muerde a una de tus unidades pegadas a ella."],
@@ -214,3 +216,41 @@ I18N.DICT.es.T.nl[1] = "1 paso (captura), o lanza un hueso a 2 o 3 casillas; al 
 I18N.DICT.es.T.nm[1] = "1 paso, o salta a su reflejo (misma fila, otro lado) y captura allí.";
 I18N.DICT.es.T.nn[1] = "Mata a un enemigo vecino que también esté pegado a otra de tus unidades. O 1 paso.";
 I18N.DICT.es.T.no[1] = "Se lanza hasta 4 casillas hacia el rival; captura al final.";
+// armée des Ombres : descriptions claires
+I18N.DICT.es.T.na[1] = "Un enemigo pegado a una de tus unidades pasa a tu bando (no un dios).";
+I18N.DICT.es.T.nb[1] = "Maldice a un enemigo: si no se ha movido al final de su próximo turno, muere.";
+I18N.DICT.es.T.nc[1] = "Mueve una de tus unidades (no un dios) a una casilla vacía pegada a otra de tus unidades.";
+I18N.DICT.es.T.nd[1] = "Quita 50 de maná al rival y te los da.";
+I18N.DICT.es.T.ne[1] = "Los enemigos (no los dioses) que están en tu lado del mapa retroceden una casilla.";
+I18N.DICT.es.T.nf[1] = "Añade a tu reserva 3 Sombras (soldados), +1 por cada guardia que hayas perdido.";
+I18N.DICT.es.T.ng[1] = "Un enemigo a tu elección (incluso un dios) no puede activarse durante sus 2 próximos turnos.";
+I18N.DICT.es.T.nh[1] = "Mueve a uno de tus guardias o soldados a una casilla vacía de la zona rival.";
+I18N.DICT.es.T.ni[1] = "Mata a todos los soldados enemigos pegados al menos a una de tus unidades.";
+I18N.DICT.es.T.nj[1] = "Elige una de tus unidades: ella y tus unidades pegadas a ella no pueden morir hasta tu próximo turno.";
+I18N.DICT.es.T.nk[1] = "Cada una de tus Sombras (soldados) avanza una casilla hacia el rival.";
+I18N.DICT.es.T.om[1] = "Coloca una Sombra (soldado) en una casilla vacía pegada a una de tus unidades.";
+I18N.DICT.es.T.of[1] = "Mata a un enemigo (no un dios) pegado a una de tus unidades.";
+I18N.DICT.es.T.oe[1] = "En su próximo turno, el rival no puede colocar ni activar unidades.";
+I18N.DICT.es.T.ou[1] = "Sacrifica una de tus unidades pegadas a él (no un dios): ganas 60 de maná.";
+I18N.DICT.es.T.oa[1] = "1 paso recto, o un salto recto de 2 o 3 casillas por encima de todo. Captura al enemigo de la casilla de llegada.";
+I18N.DICT.es.T.ob[1] = "Se teletransporta a una casilla oscura vacía a 4 casillas o menos, o captura a un enemigo pegado a ella.";
+I18N.DICT.es.T.oc[1] = "Vuela en diagonal hasta 4 casillas, por encima de todo. Captura al enemigo de la casilla de llegada.";
+I18N.DICT.es.T.ol[1] = "Avanza 2 casillas en una de las 8 direcciones y mata a todos los enemigos de esas 2 casillas.";
+I18N.DICT.es.T.ox[1] = "1 paso a una casilla vacía, o un vuelo de 2 casillas en las 8 direcciones, por encima de todo. Captura al enemigo de la casilla de llegada.";
+I18N.DICT.es.T.os[1] = "1 paso recto a una casilla vacía (incluso hacia atrás). Captura en diagonal hacia delante.";
+I18N.DICT.es.T.n1[1] = "Se posa en una casilla vacía a 3 casillas o menos. Allí, los soldados enemigos pegados mueren y los guardias pegados quedan paralizados 1 turno.";
+I18N.DICT.es.T.n2[1] = "1 paso en las 8 direcciones, capturando al enemigo de su casilla. Tras una captura, puede dar otro paso (3 como máximo).";
+I18N.DICT.es.T.n3[1] = "Mata sin moverse a un enemigo a 1 o 2 casillas en línea o en diagonal, sin nada en medio (no un dios): +10 de maná. O 1 paso a una casilla vacía.";
+I18N.DICT.es.T.n4[1] = "Lanza su tela al 1.er enemigo en línea recta a 4 casillas o menos: un soldado muere, un guardia o un dios queda paralizado 2 turnos. O 1 paso en diagonal (captura al enemigo).";
+I18N.DICT.es.T.n5[1] = "Lanza a un enemigo a 1 o 2 casillas (no un dios) 2 casillas más lejos: muere si sale del mapa, cae en un agujero o sobre una unidad. O 1 paso (captura al enemigo).";
+I18N.DICT.es.T.n6[1] = "Avanza hasta 3 pasos rectos, girando como quiera, por casillas vacías. Solo captura a un enemigo a 2 pasos o menos.";
+I18N.DICT.es.T.n7[1] = "1 paso en las 8 direcciones (captura al enemigo). Si captura, o si está pegado a 2 enemigos o más, entra en furia: mueren todos los enemigos pegados a él (no los dioses).";
+I18N.DICT.es.T.n8[1] = "1 paso recto (captura al enemigo), o captura en diagonal. Cuando muere, aparecen 2 Sombras a su alrededor.";
+I18N.DICT.es.T.n9[1] = "1 paso en las 8 direcciones (captura al enemigo de su casilla), o aparece en una casilla vacía pegada a un dios enemigo.";
+I18N.DICT.es.T.nl[1] = "1 paso recto (captura al enemigo), o mata sin moverse a un enemigo a 2 o 3 casillas en línea recta (no un dios). Cuando muere, aparece una Sombra a su lado.";
+I18N.DICT.es.T.nm[1] = "1 paso en las 8 direcciones (captura al enemigo), o salta a la casilla espejo al otro lado de su fila o columna y captura allí al enemigo (no un dios).";
+I18N.DICT.es.T.nn[1] = "1 paso en las 8 direcciones (captura al enemigo). O mata sin moverse a un enemigo pegado a él que también esté pegado a otra de tus unidades (no un dios).";
+I18N.DICT.es.T.no[1] = "Avanza en línea recta hacia el rival todo lo que quiera, por casillas vacías, y captura al enemigo de la casilla de llegada. O 1 paso a una casilla vacía.";
+I18N.DICT.es.T.n3[1] = "Muerde sin moverse a un enemigo pegado a él (no un dios): muere y ganas 10 de maná. O 1 paso a una casilla vacía.";
+I18N.DICT.es.T.n6[1] = "Avanza hasta 3 pasos rectos por casillas vacías, girando como quiera. Solo captura a un enemigo pegado a él (en línea recta).";
+I18N.DICT.es.T.n8[1] = "1 paso en las 8 direcciones (captura al enemigo). Cuando muere, aparecen 2 Sombras a su alrededor.";

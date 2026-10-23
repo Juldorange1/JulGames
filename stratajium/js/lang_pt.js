@@ -47,6 +47,8 @@ I18N.addLang('pt', 'Português', {
     /* 740 */ "O adversário começa com 140 de mana", "A aurora está chegando: vença em 60 dos seus turnos, ou você perde", "Um 2.º exército, para escolher no lugar da Luz ao começar uma partida ou um duelo. Tem suas próprias unidades: um gêmeo sombrio para cada unidade da Luz (mesmos poderes, ou quase), e nenhuma unidade da Luz. Também vence tendo 3 unidades na zona de posicionamento adversária.", "O Clã das Sombras: um 2.º exército completo (15 deuses, 18 guardas, seus soldados), sem nenhuma unidade da Luz",
     /* 744 */ "Esta unidade está acorrentada: não pode ser ativada neste turno.", "Um 2.º exército, para escolher no lugar da Luz ao começar uma partida ou um duelo. Todas as suas unidades têm poderes próprios: possessão, maldições, portões das sombras, carniçais, lobisomens… Suas unidades se escondem no escuro: um guarda ou soldado inimigo não pode capturá-las a mais de 4 casas. Também vence tendo 3 unidades na zona de posicionamento adversária.", "O Clã das Sombras: um 2.º exército completo (15 deuses, 18 guardas, seus soldados) com poderes que a Luz não tem, escondido no escuro",
     /* 747 */ "Um 2.º exército, para escolher no lugar da Luz. Numa partida das Sombras, o adversário também joga com as Sombras. Todas as suas unidades têm poderes próprios. Elas se escondem no escuro: um guarda ou soldado inimigo não pode capturá-las a mais de 4 casas. Também vence com 3 unidades na zona de posicionamento adversária.",
+    /* 748 */ "Você perdeu {n} captura(s) de um guarda ou deus inimigo: abra «Detalhes» para revê-las.", "Mortes", "Baixas", "Nenhuma unidade ativada.", "Deuses mortos", "Guardas mortos", "Soldados mortos", "Unidades perdidas", "Turnos passados", "Mana gasto", "Mana ganho", "Mana no fim", "{a} podia capturar {v}", "… e mais {n} antes.", "Nenhuma captura perdida: bem jogado!", "Acima da linha: você tinha mais forças que o adversário (unidades no mapa e na reserva).", "Detalhes do combate", "Você contra o adversário", "Capturas perdidas", "Jogadas em que você podia capturar um guarda ou deus inimigo e não fez (↶ = jogar de novo esse momento):", "Forças ao longo da partida", "Detalhes",
+    /* 770 */ "captura em {c}",
   ],
   T: {
     bh: ["Hidra", "Chefe, 4 pontos de vida. Cada vez que perde um ponto de vida, nasce uma nova cabeça (um lacaio) ao lado dela. A cada dois turnos, morde uma de suas unidades encostadas nela."],
@@ -214,3 +216,41 @@ I18N.DICT.pt.T.nl[1] = "1 passo (captura), ou arremessa um osso a 2 ou 3 casas; 
 I18N.DICT.pt.T.nm[1] = "1 passo, ou salta para o seu reflexo (mesma linha, outro lado) e captura ali.";
 I18N.DICT.pt.T.nn[1] = "Mata um inimigo vizinho que também esteja encostado noutra unidade sua. Ou 1 passo.";
 I18N.DICT.pt.T.no[1] = "Avança até 4 casas em direção ao adversário; captura no fim.";
+// armée des Ombres : descriptions claires
+I18N.DICT.pt.T.na[1] = "Um inimigo encostado numa unidade sua passa para o seu lado (não um deus).";
+I18N.DICT.pt.T.nb[1] = "Amaldiçoa um inimigo: se ele não tiver se movido no fim do próximo turno dele, morre.";
+I18N.DICT.pt.T.nc[1] = "Move uma unidade sua (não um deus) para uma casa vazia encostada noutra unidade sua.";
+I18N.DICT.pt.T.nd[1] = "Tira 50 de mana do adversário e dá para você.";
+I18N.DICT.pt.T.ne[1] = "Os inimigos (não os deuses) do seu lado do mapa recuam uma casa.";
+I18N.DICT.pt.T.nf[1] = "Adiciona 3 Sombras (soldados) à sua reserva, +1 por guarda que você perdeu.";
+I18N.DICT.pt.T.ng[1] = "Um inimigo à sua escolha (até um deus) não pode ser ativado nos 2 próximos turnos dele.";
+I18N.DICT.pt.T.nh[1] = "Move um guarda ou soldado seu para uma casa vazia da zona adversária.";
+I18N.DICT.pt.T.ni[1] = "Mata todos os soldados inimigos encostados em pelo menos uma unidade sua.";
+I18N.DICT.pt.T.nj[1] = "Escolha uma unidade sua: ela e as suas unidades encostadas nela não podem morrer até o seu próximo turno.";
+I18N.DICT.pt.T.nk[1] = "Cada uma das suas Sombras (soldados) avança uma casa em direção ao adversário.";
+I18N.DICT.pt.T.om[1] = "Coloca uma Sombra (soldado) numa casa vazia encostada numa unidade sua.";
+I18N.DICT.pt.T.of[1] = "Mata um inimigo (não um deus) encostado numa unidade sua.";
+I18N.DICT.pt.T.oe[1] = "No próximo turno, o adversário não pode posicionar nem ativar unidades.";
+I18N.DICT.pt.T.ou[1] = "Sacrifica uma unidade sua encostada nele (não um deus): você ganha 60 de mana.";
+I18N.DICT.pt.T.oa[1] = "1 passo reto, ou um salto reto de 2 ou 3 casas por cima de tudo. Captura o inimigo na casa de chegada.";
+I18N.DICT.pt.T.ob[1] = "Teletransporta-se para uma casa escura vazia a 4 casas ou menos, ou captura um inimigo encostado nela.";
+I18N.DICT.pt.T.oc[1] = "Voa na diagonal até 4 casas, por cima de tudo. Captura o inimigo na casa de chegada.";
+I18N.DICT.pt.T.ol[1] = "Avança 2 casas numa das 8 direções e mata todos os inimigos nessas 2 casas.";
+I18N.DICT.pt.T.ox[1] = "1 passo para uma casa vazia, ou um voo de 2 casas nas 8 direções, por cima de tudo. Captura o inimigo na casa de chegada.";
+I18N.DICT.pt.T.os[1] = "1 passo reto para uma casa vazia (até para trás). Captura na diagonal para a frente.";
+I18N.DICT.pt.T.n1[1] = "Pousa numa casa vazia a 3 casas ou menos. Ali, os soldados inimigos encostados morrem e os guardas encostados ficam paralisados 1 turno.";
+I18N.DICT.pt.T.n2[1] = "1 passo nas 8 direções, capturando o inimigo da casa. Depois de uma captura, pode dar mais um passo (no máximo 3).";
+I18N.DICT.pt.T.n3[1] = "Mata sem se mover um inimigo a 1 ou 2 casas em linha ou na diagonal, sem nada no meio (não um deus): +10 de mana. Ou 1 passo para uma casa vazia.";
+I18N.DICT.pt.T.n4[1] = "Lança sua teia no 1.º inimigo em linha reta a 4 casas ou menos: um soldado morre, um guarda ou deus fica paralisado 2 turnos. Ou 1 passo na diagonal (captura o inimigo).";
+I18N.DICT.pt.T.n5[1] = "Arremessa um inimigo a 1 ou 2 casas (não um deus) 2 casas adiante: ele morre se sair do mapa, cair num buraco ou sobre uma unidade. Ou 1 passo (captura o inimigo).";
+I18N.DICT.pt.T.n6[1] = "Avança até 3 passos retos, virando como quiser, por casas vazias. Só captura um inimigo a 2 passos ou menos.";
+I18N.DICT.pt.T.n7[1] = "1 passo nas 8 direções (captura o inimigo). Se capturar, ou se estiver encostado em 2 inimigos ou mais, entra em fúria: todos os inimigos encostados nele morrem (não os deuses).";
+I18N.DICT.pt.T.n8[1] = "1 passo reto (captura o inimigo), ou captura na diagonal. Quando morre, 2 Sombras aparecem ao redor dela.";
+I18N.DICT.pt.T.n9[1] = "1 passo nas 8 direções (captura o inimigo da casa), ou aparece numa casa vazia encostada num deus inimigo.";
+I18N.DICT.pt.T.nl[1] = "1 passo reto (captura o inimigo), ou mata sem se mover um inimigo a 2 ou 3 casas em linha reta (não um deus). Quando morre, uma Sombra aparece ao lado.";
+I18N.DICT.pt.T.nm[1] = "1 passo nas 8 direções (captura o inimigo), ou salta para a casa espelhada do outro lado da sua linha ou coluna e captura ali o inimigo (não um deus).";
+I18N.DICT.pt.T.nn[1] = "1 passo nas 8 direções (captura o inimigo). Ou mata sem se mover um inimigo encostado nele que também esteja encostado noutra unidade sua (não um deus).";
+I18N.DICT.pt.T.no[1] = "Avança em linha reta em direção ao adversário o quanto quiser, por casas vazias, e captura o inimigo na casa de chegada. Ou 1 passo para uma casa vazia.";
+I18N.DICT.pt.T.n3[1] = "Morde sem se mover um inimigo encostado nele (não um deus): ele morre e você ganha 10 de mana. Ou 1 passo para uma casa vazia.";
+I18N.DICT.pt.T.n6[1] = "Avança até 3 passos retos por casas vazias, virando como quiser. Só captura um inimigo encostado nele (em linha reta).";
+I18N.DICT.pt.T.n8[1] = "1 passo nas 8 direções (captura o inimigo). Quando morre, 2 Sombras aparecem ao redor dela.";
