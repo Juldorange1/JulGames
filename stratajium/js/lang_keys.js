@@ -750,4 +750,9 @@ I18N.KEYS = [
   "Pages",
   "Abandonner",
   "Abandon.",
+  // armée des Ombres complète, malus plus doux (2026-10-23)
+  "L’adversaire commence avec 140 mana",
+  "L’aube arrive : gagne en 60 de tes tours, sinon c’est perdu",
+  "Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle a ses propres persos : un jumeau sombre pour chaque perso de la Lumière (mêmes pouvoirs, ou presque), et aucun perso de la Lumière. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.",
+  "Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats), sans aucun perso de la Lumière",
 ];

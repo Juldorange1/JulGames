@@ -38,6 +38,7 @@
   document.body.insertAdjacentHTML('afterbegin', `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
     <radialGradient id="bg0" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#fff4cf"/><stop offset=".7" stop-color="#f0c45a"/><stop offset="1" stop-color="#b8801c"/></radialGradient>
     <radialGradient id="bg1" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#f1e8ff"/><stop offset=".7" stop-color="#b294f4"/><stop offset="1" stop-color="#6a3fd1"/></radialGradient>
+    <filter id="shTint" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".30 .28 .22 0 .06  .20 .20 .20 0 .02  .42 .34 .40 0 .12  0 0 0 1 0"/></filter>
     <radialGradient id="bgn" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#fbf8f2"/><stop offset=".7" stop-color="#d4ccbe"/><stop offset="1" stop-color="#8a8070"/></radialGradient>
   </defs></svg>`);
   // la couronne des dieux du joueur change de couleur avec son Cercle (bronze, argent, or, rubis, émeraude, saphir, améthyste, diamant)
@@ -110,8 +111,12 @@
   const bossList = () => E.BOSSES.concat(dlcOn('abysses') ? E.BOSSES_DLC : []);
   const themeList = () => Decor.BASE_THEMES.concat(dlcOn('abysses') ? ['abysses'] : [], dlcOn('ombres') ? ['nuit'] : []);
   // une partie de l'armée des Ombres (r.fac = 1) débloque les persos des Ombres
-  const runM = r => r.fac ? allM().concat(E.SH_M) : allM(), runG = r => r.fac ? allG().concat(E.SH_G) : allG();
-  const startM = r => r.fac ? E.START_M.concat(E.SH_START_M) : E.START_M, startG = r => r.fac ? E.START_G.concat(E.SH_START_G) : E.START_G;
+  const runM = r => r.fac ? E.SH_M : allM(), runG = r => r.fac ? E.SH_G : allG();
+  const startM = r => r.fac ? E.SH_START_M : E.START_M, startG = r => r.fac ? E.SH_START_G : E.START_G;
+  // jumeaux : perso des Ombres -> perso de la Lumière qui lui fait face (et l'inverse)
+  const REV = {}; for (const k in E.TWIN) REV[E.TWIN[k]] = k;
+  const lightOf = ids => [...new Set(ids.map(x => E.TWIN[x] || x).filter(x => !isSh(x)))], shadowOf = ids => [...new Set(ids.map(x => isSh(x) ? x : REV[x]).filter(Boolean))];
+  const mid = id => E.MID[E.TI[id]] || id; // ses pouvoirs viennent de ce perso
 const isSh = id => !!T[E.TI[id]].fac;
   // ---------- décors ----------
   const bgDecor = Decor.create(), boardDecor = Decor.create();
@@ -169,14 +174,14 @@ const isSh = id => !!T[E.TI[id]].fac;
   const TRACKS = { gard: { normal: 5, hardStreak: 3 }, god: { normal: 8, hard: 5 }, map: 4, event: 5 };
   const HARD = ['mana', 'riche', 'avance', 'premier', 'sauvage', 'evenement', 'dieupris', 'soldats', 'pauvre', 'silence', 'geole', 'ronces', 'gardespris', 'blesse'];
   const hardName = id => ({
-    mana: L('Tu commences avec 60 mana au lieu de 100'), riche: L('L’adversaire commence avec 160 mana'),
+    mana: L('Tu commences avec 60 mana au lieu de 100'), riche: L('L’adversaire commence avec 140 mana'),
     avance: L('L’adversaire a déjà un garde posé'), premier: L('L’adversaire joue en premier'),
     sauvage: L('Carte plus sauvage d’un niveau'), evenement: L('Un événement à coup sûr'), dieupris: L('L’adversaire a déjà recruté un dieu'),
     soldats: L('L’adversaire commence avec 2 soldats déjà posés'), pauvre: L('La réserve commune n’a qu’un garde de chaque sorte'),
     silence: L('Tu ne peux pas activer de perso pendant tes 2 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
     ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
     blesse: L('Tu commences avec un garde déjà perdu'),
-    aube: L('L’aube arrive : gagne en 50 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
+    aube: L('L’aube arrive : gagne en 60 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
     invasion4: L('L’invasion demande 4 Ombres au lieu de 3'), sansombre: L('Pas de soldats des Ombres dans la réserve'),
     veilleurs: L('2 lumières sacrées brillent dans ta moitié de carte'),
   })[id];
@@ -252,8 +257,8 @@ const isSh = id => !!T[E.TI[id]].fac;
   // poids de chaque malus : on n'en cumule jamais trop, pour que l'affrontement reste gagnable en jouant parfaitement
   const HARD_W = { mana: 2, riche: 2, avance: 1, premier: 1, sauvage: 1, evenement: 1, dieupris: 2, soldats: 1, pauvre: 1, silence: 2, geole: 1, ronces: 1, gardespris: 2, blesse: 3, aube: 2, paladins: 2, invasion4: 1, sansombre: 2, veilleurs: 1 };
   function rollHard(r) {
-    const n = hasF(r, 'hard3') ? 3 : 2, cap = 4; // avec 3 malus, ils sont plus légers
-    const pool = r.fac ? SH_HARD.concat(SH_HARD_MIX) : HARD;
+    const n = hasF(r, 'hard3') ? 3 : 2, cap = n === 3 ? 4 : 3; // plus doux : 2 malus légers, ou 3 avec le fardeau du Cercle
+    const pool = (r.fac ? SH_HARD.concat(SH_HARD_MIX) : HARD).filter(x => HARD_W[x] < 3); // « garde déjà perdu » est retiré : trop dur
     for (let t = 0; t < 80; t++) { const h = shuffle(pool).slice(0, n); if (h.reduce((a, x) => a + HARD_W[x], 0) <= cap && (!r.fac || h.some(x => SH_HARD.includes(x)))) return h; }
     return ['premier', 'sauvage', 'ronces'].slice(0, n);
   }
@@ -297,11 +302,16 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!r.exploits) r.exploits = [];
     if (r.winsH === undefined) r.winsH = 0;
     if (r.xp === undefined) r.xp = 0;
+    if (r.hard && (r.hard.includes('blesse') || r.hard.reduce((a, x) => a + (HARD_W[x] || 1), 0) > (hasF(r, 'hard3') ? 4 : 3))) r.hard = rollHard(r); // nouveaux malus, plus doux
     if (!r.pp) r.pp = {};
     if (r.gem === undefined) r.gem = 0;
     if (!r.bossSeq || r.bossSeq.length !== bossList().length + (r.fac ? E.SH_BOSSES.length : 0)) r.bossSeq = bossSeqFor(r);
     if (r.fac === undefined) r.fac = 0;
-    if (r.fac && !r.gods.some(x => !isSh(x))) { r.gods = E.START_M.concat(r.gods); r.gards = E.START_G.concat(r.gards); } // l'armée des Ombres garde aussi les persos de base
+    // partie des Ombres : chaque perso de la Lumière déjà débloqué devient son jumeau des Ombres
+    if (r.fac && (r.gods.some(x => !isSh(x)) || r.gards.some(x => !isSh(x)) || !E.SH_START_M.every(x => r.gods.includes(x)))) {
+      r.gods = shadowOf(E.SH_START_M.concat(r.gods)); r.gards = shadowOf(E.SH_START_G.concat(r.gards));
+      r.pending = r.pending.filter(pd => pd.opts.every(isSh));
+    }
     return r;
   }
   RUNS = RUNS.map(migrate);
@@ -531,9 +541,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     // armée des Ombres : l'adversaire (la Lumière) a autant de sortes de persos que toi
     const more = (base, all, n) => base.concat(shuffle(all.filter(x => !base.includes(x))).slice(0, Math.max(0, n)));
     // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
-    const oppM = r.gods.filter(x => !isSh(x)), oppG = r.gards.filter(x => !isSh(x));
+    // partie des Ombres : la Lumière en face a les mêmes sortes de persos (leurs jumeaux)
+    const oppM = r.fac ? lightOf(r.gods) : r.gods, oppG = r.fac ? lightOf(r.gards) : r.gards;
     pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle,
-      fac: r.fac ? [1, 0] : null, shM: r.fac ? r.gods.filter(isSh) : null, shG: r.fac ? r.gards.filter(isSh) : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
+      fac: r.fac ? [1, 0] : null, shM: r.fac ? r.gods.slice() : null, shG: r.fac ? r.gards.slice() : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
   }
@@ -650,7 +661,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const s = E.newGame({ event: pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
     if (hs.includes('mana')) s.mana[0] = 60;
-    if (hs.includes('riche')) s.mana[1] = 160;
+    if (hs.includes('riche')) s.mana[1] = 140;
     if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(pre.gards)], 1); }
     if (hs.includes('dieupris')) { const av = pre.gods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI.s, 1);
@@ -660,7 +671,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
     if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = pre.gards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('blesse')) s.lost[0][1] = 1;
-    if (hs.includes('aube')) s.dawn = 50;
+    if (hs.includes('aube')) s.dawn = 60;
     if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(pre.gards)], 1);
     if (hs.includes('invasion4')) s.invN = 4;
     if (hs.includes('sansombre')) s.pool[E.TI.os] = 0;
@@ -883,7 +894,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function animate(before, after, a, dead, hits, fire, smash) {
     if (!G.sq) return;
     const g = after.g;
-    const id = a.k === 'act' && before.b[a.from] > 0 ? T[E.tix(before.b[a.from])].id : null;
+    const id = a.k === 'act' && before.b[a.from] > 0 ? mid(T[E.tix(before.b[a.from])].id) : null;
     const used = new Set();
     let moved = 0;
     for (let q = 0; q < g.N; q++) {
@@ -1187,7 +1198,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       case 'draft': return b.ev === 'inverse' ? L('{p} donne {x} à {o}', { p: P, x: tn(a.t), o: esc(PN[1 - b.turn]) }) : L('{p} prend {x}', { p: P, x: tn(a.t) });
       case 'pioche': return L('{p} pioche une pièce face cachée', { p: P });
       case 'pla': return L('{p} place {x} en {c}', { p: P, x: tn(a.t), c: sqName(a.to) }) + (E.placeFree(b, a) ? ' ' + L('(gratuit, case noire)') : '');
-      case 'act': { const ti = E.tix(b.b[a.from]); const d = a.cl.map(x => typeof x === 'number' ? sqName(x) : optLabel(x, T[ti].id)).filter(Boolean).join(' → '); return L('{p} active {x} en {c}', { p: P, x: tn(ti), c: sqName(a.from) }) + (d ? ' : ' + d : '') + ds; }
+      case 'act': { const ti = E.tix(b.b[a.from]); const d = a.cl.map(x => typeof x === 'number' ? sqName(x) : optLabel(x, mid(T[ti].id))).filter(Boolean).join(' → '); return L('{p} active {x} en {c}', { p: P, x: tn(ti), c: sqName(a.from) }) + (d ? ' : ' + d : '') + ds; }
       case 'pass': return L('{p} passe son tour', { p: P });
       case 'decl': return L('{p} annonce : {d}', { p: P, d: declText(a.d, b) });
     }
@@ -1205,7 +1216,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const s = G.s;
     if (sel.k === 'place') { for (const a of legal()) if (a.k === 'pla' && a.t === sel.t) v.sq.set(a.to, 'tgt-place' + (E.placeFree(s, a) ? ' free' : '')); return v; }
     const m = matching(), n = sel.pre.length;
-    const tid = T[E.tix(s.b[sel.from])].id;
+    const tid = mid(T[E.tix(s.b[sel.from])].id);
     v.path = sel.pre.filter(x => typeof x === 'number');
     for (const a of m) {
       if (a.cl.length === n) { v.complete = a; continue; }
@@ -1502,8 +1513,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       h = `<b>${tn(ti)}</b> : ${td(ti)}`;
       for (const x of v.strs) {
         if (x[0] === 'r' || x[0] === 'v') { const i = +x.slice(1); o.push(`<button data-o="s:${x}">${token(i, x[0] === 'v' ? s.turn : -1)} ${x[0] === 'v' ? L('Ranimer') + ' ' : ''}${tn(i)}</button>`); }
-        else if (x === 'go') o.push(`<button class="main" data-o="s:go"${t.id === 'g6' ? ' data-zone="adj"' : ''}>${L('Activer {x}', { x: tn(ti) })}</button>`);
-        else o.push(`<button class="main" data-o="s:${x}" data-zone="${x}">${t.id === 'pb' ? '🌋' : '⚡'} ${x === 'centre' ? L('Le centre') : (t.id === 'pb' ? L('2e ligne') : L('Bord')) + ' ' + SIDE[x]}</button>`);
+        else if (x === 'go') o.push(`<button class="main" data-o="s:go"${mid(t.id) === 'g6' ? ' data-zone="adj"' : ''}>${L('Activer {x}', { x: tn(ti) })}</button>`);
+        else o.push(`<button class="main" data-o="s:${x}" data-zone="${x}">${mid(t.id) === 'pb' ? '🌋' : '⚡'} ${x === 'centre' ? L('Le centre') : (mid(t.id) === 'pb' ? L('2e ligne') : L('Bord')) + ' ' + SIDE[x]}</button>`);
       }
       if (v.complete) o.push(`<button class="main" data-o="finish">${L('Valider (s’arrêter là)')}</button>`);
       o.push(`<button data-o="cancel">${L('Annuler')}</button>`);
@@ -1637,12 +1648,13 @@ const isSh = id => !!T[E.TI[id]].fac;
     ['decors', L('🌲 Décors')], ['bots', L('🤖 Bots')], ['progression', L('📈 Progression')], ['raccourcis', L('⌨️ Raccourcis')]];
   let codexTab = 'regles', codexPg = 0, codexPages = 1;
   const DIAG_W = 7, DIAG_C = 24;
-  function moveDiagram(id) {
+  function moveDiagram(id0) {
+    const id = mid(id0);
     const ex = new Uint8Array(DIAG_W * DIAG_W).fill(1), z = []; for (let c = 0; c < DIAG_W; c++) z.push(42 + c);
     const g = E.buildGeo(DIAG_W, DIAG_W, ex, z, 'codex');
     const s = E.newGame({ map: g, gods: [], gards: [] });
     s.mana = [999, 999];
-    s.b[DIAG_C] = E.enc(E.TI[id], 0);
+    s.b[DIAG_C] = E.enc(E.TI[id0], 0);
     for (const q of [3, 8, 13, 21, 31, 38, 46]) s.b[q] = E.enc(E.TI.s, 1);
     for (const q of [36, 15]) s.b[q] = E.enc(E.TI.s, 0);
     const cls = new Array(49).fill('');
@@ -1660,7 +1672,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let q = 0; q < 49; q++) { const c = s.b[q], light = (((q / DIAG_W) | 0) + q % DIAG_W) % 2 === 0; h += `<i class="${light ? 'l' : ''} ${cls[q]}">${q === DIAG_C ? token(E.tix(c), 0) : c > 0 ? `<b class="${E.own(c) ? 'en' : 'al'}"></b>` : ''}</i>`; }
     return h + '</div>';
   }
-  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1);
+  const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1); E.SH_M.concat(E.SH_G).forEach(x => { if (NODIAG[mid(x)]) NODIAG[x] = 1; });
   function pieceCards(ids) {
     const r = cur >= 0 ? run() : null;
     return ids.map(id => {
@@ -1690,7 +1702,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (tab === 'regles') return rulesBlocks();
     if (tab === 'dieux') return pieceCards(allM());
     if (tab === 'gardes') return pieceCards(allG());
-    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle recrute les persos de base ET les persos des Ombres, que la Lumière ne peut pas prendre. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
+    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle a ses propres persos : un jumeau sombre pour chaque perso de la Lumière (mêmes pouvoirs, ou presque), et aucun perso de la Lumière. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
     if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
@@ -1827,7 +1839,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const o = DUEL, bot = ['facile', 'normal', 'impossible'].includes(o.opp), online = o.opp === 'net';
     const gods = o.res === 'all' ? allM() : o.res === 'rnd' ? shuffle(allM()).slice(0, 5) : E.START_M.slice();
     const gards = o.res === 'all' ? allG() : o.res === 'rnd' ? shuffle(allG()).slice(0, 7) : E.START_G.slice();
-    const shM = o.res === 'all' ? E.SH_M : o.res === 'rnd' ? shuffle(E.SH_M).slice(0, 3) : E.SH_START_M, shG = o.res === 'all' ? E.SH_G : o.res === 'rnd' ? shuffle(E.SH_G).slice(0, 4) : E.SH_START_G;
+    const shM = o.res === 'all' ? E.SH_M : o.res === 'rnd' ? shadowOf(gods) : E.SH_START_M, shG = o.res === 'all' ? E.SH_G : o.res === 'rnd' ? shadowOf(gards) : E.SH_START_G;
     const myF = dlcOn('ombres') ? +o.fac : 0, opF = dlcOn('ombres') ? +o.ofac : 0, cur2 = dlcOn('abysses') && o.cur === 'oui';
     const mapLv = o.map === 'rnd' ? rnd(5) : +o.map;
     let ev = o.ev === 'rnd' ? pickEvent() : o.ev === 'objectif' ? 'objectif' : null;
@@ -2031,7 +2043,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${card('abysses', '🌊', L('Les Abysses'), [L('Un nouveau monde sous-marin, avec ses courants qui emportent les persos'), L('4 persos marins : Requin, Méduse, Pieuvre, Sirène'),
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres et le Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
-      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée qui garde tous les persos de base et y ajoute les siens (4 dieux, 5 gardes, ses soldats)'),
+      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats), sans aucun perso de la Lumière'),
         L('Sa façon de gagner : avoir 3 persos dans la zone de placement adverse'), L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
         L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'), L('5 handicaps difficiles propres aux parties des Ombres'),
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),

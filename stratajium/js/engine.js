@@ -88,15 +88,47 @@ function StratEngine() {
     { id: 'sl', cat: 'B', sym: 'L', name: 'Phare', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Il ne bouge pas, mais sa lumière fige tes gardes et tes soldats : ceux à 2 cases ou moins de lui ne peuvent pas être activés (tes dieux, si). Touche-le de loin ! Tous les 4 tours, il appelle un sbire.' },
     { id: 'sg', cat: 'B', sym: 'G', name: 'Golem de cristal', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Son cristal renvoie les tirs et les sorts : seuls les coups au contact le blessent. Tous les 4 tours, il écrase un perso collé à lui.' },
     { id: 'os', cat: 'S', sym: 'o', name: 'Ombre', val: 1, fac: 1, desc: 'Soldat des ombres : fait 1 pas en ligne droite (même en arrière) vers une case vide ; prend en diagonale vers l’avant.' },
+    // jumeaux des Ombres (as = le perso de la Lumière dont ils ont les pouvoirs ; valeur, coût et description viennent de lui)
+    { id: 'na', cat: 'M', sym: 'A', name: 'Tempête noire', as: 'ma', fac: 1 },
+    { id: 'nb', cat: 'M', sym: 'B', name: 'Miroir sombre', as: 'mb', fac: 1 },
+    { id: 'nc', cat: 'M', sym: 'C', name: 'Manipulateur', as: 'mc', fac: 1 },
+    { id: 'nd', cat: 'M', sym: 'D', name: 'Chef de meute', as: 'md', fac: 1 },
+    { id: 'ne', cat: 'M', sym: 'E', name: 'Rabatteur', as: 'me', fac: 1 },
+    { id: 'nf', cat: 'M', sym: 'F', name: 'Sablier noir', as: 'pa', fac: 1 },
+    { id: 'ng', cat: 'M', sym: 'G', name: 'Gouffre', as: 'pb', fac: 1 },
+    { id: 'nh', cat: 'M', sym: 'H', name: 'Cor des ombres', as: 'pc', fac: 1, desc: 'Une de tes Ombres (soldat des ombres) fait 2 pas d’affilée.' },
+    { id: 'ni', cat: 'M', sym: 'I', name: 'Invocateur', as: 'pd', fac: 1, desc: 'Recrute une Ombre (soldat des ombres) et la pose directement dans ta zone de placement.' },
+    { id: 'nj', cat: 'M', sym: 'J', name: 'Chaînes', as: 'pe', fac: 1 },
+    { id: 'nk', cat: 'M', sym: 'K', name: 'Vengeance', as: 'pg', fac: 1 },
+    { id: 'n1', cat: 'G', sym: '1', name: 'Double', as: 'g1', fac: 1 },
+    { id: 'n2', cat: 'G', sym: '2', name: 'Tour noire', as: 'g2', fac: 1 },
+    { id: 'n3', cat: 'G', sym: '3', name: 'Archère sombre', as: 'g3', fac: 1 },
+    { id: 'n4', cat: 'G', sym: '4', name: 'Mastodonte', as: 'g4', fac: 1 },
+    { id: 'n5', cat: 'G', sym: '5', name: 'Rôdeur', as: 'g5', fac: 1 },
+    { id: 'n6', cat: 'G', sym: '6', name: 'Tourment', as: 'g6', fac: 1 },
+    { id: 'n7', cat: 'G', sym: '7', name: 'Feu follet', as: 'g7', fac: 1 },
+    { id: 'n8', cat: 'G', sym: '8', name: 'Gargouille', as: 'c1', fac: 1 },
+    { id: 'n9', cat: 'G', sym: '9', name: 'Prêtre noir', as: 'c2', fac: 1 },
+    { id: 'nl', cat: 'G', sym: 'L', name: 'Arbalète d’os', as: 'c4', fac: 1 },
+    { id: 'nm', cat: 'G', sym: 'M', name: 'Catapulte d’os', as: 'c7', fac: 1 },
+    { id: 'nn', cat: 'G', sym: 'N', name: 'Cavalier sans tête', as: 'cv', fac: 1 },
+    { id: 'no', cat: 'G', sym: 'O', name: 'Sentinelle', as: 'gd', fac: 1 },
   ];
   const BOSSES = ['bt', 'bn', 'bd', 'bh', 'bq', 'bk', 'bg', 'bv', 'bw', 'bs', 'bp', 'bb', 'bc'];
   const BOSSES_DLC = ['bl', 'bm', 'bo', 'bj']; // DLC « Les Abysses »
   const SH_BOSSES = ['sa', 'sp', 'sl', 'sg']; // DLC « Les Ombres » : les boss de la Lumière
   const DLC_M = ['pv', 'sr'], DLC_G = ['rq', 'mz'];
-  // armée des Ombres : 4 dieux, 5 gardes, son soldat
-  const SH_M = ['om', 'of', 'oe', 'ou'], SH_G = ['oa', 'ob', 'oc', 'ol', 'ox'], SH_START_M = ['om'], SH_START_G = ['oa', 'oc'];
+  // armée des Ombres : une armée complète à elle (15 dieux, 18 gardes, son soldat), sans aucun perso de la Lumière
+  const SH_M = ['na', 'nb', 'nc', 'nd', 'ne', 'nf', 'ng', 'nh', 'ni', 'nj', 'nk', 'om', 'of', 'oe', 'ou'];
+  const SH_G = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'nl', 'nm', 'nn', 'no', 'oa', 'ob', 'oc', 'ol', 'ox'];
+  const SH_START_M = ['na', 'nc', 'nd'], SH_START_G = ['n2', 'n3', 'n5', 'n7'];
+  // le perso de la Lumière qui fait face à chaque perso des Ombres (l'adversaire d'une partie des Ombres a les mêmes « sortes » de persos)
+  const TWIN = { na: 'ma', nb: 'mb', nc: 'mc', nd: 'md', ne: 'me', nf: 'pa', ng: 'pb', nh: 'pc', ni: 'pd', nj: 'pe', nk: 'pg', om: 'gu', of: 'pf', oe: 'pr', ou: 'dr',
+    n1: 'g1', n2: 'g2', n3: 'g3', n4: 'g4', n5: 'g5', n6: 'g6', n7: 'g7', n8: 'c1', n9: 'c2', nl: 'c4', nm: 'c7', nn: 'cv', no: 'gd', oa: 'c5', ob: 'c3', oc: 'c8', ol: 'lc', ox: 'c6' };
   const NT = T.length;
   const TI = {}; T.forEach((t, i) => { TI[t.id] = i; t.i = i; });
+  T.forEach(t => { if (!t.as) return; const b = T[TI[t.as]]; for (const k of ['val', 'cost', 'desc']) if (t[k] === undefined && b[k] !== undefined) t[k] = b[k]; });
+  const MID = T.map(t => t.as || t.id); // les pouvoirs : un jumeau des Ombres agit comme son modèle
   const BASE_M = ['ma', 'mb', 'mc', 'md', 'me'];
   const BASE_G = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7'];
   const EXT_M = ['pa', 'pb', 'pc', 'pd', 'pe', 'pf', 'pg', 'gu', 'dr', 'pr'];
@@ -419,7 +451,7 @@ function StratEngine() {
     if (o.boss) placeBoss(s, o.boss);
     if (ev === 'avantgarde') for (const p of [0, 1]) {
       const z = shuffle(homeEmpty(s, p)).slice(0, 2);
-      for (const q of z) s.b[q] = enc(S_I, p);
+      for (const q of z) s.b[q] = enc(SOLD(s, p), p);
     }
     return s;
   }
@@ -450,7 +482,9 @@ function StratEngine() {
   const isBl = (s, q) => !!s.bl && (s.bl[0] === q || s.bl[1] === q);
   const cloneBoss = B => Object.assign({}, B, { warn: B.warn && B.warn.slice(), ice: B.ice && B.ice.slice(), webs: B.webs && B.webs.slice(), stones: B.stones && B.stones.slice(), coral: B.coral && B.coral.slice() });
   // tout le monde peut recruter les persos de base ; seuls les Ombres peuvent recruter les persos des Ombres
-  const canRec = (s, p, i) => !FAC[i] || (!!s.fac && s.fac[p] === 1);
+  // chaque armée ne recrute que ses persos : les Ombres les leurs, la Lumière les siens
+  const canRec = (s, p, i) => !s.fac ? !FAC[i] : FAC[i] ? s.fac[p] === 1 : s.fac[p] !== 1;
+  const SOLD = (s, p) => s.fac && s.fac[p] === 1 ? OS_I : S_I; // le soldat de l'armée de p
   const isIce = (s, q) => {
     const B = s.boss; if (!B || B.hp <= 0) return false;
     if (B.ice && B.ice.includes(q)) return true;
@@ -596,7 +630,7 @@ function StratEngine() {
     const g = s.g, b = s.b, c0 = b[from], p = own(c0), t = T[tix(c0)], out = [];
     const opp = 1 - p;
     if (t.cost && s.mana[p] < t.cost) return out;
-    switch (t.id) {
+    switch (MID[t.i]) {
       case 's': for (const q of pawnTargets(s, from, p)) out.push([q]); break;
       case 'g1': { const adj = adjOf(s, from); for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && (!isBl(s, q) && !isBoss(s, q) || adj.includes(q) && foe(s, q, p))) out.push([q]); break; } // ennemi collé : il le prend ; sinon il échange sa place
       case 'mi': for (const q of stepTargets(s, from, p, ALL)) out.push([q]); break;
@@ -760,10 +794,10 @@ function StratEngine() {
       }
       case 'pa': out.push(['go']); break;
       case 'pc':
-        for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p && tix(b[q]) === S_I)
+        for (let q = 0; q < g.N; q++) if (b[q] > 0 && own(b[q]) === p && tix(b[q]) === SOLD(s, p))
           for (const seq of multiStep(s, q, p, pawnTargets, 2)) out.push([q].concat(seq));
         break;
-      case 'pd': if (s.pool[S_I] > 0) for (const q of homeEmpty(s, p)) out.push([q]); break;
+      case 'pd': if (s.pool[SOLD(s, p)] > 0) for (const q of homeEmpty(s, p)) out.push([q]); break;
       case 'pe': out.push(['go']); break;
       case 'pf': out.push(['go']); break;
       case 'pg': if (!s.pend[p]) out.push(['go']); break;
@@ -816,7 +850,7 @@ function StratEngine() {
   function runAct(s, from, cl) {
     const g = s.g, c0 = s.b[from], p = own(c0), t = T[tix(c0)], opp = 1 - p;
     if (t.cost) s.mana[p] -= t.cost;
-    switch (t.id) {
+    switch (MID[t.i]) {
       case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': case 'mi': case 'ab': case 'rq': case 'oa': case 'ob': case 'oc': case 'ox': case 'os': {
         let pos = from;
         for (const q of cl) pos = stepTo(s, pos, q);
@@ -858,14 +892,14 @@ function StratEngine() {
       }
       case 'g6': { let at = from; const nn = cl.filter(v => typeof v === 'number'); if (nn.length) { const dst = nn[nn.length - 1]; s.b[dst] = s.b[from]; s.b[from] = 0; at = dst; } for (const z of adjOf(s, at)) if (s.b[z] > 0 && own(s.b[z]) === opp && !cover(s, z)) kill(s, z); break; }
       case 'c6': if (cl[0] === 'go') { s.mana[p] += 15; break; } { const q = cl[0]; s.lost[p][2]++; if (s.dead) s.dead[p][tix(s.b[q])]++; s.b[q] = 0; s.mana[p] += 40; s.acts += 1; break; } // un soldat changé en 40 mana, et une action de plus
-      case 'ma': case 'pb': for (const z of zoneVictims(s, areaOf(g, t.id, cl[0]), p)) kill(s, z); break;
+      case 'ma': case 'pb': for (const z of zoneVictims(s, areaOf(g, MID[t.i], cl[0]), p)) kill(s, z); break;
       case 'mb': { const x = s.b[cl[0]]; s.b[cl[0]] = s.b[cl[1]]; s.b[cl[1]] = x; break; }
       case 'mc': s.b[cl[1]] = s.b[cl[0]]; s.b[cl[0]] = 0; break;
       case 'md': stepTo(s, cl[0], cl[1]); if (cl.length > 2) stepTo(s, cl[2], cl[3]); break;
       case 'me': for (const k of cl) { const i = +k.slice(1); s.pool[i]--; s.res[p][i]++; } break;
       case 'pa': s.acts += 2; break;
       case 'pc': { let pos = cl[0]; for (let i = 1; i < cl.length; i++) pos = stepTo(s, pos, cl[i]); break; }
-      case 'pd': s.pool[S_I]--; s.b[cl[0]] = enc(S_I, p); break;
+      case 'pd': { const so = SOLD(s, p); s.pool[so]--; s.b[cl[0]] = enc(so, p); break; }
       case 'pe': s.noPlace[opp] = 3; break;
       case 'pf': s.noAct[opp] = 2; break;
       case 'pg': s.pend[p] = 1; break;
@@ -1364,7 +1398,7 @@ function StratEngine() {
     const adj = (f, dirs) => { for (const d of dirs) { const x = mv[d * N + f]; if (x >= 0) m[x] = 1; } };
     for (let f = 0; f < N; f++) {
       const c = b[f]; if (c <= 0 || own(c) !== side) continue;
-      const ti = tix(c), id = T[ti].id;
+      const ti = tix(c), id = MID[ti];
       if (COST[ti] && s.mana[side] < COST[ti]) continue;
       switch (id) {
         case 's': adj(f, side === 0 ? [0, 2] : [5, 7]); break;
@@ -1408,11 +1442,11 @@ function StratEngine() {
       const c = b[f]; if (c <= 0 || own(c) !== q) continue;
       const t = T[tix(c)];
       if (t.cost && s.mana[q] < t.cost) continue;
-      switch (t.id) {
+      switch (MID[t.i]) {
         case 's': adj(f, q === 0 ? [0, 2] : [5, 7], c); break;
         case 'g5': case 'g7': {
           // 2 pas : prise directe, prise puis prise, ou pas sur une case vide puis prise
-          const steps = t.id === 'g5' ? ORTH : DIAG;
+          const steps = MID[t.i] === 'g5' ? ORTH : DIAG;
           for (const d of DIAG) {
             const x = mv[d * N + f];
             if (x < 0 || !isEnemy(x)) continue;
@@ -1434,8 +1468,8 @@ function StratEngine() {
         case 'c4': for (const d of DIAG) ray(f, d, c, 0); break;
         case 'g6': { const z = adjOf(s, f).filter(x => isEnemy(x) && !cover(s, x)); if (z.length) add(killGain(s, z, am), z.length === 1 ? z[0] : undefined); break; }
         case 'ma': case 'pb':
-          for (const k of (t.id === 'ma' ? SIDES.concat(['centre']) : SIDES)) {
-            const z = zoneVictims(s, areaOf(g, t.id, k), q);
+          for (const k of (MID[t.i] === 'ma' ? SIDES.concat(['centre']) : SIDES)) {
+            const z = zoneVictims(s, areaOf(g, MID[t.i], k), q);
             if (z.length) add(killGain(s, z, am), z.length === 1 ? z[0] : undefined);
           }
           break;
@@ -1458,7 +1492,7 @@ function StratEngine() {
           }
           break;
         case 'md': for (let x = 0; x < N; x++) if (b[x] > 0 && own(b[x]) === q) for (const y of pawnTargets(s, x, q)) one(y, b[x]); break;
-        case 'pc': for (let x = 0; x < N; x++) if (b[x] > 0 && own(b[x]) === q && tix(b[x]) === S_I) for (const y of pawnTargets(s, x, q)) one(y, b[x]); break;
+        case 'pc': for (let x = 0; x < N; x++) if (b[x] > 0 && own(b[x]) === q && tix(b[x]) === SOLD(s, q)) for (const y of pawnTargets(s, x, q)) one(y, b[x]); break;
       }
     }
     return [x1, x2];
@@ -1473,7 +1507,7 @@ function StratEngine() {
     const decl = st.decl[p];
     for (let f = 0; f < N; f++) {
       const c = b[f]; if (c <= 0 || own(c) !== p) continue;
-      const id = T[tix(c)].id;
+      const id = MID[tix(c)];
       if (NOKILL[id]) continue;
       if (decl && (decl.k !== 'act' || decl.from !== f)) continue;
       const area = id === 'g6' || id === 'ma' || id === 'pb' || id === 'g4' || id === 'lc' || id === 'sr' || id === 'ol' || id === 'mz';
@@ -1533,7 +1567,7 @@ function StratEngine() {
       else if (d) sc += d * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8);
     }
     // persos que seule ton armée peut recruter : ils t'attendent dans la réserve commune, inutile de perdre un tour à les prendre tôt
-    if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) if (s.fac[o]) for (let i = 0; i < NT; i++) if (FAC[i] && s.pool[i]) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5;
+    if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) for (let i = 0; i < NT; i++) if (s.pool[i] && canRec(s, o, i) && !canRec(s, 1 - o, i)) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5;
     sc += (manaVal(s, p) - manaVal(s, 1 - p)) * F.mana;
     if (s.goal) sc += goalEval(s, p, onB);
     else {
@@ -1631,7 +1665,7 @@ function StratEngine() {
     let best = null, bv = -1e9;
     for (const a of acts) {
       const t = T[a.t];
-      let v = t.val + (t.cat === 'M' ? 2 : 0) + (t.id === 'ma' ? 2 : 0);
+      let v = t.val + (t.cat === 'M' ? 2 : 0) + (MID[t.i] === 'ma' ? 2 : 0);
       if (inv) v = -v; // je donne le plus faible
       if (level === 'facile') v += Math.random() * 6;
       if (v > bv) { bv = v; best = a; }
@@ -1860,7 +1894,7 @@ function StratEngine() {
   }
 
   return {
-    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

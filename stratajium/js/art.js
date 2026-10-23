@@ -186,5 +186,8 @@ const Art = (function () {
       <path d="M36 32 L42 12 L50 22 L58 10 L64 32 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>${glow(42, 46, 3.4, '#ffffff')}${glow(58, 46, 3.4, '#ffffff')}
       <path d="M8 60 L18 52 L22 68 Z M92 60 L82 52 L78 68 Z" fill="#c8f0ff" stroke="#3a8ab0" stroke-width="2"/>`,
   };
+  // jumeaux des Ombres : la même créature, passée dans l'ombre
+  const TW = { na: 'ma', nb: 'mb', nc: 'mc', nd: 'md', ne: 'me', nf: 'pa', ng: 'pb', nh: 'pc', ni: 'pd', nj: 'pe', nk: 'pg', n1: 'g1', n2: 'g2', n3: 'g3', n4: 'g4', n5: 'g5', n6: 'g6', n7: 'g7', n8: 'c1', n9: 'c2', nl: 'c4', nm: 'c7', nn: 'cv', no: 'gd' };
+  for (const k in TW) A[k] = `<g filter="url(#shTint)">${A[TW[k]]}</g>`;
   return { get: id => A[id] || '' };
 })();

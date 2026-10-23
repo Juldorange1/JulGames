@@ -704,4 +704,11 @@
     "Abandonner": "Give up",
     "Abandon.": "Gave up.",
   });
+  Object.assign(D.ui, {
+    "L’adversaire commence avec 140 mana": "The opponent starts with 140 mana",
+    "L’aube arrive : gagne en 60 de tes tours, sinon c’est perdu": "Dawn is coming: win within 60 of your turns, or you lose",
+    "Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Elle a ses propres persos : un jumeau sombre pour chaque perso de la Lumière (mêmes pouvoirs, ou presque), et aucun perso de la Lumière. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.": "A 2nd army, to choose instead of the Light when you start a run or a duel. It has its own units: a dark twin for every unit of the Light (same powers, or almost), and no unit of the Light. It also wins by having 3 units in the enemy deployment zone.",
+    "Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats), sans aucun perso de la Lumière": "The Shadow Clan: a complete 2nd army (15 gods, 18 guards, its soldiers), with no unit of the Light",
+  });
+  Object.assign(D.T, {"na": ["Black storm"], "nb": ["Dark mirror"], "nc": ["Manipulator"], "nd": ["Pack leader"], "ne": ["Beater"], "nf": ["Black hourglass"], "ng": ["Abyss"], "nh": ["Shadow horn", "One of your Shadows (shadow soldiers) takes 2 steps in a row."], "ni": ["Summoner", "Recruits a Shadow (shadow soldier) and places it straight into your deployment zone."], "nj": ["Chains"], "nk": ["Vengeance"], "n1": ["Double"], "n2": ["Black tower"], "n3": ["Dark archer"], "n4": ["Mastodon"], "n5": ["Prowler"], "n6": ["Torment"], "n7": ["Will-o’-the-wisp"], "n8": ["Gargoyle"], "n9": ["Dark priest"], "nl": ["Bone crossbow"], "nm": ["Bone catapult"], "nn": ["Headless horseman"], "no": ["Sentinel"]});
 })();

@@ -34,7 +34,7 @@ const I18N = (function () {
     get lang() { return lang; },
     setLang(l) { if (DICT.hasOwnProperty(l)) { lang = l; try { localStorage.setItem('stratajium.langue', JSON.stringify(l)); } catch (e) { } } },
     name: t => pickT('T', t.id, 0, t.name),
-    desc: t => pickT('T', t.id, 1, t.desc),
+    desc: t => { const b = t.as && eng().T[eng().TI[t.as]]; return pickT('T', t.id, 1, b && b.desc === t.desc ? pickT('T', t.as, 1, t.desc) : t.desc); },
     evName: id => pickT('EV', id, 0, eng().EVENTS.find(e => e.id === id).name),
     evDesc: id => pickT('EV', id, 1, eng().EVENTS.find(e => e.id === id).desc),
     goalName: id => pickT('GOAL', id, 0, eng().GOALS.find(e => e.id === id).name),
