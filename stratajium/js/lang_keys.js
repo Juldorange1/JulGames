@@ -759,4 +759,6 @@ I18N.KEYS = [
   "Ce perso est enchaîné : il ne peut pas être activé ce tour-ci.",
   "Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Tous ses persos ont des pouvoirs à eux : possession, malédictions, portes des ombres, goules, loups-garous… Ses persos se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.",
   "Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir",
+  // l’adversaire joue aussi les Ombres (2026-10-23)
+  "Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.",
 ];

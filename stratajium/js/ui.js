@@ -186,7 +186,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     veilleurs: L('2 lumières sacrées brillent dans ta moitié de carte'),
   })[id];
   // handicaps qui n'existent que dans les parties des Ombres (DLC)
-  const SH_HARD = ['aube', 'paladins', 'invasion4', 'sansombre', 'veilleurs'];
+  const SH_HARD = ['aube', 'paladins', 'invasion4', 'veilleurs']; // (« sansombre » toucherait aussi l'adversaire, qui joue les Ombres)
   const SH_HARD_MIX = ['mana', 'riche', 'premier', 'sauvage', 'silence', 'geole', 'ronces', 'blesse'];
   // exploits : certains persos ne se débloquent QUE par un exploit (dans la partie en cours)
   const EXPLOITS = [
@@ -302,7 +302,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!r.exploits) r.exploits = [];
     if (r.winsH === undefined) r.winsH = 0;
     if (r.xp === undefined) r.xp = 0;
-    if (r.hard && (r.hard.includes('blesse') || r.hard.reduce((a, x) => a + (HARD_W[x] || 1), 0) > (hasF(r, 'hard3') ? 4 : 3))) r.hard = rollHard(r); // nouveaux malus, plus doux
+    if (r.hard && (r.hard.includes('blesse') || r.hard.includes('sansombre') || r.hard.reduce((a, x) => a + (HARD_W[x] || 1), 0) > (hasF(r, 'hard3') ? 4 : 3))) r.hard = rollHard(r); // nouveaux malus, plus doux
     if (!r.pp) r.pp = {};
     if (r.gem === undefined) r.gem = 0;
     if (!r.bossSeq || r.bossSeq.length !== bossList().length + (r.fac ? E.SH_BOSSES.length : 0)) r.bossSeq = bossSeqFor(r);
@@ -542,9 +542,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     const more = (base, all, n) => base.concat(shuffle(all.filter(x => !base.includes(x))).slice(0, Math.max(0, n)));
     // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
     // partie des Ombres : la Lumière en face a les mêmes sortes de persos (leurs jumeaux)
-    const oppM = r.fac ? lightOf(r.gods) : r.gods, oppG = r.fac ? lightOf(r.gards) : r.gards;
+    // partie des Ombres : l'adversaire joue lui aussi l'armée des Ombres (même réserve commune)
+    const oppM = r.fac ? [] : r.gods, oppG = r.fac ? [] : r.gards;
     pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle,
-      fac: r.fac ? [1, 0] : null, shM: r.fac ? r.gods.slice() : null, shG: r.fac ? r.gards.slice() : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
+      fac: r.fac ? [1, 1] : null, shM: r.fac ? r.gods.slice() : null, shG: r.fac ? r.gards.slice() : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
   }
@@ -658,21 +659,22 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function beginMatch() {
     const hs = pre.hard || [];
+    const shad = !!(pre.fac && pre.fac[1]), oGods = shad ? pre.shM : pre.gods, oGards = shad ? pre.shG : pre.gards; // persos de l'adversaire
     const s = E.newGame({ event: pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
     if (hs.includes('mana')) s.mana[0] = 60;
     if (hs.includes('riche')) s.mana[1] = 140;
-    if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(pre.gards)], 1); }
-    if (hs.includes('dieupris')) { const av = pre.gods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
+    if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(oGards)], 1); }
+    if (hs.includes('dieupris')) { const av = oGods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI.s, 1);
-    if (hs.includes('pauvre')) for (const id of pre.gards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
+    if (hs.includes('pauvre')) for (const id of oGards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
     if (hs.includes('silence')) s.noAct[0] = 2;
     if (hs.includes('geole')) s.noPlace[0] = 3;
     if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
-    if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = pre.gards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
+    if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = oGards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('blesse')) s.lost[0][1] = 1;
     if (hs.includes('aube')) s.dawn = 60;
-    if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(pre.gards)], 1);
+    if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(oGards)], 1);
     if (hs.includes('invasion4')) s.invN = 4;
     if (hs.includes('sansombre')) s.pool[E.TI.os] = 0;
     if (hs.includes('veilleurs')) {
@@ -1704,7 +1706,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (tab === 'regles') return rulesBlocks();
     if (tab === 'dieux') return pieceCards(allM());
     if (tab === 'gardes') return pieceCards(allG());
-    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière quand tu commences une partie ou un duel. Tous ses persos ont des pouvoirs à eux : possession, malédictions, portes des ombres, goules, loups-garous… Ses persos se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi en ayant 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
+    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
     if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
