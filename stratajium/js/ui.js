@@ -176,6 +176,15 @@ const isSh = id => !!T[E.TI[id]].fac;
   while (RUNS.length < 5) RUNS.push(null); // les emplacements 4 et 5 viennent du DLC « Les Ombres » (gardés même s'il est désactivé)
   const nSlots = () => dlcOn('ombres') ? 5 : 3;
   const saveRuns = () => lsSet('runs', RUNS);
+  const SEEN = new Set(lsGet('vus', E.START_M.concat(E.START_G, ['s'])));
+  for (const r of RUNS) if (r) { for (const id of (r.gods || []).concat(r.gards || [])) SEEN.add(id); if (r.fac) SEEN.add('os'); } // ce qui est déjà dans tes parties
+  function markSeen(ids) { let n = 0; for (const id of ids) if (id && !SEEN.has(id)) { SEEN.add(id); n++; } if (n) lsSet('vus', [...SEEN]); }
+  function markSeenState(s) { // tout ce qu'on peut voir dans un affrontement : la réserve commune, les réserves, la carte, le boss
+    const ids = [];
+    for (let i = 0; i < E.NT; i++) if ((s.pool[i] > 0 && (!s.fac || E.canRec(s, 0, i) || E.canRec(s, 1, i))) || s.res[0][i] > 0 || s.res[1][i] > 0) ids.push(T[i].id);
+    for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0) ids.push(T[E.tix(s.b[q])].id);
+    markSeen(ids);
+  }
   let cur = -1, newSlot = 0;
   const run = () => RUNS[cur];
   const TRACKS = { gard: 4, god: 6, map: 3, ev: 3 }; // points à atteindre : victoire normale +1, difficile +2, défaite +½ sur les derniers choix
@@ -503,6 +512,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (pd.k === 'track') return trackChoice(r, pd);
     $('evoTitle').textContent = pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !');
     $('evoSub').textContent = L('Choisis celui qui rejoint la réserve pour tous les prochains affrontements.');
+    markSeen(pd.opts);
     $('evos').innerHTML = pd.opts.map((id, k) => { const i = E.TI[id], t = T[i]; return `<button class="evo" data-k="${k}"><div class="kind">${catName(t.cat)} · <kbd>${k + 1}</kbd></div>${token(i, 0)}<b>${tn(i)}</b><p>${td(i)}${t.cost ? ` <span style="color:var(--mana)">💎 ${t.cost}</span>` : ''}</p></button>`; }).join('');
     $('evoModal').hidden = false;
     sfx('evolution');
@@ -545,8 +555,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     return { v: 0, txt: '', score: win ? 100 : 0 };
   }
   // persos des défis : totalement au hasard (nombre, sortes), la Lumière et les Ombres peuvent se mélanger
-  // toujours 10 sortes de persos recrutables (dieux + gardes ; les soldats en plus)
-  function pick10(Ms, Gs, noGods) { const nm = noGods ? 0 : 2 + rnd(4); return [shuffle(Ms).slice(0, nm), shuffle(Gs).slice(0, 10 - nm)]; }
+  // toujours 7 sortes de persos recrutables (2 ou 3 dieux + des gardes ; les soldats en plus) : assez pour varier,
+  // et il reste des persos à découvrir dans tes parties
+  function pick10(Ms, Gs, noGods) { const nm = noGods ? 0 : 2 + rnd(2); return [shuffle(Ms).slice(0, nm), shuffle(Gs).slice(0, 7 - nm)]; }
   function randomArmy(noGods) {
     const mode = rnd(4), from = (L0, S0) => mode === 0 ? L0 : mode === 1 ? S0 : L0.concat(S0); // Lumière seule, Ombres seules, ou mélange (une fois sur deux)
     const [M, Gd] = pick10(from(E.ALL_M, E.SH_M), from(E.ALL_G, E.SH_G), noGods);
@@ -795,6 +806,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (hasTalent('recrue')) s.res[0][E.TI[pre.fac && pre.fac[0] === 1 ? 'os' : 's']]++;
     }
     if (pre.mana) s.mana = [pre.mana, pre.mana];
+    markSeenState(s);
     G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
@@ -1199,16 +1211,6 @@ const isSh = id => !!T[E.TI[id]].fac;
     toast(L('Entraînement : ta vraie partie est gardée telle quelle. Ce que tu rejoues maintenant ne compte pas.'), 5000);
   }
   const canBack = () => G && !G.net && (!G.committed || G.practice);
-  function rewindTo(h) {
-    if (!G || !canBack() || h < 1 || h > G.history.length) return;
-    startPractice();
-    const e = G.history[h - 1];
-    G.history.length = h - 1;
-    G.s = e.s; G.lastA = e.lastA; $('log').innerHTML = e.log; if (e.st) G.st = JSON.parse(e.st);
-    G.ver++; G.thinking = false; G.sel = null; G.over = false;
-    $('endModal').hidden = true;
-    sfx('annule'); render(); saveMatch(); maybeBot();
-  }
   function bilanGains() {
     if (G.practice) return []; // entraînement : rien ne compte
     const out = [], st = G.st;
@@ -1242,8 +1244,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const deaths = st.moments.filter(m => m.o === me && m.vi !== undefined);
     for (const m of deaths.slice(-6)) {
       const what = m.ki >= 0 ? L('ton {v} a été tué par {a}', { v: pieceLabel(me, m.vi), a: pieceLabel(op, m.ki) }) : L('ton {v} est mort', { v: pieceLabel(me, m.vi) });
-      const can = canBack() && m.h >= 1 && m.h <= G.history.length;
-      out.push(`<li class="err"><span>${L('Tour {n}', { n: m.turn })} · ${what}</span>${can ? `<button class="ghost sm" data-rw="${m.h}" title="${esc(L('Revenir juste avant ce coup'))}">↶</button>` : ''}</li>`);
+      out.push(`<li class="err"><span>${L('Tour {n}', { n: m.turn })} · ${what}</span></li>`);
     }
     if (deaths.length > 6) out.unshift(`<li class="muted">${L('… et {n} autres pertes avant.', { n: deaths.length - 6 })}</li>`);
     return { tips, list: out };
@@ -1276,7 +1277,6 @@ const isSh = id => !!T[E.TI[id]].fac;
     const dots = mv.map((m, i) => ['gaffe', 'erreur', 'rate'].includes(m.cls) && m.p === me ? `<circle cx="${X(i)}" cy="${Y(ys[i])}" r="3.5" fill="${CLS().find(c => c[0] === m.cls)[3]}"/>` : '').join('');
     const graph = n > 1 ? `<svg class="rvgraph" viewBox="0 0 300 90" preserveAspectRatio="none"><rect width="300" height="90" fill="rgba(180,140,255,.18)"/><polygon points="0,90 ${ys.map((v, i) => `${X(i)},${Y(v)}`).join(' ')} 300,90" fill="rgba(242,193,78,.55)"/><line x1="0" y1="45" x2="300" y2="45" stroke="rgba(255,255,255,.35)" stroke-dasharray="4 4"/>${dots}</svg><p class="muted small">${L('En or : tes chances de gagner après chaque coup (au-dessus du milieu, tu menais).')}</p>` : '';
     // tes erreurs (gaffes, erreurs, prises ratées) : toute la ligne s'ouvre sur la carte
-    const canRw = h => canBack() && h >= 1 && h <= G.history.length;
     G.km = mv.map((m, i) => i).filter(i => mv[i].p === me && mv[i].a && mv[i].cls !== 'unique' && momentState(mv[i])); // tout ce qu'on peut revoir sur la carte
     const big = []; mv.forEach((m, i) => { if (m.p === me && ['gaffe', 'erreur', 'rate'].includes(m.cls)) big.push(i); });
     const nUnique = mv.filter(m => m.p === me && m.cls === 'unique').length;
@@ -1285,7 +1285,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const [, ic, lbl, col] = CLS().find(c => c[0] === m.cls);
       const ms = m.cls === 'rate' ? (G.st.missed || []).find(x => x.h === m.h && x.p === me) : null;
       const what = (m.txt || '?') + (ms ? `<br>⚔️ ${L('{a} pouvait prendre {v}', { a: pieceLabel(me, ms.ai), v: pieceLabel(op, ms.vi) })}` : '');
-      return `<li class="km2${see ? ' km' : ''}"${see ? ` data-km="${i}"` : ''} style="--c:${col}"><span class="kic">${ic}</span><span class="ktx"><b style="color:${col}">${lbl}</b> · ${L('Tour {n}', { n: m.turn })}<br>${L('Ton coup')} : ${what}${m.better ? `<br><span class="kbest">✔ ${L('Il fallait')} : ${m.better}</span>` : ''}</span>${see ? `<span class="kgo">👁 ${L('Voir')}</span>` : ''}${canRw(m.h) ? `<button class="ghost sm" data-rw="${m.h}" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶</button>` : ''}</li>`;
+      return `<li class="km2${see ? ' km' : ''}"${see ? ` data-km="${i}"` : ''} style="--c:${col}"><span class="kic">${ic}</span><span class="ktx"><b style="color:${col}">${lbl}</b> · ${L('Tour {n}', { n: m.turn })}<br>${L('Ton coup')} : ${what}${m.better ? `<br><span class="kbest">✔ ${L('Il fallait')} : ${m.better}</span>` : ''}</span>${see ? `<span class="kgo">👁 ${L('Voir')}</span>` : ''}</li>`;
     });
     const keys = (kl.length ? `<ul class="errs2">${kl.join('')}</ul>${big.length > 7 ? `<p class="muted small">${L('… et {n} autre(s) : utilise ◀ ▶ sur la carte.', { n: big.length - 7 })}</p>` : ''}`
       : `<p class="okmsg">${L('Aucune grosse erreur : bien joué !')}</p>`)
@@ -1307,7 +1307,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const [, ic, lbl, col] = CLS().find(c => c[0] === m.cls), me = G.me, op = 1 - me;
     const ms = m.cls === 'rate' ? (G.st.missed || []).find(x => x.h === m.h && x.p === me) : null;
     const tokOf = a => a && a.t !== undefined && a.t >= 0 && (a.k === 'rec' || a.k === 'pla' || a.k === 'draft') ? `<span class="mbtk">${token(a.t, me)}</span>` : '';
-    const k = G.km.indexOf(i), canRw = canBack() && m.h >= 1 && m.h <= G.history.length;
+    const k = G.km.indexOf(i);
     let bar = $('momentBar');
     if (!bar) { bar = document.createElement('div'); bar.id = 'momentBar'; bar.className = 'glass'; document.body.appendChild(bar); }
     bar.innerHTML = `<div class="mbtop"><b style="color:${col}">${ic} ${lbl}</b> · ${L('Tour {n}', { n: m.turn })}${G.km.length > 1 ? ` · <span class="muted">${k + 1}/${G.km.length}</span>` : ''}</div>
@@ -1315,10 +1315,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${m.better ? `<div class="mbl good"><i></i>${tokOf(m.ba)}<span>${L('Il fallait')} : ${m.better}</span></div>` : ''}
       ${ms ? `<div class="mbl miss"><span>⚔️ ${L('{a} pouvait prendre {v}', { a: pieceLabel(me, ms.ai), v: pieceLabel(op, ms.vi) })}</span></div>` : ''}
       <div class="mbbtn"><button class="ghost sm" id="mbPrev" ${k > 0 ? '' : 'disabled'}>◀</button><button class="ghost sm" id="mbNext" ${k >= 0 && k < G.km.length - 1 ? '' : 'disabled'}>▶</button>
-      ${canRw ? `<button class="ghost sm" id="mbRw" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶ ${L('Rejouer d’ici')} 🏋️</button>` : ''}<button class="ghost sm mbback" id="mbBack">${L('← Retour au bilan')}</button></div>`;
+      <button class="ghost sm mbback" id="mbBack">${L('← Retour au bilan')}</button></div>`;
     $('mbPrev').onclick = () => momentStep(-1); $('mbNext').onclick = () => momentStep(1);
     $('mbBack').onclick = () => closeMoment();
-    if ($('mbRw')) $('mbRw').onclick = () => { closeMoment(true); rewindTo(m.h); };
     sfx('choix');
   }
   function momentMarks() { // appelé par render() pendant qu'on revoit un moment
@@ -1408,12 +1407,12 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${G.practice ? `🏋️ ${L('Entraînement : ce résultat ne compte pas, ta vraie partie est gardée.')}<br>` : ''}${I18N.why(s.why)}</p></div>
       <div class="seg bltabs"><button data-bt="err" class="${bilanTab === 'err' ? 'sel' : ''}">🔑 ${L('Tes erreurs')}</button><button data-bt="num" class="${bilanTab === 'num' ? 'sel' : ''}">📊 ${L('Chiffres')}</button></div>
       ${body}
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button><button class="ghost" id="btnLook">🗺️ ${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir toute la partie')}</button>`}</div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button><button class="ghost" id="btnLook">🗺️ ${L('Voir la carte')}</button>${G.history.length && canBack() ? `<button class="ghost" id="btnEndUndo" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶ ${L('Annuler le dernier coup')} <kbd>${keyName(KB.undo)}</kbd></button>` : ''}${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir toute la partie')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
     $('bilan').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { sfx('page'); renderBilan(b.dataset.bt); });
     if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
     $('btnLook').onclick = () => { $('endModal').hidden = true; render(); };
-    $('bilan').querySelectorAll('[data-rw]').forEach(b => b.onclick = e => { e.stopPropagation(); rewindTo(+b.dataset.rw); });
+    if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
     $('bilan').querySelectorAll('[data-km]').forEach(b => b.onclick = e => { e.stopPropagation(); showMoment(+b.dataset.km); });
   }
   function undo() {
@@ -1587,6 +1586,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function render() {
     if (!G) return;
     if (sqEls.length !== G.s.g.N) { buildBoard(G.s.g); layoutBoard(); } // la carte a changé (nouvel affrontement) : on la reconstruit d'abord
+    if (!G.replay) for (let q = 0; q < G.s.g.N; q++) { const c = G.s.b[q]; if (c > 0 && !SEEN.has(T[E.tix(c)].id)) markSeen([T[E.tix(c)].id]); }
     const s = G.s, g = s.g, v = selView();
     const lastSq = new Set(), la = G.lastA;
     if (la) { if (la.from !== undefined) lastSq.add(la.from); if (la.to !== undefined) lastSq.add(la.to); if (la.cl) la.cl.forEach(x => typeof x === 'number' && lastSq.add(x)); }
@@ -1787,7 +1787,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function renderHint0(v) {
     const s = G.s, hint = $('hint'), opts = $('opts');
     let h = '', o = [];
-    if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="bilan">📊 ${L('Bilan')}</button>`, `<button data-o="next">${L('Continuer')}</button>`); }
+    if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="bilan">📊 ${L('Bilan')}</button>`, `<button data-o="next">${L('Continuer')}</button>`); if (G.history.length && canBack()) o.push(`<button data-o="undo">↶ ${L('Annuler le dernier coup')}</button>`); }
     else if (!humanTurn()) h = L('{p} réfléchit…', { p: esc(PN[s.turn]) });
     else if (s.phase === 'draft') {
       h = s.ev === 'inverse' ? L('Draft inversé : choisis dans la réserve commune un perso… qui ira à ton adversaire !') : L('Draft caché : pioche une pièce face cachée.');
@@ -1973,6 +1973,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const r = cur >= 0 ? run() : null;
     return ids.map(id => {
       const i = E.TI[id], t = T[i];
+      if (!SEEN.has(id)) { const ex = EXPLOITS.find(x => x.piece === id); return `<div class="ccard locked"><span class="cic">❔</span><div class="txt"><b>???</b> <span class="tag2">${catName(t.cat)}</span>${ex ? `<span class="tag2 gold">🏅 ${exploitText(ex.id)}</span>` : ''}<p>${L('À découvrir : tu le verras en jouant.')}</p></div></div>`; }
       const inRun = r ? (r.gods.includes(id) || r.gards.includes(id) || id === 's') : null;
       const start = E.START_M.includes(id) || E.START_G.includes(id) || E.SH_START_M.includes(id) || E.SH_START_G.includes(id) || id === 's' || id === 'os';
       const dlcTag = T[i].dlc ? ` <span class="tag2 dlc">🌊 ${L('Les Abysses')}</span>` : T[i].fac || E.SH_BOSSES.includes(id) ? ` <span class="tag2 dlc">🌑 ${L('Les Ombres')}</span>` : E.BOSSES_DLC.includes(id) || id === 'bx' ? ` <span class="tag2 dlc">🌊 ${L('Les Abysses')}</span>` : '';
@@ -1996,9 +1997,9 @@ const isSh = id => !!T[E.TI[id]].fac;
   // chaque onglet = une liste de blocs ; on les répartit en pages selon la place
   function codexBlocks(tab) {
     if (tab === 'regles') return rulesBlocks();
-    const head = (ic, t) => `<div class="cxhead ${ic === '🌑' ? 'sh' : 'li'}">${ic} ${t}</div>`;
-    if (tab === 'dieux') return [head('☀️', L('Dieux de la Lumière'))].concat(pieceCards(allM()), [head('🌑', L('Dieux des Ombres'))], pieceCards(E.SH_M));
-    if (tab === 'gardes') return [head('☀️', L('Gardes de la Lumière'))].concat(pieceCards(allG()), [head('🌑', L('Gardes des Ombres'))], pieceCards(E.SH_G));
+    const head = (ic, t, ids) => `<div class="cxhead ${ic === '🌑' ? 'sh' : 'li'}">${ic} ${t}${ids ? ` <small>· ${L('{n}/{t} découverts', { n: ids.filter(x => SEEN.has(x)).length, t: ids.length })}</small>` : ''}</div>`;
+    if (tab === 'dieux') return [head('☀️', L('Dieux de la Lumière'), allM())].concat(pieceCards(allM()), [head('🌑', L('Dieux des Ombres'), E.SH_M)], pieceCards(E.SH_M));
+    if (tab === 'gardes') return [head('☀️', L('Gardes de la Lumière'), allG())].concat(pieceCards(allG()), [head('🌑', L('Gardes des Ombres'), E.SH_G)], pieceCards(E.SH_G));
     if (tab === 'autres') return [head('☀️', L('Soldat de la Lumière'))].concat(pieceCards(['s']), [head('🌑', L('Soldat des Ombres'))], pieceCards(['os']),
       [textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)], pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])),
       [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));

@@ -955,6 +955,11 @@
   Object.assign(D.ui, {
     "Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.": "Who starts is <b>drawn at random</b>; the other recruits one more unit on their first turn. You can <b>undo your last move</b> with ↶. After the end, going back is for practice: the real result is kept.",
   });
+  Object.assign(D.ui, {
+    "Annuler le dernier coup": "Undo the last move",
+    "À découvrir : tu le verras en jouant.": "Still to discover: you’ll see it by playing.",
+    "{n}/{t} découverts": "{n}/{t} discovered",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -971,3 +976,13 @@ I18N.DICT.en.T.g4[1] = "Moves 1 square in any of 8 directions, pushing the whole
 I18N.DICT.en.T.c2[1] = "Moves diagonally as far as it likes (like the chess bishop). Or takes 1 straight step to an empty square.";
 I18N.DICT.en.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It can capture an enemy at most 2 steps away.";
 I18N.DICT.en.T.c3[1] = "Teleports to a square next to a soldier (any soldier) or to one of your units.";
+// boss rééquilibrés (2026-10-24)
+I18N.DICT.en.T.bs[1] = "Boss, 4 life points. At the end of each of its side’s turns, it appears next to your most valuable unit. It is intangible (it can’t be hit) 1 turn out of 3; every 3 turns, it carries off one of your units next to it.";
+I18N.DICT.en.T.bg[1] = "Boss, 2 life points. Every other turn, she freezes your most valuable unit on the map: you can’t activate it on your next turn.";
+I18N.DICT.en.T.bv[1] = "Boss, 2 life points. Every other turn, it marks in red the square of your most valuable guard or soldier; on the next turn, lava erupts there: if it is still on it, it dies.";
+I18N.DICT.en.T.bc[1] = "Boss, 3 life points, surrounded by 4 minions. At the end of each of its side’s turns, its minion closest to you charges one step towards your units (and captures if it reaches one).";
+I18N.DICT.en.T.bq[1] = "Boss, 4 life points. At the end of each of its side’s turns, a bee comes out of the hive next to her (4 at most). Bees fly 2 squares over everything.";
+I18N.DICT.en.T.sa[1] = "Boss of the Light, 5 life points. Every turn, its light blinds all your units in its row and column: you can’t activate them on your next turn.";
+I18N.DICT.en.T.sp[1] = "Boss of the Light, 5 life points. While 2 of its units are next to it, they protect it: your hits do nothing. Kill its guards first! It advances toward you every other turn (sometimes leaving its guards behind) and strikes a unit next to it every 3 turns.";
+I18N.DICT.en.T.bp[1] = "Boss, 2 life points, but it rises once from its ashes with 2 life points, burning your units next to it. Every other turn, its flames kill 2 of your units 2 squares away from it.";
+I18N.DICT.en.T.bt[1] = "Boss, 5 life points. At the end of each of its side’s turns, it moves one square towards your nearest unit; every other turn, it crushes one of your units next to it.";

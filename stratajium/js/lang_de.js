@@ -56,6 +56,7 @@ I18N.addLang('de', 'Deutsch', {
     /* 880 */ "Eigene Kräfte, im Dunkeln verborgen: Ein feindlicher Wächter oder Soldat kann sie nicht aus mehr als 4 Feldern schlagen. Sie gewinnt auch mit 3 Figuren in der gegnerischen Aufstellungszone.", "Die Grundarmee. Sie gewinnt, wenn sie alle gegnerischen Götter oder 4 ihrer Wächter tötet.", "Oder höher beginnen:", "jede bringt eine seltene Figur", "Geheimes Ziel", "Deine Herausforderungspunkte schalten Talente frei: kleine Boni für deine Partien.",
     /* 886 */ "Gegen das Licht verliert die Schattenarmee erst nach 5 getöteten Wächtern (statt 4), aber ihre Invasion braucht 4 Figuren (statt 3).", "Bonusaktion: Weil du als Zweiter spielst, rekrutierst du eine Figur mehr.", "Wer beginnt, wird <b>ausgelost</b>; der andere startet mit 15 Mana mehr und rekrutiert in seinem ersten Zug eine Figur mehr. Mit ↶ kannst du <b>deinen letzten Zug zurücknehmen</b>. Nach dem Ende dient das Zurückgehen zum Üben: Das echte Ergebnis bleibt.", "5 Wächter getötet.",
     /* 890 */ "Wer beginnt, wird <b>ausgelost</b>; der andere rekrutiert in seinem ersten Zug eine Figur mehr. Mit ↶ kannst du <b>deinen letzten Zug zurücknehmen</b>. Nach dem Ende dient das Zurückgehen zum Üben: Das echte Ergebnis bleibt.",
+    /* 891 */ "Letzten Zug zurücknehmen", "Noch zu entdecken: Du siehst es beim Spielen.", "{n}/{t} entdeckt",
   ],
   T: {
     bh: ["Hydra", "Boss, 4 Lebenspunkte. Jedes Mal, wenn sie einen Lebenspunkt verliert, wächst neben ihr ein neuer Kopf (ein Scherge). Jeden zweiten Zug beißt sie eine deiner Figuren neben ihr."],
@@ -276,3 +277,13 @@ I18N.DICT.de.T.g4[1] = "Rückt 1 Feld in eine der 8 Richtungen vor und schiebt d
 I18N.DICT.de.T.c2[1] = "Zieht diagonal beliebig weit (wie der Läufer im Schach). Oder macht 1 geraden Schritt auf ein leeres Feld.";
 I18N.DICT.de.T.n6[1] = "Macht bis zu 3 gerade Schritte über leere Felder und biegt ab, wie sie will. Sie kann einen Feind in höchstens 2 Schritten schlagen.";
 I18N.DICT.de.T.c3[1] = "Teleportiert sich auf ein Feld neben einem Soldaten (egal welchem) oder neben einer deiner Figuren.";
+// boss rééquilibrés (2026-10-24)
+I18N.DICT.de.T.bs[1] = "Boss, 4 Lebenspunkte. Am Ende jedes Zugs seiner Seite erscheint es neben deiner wertvollsten Figur. 1 von 3 Zügen ist es körperlos (man kann es nicht treffen); alle 3 Züge nimmt es eine deiner Figuren neben ihm mit.";
+I18N.DICT.de.T.bg[1] = "Boss, 2 Lebenspunkte. Jeden zweiten Zug friert sie deine wertvollste Figur auf der Karte ein: Du kannst sie in deinem nächsten Zug nicht aktivieren.";
+I18N.DICT.de.T.bv[1] = "Boss, 2 Lebenspunkte. Jeden zweiten Zug markiert es das Feld deines wertvollsten Wächters oder Soldaten rot; im nächsten Zug schießt dort Lava hervor: Steht er noch darauf, stirbt er.";
+I18N.DICT.de.T.bc[1] = "Boss, 3 Lebenspunkte, umgeben von 4 Schergen. Am Ende jedes Zugs seiner Seite stürmt sein dir nächster Scherge einen Schritt auf deine Figuren zu (und schlägt, wenn er sie erreicht).";
+I18N.DICT.de.T.bq[1] = "Boss, 4 Lebenspunkte. Am Ende jedes Zugs ihrer Seite fliegt neben ihr eine Biene aus dem Stock (höchstens 4). Bienen fliegen 2 Felder über alles hinweg.";
+I18N.DICT.de.T.sa[1] = "Boss des Lichts, 5 Lebenspunkte. In jedem Zug blendet sein Licht alle deine Figuren in seiner Reihe und Spalte: Du kannst sie in deinem nächsten Zug nicht aktivieren.";
+I18N.DICT.de.T.sp[1] = "Boss des Lichts, 5 Lebenspunkte. Solange 2 seiner Figuren neben ihm stehen, schützen sie ihn: Deine Treffer bewirken nichts. Töte zuerst seine Wächter! Er rückt jeden zweiten Zug auf dich zu (und lässt seine Wächter manchmal zurück) und schlägt alle 3 Züge eine Figur neben sich.";
+I18N.DICT.de.T.bp[1] = "Boss, 2 Lebenspunkte, aber er steigt einmal mit 2 Lebenspunkten aus seiner Asche und verbrennt dabei deine Figuren neben ihm. Jeden zweiten Zug töten seine Flammen 2 deiner Figuren in 2 Feldern Abstand.";
+I18N.DICT.de.T.bt[1] = "Boss, 5 Lebenspunkte. Am Ende jedes Zugs seiner Seite rückt er ein Feld auf deine nächste Figur zu; jeden zweiten Zug zerquetscht er eine deiner Figuren neben ihm.";

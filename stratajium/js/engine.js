@@ -47,19 +47,19 @@ function StratEngine() {
     { id: 'cv', cat: 'G', sym: '17', name: 'Cavalier', val: 3.6, desc: 'Saute en L comme le cavalier aux échecs, par-dessus tout. Ou fait 1 pas dans n’importe quelle direction.' },
     { id: 'gd', cat: 'G', sym: '18', name: 'Gardien', val: 3.2, desc: 'Fait 1 ou 2 pas dans n’importe quelle direction (comme le roi aux échecs, deux fois) ; prend en arrivant sur un ennemi.' },
     // boss (un affrontement sur 10) : ils agissent tout seuls à la fin du tour de leur camp
-    { id: 'bt', cat: 'B', sym: 'T', name: 'Titan de pierre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, il avance d’une case vers ton perso le plus proche ; un tour sur deux, il écrase un de tes persos collés à lui.' },
+    { id: 'bt', cat: 'B', sym: 'T', name: 'Titan de pierre', val: 14, hp: 5, desc: 'Boss, 5 points de vie. À la fin de chaque tour de son camp, il avance d’une case vers ton perso le plus proche ; un tour sur deux, il écrase un de tes persos collés à lui.' },
     { id: 'bn', cat: 'B', sym: 'N', name: 'Nécromancienne', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle fait sortir de terre un sbire à côté d’elle (5 au plus) ; un tour sur deux, elle te vole 15 mana.' },
     { id: 'bd', cat: 'B', sym: 'D', name: 'Dragon', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Un tour sur deux, il crache du feu en ligne droite : les 2 premiers de tes persos sur cette ligne (4 cases) meurent.' },
     { id: 'bh', cat: 'B', sym: 'H', name: 'Hydre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Chaque fois qu’elle perd un point de vie, une nouvelle tête (un sbire) pousse à côté d’elle. Un tour sur deux, elle mord un de tes persos collés à elle.' },
-    { id: 'bq', cat: 'B', sym: 'Q', name: 'Reine des abeilles', val: 14, hp: 3, mins: 2, mt: 'ab', desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, une abeille sort de la ruche à côté d’elle (4 au plus). Les abeilles volent à 2 cases par-dessus tout.' },
+    { id: 'bq', cat: 'B', sym: 'Q', name: 'Reine des abeilles', val: 14, hp: 4, mins: 2, mt: 'ab', desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, une abeille sort de la ruche à côté d’elle (4 au plus). Les abeilles volent à 2 cases par-dessus tout.' },
     { id: 'bk', cat: 'B', sym: 'K', name: 'Kraken', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, ses tentacules tirent vers lui ton perso le plus précieux aligné avec lui (jusqu’à 4 cases) ; un tour sur deux, il dévore un de tes persos collés à lui.' },
-    { id: 'bg', cat: 'B', sym: 'G', name: 'Sorcière des glaces', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle gèle ton perso le plus précieux sur la carte : tu ne peux pas l’activer à ton tour suivant.' },
-    { id: 'bv', cat: 'B', sym: 'V', name: 'Cœur de lave', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Un tour sur deux, il marque en rouge la case de ton garde ou soldat le plus précieux ; au tour suivant, la lave y jaillit : s’il est encore dessus, il meurt.' },
+    { id: 'bg', cat: 'B', sym: 'G', name: 'Sorcière des glaces', val: 14, hp: 2, desc: 'Boss, 2 points de vie. Un tour sur deux, elle gèle ton perso le plus précieux sur la carte : tu ne peux pas l’activer à ton tour suivant.' },
+    { id: 'bv', cat: 'B', sym: 'V', name: 'Cœur de lave', val: 14, hp: 2, desc: 'Boss, 2 points de vie. Un tour sur deux, il marque en rouge la case de ton garde ou soldat le plus précieux ; au tour suivant, la lave y jaillit : s’il est encore dessus, il meurt.' },
     { id: 'bw', cat: 'B', sym: 'W', name: 'Tisseuse', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle tisse une toile (une case bloquée pour toujours) devant ton perso le plus proche d’elle (8 toiles au plus).' },
-    { id: 'bs', cat: 'B', sym: 'S', name: 'Spectre', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, il apparaît à côté de ton perso le plus précieux. Il est intangible (on ne peut pas le toucher) 2 tours sur 3 ; au 3e, il emporte un de tes persos collés à lui et on peut le frapper.' },
-    { id: 'bp', cat: 'B', sym: 'P', name: 'Phénix', val: 14, hp: 2, desc: 'Boss, 2 points de vie, mais il renaît une fois de ses cendres avec 3 points de vie en brûlant tes persos collés à lui. Un tour sur deux, ses flammes tuent 2 de tes persos à 2 cases de lui.' },
+    { id: 'bs', cat: 'B', sym: 'S', name: 'Spectre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, il apparaît à côté de ton perso le plus précieux. Il est intangible (on ne peut pas le toucher) 1 tour sur 3 ; tous les 3 tours, il emporte un de tes persos collés à lui.' },
+    { id: 'bp', cat: 'B', sym: 'P', name: 'Phénix', val: 14, hp: 2, desc: 'Boss, 2 points de vie, mais il renaît une fois de ses cendres avec 2 points de vie en brûlant tes persos collés à lui. Un tour sur deux, ses flammes tuent 2 de tes persos à 2 cases de lui.' },
     { id: 'bb', cat: 'B', sym: 'B', name: 'Basilic', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Un tour sur deux, il fixe une ligne droite (marquée en rouge) ; au tour suivant, son regard change en pierre le premier de tes persos sur cette ligne.' },
-    { id: 'bc', cat: 'B', sym: 'C', name: 'Seigneur de guerre', val: 14, hp: 4, mins: 5, desc: 'Boss, 4 points de vie, entouré de 5 sbires. À la fin de chaque tour de son camp, son sbire le plus proche de toi fonce d’un pas vers tes persos (et prend s’il les atteint).' },
+    { id: 'bc', cat: 'B', sym: 'C', name: 'Seigneur de guerre', val: 14, hp: 3, mins: 4, desc: 'Boss, 3 points de vie, entouré de 4 sbires. À la fin de chaque tour de son camp, son sbire le plus proche de toi fonce d’un pas vers tes persos (et prend s’il les atteint).' },
     { id: 'mi', cat: 'S', sym: 's', name: 'Sbire', val: 1.2, desc: 'Serviteur du boss : fait 1 pas dans n’importe quelle direction et prend en arrivant sur un ennemi.' },
     { id: 'ab', cat: 'S', sym: 'a', name: 'Abeille', val: 1.4, desc: 'Servante de la Reine : vole à 2 cases (en ligne droite ou en diagonale) par-dessus tout et prend en arrivant sur un ennemi.' },
     // ---- DLC « Les Abysses » : persos marins ----
@@ -83,8 +83,8 @@ function StratEngine() {
     { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 4 cases, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
     { id: 'ol', cat: 'G', sym: 'l', name: 'Lame', val: 3.6, fac: 1, desc: 'Avance de 2 cases dans une des 8 directions et tue tous les ennemis sur ces 2 cases.' },
     { id: 'ox', cat: 'G', sym: 'x', name: 'Chauve-souris', val: 3.2, fac: 1, desc: '1 pas vers une case vide, ou vol à 2 cases dans les 8 directions, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
-    { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 4, desc: 'Boss de la Lumière, 4 points de vie. Un tour sur deux, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
-    { id: 'sp', cat: 'B', sym: 'P', name: 'Paladin', val: 14, hp: 4, mins: 3, desc: 'Boss de la Lumière, 4 points de vie. Tant que 2 de ses persos sont collés à lui, ils le protègent : tes coups ne lui font rien. Tue ses gardes d’abord ! Il avance vers toi un tour sur deux (en laissant parfois ses gardes derrière lui) et frappe un perso collé à lui tous les 3 tours.' },
+    { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 5, desc: 'Boss de la Lumière, 5 points de vie. À chaque tour, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
+    { id: 'sp', cat: 'B', sym: 'P', name: 'Paladin', val: 14, hp: 5, mins: 3, desc: 'Boss de la Lumière, 5 points de vie. Tant que 2 de ses persos sont collés à lui, ils le protègent : tes coups ne lui font rien. Tue ses gardes d’abord ! Il avance vers toi un tour sur deux (en laissant parfois ses gardes derrière lui) et frappe un perso collé à lui tous les 3 tours.' },
     { id: 'sl', cat: 'B', sym: 'L', name: 'Phare', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Il ne bouge pas, mais sa lumière fige tes gardes et tes soldats : ceux à 2 cases ou moins de lui ne peuvent pas être activés (tes dieux, si). Touche-le de loin ! Tous les 4 tours, il appelle un sbire.' },
     { id: 'sg', cat: 'B', sym: 'G', name: 'Golem de cristal', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Son cristal renvoie les tirs et les sorts : seuls les coups au contact le blessent. Tous les 4 tours, il écrase un perso collé à lui.' },
     { id: 'os', cat: 'S', sym: 'o', name: 'Ombre', val: 1, fac: 1, desc: '1 pas tout droit vers une case vide (même en arrière). Prend en diagonale vers l’avant.' },
@@ -512,7 +512,7 @@ function StratEngine() {
         return;
       }
       if (B.kind === 'bp' && !B.reborn) { // le phénix renaît une fois, en brûlant tout autour de lui
-        B.reborn = 1; B.hp = 3; B.max = 3;
+        B.reborn = 1; B.hp = 2; B.max = 2;
         const burn = adjOf(s, q).filter(z => s.b[z] > 0 && own(s.b[z]) !== B.owner && !isBl(s, z));
         if (burn.length) { s._fire = (s._fire || []).concat(burn); for (const z of burn) kill(s, z); }
         return;
@@ -1204,7 +1204,7 @@ function StratEngine() {
       if (B.cd % 2 === 0) { const v = bestAdj(); if (v >= 0) { s._smash = v; kill(s, v); } }
     } else if (B.kind === 'bg') {
       // gel : ton perso le plus précieux sur la carte ne pourront pas être activés à ton prochain tour
-      B.ice = foes.filter(q => !isBl(s, q)).sort((a, b2) => VAL[tix(s.b[b2])] - VAL[tix(s.b[a])] || a - b2).slice(0, 1);
+      B.ice = B.cd % 2 === 0 ? foes.filter(q => !isBl(s, q)).sort((a, b2) => VAL[tix(s.b[b2])] - VAL[tix(s.b[a])] || a - b2).slice(0, 1) : null; // un tour sur deux
     } else if (B.kind === 'bv') {
       if (B.warn) { const hit = B.warn.filter(q => s.b[q] > 0 && own(s.b[q]) === opp && !isBl(s, q)); if (hit.length) { s._fire = hit.slice(); for (const q of hit) kill(s, q); } B.warn = null; }
       else B.warn = foes.filter(q => !isBl(s, q) && !isBoss(s, q) && !IS_M[tix(s.b[q])]).sort((a, b2) => VAL[tix(s.b[b2])] - VAL[tix(s.b[a])] || a - b2).slice(0, 1);
@@ -1226,7 +1226,7 @@ function StratEngine() {
         if (free.length) { const to = free.sort((a, b2) => a - b2)[0]; s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; break; }
       }
       if (B.cd % 3 === 0) { const v = bestAdj(); if (v >= 0) { s._smash = v; kill(s, v); } }
-      B.ghost = B.cd % 3 !== 0;
+      B.ghost = B.cd % 3 === 1; // intangible 1 tour sur 3 (mesuré : 2 sur 3 → 8 % de victoires, 1 sur 3 avec 4 PV → 51 %)
     } else if (B.kind === 'bp') {
       if (B.cd % 2 === 0) {
         const ring = []; for (let q = 0; q < g.N; q++) if (dist(q, B.q) === 2 && s.b[q] > 0 && own(s.b[q]) === opp && !isBl(s, q) && !cover(s, q)) ring.push(q);
@@ -1262,8 +1262,8 @@ function StratEngine() {
         if (dmin(opts[0]) < dmin(m) || s.b[opts[0]] > 0) stepTo(s, m, opts[0]);
       }
     } else if (B.kind === 'sa') {
-      // Archange : un tour sur deux, il aveugle tes persos sur sa ligne et sa colonne
-      if (B.cd % 2 === 0) { const r0 = B.q / W | 0, c0 = B.q % W; B.ice = foes.filter(q => !isBl(s, q) && ((q / W | 0) === r0 || q % W === c0)); if (!B.ice.length) B.ice = null; }
+      // Archange : à chaque tour, il aveugle tes persos sur sa ligne et sa colonne
+      { const r0 = B.q / W | 0, c0 = B.q % W; B.ice = foes.filter(q => !isBl(s, q) && ((q / W | 0) === r0 || q % W === c0)); if (!B.ice.length) B.ice = null; }
       if (foes.length && bestAdj() < 0) { let to = -1, bd = 99; for (const z of adjOf(s, B.q)) if (s.b[z] === 0) { const d = Math.min(...foes.map(f => dist(z, f))); if (d < bd) { bd = d; to = z; } } if (to >= 0 && B.cd % 2 === 1) { s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; } }
     } else if (B.kind === 'sp') {
       if (foes.length && bestAdj() < 0 && B.cd % 2 === 1) { let to = -1, bd = 99; for (const z of adjOf(s, B.q)) if (s.b[z] === 0) { const d = Math.min(...foes.map(f => dist(z, f))); if (d < bd) { bd = d; to = z; } } if (to >= 0) { s.b[to] = s.b[B.q]; s.b[B.q] = 0; B.q = to; } }

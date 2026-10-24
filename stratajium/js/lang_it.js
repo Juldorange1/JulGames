@@ -56,6 +56,7 @@ I18N.addLang('it', 'Italiano', {
     /* 880 */ "Poteri unici e nascosta nel buio: una guardia o un soldato nemico non può catturarla a più di 4 caselle. Vince anche con 3 unità nella zona di schieramento avversaria.", "L’esercito di base. Vince uccidendo tutti gli dei avversari o 4 delle loro guardie.", "Oppure inizia più in alto:", "ognuna fa guadagnare un’unità rara", "Obiettivo misterioso", "I tuoi punti sfida sbloccano talenti: piccoli bonus per le tue partite.",
     /* 886 */ "Contro la Luce, l’esercito delle Ombre perde solo dopo 5 guardie uccise (invece di 4), ma la sua invasione richiede 4 unità (invece di 3).", "Azione bonus: dato che giochi per secondo, recluti un’unità in più.", "Chi inizia è <b>sorteggiato</b>; l’altro parte con 15 mana in più e recluta un’unità in più al suo primo turno. Puoi <b>annullare l’ultima mossa</b> con ↶. Dopo la fine, tornare indietro serve ad allenarsi: il risultato vero resta.", "5 guardie uccise.",
     /* 890 */ "Chi inizia è <b>sorteggiato</b>; l’altro recluta un’unità in più al suo primo turno. Puoi <b>annullare l’ultima mossa</b> con ↶. Dopo la fine, tornare indietro serve ad allenarsi: il risultato vero resta.",
+    /* 891 */ "Annulla l’ultima mossa", "Da scoprire: lo vedrai giocando.", "{n}/{t} scoperti",
   ],
   T: {
     bh: ["Idra", "Boss, 4 punti vita. Ogni volta che perde un punto vita, le spunta accanto una nuova testa (un tirapiedi). Un turno su due, morde una delle tue unità attaccate a lei."],
@@ -276,3 +277,13 @@ I18N.DICT.it.T.g4[1] = "Avanza di 1 casella nelle 8 direzioni spingendo tutta la
 I18N.DICT.it.T.c2[1] = "Avanza in diagonale di quante caselle vuole (come l’alfiere degli scacchi). Oppure fa 1 passo dritto su una casella vuota.";
 I18N.DICT.it.T.n6[1] = "Avanza fino a 3 passi dritti su caselle vuote, girando come vuole. Può catturare un nemico al massimo a 2 passi.";
 I18N.DICT.it.T.c3[1] = "Si teletrasporta su una casella accanto a un soldato (qualsiasi) o a una delle tue unità.";
+// boss rééquilibrés (2026-10-24)
+I18N.DICT.it.T.bs[1] = "Boss, 4 punti vita. Alla fine di ogni turno del suo campo appare accanto alla tua unità più preziosa. È intangibile (non si può colpire) 1 turno su 3; ogni 3 turni porta via una delle tue unità accanto a lui.";
+I18N.DICT.it.T.bg[1] = "Boss, 2 punti vita. Un turno su due congela la tua unità più preziosa sulla mappa: non puoi attivarla al tuo turno successivo.";
+I18N.DICT.it.T.bv[1] = "Boss, 2 punti vita. Un turno su due segna in rosso la casella della tua guardia o del tuo soldato più prezioso; al turno successivo lì erutta la lava: se c’è ancora sopra, muore.";
+I18N.DICT.it.T.bc[1] = "Boss, 3 punti vita, circondato da 4 sgherri. Alla fine di ogni turno del suo campo, lo sgherro più vicino a te avanza di un passo verso le tue unità (e cattura se ne raggiunge una).";
+I18N.DICT.it.T.bq[1] = "Boss, 4 punti vita. Alla fine di ogni turno del suo campo, un’ape esce dall’alveare accanto a lei (4 al massimo). Le api volano di 2 caselle sopra tutto.";
+I18N.DICT.it.T.sa[1] = "Boss della Luce, 5 punti vita. A ogni turno la sua luce acceca tutte le tue unità sulla sua riga e colonna: non puoi attivarle al tuo turno successivo.";
+I18N.DICT.it.T.sp[1] = "Boss della Luce, 5 punti vita. Finché 2 delle sue unità gli sono accanto, lo proteggono: i tuoi colpi non gli fanno nulla. Uccidi prima le sue guardie! Avanza verso di te un turno su due (a volte lasciando indietro le guardie) e colpisce un’unità accanto a lui ogni 3 turni.";
+I18N.DICT.it.T.bp[1] = "Boss, 2 punti vita, ma rinasce una volta dalle sue ceneri con 2 punti vita, bruciando le tue unità accanto a lui. Un turno su due le sue fiamme uccidono 2 delle tue unità a 2 caselle da lui.";
+I18N.DICT.it.T.bt[1] = "Boss, 5 punti vita. Alla fine di ogni turno del suo campo avanza di una casella verso la tua unità più vicina; un turno su due schiaccia una delle tue unità accanto a lui.";

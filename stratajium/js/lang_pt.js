@@ -56,6 +56,7 @@ I18N.addLang('pt', 'Português', {
     /* 880 */ "Poderes próprios e escondida no escuro: um guarda ou soldado inimigo não pode capturá-la a mais de 4 casas. Também vence com 3 unidades na zona de posicionamento adversária.", "O exército básico. Vence matando todos os deuses adversários ou 4 de seus guardas.", "Ou começar mais acima:", "cada um dá uma unidade rara", "Objetivo misterioso", "Seus pontos de desafio desbloqueiam talentos: pequenos bônus para suas partidas.",
     /* 886 */ "Contra a Luz, o exército das Sombras só perde após 5 guardas mortos (em vez de 4), mas sua invasão precisa de 4 unidades (em vez de 3).", "Ação bônus: como você joga em segundo, recruta uma unidade a mais.", "Quem começa é <b>sorteado</b>; o outro começa com 15 de mana a mais e recruta uma unidade a mais no primeiro turno. Você pode <b>desfazer seu último lance</b> com ↶. Depois do fim, voltar serve para treinar: o resultado real fica guardado.", "5 guardas mortos.",
     /* 890 */ "Quem começa é <b>sorteado</b>; o outro recruta uma unidade a mais no primeiro turno. Você pode <b>desfazer seu último lance</b> com ↶. Depois do fim, voltar serve para treinar: o resultado real fica guardado.",
+    /* 891 */ "Desfazer o último lance", "A descobrir: você verá jogando.", "{n}/{t} descobertos",
   ],
   T: {
     bh: ["Hidra", "Chefe, 4 pontos de vida. Cada vez que perde um ponto de vida, nasce uma nova cabeça (um lacaio) ao lado dela. A cada dois turnos, morde uma de suas unidades encostadas nela."],
@@ -276,3 +277,13 @@ I18N.DICT.pt.T.g4[1] = "Avança 1 casa nas 8 direções empurrando toda a fila �
 I18N.DICT.pt.T.c2[1] = "Avança na diagonal quantas casas quiser (como o bispo do xadrez). Ou dá 1 passo reto para uma casa vazia.";
 I18N.DICT.pt.T.n6[1] = "Avança até 3 passos retos por casas vazias, virando como quiser. Pode capturar um inimigo a no máximo 2 passos.";
 I18N.DICT.pt.T.c3[1] = "Teleporta-se para uma casa colada a um soldado (qualquer um) ou a uma das suas unidades.";
+// boss rééquilibrés (2026-10-24)
+I18N.DICT.pt.T.bs[1] = "Chefe, 4 pontos de vida. No fim de cada turno do seu lado, aparece ao lado da sua unidade mais valiosa. É intangível (não pode ser atingido) 1 turno em cada 3; a cada 3 turnos, leva embora uma das suas unidades coladas a ele.";
+I18N.DICT.pt.T.bg[1] = "Chefe, 2 pontos de vida. Em turnos alternados, congela sua unidade mais valiosa no mapa: você não pode ativá-la no seu próximo turno.";
+I18N.DICT.pt.T.bv[1] = "Chefe, 2 pontos de vida. Em turnos alternados, marca em vermelho a casa do seu guarda ou soldado mais valioso; no turno seguinte, a lava jorra ali: se ele ainda estiver lá, morre.";
+I18N.DICT.pt.T.bc[1] = "Chefe, 3 pontos de vida, cercado por 4 capangas. No fim de cada turno do seu lado, o capanga mais próximo de você avança um passo em direção às suas unidades (e captura se alcançar uma).";
+I18N.DICT.pt.T.bq[1] = "Chefe, 4 pontos de vida. No fim de cada turno do seu lado, uma abelha sai da colmeia ao lado dela (no máximo 4). As abelhas voam 2 casas por cima de tudo.";
+I18N.DICT.pt.T.sa[1] = "Chefe da Luz, 5 pontos de vida. A cada turno, sua luz cega todas as suas unidades na linha e na coluna dele: você não pode ativá-las no próximo turno.";
+I18N.DICT.pt.T.sp[1] = "Chefe da Luz, 5 pontos de vida. Enquanto 2 de suas unidades estiverem coladas a ele, elas o protegem: seus golpes não fazem nada. Mate os guardas dele primeiro! Ele avança em sua direção em turnos alternados (às vezes deixando os guardas para trás) e golpeia uma unidade colada a ele a cada 3 turnos.";
+I18N.DICT.pt.T.bp[1] = "Chefe, 2 pontos de vida, mas renasce uma vez das cinzas com 2 pontos de vida, queimando suas unidades coladas a ele. Em turnos alternados, suas chamas matam 2 das suas unidades a 2 casas dele.";
+I18N.DICT.pt.T.bt[1] = "Chefe, 5 pontos de vida. No fim de cada turno do seu lado, avança uma casa em direção à sua unidade mais próxima; em turnos alternados, esmaga uma das suas unidades coladas a ele.";

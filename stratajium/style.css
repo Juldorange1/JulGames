@@ -924,3 +924,7 @@ body.viewing #opts { visibility: hidden; }
 .facinfo { max-width: 620px; margin: 8px auto 0; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .05); font-size: 15.5px; text-align: center; }
 .daily .dmid .tal { display: block; color: var(--muted); cursor: help; }
 .trk span small { color: var(--muted); font-size: .85em; }
+/* Codex : ce qui n'a pas encore été rencontré */
+.ccard.locked { opacity: .55; border-style: dashed; }
+.ccard.locked .cic { font-size: 30px; filter: grayscale(1); }
+.cxhead small { font-weight: 400; opacity: .8; font-size: .8em; }

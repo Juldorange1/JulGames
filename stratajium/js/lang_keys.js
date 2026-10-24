@@ -914,4 +914,8 @@ I18N.KEYS = [
   "5 gardes tués.",
   // équilibrage final (2026-10-24)
   "Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.",
+  // codex à découvrir (2026-10-24)
+  "Annuler le dernier coup",
+  "À découvrir : tu le verras en jouant.",
+  "{n}/{t} découverts",
 ];

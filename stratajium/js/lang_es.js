@@ -56,6 +56,7 @@ I18N.addLang('es', 'Español', {
     /* 880 */ "Poderes propios y oculta en la oscuridad: un guardia o soldado enemigo no puede capturarla a más de 4 casillas. También gana con 3 unidades en la zona de despliegue rival.", "El ejército básico. Gana matando a todos los dioses rivales o a 4 de sus guardias.", "O empezar más arriba:", "cada uno da una unidad rara", "Objetivo misterioso", "Tus puntos de desafío desbloquean talentos: pequeñas ventajas para tus partidas.",
     /* 886 */ "Contra la Luz, el ejército de las Sombras solo pierde tras 5 guardias muertos (en vez de 4), pero su invasión necesita 4 unidades (en vez de 3).", "Acción extra: como juegas en segundo lugar, reclutas una unidad más.", "Quién empieza se <b>sortea</b>; el otro empieza con 15 de maná más y recluta una unidad más en su primer turno. Puedes <b>deshacer tu última jugada</b> con ↶. Tras el final, volver atrás sirve para entrenar: el resultado real se conserva.", "5 guardias muertos.",
     /* 890 */ "Quién empieza se <b>sortea</b>; el otro recluta una unidad más en su primer turno. Puedes <b>deshacer tu última jugada</b> con ↶. Tras el final, volver atrás sirve para entrenar: el resultado real se conserva.",
+    /* 891 */ "Deshacer la última jugada", "Por descubrir: lo verás jugando.", "{n}/{t} descubiertos",
   ],
   T: {
     bh: ["Hidra", "Jefe, 4 puntos de vida. Cada vez que pierde un punto de vida, le crece una nueva cabeza (un secuaz) a su lado. Un turno de cada dos, muerde a una de tus unidades pegadas a ella."],
@@ -276,3 +277,13 @@ I18N.DICT.es.T.g4[1] = "Avanza 1 casilla en las 8 direcciones empujando toda la 
 I18N.DICT.es.T.c2[1] = "Avanza en diagonal tantas casillas como quiera (como el alfil del ajedrez). O da 1 paso recto a una casilla vacía.";
 I18N.DICT.es.T.n6[1] = "Avanza hasta 3 pasos rectos por casillas vacías, girando como quiera. Puede capturar a un enemigo a 2 pasos como mucho.";
 I18N.DICT.es.T.c3[1] = "Se teletransporta a una casilla pegada a un soldado (cualquiera) o a una de tus unidades.";
+// boss rééquilibrés (2026-10-24)
+I18N.DICT.es.T.bs[1] = "Jefe, 4 puntos de vida. Al final de cada turno de su bando, aparece junto a tu unidad más valiosa. Es intangible (no se le puede tocar) 1 turno de cada 3; cada 3 turnos se lleva una de tus unidades pegadas a él.";
+I18N.DICT.es.T.bg[1] = "Jefa, 2 puntos de vida. Un turno de cada dos, congela tu unidad más valiosa del mapa: no puedes activarla en tu siguiente turno.";
+I18N.DICT.es.T.bv[1] = "Jefe, 2 puntos de vida. Un turno de cada dos, marca en rojo la casilla de tu guardia o soldado más valioso; al turno siguiente brota allí la lava: si sigue encima, muere.";
+I18N.DICT.es.T.bc[1] = "Jefe, 3 puntos de vida, rodeado de 4 secuaces. Al final de cada turno de su bando, su secuaz más cercano a ti avanza un paso hacia tus unidades (y captura si llega a una).";
+I18N.DICT.es.T.bq[1] = "Jefa, 4 puntos de vida. Al final de cada turno de su bando, una abeja sale de la colmena junto a ella (4 como máximo). Las abejas vuelan 2 casillas por encima de todo.";
+I18N.DICT.es.T.sa[1] = "Jefe de la Luz, 5 puntos de vida. En cada turno, su luz ciega a todas tus unidades de su fila y su columna: no puedes activarlas en tu siguiente turno.";
+I18N.DICT.es.T.sp[1] = "Jefe de la Luz, 5 puntos de vida. Mientras 2 de sus unidades estén pegadas a él, lo protegen: tus golpes no le hacen nada. ¡Mata primero a sus guardias! Avanza hacia ti un turno de cada dos (a veces dejando atrás a sus guardias) y golpea a una unidad pegada a él cada 3 turnos.";
+I18N.DICT.es.T.bp[1] = "Jefe, 2 puntos de vida, pero renace una vez de sus cenizas con 2 puntos de vida, quemando tus unidades pegadas a él. Un turno de cada dos, sus llamas matan a 2 de tus unidades a 2 casillas de él.";
+I18N.DICT.es.T.bt[1] = "Jefe, 5 puntos de vida. Al final de cada turno de su bando, avanza una casilla hacia tu unidad más cercana; un turno de cada dos, aplasta a una de tus unidades pegadas a él.";
