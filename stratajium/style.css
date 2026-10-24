@@ -874,3 +874,21 @@ body.anim-off .slash, body.anim-off .soul { display: none; }
 #momentBar .mbtk { flex: none; width: 30px; height: 30px; margin-top: -4px; }
 #momentBar .mbtk .tk { width: 30px; height: 30px; }
 body.viewing #opts { visibility: hidden; }
+
+/* défis : persos tirés au hasard, handicaps au choix */
+.armyrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 6px 0; }
+.armyrow .achip { width: 38px; height: 38px; display: inline-block; }
+.armyrow .achip .tk { width: 38px; height: 38px; }
+#dailyBox .armyrow { justify-content: flex-start; }
+#dailyBox .armyrow .achip, #dailyBox .armyrow .achip .tk { width: 30px; height: 30px; }
+.hpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.hpick button { text-align: left; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .04); font-size: 15px; }
+.hpick button b { color: var(--danger); margin-right: 4px; }
+.hpick button.sel { border-color: var(--danger); background: rgba(255, 90, 90, .16); }
+/* paramètres : touches */
+.keybinds { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; justify-content: flex-end; max-width: 560px; }
+.keybinds .kb { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.keybinds .kb small { font-size: 12.5px; color: var(--muted); max-width: 120px; text-align: center; line-height: 1.15; }
+.keybinds button.wait { border-color: var(--gold); color: var(--gold); animation: tchPulse .8s infinite alternate; }
+/* Codex : la Lumière puis les Ombres */
+.tblock h3.cxhead { margin: 4px 0 0; }

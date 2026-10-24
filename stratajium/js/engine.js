@@ -423,7 +423,7 @@ function StratEngine() {
       first0: o.first || 0,
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
       boss: null,
-      fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres)
+      fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres, 2 = mélange : recrute les deux)
       frz: null, curse: null, shroud: null, tieTo: o.tieTo === 0 || o.tieTo === 1 ? o.tieTo : -1, // en cas d'égalité parfaite (partie trop longue) : le bot gagne // persos enchaînés, cases maudites, linceul (armée des Ombres)
       invN: o.invN || 0, // persos à faire entrer pour gagner par invasion (0 = 3)
     };
@@ -485,7 +485,7 @@ function StratEngine() {
   const cloneBoss = B => Object.assign({}, B, { warn: B.warn && B.warn.slice(), ice: B.ice && B.ice.slice(), webs: B.webs && B.webs.slice(), stones: B.stones && B.stones.slice(), coral: B.coral && B.coral.slice() });
   // tout le monde peut recruter les persos de base ; seuls les Ombres peuvent recruter les persos des Ombres
   // chaque armée ne recrute que ses persos : les Ombres les leurs, la Lumière les siens
-  const canRec = (s, p, i) => !s.fac ? !FAC[i] : FAC[i] ? s.fac[p] === 1 : s.fac[p] !== 1;
+  const canRec = (s, p, i) => !s.fac ? !FAC[i] : FAC[i] ? s.fac[p] >= 1 : s.fac[p] !== 1;
   const SOLD = (s, p) => s.fac && s.fac[p] === 1 ? OS_I : S_I; // le soldat de l'armée de p
   const isIce = (s, q) => {
     if (s.frz) for (const f of s.frz) if (f.q === q && s.b[q] > 0 && own(s.b[q]) === f.p) return true; // enchaîné (Entrave, Araignée)
@@ -1364,7 +1364,7 @@ function StratEngine() {
   function alive(s, p) { let n = 0; for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q)) n++; for (let i = 0; i < NT; i++) n += s.res[p][i]; return n; }
   const invNeed = (s, p) => p === 0 && s.invN ? s.invN : 3;
   function invasion(s, p) {
-    if (!s.fac || !s.fac[p]) return false;
+    if (!s.fac || s.fac[p] !== 1) return false; // la victoire par invasion : seulement l'armée des Ombres (pas le mélange)
     let n = 0; for (const x of s.g.zl[1 - p]) if (s.b[x] > 0 && own(s.b[x]) === p) n++;
     return n >= invNeed(s, p);
   }
@@ -1673,7 +1673,7 @@ function StratEngine() {
       else {
         const r = ROW[q], cc = COL[q];
         if (cat === 2) v += (o === 0 ? g.H - 1 - r : r) * 0.05;
-        if (s.fac && s.fac[o]) v += (o === 0 ? g.H - 1 - r : r) * 0.05; // les Ombres gagnent en envahissant la zone adverse
+        if (s.fac && s.fac[o] === 1) v += (o === 0 ? g.H - 1 - r : r) * 0.05; // les Ombres gagnent en envahissant la zone adverse
         // se rapprocher des dieux adverses
         const mp = mpos[1 - o];
         if (mp.length) {
@@ -1704,7 +1704,7 @@ function StratEngine() {
       else sc += (danger(s, 1 - p, am[1 - p], onB[1 - p]) - danger(s, p, am[p], onB[p])) * W8.wM;
     }
     if (s.boss && s.boss.hp > 0) sc += (s.boss.owner === p ? 1 : -1) * s.boss.hp * 9;
-    if (s.fac) for (const o of [0, 1]) if (s.fac[o]) { let n = 0; for (const x of g.zl[1 - o]) if (b[x] > 0 && own(b[x]) === o) n++; const need = invNeed(s, o); sc += (o === p ? 1 : -1) * (n >= need ? 0 : n === need - 1 ? 14 : n === need - 2 ? 4 : 0); }
+    if (s.fac) for (const o of [0, 1]) if (s.fac[o] === 1) { let n = 0; for (const x of g.zl[1 - o]) if (b[x] > 0 && own(b[x]) === o) n++; const need = invNeed(s, o); sc += (o === p ? 1 : -1) * (n >= need ? 0 : n === need - 1 ? 14 : n === need - 2 ? 4 : 0); }
     if (s.noAct[1 - p]) sc += 1.5 * s.noAct[1 - p];
     if (s.noAct[p]) sc -= 1.5 * s.noAct[p];
     if (s.noPlace[1 - p]) sc += 0.6 * s.noPlace[1 - p];

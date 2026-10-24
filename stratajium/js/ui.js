@@ -95,6 +95,13 @@
 
   // ---------- réglages ----------
   const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true }, lsGet('reglages', {}));
+  // touches configurables (peu nombreuses) ; le reste est fixe : Échap, Entrée, Espace, 1…9, flèches
+  const KEY_DEF = { undo: 'u', pass: 'p', next: 'Tab', codex: 'c', music: 'm' };
+  const KB = Object.assign({}, KEY_DEF, lsGet('touches', {}));
+  const KEY_ACTS = () => [['undo', L('Annuler le coup')], ['pass', L('Passer son tour')], ['next', L('Choisir le perso suivant / précédent')], ['codex', L('Codex')], ['music', L('Musique')]];
+  const RESERVED = ['Escape', 'Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'F11', 'Shift', 'Control', 'Alt', 'Meta', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  const keyName = k => !k ? '–' : k === ' ' ? L('Espace') : k.length === 1 ? k.toUpperCase() : k;
+  const isKey = (k, act) => !!KB[act] && (k.length === 1 ? k.toLowerCase() === KB[act] : k === KB[act]);
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
@@ -180,7 +187,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   const trackName = k => ({ gard: L('Nouveau garde'), god: L('Nouveau dieu'), map: L('Carte plus sauvage'), ev: L('Plus d’événements') })[k];
   const trackHint = (r, k) => k === 'gard' ? L('Un garde de plus dans ta réserve, au choix.') : k === 'god' ? L('Un dieu de plus dans ta réserve, au choix.')
     : k === 'map' ? L('Niveau {n} : {d}', { n: r.mapLv + 1, d: I18N.mapLevel(r.mapLv + 1) }) : L('+25 % de chance d’un événement à chaque affrontement.');
-  const HARD = ['mana', 'riche', 'avance', 'premier', 'sauvage', 'evenement', 'dieupris', 'soldats', 'pauvre', 'silence', 'geole', 'ronces', 'gardespris', 'blesse'];
+  const HARD = ['mana', 'riche', 'avance', 'sauvage', 'evenement', 'dieupris', 'soldats', 'pauvre', 'silence', 'geole', 'ronces', 'gardespris', 'blesse'];
   const hardName = id => ({
     mana: L('Tu commences avec 60 mana au lieu de 100'), riche: L('L’adversaire commence avec 140 mana'),
     avance: L('L’adversaire a déjà un garde posé'), premier: L('L’adversaire joue en premier'),
@@ -195,7 +202,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   })[id];
   // handicaps qui n'existent que dans les parties des Ombres (DLC)
   const SH_HARD = ['aube', 'paladins', 'invasion4', 'veilleurs']; // (« sansombre » toucherait aussi l'adversaire, qui joue les Ombres)
-  const SH_HARD_MIX = ['mana', 'riche', 'premier', 'sauvage', 'silence', 'geole', 'ronces', 'blesse'];
+  const SH_HARD_MIX = ['mana', 'riche', 'sauvage', 'silence', 'geole', 'ronces', 'blesse'];
   // exploits : certains persos ne se débloquent QUE par un exploit (dans la partie en cours)
   const EXPLOITS = [
     { id: 'colline', piece: 'dr', test: s => s.goal === 'colline' },
@@ -268,7 +275,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const n = hasF(r, 'hard3') ? 3 : 2, cap = n === 3 ? 4 : 3; // plus doux : 2 malus légers, ou 3 avec le fardeau du Cercle
     const pool = (r.fac ? SH_HARD.concat(SH_HARD_MIX) : HARD).filter(x => HARD_W[x] < 3); // « garde déjà perdu » est retiré : trop dur
     for (let t = 0; t < 80; t++) { const h = shuffle(pool).slice(0, n); if (h.reduce((a, x) => a + HARD_W[x], 0) <= cap && (!r.fac || h.some(x => SH_HARD.includes(x)))) return h; }
-    return ['premier', 'sauvage', 'ronces'].slice(0, n);
+    return ['mana', 'sauvage', 'ronces'].slice(0, n);
   }
   const allUnlocked = r => runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
@@ -308,7 +315,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const o = r.t, h = (x, m) => Math.min(m - .5, Math.floor(x * 2) / 2);
       r.t = { gard: h(Math.max(o.gN * 4 / 5, o.gH * 4 / 3), TRACKS.gard), god: h(Math.max(o.dN * 6 / 8, o.dH * 6 / 5), TRACKS.god), map: h(o.map * 3 / 4, TRACKS.map), ev: h(o.ev * 3 / 5, TRACKS.ev), last: ['gard', 'map'] };
     }
-    if (!r.hard) r.hard = shuffle(HARD).slice(0, 2);
+    if (!r.hard || r.hard.includes('premier')) r.hard = rollHard(r); // « l'adversaire joue en premier » n'existe plus
     if (!Array.isArray(r.pending)) r.pending = [];
     if (!r.news) r.news = [];
     if (!r.exploits) r.exploits = [];
@@ -409,7 +416,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     else if (isBossBattle(r)) { const b = E.TI[bossOf(r)]; h += `<div class="choices one"><button class="choice boss" id="btnStart"><span class="bossic">${token(b, 1)}</span><b>${L('Affrontement de boss : {b}', { b: tn(b) })}</b><small>${td(b)}</small><small class="gold">${L('Tue le boss pour gagner. Récompense : un perso au choix parmi tous ceux à découvrir.')}</small><kbd>↵</kbd></button></div><div class="menu-actions">`; }
     else h += `<div class="choices${allUnlocked(r) ? ' three' : ''}">
         <button class="choice" id="btnStart"><span class="ic">⚔️</span><b>${L('Affrontement normal')}</b><small>${L('Victoire : +1 sur ce que tu choisis.')}</small><kbd>↵</kbd></button>
-        <button class="choice hard" id="btnHard"><span class="ic">🔥</span><b>${L('Affrontement difficile')}</b><small>${r.hard.map(hardName).join(' · ')}</small><small class="gold">${L('Victoire : +2 sur ce que tu choisis.')}</small><kbd>D</kbd></button>
+        <button class="choice hard" id="btnHard"><span class="ic">🔥</span><b>${L('Affrontement difficile')}</b><small>${r.hard.map(hardName).join(' · ')}</small><small class="gold">${L('Victoire : +2 sur ce que tu choisis.')}</small></button>
         ${allUnlocked(r) ? `<button class="choice asc" id="btnAsc"><span class="ic">🔁</span><b>${L('🔁 Monter au Cercle {n}', { n: r.cercle + 1 }).replace(/^🔁\s*/, '')}</b><small>${L('Tu as tout débloqué ! Tu recommences avec la réserve de départ, contre un adversaire plus coriace. Tes victoires restent comptées.')}</small><small class="gold">${L('Nouveau : {x}', { x: cercleNew(r.cercle + 1) })}</small></button>` : ''}
       </div><div class="menu-actions">`;
     h += `<button class="ghost sm" id="btnRunCodex">${L('📖 Codex')}</button><button class="ghost sm" id="btnRunMenu">${L('← Menu')}</button></div>`;
@@ -510,58 +517,73 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Défi du jour (ses points débloquent des talents pour toutes les parties)
   // =====================================================================
-  const DAILY = ['vite', 'survie', 'propre', 'carnage'];
-  const dailyName = id => ({ vite: L('Éclair'), survie: L('Survie'), propre: L('Sans une égratignure'), carnage: L('Carnage') })[id];
+  // défis du jour et de la semaine : toujours un objectif à record (pas seulement gagner)
+  const RECORDS = ['vite', 'econome', 'sobre', 'propre', 'carnage', 'survie', 'defi'];
+  const dailyName = id => ({ vite: L('Éclair'), survie: L('Survie'), propre: L('Sans une égratignure'), carnage: L('Carnage'), econome: L('Économe'), sobre: L('Sobriété'), defi: L('Défi choisi') })[id];
   const dailyDesc = id => ({
     vite: L('Gagne en jouant le moins de tours possible.'), survie: L('Le bot stratège veut ta peau : tiens le plus de tours possible (et gagne si tu peux).'),
     propre: L('Gagne en perdant le moins de persos possible.'), carnage: L('Tue le plus de persos possible en 25 de tes tours.'),
+    econome: L('Gagne en dépensant le moins de mana possible.'), sobre: L('Gagne en activant tes persos le moins de fois possible.'),
+    defi: L('Choisis toi-même tes handicaps avant de jouer : plus ils sont durs, plus ta victoire rapporte.'),
   })[id];
+  // handicaps qu'on peut se choisir dans un « Défi choisi » (+ ceux des Ombres si tu joues l'armée des Ombres)
+  const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'geole', 'ronces', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
+  // la mesure du record et les points qu'elle rapporte
+  function recInfo(G, goal) {
+    const s = G.s, st = G.st, me = G.me, win = s.winner === me, myT = Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2);
+    const lost = s.lost[me][0] + s.lost[me][1] + s.lost[me][2], kills = s.lost[1 - me][0] + s.lost[1 - me][1] + s.lost[1 - me][2];
+    switch (goal) {
+      case 'vite': return { v: myT, txt: L('{n} tours', { n: myT }), score: win ? Math.max(10, 150 - 3 * myT) : 0 };
+      case 'econome': { const m = st.mana[me]; return { v: m, txt: L('{n} mana dépensée', { n: m }), score: win ? Math.max(10, 150 - Math.round(m / 4)) : 0 }; }
+      case 'sobre': { const a = st.act[me][2]; return { v: a, txt: L('{n} activations', { n: a }), score: win ? Math.max(10, 150 - 5 * a) : 0 }; }
+      case 'propre': return { v: lost, txt: L('{n} perdu(s)', { n: lost }), score: win ? Math.max(10, 150 - 20 * lost) : 0 };
+      case 'carnage': return { v: kills, txt: L('{k} ennemi(s) tué(s)', { k: kills }), score: kills * 10 + (win ? 20 : 0) };
+      case 'survie': return { v: myT, txt: L('{n} tours', { n: myT }), score: Math.min(200, myT * 2 + (win ? 60 : 0)) };
+      case 'defi': { const d = (G.hard || []).reduce((x, h) => x + (HARD_W[h] || 1), 0); return { v: d, txt: L('difficulté {n}', { n: d }), score: win ? 50 + 25 * d : 0 }; }
+    }
+    return { v: 0, txt: '', score: win ? 100 : 0 };
+  }
+  // persos des défis : totalement au hasard (nombre, sortes), la Lumière et les Ombres peuvent se mélanger
+  function randomArmy(noGods) {
+    const mode = rnd(4), from = (L0, S0) => mode === 0 ? L0 : mode === 1 ? S0 : L0.concat(S0); // Lumière seule, Ombres seules, ou mélange (une fois sur deux)
+    const M = noGods ? [] : shuffle(from(E.ALL_M, E.SH_M)).slice(0, 2 + rnd(5)), Gd = shuffle(from(E.ALL_G, E.SH_G)).slice(0, 3 + rnd(6));
+    const gods = M.filter(x => !isSh(x)), gards = Gd.filter(x => !isSh(x)), shM = M.filter(isSh), shG = Gd.filter(isSh);
+    const light = gods.length + gards.length, dark = shM.length + shG.length;
+    return { gods, gards, shM, shG, fac: !dark ? null : !light ? [1, 1] : [2, 2] };
+  }
+  const armyChips = p => { const ids = (p.gods || []).concat(p.shM || [], p.gards || [], p.shG || []); return ids.length ? `<div class="armyrow">${ids.map(id => `<span class="achip" title="${esc(tn(E.TI[id]))}">${token(E.TI[id], 0)}</span>`).join('')}</div>` : ''; };
+  const facTag = f => !f ? '' : f[0] === 2 ? '☀️🌑 ' + L('Lumière et Ombres mélangées') : f[0] === 1 && f[1] === 1 ? '🌑 ' + L('Aujourd’hui : l’armée des Ombres des deux côtés !') : f[0] === 1 ? '🌑 ' + L('Aujourd’hui : tu joues l’armée des Ombres contre la Lumière !') : '🌑 ' + L('Aujourd’hui : l’armée des Ombres est en face !');
   function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function hashStr(s) { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) || 1; }
   function dailyCfg() {
     const date = today(), seed = hashStr('stratajium-' + date);
     return E.withSeed(seed, () => {
-      const goal = DAILY[rnd(DAILY.length)];
+      const goal = RECORDS[rnd(RECORDS.length)];
       const level = goal === 'survie' ? 'impossible' : (Math.random() < .5 ? 'normal' : 'impossible');
-      const evs = E.EVENTS.filter(e => e.id !== 'objectif' && e.id !== 'pari');
-      const o = { date, seed, goal, level, perso: pick(Object.keys(E.PERSOS)), gods: shuffle(E.ALL_M).slice(0, 5), gards: shuffle(E.ALL_G).slice(0, 6),
-        mapLv: 3 + rnd(2), ev: Math.random() < .4 ? pick(evs).id : null, first: rnd(2), mapSeed: 1 + rnd(1e9) };
-      // un jour sur trois : l'armée des Ombres est de la partie (extension activée ou non) — des deux côtés, ou seulement en face
-      if (rnd(3) === 0) {
-        o.fac = pick([[1, 1], [1, 1], [0, 1]]); o.shM = shuffle(E.SH_M).slice(0, 5); o.shG = shuffle(E.SH_G).slice(0, 6);
-        if (o.fac[0] && o.fac[1]) { o.gods = []; o.gards = []; }
-        if (['cache', 'inverse', 'pari'].includes(o.ev)) o.ev = null; // pas de draft avec les Ombres
-      }
-      return o;
+      const army = randomArmy();
+      const evs = E.EVENTS.filter(e => e.id !== 'objectif' && e.id !== 'pari' && !(army.fac && ['cache', 'inverse'].includes(e.id))); // pas de draft avec les Ombres
+      return Object.assign({ date, seed, goal, level, perso: pick(Object.keys(E.PERSOS)), mapLv: 2 + rnd(3), ev: Math.random() < .4 ? pick(evs).id : null, mapSeed: 1 + rnd(1e9) }, army);
     });
   }
   function renderDaily() {
     const c = dailyCfg(), d = dailyData(), best = d.days[c.date];
     const next = TALENTS.find(t => d.total < t.pts), got = TALENTS.filter(t => d.total >= t.pts).length;
     $('dailyBox').innerHTML = `<div class="dleft"><h2>📅 ${L('Défi du jour')}</h2><b class="dgoal">🎯 ${dailyName(c.goal)}</b><small>${dailyDesc(c.goal)}</small>
-        <small>${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)}${c.ev ? ' · 🎲 ' + I18N.evName(c.ev) : ''}</small>${c.fac ? `<small class="dshadow">🌑 ${dailyFac(c.fac)}</small>` : ''}</div>
+        <small>${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)}${c.ev ? ' · 🎲 ' + I18N.evName(c.ev) : ''}</small>${c.fac ? `<small class="dshadow">${facTag(c.fac)}</small>` : ''}${armyChips(c)}</div>
       <div class="dmid"><div class="pts">${d.total}</div><small>${L('points de défi du jour')}</small>
-        <small>${best ? L('Aujourd’hui : {p} pts', { p: best.best }) : L('Pas encore joué aujourd’hui.')}</small></div>
-      <div class="dright"><button class="big" id="btnDaily">${best ? L('Rejouer') : L('Jouer le défi')} <kbd>J</kbd></button>${dlcOn('ombres') ? `<button class="ghost" id="btnWeekly">🗓️ ${L('Défi de la semaine')} <kbd>W</kbd></button>` : ''}
+        <small>${best ? L('Aujourd’hui : {p} pts', { p: best.best }) + (best.m ? ` · 🏆 ${best.m}` : '') : L('Pas encore joué aujourd’hui.')}</small></div>
+      <div class="dright"><button class="big" id="btnDaily">${best ? L('Rejouer') : L('Jouer le défi')}</button>${dlcOn('ombres') ? `<button class="ghost" id="btnWeekly">🗓️ ${L('Défi de la semaine')}</button>` : ''}
         <small>${L('Talents : {n}/{t}', { n: got, t: TALENTS.length })}${next ? ' · ' + L('prochain à {p} pts : {x}', { p: next.pts, x: talentName(next.id) }) : ''}</small></div>`;
     $('btnDaily').onclick = startDaily;
     if ($('btnWeekly')) $('btnWeekly').onclick = () => openSeason('menu');
   }
-  const dailyFac = f => f[0] && f[1] ? L('Aujourd’hui : l’armée des Ombres des deux côtés !') : f[0] ? L('Aujourd’hui : tu joues l’armée des Ombres contre la Lumière !') : L('Aujourd’hui : l’armée des Ombres est en face !');
-  function dailyScore(G) {
-    const s = G.s, c = G.daily, w = s.winner, my = Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2);
-    const lostMe = s.lost[0][0] + s.lost[0][1] + s.lost[0][2], kills = s.lost[1][0] + s.lost[1][1] + s.lost[1][2];
-    if (c.goal === 'vite') return w === 0 ? Math.max(10, 120 - 2 * my) : 0;
-    if (c.goal === 'survie') return Math.min(200, my * 2 + (w === 0 ? 60 : 0));
-    if (c.goal === 'propre') return w === 0 ? Math.max(10, 100 - 12 * lostMe) : 0;
-    return kills * 10 + (w === 0 ? 20 : 0);
-  }
+  const dailyScore = G => recInfo(G, G.chal).score;
   function startDaily() {
     const c = dailyCfg();
     cur = -1; myCercle = 0;
     const map = E.withSeed(c.mapSeed, () => { const m = E.makeMap('aleatoire', c.mapLv); if (c.fac) E.addShadowSpecs(m); return m; });
-    pre = { ev: c.ev, map, first: c.first, bet: [null, null], level: c.level, mode: 'daily', daily: c, perso: c.perso, gods: c.gods, gards: c.gards,
-      fac: c.fac || null, shM: c.shM || null, shG: c.shG || null, theme: c.fac ? 'nuit' : null };
+    pre = { ev: c.ev, map, first: rnd(2), bet: [null, null], level: c.level, mode: 'daily', daily: c, chal: c.goal, hard: [], perso: c.perso, gods: c.gods, gards: c.gards,
+      fac: c.fac || null, shM: c.shM || null, shG: c.shG || null, theme: c.fac && c.fac[0] === 1 ? 'nuit' : null };
     showPre(true);
   }
 
@@ -583,7 +605,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const currents = dlcOn('abysses') && mapLv >= 2 && Math.random() < .35;
     const map = E.makeMap(mapLv === 0 ? 'classique' : 'aleatoire', mapLv, currents);
     if (r.fac) E.addShadowSpecs(map); // autels, lumières sacrées, portails
-    const first = hs.includes('premier') ? 1 : rnd(2);
+    const first = rnd(2); // qui commence : toujours tiré au sort
     // armée des Ombres : l'adversaire (la Lumière) a autant de sortes de persos que toi
     const more = (base, all, n) => base.concat(shuffle(all.filter(x => !base.includes(x))).slice(0, Math.max(0, n)));
     // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
@@ -608,7 +630,16 @@ const isSh = id => !!T[E.TI[id]].fac;
     let h = '';
     if (pre.mode === 'story') h += `<h2 class="title">📖 ${L('Chapitre {n}', { n: pre.story + 1 })} · ${storyTitle(pre.story)}</h2><img class="storyimg" src="img/story/${pre.story + 1}.jpg" alt="" onerror="this.remove()"><div class="evcard story">${storyText(pre.story)}</div><p class="center">${LEVELIC[pre.level]} ${levelName(pre.level)} · ${I18N.mapName(pre.map)}</p>`;
     if (pre.mode === 'season') h += `<h2 class="title">🗓️ ${L('Défi de la semaine')}</h2><div class="evcard"><b>${seasonName(pre.season.rule)}</b>${seasonDesc(pre.season.rule)}</div>`;
-    if (daily) { const c = pre.daily; h += `<h2 class="title">📅 ${L('Défi du jour')}</h2><div class="evcard"><b>🎯 ${dailyName(c.goal)}</b>${dailyDesc(c.goal)}</div><p class="center">${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)} · ${I18N.mapName(pre.map)}</p>`; }
+    if (daily) { const c = pre.daily; h += `<h2 class="title">📅 ${L('Défi du jour')}</h2><p class="center">${LEVELIC[c.level]} ${levelName(c.level)} · ${I18N.persoName(c.perso)} · ${I18N.mapName(pre.map)}</p>`; }
+    if (pre.chal) {
+      h += `<div class="evcard"><b>🏆 ${L('Record')} : ${dailyName(pre.chal)}</b>${dailyDesc(pre.chal)}</div>`;
+      if (pre.fac) h += `<p class="center">${facTag(pre.fac)}</p>`;
+      h += armyChips(pre);
+      if (pre.chal === 'defi') {
+        const d = pre.hard.reduce((x, k) => x + (HARD_W[k] || 1), 0);
+        h += `<div class="opt"><h3>${L('Tes handicaps')} · ${L('difficulté {n}', { n: d })} · ${L('victoire = {p} pts', { p: 50 + 25 * d })}</h3><div class="hpick">${pickableHard(pre).map(k => `<button data-hp="${k}" class="${pre.hard.includes(k) ? 'sel' : ''}"><b>+${HARD_W[k] || 1}</b> ${hardName(k)}</button>`).join('')}</div></div>`;
+      }
+    }
     if (pre.mode === 'hard') h += `<h2 class="title">🔥 ${L('Affrontement difficile')}</h2><div class="evcard hardc">${pre.hard.map(x => '• ' + hardName(x)).join('<br>')}</div>`;
     if (pre.boss) { const b = E.TI[pre.boss]; h += `<h2 class="title">${L('Affrontement de boss !')}</h2><div class="evcard hardc bossc">${token(b, 1)}<div><b>${tn(b)}</b>${bossQuote(pre.boss) ? `<i class="quote">« ${bossQuote(pre.boss)} »</i>` : ''}${td(b)}<br><small>${L('Il a des sbires. Tue le boss (chaque coup lui retire un point de vie) pour gagner.')}</small></div></div>`; }
     if (pre.ev) {
@@ -627,6 +658,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     h += `<div class="menu-actions"><button class="big" id="btnGo" ${ready ? '' : 'disabled'}>${L('Commencer l’affrontement')} <kbd>↵</kbd></button><button class="ghost" id="btnPreBack">${L('Retour')}</button></div>`;
     $('preBox').innerHTML = h;
     $('preBox').querySelectorAll('[data-bet]').forEach(seg => seg.onclick = ev => { const b = ev.target.closest('button'); if (!b) return; pre.bet[0] = +b.dataset.v; showPre(daily); });
+    $('preBox').querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { const k = b.dataset.hp; pre.hard = pre.hard.includes(k) ? pre.hard.filter(x => x !== k) : pre.hard.concat([k]); sfx('choix'); showPre(daily); });
     $('btnGo').onclick = () => { if (ready) beginMatch(); };
     $('btnPreBack').onclick = () => { if (pre.mode === 'daily') { renderMenu(); show('menu'); } else if (pre.mode === 'duel') { renderDuel(); show('duel'); } else if (pre.mode === 'story') { renderStory(); show('story'); } else if (pre.mode === 'season') { renderSeason(); show('season'); } else openRun(cur); };
     show('pre'); sfx('sort');
@@ -722,7 +754,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function beginMatch() {
     const hs = pre.hard || [];
-    const shad = !!(pre.fac && pre.fac[1]), oGods = shad ? pre.shM : pre.gods, oGards = shad ? pre.shG : pre.gards; // persos de l'adversaire
+    const of1 = pre.fac ? pre.fac[1] : 0, oGods = of1 === 1 ? pre.shM : of1 === 2 ? (pre.gods || []).concat(pre.shM || []) : pre.gods, oGards = of1 === 1 ? pre.shG : of1 === 2 ? (pre.gards || []).concat(pre.shG || []) : pre.gards; // persos de l'adversaire
     const botSide = (pre.ctl || ['me', 'bot']).indexOf('bot');
     const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
@@ -730,7 +762,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (hs.includes('riche')) s.mana[1] = 140;
     if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(oGards)], 1); }
     if (hs.includes('dieupris')) { const av = oGods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
-    if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI.s, 1);
+    if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[of1 === 1 ? 'os' : 's'], 1);
     if (hs.includes('pauvre')) for (const id of oGards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
     if (hs.includes('silence')) s.noAct[0] = 2;
     if (hs.includes('geole')) s.noPlace[0] = 3;
@@ -758,10 +790,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (pre.mode !== 'daily' && pre.mode !== 'duel' && pre.mode !== 'story' && pre.mode !== 'season') {
       if (hasTalent('mana1')) s.mana[0] += 10;
       if (hasTalent('mana2')) s.mana[0] += 10;
-      if (hasTalent('recrue')) s.res[0][E.TI[pre.fac && pre.fac[0] ? 'os' : 's']]++;
+      if (hasTalent('recrue')) s.res[0][E.TI[pre.fac && pre.fac[0] === 1 ? 'os' : 's']]++;
     }
     if (pre.mana) s.mana = [pre.mana, pre.mana];
-    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
+    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
     else if (SET.decor === 'auto') { setTheme(otherTheme(), true); scheduleTheme(); }
@@ -797,13 +829,14 @@ const isSh = id => !!T[E.TI[id]].fac;
     const s = G.s, out = [];
     if (s.ev) out.push(`🎲 <b>${I18N.evName(s.ev)}</b> : ${I18N.evDesc(s.ev)}`);
     if (s.goal) out.push(`🎯 <b>${I18N.goalName(s.goal)}</b> : ${I18N.goalDesc(s.goal)}`);
-    else if (G.daily) out.push(`🎯 <b>${dailyName(G.daily.goal)}</b> : ${dailyDesc(G.daily.goal)}`);
+    if (G.chal) out.push(`🏆 <b>${L('Record')} : ${dailyName(G.chal)}</b> : ${dailyDesc(G.chal)} <span class="gold">(${recInfo(G, G.chal).txt})</span>`);
     if (G.mode === 'season' && pre && pre.season) out.push(`🗓️ <b>${seasonName(pre.season.rule)}</b> : ${seasonDesc(pre.season.rule)}`);
     if (s.boss) out.push(`👹 <b>${tn(E.TI[s.boss.kind])}</b> : ${td(E.TI[s.boss.kind])}`);
     for (const h of G.hard || []) out.push(`🔥 ${hardName(h)}`);
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     if (cer >= 3) for (const f of fardeaux(cer)) out.push(`⚖️ ${fardeauText(f, cer)}`);
-    if (s.fac && (s.fac[0] || s.fac[1])) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
+    if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
+    else if (s.fac) out.push(`🌑 ${L('Persos des Ombres : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
     return out.length ? `<h3>📜 ${L('Règles de cet affrontement')}</h3><ul class="rules">${out.map(x => `<li>${x}</li>`).join('')}</ul>` : '';
   }
   function enterGame() {
@@ -811,7 +844,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('endModal').hidden = true;
     $('evBadge').hidden = !G.s.ev;
     if (G.s.ev) { $('evBadge').textContent = '🎲 ' + I18N.evName(G.s.ev); $('evBadge').title = I18N.evDesc(G.s.ev); $('evBadge').onclick = () => toast(`🎲 <b>${I18N.evName(G.s.ev)}</b> : ${I18N.evDesc(G.s.ev)}`, 6000); }
-    const gl = G.s.goal ? ['🎯 ' + I18N.goalName(G.s.goal), I18N.goalDesc(G.s.goal)] : G.daily ? ['🎯 ' + dailyName(G.daily.goal), dailyDesc(G.daily.goal)] : G.s.boss ? ['👹 ' + tn(E.TI[G.s.boss.kind]), td(E.TI[G.s.boss.kind])] : null;
+    const gl = G.s.goal ? ['🎯 ' + I18N.goalName(G.s.goal), I18N.goalDesc(G.s.goal)] : G.chal ? ['🏆 ' + dailyName(G.chal), dailyDesc(G.chal)] : G.s.boss ? ['👹 ' + tn(E.TI[G.s.boss.kind]), td(E.TI[G.s.boss.kind])] : null;
     $('goalBadge').hidden = !gl;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; $('goalBadge').onclick = () => toast(`<b>${gl[0]}</b> : ${gl[1]}`, 6000); }
     $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
@@ -905,7 +938,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.tuto) guideAfter(before, s, a, p);
     render();
     animate(before, s, a, dead, hits, fire, smash);
-    if (G.daily && G.daily.goal === 'carnage' && s.winner === null && Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2) > 25) { s.winner = 2; s.why = L('25 tours joués.'); }
+    if (G.chal === 'carnage' && s.winner === null && Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2) > 25) { s.winner = 2; s.why = L('25 tours joués.'); }
     saveMatch();
     if (s.winner !== null) endGame();
     else if (G.ctl[s.turn] === 'me' && G.ctl[p] !== 'me') { // c'est à toi : petit signal
@@ -1121,14 +1154,14 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.mode === 'story') { if (s.winner === G.me && pre.story >= storyDone()) lsSet('story', pre.story + 1); return; }
     if (G.mode === 'season') {
       const d = seasonData(), wk = pre.season.wk, pts = seasonScore(G), old = (d[wk] || []).reduce((a, x) => Math.max(a, x.p), 0);
-      d[wk] = (d[wk] || []).concat([{ p: pts, d: Date.now() }]).sort((a, b) => b.p - a.p).slice(0, 10); lsSet('seasons', d);
+      d[wk] = (d[wk] || []).concat([{ p: pts, d: Date.now(), m: recInfo(G, G.chal).txt }]).sort((a, b) => b.p - a.p).slice(0, 10); lsSet('seasons', d);
       if (pts > old) { const dd = dailyData(); dd.total += pts - old; lsSet('daily', dd); G.weekGain = pts - old; } // seule l'amélioration de ton meilleur score compte
       return;
     }
     if (G.mode === 'daily') {
       const pts = dailyScore(G), d = dailyData(), c = G.daily, old = d.days[c.date];
       const before = TALENTS.filter(t => d.total >= t.pts).length;
-      if (!old || pts > old.best) { d.total += pts - (old ? old.best : 0); d.days[c.date] = { best: pts }; lsSet('daily', d); }
+      if (!old || pts > old.best) { d.total += pts - (old ? old.best : 0); d.days[c.date] = { best: pts, m: recInfo(G, G.chal).txt }; lsSet('daily', d); }
       const nowT = TALENTS.filter(t => d.total >= t.pts);
       if (nowT.length > before) toast(L('🎁 Nouveau talent : {x}', { x: talentName(nowT[nowT.length - 1].id) }), 6000);
       return;
@@ -1156,8 +1189,16 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- le bilan : clair, précis, sans défilement ----------
   // revenir juste avant un coup (h = longueur de l'historique au moment de ce coup)
+  function startPractice() {
+    if (!G || G.practice || !G.over) return;
+    commit(); // le vrai résultat compte tel quel (récompenses, défi, statistiques)
+    G.practice = true;
+    toast(L('Entraînement : ta vraie partie est gardée telle quelle. Ce que tu rejoues maintenant ne compte pas.'), 5000);
+  }
+  const canBack = () => G && !G.net && (!G.committed || G.practice);
   function rewindTo(h) {
-    if (!G || G.net || G.committed || h < 1 || h > G.history.length) return;
+    if (!G || !canBack() || h < 1 || h > G.history.length) return;
+    startPractice();
     const e = G.history[h - 1];
     G.history.length = h - 1;
     G.s = e.s; G.lastA = e.lastA; $('log').innerHTML = e.log; if (e.st) G.st = JSON.parse(e.st);
@@ -1166,9 +1207,11 @@ const isSh = id => !!T[E.TI[id]].fac;
     sfx('annule'); render(); saveMatch(); maybeBot();
   }
   function bilanGains() {
+    if (G.practice) return []; // entraînement : rien ne compte
     const out = [], st = G.st;
     const pts = Object.values(st.pts).reduce((a, b) => a + b, 0);
     if (pts) out.push(`⭐ ${L('+{n} points pour tes persos', { n: pts })}`);
+    if (G.chal) out.push(`🏆 ${L('Record')} · ${dailyName(G.chal)} : <b>${recInfo(G, G.chal).txt}</b>`);
     if (G.mode === 'season') out.push(`🗓️ ${L('{p} points de défi de la semaine', { p: seasonScore(G) }) + (weekGain(G) ? ' · ' + L('+{n} points pour les talents', { n: weekGain(G) }) : '')}`);
     if (G.mode === 'story' && G.s.winner === G.me) out.push(`📜 <i>${storyEnd(pre.story)}</i>`);
     if (G.mode === 'story' && G.s.winner === G.me && pre.story + 1 < STORY.length) out.push(`📖 ${L('Chapitre suivant débloqué : {x}', { x: storyTitle(pre.story + 1) })}`);
@@ -1196,7 +1239,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const deaths = st.moments.filter(m => m.o === me && m.vi !== undefined);
     for (const m of deaths.slice(-6)) {
       const what = m.ki >= 0 ? L('ton {v} a été tué par {a}', { v: pieceLabel(me, m.vi), a: pieceLabel(op, m.ki) }) : L('ton {v} est mort', { v: pieceLabel(me, m.vi) });
-      const can = !G.net && !G.committed && m.h >= 1 && m.h <= G.history.length;
+      const can = canBack() && m.h >= 1 && m.h <= G.history.length;
       out.push(`<li class="err"><span>${L('Tour {n}', { n: m.turn })} · ${what}</span>${can ? `<button class="ghost sm" data-rw="${m.h}" title="${esc(L('Revenir juste avant ce coup'))}">↶</button>` : ''}</li>`);
     }
     if (deaths.length > 6) out.unshift(`<li class="muted">${L('… et {n} autres pertes avant.', { n: deaths.length - 6 })}</li>`);
@@ -1230,7 +1273,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const dots = mv.map((m, i) => ['gaffe', 'erreur', 'rate'].includes(m.cls) && m.p === me ? `<circle cx="${X(i)}" cy="${Y(ys[i])}" r="3.5" fill="${CLS().find(c => c[0] === m.cls)[3]}"/>` : '').join('');
     const graph = n > 1 ? `<svg class="rvgraph" viewBox="0 0 300 90" preserveAspectRatio="none"><rect width="300" height="90" fill="rgba(180,140,255,.18)"/><polygon points="0,90 ${ys.map((v, i) => `${X(i)},${Y(v)}`).join(' ')} 300,90" fill="rgba(242,193,78,.55)"/><line x1="0" y1="45" x2="300" y2="45" stroke="rgba(255,255,255,.35)" stroke-dasharray="4 4"/>${dots}</svg><p class="muted small">${L('En or : tes chances de gagner après chaque coup (au-dessus du milieu, tu menais).')}</p>` : '';
     // moments clés : tes erreurs, gaffes, prises ratées (et tes coups uniques)
-    const canRw = h => !G.net && !G.committed && h >= 1 && h <= G.history.length;
+    const canRw = h => canBack() && h >= 1 && h <= G.history.length;
     const kmv = [];
     mv.forEach((m, i) => { if (m.p === me && (m.txt || m.cls === 'rate') && m.cls !== 'imprecision') kmv.push(i); });
     G.km = mv.map((m, i) => i).filter(i => mv[i].p === me && mv[i].a && mv[i].cls !== 'unique' && momentState(mv[i])); // tout ce qu'on peut revoir sur la carte
@@ -1248,7 +1291,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function renderBilanDetails() {
     const s = G.s, st = G.st, me = G.me, op = 1 - me;
     const sum = a => a[0] + a[1] + a[2];
-    const canRw = h => !G.net && !G.committed && h >= 1 && h <= G.history.length;
+    const canRw = h => canBack() && h >= 1 && h <= G.history.length;
     const rows = Object.entries(st.pieces).filter(([k]) => +k[0] === me).map(([k, v]) => ({ id: k.slice(2), ...v })).sort((a, b) => b.kills - a.kills || b.act - a.act);
     const ptab = rows.length ? `<table class="dtab"><tr><th></th><th>${L('Activations')}</th><th>${L('Tués')}</th><th>${L('Morts')}</th></tr>${rows.map(r => `<tr><td class="pn">${token(E.TI[r.id], me)}<span>${tn(E.TI[r.id])}</span></td><td>${r.act}</td><td>${r.kills || ''}</td><td class="${r.died ? 'bad' : ''}">${r.died || ''}</td></tr>`).join('')}</table>` : `<p class="muted">${L('Aucun perso activé.')}</p>`;
     const line = (lbl, a, b) => `<tr><td>${lbl}</td><td class="p${me}">${a}</td><td class="p${op}">${b}</td></tr>`;
@@ -1291,7 +1334,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const [, ic, lbl, col] = CLS().find(c => c[0] === m.cls), me = G.me, op = 1 - me;
     const ms = m.cls === 'rate' ? (G.st.missed || []).find(x => x.h === m.h && x.p === me) : null;
     const tokOf = a => a && a.t !== undefined && a.t >= 0 && (a.k === 'rec' || a.k === 'pla' || a.k === 'draft') ? `<span class="mbtk">${token(a.t, me)}</span>` : '';
-    const k = G.km.indexOf(i), canRw = !G.net && !G.committed && m.h >= 1 && m.h <= G.history.length;
+    const k = G.km.indexOf(i), canRw = canBack() && m.h >= 1 && m.h <= G.history.length;
     let bar = $('momentBar');
     if (!bar) { bar = document.createElement('div'); bar.id = 'momentBar'; bar.className = 'glass'; document.body.appendChild(bar); }
     bar.innerHTML = `<div class="mbtop"><b style="color:${col}">${ic} ${lbl}</b> · ${L('Tour {n}', { n: m.turn })}${G.km.length > 1 ? ` · <span class="muted">${k + 1}/${G.km.length}</span>` : ''}</div>
@@ -1299,7 +1342,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${m.better ? `<div class="mbl good"><i></i>${tokOf(m.ba)}<span>${L('Il fallait')} : ${m.better}</span></div>` : ''}
       ${ms ? `<div class="mbl miss"><span>⚔️ ${L('{a} pouvait prendre {v}', { a: pieceLabel(me, ms.ai), v: pieceLabel(op, ms.vi) })}</span></div>` : ''}
       <div class="mbbtn"><button class="ghost sm" id="mbPrev" ${k > 0 ? '' : 'disabled'}>◀</button><button class="ghost sm" id="mbNext" ${k >= 0 && k < G.km.length - 1 ? '' : 'disabled'}>▶</button>
-      ${canRw ? `<button class="ghost sm" id="mbRw">↶ ${L('Rejouer d’ici')}</button>` : ''}<button class="ghost sm mbback" id="mbBack">${L('← Retour au bilan')}</button></div>`;
+      ${canRw ? `<button class="ghost sm" id="mbRw" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶ ${L('Rejouer d’ici')} 🏋️</button>` : ''}<button class="ghost sm mbback" id="mbBack">${L('← Retour au bilan')}</button></div>`;
     $('mbPrev').onclick = () => momentStep(-1); $('mbNext').onclick = () => momentStep(1);
     $('mbBack').onclick = closeMoment;
     if ($('mbRw')) $('mbRw').onclick = () => { closeMoment(true); rewindTo(m.h); };
@@ -1367,7 +1410,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (st.hits) good.push(`<span>👹 ${L('{n} coup(s) porté(s) au boss.', { n: st.hits })}</span>`);
     const gains = bilanGains();
     const R = reviewData(me);
-    $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${I18N.why(s.why)}</p></div>
+    $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${G.practice ? `🏋️ ${L('Entraînement : ce résultat ne compte pas, ta vraie partie est gardée.')}<br>` : ''}${I18N.why(s.why)}</p></div>
       <div class="review">
         <section class="bcard rvL">
           <div class="accs">${[me, op].map(o => `<div class="acc p${o}"><small>${esc(PN[o])}</small><b>${R.acc[o] === null ? '–' : R.acc[o] + ' %'}</b><small>${L('précision')}</small></div>`).join('')}</div>
@@ -1382,7 +1425,7 @@ const isSh = id => !!T[E.TI[id]].fac;
           ${gains.length ? `<h3>🎁 ${L('Ce que tu gagnes')}</h3><ul class="gains">${gains.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         </section>
       </div>
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && !G.committed && !G.net ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>U</kbd></button>` : ''}<button class="ghost" id="btnDetails">📊 ${L('Détails')}</button><button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button>${G.history.length && canBack() ? `<button class="ghost" id="btnEndUndo">↶ ${L('Annuler le coup')} <kbd>${keyName(KB.undo)}</kbd></button>` : ''}<button class="ghost" id="btnDetails">📊 ${L('Détails')}</button><button class="ghost" id="btnLook">${L('Voir la carte')}</button>${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
     if ($('btnDetails')) $('btnDetails').onclick = renderBilanDetails;
     if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
@@ -1394,7 +1437,8 @@ const isSh = id => !!T[E.TI[id]].fac;
   function undo() {
     if (!G) return;
     if (!G.history.length) return toast(L('Aucun coup à annuler.'));
-    if (G.committed) return toast(L('L’affrontement est fini.'));
+    if (!canBack()) return toast(L('L’affrontement est fini.'));
+    startPractice();
     const h = G.history.pop();
     G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log; if (h.st) G.st = JSON.parse(h.st);
     if (G.rec && h.rf) G.rec.length = h.rf;
@@ -1608,6 +1652,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     const tl = $('turnline');
     if (G.view) tl.innerHTML = `🔎 ${L('Tour {n}', { n: Math.floor(s.ply / 2) + 1 })}`;
+    else if (G.practice && !G.over) tl.innerHTML = `🏋️ ${L('Entraînement')} · ` + L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
     else if (G.over) tl.innerHTML = s.winner === 2 ? L('Match nul') : L('{p} a gagné', { p: `<span class="p${s.winner}">${esc(PN[s.winner])}</span>` });
     else {
       let t = L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
@@ -1622,7 +1667,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     drawLastArrow();
     const oldM = $('momArrows'); if (oldM) oldM.remove();
     if (G.view) momentMarks();
-    $('btnUndo').disabled = !G.history.length || G.committed;
+    $('btnUndo').disabled = !G.history.length || !canBack();
     renderPlayers(); renderPool(); renderHint(v); music();
   }
   function drawLastArrow() {
@@ -1759,7 +1804,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function renderHint0(v) {
     const s = G.s, hint = $('hint'), opts = $('opts');
     let h = '', o = [];
-    if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="next">${L('Continuer')}</button>`); if (G.history.length && !G.committed) o.push(`<button data-o="undo">↶ ${L('Annuler le coup')}</button>`); }
+    if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="next">${L('Continuer')}</button>`); if (G.history.length && canBack()) o.push(`<button data-o="undo">↶ ${L('Annuler le coup')}</button>`); }
     else if (!humanTurn()) h = L('{p} réfléchit…', { p: esc(PN[s.turn]) });
     else if (s.phase === 'draft') {
       h = s.ev === 'inverse' ? L('Draft inversé : choisis dans la réserve commune un perso… qui ira à ton adversaire !') : L('Draft caché : pioche une pièce face cachée.');
@@ -1837,10 +1882,19 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Raccourcis clavier
   // =====================================================================
+  let keyWait = null; // action en attente d'une nouvelle touche (dans les paramètres)
   function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal', 'achModal', 'replayModal'].find(id => !$(id).hidden); }
   document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
-    const k = e.key, ctrl = e.ctrlKey || e.metaKey, m = modalOpen();
+    const k = e.key, m = modalOpen();
+    if (keyWait) { // on choisit une nouvelle touche
+      e.preventDefault();
+      if (k === 'Escape') { keyWait = null; renderSettings(); return; }
+      if (RESERVED.includes(k)) { toast(L('Cette touche est déjà prise par le jeu (Échap, Entrée, Espace, 1 à 9, flèches).')); return; }
+      const nk = k.length === 1 ? k.toLowerCase() : k;
+      for (const a in KB) if (a !== keyWait && KB[a] === nk) KB[a] = KB[keyWait]; // échange avec l'action qui l'avait
+      KB[keyWait] = nk; keyWait = null; lsSet('touches', KB); sfx('choix'); renderSettings(); return;
+    }
     if (G && G.view && !m) {
       if (k === 'Escape' || k === 'Backspace' || k === 'Enter') { e.preventDefault(); return closeMoment(); }
       if (k === 'ArrowLeft') return momentStep(-1);
@@ -1860,40 +1914,32 @@ const isSh = id => !!T[E.TI[id]].fac;
       return;
     }
     if (m === 'evoModal') { const n = +k; if (n >= 1 && n <= 4) { const b = $('evos').querySelector(`[data-k="${n - 1}"]`); if (b) b.click(); } return; }
-    if (m === 'endModal') { if (k === 'Enter' || k === ' ') { e.preventDefault(); $('btnNext').click(); } if ((k === 'u' || k === 'U' || (ctrl && (k === 'z' || k === 'Z')))) { e.preventDefault(); undo(); } return; }
+    if (m === 'endModal') { if (k === 'Enter' || k === ' ') { e.preventDefault(); $('btnNext').click(); } if (isKey(k, 'undo')) { e.preventDefault(); undo(); } return; }
     if (m === 'tutoModal') { if (k === 'ArrowRight' || k === 'Enter') tutoStep(1); if (k === 'ArrowLeft') tutoStep(-1); return; }
     if (m === 'codexModal') { if (k === 'ArrowRight') codexPage(1); if (k === 'ArrowLeft') codexPage(-1); return; }
     if (m === 'statsModal') { if (k === 'ArrowRight') statsPage(1); if (k === 'ArrowLeft') statsPage(-1); return; }
     if (m === 'achModal') { if (k === 'ArrowRight') achPage(1); if (k === 'ArrowLeft') achPage(-1); return; }
     if (m === 'replayModal') { if (k === 'ArrowRight') rpPage(1); if (k === 'ArrowLeft') rpPage(-1); return; }
     if (m) return;
-    if (k === 'c' || k === 'C') return openCodex();
-    if (k === 's' || k === 'S') return openStats();
-    if (k === 'o' || k === 'O' || k === ',') return openSettings();
-    if (k === 'm' || k === 'M') return toggleMusic();
-    if (k === 'n' || k === 'N') return toggleSfx();
-    if (k === 'F1' || k === 'h' || k === 'H') { e.preventDefault(); return openTuto(); }
+    if (isKey(k, 'codex')) return openCodex();
+    if (isKey(k, 'music')) return toggleMusic();
     const scr = document.querySelector('.screen.on').id;
     if (scr === 'run') {
       if (k === 'Enter') { const b = $('btnResume') || $('btnStart'); if (b) b.click(); }
-      if (k === 'd' || k === 'D') { const b = $('btnHard'); if (b) b.click(); }
-      if (k === 'Backspace') $('btnRunMenu').click();
       return;
     }
-    if (scr === 'duel') { if (k === 'Enter' && $('btnDuelGo')) $('btnDuelGo').click(); if (k === 'Backspace') $('btnDuelBack').click(); return; }
+    if (scr === 'duel') { if (k === 'Enter' && $('btnDuelGo')) $('btnDuelGo').click(); return; }
     if (scr === 'pre') { if (k === 'Enter') $('btnGo').click(); const n = +k; if ((n === 1 || n === 2) && document.querySelector('[data-bet] button')) document.querySelectorAll('[data-bet] button')[n - 1].click(); return; }
-    if (scr === 'newrun') { if (k === 'Enter') { $('levels').querySelector('[data-c="0"]').click(); return; } const n = +k; if (n >= 1 && n <= 3) $('levels').querySelectorAll('button')[n - 1].click(); if (k === 'Backspace') $('btnNewBack').click(); return; }
-    if (scr === 'menu') { const n = +k; if (n >= 1 && n <= nSlots()) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector('[data-new]'); if (b) b.click(); } if (k === 'j' || k === 'J') $('btnDaily').click(); if ((k === 'w' || k === 'W') && $('btnWeekly')) $('btnWeekly').click(); if (k === 'a' || k === 'A') openAch(); if (k === 'v' || k === 'V') openReplays(); return; }
+    if (scr === 'newrun') { if (k === 'Enter') { $('levels').querySelector('[data-c="0"]').click(); return; } const n = +k; if (n >= 1 && n <= 3) $('levels').querySelectorAll('button')[n - 1].click(); return; }
+    if (scr === 'menu') { const n = +k; if (n >= 1 && n <= nSlots()) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector('[data-new]'); if (b) b.click(); } return; }
     if (scr !== 'game' || !G) return;
     if (G.replay) { if (k === 'ArrowRight') replayCtl('next'); if (k === 'ArrowLeft') replayCtl('prev'); if (k === ' ' || k === 'Enter') { e.preventDefault(); replayCtl('play'); } if (k === 'Home') replayCtl('first'); if (k === 'End') replayCtl('last'); return; }
-    if (ctrl && (k === 'z' || k === 'Z')) { e.preventDefault(); return undo(); }
-    if (k === 'u' || k === 'U') return undo();
-    if (k === 'p' || k === 'P') { const b = document.querySelector('#opts [data-o="pass"]'); if (b) b.click(); return; }
-    if (k === 'r' || k === 'R') return openSheet('pool');
+    if (isKey(k, 'undo')) { e.preventDefault(); return undo(); }
+    if (isKey(k, 'pass')) { const b = document.querySelector('#opts [data-o="pass"]'); if (b) b.click(); return; }
     if (k === 'Enter' || k === ' ') { e.preventDefault(); const b = document.querySelector('#opts [data-o="finish"]') || document.querySelector('#opts .main'); if (b) b.click(); return; }
     const n = +k;
     if (n >= 1 && n <= 9) { const b = $('opts').querySelectorAll('button')[n - 1]; if (b) b.click(); return; }
-    if (k === 'Tab') {
+    if (isKey(k, 'next')) {
       e.preventDefault();
       if (!humanTurn() || G.s.phase !== 'play') return;
       const froms = [...new Set(legal().filter(a => a.k === 'act').map(a => a.from))];
@@ -1902,12 +1948,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       selectPiece(froms[(i + (e.shiftKey ? froms.length - 1 : 1)) % froms.length]);
     }
   });
-  const SHORTCUTS = () => [
-    ['Esc', L('Annuler la sélection, fermer une fenêtre')], ['Ctrl+Z / U', L('Annuler le coup')], ['Tab / ⇧+Tab', L('Choisir le perso suivant / précédent')],
-    ['1 … 9', L('Boutons sous la carte (sorts, choix, recrues…)')], ['↵ / ␣', L('Valider, continuer')], ['P', L('Passer son tour')], ['R', L('Ouvrir la réserve')],
-    ['C', L('Codex')], ['S', L('Statistiques')], ['O', L('Paramètres')], ['M / N', L('Musique / effets sonores')], ['H / F1', L('Tutoriel')], ['F11', L('Plein écran')],
-    ['1 … 5', L('Menu : ouvrir une partie')], ['J', L('Menu : défi du jour')], ['W', L('Défi de la semaine')], ['A', L('🏆 Succès')], ['V', L('🎬 Revoir')], ['← → ␣', '🎬 ' + L('Coup précédent') + ' / ' + L('Coup suivant') + ' / ' + L('Lecture')], ['↵ / D', L('Partie : affrontement normal / difficile')], ['← →', L('Codex : page précédente / suivante')],
-  ];
+  const SHORTCUTS = () => KEY_ACTS().map(([a, d]) => [keyName(KB[a]) + (a === 'next' ? ' / ⇧+' + keyName(KB[a]) : ''), d]).concat([
+    ['Esc', L('Annuler la sélection, fermer une fenêtre')], ['↵ / ␣', L('Valider, continuer')], ['1 … 9', L('Boutons sous la carte (sorts, choix, recrues…)')],
+    ['← →', L('Pages, coup précédent / suivant')], ['F11', L('Plein écran')]]);
 
   // =====================================================================
   //  Codex (pages, sans défilement)
@@ -1968,10 +2011,13 @@ const isSh = id => !!T[E.TI[id]].fac;
   // chaque onglet = une liste de blocs ; on les répartit en pages selon la place
   function codexBlocks(tab) {
     if (tab === 'regles') return rulesBlocks();
-    if (tab === 'dieux') return pieceCards(allM());
-    if (tab === 'gardes') return pieceCards(allG());
-    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p>`)].concat(pieceCards(E.SH_M.concat(E.SH_G, ['os'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
-    if (tab === 'autres') return pieceCards(['s']).concat([textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]).concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])));
+    const head = (ic, t) => textBlock(`<h3 class="cxhead">${ic} ${t}</h3>`);
+    if (tab === 'dieux') return [head('☀️', L('Dieux de la Lumière'))].concat(pieceCards(allM()), [head('🌑', L('Dieux des Ombres'))], pieceCards(E.SH_M));
+    if (tab === 'gardes') return [head('☀️', L('Gardes de la Lumière'))].concat(pieceCards(allG()), [head('🌑', L('Gardes des Ombres'))], pieceCards(E.SH_G));
+    if (tab === 'ombres') return [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p><p class="muted">${L('Ses dieux, ses gardes, son soldat et les boss de la Lumière sont rangés dans les onglets Dieux, Gardes et Soldat & boss.')}</p>`)];
+    if (tab === 'autres') return [head('☀️', L('Soldat de la Lumière'))].concat(pieceCards(['s']), [head('🌑', L('Soldat des Ombres'))], pieceCards(['os']),
+      [textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)], pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])),
+      [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
       .concat(E.GOALS.map(gl => card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id))));
@@ -1996,7 +2042,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       textBlock(`<h3>${L('Défi du jour et talents')}</h3><p>${L('Chaque jour, la même carte, la même réserve et le même objectif pour tout le monde. Ton meilleur score du jour s’ajoute à tes points de défi du jour, qui débloquent des talents pour toujours :')}</p><ul>${TALENTS.map(t => `<li class="${dailyData().total >= t.pts ? 'ok' : ''}"><b>${t.pts} ${L('pts')}</b> : ${talentName(t.id)}</li>`).join('')}</ul>`),
       textBlock(`<h3>${L('Handicaps possibles')}</h3><ul>${HARD.map(h => `<li>${hardName(h)}</li>`).join('')}</ul>${dlcOn('ombres') ? `<h3>🌑 ${L('Handicaps des parties des Ombres')}</h3><ul>${SH_HARD.map(h => `<li>${hardName(h)}</li>`).join('')}</ul>` : ''}`),
     ];
-    if (tab === 'raccourcis') return [`<table class="keys">${SHORTCUTS().slice(0, 8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`, `<table class="keys">${SHORTCUTS().slice(8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`];
+    if (tab === 'raccourcis') return [`<p class="muted">${L('Tu peux changer tes touches dans les Paramètres.')}</p><table class="keys">${SHORTCUTS().slice(0, 8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`, `<table class="keys">${SHORTCUTS().slice(8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`];
     return [];
   }
   function cercleBlock() {
@@ -2033,6 +2079,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const pages = [];
     let pg = null;
     blocks.forEach((b, i) => {
+      if (pg && b.includes('cxhead') && pg.h.some(x => x)) pg = null; // un titre (Lumière / Ombres) commence une nouvelle page
       if (pg) {
         let best = -1;
         for (let c = 0; c < N; c++) if (pg.h[c] + (pg.h[c] ? gap : 0) + hs[i] <= H && (best < 0 || pg.h[c] < pg.h[best])) best = c;
@@ -2055,7 +2102,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('codexTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { codexTab = b.dataset.tab; codexPg = 0; sfx('page'); renderCodex(); });
     while (previews.length) previews.pop().stop();
     const body = $('codexBody'), isText = codexTab === 'regles' || codexTab === 'progression' || codexTab === 'raccourcis';
-    const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3);
+    const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3, ['dieux', 'gardes', 'autres'].includes(codexTab));
     codexPages = r.pages; codexPg = r.pg;
     pagerHtml($('codexPager'), codexPg, codexPages, codexPage);
     body.querySelectorAll('[data-theme]').forEach(el => { const d = Decor.create(); d.scene(el, 7 + Decor.THEME_IDS.indexOf(el.dataset.theme), el.dataset.theme); d.stop(); previews.push(d); });
@@ -2085,7 +2132,6 @@ const isSh = id => !!T[E.TI[id]].fac;
         <div class="dopt"><b>${L('Événement')}</b>${duelSeg('ev', [['none', L('Aucun')], ['rnd', L('Au hasard')], ['objectif', I18N.evName('objectif')]])}</div>
         <div class="dopt"><b>${L('Boss')}</b>${duelSeg('boss', [['non', L('Non')], ['oui', L('Oui (au hasard, dans le camp adverse)')]])}</div>
         <div class="dopt"><b>${L('Mana de départ')}</b>${duelSeg('mana', [[100, '100'], [150, '150'], [200, '200']])}</div>
-        <div class="dopt"><b>${L('Qui commence')}</b>${duelSeg('first', [['rnd', L('Au hasard')], ['me', L('Moi')], ['opp', L('L’adversaire')]])}</div>
       </div>
       ${online ? `<div class="netbox"><button class="big" id="btnHost">${L('Créer une salle')}</button><span class="or">${L('ou')}</span><input id="joinCode" maxlength="4" placeholder="${L('Code')}"><button class="ghost" id="btnJoin">${L('Rejoindre')}</button></div><p class="center" id="netStatus">${L('Le joueur qui crée la salle choisit les réglages.')}</p>`
         : `<div class="menu-actions"><button class="big" id="btnDuelGo">${L('Commencer le duel')} <kbd>↵</kbd></button></div>`}
@@ -2112,7 +2158,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const mapLv = o.map === 'rnd' ? rnd(5) : +o.map;
     let ev = o.ev === 'rnd' ? pickEvent() : o.ev === 'objectif' ? 'objectif' : null;
     if (online || (dlcOn('ombres') && (+o.fac || +o.ofac))) while (ev === 'cache' || ev === 'pari' || ev === 'inverse') ev = pickEvent(); // pas de draft avec les Ombres // en ligne : pas de pioche au hasard ni de pari
-    const first = o.first === 'rnd' ? rnd(2) : o.first === 'me' ? 0 : 1;
+    const first = rnd(2); // toujours tiré au sort
     const dmap = E.makeMap(mapLv === 0 && !cur2 ? 'classique' : 'aleatoire', Math.max(mapLv, cur2 ? 2 : 0), cur2);
     if (myF || opF) E.addShadowSpecs(dmap);
     pre = { mode: 'duel', level: bot ? o.opp : 'normal', ev, map: dmap, first, bet: [null, null],
@@ -2264,26 +2310,28 @@ const isSh = id => !!T[E.TI[id]].fac;
     const RL = wk >= SEASON_WK2 ? SEASON_RULES2 : SEASON_RULES;
     let rule = RL[wk % RL.length];
     if (rule === 'maree' && !dlcOn('abysses')) rule = 'tempete';
-    return E.withSeed(hashStr('panthea-saison-' + wk), () => ({ wk, rule, perso: pick(Object.keys(E.PERSOS)), first: rnd(2), mapSeed: 1 + rnd(1e9), boss: pick(bossList()), light: pick(E.SH_BOSSES) }));
+    return E.withSeed(hashStr('panthea-saison-' + wk), () => {
+      const c = { wk, rule, perso: pick(Object.keys(E.PERSOS)), mapSeed: 1 + rnd(1e9), boss: pick(bossList()), light: pick(E.SH_BOSSES) };
+      c.goal = pick(RECORDS.filter(g => !((rule === 'invasion' || rule === 'lumiere') && (g === 'carnage' || g === 'survie')))); // contre un boss : il faut le tuer
+      c.army = randomArmy(rule === 'sansdieux');
+      return c;
+    });
   }
   const seasonData = () => lsGet('seasons', {});
   // points de talents gagnés : seulement ce qui dépasse ton meilleur score de la semaine
   const weekGain = G => G.committed ? G.weekGain || 0 : Math.max(0, seasonScore(G) - (seasonData()[pre.season.wk] || []).reduce((a, x) => Math.max(a, x.p), 0));
-  function seasonScore(G) {
-    const s = G.s, me = G.me, w = s.winner, myT = Math.ceil(s.ply / 2);
-    const kills = G.st.kills[me][0] + G.st.kills[me][1] + G.st.kills[me][2], lost = s.lost[me][0] + s.lost[me][1] + s.lost[me][2];
-    return Math.max(0, w === me ? 100 + Math.max(0, 60 - myT) + kills * 5 - lost * 4 : kills * 5 - lost * 2);
-  }
+  const seasonScore = G => recInfo(G, G.chal).score;
   function renderSeason() {
     const c = seasonCfg(), d = seasonData(), board = (d[c.wk] || []).slice(0, 10);
     const left = 7 - Math.floor((Date.now() / 864e5 + 3) % 7);
     const past = Object.keys(d).map(Number).filter(k => k !== c.wk).sort((a, b) => b - a).slice(0, 5);
     $('seasonBox').innerHTML = `<h2 class="title">🗓️ ${L('Défi de la semaine')}</h2>
       <div class="evcard"><b>${seasonName(c.rule)}</b>${seasonDesc(c.rule)}<br><small class="muted">${L('Encore {n} jour(s) avant la règle suivante.', { n: left })}</small></div>
+      <div class="evcard"><b>🏆 ${L('Record')} : ${dailyName(c.goal)}</b>${dailyDesc(c.goal)}</div>
       <div class="menu-actions"><button class="big" id="btnSeasonGo">${L('Jouer le défi')} <kbd>↵</kbd></button></div>
-      <div class="seasoncols"><div><h3>${L('Ton classement de la semaine')}</h3>${board.length ? `<ol class="board">${board.map((x, k) => `<li class="${k === 0 ? 'gold' : ''}"><b>${x.p}</b> ${L('pts')} <small>${new Date(x.d).toLocaleDateString()}</small></li>`).join('')}</ol>` : `<p class="muted">${L('Pas encore de score cette semaine.')}</p>`}</div>
+      <div class="seasoncols"><div><h3>${L('Ton classement de la semaine')}</h3>${board.length ? `<ol class="board">${board.map((x, k) => `<li class="${k === 0 ? 'gold' : ''}"><b>${x.p}</b> ${L('pts')}${x.m ? ` · ${x.m}` : ''} <small>${new Date(x.d).toLocaleDateString()}</small></li>`).join('')}</ol>` : `<p class="muted">${L('Pas encore de score cette semaine.')}</p>`}</div>
         <div><h3>${L('Tes meilleures semaines')}</h3>${past.length ? `<ul class="board">${past.map(k => `<li><b>${Math.max(...d[k].map(x => x.p))}</b> ${L('pts')}</li>`).join('')}</ul>` : `<p class="muted">${L('Rien pour l’instant.')}</p>`}</div></div>
-      <p class="muted center">${L('Score : 100 pour une victoire, plus vite tu gagnes plus tu marques, +5 par ennemi tué, −4 par perso perdu.')} ${L('Chaque fois que tu bats ton meilleur score de la semaine, la différence s’ajoute à tes points de talents.')}</p>
+      <p class="muted center">${L('Chaque fois que tu bats ton meilleur score de la semaine, la différence s’ajoute à tes points de talents.')}</p>
       <div class="menu-actions"><button class="ghost" id="btnSeasonBack">${L('Retour')}</button></div>`;
     $('btnSeasonGo').onclick = startSeason;
     $('btnSeasonBack').onclick = () => { if (seasonFrom === 'menu') { renderMenu(); show('menu'); } else { renderExt(); show('ext'); } };
@@ -2293,12 +2341,17 @@ const isSh = id => !!T[E.TI[id]].fac;
   function startSeason() {
     const c = seasonCfg(), R = c.rule;
     const map = E.withSeed(c.mapSeed, () => { const m = E.makeMap('aleatoire', R === 'brulee' ? 4 : 3, R === 'maree'); if (R === 'ombres' || R === 'lumiere' || R === 'guerre') E.addShadowSpecs(m); if (R === 'portails') E.addShadowSpecs(m, [6, 6, 6]); return m; });
-    pre = { mode: 'season', season: c, level: R === 'toutourien' ? 'impossible' : 'normal', perso: c.perso, first: c.first, bet: [null, null], map,
+    // persos : au hasard pour les règles qui n'imposent pas d'armée ; « Tout ou rien » : tous, Lumière et Ombres mélangées
+    const fixed = ['toutourien', 'ombres', 'lumiere', 'guerre'].includes(R), A = c.army || randomArmy(R === 'sansdieux');
+    const army = R === 'toutourien' ? { gods: allM(), gards: allG(), shM: E.SH_M, shG: E.SH_G, fac: [2, 2] }
+      : R === 'guerre' ? { gods: [], gards: [], shM: E.SH_M, shG: E.SH_G, fac: [1, 1] }
+      : R === 'ombres' || R === 'lumiere' ? { gods: allM(), gards: allG(), shM: E.SH_M, shG: E.SH_G, fac: [1, 0] } : A;
+    if (!fixed && army.fac) E.addShadowSpecs(map);
+    pre = { mode: 'season', season: c, chal: c.goal, hard: [], level: R === 'toutourien' || c.goal === 'survie' ? 'impossible' : 'normal', perso: c.perso, first: rnd(2), bet: [null, null], map,
       ev: R === 'brulee' ? 'fragile' : R === 'maree' ? 'maree' : R === 'cimetiere' ? 'murs' : null,
-      gods: R === 'sansdieux' || R === 'guerre' ? [] : R === 'toutourien' || R === 'ombres' || R === 'lumiere' ? allM() : E.START_M.concat(['mb', 'pa']),
-      gards: R === 'guerre' ? [] : R === 'toutourien' || R === 'ombres' || R === 'lumiere' || R === 'sansdieux' ? allG() : E.START_G.concat(['g1', 'c1']),
+      gods: army.gods, gards: army.gards, shM: army.fac ? army.shM : null, shG: army.fac ? army.shG : null, fac: army.fac,
       boss: R === 'invasion' ? c.boss : R === 'lumiere' ? c.light : null, mana: R === 'tempete' ? 250 : null, myMana: R === 'invasion' ? 150 : null,
-      fac: R === 'guerre' ? [1, 1] : R === 'ombres' || R === 'lumiere' ? [1, 0] : null, shM: R === 'ombres' || R === 'lumiere' || R === 'guerre' ? E.SH_M : null, shG: R === 'ombres' || R === 'lumiere' || R === 'guerre' ? E.SH_G : null, theme: R === 'maree' ? 'abysses' : R === 'ombres' || R === 'lumiere' || R === 'guerre' ? 'nuit' : null };
+      theme: R === 'maree' ? 'abysses' : army.fac && army.fac[0] === 1 ? 'nuit' : null };
     showPre(false);
   }
 
@@ -2398,7 +2451,10 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
-      <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
+      <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>
+      <div class="setrow keyrow"><div class="lab"><b>⌨️ ${L('Raccourcis clavier')}</b> <small>${L('Clique sur une touche puis appuie sur celle que tu veux.')}</small></div>
+        <div class="keybinds">${KEY_ACTS().map(([a, d]) => `<span class="kb"><small>${d}</small><button class="ghost sm ${keyWait === a ? 'wait' : ''}" data-kb="${a}">${keyWait === a ? L('Appuie sur une touche…') : `<kbd>${keyName(KB[a])}</kbd>`}</button></span>`).join('')}
+        <button class="ghost sm" id="kbReset">${L('Touches par défaut')}</button></div></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };
     $('setMus').onclick = () => { toggleMusic(); renderSettings(); };
@@ -2415,10 +2471,12 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (k === 'decor') { if (v === 'auto') scheduleTheme(); else setTheme(v); }
       renderSettings();
     });
+    $('setBody').querySelectorAll('[data-kb]').forEach(b => b.onclick = e => { e.stopPropagation(); keyWait = b.dataset.kb; renderSettings(); });
+    $('kbReset').onclick = () => { Object.assign(KB, KEY_DEF); keyWait = null; lsSet('touches', KB); sfx('choix'); renderSettings(); };
     $('setFs').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast(L('Plein écran impossible ici.'))); setTimeout(renderSettings, 300); };
   }
   function openSettings() { renderSettings(); $('setModal').hidden = false; sfx('page'); }
-  function closeSettings() { $('setModal').hidden = true; sfx('page'); }
+  function closeSettings() { keyWait = null; $('setModal').hidden = true; sfx('page'); }
   $('btnSet').onclick = openSettings;
   $('btnSetMenu').onclick = openSettings;
   $('setModal').addEventListener('click', e => { if (e.target === $('setModal') || e.target.hasAttribute('data-close')) closeSettings(); });
