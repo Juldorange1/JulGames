@@ -344,7 +344,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const free = [];
     RUNS.slice(0, nSlots()).forEach((r, i) => {
       if (!r) { free.push(i); return; }
-      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}${dlcOn('ombres') || r.fac ? ` · <span class="army ${r.fac ? 'sh' : 'li'}">${r.fac ? '🌑 ' + L('Armée des Ombres') : '☀️ ' + L('Armée de la Lumière')}</span>` : ''}</b>
+      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}${dlcOn('ombres') || r.fac ? `<br><span class="army ${r.fac ? 'sh' : 'li'}">${r.fac ? '🌑 ' + L('Armée des Ombres') : '☀️ ' + L('Armée de la Lumière')}</span>` : ''}</b>
         <small>${L('{w} victoire(s) dont {h} difficile(s)', { w: r.wins, h: r.winsH })} · ${L('affrontement n°{n}', { n: r.n })}${r.match ? ' ' + L('(en cours)') : ''}</small></div>
         <button class="big" data-open="${i}">${L('Continuer')}</button><button class="ghost sm danger" data-del="${i}" title="${L('Supprimer')}">🗑</button></div>`;
     });
@@ -366,9 +366,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let c = 1; c <= top; c++) cs.push(`<button data-c="${c}">${cercleLabel(c)} · ${LEVELIC[cercleBot(c)]}${c >= 3 ? ' · ' + fardeaux(c).length + ' ' + L('Fardeaux').toLowerCase() : ''}</button>`);
     $('levels').className = 'newc';
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
-    $('levels').innerHTML = facSeg + `<p class="muted center">${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
+    const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.') : '☀️ ' + L('L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.')}</p>` : '';
+    $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
       <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small> <kbd>↵</kbd></button>
-      <p class="muted center">${L('Ou commencer plus haut (c’est affiché dans ta partie) :')}</p><div class="seg">${cs.join('')}</div>`;
+      <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
     $('levels').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { RUNS[newSlot] = newRun(+b.dataset.c, dlcOn('ombres') ? newFac : 0); saveRuns(); openRun(newSlot); });
     $('levels').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { newFac = +b.dataset.f; renderLevels(); });
   }
@@ -389,7 +390,8 @@ const isSh = id => !!T[E.TI[id]].fac;
   function bar(v, max, label) { return `<div class="trk"><span>${label}</span><div class="meter"><i style="width:${Math.min(100, 100 * v / max)}%"></i></div><small>${fmt1(v)}/${max}</small></div>`; }
   function fameBlock(r) {
     const f = fameLevel(r.xp);
-    const gems = GEMS.map((c, k) => { const ok = f.n >= gemLevel(k); return `<button class="gem ${r.gem === k ? 'sel' : ''}" ${ok ? `data-gem="${k}"` : 'disabled'} title="${esc(ok ? L('Couleur de tes persos') : L('Débloquée au niveau {n}', { n: gemLevel(k) }))}" style="--g:${c}">${ok ? '' : '🔒'}</button>`; }).join('');
+    const nextGem = GEMS.findIndex((c, k) => f.n < gemLevel(k));
+    const gems = GEMS.map((c, k) => { const ok = f.n >= gemLevel(k); if (!ok && k !== nextGem) return ''; return `<button class="gem ${r.gem === k ? 'sel' : ''}" ${ok ? `data-gem="${k}"` : 'disabled'} title="${esc(ok ? L('Couleur de tes persos') : L('Débloquée au niveau {n}', { n: gemLevel(k) }))}" style="--g:${c}">${ok ? '' : '🔒'}</button>`; }).join('');
     return `<h4>👑 ${L('Renommée')} : <span class="gold">${fameTitle(f.n)}</span> · ${L('niveau {n}', { n: f.n })}</h4><div class="famerow">${bar(f.cur, f.need, '')}<div class="gems" title="${esc(L('Maîtrise : chaque perso gagne des étoiles en jouant (recruter, placer, activer).'))}">${gems}</div></div>`;
   }
   function renderRun() {
@@ -401,16 +403,15 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="runbody"><div class="runcol">
         <h4>${L('Dieux dans la réserve')}</h4><div class="row">${chips(r.gods, runM(r))}</div>
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, runG(r))}</div>
-        <h4>${L('Carte')} : ${L('niveau {n}', { n: r.mapLv })}/4 · ${L('Événements')} : ${r.evChance} %</h4>
         ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>` : ''}
       </div><div class="runcol">
         ${fameBlock(r)}
         <h4>${L('Progression')}</h4><p class="muted trkhint">${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
         ${allG ? `<div class="trk done">${L('Tous les gardes sont débloqués')}</div>` : bar(t.gard, TRACKS.gard, '🛡️ ' + L('Nouveau garde'))}
         ${allD ? `<div class="trk done">${L('Tous les dieux sont débloqués')}</div>` : bar(t.god, TRACKS.god, '👑 ' + L('Nouveau dieu'))}
-        ${r.mapLv >= 4 ? '' : bar(t.map, TRACKS.map, '🗺️ ' + L('Carte plus sauvage'))}
-        ${r.evChance >= 100 ? '' : bar(t.ev, TRACKS.ev, '🎲 ' + L('Plus d’événements'))}
-        ${r.fac ? '' : `<h4>${L('Exploits')}</h4>`}<div class="exps"${r.fac ? ' hidden' : ''}>${EXPLOITS.map(x => { const done = r.exploits.includes(x.id) || r.gods.includes(x.piece) || r.gards.includes(x.piece); return `<span class="exp ${done ? 'done' : ''}" title="${esc(exploitText(x.id))}">${token(E.TI[x.piece], done ? 0 : -1)}<span>${done ? '✓ ' : ''}${exploitText(x.id)}</span></span>`; }).join('')}</div>
+        ${r.mapLv >= 4 ? `<div class="trk done">🗺️ ${L('Carte')} : ${L('niveau {n}', { n: 4 })}/4</div>` : bar(t.map, TRACKS.map, `🗺️ ${L('Carte plus sauvage')} <small>(${L('niveau {n}', { n: r.mapLv })}/4)</small>`)}
+        ${r.evChance >= 100 ? `<div class="trk done">🎲 ${L('Événements')} : 100 %</div>` : bar(t.ev, TRACKS.ev, `🎲 ${L('Plus d’événements')} <small>(${r.evChance} %)</small>`)}
+        ${r.fac ? '' : `<h4>${L('Exploits')} <small class="muted">· ${L('chacun fait gagner un perso rare')}</small></h4>`}<div class="exps"${r.fac ? ' hidden' : ''}>${EXPLOITS.map(x => { const done = r.exploits.includes(x.id) || r.gods.includes(x.piece) || r.gards.includes(x.piece); const gd = ['colline', 'percee', 'massacre', 'chasse', 'endurance'].includes(x.id) ? L('Objectif mystère') + ' : ' + I18N.goalDesc(x.id) : ''; return `<span class="exp ${done ? 'done' : ''}" title="${esc(exploitText(x.id) + (gd ? ' — ' + gd : ''))}">${token(E.TI[x.piece], done ? 0 : -1)}<span>${done ? '✓ ' : ''}${exploitText(x.id)}</span></span>`; }).join('')}</div>
       </div></div>`;
     if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement n°{n}', { n: r.n })}</b><kbd>↵</kbd></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
     else if (isBossBattle(r)) { const b = E.TI[bossOf(r)]; h += `<div class="choices one"><button class="choice boss" id="btnStart"><span class="bossic">${token(b, 1)}</span><b>${L('Affrontement de boss : {b}', { b: tn(b) })}</b><small>${td(b)}</small><small class="gold">${L('Tue le boss pour gagner. Récompense : un perso au choix parmi tous ceux à découvrir.')}</small><kbd>↵</kbd></button></div><div class="menu-actions">`; }
@@ -530,15 +531,15 @@ const isSh = id => !!T[E.TI[id]].fac;
   const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'geole', 'ronces', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
   // la mesure du record et les points qu'elle rapporte
   function recInfo(G, goal) {
-    const s = G.s, st = G.st, me = G.me, win = s.winner === me, myT = Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2);
+    const s = G.s, st = G.st, me = G.me, win = s.winner === me && !s.long, myT = Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2);
     const lost = s.lost[me][0] + s.lost[me][1] + s.lost[me][2], kills = s.lost[1 - me][0] + s.lost[1 - me][1] + s.lost[1 - me][2];
     switch (goal) {
       case 'vite': return { v: myT, txt: L('{n} tours', { n: myT }), score: win ? Math.max(10, 150 - 3 * myT) : 0 };
       case 'econome': { const m = st.mana[me]; return { v: m, txt: L('{n} mana dépensée', { n: m }), score: win ? Math.max(10, 150 - Math.round(m / 4)) : 0 }; }
       case 'sobre': { const a = st.act[me][2]; return { v: a, txt: L('{n} activations', { n: a }), score: win ? Math.max(10, 150 - 5 * a) : 0 }; }
       case 'propre': return { v: lost, txt: L('{n} perdu(s)', { n: lost }), score: win ? Math.max(10, 150 - 20 * lost) : 0 };
-      case 'carnage': return { v: kills, txt: L('{k} ennemi(s) tué(s)', { k: kills }), score: kills * 10 + (win ? 20 : 0) };
-      case 'survie': return { v: myT, txt: L('{n} tours', { n: myT }), score: Math.min(200, myT * 2 + (win ? 60 : 0)) };
+      case 'carnage': return { v: kills, txt: L('{k} ennemi(s) tué(s)', { k: kills }), score: kills * 10 + (s.winner === me ? 20 : 0) };
+      case 'survie': return { v: myT, txt: L('{n} tours', { n: myT }), score: Math.min(200, myT * 2 + (s.winner === me ? 60 : 0)) };
       case 'defi': { const d = (G.hard || []).reduce((x, h) => x + (HARD_W[h] || 1), 0); return { v: d, txt: L('difficulté {n}', { n: d }), score: win ? 50 + 25 * d : 0 }; }
     }
     return { v: 0, txt: '', score: win ? 100 : 0 };
@@ -573,7 +574,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     // le menu reste simple : les règles du défi s'affichent quand on l'ouvre
     $('dailyBox').innerHTML = `<div class="dleft"><h2>📅 ${L('Défi du jour')}</h2><b class="dgoal">🏆 ${dailyName(c.goal)}</b>
         <small>${best ? L('Aujourd’hui : {p} pts', { p: best.best }) + (best.m ? ` · ${best.m}` : '') : L('Pas encore joué aujourd’hui.')}</small></div>
-      <div class="dmid"><div class="pts">${d.total}</div><small>${L('points de défi')} · ${L('Talents : {n}/{t}', { n: got, t: TALENTS.length })}</small></div>
+      <div class="dmid"><div class="pts">${d.total}</div><small>${L('points de défi')}</small><small class="tal" title="${esc(L('Tes points de défi débloquent des talents : des petits bonus pour tes parties.'))}">🎁 ${L('Talents : {n}/{t}', { n: got, t: TALENTS.length })}</small></div>
       <div class="dright"><button class="big" id="btnDaily">${best ? L('Rejouer') : L('Jouer le défi')}</button>${dlcOn('ombres') ? `<button class="ghost" id="btnWeekly">🗓️ ${L('Défi de la semaine')}</button>` : ''}</div>`;
     $('btnDaily').onclick = startDaily;
     if ($('btnWeekly')) $('btnWeekly').onclick = () => openSeason('menu');
@@ -837,6 +838,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     if (cer >= 3) for (const f of fardeaux(cer)) out.push(`⚖️ ${fardeauText(f, cer)}`);
     if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
+    if (s.fac && [0, 1].some(p => E.gNeed(s, p) === 5)) out.push(`🌑 ${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).')}`);
     else if (s.fac) out.push(`🌑 ${L('Persos des Ombres : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
     return out.length ? `<h3>📜 ${L('Règles de cet affrontement')}</h3><ul class="rules">${out.map(x => `<li>${x}</li>`).join('')}</ul>` : '';
   }
@@ -858,7 +860,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
     layoutBoard(); render(); maybeBot();
-    requestAnimationFrame(() => { if (G && $('game').classList.contains('on')) { layoutBoard(); render(); } });
+    const g0 = G; requestAnimationFrame(() => { if (G && G === g0 && $('game').classList.contains('on')) { layoutBoard(); render(); } });
   }
   function legal() {
     if (!G.legal || G.legalVer !== G.ver) { G.legal = E.gen(G.s, true); G.legalVer = G.ver; }
@@ -1584,6 +1586,7 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   function render() {
     if (!G) return;
+    if (sqEls.length !== G.s.g.N) { buildBoard(G.s.g); layoutBoard(); } // la carte a changé (nouvel affrontement) : on la reconstruit d'abord
     const s = G.s, g = s.g, v = selView();
     const lastSq = new Set(), la = G.lastA;
     if (la) { if (la.from !== undefined) lastSq.add(la.from); if (la.to !== undefined) lastSq.add(la.to); if (la.cl) la.cl.forEach(x => typeof x === 'number' && lastSq.add(x)); }
@@ -1692,7 +1695,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (const p of [0, 1]) {
       const el = $('pp' + (G.flip ? 1 - p : p)); // en ligne, le 2e joueur voit son panneau en bas
       el.className = `pp p${p}` + (!G.over && s.turn === p ? ' active' : '');
-      const gNeed = s.ev === 'illimite' ? 6 : 4, am = E.aliveMages(s, p);
+      const gNeed = s.ev === 'illimite' ? 6 : E.gNeed(s, p), am = E.aliveMages(s, p);
       let pips = '';
       if (!s.goal) for (let i = 0; i < gNeed; i++) pips += `<span class="pip ${i < s.lost[p][1] ? 'lost' : ''}"></span>`;
       let gods = '';
@@ -1810,6 +1813,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       h = L('À toi ! Fais <b>une seule</b> de ces choses : <b>➕ recruter</b> un perso de la réserve commune, <b>poser</b> un perso de ta réserve sur la carte, ou <b>toucher un de tes persos</b> sur la carte pour le faire agir.');
       if (d && L2.some(a => a.k !== 'pass')) h = L('Tu as annoncé : <b>{d}</b>. Tu dois le faire.', { d: declText(d, s) });
       if (s.acts > 1) h += ` <b>(${L('{n} actions restantes', { n: s.acts })})</b>`;
+      if (s.bonusRec && s.acts === 1) h = L('Action bonus : comme tu joues en second, tu recrutes un perso de plus.');
       if (L2.some(a => a.k === 'rec')) o.push(`<button class="pooltab" data-o="pool">➕ ${L('Recruter')}</button>`);
       if (L2.some(a => a.k === 'pass')) { o.push(`<button class="warn" data-o="pass">${L('Passer mon tour')}</button>`); if (L2.length === 1) h = L('Aucune action possible : passe ton tour.'); }
     }
@@ -2040,14 +2044,14 @@ const isSh = id => !!T[E.TI[id]].fac;
       textBlock(`<ul><li>${L('<b>But</b> : tuer <b>tous les dieux</b> adverses, ou <b>4 gardes</b> adverses (sauf avec l’Objectif mystère).')}</li>
         <li>${L('Seuls les <b>soldats</b> ont un sens : ils avancent vers l’adversaire. Les gardes vont dans tous les sens ; les dieux ne bougent pas.')}</li>
         <li>${L('On prend un ennemi en arrivant sur sa case. Les sorts de zone ne tuent que des ennemis.')}</li>
-        <li>${L('Celui qui commence est <b>tiré au sort</b>. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.')}</li></ul>`),
+        <li>${L('Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.')}</li></ul>`),
       textBlock(`<p class="interp">${L('Précisions : « tous les dieux » = l’adversaire a perdu au moins 1 dieu et il ne lui en reste aucun (ni sur la carte, ni à placer) — un dieu jamais recruté ne peut pas mourir. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 coups sans aucune mort) : le plus de persos vivants gagne, puis le plus de mana, sinon le bot.')}</p>`),
       textBlock(`<h3>${L('Comment jouer')}</h3><ul>
         <li>${L('<b>Recruter</b> : ouvre la réserve commune (bouton ➕ Recruter ou touche R) et clique un perso.')}</li>
         <li>${L('<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.')}</li>
         <li>${L('<b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les sorts de zone ont des boutons sous la carte (survole-les pour voir la zone).')}</li>
         <li>${L('Survole un perso ou une case spéciale pour voir ce qu’il fait. Tous les raccourcis clavier sont dans l’onglet Raccourcis.')}</li></ul>`),,
-      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p>`)] : [])
+      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).')}</p>`)] : [])
     ];
   }
   const previews = [];
@@ -2431,14 +2435,14 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>🌍 ${L('Langue')}</b></div><select id="setLang">${I18N.LANGS.map(([c, n]) => `<option value="${c}" ${I18N.lang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="setrow"><div class="lab"><b>🎵 ${L('Musique')}</b></div><div><button class="ghost sm ${Sound.music ? '' : 'off'}" id="setMus">${Sound.music ? L('Activée') : L('Coupée')}</button> <input type="range" min="0" max="100" value="${Math.round(Sound.musicVol * 100)}" id="volMus"></div></div>
       <div class="setrow"><div class="lab"><b>🔊 ${L('Effets sonores')}</b></div><div><button class="ghost sm ${Sound.effects ? '' : 'off'}" id="setSfx">${Sound.effects ? L('Activés') : L('Coupés')}</button> <input type="range" min="0" max="100" value="${Math.round(Sound.sfxVol * 100)}" id="volSfx"></div></div>
-      <div class="setrow"><div class="lab"><b>🌲 ${L('Décor')}</b></div>${segH('decor', [['auto', L('Auto')]].concat(themeList().map(t => [t, I18N.themeShort(t)])))}</div>
+      <div class="setrow wide"><div class="lab"><b>🌲 ${L('Décor')}</b></div>${segH('decor', [['auto', L('Auto')]].concat(themeList().map(t => [t, I18N.themeShort(t)])))}</div>
       <div class="setrow"><div class="lab"><b>✨ ${L('Animations')}</b></div>${segH('anim', [['normal', L('Normales')], ['rapide', L('Rapides')], ['aucune', L('Aucune')]])}</div>
       <div class="setrow"><div class="lab"><b>🔤 ${L('Coordonnées sur la carte')}</b></div>${segH('coords', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>
-      <div class="setrow keyrow"><div class="lab"><b>⌨️ ${L('Raccourcis clavier')}</b> <small>${L('Clique sur une touche puis appuie sur celle que tu veux.')}</small></div>
+      <div class="setrow wide keyrow"><div class="lab"><b>⌨️ ${L('Raccourcis clavier')}</b> <small>${L('Clique sur une touche puis appuie sur celle que tu veux.')}</small></div>
         <div class="keybinds">${KEY_ACTS().map(([a, d]) => `<span class="kb"><small>${d}</small><button class="ghost sm ${keyWait === a ? 'wait' : ''}" data-kb="${a}">${keyWait === a ? L('Appuie sur une touche…') : `<kbd>${keyName(KB[a])}</kbd>`}</button></span>`).join('')}
         <button class="ghost sm" id="kbReset">${L('Touches par défaut')}</button></div></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };

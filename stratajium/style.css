@@ -909,3 +909,18 @@ body.viewing #opts { visibility: hidden; }
 .errs2 .kgo { flex: none; font-size: 14.5px; color: var(--gold); white-space: nowrap; }
 .errs2 .ghost.sm { padding: 3px 9px; }
 .seeall { display: block; margin: 12px auto 0; font-size: 16.5px; padding: 9px 22px; }
+
+/* revue : la carte ne bouge plus quand la consigne passe de 2 lignes à 1 */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px) {
+  .hint { min-height: 46px; }
+  /* paramètres sur 2 colonnes : tout tient sans faire défiler */
+  .settings { max-width: 1040px; }
+  #setBody { display: grid; grid-template-columns: 1fr 1fr; column-gap: 34px; }
+  #setBody .setrow.wide { grid-column: 1 / -1; }
+}
+/* menu : boutons rangés en grille régulière */
+.menu-main .menu-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.menu-main .menu-actions button[hidden] { display: none; }
+.facinfo { max-width: 620px; margin: 8px auto 0; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, .05); font-size: 15.5px; text-align: center; }
+.daily .dmid .tal { display: block; color: var(--muted); cursor: help; }
+.trk span small { color: var(--muted); font-size: .85em; }

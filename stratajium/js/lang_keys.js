@@ -900,4 +900,18 @@ I18N.KEYS = [
   "Les deux camps jouent l’armée des Ombres.",
   "Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Après chaque victoire, tu choisis ce qui avance : un nouveau garde ou un nouveau dieu, puis une carte plus sauvage ou plus d’événements. Tous les 10 affrontements, un boss t’attend !",
   "Astuce : touche un perso pour lire ce qu’il fait. {u} annule un coup, {c} ouvre le Codex (tu peux changer ces touches dans les Paramètres).",
+  // revue des écrans (2026-10-24)
+  "Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.",
+  "L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.",
+  "Ou commencer plus haut :",
+  "chacun fait gagner un perso rare",
+  "Objectif mystère",
+  "Tes points de défi débloquent des talents : des petits bonus pour tes parties.",
+  // équilibrage (2026-10-24)
+  "Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).",
+  "Action bonus : comme tu joues en second, tu recrutes un perso de plus.",
+  "Celui qui commence est <b>tiré au sort</b> ; l’autre commence avec 15 mana de plus et recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.",
+  "5 gardes tués.",
+  // équilibrage final (2026-10-24)
+  "Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.",
 ];

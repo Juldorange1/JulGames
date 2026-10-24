@@ -54,7 +54,7 @@ const I18N = (function () {
       return `${g.info.kinds.map(k => this.mapKind(k)).join(' + ')} ${g.W}×${g.H}, ${L('zones')} ${this.zoneName(g.info.zk)}`;
     },
     themeName: t => pickT('THEME', t, 0, (typeof Decor !== 'undefined' && Decor.THEMES[t] ? Decor.THEMES[t].name : t)),
-    themeShort(t) { return this.themeName(t).replace(/^Forêt d’/, '').replace(/^Forêt d'/, ''); },
+    themeShort(t) { const x = this.themeName(t).replace(/^Forêt d’/, '').replace(/^Forêt d'/, ''); return x.charAt(0).toUpperCase() + x.slice(1); },
     why: s => L(s),
   };
 })();

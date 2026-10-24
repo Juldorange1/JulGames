@@ -938,4 +938,36 @@
     "Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Après chaque victoire, tu choisis ce qui avance : un nouveau garde ou un nouveau dieu, puis une carte plus sauvage ou plus d’événements. Tous les 10 affrontements, un boss t’attend !": "Before each battle, choose <b>normal</b> or <b>hard</b>. After each win, you choose what advances: a new guard or a new god, then a wilder map or more events. Every 10 battles, a boss awaits!",
     "Astuce : touche un perso pour lire ce qu’il fait. {u} annule un coup, {c} ouvre le Codex (tu peux changer ces touches dans les Paramètres).": "Tip: tap a unit to read what it does. {u} undoes a move, {c} opens the Codex (you can change these keys in the Settings).",
   });
+  Object.assign(D.ui, {
+    "Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.": "Unique powers, hidden in the dark: an enemy guard or soldier can’t capture them from more than 4 squares away. It also wins with 3 units in the enemy deployment zone.",
+    "L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.": "The basic army. It wins by killing all enemy gods or 4 of their guards.",
+    "Ou commencer plus haut :": "Or start higher:",
+    "chacun fait gagner un perso rare": "each one earns a rare unit",
+    "Objectif mystère": "Mystery goal",
+    "Tes points de défi débloquent des talents : des petits bonus pour tes parties.": "Your challenge points unlock talents: small bonuses for your games.",
+  });
+  Object.assign(D.ui, {
+    "Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).": "Against the Light, the Shadow army only loses after 5 guards killed (instead of 4), but its invasion needs 4 units (instead of 3).",
+    "Action bonus : comme tu joues en second, tu recrutes un perso de plus.": "Bonus action: since you play second, you recruit one more unit.",
+    "Celui qui commence est <b>tiré au sort</b> ; l’autre commence avec 15 mana de plus et recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.": "Who starts is <b>drawn at random</b>; the other starts with 15 more mana and recruits one more unit on their first turn. You can <b>undo your last move</b> with ↶. After the end, going back is for practice: the real result is kept.",
+    "5 gardes tués.": "5 guards killed.",
+  });
+  Object.assign(D.ui, {
+    "Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.": "Who starts is <b>drawn at random</b>; the other recruits one more unit on their first turn. You can <b>undo your last move</b> with ↶. After the end, going back is for practice: the real result is kept.",
+  });
 })();
+// équilibrage du 2026-10-24
+I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
+I18N.DICT.en.T.g4[1] = "Moves 1 square in any of 8 directions, pushing the whole line in front of it (a unit pushed off the map or into a hole dies), then may take a 2nd step to an empty square or onto an enemy soldier to capture it.";
+I18N.DICT.en.T.g6[1] = "May first take 1 step, then strikes every square around it: all adjacent enemies die.";
+I18N.DICT.en.T.c5[1] = "Lands on any square more than 6 squares away (rows + columns); it can capture a soldier there, or a guard more than 8 squares away, never a god.";
+I18N.DICT.en.T.c6[1] = "1 step in any direction (captures the enemy). Or turns one of your adjacent soldiers into 60 mana (the soldier disappears) and you play again at once. Or it gives you 30 mana.";
+I18N.DICT.en.T.lc[1] = "Strikes the 4 squares in front of it in a straight line (up, down, left or right) without moving. If there’s no enemy in that direction, it moves one step.";
+I18N.DICT.en.T.n6[1] = "Moves up to 4 straight steps through empty squares, turning as it likes, and may end on an enemy to capture it.";
+I18N.DICT.en.T.n8[1] = "1 step in 8 directions (captures the enemy). When she dies, 3 Shadows appear around her.";
+I18N.DICT.en.T.cv[1] = "Jumps in an L like the chess knight, over anything. Or takes 1 step in any direction.";
+I18N.DICT.en.T.n6[1] = "Moves up to 4 straight steps through empty squares, turning as it likes. It can capture an enemy at most 2 steps away.";
+I18N.DICT.en.T.g4[1] = "Moves 1 square in any of 8 directions, pushing the whole line in front of it (a unit pushed off the map or into a hole dies), then may take a 2nd step straight ahead, to an empty square or onto an enemy (not a god) to capture it.";
+I18N.DICT.en.T.c2[1] = "Moves diagonally as far as it likes (like the chess bishop). Or takes 1 straight step to an empty square.";
+I18N.DICT.en.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It can capture an enemy at most 2 steps away.";
+I18N.DICT.en.T.c3[1] = "Teleports to a square next to a soldier (any soldier) or to one of your units.";
