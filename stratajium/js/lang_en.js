@@ -914,4 +914,28 @@
     "Appuie sur une touche…": "Press a key…",
     "Touches par défaut": "Default keys",
   });
+  Object.assign(D.ui, {
+    "Revenir un coup en arrière ({k})": "Go back one move ({k})",
+    "{w} victoire(s) dont {h} difficile(s)": "{w} win(s), {h} of them hard",
+    "Une victoire = 1 point de progression, que tu places où tu veux.": "A win = 1 progress point, placed where you want.",
+    "Plus dur, mais une victoire = 2 points de progression.": "Harder, but a win = 2 progress points.",
+    "points de défi": "challenge points",
+    "Tu as raté {n} prise(s) d’un garde ou d’un dieu ennemi : elles sont dans « Tes erreurs ».": "You missed {n} capture(s) of an enemy guard or god: they are in “Your mistakes”.",
+    "… et {n} autre(s) : utilise ◀ ▶ sur la carte.": "… and {n} more: use ◀ ▶ on the map.",
+    "{n} coup(s) unique(s) : le seul bon coup, et tu l’as trouvé !": "{n} great move(s): the only good move, and you found it!",
+    "Revoir mes erreurs sur la carte ({n})": "Review my mistakes on the map ({n})",
+    "Clique sur une erreur : la carte montre ton coup en rouge et le bon coup en vert.": "Click a mistake: the map shows your move in red and the right move in green.",
+    "Tes coups, classés": "Your moves, rated",
+    "Chiffres": "Numbers",
+    "Revoir toute la partie": "Replay the whole game",
+    "Bilan": "Review",
+    "Touche une case encadrée de ta couleur pour y poser <b>{x}</b>.": "Tap a square framed in your color to put <b>{x}</b> there.",
+    "Touche une case qui brille pour choisir où il agit, ou « Annuler ».": "Tap a glowing square to choose where it acts, or “Cancel”.",
+    "À toi ! Fais <b>une seule</b> de ces choses : <b>➕ recruter</b> un perso de la réserve commune, <b>poser</b> un perso de ta réserve sur la carte, ou <b>toucher un de tes persos</b> sur la carte pour le faire agir.": "Your turn! Do <b>just one</b> of these: <b>➕ recruit</b> a unit from the shared reserve, <b>put</b> a unit from your reserve on the map, or <b>tap one of your units</b> on the map to make it act.",
+    "Celui qui commence est <b>tiré au sort</b>. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.": "Who starts is <b>drawn at random</b>. You can <b>undo your last move</b> with ↶. After the end, going back is for practice: the real result is kept.",
+    "Tu joues l’armée des Ombres contre l’armée de la Lumière.": "You play the Shadow army against the Light army.",
+    "Les deux camps jouent l’armée des Ombres.": "Both sides play the Shadow army.",
+    "Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Après chaque victoire, tu choisis ce qui avance : un nouveau garde ou un nouveau dieu, puis une carte plus sauvage ou plus d’événements. Tous les 10 affrontements, un boss t’attend !": "Before each battle, choose <b>normal</b> or <b>hard</b>. After each win, you choose what advances: a new guard or a new god, then a wilder map or more events. Every 10 battles, a boss awaits!",
+    "Astuce : touche un perso pour lire ce qu’il fait. {u} annule un coup, {c} ouvre le Codex (tu peux changer ces touches dans les Paramètres).": "Tip: tap a unit to read what it does. {u} undoes a move, {c} opens the Codex (you can change these keys in the Settings).",
+  });
 })();
