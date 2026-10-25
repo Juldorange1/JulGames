@@ -928,3 +928,10 @@ body.viewing #opts { visibility: hidden; }
 .ccard.locked { opacity: .55; border-style: dashed; }
 .ccard.locked .cic { font-size: 30px; filter: grayscale(1); }
 .cxhead small { font-weight: 400; opacity: .8; font-size: .8em; }
+.turnno { color: var(--gold); }
+/* tutoriel : les actions et deux schémas de déplacement */
+.tutoacts { text-align: left; margin: 6px 0 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.tutodiags { display: flex; gap: 18px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+.tutodiags > div { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 220px; text-align: center; }
+.tutodiags .diag { width: 120px; }
+.tutodiags small { color: var(--muted); font-size: 14px; line-height: 1.25; }

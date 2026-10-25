@@ -960,6 +960,33 @@
     "À découvrir : tu le verras en jouant.": "Still to discover: you’ll see it by playing.",
     "{n}/{t} découverts": "{n}/{t} discovered",
   });
+  Object.assign(D.ui, {
+    "Revenir un coup en arrière": "Go back one move",
+    "L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu": "Dawn is coming: win within 80 of your turns, or you lose",
+    "Nouveaux persos plus vite : un garde tous les 3 points, un dieu tous les 5": "New units faster: a guard every 3 points, a god every 5",
+    "Tue le boss pour gagner. Récompense : un perso tiré au hasard parmi tous ceux à découvrir.": "Kill the boss to win. Reward: a random unit among all those still to discover.",
+    "Il rejoint ta réserve pour tous les prochains affrontements.": "It joins your reserve for all the next battles.",
+    "Aucune action possible : ton tour passe tout seul.": "No action possible: your turn passes by itself.",
+    "{a} points : un garde tiré au hasard parmi ceux à découvrir.": "{a} points: a random guard among those still to discover.",
+    "{a} points : un dieu tiré au hasard parmi ceux à découvrir.": "{a} points: a random god among those still to discover.",
+    "Récompense : un perso tiré au hasard parmi tous ceux à découvrir.": "Reward: a random unit among all those still to discover.",
+    "Touche un perso ou une case spéciale pour voir ce qu’il fait.": "Tap a unit or a special square to see what it does.",
+    "Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir": "The Shadow Clan: a complete 2nd army (10 gods, 15 guards, its soldiers) with powers the Light doesn’t have, hidden in the dark",
+    "À ton tour, tu fais toujours <b>une seule action</b> (on ne peut pas passer son tour) :": "On your turn, you always do <b>exactly one action</b> (you can’t skip your turn):",
+    "<b>Recruter</b> : prends un perso dans la <b>réserve commune</b> (à droite). Il rejoint ta réserve.": "<b>Recruit</b>: take a unit from the <b>shared reserve</b> (on the right). It joins your reserve.",
+    "<b>Poser</b> : touche un perso de <b>ta réserve</b> (à gauche), puis une case encadrée de ta couleur, en bas de la carte.": "<b>Place</b>: tap a unit in <b>your reserve</b> (on the left), then a square framed in your color, at the bottom of the map.",
+    "<b>Activer</b> : touche un de tes persos sur la carte. Les cases qui brillent montrent ce qu’il peut faire : touche-en une.": "<b>Activate</b>: tap one of your units on the map. The glowing squares show what it can do: tap one.",
+    "Comprendre un perso": "Understanding a unit",
+    "Touche n’importe quel perso, même dans une réserve : sa fiche dit exactement ce qu’il fait. Sur ces schémas, <b style=\"color:#3cc47a\">vert</b> = où il peut aller, <b style=\"color:#e04a5a\">rouge</b> = qui il peut prendre.": "Tap any unit, even in a reserve: its card says exactly what it does. On these diagrams, <b style=\"color:#3cc47a\">green</b> = where it can go, <b style=\"color:#e04a5a\">red</b> = who it can capture.",
+    "Les dieux ne bougent jamais. Une fois posés, active-les pour lancer leur sort, qui coûte du mana 💎 (tu en as 100 au départ, et il revient très peu : seules les sources de mana de la carte en redonnent).": "Gods never move. Once placed, activate them to cast their spell, which costs mana 💎 (you start with 100, and it barely comes back: only the mana springs on the map give some).",
+    "Un dieu posé sur la carte peut être tué. Dans ta réserve, il est à l’abri… mais il ne sert à rien.": "A god placed on the map can be killed. In your reserve, it’s safe… but useless.",
+    "Chaque garde a sa façon de bouger. La plupart tuent un ennemi en arrivant sur sa case ; d’autres tirent de loin sans bouger. Si tu perds 4 gardes, tu as perdu !": "Each guard has its own way of moving. Most kill an enemy by moving onto its square; others shoot from afar without moving. If you lose 4 guards, you lose!",
+    "Les soldats sont faibles mais nombreux : ils avancent seulement vers l’adversaire, comme des pions aux échecs.": "Soldiers are weak but many: they only move towards the opponent, like pawns in chess.",
+    "Astuce : touche un perso pour lire ce qu’il fait. Le bouton ↶ annule ton dernier coup, et le Codex explique tout.": "Tip: tap a unit to read what it does. The ↶ button undoes your last move, and the Codex explains everything.",
+    "<b>Active ton garde</b> : touche-le. Sa fiche à droite dit comment il bouge, et les cases qui brillent montrent où il peut aller : touche-en une.": "<b>Activate your guard</b>: tap it. Its card on the right says how it moves, and the glowing squares show where it can go: tap one.",
+    "Les dieux ne bougent pas mais lancent des <b>sorts</b> qui coûtent du mana (💎, le nombre bleu). Lis sa fiche, puis <b>active ton dieu</b> pour essayer.": "Gods don’t move but cast <b>spells</b> that cost mana (💎, the blue number). Read its card, then <b>activate your god</b> to try.",
+    "Bravo, tu connais l’essentiel ! Maintenant <b>bats le bot facile</b> : tue ses dieux posés ou 4 de ses gardes. Le Codex (📖 en haut) explique chaque perso.": "Well done, you know the basics! Now <b>beat the easy bot</b>: kill its placed gods or 4 of its guards. The Codex (📖 at the top) explains every unit.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -986,3 +1013,4 @@ I18N.DICT.en.T.sa[1] = "Boss of the Light, 5 life points. Every turn, its light 
 I18N.DICT.en.T.sp[1] = "Boss of the Light, 5 life points. While 2 of its units are next to it, they protect it: your hits do nothing. Kill its guards first! It advances toward you every other turn (sometimes leaving its guards behind) and strikes a unit next to it every 3 turns.";
 I18N.DICT.en.T.bp[1] = "Boss, 2 life points, but it rises once from its ashes with 2 life points, burning your units next to it. Every other turn, its flames kill 2 of your units 2 squares away from it.";
 I18N.DICT.en.T.bt[1] = "Boss, 5 life points. At the end of each of its side’s turns, it moves one square towards your nearest unit; every other turn, it crushes one of your units next to it.";
+I18N.DICT.en.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It only captures an enemy right next to it (straight).";

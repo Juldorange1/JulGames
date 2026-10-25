@@ -95,13 +95,6 @@
 
   // ---------- réglages ----------
   const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true }, lsGet('reglages', {}));
-  // touches configurables (peu nombreuses) ; le reste est fixe : Échap, Entrée, Espace, 1…9, flèches
-  const KEY_DEF = { undo: 'u', pass: 'p', next: 'Tab', codex: 'c', music: 'm' };
-  const KB = Object.assign({}, KEY_DEF, lsGet('touches', {}));
-  const KEY_ACTS = () => [['undo', L('Annuler le coup')], ['pass', L('Passer son tour')], ['next', L('Choisir le perso suivant / précédent')], ['codex', L('Codex')], ['music', L('Musique')]];
-  const RESERVED = ['Escape', 'Enter', ' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'F11', 'Shift', 'Control', 'Alt', 'Meta', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  const keyName = k => !k ? '–' : k === ' ' ? L('Espace') : k.length === 1 ? k.toUpperCase() : k;
-  const isKey = (k, act) => !!KB[act] && (k.length === 1 ? k.toLowerCase() === KB[act] : k === KB[act]);
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
@@ -165,7 +158,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     document.documentElement.lang = I18N.lang;
     document.querySelectorAll('[data-l]').forEach(el => { el.textContent = L(el.getAttribute('data-l')); });
     $('btnMusic').title = L('Musique (M)'); $('btnSfx').title = L('Effets sonores (N)'); $('btnSet').title = L('Paramètres (O)');
-    $('btnUndo').title = L('Revenir un coup en arrière ({k})', { k: keyName(KB.undo) });
+    $('btnUndo').title = L('Revenir un coup en arrière');
   }
 
   // =====================================================================
@@ -205,7 +198,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     silence: L('Tu ne peux pas activer de perso pendant tes 2 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
     ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
     blesse: L('Tu commences avec un garde déjà perdu'),
-    aube: L('L’aube arrive : gagne en 60 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
+    aube: L('L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
     invasion4: L('L’invasion demande 4 Ombres au lieu de 3'), sansombre: L('Pas de soldats des Ombres dans la réserve'),
     veilleurs: L('2 lumières sacrées brillent dans ta moitié de carte'),
   })[id];
@@ -217,7 +210,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     { id: 'colline', piece: 'dr', test: s => s.goal === 'colline' },
     { id: 'percee', piece: 'cv', test: s => s.goal === 'percee' },
     { id: 'massacre', piece: 'lc', test: s => s.goal === 'massacre' },
-    { id: 'chasse', piece: 'c4', test: s => s.goal === 'chasse' },
+    { id: 'chasse', piece: 'c5', test: s => s.goal === 'chasse' },
     { id: 'endurance', piece: 'gd', test: s => s.goal === 'endurance' },
     { id: 'intact', piece: 'pr', test: s => s.lost[0][0] + s.lost[0][1] + s.lost[0][2] === 0 },
     { id: 'phenix', piece: 'gu', test: s => s.lost[0][1] >= 3 },
@@ -230,10 +223,10 @@ const isSh = id => !!T[E.TI[id]].fac;
   const SPECIAL = new Set(EXPLOITS.map(e => e.piece));
   // talents : débloqués pour toujours par les points de défi du jour
   const TALENTS = [
-    { pts: 50, id: 'mana1' }, { pts: 150, id: 'recrue' }, { pts: 300, id: 'choix4' }, { pts: 500, id: 'mana2' }, { pts: 800, id: 'garde' }, { pts: 1200, id: 'dieu' },
+    { pts: 50, id: 'mana1' }, { pts: 150, id: 'recrue' }, { pts: 300, id: 'vite' }, { pts: 500, id: 'mana2' }, { pts: 800, id: 'garde' }, { pts: 1200, id: 'dieu' },
   ];
   const talentName = id => ({
-    mana1: L('+10 mana au début de chaque affrontement'), recrue: L('Un soldat offert dans ta réserve à chaque affrontement'), choix4: L('Choix parmi 4 au lieu de 3 quand tu débloques un perso'),
+    mana1: L('+10 mana au début de chaque affrontement'), recrue: L('Un soldat offert dans ta réserve à chaque affrontement'), vite: L('Nouveaux persos plus vite : un garde tous les 3 points, un dieu tous les 5'),
     mana2: L('Encore +10 mana au début de chaque affrontement'), garde: L('Chaque nouvelle partie commence avec 1 garde de plus'), dieu: L('Chaque nouvelle partie commence avec 1 dieu de plus'),
   })[id];
   const dailyData = () => Object.assign({ total: 0, days: {} }, lsGet('daily', {}));
@@ -340,6 +333,13 @@ const isSh = id => !!T[E.TI[id]].fac;
       r.gods = shadowOf(E.SH_START_M.concat(r.gods)); r.gards = shadowOf(E.SH_START_G.concat(r.gards));
       r.pending = r.pending.filter(pd => pd.opts.every(isSh));
     }
+    // persos retirés du jeu (trop proches d'un autre) : chacun est remplacé par un autre perso encore à découvrir de la même sorte
+    for (const k of ['gods', 'gards']) {
+      const all = k === 'gods' ? runM(r) : runG(r), out = r[k].filter(x => !E.RETIRED.has(x));
+      for (let n = r[k].length - out.length; n > 0; n--) { const alt = shuffle(all.filter(x => !out.includes(x) && !SPECIAL.has(x))); if (alt.length) out.push(alt[0]); }
+      r[k] = out;
+    }
+    r.pending = r.pending.map(pd => pd.opts ? Object.assign(pd, { opts: pd.opts.filter(x => !E.RETIRED.has(x)) }) : pd).filter(pd => !pd.opts || pd.opts.length);
     return r;
   }
   RUNS = RUNS.map(migrate);
@@ -377,7 +377,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
     const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.') : '☀️ ' + L('L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.')}</p>` : '';
     $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
-      <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small> <kbd>↵</kbd></button>
+      <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small></button>
       <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
     $('levels').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { RUNS[newSlot] = newRun(+b.dataset.c, dlcOn('ombres') ? newFac : 0); saveRuns(); openRun(newSlot); });
     $('levels').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { newFac = +b.dataset.f; renderLevels(); });
@@ -416,16 +416,16 @@ const isSh = id => !!T[E.TI[id]].fac;
       </div><div class="runcol">
         ${fameBlock(r)}
         <h4>${L('Progression')}</h4><p class="muted trkhint">${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
-        ${allG ? `<div class="trk done">${L('Tous les gardes sont débloqués')}</div>` : bar(t.gard, TRACKS.gard, '🛡️ ' + L('Nouveau garde'))}
-        ${allD ? `<div class="trk done">${L('Tous les dieux sont débloqués')}</div>` : bar(t.god, TRACKS.god, '👑 ' + L('Nouveau dieu'))}
+        ${allG ? `<div class="trk done">${L('Tous les gardes sont débloqués')}</div>` : bar(t.gard, need('gard'), '🛡️ ' + L('Nouveau garde'))}
+        ${allD ? `<div class="trk done">${L('Tous les dieux sont débloqués')}</div>` : bar(t.god, need('god'), '👑 ' + L('Nouveau dieu'))}
         ${r.mapLv >= 4 ? `<div class="trk done">🗺️ ${L('Carte')} : ${L('niveau {n}', { n: 4 })}/4</div>` : bar(t.map, TRACKS.map, `🗺️ ${L('Carte plus sauvage')} <small>(${L('niveau {n}', { n: r.mapLv })}/4)</small>`)}
         ${r.evChance >= 100 ? `<div class="trk done">🎲 ${L('Événements')} : 100 %</div>` : bar(t.ev, TRACKS.ev, `🎲 ${L('Plus d’événements')} <small>(${r.evChance} %)</small>`)}
         ${r.fac ? '' : `<h4>${L('Exploits')} <small class="muted">· ${L('chacun fait gagner un perso rare')}</small></h4>`}<div class="exps"${r.fac ? ' hidden' : ''}>${EXPLOITS.map(x => { const done = r.exploits.includes(x.id) || r.gods.includes(x.piece) || r.gards.includes(x.piece); const gd = ['colline', 'percee', 'massacre', 'chasse', 'endurance'].includes(x.id) ? L('Objectif mystère') + ' : ' + I18N.goalDesc(x.id) : ''; return `<span class="exp ${done ? 'done' : ''}" title="${esc(exploitText(x.id) + (gd ? ' — ' + gd : ''))}">${token(E.TI[x.piece], done ? 0 : -1)}<span>${done ? '✓ ' : ''}${exploitText(x.id)}</span></span>`; }).join('')}</div>
       </div></div>`;
-    if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement n°{n}', { n: r.n })}</b><kbd>↵</kbd></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
-    else if (isBossBattle(r)) { const b = E.TI[bossOf(r)]; h += `<div class="choices one"><button class="choice boss" id="btnStart"><span class="bossic">${token(b, 1)}</span><b>${L('Affrontement de boss : {b}', { b: tn(b) })}</b><small>${td(b)}</small><small class="gold">${L('Tue le boss pour gagner. Récompense : un perso au choix parmi tous ceux à découvrir.')}</small><kbd>↵</kbd></button></div><div class="menu-actions">`; }
+    if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement n°{n}', { n: r.n })}</b></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
+    else if (isBossBattle(r)) { const b = E.TI[bossOf(r)]; h += `<div class="choices one"><button class="choice boss" id="btnStart"><span class="bossic">${token(b, 1)}</span><b>${L('Affrontement de boss : {b}', { b: tn(b) })}</b><small>${td(b)}</small><small class="gold">${L('Tue le boss pour gagner. Récompense : un perso tiré au hasard parmi tous ceux à découvrir.')}</small></button></div><div class="menu-actions">`; }
     else h += `<div class="choices${allUnlocked(r) ? ' three' : ''}">
-        <button class="choice" id="btnStart"><span class="ic">⚔️</span><b>${L('Affrontement normal')}</b><small>${L('Une victoire = 1 point de progression, que tu places où tu veux.')}</small><kbd>↵</kbd></button>
+        <button class="choice" id="btnStart"><span class="ic">⚔️</span><b>${L('Affrontement normal')}</b><small>${L('Une victoire = 1 point de progression, que tu places où tu veux.')}</small></button>
         <button class="choice hard" id="btnHard"><span class="ic">🔥</span><b>${L('Affrontement difficile')}</b><small>${r.hard.map(hardName).join(' · ')}</small><small class="gold">${L('Plus dur, mais une victoire = 2 points de progression.')}</small></button>
         ${allUnlocked(r) ? `<button class="choice asc" id="btnAsc"><span class="ic">🔁</span><b>${L('🔁 Monter au Cercle {n}', { n: r.cercle + 1 }).replace(/^🔁\s*/, '')}</b><small>${L('Tu as tout débloqué ! Tu recommences avec la réserve de départ, contre un adversaire plus coriace. Tes victoires restent comptées.')}</small><small class="gold">${L('Nouveau : {x}', { x: cercleNew(r.cercle + 1) })}</small></button>` : ''}
       </div><div class="menu-actions">`;
@@ -451,12 +451,13 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
 
   // ---------- récompenses ----------
-  const nChoices = () => hasTalent('choix4') ? 4 : 3;
+  // points à atteindre (le talent « plus vite » retire 1 point aux gardes et aux dieux)
+  const need = k => TRACKS[k] - (hasTalent('vite') && (k === 'gard' || k === 'god') ? 1 : 0);
   function lossProgress(r) { for (const k of r.t.last || []) if (trackOpen(r, k)) r.t[k] += .5; checkUnlocks(r); } // une défaite rapporte un peu, sur tes derniers choix
   function checkUnlocks(r) {
     const t = r.t, lockG = lockGard(r), lockM = lockGod(r);
-    if (lockG.length && t.gard >= TRACKS.gard) { r.pending.push({ k: 'gard', opts: shuffle(lockG).slice(0, nChoices()) }); t.gard = 0; }
-    if (lockM.length && t.god >= TRACKS.god) { r.pending.push({ k: 'god', opts: shuffle(lockM).slice(0, nChoices()) }); t.god = 0; }
+    if (lockG.length && t.gard >= need('gard')) { r.pending.push({ k: 'gard', opts: [pick(lockG)] }); t.gard = 0; }
+    if (lockM.length && t.god >= need('god')) { r.pending.push({ k: 'god', opts: [pick(lockM)] }); t.god = 0; }
     if (t.map >= TRACKS.map) { t.map = 0; if (r.mapLv < 4) { r.mapLv++; r.news.push(L('🗺️ Cartes plus sauvages : niveau {n} — {d}', { n: r.mapLv, d: I18N.mapLevel(r.mapLv) })); } }
     if (t.ev >= TRACKS.ev) { t.ev = 0; if (r.evChance < 100) { r.evChance += 25; r.news.push(L('🎲 Chance d’événement : {e} %', { e: r.evChance })); } }
   }
@@ -468,10 +469,10 @@ const isSh = id => !!T[E.TI[id]].fac;
       const isGod = T[E.TI[x.piece]].cat === 'M', list = isGod ? r.gods : r.gards;
       if (!list.includes(x.piece)) { list.push(x.piece); r.news.push(L('🏅 Exploit ! {x} rejoint ta réserve.', { x: tn(E.TI[x.piece]) })); }
     }
-    // boss vaincu : un perso au choix parmi tous ceux à découvrir
+    // boss vaincu : un perso au hasard parmi tous ceux à découvrir
     if (mode === 'boss') {
       const lock = runM(r).concat(runG(r)).filter(x => !r.gods.includes(x) && !r.gards.includes(x));
-      if (lock.length) r.pending.push({ k: 'any', opts: shuffle(lock).slice(0, nChoices()) });
+      if (lock.length) r.pending.push({ k: 'any', opts: [pick(lock)] });
     }
     // progression : une barre de chaque groupe avance, celle que tu choisis (seule ouverte : elle avance toute seule)
     const amt = mode === 'hard' ? 2 : 1, ask = [];
@@ -486,8 +487,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('evoTitle').textContent = L('Que veux-tu faire avancer ?');
     $('evoSub').textContent = pd.groups.length > 1 ? L('Choisis une chose dans chaque groupe : elle avance de +{n}.', { n: pd.amt }) : L('Choisis ce qui avance de +{n}.', { n: pd.amt });
     $('evos').innerHTML = pd.groups.map((g, gi) => `<div class="tgrp"><span class="tgl">${gi === 0 && g.includes('gard') ? L('Ta réserve') : L('Le terrain')}</span>${g.map(k => {
-      const v = r.t[k] || 0, mx = TRACKS[k], nv = Math.min(mx, v + pd.amt);
-      return `<button class="evo tch" data-k="${n++}" data-g="${gi}" data-t="${k}"><div class="kind"><kbd>${n}</kbd></div><span class="tic">${TRACK_IC[k]}</span><b>${trackName(k)}</b><p>${trackHint(r, k)}</p>
+      const v = r.t[k] || 0, mx = need(k), nv = Math.min(mx, v + pd.amt);
+      return `<button class="evo tch" data-k="${n++}" data-g="${gi}" data-t="${k}"><span class="tic">${TRACK_IC[k]}</span><b>${trackName(k)}</b><p>${trackHint(r, k)}</p>
         <div class="meter"><i style="width:${100 * v / mx}%"></i><i class="plus" style="left:${100 * v / mx}%;width:${100 * (nv - v) / mx}%"></i></div><small>${fmt1(v)} → ${fmt1(nv)}/${mx}${nv >= mx ? ' ✨' : ''}</small></button>`;
     }).join('')}</div>`).join('');
     $('evoModal').hidden = false;
@@ -503,17 +504,18 @@ const isSh = id => !!T[E.TI[id]].fac;
       setTimeout(() => { $('evoModal').hidden = true; renderRun(); nextReward(); }, 280);
     });
   }
+  let afterRewards = null; // ce qui s'ouvre une fois les récompenses prises (le bilan, à la fin d'un affrontement)
   function nextReward() {
     const r = run();
     if (!r) return;
     if (r.news.length) { toast(r.news.join('<br>'), 5000); r.news = []; saveRuns(); sfx('evolution'); }
     const pd = r.pending[0];
-    if (!pd) return;
+    if (!pd) { if (afterRewards) { const f = afterRewards; afterRewards = null; f(); } return; }
     if (pd.k === 'track') return trackChoice(r, pd);
     $('evoTitle').textContent = pd.k === 'god' ? L('Nouveau dieu débloqué !') : pd.k === 'gard' ? L('Nouveau garde débloqué !') : L('Récompense du boss !');
-    $('evoSub').textContent = L('Choisis celui qui rejoint la réserve pour tous les prochains affrontements.');
+    $('evoSub').textContent = L('Il rejoint ta réserve pour tous les prochains affrontements.');
     markSeen(pd.opts);
-    $('evos').innerHTML = pd.opts.map((id, k) => { const i = E.TI[id], t = T[i]; return `<button class="evo" data-k="${k}"><div class="kind">${catName(t.cat)} · <kbd>${k + 1}</kbd></div>${token(i, 0)}<b>${tn(i)}</b><p>${td(i)}${t.cost ? ` <span style="color:var(--mana)">💎 ${t.cost}</span>` : ''}</p></button>`; }).join('');
+    $('evos').innerHTML = pd.opts.map((id, k) => { const i = E.TI[id], t = T[i]; return `<button class="evo" data-k="${k}"><div class="kind">${catName(t.cat)}</div>${token(i, 0)}<b>${tn(i)}</b><p>${td(i)}${t.cost ? ` <span style="color:var(--mana)">💎 ${t.cost}</span>` : ''}</p></button>`; }).join('');
     $('evoModal').hidden = false;
     sfx('evolution');
     $('evos').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
@@ -665,10 +667,10 @@ const isSh = id => !!T[E.TI[id]].fac;
       const nm = curNames();
       h += `<p class="center">${L('{b} parie que <b>{x}</b> perdra en premier.', { b: esc(nm[1]), x: esc(nm[pre.bet[1]]) })}</p>
         <div class="opt"><h3>${L('{p} parie : qui perdra en premier un dieu ou 2 gardes ?', { p: esc(nm[0]) })}</h3>
-        <div class="seg" data-bet="0">${[0, 1].map(v => `<button data-v="${v}" class="${pre.bet[0] === v ? 'sel' : ''}">${esc(nm[v])} <kbd>${v + 1}</kbd></button>`).join('')}</div></div>`;
+        <div class="seg" data-bet="0">${[0, 1].map(v => `<button data-v="${v}" class="${pre.bet[0] === v ? 'sel' : ''}">${esc(nm[v])}</button>`).join('')}</div></div>`;
     }
     const ready = pre.ev !== 'pari' || pre.bet[0] !== null;
-    h += `<div class="menu-actions"><button class="big" id="btnGo" ${ready ? '' : 'disabled'}>${L('Commencer l’affrontement')} <kbd>↵</kbd></button><button class="ghost" id="btnPreBack">${L('Retour')}</button></div>`;
+    h += `<div class="menu-actions"><button class="big" id="btnGo" ${ready ? '' : 'disabled'}>${L('Commencer l’affrontement')}</button><button class="ghost" id="btnPreBack">${L('Retour')}</button></div>`;
     $('preBox').innerHTML = h;
     $('preBox').querySelectorAll('[data-bet]').forEach(seg => seg.onclick = ev => { const b = ev.target.closest('button'); if (!b) return; pre.bet[0] = +b.dataset.v; showPre(daily); });
     $('preBox').querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { const k = b.dataset.hp; pre.hard = pre.hard.includes(k) ? pre.hard.filter(x => x !== k) : pre.hard.concat([k]); sfx('choix'); showPre(daily); });
@@ -782,7 +784,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
     if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = oGards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('blesse')) s.lost[0][1] = 1;
-    if (hs.includes('aube')) s.dawn = 60;
+    if (hs.includes('aube')) s.dawn = 80; // 60 tours : 34 % de victoires seulement (mesuré), 80 : 41 %
     if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(oGards)], 1);
     if (hs.includes('invasion4')) s.invN = 4;
     if (hs.includes('sansombre')) s.pool[E.TI.os] = 0;
@@ -1123,8 +1125,16 @@ const isSh = id => !!T[E.TI[id]].fac;
     sys(L('Fin : {t}', { t: title }) + ' ' + I18N.why(s.why));
     const good = w === G.me || (G.mode === 'daily' && dailyScore(G) > 0);
     Sound.want([good ? 'victoire' : 'defaite']);
+    // d'abord les récompenses (le résultat est enregistré tout de suite), puis le bilan
+    bilanGains(); // ce que tu gagnes, gardé pour le bilan
+    if (!G.practice) commit();
     renderBilan();
-    setTimeout(() => { if (G && G.over && $('game').classList.contains('on')) $('endModal').hidden = false; }, 700);
+    setTimeout(() => {
+      if (!G || !G.over || !$('game').classList.contains('on')) return;
+      const showB = () => { if (G && G.over) $('endModal').hidden = false; };
+      const r = cur >= 0 && !G.practice ? run() : null;
+      if (r && (r.pending.length || r.news.length)) { afterRewards = showB; nextReward(); } else showB();
+    }, 700);
     render();
   }
   // applique le résultat à une partie (pour de vrai, ou sur une copie pour l'aperçu du bilan)
@@ -1210,10 +1220,12 @@ const isSh = id => !!T[E.TI[id]].fac;
     G.practice = true;
     toast(L('Entraînement : ta vraie partie est gardée telle quelle. Ce que tu rejoues maintenant ne compte pas.'), 5000);
   }
-  const canBack = () => G && !G.net && (!G.committed || G.practice);
+  const canBack = () => G && !G.net && (!G.committed || G.practice || G.over); // après la fin : on peut annuler le dernier coup pour s'entraîner
   function bilanGains() {
     if (G.practice) return []; // entraînement : rien ne compte
+    if (G.gainsPre) return G.gainsPre; // calculé avant l'enregistrement du résultat
     const out = [], st = G.st;
+    if (!G.committed) G.gainsPre = out;
     const pts = Object.values(st.pts).reduce((a, b) => a + b, 0);
     if (pts) out.push(`⭐ ${L('+{n} points pour tes persos', { n: pts })}`);
     if (G.chal) out.push(`🏆 ${L('Record')} · ${dailyName(G.chal)} : <b>${recInfo(G, G.chal).txt}</b>`);
@@ -1407,7 +1419,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('bilan').innerHTML = `<div class="bhead"><h2 style="color:${col}">${title}</h2><p class="why">${G.practice ? `🏋️ ${L('Entraînement : ce résultat ne compte pas, ta vraie partie est gardée.')}<br>` : ''}${I18N.why(s.why)}</p></div>
       <div class="seg bltabs"><button data-bt="err" class="${bilanTab === 'err' ? 'sel' : ''}">🔑 ${L('Tes erreurs')}</button><button data-bt="num" class="${bilanTab === 'num' ? 'sel' : ''}">📊 ${L('Chiffres')}</button></div>
       ${body}
-      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')} <kbd>↵</kbd></button><button class="ghost" id="btnLook">🗺️ ${L('Voir la carte')}</button>${G.history.length && canBack() ? `<button class="ghost" id="btnEndUndo" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶ ${L('Annuler le dernier coup')} <kbd>${keyName(KB.undo)}</kbd></button>` : ''}${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir toute la partie')}</button>`}</div>`;
+      <div class="menu-actions"><button class="big" id="btnNext">${G.mode === 'daily' ? L('Retour au menu') : L('Continuer')}</button><button class="ghost" id="btnLook">🗺️ ${L('Voir la carte')}</button>${G.history.length && canBack() ? `<button class="ghost" id="btnEndUndo" title="${esc(L('Pour t’entraîner : ta vraie partie est gardée telle quelle.'))}">↶ ${L('Annuler le dernier coup')}</button>` : ''}${G.net || G.mode === 'tuto' || !G.rec || G.rec.length < 2 ? '' : `<button class="ghost" id="btnEndReplay">🎬 ${L('Revoir toute la partie')}</button>`}</div>`;
     $('btnNext').onclick = endNext;
     $('bilan').querySelectorAll('[data-bt]').forEach(b => b.onclick = () => { sfx('page'); renderBilan(b.dataset.bt); });
     if ($('btnEndReplay')) $('btnEndReplay').onclick = () => { const back = G.mode; $('endModal').hidden = true; commit(); openReplay(0, back); };
@@ -1635,10 +1647,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     const tl = $('turnline');
     if (G.view) tl.innerHTML = `🔎 ${L('Tour {n}', { n: Math.floor(s.ply / 2) + 1 })}`;
-    else if (G.practice && !G.over) tl.innerHTML = `🏋️ ${L('Entraînement')} · ` + L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
+    else if (G.practice && !G.over) tl.innerHTML = `🏋️ ${L('Entraînement')} · ${L('Tour {n}', { n: Math.floor(s.ply / 2) + 1 })} · ` + L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
     else if (G.over) tl.innerHTML = s.winner === 2 ? L('Match nul') : L('{p} a gagné', { p: `<span class="p${s.winner}">${esc(PN[s.winner])}</span>` });
     else {
-      let t = L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
+      let t = `<b class="turnno">${L('Tour {n}', { n: Math.floor(s.ply / 2) + 1 })}</b> · ` + L('Au tour de {p}', { p: `<span class="p${s.turn}">${esc(PN[s.turn])}</span>` });
       if (s.phase === 'draft') t += ' · ' + L('draft');
       if (s.phase === 'decl') t += ' · ' + L('annonce');
       if (s.acts > 1) t += ' · ' + L('{n} actions restantes', { n: s.acts });
@@ -1815,10 +1827,14 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (s.acts > 1) h += ` <b>(${L('{n} actions restantes', { n: s.acts })})</b>`;
       if (s.bonusRec && s.acts === 1) h = L('Action bonus : comme tu joues en second, tu recrutes un perso de plus.');
       if (L2.some(a => a.k === 'rec')) o.push(`<button class="pooltab" data-o="pool">➕ ${L('Recruter')}</button>`);
-      if (L2.some(a => a.k === 'pass')) { o.push(`<button class="warn" data-o="pass">${L('Passer mon tour')}</button>`); if (L2.length === 1) h = L('Aucune action possible : passe ton tour.'); }
+      if (L2.length === 1 && L2[0].k === 'pass') { // rien à faire : le tour passe tout seul (on ne peut pas passer exprès)
+        h = L('Aucune action possible : ton tour passe tout seul.');
+        const ply = s.ply, id = G.id;
+        setTimeout(() => { if (G && G.id === id && G.s.ply === ply && humanTurn() && legal().length === 1) doAction({ k: 'pass' }); }, 1200);
+      }
     }
     hint.innerHTML = h;
-    opts.innerHTML = o.map((b, i) => i < 9 ? b.replace(/<\/button>$/, ` <kbd>${i + 1}</kbd></button>`) : b).join('');
+    opts.innerHTML = o.join('');
     opts.querySelectorAll('button').forEach(b => {
       const k = b.dataset.o;
       b.onclick = () => {
@@ -1867,21 +1883,12 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Raccourcis clavier
   // =====================================================================
-  let keyWait = null; // action en attente d'une nouvelle touche (dans les paramètres)
   function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal', 'achModal', 'replayModal'].find(id => !$(id).hidden); }
   document.addEventListener('keydown', e => {
     if (e.target.matches && e.target.matches('input, textarea, select')) return;
     const k = e.key, m = modalOpen();
-    if (keyWait) { // on choisit une nouvelle touche
-      e.preventDefault();
-      if (k === 'Escape') { keyWait = null; renderSettings(); return; }
-      if (RESERVED.includes(k)) { toast(L('Cette touche est déjà prise par le jeu (Échap, Entrée, Espace, 1 à 9, flèches).')); return; }
-      const nk = k.length === 1 ? k.toLowerCase() : k;
-      for (const a in KB) if (a !== keyWait && KB[a] === nk) KB[a] = KB[keyWait]; // échange avec l'action qui l'avait
-      KB[keyWait] = nk; keyWait = null; lsSet('touches', KB); sfx('choix'); renderSettings(); return;
-    }
     if (G && G.view && !m) {
-      if (k === 'Escape' || k === 'Backspace' || k === 'Enter') { e.preventDefault(); return closeMoment(); }
+      if (k === 'Escape') { e.preventDefault(); return closeMoment(); }
       if (k === 'ArrowLeft') return momentStep(-1);
       if (k === 'ArrowRight') return momentStep(1);
       return;
@@ -1898,50 +1905,22 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (G && G.sel) { G.sel = null; sfx('annule'); render(); }
       return;
     }
-    if (m === 'evoModal') { const n = +k; if (n >= 1 && n <= 4) { const b = $('evos').querySelector(`[data-k="${n - 1}"]`); if (b) b.click(); } return; }
-    if (m === 'endModal') { if (k === 'ArrowLeft' || k === 'ArrowRight') { renderBilan(bilanTab === 'err' ? 'num' : 'err'); sfx('page'); return; } if (k === 'Enter' || k === ' ') { e.preventDefault(); $('btnNext').click(); } if (isKey(k, 'undo')) { e.preventDefault(); undo(); } return; }
-    if (m === 'tutoModal') { if (k === 'ArrowRight' || k === 'Enter') tutoStep(1); if (k === 'ArrowLeft') tutoStep(-1); return; }
-    if (m === 'codexModal') { if (k === 'ArrowRight') codexPage(1); if (k === 'ArrowLeft') codexPage(-1); return; }
-    if (m === 'statsModal') { if (k === 'ArrowRight') statsPage(1); if (k === 'ArrowLeft') statsPage(-1); return; }
-    if (m === 'achModal') { if (k === 'ArrowRight') achPage(1); if (k === 'ArrowLeft') achPage(-1); return; }
-    if (m === 'replayModal') { if (k === 'ArrowRight') rpPage(1); if (k === 'ArrowLeft') rpPage(-1); return; }
-    if (m) return;
-    if (isKey(k, 'codex')) return openCodex();
-    if (isKey(k, 'music')) return toggleMusic();
-    const scr = document.querySelector('.screen.on').id;
-    if (scr === 'run') {
-      if (k === 'Enter') { const b = $('btnResume') || $('btnStart'); if (b) b.click(); }
-      return;
-    }
-    if (scr === 'duel') { if (k === 'Enter' && $('btnDuelGo')) $('btnDuelGo').click(); return; }
-    if (scr === 'pre') { if (k === 'Enter') $('btnGo').click(); const n = +k; if ((n === 1 || n === 2) && document.querySelector('[data-bet] button')) document.querySelectorAll('[data-bet] button')[n - 1].click(); return; }
-    if (scr === 'newrun') { if (k === 'Enter') { $('levels').querySelector('[data-c="0"]').click(); return; } const n = +k; if (n >= 1 && n <= 3) $('levels').querySelectorAll('button')[n - 1].click(); return; }
-    if (scr === 'menu') { const n = +k; if (n >= 1 && n <= nSlots()) { const b = document.querySelector(`[data-open="${n - 1}"]`) || document.querySelector('[data-new]'); if (b) b.click(); } return; }
-    if (scr !== 'game' || !G) return;
-    if (G.replay) { if (k === 'ArrowRight') replayCtl('next'); if (k === 'ArrowLeft') replayCtl('prev'); if (k === ' ' || k === 'Enter') { e.preventDefault(); replayCtl('play'); } if (k === 'Home') replayCtl('first'); if (k === 'End') replayCtl('last'); return; }
-    if (isKey(k, 'undo')) { e.preventDefault(); return undo(); }
-    if (isKey(k, 'pass')) { const b = document.querySelector('#opts [data-o="pass"]'); if (b) b.click(); return; }
-    if (k === 'Enter' || k === ' ') { e.preventDefault(); const b = document.querySelector('#opts [data-o="finish"]') || document.querySelector('#opts .main'); if (b) b.click(); return; }
-    const n = +k;
-    if (n >= 1 && n <= 9) { const b = $('opts').querySelectorAll('button')[n - 1]; if (b) b.click(); return; }
-    if (isKey(k, 'next')) {
-      e.preventDefault();
-      if (!humanTurn() || G.s.phase !== 'play') return;
-      const froms = [...new Set(legal().filter(a => a.k === 'act').map(a => a.from))];
-      if (!froms.length) return toast(L('Aucun perso à activer.'));
-      const curF = G.sel && G.sel.k === 'piece' ? G.sel.from : -1, i = froms.indexOf(curF);
-      selectPiece(froms[(i + (e.shiftKey ? froms.length - 1 : 1)) % froms.length]);
-    }
+    if (k !== 'ArrowLeft' && k !== 'ArrowRight') return;
+    const d = k === 'ArrowRight' ? 1 : -1;
+    if (m === 'endModal') { renderBilan(bilanTab === 'err' ? 'num' : 'err'); sfx('page'); return; }
+    if (m === 'tutoModal') return tutoStep(d);
+    if (m === 'codexModal') return codexPage(d);
+    if (m === 'statsModal') return statsPage(d);
+    if (m === 'achModal') return achPage(d);
+    if (m === 'replayModal') return rpPage(d);
+    if (!m && G && G.replay && $('game').classList.contains('on')) replayCtl(d > 0 ? 'next' : 'prev');
   });
-  const SHORTCUTS = () => KEY_ACTS().map(([a, d]) => [keyName(KB[a]) + (a === 'next' ? ' / ⇧+' + keyName(KB[a]) : ''), d]).concat([
-    ['Esc', L('Annuler la sélection, fermer une fenêtre')], ['↵ / ␣', L('Valider, continuer')], ['1 … 9', L('Boutons sous la carte (sorts, choix, recrues…)')],
-    ['← →', L('Pages, coup précédent / suivant')], ['F11', L('Plein écran')]]);
 
   // =====================================================================
   //  Codex (pages, sans défilement)
   // =====================================================================
   const CTABS = () => [['regles', L('📜 Règles')], ['dieux', L('⬢ Dieux')], ['gardes', L('🛡️ Gardes')], ['autres', L('👹 Soldat & boss')], ['evenements', L('🎲 Événements')], ['cartes', L('🗺️ Cartes')],
-    ['decors', L('🌲 Décors')], ['bots', L('🤖 Bots')], ['progression', L('📈 Progression')], ['raccourcis', L('⌨️ Raccourcis')]];
+    ['decors', L('🌲 Décors')], ['bots', L('🤖 Bots')], ['progression', L('📈 Progression')]];
   let codexTab = 'regles', codexPg = 0, codexPages = 1;
   const DIAG_W = 7, DIAG_C = 24;
   function moveDiagram(id0) {
@@ -1957,7 +1936,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (id === 'ma') { for (const q of E.areaOf(g, 'ma', 'haut')) cls[q] = 'zone'; for (const q of g.center) cls[q] = 'zone'; }
     else if (id === 'pb') { for (const q of E.areaOf(g, 'pb', 'haut')) cls[q] = 'zone'; }
     else if (id === 'g6') { for (let d = 0; d < 8; d++) { const q = g.mv[d * g.N + DIAG_C]; if (q >= 0) cls[q] = 'zone'; } }
-    else if (id === 'lc') { for (const d of [1, 3, 4, 6]) { let q = DIAG_C; for (let k = 0; k < 3; k++) { q = g.mv[d * g.N + q]; if (q < 0) break; cls[q] = 'zone'; } } }
+    else if (id === 'lc') { for (const d of [1, 3, 4, 6]) { let q = DIAG_C; for (let k = 0; k < 4; k++) { q = g.mv[d * g.N + q]; if (q < 0) break; cls[q] = 'zone'; } } }
     else for (const cl of E.genAct(s, DIAG_C, true)) cl.forEach((x, k) => {
       if (typeof x !== 'number') return;
       const c = s.b[x];
@@ -2016,18 +1995,17 @@ const isSh = id => !!T[E.TI[id]].fac;
       .concat([cercleBlock()]);
     if (tab === 'progression') return [
       textBlock(`<p>${L('Avant chaque affrontement, tu choisis : <b>normal</b> ou <b>difficile</b> (avec 2 handicaps tirés au hasard).')} ${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
-        <ul><li><b>${L('Nouveau garde')}</b> : ${L('{a} points. Tu choisis parmi 3.', { a: TRACKS.gard })}</li>
-        <li><b>${L('Nouveau dieu')}</b> : ${L('{a} points. Tu choisis parmi 3.', { a: TRACKS.god })}</li>
+        <ul><li><b>${L('Nouveau garde')}</b> : ${L('{a} points : un garde tiré au hasard parmi ceux à découvrir.', { a: need('gard') })}</li>
+        <li><b>${L('Nouveau dieu')}</b> : ${L('{a} points : un dieu tiré au hasard parmi ceux à découvrir.', { a: need('god') })}</li>
         <li><b>${L('Carte plus sauvage')}</b> : ${L('{a} points par niveau (niveau 0 à 4).', { a: TRACKS.map })}</li>
         <li><b>${L('Plus d’événements')}</b> : ${L('+25 % tous les {a} points.', { a: TRACKS.ev })}</li>
         <li><b>${L('Points')}</b> : ${L('victoire normale +1, victoire difficile +2, défaite +½ sur tes derniers choix. Quand il ne reste qu’une barre dans un groupe, elle avance toute seule.')}</li></ul>`),
       cercleBlock(),
-      textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')} ${L('Récompense : un perso au choix parmi tous ceux à découvrir.')}</p>`),
+      textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')} ${L('Récompense : un perso tiré au hasard parmi tous ceux à découvrir.')}</p>`),
       textBlock(`<h3>${L('Exploits')}</h3><p class="muted">${L('Ces persos ne se débloquent que par un exploit :')}</p><ul>${EXPLOITS.map(x => `<li><b>${tn(E.TI[x.piece])}</b> : ${exploitText(x.id)}</li>`).join('')}</ul>`),
       textBlock(`<h3>${L('Défi du jour et talents')}</h3><p>${L('Chaque jour, la même carte, la même réserve et le même objectif pour tout le monde. Ton meilleur score du jour s’ajoute à tes points de défi du jour, qui débloquent des talents pour toujours :')}</p><ul>${TALENTS.map(t => `<li class="${dailyData().total >= t.pts ? 'ok' : ''}"><b>${t.pts} ${L('pts')}</b> : ${talentName(t.id)}</li>`).join('')}</ul>`),
       textBlock(`<h3>${L('Handicaps possibles')}</h3><ul>${HARD.map(h => `<li>${hardName(h)}</li>`).join('')}</ul>${dlcOn('ombres') ? `<h3>🌑 ${L('Handicaps des parties des Ombres')}</h3><ul>${SH_HARD.map(h => `<li>${hardName(h)}</li>`).join('')}</ul>` : ''}`),
     ];
-    if (tab === 'raccourcis') return [`<p class="muted">${L('Tu peux changer tes touches dans les Paramètres.')}</p><table class="keys">${SHORTCUTS().slice(0, 8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`, `<table class="keys">${SHORTCUTS().slice(8).map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>`];
     return [];
   }
   function cercleBlock() {
@@ -2051,7 +2029,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <li>${L('<b>Recruter</b> : ouvre la réserve commune (bouton ➕ Recruter ou touche R) et clique un perso.')}</li>
         <li>${L('<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.')}</li>
         <li>${L('<b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les sorts de zone ont des boutons sous la carte (survole-les pour voir la zone).')}</li>
-        <li>${L('Survole un perso ou une case spéciale pour voir ce qu’il fait. Tous les raccourcis clavier sont dans l’onglet Raccourcis.')}</li></ul>`),,
+        <li>${L('Touche un perso ou une case spéciale pour voir ce qu’il fait.')}</li></ul>`),,
       ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).')}</p>`)] : [])
     ];
   }
@@ -2090,7 +2068,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('codexTabs').innerHTML = CTABS().map(([k, l]) => `<button data-tab="${k}" class="${k === codexTab ? 'sel' : ''}">${l}</button>`).join('');
     $('codexTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { codexTab = b.dataset.tab; codexPg = 0; sfx('page'); renderCodex(); });
     while (previews.length) previews.pop().stop();
-    const body = $('codexBody'), isText = codexTab === 'regles' || codexTab === 'progression' || codexTab === 'raccourcis';
+    const body = $('codexBody'), isText = codexTab === 'regles' || codexTab === 'progression';
     const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3, ['dieux', 'gardes', 'autres'].includes(codexTab));
     codexPages = r.pages; codexPg = r.pg;
     pagerHtml($('codexPager'), codexPg, codexPages, codexPage);
@@ -2123,7 +2101,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <div class="dopt"><b>${L('Mana de départ')}</b>${duelSeg('mana', [[100, '100'], [150, '150'], [200, '200']])}</div>
       </div>
       ${online ? `<div class="netbox"><button class="big" id="btnHost">${L('Créer une salle')}</button><span class="or">${L('ou')}</span><input id="joinCode" maxlength="4" placeholder="${L('Code')}"><button class="ghost" id="btnJoin">${L('Rejoindre')}</button></div><p class="center" id="netStatus">${L('Le joueur qui crée la salle choisit les réglages.')}</p>`
-        : `<div class="menu-actions"><button class="big" id="btnDuelGo">${L('Commencer le duel')} <kbd>↵</kbd></button></div>`}
+        : `<div class="menu-actions"><button class="big" id="btnDuelGo">${L('Commencer le duel')}</button></div>`}
       <div class="menu-actions"><button class="ghost" id="btnDuelBack">${L('Retour')}</button></div>`;
     $('duelBox').querySelectorAll('[data-duel]').forEach(seg => seg.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -2318,7 +2296,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('seasonBox').innerHTML = `<h2 class="title">🗓️ ${L('Défi de la semaine')}</h2>
       <div class="evcard"><b>${seasonName(c.rule)}</b>${seasonDesc(c.rule)}<br><small class="muted">${L('Encore {n} jour(s) avant la règle suivante.', { n: left })}</small></div>
       <div class="evcard"><b>🏆 ${L('Record')} : ${dailyName(c.goal)}</b>${dailyDesc(c.goal)}</div>
-      <div class="menu-actions"><button class="big" id="btnSeasonGo">${L('Jouer le défi')} <kbd>↵</kbd></button></div>
+      <div class="menu-actions"><button class="big" id="btnSeasonGo">${L('Jouer le défi')}</button></div>
       <div class="seasoncols"><div><h3>${L('Ton classement de la semaine')}</h3>${board.length ? `<ol class="board">${board.map((x, k) => `<li class="${k === 0 ? 'gold' : ''}"><b>${x.p}</b> ${L('pts')}${x.m ? ` · ${x.m}` : ''} <small>${new Date(x.d).toLocaleDateString()}</small></li>`).join('')}</ol>` : `<p class="muted">${L('Pas encore de score cette semaine.')}</p>`}</div>
         <div><h3>${L('Tes meilleures semaines')}</h3>${past.length ? `<ul class="board">${past.map(k => `<li><b>${Math.max(...d[k].map(x => x.p))}</b> ${L('pts')}</li>`).join('')}</ul>` : `<p class="muted">${L('Rien pour l’instant.')}</p>`}</div></div>
       <p class="muted center">${L('Chaque fois que tu bats ton meilleur score de la semaine, la différence s’ajoute à tes points de talents.')}</p>
@@ -2358,7 +2336,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${card('abysses', '🌊', L('Les Abysses'), [L('Un nouveau monde sous-marin, avec ses courants qui emportent les persos'), L('4 persos marins : Requin, Méduse, Pieuvre, Sirène'),
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres et le Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
-      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (15 dieux, 18 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir'),
+      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir'),
         L('Sa façon de gagner : avoir 3 persos dans la zone de placement adverse'), L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
         L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'), L('5 handicaps difficiles propres aux parties des Ombres'),
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),
@@ -2442,10 +2420,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
-      <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>
-      <div class="setrow wide keyrow"><div class="lab"><b>⌨️ ${L('Raccourcis clavier')}</b> <small>${L('Clique sur une touche puis appuie sur celle que tu veux.')}</small></div>
-        <div class="keybinds">${KEY_ACTS().map(([a, d]) => `<span class="kb"><small>${d}</small><button class="ghost sm ${keyWait === a ? 'wait' : ''}" data-kb="${a}">${keyWait === a ? L('Appuie sur une touche…') : `<kbd>${keyName(KB[a])}</kbd>`}</button></span>`).join('')}
-        <button class="ghost sm" id="kbReset">${L('Touches par défaut')}</button></div></div>`;
+      <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };
     $('setMus').onclick = () => { toggleMusic(); renderSettings(); };
@@ -2462,12 +2437,10 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (k === 'decor') { if (v === 'auto') scheduleTheme(); else setTheme(v); }
       renderSettings();
     });
-    $('setBody').querySelectorAll('[data-kb]').forEach(b => b.onclick = e => { e.stopPropagation(); keyWait = b.dataset.kb; renderSettings(); });
-    $('kbReset').onclick = () => { Object.assign(KB, KEY_DEF); keyWait = null; lsSet('touches', KB); sfx('choix'); renderSettings(); };
     $('setFs').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast(L('Plein écran impossible ici.'))); setTimeout(renderSettings, 300); };
   }
   function openSettings() { renderSettings(); $('setModal').hidden = false; sfx('page'); }
-  function closeSettings() { keyWait = null; $('setModal').hidden = true; sfx('page'); }
+  function closeSettings() { $('setModal').hidden = true; sfx('page'); }
   $('btnSet').onclick = openSettings;
   $('btnSetMenu').onclick = openSettings;
   $('setModal').addEventListener('click', e => { if (e.target === $('setModal') || e.target.hasAttribute('data-close')) closeSettings(); });
@@ -2479,10 +2452,15 @@ const isSh = id => !!T[E.TI[id]].fac;
   const TUTO = () => [
     { t: L('Bienvenue dans Panthéa !'), b: `<p>${L('Un jeu de stratégie au tour par tour sur une carte, un peu comme les échecs. Comment tu t’appelles ?')}</p><input id="tutoPseudo" maxlength="18" value="${esc(lsGet('pseudo', ''))}" placeholder="${L('Ton pseudo')}">` },
     { t: L('Le but'), b: `<div class="tutoic">${token(E.TI.ma, 1)}${token(E.TI.mc, 1)}${token(E.TI.g2, 1)}${token(E.TI.g3, 1)}</div><p>${L('Tue <b>tous les dieux</b> adverses (les hexagones couronnés), ou <b>4 de ses gardes</b> (les boucliers).')}</p>` },
-    { t: L('Une action par tour'), b: `<p>${L('À ton tour tu fais <b>une seule chose</b> :')}</p><ul><li>${L('<b>Recruter</b> un perso dans la réserve commune ;')}</li><li>${L('<b>Placer</b> un perso recruté dans ta zone (cases encadrées d’or) ;')}</li><li>${L('<b>Activer</b> un de tes persos sur la carte : il se déplace, attaque ou lance un sort.')}</li></ul>` },
-    { t: L('Dieux et mana'), b: `<div class="tutoic">${token(E.TI.ma, 0)}${token(E.TI.mc, 0)}${token(E.TI.md, 0)}</div><p>${L('Les dieux ne bougent pas : ils lancent des sorts qui coûtent du mana (tu en as 100 au départ). Un dieu posé sur la carte peut être tué ; dans ta réserve, il est à l’abri.')}</p>` },
-    { t: L('Les gardes et les soldats'), b: `<div class="tutoic">${token(E.TI.g2, 0)}${token(E.TI.g3, 0)}${token(E.TI.g5, 0)}${token(E.TI.s, 0)}</div><p>${L('Chaque garde se déplace à sa façon (le Codex montre leurs déplacements). On tue un ennemi en arrivant sur sa case. Les soldats avancent seulement vers l’adversaire.')}</p>` },
-    { t: L('Ta partie évolue'), b: `<p>${L('Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Après chaque victoire, tu choisis ce qui avance : un nouveau garde ou un nouveau dieu, puis une carte plus sauvage ou plus d’événements. Tous les 10 affrontements, un boss t’attend !')}</p><p class="muted">${L('Astuce : touche un perso pour lire ce qu’il fait. {u} annule un coup, {c} ouvre le Codex (tu peux changer ces touches dans les Paramètres).', { u: keyName(KB.undo), c: keyName(KB.codex) })}</p>` },
+    { t: L('Une action par tour'), b: `<p>${L('À ton tour, tu fais toujours <b>une seule action</b> (on ne peut pas passer son tour) :')}</p><ul class="tutoacts">
+        <li>➕ ${L('<b>Recruter</b> : prends un perso dans la <b>réserve commune</b> (à droite). Il rejoint ta réserve.')}</li>
+        <li>📍 ${L('<b>Poser</b> : touche un perso de <b>ta réserve</b> (à gauche), puis une case encadrée de ta couleur, en bas de la carte.')}</li>
+        <li>⚡ ${L('<b>Activer</b> : touche un de tes persos sur la carte. Les cases qui brillent montrent ce qu’il peut faire : touche-en une.')}</li></ul>` },
+    { t: L('Comprendre un perso'), b: `<p>${L('Touche n’importe quel perso, même dans une réserve : sa fiche dit exactement ce qu’il fait. Sur ces schémas, <b style="color:#3cc47a">vert</b> = où il peut aller, <b style="color:#e04a5a">rouge</b> = qui il peut prendre.')}</p>
+        <div class="tutodiags">${['g2', 'g3'].map(id => `<div>${moveDiagram(id)}<b>${tn(E.TI[id])}</b><small>${td(E.TI[id])}</small></div>`).join('')}</div>` },
+    { t: L('Dieux et mana'), b: `<div class="tutoic">${token(E.TI.ma, 0)}${token(E.TI.mc, 0)}${token(E.TI.md, 0)}</div><p>${L('Les dieux ne bougent jamais. Une fois posés, active-les pour lancer leur sort, qui coûte du mana 💎 (tu en as 100 au départ, et il revient très peu : seules les sources de mana de la carte en redonnent).')}</p><p>${L('Un dieu posé sur la carte peut être tué. Dans ta réserve, il est à l’abri… mais il ne sert à rien.')}</p>` },
+    { t: L('Les gardes et les soldats'), b: `<div class="tutoic">${token(E.TI.g2, 0)}${token(E.TI.g3, 0)}${token(E.TI.g5, 0)}${token(E.TI.s, 0)}</div><p>${L('Chaque garde a sa façon de bouger. La plupart tuent un ennemi en arrivant sur sa case ; d’autres tirent de loin sans bouger. Si tu perds 4 gardes, tu as perdu !')}</p><p>${L('Les soldats sont faibles mais nombreux : ils avancent seulement vers l’adversaire, comme des pions aux échecs.')}</p>` },
+    { t: L('Ta partie évolue'), b: `<p>${L('Avant chaque affrontement, choisis <b>normal</b> ou <b>difficile</b>. Après chaque victoire, tu choisis ce qui avance : un nouveau garde ou un nouveau dieu, puis une carte plus sauvage ou plus d’événements. Tous les 10 affrontements, un boss t’attend !')}</p><p class="muted">${L('Astuce : touche un perso pour lire ce qu’il fait. Le bouton ↶ annule ton dernier coup, et le Codex explique tout.')}</p>` },
   ];
   function renderTuto() {
     const S = TUTO(), st = S[tutoI];
@@ -2634,10 +2612,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     { t: L('Bien ! Ton garde attend dans ta réserve. <b>Place-le</b> sur une case de ta zone (en bas, encadrée d’or).'), ok: a => a.k === 'pla', done: a => a.k === 'pla' },
     { t: L('Maintenant <b>recrute un dieu</b> (un hexagone couronné) : il lancera des sorts.'), ok: a => a.k === 'rec' && T[a.t].cat === 'M', done: a => a.k === 'rec' },
     { t: L('<b>Place ton dieu</b> dans ta zone. Attention : si tous tes dieux posés meurent, tu perds !'), ok: a => a.k === 'pla', done: a => a.k === 'pla' },
-    { t: L('<b>Active ton garde</b> : touche-le, puis touche une des cases en surbrillance pour le déplacer.'), ok: (a, s) => a.k === 'act' && T[E.tix(s.b[a.from])].cat !== 'M', done: a => a.k === 'act' },
+    { t: L('<b>Active ton garde</b> : touche-le. Sa fiche à droite dit comment il bouge, et les cases qui brillent montrent où il peut aller : touche-en une.'), ok: (a, s) => a.k === 'act' && T[E.tix(s.b[a.from])].cat !== 'M', done: a => a.k === 'act' },
     { t: L('Un soldat ennemi s’approche ! <b>Prends-le</b> : touche un de tes persos, puis la case rouge où se trouve l’ennemi.'), ok: () => true, done: (a, s0, s) => s.lost[1][0] + s.lost[1][1] + s.lost[1][2] > 0, prey: true },
-    { t: L('Les dieux ne bougent pas mais lancent des <b>sorts</b> qui coûtent du mana (le nombre bleu). <b>Active ton dieu</b> pour essayer.'), ok: () => true, done: (a, s0, s) => a.k === 'act' && T[E.tix(s0.b[a.from])].cat === 'M', skip: true },
-    { t: L('Bravo, tu connais l’essentiel ! Maintenant <b>bats le bot facile</b> : tue ses dieux posés ou 4 de ses gardes. Le Codex (touche C) explique chaque perso.'), free: true },
+    { t: L('Les dieux ne bougent pas mais lancent des <b>sorts</b> qui coûtent du mana (💎, le nombre bleu). Lis sa fiche, puis <b>active ton dieu</b> pour essayer.'), ok: () => true, done: (a, s0, s) => a.k === 'act' && T[E.tix(s0.b[a.from])].cat === 'M', skip: true },
+    { t: L('Bravo, tu connais l’essentiel ! Maintenant <b>bats le bot facile</b> : tue ses dieux posés ou 4 de ses gardes. Le Codex (📖 en haut) explique chaque perso.'), free: true },
   ];
   function startGuided() {
     $('tutoModal').hidden = true; lsSet('tutoFait', true);

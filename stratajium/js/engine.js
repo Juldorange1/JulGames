@@ -105,7 +105,7 @@ function StratEngine() {
     { id: 'n3', cat: 'G', sym: '3', name: 'Vampire', val: 3.6, fac: 1, desc: 'Mord sans bouger un ennemi collé à lui (pas un dieu) : il meurt et tu gagnes 10 mana. Ou 1 pas vers une case vide.' },
     { id: 'n4', cat: 'G', sym: '4', name: 'Araignée', val: 3.4, fac: 1, desc: 'Tire sa toile sur le 1er ennemi en ligne droite à 4 cases ou moins : un soldat meurt, un garde ou un dieu est figé 2 tours. Ou 1 pas en diagonale (prend l’ennemi).' },
     { id: 'n5', cat: 'G', sym: '5', name: 'Poltergeist', val: 3.4, fac: 1, desc: 'Jette un ennemi à 1 ou 2 cases (pas un dieu) 2 cases plus loin : il meurt s’il sort de la carte, tombe dans un trou ou sur un perso. Ou 1 pas (prend l’ennemi).' },
-    { id: 'n6', cat: 'G', sym: '6', name: 'Serpent', val: 3.8, fac: 1, desc: 'Avance jusqu’à 3 pas tout droit par des cases vides, en tournant comme il veut. Il peut prendre un ennemi à 2 pas au plus.' },
+    { id: 'n6', cat: 'G', sym: '6', name: 'Serpent', val: 3.8, fac: 1, desc: 'Avance jusqu’à 3 pas tout droit par des cases vides, en tournant comme il veut. Il ne prend qu’un ennemi collé à lui (tout droit).' },
     { id: 'n7', cat: 'G', sym: '7', name: 'Loup-garou', val: 3.8, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi). S’il prend, ou s’il est collé à 2 ennemis ou plus, il entre en furie : tous les ennemis collés à lui meurent (pas les dieux).' },
     { id: 'n8', cat: 'G', sym: '8', name: 'Larve', val: 3, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi). Quand elle meurt, 3 Ombres apparaissent autour d’elle.' },
     { id: 'n9', cat: 'G', sym: '9', name: 'Démon', val: 3.6, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi sur sa case), ou apparaît sur une case vide collée à un dieu ennemi.' },
@@ -118,24 +118,26 @@ function StratEngine() {
   const BOSSES_DLC = ['bl', 'bm', 'bo', 'bj']; // DLC « Les Abysses »
   const SH_BOSSES = ['sa', 'sp', 'sl', 'sg']; // DLC « Les Ombres » : les boss de la Lumière
   const DLC_M = ['pv', 'sr'], DLC_G = ['rq', 'mz'];
-  // armée des Ombres : une armée complète à elle (15 dieux, 18 gardes, son soldat), sans aucun perso de la Lumière
-  const SH_M = ['na', 'nb', 'nc', 'nd', 'ne', 'nf', 'ng', 'nh', 'ni', 'nj', 'nk', 'om', 'of', 'oe', 'ou'];
-  const SH_G = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'nl', 'nm', 'nn', 'no', 'oa', 'ob', 'oc', 'ol', 'ox'];
-  const SH_START_M = ['om', 'of', 'nc'], SH_START_G = ['oa', 'oc', 'n2', 'n3'];
+  // persos retirés (trop proches d'un autre) : gardés dans T pour les anciennes sauvegardes, mais plus jamais proposés
+  const RETIRED = new Set(['pb', 'pe', 'pc', 'c1', 'c4', 'c7', 'g7', 'nc', 'ni', 'om', 'oe', 'ou', 'n2', 'nn', 'ox']);
+  // armée des Ombres : une armée complète à elle (10 dieux, 15 gardes, son soldat), sans aucun perso de la Lumière
+  const SH_M = ['na', 'nb', 'nd', 'ne', 'nf', 'ng', 'nh', 'nj', 'nk', 'of'];
+  const SH_G = ['n1', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'nl', 'nm', 'no', 'oa', 'ob', 'oc', 'ol'];
+  const SH_START_M = ['of', 'nk', 'nd'], SH_START_G = ['oa', 'oc', 'n3', 'n8'];
   // le perso de la Lumière qui fait face à chaque perso des Ombres (l'adversaire d'une partie des Ombres a autant de persos, de force proche)
-  const TWIN = { na: 'ma', nb: 'pb', nc: 'mc', nd: 'md', ne: 'pe', nf: 'me', ng: 'pf', nh: 'pa', ni: 'mb', nj: 'pr', nk: 'pc', om: 'pd', of: 'gu', oe: 'pg', ou: 'dr',
-    n1: 'c1', n2: 'g7', n3: 'g3', n4: 'c4', n5: 'g4', n6: 'g2', n7: 'g6', n8: 'g5', n9: 'c5', nl: 'gd', nm: 'c3', nn: 'lc', no: 'c7', oa: 'cv', ob: 'c8', oc: 'c2', ol: 'g1', ox: 'c6' };
+  const TWIN = { na: 'ma', nb: 'mc', nd: 'me', ne: 'mb', nf: 'pd', ng: 'pf', nh: 'pa', nj: 'pr', nk: 'md', of: 'gu',
+    n1: 'c3', n3: 'c6', n4: 'g3', n5: 'g4', n6: 'g2', n7: 'g6', n8: 'g5', n9: 'c5', nl: 'lc', nm: 'g1', no: 'gd', oa: 'cv', ob: 'c8', oc: 'c2' };
   const NT = T.length;
   const TI = {}; T.forEach((t, i) => { TI[t.id] = i; t.i = i; });
   T.forEach(t => { if (!t.as) return; const b = T[TI[t.as]]; for (const k of ['val', 'cost', 'desc']) if (t[k] === undefined && b[k] !== undefined) t[k] = b[k]; });
   const MID = T.map(t => t.as || t.id); // les pouvoirs : un jumeau des Ombres agit comme son modèle
   const BASE_M = ['ma', 'mb', 'mc', 'md', 'me'];
-  const BASE_G = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7'];
-  const EXT_M = ['pa', 'pb', 'pc', 'pd', 'pe', 'pf', 'pg', 'gu', 'dr', 'pr'];
-  const EXT_G = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'lc', 'cv', 'gd'];
+  const BASE_G = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6'];
+  const EXT_M = ['pa', 'pd', 'pf', 'pg', 'gu', 'dr', 'pr'];
+  const EXT_G = ['c2', 'c3', 'c5', 'c6', 'c8', 'lc', 'cv', 'gd'];
   const ALL_M = BASE_M.concat(EXT_M), ALL_G = BASE_G.concat(EXT_G);
   // une partie commence avec ces 3 dieux et ces 4 gardes ; les autres se débloquent en gagnant
-  const START_M = ['ma', 'mc', 'md'], START_G = ['g2', 'g3', 'g5', 'g7'];
+  const START_M = ['ma', 'mc', 'md'], START_G = ['g1', 'g2', 'g3', 'g5'];
   const S_I = TI.s, MA_I = TI.ma, PB_I = TI.pb;
   const IS_M = T.map(t => t.cat === 'M'), MAGE_T = T.filter(t => t.cat === 'M').map(t => t.i);
   const CATB = T.map(t => t.cat === 'B');
@@ -715,7 +717,7 @@ function StratEngine() {
       case 'n5': { for (const q of adjOf(s, from)) if (b[q] === 0) out.push([q]); for (const d of ALL) { let q = from; for (let k = 0; k < 2; k++) { q = nx(g, q, d); if (q < 0) break; if (foe(s, q, p) && !IS_M[tix(b[q])] && !isBoss(s, q)) out.push([q]); if (b[q] !== 0) break; } } break; }
       case 'n6': {
         const dist = new Map([[from, 0]]), qu = [from], seen = new Set();
-        while (qu.length) { const x = qu.shift(), dx = dist.get(x); for (const d of ORTH) { const y = nx(g, x, d); if (y < 0 || dist.has(y)) continue; if (b[y] === 0) { dist.set(y, dx + 1); if (!seen.has(y)) { seen.add(y); out.push([y]); } if (dx + 1 < 3) qu.push(y); } else if (dx < 2 && foe(s, y, p) && !seen.has(y)) { seen.add(y); out.push([y]); } } } // prend un ennemi à 2 pas au plus
+        while (qu.length) { const x = qu.shift(), dx = dist.get(x); for (const d of ORTH) { const y = nx(g, x, d); if (y < 0 || dist.has(y)) continue; if (b[y] === 0) { dist.set(y, dx + 1); if (!seen.has(y)) { seen.add(y); out.push([y]); } if (dx + 1 < 3) qu.push(y); } else if (dx < 1 && foe(s, y, p) && !seen.has(y)) { seen.add(y); out.push([y]); } } } // ne prend qu'un ennemi collé (plus loin : 63-92 % de victoires, trop fort)
         break;
       }
       case 'n7': { let n = 0; for (const q of adjOf(s, from)) { if (b[q] === 0 || foe(s, q, p)) out.push([q]); if (foe(s, q, p) && !IS_M[tix(b[q])] && !isBoss(s, q)) n++; } if (n >= 2) out.push(['go']); break; }
@@ -1067,7 +1069,7 @@ function StratEngine() {
       const f = out.filter(a => a.k === d.k && (d.k !== 'act' || a.from === d.from));
       if (f.length) res = f.concat(out.filter(a => placeFree(s, a) && !f.includes(a)));
     }
-    if (!res.some(a => !placeFree(s, a))) res.push({ k: 'pass' });
+    if (!res.length) res.push({ k: 'pass' }); // on ne passe que si on ne peut vraiment rien faire
     return res;
   }
 
@@ -1524,7 +1526,7 @@ function StratEngine() {
         case 's': adj(f, side === 0 ? [0, 2] : [5, 7]); break;
         case 'g5': case 'g7': adj(f, DIAG); for (const d of id === 'g5' ? ORTH : DIAG) { const x = mv[d * N + f]; if (x >= 0 && b[x] === 0) adj(x, DIAG); } break;
         case 'c8': case 'g6': case 'gd': case 'c6': case 'n2': case 'n3': case 'n7': case 'n9': case 'nn': adj(f, ALL); break;
-        case 'n6': { const dd = new Map([[f, 0]]), qq = [f]; while (qq.length) { const x = qq.shift(), k = dd.get(x); for (const d of ORTH) { const y = mv[d * N + x]; if (y < 0 || dd.has(y)) continue; m[y] = 1; if (b[y] === 0 && k + 1 < 2) { dd.set(y, k + 1); qq.push(y); } } } break; } // menace à 2 pas
+        case 'n6': { const dd = new Map([[f, 0]]), qq = [f]; while (qq.length) { const x = qq.shift(), k = dd.get(x); for (const d of ORTH) { const y = mv[d * N + x]; if (y < 0 || dd.has(y)) continue; m[y] = 1; if (b[y] === 0 && k + 1 < 1) { dd.set(y, k + 1); qq.push(y); } } } break; } // menace les cases collées
         case 'nl': for (const d of ORTH) { let x = f; for (let k = 0; k < 3; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; } } break;
         case 'n4': for (const d of ORTH) { let x = f; for (let k = 0; k < 4; k++) { x = mv[d * N + x]; if (x < 0) break; m[x] = 1; if (b[x] !== 0) break; } } break;
         case 'n8': adj(f, DIAG); break;
@@ -2041,7 +2043,7 @@ function StratEngine() {
   }
 
   return {
-    BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    RETIRED, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     gNeed, stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }
