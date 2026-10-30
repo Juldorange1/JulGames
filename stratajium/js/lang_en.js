@@ -1041,6 +1041,25 @@
     "Tous les niveaux obtenus !": "All levels earned!",
     "Succès à niveaux": "Tiered achievements",
   });
+  Object.assign(D.ui, {
+    "L’invasion te demande 5 persos au lieu de 4": "Your invasion needs 5 units instead of 4",
+    "Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases.": "Unique powers and hidden in the dark: an enemy guard or soldier cannot take it from more than 4 squares away.",
+    "L’armée de base, sans pouvoir caché.": "The base army, with no hidden power.",
+    "Invasion : avoir 4 persos dans la zone de placement adverse = victoire.": "Invasion: having 4 units in the enemy placement zone = victory.",
+    "Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).": "Against the Light, the Shadow army only loses after 5 guards killed (instead of 4).",
+    "un niveau de plus (niveau 0 à 4).": "one more level (level 0 to 4).",
+    "+25 % de chance d’un événement.": "+25% chance of an event.",
+    "Les points demandés pour la carte et les événements s’ajustent : les deux groupes arrivent au bout en même temps.": "The points needed for the map and events adjust so both groups finish at the same time.",
+    "Au début : <b>3 dieux et 4 sortes de gardes tirés au hasard</b> dans la réserve (d’autres à chaque nouveau Cercle), le plateau classique, aucun événement. Tes victoires débloquent le reste (voir Progression).": "At the start: <b>3 gods and 4 kinds of guards drawn at random</b> in the reserve (new ones at each new Circle), the classic board, no events. Your wins unlock the rest (see Progression).",
+    "<b>But</b> : tuer <b>tous les dieux</b> adverses, tuer <b>4 gardes</b> adverses, ou avoir <b>4 persos</b> dans la zone de placement adverse (l’invasion). Contre un boss, il faut le tuer ; l’Objectif mystère remplace le but.": "<b>Goal</b>: kill <b>all</b> enemy <b>gods</b>, kill <b>4</b> enemy <b>guards</b>, or have <b>4 units</b> in the enemy placement zone (invasion). Against a boss, you must kill it; the Mystery goal replaces the goal.",
+    "Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.": "A 2nd army, to pick instead of the Light. In a Shadow run, the opponent plays the Shadows too. All its units have powers of their own. They hide in the dark: an enemy guard or soldier cannot take them from more than 4 squares away.",
+    "Partie de test": "Test game",
+    "Partie de test : tu joues les deux camps sur cet écran, pour essayer des persos et des coups.": "Test game: you play both sides on this screen, to try out units and moves.",
+    "Commencer la partie de test": "Start the test game",
+    "Gagne par invasion : 4 persos dans la zone de placement adverse.": "Win by invasion: 4 units in the enemy placement zone.",
+    "Invasion : 4 persos dans la zone adverse.": "Invasion: 4 units in the enemy zone.",
+    "Invasion : 5 persos dans la zone adverse.": "Invasion: 5 units in the enemy zone.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -1087,3 +1106,11 @@ I18N.DICT.en.THEME.volcan = ["Volcano"];
 I18N.DICT.en.THEME.canyon = ["Canyon"];
 I18N.DICT.en.T.bb[1] = "Boss, 5 life points. Every other turn, it stares at a straight line (marked in red); on the next turn, its gaze turns to stone the first of your units on that line.";
 I18N.DICT.en.T.sa[1] = "Boss of the Light, 6 life points. Every turn, its light blinds all your units in its row and column: you can’t activate them on your next turn.";
+// nouveaux déplacements (2026-10-30)
+I18N.DICT.en.T.cv[1] = "Jumps in an L like a chess knight, or 2 squares straight (up, down, left, right), over anything. It kills the enemy where it lands (not a god).";
+I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the 1st enemy on the diagonal without moving, even right next to it. Or slides 1 or 2 empty squares straight (up, down, left, right).";
+I18N.DICT.en.T.c6[1] = "Jumps 2 squares in any direction, over anything, or takes 1 diagonal step (it kills the enemy where it lands, not a god). Or turns one of your soldiers next to it into 70 mana (the soldier vanishes) and you play again right away. Or it gives you 40 mana.";
+I18N.DICT.en.T.n3[1] = "Bites an enemy next to it without moving (not a god): it dies and you gain 10 mana. Or slides diagonally 1 or 2 empty squares.";
+I18N.DICT.en.T.n8[1] = "Moves straight toward the opponent by 1 or 2 empty squares, or takes 1 step sideways. It kills on the 3 squares right in front of it. When it dies, 3 Shadows appear around it.";
+I18N.DICT.en.T.n9[1] = "Jumps 2 or 3 squares in a straight line or diagonally, over anything, and kills the enemy there (not a god). Or appears on an empty square next to an enemy god.";
+I18N.DICT.en.T.no[1] = "Slides as far as it wants through empty squares, straight toward the opponent or sideways (left, right), and takes the enemy on the square where it stops.";

@@ -14,10 +14,14 @@
 <!-- ===== Menu ===== -->
 <section id="menu" class="screen on">
   <div class="menu-wrap">
-    <div class="glass menu-main">
+    <header class="menu-head">
       <h1>Panthéa</h1>
       <p class="hello" id="hello"></p>
+    </header>
+    <div class="glass menu-main">
       <div id="slots"></div>
+    </div>
+    <nav class="glass menu-side">
       <div class="menu-actions">
         <button class="ghost" id="btnDuelMenu" data-l="⚔️ Duel"></button>
         <button class="ghost" id="btnExtMenu" data-l="🧩 Extensions"></button>
@@ -28,7 +32,7 @@
         <button class="ghost" id="btnSetMenu" data-l="⚙️ Paramètres"></button>
         <button class="ghost" id="btnQuit" hidden data-l="Quitter"></button>
       </div>
-    </div>
+    </nav>
     <div class="glass daily" id="dailyBox"></div>
   </div>
 </section>

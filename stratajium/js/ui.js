@@ -133,7 +133,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   const otherTheme = () => pick(themeList().filter(t => t !== theme));
   function setTheme(t, quiet) {
     if (t === theme) return;
-    theme = t;
+    theme = t; markSeen(['th:' + t]);
     $('terrain').dataset.theme = t;
     bgDecor.setTheme(t);
     if (G && $('game').classList.contains('on')) boardDecor.setTheme(t);
@@ -178,12 +178,23 @@ const isSh = id => !!T[E.TI[id]].fac;
   const nSlots = () => dlcOn('ombres') ? 5 : 3;
   const saveRuns = () => lsSet('runs', RUNS);
   const SEEN = new Set(lsGet('vus', E.START_M.concat(E.START_G, ['s'])));
+  // le Codex ne montre aussi que les événements, objectifs, cartes, décors et bots déjà rencontrés (2026-10-30) :
+  // pour les joueurs d'avant, on reprend ce qu'on sait déjà (parties revues, bot stratège)
+  if (!lsGet('vus2', 0)) {
+    SEEN.add('bot:impossible'); SEEN.add('map:classique');
+    for (const x of lsGet('replays', [])) { if (x.ev) SEEN.add('ev:' + x.ev); if (x.goal) SEEN.add('goal:' + x.goal); }
+    lsSet('vus', [...SEEN]); lsSet('vus2', 1);
+  }
+  SEEN.add('th:' + theme); // le décor du moment
   for (const r of RUNS) if (r) { for (const id of (r.gods || []).concat(r.gards || [])) SEEN.add(id); if (r.fac) SEEN.add('os'); } // ce qui est déjà dans tes parties
   function markSeen(ids) { let n = 0; for (const id of ids) if (id && !SEEN.has(id)) { SEEN.add(id); n++; } if (n) lsSet('vus', [...SEEN]); }
   function markSeenState(s) { // tout ce qu'on peut voir dans un affrontement : la réserve commune, les réserves, la carte, le boss
     const ids = [];
     for (let i = 0; i < E.NT; i++) if ((s.pool[i] > 0 && (!s.fac || E.canRec(s, 0, i) || E.canRec(s, 1, i))) || s.res[0][i] > 0 || s.res[1][i] > 0) ids.push(T[i].id);
-    for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0) ids.push(T[E.tix(s.b[q])].id);
+    for (let q = 0; q < s.g.N; q++) { if (s.b[q] > 0) ids.push(T[E.tix(s.b[q])].id); if (s.g.spec[q]) ids.push('sp:' + s.g.spec[q]); }
+    if (s.g.cdir) ids.push('sp:3');
+    for (const k of s.g.info ? s.g.info.kinds : ['classique']) ids.push('map:' + k);
+    if (s.ev) ids.push('ev:' + s.ev); if (s.goal) ids.push('goal:' + s.goal);
     markSeen(ids);
   }
   let cur = -1, newSlot = 0;
@@ -208,7 +219,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
     blesse: L('Tu commences avec un garde déjà perdu'),
     aube: L('L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
-    invasion4: L('L’invasion demande 4 Ombres au lieu de 3'), sansombre: L('Pas de soldats des Ombres dans la réserve'),
+    invasion4: L('L’invasion te demande 5 persos au lieu de 4'), sansombre: L('Pas de soldats des Ombres dans la réserve'),
     veilleurs: L('2 lumières sacrées brillent dans ta moitié de carte'),
   })[id];
   // handicaps qui n'existent que dans les parties des Ombres (DLC)
@@ -232,13 +243,19 @@ const isSh = id => !!T[E.TI[id]].fac;
   const SPECIAL = new Set(EXPLOITS.map(e => e.piece));
   // talents : débloqués pour toujours par les points de défi du jour
   const TALENTS = [
-    { pts: 50, id: 'mana1' }, { pts: 150, id: 'recrue' }, { pts: 300, id: 'vite' }, { pts: 500, id: 'mana2' }, { pts: 800, id: 'garde' }, { pts: 1200, id: 'dieu' },
+    { pts: 20, id: 'mana1' }, { pts: 60, id: 'recrue' }, { pts: 120, id: 'vite' }, { pts: 200, id: 'mana2' }, { pts: 320, id: 'garde' }, { pts: 480, id: 'dieu' },
   ];
   const talentName = id => ({
     mana1: L('+10 mana au début de chaque affrontement'), recrue: L('Un soldat offert dans ta réserve à chaque affrontement'), vite: L('Nouveaux persos plus vite : un garde tous les 3 points, un dieu tous les 5'),
     mana2: L('Encore +10 mana au début de chaque affrontement'), garde: L('Chaque nouvelle partie commence avec 1 garde de plus'), dieu: L('Chaque nouvelle partie commence avec 1 dieu de plus'),
   })[id];
   const dailyData = () => Object.assign({ total: 0, days: {} }, lsGet('daily', {}));
+  // points de défi divisés par 5 (2026-10-30) : on convertit une fois les anciens scores gardés
+  if (!lsGet('pts5', 0)) {
+    const d = dailyData(); d.total = Math.round(d.total / 5); for (const k in d.days) d.days[k].best = Math.round(d.days[k].best / 5); lsSet('daily', d);
+    const w = lsGet('seasons', {}); for (const k in w) for (const x of w[k]) x.p = Math.round(x.p / 5); lsSet('seasons', w);
+    lsSet('pts5', 1);
+  }
   // statistiques gardées pour toujours : points des persos (+1 à chaque recrutement, placement ou activation), affrontements par sorte…
   const statsData = () => Object.assign({ pts: {}, used: {}, usedW: {}, modes: {}, bosses: {}, kills: 0, lost: 0, battles: 0, turns: 0, ms: 0 }, lsGet('stats', {}));
   const hasTalent = id => { const t = TALENTS.find(x => x.id === id); return t && dailyData().total >= t.pts; };
@@ -308,9 +325,10 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   const allUnlocked = r => runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
-  // réserve de départ (nouvelle partie, ou montée au Cercle suivant)
+  // réserve de départ (nouvelle partie, ou montée au Cercle suivant) : 3 dieux et 4 gardes tirés au hasard, jamais un perso d'exploit
   function freshReserve(r) {
-    Object.assign(r, { gods: startM(r).slice(), gards: startG(r).slice(), mapLv: 0, evChance: 0, n: 1, match: null, pending: [], exploits: [],
+    const rnd = (all, n) => shuffle(all.filter(x => !SPECIAL.has(x))).slice(0, n);
+    Object.assign(r, { gods: rnd(runM(r), startM(r).length), gards: rnd(runG(r), startG(r).length), mapLv: 0, evChance: 0, n: 1, match: null, pending: [], exploits: [],
       t: newT() });
     const lockG = runG(r).filter(x => !r.gards.includes(x) && !SPECIAL.has(x)), lockM = runM(r).filter(x => !r.gods.includes(x) && !SPECIAL.has(x));
     if (hasTalent('garde') && lockG.length) r.gards.push(pick(lockG));
@@ -357,7 +375,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!r.bossSeq || r.bossSeq.length !== bossList().length + (r.fac ? E.SH_BOSSES.length : 0)) r.bossSeq = bossSeqFor(r);
     if (r.fac === undefined) r.fac = 0;
     // partie des Ombres : chaque perso de la Lumière déjà débloqué devient son jumeau des Ombres
-    if (r.fac && (r.gods.some(x => !isSh(x)) || r.gards.some(x => !isSh(x)) || !E.SH_START_M.every(x => r.gods.includes(x)))) {
+    if (r.fac && (r.gods.some(x => !isSh(x)) || r.gards.some(x => !isSh(x)))) {
       r.gods = shadowOf(E.SH_START_M.concat(r.gods)); r.gards = shadowOf(E.SH_START_G.concat(r.gards));
       r.pending = r.pending.filter(pd => pd.opts.every(isSh));
     }
@@ -403,7 +421,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let c = 1; c <= top; c++) cs.push(`<button data-c="${c}">${cercleLabel(c)} · 🎚️ ${startEdge(c)}${c >= 3 ? ' · ' + fardeaux(c).length + ' ' + L('Fardeaux').toLowerCase() : ''}</button>`);
     $('levels').className = 'newc';
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
-    const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.') : '☀️ ' + L('L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.')}</p>` : '';
+    const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases.') : '☀️ ' + L('L’armée de base, sans pouvoir caché.')}</p>` : '';
     $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Le bot joue toujours au mieux, mais il a des désavantages qui suivent ton niveau : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Quand tu as tout débloqué, tu montes au Cercle suivant : tout recommence, avec moins d’avantage puis des fardeaux.')}</p>
       <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small></button>
       <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
@@ -447,8 +465,8 @@ const isSh = id => !!T[E.TI[id]].fac;
         <h4>${L('Progression')}</h4><p class="muted trkhint">${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
         ${allG ? `<div class="trk done">${L('Tous les gardes sont débloqués')}</div>` : bar(t.gard, need('gard'), '🛡️ ' + L('Nouveau garde'))}
         ${allD ? `<div class="trk done">${L('Tous les dieux sont débloqués')}</div>` : bar(t.god, need('god'), '👑 ' + L('Nouveau dieu'))}
-        ${r.mapLv >= 4 ? `<div class="trk done">🗺️ ${L('Carte')} : ${L('niveau {n}', { n: 4 })}/4</div>` : bar(t.map, TRACKS.map, `🗺️ ${L('Carte plus sauvage')} <small>(${L('niveau {n}', { n: r.mapLv })}/4)</small>`)}
-        ${r.evChance >= 100 ? `<div class="trk done">🎲 ${L('Événements')} : 100 %</div>` : bar(t.ev, TRACKS.ev, `🎲 ${L('Plus d’événements')} <small>(${r.evChance} %)</small>`)}
+        ${r.mapLv >= 4 ? `<div class="trk done">🗺️ ${L('Carte')} : ${L('niveau {n}', { n: 4 })}/4</div>` : bar(t.map, need('map', r), `🗺️ ${L('Carte plus sauvage')} <small>(${L('niveau {n}', { n: r.mapLv })}/4)</small>`)}
+        ${r.evChance >= 100 ? `<div class="trk done">🎲 ${L('Événements')} : 100 %</div>` : bar(t.ev, need('ev', r), `🎲 ${L('Plus d’événements')} <small>(${r.evChance} %)</small>`)}
         ${r.fac ? '' : `<h4>${L('Exploits')} <small class="muted">· ${L('chacun fait gagner un perso rare')}</small></h4>`}<div class="exps"${r.fac ? ' hidden' : ''}>${EXPLOITS.map(x => { const done = r.exploits.includes(x.id) || r.gods.includes(x.piece) || r.gards.includes(x.piece); const gd = ['colline', 'percee', 'massacre', 'chasse', 'endurance'].includes(x.id) ? L('Objectif mystère') + ' : ' + I18N.goalDesc(x.id) : ''; return `<span class="exp ${done ? 'done' : ''}" title="${esc(exploitText(x.id) + (gd ? ' — ' + gd : ''))}">${token(E.TI[x.piece], done ? 0 : -1)}<span>${done ? '✓ ' : ''}${exploitText(x.id)}</span></span>`; }).join('')}</div>
       </div></div>`;
     if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement')}</b></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
@@ -480,15 +498,24 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
 
   // ---------- récompenses ----------
-  // points à atteindre (le talent « plus vite » retire 1 point aux gardes et aux dieux)
-  const need = k => TRACKS[k] - (hasTalent('vite') && (k === 'gard' || k === 'god') ? 1 : 0);
+  // points à atteindre (le talent « plus vite » retire 1 point aux gardes et aux dieux) ;
+  // la carte et les événements s'ajustent pour arriver au bout en même temps que les gardes et les dieux
+  function need(k, r) {
+    if (k === 'gard' || k === 'god') return TRACKS[k] - (hasTalent('vite') ? 1 : 0);
+    if (!r) return TRACKS[k];
+    const left = x => trackOpen(r, x) ? r.t[x] || 0 : 0;
+    const restA = lockGard(r).length * need('gard') + lockGod(r).length * need('god') - left('gard') - left('god');
+    const steps = (4 - r.mapLv) + (100 - r.evChance) / 25;
+    return restA > 0 && steps > 0 ? Math.max(TRACKS[k], Math.ceil((restA + left('map') + left('ev')) / steps)) : TRACKS[k];
+  }
   function lossProgress(r) { for (const k of r.t.last || []) if (trackOpen(r, k)) r.t[k] += .5; checkUnlocks(r); } // une défaite rapporte un peu, sur tes derniers choix
   function checkUnlocks(r) {
     const t = r.t, lockG = lockGard(r), lockM = lockGod(r);
     if (lockG.length && t.gard >= need('gard')) { r.pending.push({ k: 'gard', opts: [pick(lockG)] }); t.gard = 0; }
     if (lockM.length && t.god >= need('god')) { r.pending.push({ k: 'god', opts: [pick(lockM)] }); t.god = 0; }
-    if (t.map >= TRACKS.map) { t.map = 0; if (r.mapLv < 4) { r.mapLv++; r.news.push(L('🗺️ Cartes plus sauvages : niveau {n} — {d}', { n: r.mapLv, d: I18N.mapLevel(r.mapLv) })); } }
-    if (t.ev >= TRACKS.ev) { t.ev = 0; if (r.evChance < 100) { r.evChance += 25; r.news.push(L('🎲 Chance d’événement : {e} %', { e: r.evChance })); } }
+    const nB = need('map', r); // (le même pour les événements)
+    if (t.map >= nB) { t.map = 0; if (r.mapLv < 4) { r.mapLv++; r.news.push(L('🗺️ Cartes plus sauvages : niveau {n} — {d}', { n: r.mapLv, d: I18N.mapLevel(r.mapLv) })); } }
+    if (t.ev >= nB) { t.ev = 0; if (r.evChance < 100) { r.evChance += 25; r.news.push(L('🎲 Chance d’événement : {e} %', { e: r.evChance })); } }
   }
   function grantWin(r, mode, s) {
     // exploits
@@ -516,7 +543,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('evoTitle').textContent = L('Que veux-tu faire avancer ?');
     $('evoSub').textContent = pd.groups.length > 1 ? L('Choisis une chose dans chaque groupe : elle avance de +{n}.', { n: pd.amt }) : L('Choisis ce qui avance de +{n}.', { n: pd.amt });
     $('evos').innerHTML = pd.groups.map((g, gi) => `<div class="tgrp"><span class="tgl">${gi === 0 && g.includes('gard') ? L('Ta réserve') : L('Le terrain')}</span>${g.map(k => {
-      const v = r.t[k] || 0, mx = need(k), nv = Math.min(mx, v + pd.amt);
+      const v = r.t[k] || 0, mx = need(k, r), nv = Math.min(mx, v + pd.amt);
       return `<button class="evo tch" data-k="${n++}" data-g="${gi}" data-t="${k}"><span class="tic">${TRACK_IC[k]}</span><b>${trackName(k)}</b><p>${trackHint(r, k)}</p>
         <div class="meter"><i style="width:${100 * v / mx}%"></i><i class="plus" style="left:${100 * v / mx}%;width:${100 * (nv - v) / mx}%"></i></div><small>${fmt1(v)} → ${fmt1(nv)}/${mx}${nv >= mx ? ' ✨' : ''}</small></button>`;
     }).join('')}</div>`).join('');
@@ -571,7 +598,9 @@ const isSh = id => !!T[E.TI[id]].fac;
   // handicaps qu'on peut se choisir dans un « Défi choisi » (+ ceux des Ombres si tu joues l'armée des Ombres)
   const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
   // la mesure du record et les points qu'elle rapporte
-  function recInfo(G, goal) {
+  // points de défi : 5 fois moins qu'avant (2 à 40 par défi)
+  function recInfo(G, goal) { const r = recRaw(G, goal); r.score = Math.round(r.score / 5); return r; }
+  function recRaw(G, goal) {
     const s = G.s, st = G.st, me = G.me, win = s.winner === me && !s.long, myT = Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2);
     const lost = s.lost[me][0] + s.lost[me][1] + s.lost[me][2], kills = s.lost[1 - me][0] + s.lost[1 - me][1] + s.lost[1 - me][2];
     switch (goal) {
@@ -829,7 +858,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (hs.includes('blesse')) s.lost[0][1] = 1;
     if (hs.includes('aube')) s.dawn = 80; // 60 tours : 34 % de victoires seulement (mesuré), 80 : 41 %
     if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(oGards)], 1);
-    if (hs.includes('invasion4')) s.invN = 4;
+    if (hs.includes('invasion4')) s.invN = 5;
     if (hs.includes('sansombre')) s.pool[E.TI.os] = 0;
     if (hs.includes('veilleurs')) {
       const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2, have = [...Array(g.N).keys()].filter(q => g.spec[q] === 5 && half(q)).length;
@@ -852,6 +881,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     if (pre.mana) s.mana = [pre.mana, pre.mana];
     markSeenState(s);
+    if (pre.ctl ? pre.ctl.includes('bot') : true) markSeen(['bot:' + (pre.level || 'normal'), pre.mode !== 'daily' && pre.perso && 'perso:' + pre.perso]);
     G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, edge: ['normal', 'hard', 'boss'].includes(pre.mode) ? pre.edge || 0 : 0, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
@@ -895,9 +925,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     else if (G.edge) for (const x of edgeRules(G.edge)) out.push(`🎚️ ${x}`);
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     if (cer >= 3) for (const f of fardeaux(cer)) out.push(`⚖️ ${fardeauText(f, cer)}`);
-    if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
-    if (s.fac && [0, 1].some(p => E.gNeed(s, p) === 5)) out.push(`🌑 ${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).')}`);
-    else if (s.fac) out.push(`🌑 ${L('Persos des Ombres : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
+    if (!s.boss && !s.goal) out.push(`🏁 ${L('Invasion : avoir 4 persos dans la zone de placement adverse = victoire.')}`);
+    if (s.fac && [0, 1].some(p => E.gNeed(s, p) === 5)) out.push(`🌑 ${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}`);
+    if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Persos des Ombres : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
     return out.length ? `<h3>📜 ${L('Règles de cet affrontement')}</h3><ul class="rules">${out.map(x => `<li>${x}</li>`).join('')}</ul>` : '';
   }
   function enterGame() {
@@ -2048,7 +2078,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const i = E.TI[id], t = T[i];
       if (!SEEN.has(id)) { const ex = EXPLOITS.find(x => x.piece === id); return `<div class="ccard locked"><span class="cic">❔</span><div class="txt"><b>???</b> <span class="tag2">${catName(t.cat)}</span>${ex ? `<span class="tag2 gold">🏅 ${exploitText(ex.id)}</span>` : ''}<p>${L('À découvrir : tu le verras en jouant.')}</p></div></div>`; }
       const inRun = r ? (r.gods.includes(id) || r.gards.includes(id) || id === 's') : null;
-      const start = E.START_M.includes(id) || E.START_G.includes(id) || E.SH_START_M.includes(id) || E.SH_START_G.includes(id) || id === 's' || id === 'os';
+      const start = id === 's' || id === 'os'; // les soldats sont toujours là ; les autres persos de départ sont tirés au hasard
       const dlcTag = T[i].dlc ? ` <span class="tag2 dlc">🌊 ${L('Les Abysses')}</span>` : T[i].fac || E.SH_BOSSES.includes(id) ? ` <span class="tag2 dlc">🌑 ${L('Les Ombres')}</span>` : E.BOSSES_DLC.includes(id) || id === 'bx' ? ` <span class="tag2 dlc">🌊 ${L('Les Abysses')}</span>` : '';
       const ex = EXPLOITS.find(x => x.piece === id);
       return `<div class="ccard">${token(i, t.cat === 'B' || id === 'mi' ? 1 : 0)}<div class="txt"><b>${tn(i)}</b>${t.cost ? ` <span class="cost">💎 ${t.cost}</span>` : ''}
@@ -2065,6 +2095,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let i = 0; i < 80; i++) { const g = E.makeMap(kind === 'classique' ? 'classique' : 'aleatoire', kind === 'classique' ? 0 : 4); if (g.info && g.info.kinds.length === 1 && g.info.kinds[0] === kind) return g; }
     return null;
   }
+  const lockCard = () => `<div class="ccard locked"><span class="cic">❔</span><div class="txt"><b>???</b><p>${L('À découvrir : tu le verras en jouant.')}</p></div></div>`;
+  const seenCard = (key, html) => SEEN.has(key) ? html : lockCard();
   const card = (ic, title, txt, extra) => `<div class="ccard">${ic ? `<span class="cic">${ic}</span>` : ''}<div class="txt"><b>${title}</b>${extra || ''}<p>${txt}</p></div></div>`;
   const textBlock = h => `<div class="tblock">${h}</div>`;
   // chaque onglet = une liste de blocs ; on les répartit en pages selon la place
@@ -2077,24 +2109,25 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (tab === 'ombres') return army('🌑', E.SH_M, E.SH_G, 'os', L('Dieux des Ombres'), L('Gardes des Ombres'), L('Soldat des Ombres'));
     if (tab === 'boss') return [textBlock(`<p>${L('Tous les 10 affrontements, un boss t’attend avec son armée. Personne ne recrute : tu choisis ton équipe avant le combat. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]
       .concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
-    if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
+    if (tab === 'evenements') return E.EVENTS.map(e => seenCard('ev:' + e.id, card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : '')))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
-      .concat(E.GOALS.map(gl => card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id))));
-    if (tab === 'cartes') return E.MAPS.map(([id, , lv]) => { const g = exampleMap(id); return `<div class="ccard"><div class="txt"><b>${I18N.mapKind(id)}</b> <span class="tag2">${L('niveau {n}', { n: lv })}</span><p>${I18N.mapKindDesc(id)}</p></div>${g ? mapPreview(g) : ''}</div>`; })
-      .concat([1, 2].concat(dlcOn('abysses') ? [3] : [], dlcOn('ombres') ? [4, 5, 6] : []).map(k => card(k === 3 ? currentSvg(4) : SPEC_SVG[k], I18N.specName(k), I18N.specDesc(k), ` <span class="tag2">${L('case spéciale')}</span>`)))
+      .concat(E.GOALS.map(gl => seenCard('goal:' + gl.id, card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id)))));
+    if (tab === 'cartes') return E.MAPS.map(([id, , lv]) => { if (!SEEN.has('map:' + id)) return lockCard(); const g = exampleMap(id); return `<div class="ccard"><div class="txt"><b>${I18N.mapKind(id)}</b> <span class="tag2">${L('niveau {n}', { n: lv })}</span><p>${I18N.mapKindDesc(id)}</p></div>${g ? mapPreview(g) : ''}</div>`; })
+      .concat([1, 2].concat(dlcOn('abysses') ? [3] : [], dlcOn('ombres') ? [4, 5, 6] : []).map(k => seenCard('sp:' + k, card(k === 3 ? currentSvg(4) : SPEC_SVG[k], I18N.specName(k), I18N.specDesc(k), ` <span class="tag2">${L('case spéciale')}</span>`))))
       .concat([textBlock(`<h3>${L('Niveaux de sauvagerie')}</h3><ul>${[0, 1, 2, 3, 4].map(n => `<li><b>${L('Niveau {n}', { n })}</b> : ${I18N.mapLevel(n)}</li>`).join('')}</ul>`)]);
-    if (tab === 'decors') return themeList().map(t => `<div class="ccard"><div class="txt"><b>${I18N.themeName(t)}</b>${t === theme ? ` <span class="tag2 on">${L('en ce moment')}</span>` : ''}<div class="themeprev" data-theme="${t}"></div></div></div>`);
-    if (tab === 'bots') return [textBlock(`<p>${L('Dans tes parties, tu affrontes toujours le bot stratège. Pour que ce soit jouable, il a des désavantages (ton avantage, de 0 à 6) : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Les autres bots servent aux duels et aux défis.')}</p>`)].concat(['facile', 'normal', 'impossible'].map(lv => card(LEVELIC[lv], levelName(lv), ({ facile: L('Joue souvent au hasard et rate des prises. Parfait pour apprendre.'), normal: L('Regarde 2 coups à l’avance, voit les menaces immédiates.'), impossible: L('Le plus fort : il calcule plusieurs coups à l’avance et lit les menaces, en environ 1,5 seconde. Il n’a aucun avantage, et on peut le battre, même en difficile.') })[lv])))
+    if (tab === 'decors') return themeList().map(t => !SEEN.has('th:' + t) ? lockCard() : `<div class="ccard"><div class="txt"><b>${I18N.themeName(t)}</b>${t === theme ? ` <span class="tag2 on">${L('en ce moment')}</span>` : ''}<div class="themeprev" data-theme="${t}"></div></div></div>`);
+    if (tab === 'bots') return [textBlock(`<p>${L('Dans tes parties, tu affrontes toujours le bot stratège. Pour que ce soit jouable, il a des désavantages (ton avantage, de 0 à 6) : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Les autres bots servent aux duels et aux défis.')}</p>`)].concat(['facile', 'normal', 'impossible'].map(lv => !SEEN.has('bot:' + lv) ? lockCard() : card(LEVELIC[lv], levelName(lv), ({ facile: L('Joue souvent au hasard et rate des prises. Parfait pour apprendre.'), normal: L('Regarde 2 coups à l’avance, voit les menaces immédiates.'), impossible: L('Le plus fort : il calcule plusieurs coups à l’avance et lit les menaces, en environ 1,5 seconde. Il n’a aucun avantage, et on peut le battre, même en difficile.') })[lv])))
       .concat([textBlock(`<h3>${L('Caractères')}</h3><p class="muted">${L('À chaque affrontement, le bot reçoit un caractère tiré au hasard. Il change sa façon de jouer, pas sa force.')}</p>`)])
-      .concat(Object.keys(E.PERSOS).map(id => card('🎭', I18N.persoName(id), I18N.persoDesc(id))))
+      .concat(Object.keys(E.PERSOS).map(id => seenCard('perso:' + id, card('🎭', I18N.persoName(id), I18N.persoDesc(id)))))
       .concat([cercleBlock()]);
     if (tab === 'progression') return [
       textBlock(`<p>${L('Avant chaque affrontement, tu choisis : <b>normal</b> ou <b>difficile</b> (avec 2 handicaps tirés au hasard).')} ${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
         <ul><li><b>${L('Nouveau garde')}</b> : ${L('{a} points : un garde tiré au hasard parmi ceux à découvrir.', { a: need('gard') })}</li>
         <li><b>${L('Nouveau dieu')}</b> : ${L('{a} points : un dieu tiré au hasard parmi ceux à découvrir.', { a: need('god') })}</li>
-        <li><b>${L('Carte plus sauvage')}</b> : ${L('{a} points par niveau (niveau 0 à 4).', { a: TRACKS.map })}</li>
-        <li><b>${L('Plus d’événements')}</b> : ${L('+25 % tous les {a} points.', { a: TRACKS.ev })}</li>
-        <li><b>${L('Points')}</b> : ${L('victoire normale +1, victoire difficile +2, défaite +½ sur tes derniers choix. Quand il ne reste qu’une barre dans un groupe, elle avance toute seule.')}</li></ul>`),
+        <li><b>${L('Carte plus sauvage')}</b> : ${L('un niveau de plus (niveau 0 à 4).')}</li>
+        <li><b>${L('Plus d’événements')}</b> : ${L('+25 % de chance d’un événement.')}</li>
+        <li><b>${L('Points')}</b> : ${L('victoire normale +1, victoire difficile +2, défaite +½ sur tes derniers choix. Quand il ne reste qu’une barre dans un groupe, elle avance toute seule.')}</li>
+        <li>${L('Les points demandés pour la carte et les événements s’ajustent : les deux groupes arrivent au bout en même temps.')}</li></ul>`),
       cercleBlock(),
       textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')} ${L('Récompense : un perso tiré au hasard parmi tous ceux à découvrir.')}</p>`),
       textBlock(`<h3>${L('Exploits')}</h3><p class="muted">${L('Ces persos ne se débloquent que par un exploit :')}</p><ul>${EXPLOITS.map(x => `<li><b>${tn(E.TI[x.piece])}</b> : ${exploitText(x.id)}</li>`).join('')}</ul>`),
@@ -2112,10 +2145,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     return [
       textBlock(`<ul>
         <li>${L('<b>Une partie</b> est une suite d’<b>affrontements</b> contre un bot dont tu choisis l’intelligence. Le temps est infini.')}</li>
-        <li>${L('Au début : <b>3 dieux et 4 sortes de gardes</b> dans la réserve, le plateau classique, aucun événement. Tes victoires débloquent le reste (voir Progression).')}</li>
+        <li>${L('Au début : <b>3 dieux et 4 sortes de gardes tirés au hasard</b> dans la réserve (d’autres à chaque nouveau Cercle), le plateau classique, aucun événement. Tes victoires débloquent le reste (voir Progression).')}</li>
         <li>${L('Chaque joueur commence avec <b>100 mana</b>. Les dieux dépensent du mana pour lancer leur sort.')}</li>
         <li>${L('À ton tour, <b>une seule action</b> : <b>recruter</b> 1 perso de la réserve commune, <b>placer</b> 1 perso recruté dans ta zone de placement, ou <b>activer</b> 1 de tes persos sur la carte.')}</li></ul>`),
-      textBlock(`<ul><li>${L('<b>But</b> : tuer <b>tous les dieux</b> adverses, ou <b>4 gardes</b> adverses (sauf avec l’Objectif mystère).')}</li>
+      textBlock(`<ul><li>${L('<b>But</b> : tuer <b>tous les dieux</b> adverses, tuer <b>4 gardes</b> adverses, ou avoir <b>4 persos</b> dans la zone de placement adverse (l’invasion). Contre un boss, il faut le tuer ; l’Objectif mystère remplace le but.')}</li>
         <li>${L('Seuls les <b>soldats</b> ont un sens : ils avancent vers l’adversaire. Les gardes vont dans tous les sens ; les dieux ne bougent pas.')}</li>
         <li>${L('On prend un ennemi en arrivant sur sa case. Les sorts de zone ne tuent que des ennemis.')}</li>
         <li>${L('Celui qui commence est <b>tiré au sort</b> ; l’autre recrute un perso de plus à son premier tour. Tu peux <b>annuler ton dernier coup</b> avec ↶. Après la fin, revenir en arrière sert à t’entraîner : le vrai résultat est gardé.')}</li></ul>`),
@@ -2125,7 +2158,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <li>${L('<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.')}</li>
         <li>${L('<b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les sorts de zone ont des boutons sous la carte (survole-les pour voir la zone).')}</li>
         <li>${L('Touche un perso ou une case spéciale pour voir ce qu’il fait.')}</li></ul>`),,
-      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4), mais son invasion demande 4 persos (au lieu de 3).')}</p>`)] : [])
+      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}</p>`)] : [])
     ];
   }
   const previews = [];
@@ -2182,21 +2215,21 @@ const isSh = id => !!T[E.TI[id]].fac;
   const DUEL = Object.assign({ opp: 'normal', res: 'start', map: '0', ev: 'none', boss: 'non', mana: 100, first: 'rnd', fac: '0', ofac: '0', cur: 'non' }, lsGet('duel', {}));
   function duelSeg(key, opts) { return `<div class="seg" data-duel="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(DUEL[key]) === String(v) ? 'sel' : ''}">${l}</button>`).join('')}</div>`; }
   function renderDuel() {
-    const online = DUEL.opp === 'net';
+    const online = DUEL.opp === 'net', test = DUEL.opp === 'deux'; // partie de test : on joue les deux camps, sans boss ni mana au choix
     $('duelBox').innerHTML = `<h2 class="title">⚔️ ${L('Duel')}</h2><p class="muted center">${L('Un affrontement libre, avec tes réglages. Il ne compte pas pour tes parties, mais tes persos gagnent leurs points.')}</p>
       <div class="dopts">
-        <div class="dopt"><b>${L('Adversaire')}</b>${duelSeg('opp', [['facile', '🌱 ' + L('Bot facile')], ['normal', '⚔️ ' + L('Bot normal')], ['impossible', '🧠 ' + L('Bot stratège')], ['deux', '👥 ' + L('À deux (même écran)')], ['net', '🌐 ' + L('En ligne')]])}</div>
+        <div class="dopt"><b>${L('Adversaire')}</b>${duelSeg('opp', [['facile', '🌱 ' + L('Bot facile')], ['normal', '⚔️ ' + L('Bot normal')], ['impossible', '🧠 ' + L('Bot stratège')], ['deux', '🧪 ' + L('Partie de test')], ['net', '🌐 ' + L('En ligne')]])}</div>
         ${dlcOn('ombres') ? `<div class="dopt"><b>${L('Ton armée')}</b>${duelSeg('fac', [['0', '☀️ ' + L('Lumière')], ['1', '🌑 ' + L('Ombres')]])}</div>
         <div class="dopt"><b>${L('Armée adverse')}</b>${duelSeg('ofac', [['0', '☀️ ' + L('Lumière')], ['1', '🌑 ' + L('Ombres')]])}</div>` : ''}
         <div class="dopt"><b>${L('Persos')}</b>${duelSeg('res', [['start', L('Ceux du départ')], ['rnd', L('Au hasard')], ['all', L('Tous')]])}</div>
         <div class="dopt"><b>${L('Carte')}</b>${duelSeg('map', [['0', L('Classique')], ['1', L('Niveau {n}', { n: 1 })], ['2', L('Niveau {n}', { n: 2 })], ['3', L('Niveau {n}', { n: 3 })], ['4', L('Niveau {n}', { n: 4 })], ['rnd', L('Au hasard')]])}</div>
         ${dlcOn('abysses') ? `<div class="dopt"><b>${L('Courants')}</b>${duelSeg('cur', [['non', L('Non')], ['oui', L('Oui')]])}</div>` : ''}
         <div class="dopt"><b>${L('Événement')}</b>${duelSeg('ev', [['none', L('Aucun')], ['rnd', L('Au hasard')], ['objectif', I18N.evName('objectif')]])}</div>
-        <div class="dopt"><b>${L('Boss')}</b>${duelSeg('boss', [['non', L('Non')], ['oui', L('Oui (au hasard, dans le camp adverse)')]])}</div>
-        <div class="dopt"><b>${L('Mana de départ')}</b>${duelSeg('mana', [[100, '100'], [150, '150'], [200, '200']])}</div>
-      </div>
+        ${test ? '' : `<div class="dopt"><b>${L('Boss')}</b>${duelSeg('boss', [['non', L('Non')], ['oui', L('Oui (au hasard, dans le camp adverse)')]])}</div>
+        <div class="dopt"><b>${L('Mana de départ')}</b>${duelSeg('mana', [[100, '100'], [150, '150'], [200, '200']])}</div>`}
+      </div>${test ? `<p class="muted center">${L('Partie de test : tu joues les deux camps sur cet écran, pour essayer des persos et des coups.')}</p>` : ''}
       ${online ? `<div class="netbox"><button class="big" id="btnHost">${L('Créer une salle')}</button><span class="or">${L('ou')}</span><input id="joinCode" maxlength="4" placeholder="${L('Code')}"><button class="ghost" id="btnJoin">${L('Rejoindre')}</button></div><p class="center" id="netStatus">${L('Le joueur qui crée la salle choisit les réglages.')}</p>`
-        : `<div class="menu-actions"><button class="big" id="btnDuelGo">${L('Commencer le duel')}</button></div>`}
+        : `<div class="menu-actions"><button class="big" id="btnDuelGo">${test ? L('Commencer la partie de test') : L('Commencer le duel')}</button></div>`}
       <div class="menu-actions"><button class="ghost" id="btnDuelBack">${L('Retour')}</button></div>`;
     $('duelBox').querySelectorAll('[data-duel]').forEach(seg => seg.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -2212,7 +2245,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function openDuel() { cur = -1; myCercle = 0; renderDuel(); show('duel'); }
   // prépare un duel ; en ligne, guestName = nom de l'ami qui a rejoint
   function startDuel(guestName) {
-    const o = DUEL, bot = ['facile', 'normal', 'impossible'].includes(o.opp), online = o.opp === 'net';
+    const o = DUEL, bot = ['facile', 'normal', 'impossible'].includes(o.opp), online = o.opp === 'net', test = o.opp === 'deux';
     const gods = o.res === 'all' ? allM() : o.res === 'rnd' ? shuffle(allM()).slice(0, 5) : E.START_M.slice();
     const gards = o.res === 'all' ? allG() : o.res === 'rnd' ? shuffle(allG()).slice(0, 7) : E.START_G.slice();
     const shM = o.res === 'all' ? E.SH_M : o.res === 'rnd' ? shadowOf(gods) : E.SH_START_M, shG = o.res === 'all' ? E.SH_G : o.res === 'rnd' ? shadowOf(gards) : E.SH_START_G;
@@ -2224,7 +2257,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const dmap = E.makeMap(mapLv === 0 && !cur2 ? 'classique' : 'aleatoire', Math.max(mapLv, cur2 ? 2 : 0), cur2);
     if (myF || opF) E.addShadowSpecs(dmap);
     pre = { mode: 'duel', level: bot ? o.opp : 'normal', ev, map: dmap, first, bet: [null, null],
-      perso: bot ? pick(Object.keys(E.PERSOS)) : null, gods, gards, boss: o.boss === 'oui' ? pick(bossList()) : null, mana: o.mana,
+      perso: bot ? pick(Object.keys(E.PERSOS)) : null, gods, gards, boss: o.boss === 'oui' && !test ? pick(bossList()) : null, mana: test ? 100 : o.mana,
       fac: myF || opF ? [myF, opF] : null, shM, shG, theme: cur2 ? 'abysses' : myF || opF ? 'nuit' : null,
       ctl: bot ? ['me', 'bot'] : online ? ['me', 'net'] : ['me', 'me'], names: online ? [pseudo(), guestName || L('Ami')] : null };
     if (pre.ev === 'objectif') pre.goal = pick(E.GOALS).id;
@@ -2432,7 +2465,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres et le Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
       ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir'),
-        L('Sa façon de gagner : avoir 3 persos dans la zone de placement adverse'), L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
+        L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
         L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'), L('5 handicaps difficiles propres aux parties des Ombres'),
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),
         L('Les statistiques : points de tes persos, réussite de tes affrontements')],
@@ -2785,12 +2818,12 @@ const isSh = id => !!T[E.TI[id]].fac;
     { id: 'collection', ic: '🗝️', t: () => RUNS.some(r => r && runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x))) },
     { id: 'touche', ic: '🎭', t: d => E.ALL_M.concat(E.ALL_G, ['s']).every(id => d.st.used[id]) },
     { id: 'talents', ic: '✨', t: d => d.daily.total >= TALENTS[TALENTS.length - 1].pts },
+    { id: 'invasion', ic: '🏁', g: c => c.win && /^Invasion/.test(c.s.why || '') },
     { id: 'enligne', ic: '🌐', g: c => !!c.G.net },
     { id: 'courants', ic: '🌊', dlc: 'abysses', g: c => c.win && !!c.s.g.cdir },
     { id: 'dieudechu', ic: '👑', dlc: 'abysses', g: c => c.win && !!c.s.boss && c.s.boss.kind === 'bx' },
     { id: 'ascension', ic: '📖', dlc: 'abysses', t: () => storyDone() >= STORY.length },
     { id: 'semaine', ic: '📆', dlc: 'ombres', t: () => Object.keys(seasonData()).length >= 1 },
-    { id: 'invasion', ic: '🌑', dlc: 'ombres', g: c => c.win && /^Invasion/.test(c.s.why || '') },
     { id: 'lumiere', ic: '☀️', dlc: 'ombres', g: c => c.win && !!c.s.boss && E.SH_BOSSES.includes(c.s.boss.kind) },
     { id: 'aube', ic: '🌅', dlc: 'ombres', g: c => c.win && !!c.s.dawn },
   ];
@@ -2817,7 +2850,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     courants: [L('Porté par les flots'), L('Gagne sur une carte avec des courants.')],
     dieudechu: [L('Le Dieu déchu'), L('Bats le Dieu déchu, à la fin de L’Ascension.')],
     ascension: [L('L’Ascension'), L('Termine l’histoire.')],
-    invasion: [L('Envahisseur'), L('Gagne par invasion avec l’armée des Ombres.')],
+    invasion: [L('Envahisseur'), L('Gagne par invasion : 4 persos dans la zone de placement adverse.')],
     lumiere: [L('Briseur de lumière'), L('Bats un boss de la Lumière.')],
     aube: [L('Avant l’aube'), L('Gagne avec le handicap « L’aube arrive ».')],
     semaine: [L('Chaque semaine'), L('Joue un défi de la semaine.')],
