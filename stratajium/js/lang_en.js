@@ -987,6 +987,37 @@
     "Les dieux ne bougent pas mais lancent des <b>sorts</b> qui coûtent du mana (💎, le nombre bleu). Lis sa fiche, puis <b>active ton dieu</b> pour essayer.": "Gods don’t move but cast <b>spells</b> that cost mana (💎, the blue number). Read its card, then <b>activate your god</b> to try.",
     "Bravo, tu connais l’essentiel ! Maintenant <b>bats le bot facile</b> : tue ses dieux posés ou 4 de ses gardes. Le Codex (📖 en haut) explique chaque perso.": "Well done, you know the basics! Now <b>beat the easy bot</b>: kill its placed gods or 4 of its guards. The Codex (📖 at the top) explains every unit.",
   });
+  Object.assign(D.ui, {
+    "Tu commences avec 40 mana de moins": "You start with 40 less mana",
+    "L’adversaire commence avec 40 mana de plus": "The opponent starts with 40 more mana",
+    "Le bot commence avec {n} mana de moins": "The bot starts with {n} less mana",
+    "Le bot ne peut pas activer de perso pendant ses 2 premiers tours": "The bot can’t activate units during its first 2 turns",
+    "Le bot ne peut pas placer de perso pendant ses 2 premiers tours": "The bot can’t place units during its first 2 turns",
+    "Le bot commence avec un garde déjà perdu": "The bot starts with one guard already lost",
+    "Avantage : les désavantages du bot. Un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite.": "Advantage: the bot’s handicaps. One less after each win (two on hard), one more after each loss.",
+    "Avantage {n}/{m}": "Advantage {n}/{m}",
+    "Tu commences avec un avantage de {n}/{m}": "You start with an advantage of {n}/{m}",
+    "Le bot joue toujours au mieux, mais il a des désavantages qui suivent ton niveau : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Quand tu as tout débloqué, tu montes au Cercle suivant : tout recommence, avec moins d’avantage puis des fardeaux.": "The bot always plays its best, but it has handicaps that follow your level: one less after each win (two on hard), one more after each loss. When you’ve unlocked everything, you move up to the next Circle: everything starts over, with less advantage and then burdens.",
+    "Désavantages du bot": "Bot’s handicaps",
+    "Aucun : le bot joue à pleine force.": "None: the bot plays at full strength.",
+    "Reprendre l’affrontement": "Resume the battle",
+    "🎚️ Tu progresses : le bot a moins de désavantages ({n}/{m}).": "🎚️ You’re improving: the bot has fewer handicaps ({n}/{m}).",
+    "🎚️ Le bot reçoit un désavantage de plus ({n}/{m}).": "🎚️ The bot gets one more handicap ({n}/{m}).",
+    "Revoir son coup": "See its move again",
+    "vert : où il peut aller · rouge : qui il peut tuer": "green: where it can go · red: who it can kill",
+    "Dans tes parties, tu affrontes toujours le bot stratège. Pour que ce soit jouable, il a des désavantages (ton avantage, de 0 à 6) : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Les autres bots servent aux duels et aux défis.": "In your games, you always face the strategist bot. To keep it playable, it has handicaps (your advantage, from 0 to 6): one less after each win (two on hard), one more after each loss. The other bots are for duels and challenges.",
+    "Mode test": "Test mode",
+    "Ajoute un bouton « Gagner (test) » en haut de l’écran de jeu, pour avancer plus vite. Pas dans les défis ni les duels.": "Adds a “Win (test)” button at the top of the game screen, to progress faster. Not in challenges or duels.",
+    "Gagner (test)": "Win (test)",
+    "Victoire de test.": "Test win.",
+  });
+  Object.assign(D.ui, {
+    "L’adversaire commence avec 100 mana de plus": "The opponent starts with 100 more mana",
+    "Tu ne peux pas activer de perso pendant tes 3 premiers tours": "You can’t activate units during your first 3 turns",
+  });
+  Object.assign(D.ui, {
+    "Le bot commence avec {n} garde(s) déjà perdu(s)": "The bot starts with {n} guard(s) already lost",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -1014,3 +1045,16 @@ I18N.DICT.en.T.sp[1] = "Boss of the Light, 5 life points. While 2 of its units a
 I18N.DICT.en.T.bp[1] = "Boss, 2 life points, but it rises once from its ashes with 2 life points, burning your units next to it. Every other turn, its flames kill 2 of your units 2 squares away from it.";
 I18N.DICT.en.T.bt[1] = "Boss, 5 life points. At the end of each of its side’s turns, it moves one square towards your nearest unit; every other turn, it crushes one of your units next to it.";
 I18N.DICT.en.T.n6[1] = "Moves up to 3 straight steps through empty squares, turning as it likes. It only captures an enemy right next to it (straight).";
+// descriptions plus claires (2026-10-30)
+I18N.DICT.en.T.g4[1] = "Takes 1 step in any direction. If there are units in front of it, it pushes them all one square (a unit pushed off the map or into a hole dies). Then it can take a 2nd step straight ahead, to an empty square or onto an enemy (not a god) to kill it.";
+I18N.DICT.en.T.g5[1] = "Takes up to 3 steps in a row. Each step is either straight (up, down, left, right) to an empty square, or diagonal onto an enemy to kill it.";
+I18N.DICT.en.T.g6[1] = "May first take 1 step, then it spins around: all enemies on the 8 squares around it die.";
+I18N.DICT.en.T.c3[1] = "Vanishes and reappears on a square next to a soldier (of any side) or to one of your units. If there is an enemy on that square, it kills it.";
+I18N.DICT.en.T.c5[1] = "Jumps far: it lands on a square more than 6 squares away (rows plus columns). If an enemy soldier is on that square, it kills it; an enemy guard only if it is more than 8 squares away; never a god.";
+I18N.DICT.en.T.c8[1] = "Takes 1 step in any direction (killing the enemy if there is one). Or jumps over a whole line of units next to each other and lands on the empty square right after.";
+I18N.DICT.en.T.n1[1] = "Lands on an empty square 3 squares away or less. On arrival, enemy soldiers next to it die, and enemy guards next to it can’t be activated on the next turn.";
+I18N.DICT.en.T.n4[1] = "Shoots its web straight (up, down, left, right) at the first enemy 4 squares away or less: a soldier dies; a guard or a god is stuck and can’t be activated for 2 turns. Or takes 1 diagonal step (killing the enemy if there is one).";
+I18N.DICT.en.T.n5[1] = "Grabs an enemy (not a god) 1 or 2 squares away in a straight or diagonal line and throws it 2 squares further in the same direction: it dies if it goes off the map, falls into a hole or lands on another unit. Or takes 1 step (killing the enemy if there is one).";
+I18N.DICT.en.T.nl[1] = "Takes 1 straight step (up, down, left, right), killing the enemy if there is one. Or, without moving, kills an enemy (not a god) 2 or 3 squares straight ahead. When it dies, a Shadow (soldier) appears next to it.";
+I18N.DICT.en.T.nm[1] = "Takes 1 step in any direction (killing the enemy if there is one). Or jumps to the mirror square on the other side of the map, in its row or its column (killing the enemy there, not a god).";
+I18N.DICT.en.T.ob[1] = "Teleports to an empty dark square 4 squares away or less. Or, without moving, kills an enemy next to it.";

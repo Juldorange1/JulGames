@@ -94,7 +94,7 @@
     `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="52" rx="30" ry="38" fill="#2a1450" stroke="#9a6bff" stroke-width="7"/><ellipse cx="50" cy="52" rx="18" ry="25" fill="none" stroke="#5ad1ff" stroke-width="5" stroke-dasharray="12 8"/><circle cx="50" cy="52" r="7" fill="#d9c6ff"/></svg>`];
 
   // ---------- réglages ----------
-  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true }, lsGet('reglages', {}));
+  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true, test: false }, lsGet('reglages', {}));
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
@@ -189,13 +189,14 @@ const isSh = id => !!T[E.TI[id]].fac;
   const trackName = k => ({ gard: L('Nouveau garde'), god: L('Nouveau dieu'), map: L('Carte plus sauvage'), ev: L('Plus d’événements') })[k];
   const trackHint = (r, k) => k === 'gard' ? L('Un garde de plus dans ta réserve, au choix.') : k === 'god' ? L('Un dieu de plus dans ta réserve, au choix.')
     : k === 'map' ? L('Niveau {n} : {d}', { n: r.mapLv + 1, d: I18N.mapLevel(r.mapLv + 1) }) : L('+25 % de chance d’un événement à chaque affrontement.');
-  const HARD = ['mana', 'riche', 'avance', 'sauvage', 'evenement', 'dieupris', 'soldats', 'pauvre', 'silence', 'geole', 'ronces', 'gardespris', 'blesse'];
+  // handicaps difficiles, mesurés sur 1 440 parties : les « ronces » aidaient, la « geôle » ne gênait pas, la carte ou un événement n'étaient pas des handicaps
+  const HARD = ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'pauvre', 'silence', 'gardespris', 'blesse'];
   const hardName = id => ({
-    mana: L('Tu commences avec 60 mana au lieu de 100'), riche: L('L’adversaire commence avec 140 mana'),
+    mana: L('Tu commences avec 40 mana de moins'), riche: L('L’adversaire commence avec 100 mana de plus'),
     avance: L('L’adversaire a déjà un garde posé'), premier: L('L’adversaire joue en premier'),
     sauvage: L('Carte plus sauvage d’un niveau'), evenement: L('Un événement à coup sûr'), dieupris: L('L’adversaire a déjà recruté un dieu'),
     soldats: L('L’adversaire commence avec 2 soldats déjà posés'), pauvre: L('La réserve commune n’a qu’un garde de chaque sorte'),
-    silence: L('Tu ne peux pas activer de perso pendant tes 2 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
+    silence: L('Tu ne peux pas activer de perso pendant tes 3 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
     ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
     blesse: L('Tu commences avec un garde déjà perdu'),
     aube: L('L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
@@ -204,7 +205,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   })[id];
   // handicaps qui n'existent que dans les parties des Ombres (DLC)
   const SH_HARD = ['aube', 'paladins', 'invasion4', 'veilleurs']; // (« sansombre » toucherait aussi l'adversaire, qui joue les Ombres)
-  const SH_HARD_MIX = ['mana', 'riche', 'sauvage', 'silence', 'geole', 'ronces', 'blesse'];
+  const SH_HARD_MIX = ['mana', 'riche', 'silence'];
   // exploits : certains persos ne se débloquent QUE par un exploit (dans la partie en cours)
   const EXPLOITS = [
     { id: 'colline', piece: 'dr', test: s => s.goal === 'colline' },
@@ -255,7 +256,23 @@ const isSh = id => !!T[E.TI[id]].fac;
   // Cercle 0 = bot facile, 1 = normal, 2 = stratège ; ensuite chaque Cercle ajoute un fardeau, puis +1 point de vie aux boss par Cercle.
   // Quand tout est débloqué, on peut monter au Cercle suivant : la réserve repart du début (débloquer à l'infini).
   const FARDEAUX = ['pv', 'mana', 'carte', 'hard3', 'event', 'boss7', 'soldat'];
-  const cercleBot = c => c <= 0 ? 'facile' : c === 1 ? 'normal' : 'impossible';
+  const cercleBot = () => 'impossible'; // dans une partie, le bot joue toujours au mieux (pas de failles faciles à exploiter)
+  // l'avantage : les désavantages du bot. Un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite :
+  // la difficulté suit ton niveau
+  const EDGE_MAX = 6;
+  const startEdge = c => Math.max(0, EDGE_MAX - 2 * c);
+  // mesuré : le mana et les tours bloqués pèsent peu ; les gardes déjà perdus pèsent beaucoup
+  const edgeMana = e => (e >= 1 ? 30 : 0) + (e >= 3 ? 30 : 0);
+  const edgeGuards = e => (e >= 2 ? 1 : 0) + (e >= 4 ? 1 : 0) + (e >= 6 ? 1 : 0);
+  const edgeRules = e => [edgeMana(e) ? L('Le bot commence avec {n} mana de moins', { n: edgeMana(e) }) : '', edgeGuards(e) ? L('Le bot commence avec {n} garde(s) déjà perdu(s)', { n: edgeGuards(e) }) : '',
+    e >= 3 ? L('Le bot ne peut pas activer de perso pendant ses 2 premiers tours') : '', e >= 5 ? L('Le bot ne peut pas placer de perso pendant ses 2 premiers tours') : ''].filter(Boolean);
+  function applyEdge(s, e, b) {
+    s.mana[b] = Math.max(0, s.mana[b] - edgeMana(e));
+    s.lost[b][1] += edgeGuards(e);
+    if (e >= 3) s.noAct[b] = Math.max(s.noAct[b], 2);
+    if (e >= 5) s.noPlace[b] = Math.max(s.noPlace[b], 2);
+  }
+  const edgeBar = e => `<span class="edge" title="${esc(L('Avantage : les désavantages du bot. Un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite.'))}">🎚️ ${L('Avantage {n}/{m}', { n: e, m: EDGE_MAX })}</span>`;
   const fardeaux = c => FARDEAUX.slice(0, Math.max(0, c - 2));
   const hasF = (r, f) => fardeaux(r.cercle).includes(f);
   const bossHpBonus = c => Math.min(3, (c >= 3 ? 1 : 0) + Math.max(0, c - 2 - FARDEAUX.length)); // plafonné : le boss reste toujours battable
@@ -267,17 +284,19 @@ const isSh = id => !!T[E.TI[id]].fac;
   const cercleLabel = c => L('Cercle {n}', { n: c });
   const cercleMax = () => lsGet('cercleMax', 0);
   // ce qui change en montant au Cercle c
-  const cercleNew = c => c <= 2 ? `${LEVELIC[cercleBot(c)]} ${levelName(cercleBot(c))}` : (c - 2 <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 3], c) : fardeauText('pv', c));
+  const cercleNew = c => c <= 2 ? L('Tu commences avec un avantage de {n}/{m}', { n: startEdge(c), m: EDGE_MAX }) : (c - 2 <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 3], c) : fardeauText('pv', c));
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
   const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
   // poids de chaque malus : on n'en cumule jamais trop, pour que l'affrontement reste gagnable en jouant parfaitement
-  const HARD_W = { mana: 2, riche: 2, avance: 1, premier: 1, sauvage: 1, evenement: 1, dieupris: 2, soldats: 1, pauvre: 1, silence: 2, geole: 1, ronces: 1, gardespris: 2, blesse: 3, aube: 2, paladins: 2, invasion4: 1, sansombre: 2, veilleurs: 1 };
+  const HARD_W = { mana: 2, riche: 1, avance: 2, premier: 1, sauvage: 1, evenement: 1, dieupris: 1, soldats: 2, pauvre: 1, silence: 1, geole: 1, ronces: 1, gardespris: 2, blesse: 4, aube: 2, paladins: 2, invasion4: 1, sansombre: 2, veilleurs: 1 };
   function rollHard(r) {
     const n = hasF(r, 'hard3') ? 3 : 2, cap = n === 3 ? 4 : 3; // plus doux : 2 malus légers, ou 3 avec le fardeau du Cercle
     const pool = (r.fac ? SH_HARD.concat(SH_HARD_MIX) : HARD).filter(x => HARD_W[x] < 3); // « garde déjà perdu » est retiré : trop dur
-    for (let t = 0; t < 80; t++) { const h = shuffle(pool).slice(0, n); if (h.reduce((a, x) => a + HARD_W[x], 0) <= cap && (!r.fac || h.some(x => SH_HARD.includes(x)))) return h; }
-    return ['mana', 'sauvage', 'ronces'].slice(0, n);
+    // toujours la même difficulté : la somme des poids vaut exactement le plafond (sinon le plus proche en dessous)
+    let near = null;
+    for (let t = 0; t < 200; t++) { const h = shuffle(pool).slice(0, n), w = h.reduce((a, x) => a + HARD_W[x], 0); if (w > cap || (r.fac && !h.some(x => SH_HARD.includes(x)))) continue; if (w === cap) return h; if (!near || w > near.w) near = { h, w }; }
+    return near ? near.h : ['mana', 'pauvre', 'silence'].slice(0, n);
   }
   const allUnlocked = r => runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
@@ -294,13 +313,13 @@ const isSh = id => !!T[E.TI[id]].fac;
   // les parties des Ombres rencontrent d'abord les 4 boss de la Lumière
   const bossSeqFor = r => (r.fac ? shuffle(E.SH_BOSSES) : []).concat(shuffle(bossList()));
   function newRun(cercle, fac) {
-    const r = { cercle, fac: fac || 0, level: cercleBot(cercle), wins: 0, winsH: 0, losses: 0, news: [], created: Date.now() };
+    const r = { cercle, fac: fac || 0, level: cercleBot(cercle), edge: startEdge(cercle), wins: 0, winsH: 0, losses: 0, news: [], created: Date.now() };
     freshReserve(r);
     if (cercle > cercleMax()) lsSet('cercleMax', cercle);
     return r;
   }
   function ascend(r) {
-    r.cercle++; r.level = cercleBot(r.cercle);
+    r.cercle++; r.level = cercleBot(r.cercle); r.edge = startEdge(r.cercle);
     freshReserve(r);
     if (r.cercle > cercleMax()) lsSet('cercleMax', r.cercle);
     r.news.push(L('Bienvenue au Cercle {n} !', { n: r.cercle }) + '<br>' + L('Nouveau : {x}', { x: cercleNew(r.cercle) }));
@@ -312,12 +331,13 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (r.level === 'deux') r.level = 'normal'; // le mode à deux n'existe plus
     if (r.cercle === undefined) r.cercle = { facile: 0, normal: 1, impossible: 2 }[r.level] ?? 1; // le niveau du bot devient un Cercle
     r.level = cercleBot(r.cercle);
+    if (r.edge === undefined) r.edge = startEdge(r.cercle);
     if (!r.t) r.t = newT();
     if (r.t.gN !== undefined) { // ancienne progression (tout avançait à la fois) : convertie en points
       const o = r.t, h = (x, m) => Math.min(m - .5, Math.floor(x * 2) / 2);
       r.t = { gard: h(Math.max(o.gN * 4 / 5, o.gH * 4 / 3), TRACKS.gard), god: h(Math.max(o.dN * 6 / 8, o.dH * 6 / 5), TRACKS.god), map: h(o.map * 3 / 4, TRACKS.map), ev: h(o.ev * 3 / 5, TRACKS.ev), last: ['gard', 'map'] };
     }
-    if (!r.hard || r.hard.includes('premier')) r.hard = rollHard(r); // « l'adversaire joue en premier » n'existe plus
+    if (!r.hard || r.hard.some(x => ['premier', 'sauvage', 'evenement', 'geole', 'ronces'].includes(x))) r.hard = rollHard(r); // handicaps retirés
     if (!Array.isArray(r.pending)) r.pending = [];
     if (!r.news) r.news = [];
     if (!r.exploits) r.exploits = [];
@@ -353,8 +373,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     const free = [];
     RUNS.slice(0, nSlots()).forEach((r, i) => {
       if (!r) { free.push(i); return; }
-      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}${dlcOn('ombres') || r.fac ? `<br><span class="army ${r.fac ? 'sh' : 'li'}">${r.fac ? '🌑 ' + L('Armée des Ombres') : '☀️ ' + L('Armée de la Lumière')}</span>` : ''}</b>
-        <small>${L('{w} victoire(s) dont {h} difficile(s)', { w: r.wins, h: r.winsH })} · ${L('affrontement n°{n}', { n: r.n })}${r.match ? ' ' + L('(en cours)') : ''}</small></div>
+      h += `<div class="slot"><div class="num">${i + 1}</div><div class="inf"><b>${cercleLabel(r.cercle)} · ${edgeBar(r.edge)}${dlcOn('ombres') || r.fac ? `<br><span class="army ${r.fac ? 'sh' : 'li'}">${r.fac ? '🌑 ' + L('Armée des Ombres') : '☀️ ' + L('Armée de la Lumière')}</span>` : ''}</b>
+        <small>${L('{w} victoire(s) dont {h} difficile(s)', { w: r.wins, h: r.winsH })}${r.match ? ' · ' + L('(en cours)') : ''}</small></div>
         <button class="big" data-open="${i}">${L('Continuer')}</button><button class="ghost sm danger" data-del="${i}" title="${L('Supprimer')}">🗑</button></div>`;
     });
     // les emplacements libres tiennent sur une seule ligne
@@ -372,11 +392,11 @@ const isSh = id => !!T[E.TI[id]].fac;
   let newFac = 0;
   function renderLevels() {
     const top = Math.max(2, cercleMax()), cs = [];
-    for (let c = 1; c <= top; c++) cs.push(`<button data-c="${c}">${cercleLabel(c)} · ${LEVELIC[cercleBot(c)]}${c >= 3 ? ' · ' + fardeaux(c).length + ' ' + L('Fardeaux').toLowerCase() : ''}</button>`);
+    for (let c = 1; c <= top; c++) cs.push(`<button data-c="${c}">${cercleLabel(c)} · 🎚️ ${startEdge(c)}${c >= 3 ? ' · ' + fardeaux(c).length + ' ' + L('Fardeaux').toLowerCase() : ''}</button>`);
     $('levels').className = 'newc';
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
     const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases. Elle gagne aussi avec 3 persos dans la zone de placement adverse.') : '☀️ ' + L('L’armée de base. Elle gagne en tuant tous les dieux adverses ou 4 de leurs gardes.')}</p>` : '';
-    $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
+    $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Le bot joue toujours au mieux, mais il a des désavantages qui suivent ton niveau : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Quand tu as tout débloqué, tu montes au Cercle suivant : tout recommence, avec moins d’avantage puis des fardeaux.')}</p>
       <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small></button>
       <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
     $('levels').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { RUNS[newSlot] = newRun(+b.dataset.c, dlcOn('ombres') ? newFac : 0); saveRuns(); openRun(newSlot); });
@@ -407,9 +427,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     const r = run(), t = r.t;
     setTok(r);
     const allG = runG(r).every(x => r.gards.includes(x) || SPECIAL.has(x)), allD = runM(r).every(x => r.gods.includes(x) || SPECIAL.has(x));
-    let h = `<div class="runtop"><h2 class="title">${L('Partie {n}', { n: cur + 1 })}${r.fac ? ' · 🌑' : ''} · ${cercleLabel(r.cercle)} · ${LEVELIC[r.level]} ${levelName(r.level)}</h2>
-      <div class="runhead"><span>${L('affrontement n°{n}', { n: r.n })}</span></div></div>
+    let h = `<div class="runtop"><h2 class="title">${L('Partie {n}', { n: cur + 1 })}${r.fac ? ' · 🌑' : ''} · ${cercleLabel(r.cercle)} · ${edgeBar(r.edge)}</h2>
+      <div class="runhead"><span>${L('{w} victoire(s) dont {h} difficile(s)', { w: r.wins, h: r.winsH })}</span></div></div>
       <div class="runbody"><div class="runcol">
+        <h4>🎚️ ${L('Désavantages du bot')} · ${r.edge}/${EDGE_MAX}</h4>${edgeRules(r.edge).length ? `<ul class="fards">${edgeRules(r.edge).map(x => `<li>${x}</li>`).join('')}</ul>` : `<p class="muted small">${L('Aucun : le bot joue à pleine force.')}</p>`}
         <h4>${L('Dieux dans la réserve')}</h4><div class="row">${chips(r.gods, runM(r))}</div>
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, runG(r))}</div>
         ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>` : ''}
@@ -422,7 +443,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         ${r.evChance >= 100 ? `<div class="trk done">🎲 ${L('Événements')} : 100 %</div>` : bar(t.ev, TRACKS.ev, `🎲 ${L('Plus d’événements')} <small>(${r.evChance} %)</small>`)}
         ${r.fac ? '' : `<h4>${L('Exploits')} <small class="muted">· ${L('chacun fait gagner un perso rare')}</small></h4>`}<div class="exps"${r.fac ? ' hidden' : ''}>${EXPLOITS.map(x => { const done = r.exploits.includes(x.id) || r.gods.includes(x.piece) || r.gards.includes(x.piece); const gd = ['colline', 'percee', 'massacre', 'chasse', 'endurance'].includes(x.id) ? L('Objectif mystère') + ' : ' + I18N.goalDesc(x.id) : ''; return `<span class="exp ${done ? 'done' : ''}" title="${esc(exploitText(x.id) + (gd ? ' — ' + gd : ''))}">${token(E.TI[x.piece], done ? 0 : -1)}<span>${done ? '✓ ' : ''}${exploitText(x.id)}</span></span>`; }).join('')}</div>
       </div></div>`;
-    if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement n°{n}', { n: r.n })}</b></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
+    if (r.match) h += `<div class="choices one"><button class="choice" id="btnResume"><span class="ic">▶</span><b>${L('Reprendre l’affrontement')}</b></button></div><div class="menu-actions"><button class="ghost danger sm" id="btnForfeit">${L('Abandonner l’affrontement')}</button>`;
     else if (isBossBattle(r)) { const b = E.TI[bossOf(r)]; h += `<div class="choices one"><button class="choice boss" id="btnStart"><span class="bossic">${token(b, 1)}</span><b>${L('Affrontement de boss : {b}', { b: tn(b) })}</b><small>${td(b)}</small><small class="gold">${L('Tue le boss pour gagner. Récompense : un perso tiré au hasard parmi tous ceux à découvrir.')}</small></button></div><div class="menu-actions">`; }
     else h += `<div class="choices${allUnlocked(r) ? ' three' : ''}">
         <button class="choice" id="btnStart"><span class="ic">⚔️</span><b>${L('Affrontement normal')}</b><small>${L('Une victoire = 1 point de progression, que tu places où tu veux.')}</small></button>
@@ -444,7 +465,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if ($('btnForfeit')) $('btnForfeit').onclick = e => {
       const b = e.currentTarget;
       if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = L('Sûr ? Ça compte comme une défaite'); return; }
-      r.match = null; r.losses++; lossProgress(r); r.n++; r.hard = rollHard(r); saveRuns(); sfx('annule'); renderRun();
+      r.match = null; r.losses++; lossProgress(r); r.edge = Math.min(EDGE_MAX, r.edge + 1); r.n++; r.hard = rollHard(r); saveRuns(); sfx('annule'); renderRun();
     };
     $('btnRunCodex').onclick = () => openCodex('progression');
     $('btnRunMenu').onclick = () => { renderMenu(); show('menu'); };
@@ -540,7 +561,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     defi: L('Choisis toi-même tes handicaps avant de jouer : plus ils sont durs, plus ta victoire rapporte.'),
   })[id];
   // handicaps qu'on peut se choisir dans un « Défi choisi » (+ ceux des Ombres si tu joues l'armée des Ombres)
-  const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'geole', 'ronces', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
+  const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
   // la mesure du record et les points qu'elle rapporte
   function recInfo(G, goal) {
     const s = G.s, st = G.st, me = G.me, win = s.winner === me && !s.long, myT = Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2);
@@ -627,7 +648,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     // partie des Ombres : la Lumière en face a les mêmes sortes de persos (leurs jumeaux)
     // partie des Ombres : l'adversaire joue lui aussi l'armée des Ombres (même réserve commune)
     const oppM = r.fac ? [] : r.gods, oppG = r.fac ? [] : r.gards;
-    pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle,
+    pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle, edge: r.edge,
       fac: r.fac ? [1, 1] : null, shM: r.fac ? r.gods.slice() : null, shG: r.fac ? r.gards.slice() : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
@@ -773,13 +794,13 @@ const isSh = id => !!T[E.TI[id]].fac;
     const botSide = (pre.ctl || ['me', 'bot']).indexOf('bot');
     const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
-    if (hs.includes('mana')) s.mana[0] = 60;
-    if (hs.includes('riche')) s.mana[1] = 140;
+    if (hs.includes('mana')) s.mana[0] -= 40;
+    if (hs.includes('riche')) s.mana[1] += 100;
     if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(oGards)], 1); }
     if (hs.includes('dieupris')) { const av = oGods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[of1 === 1 ? 'os' : 's'], 1);
     if (hs.includes('pauvre')) for (const id of oGards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
-    if (hs.includes('silence')) s.noAct[0] = 2;
+    if (hs.includes('silence')) s.noAct[0] = 3;
     if (hs.includes('geole')) s.noPlace[0] = 3;
     if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
     if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = oGards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
@@ -799,7 +820,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (fs.includes('soldat')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI.s, 1); }
       if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
     }
-    if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') s.mana[0] = Math.max(60, s.mana[0]); // jamais moins de 60 mana au départ
+    if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') { s.mana[0] = Math.max(60, s.mana[0]); if (pre.edge) applyEdge(s, pre.edge, 1); } // jamais moins de 60 mana au départ
     // talents du défi du jour (pas pendant le défi lui-même, ni en duel)
     if (pre.myMana) s.mana[0] = pre.myMana;
     if (pre.mode !== 'daily' && pre.mode !== 'duel' && pre.mode !== 'story' && pre.mode !== 'season') {
@@ -809,7 +830,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     if (pre.mana) s.mana = [pre.mana, pre.mana];
     markSeenState(s);
-    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
+    G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, edge: ['normal', 'hard', 'boss'].includes(pre.mode) ? pre.edge || 0 : 0, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
     else if (SET.decor === 'auto') { setTheme(otherTheme(), true); scheduleTheme(); }
@@ -827,7 +848,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     let d;
     try { d = deser(r.match); } catch (e) { r.match = null; saveRuns(); renderRun(); return toast(L('Affrontement illisible : il a été effacé.')); }
     pre = { level: r.level, perso: d.perso || null, mode: d.mode || 'normal' };
-    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats(), rec: d.rec || null });
+    G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], edge: d.edge || 0, seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats(), rec: d.rec || null });
     G.names = curNames();
     $('log').innerHTML = d.log || '';
     sys(L('Affrontement repris.'));
@@ -836,7 +857,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function saveMatch() {
     if (!G || G.replay || G.mode === 'daily' || G.mode === 'tuto' || cur < 0 || G.committed) return;
-    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard, st: G.st, rec: G.rec });
+    run().match = ser({ s: G.s, log: $('log').innerHTML, seed: G.seed, lastA: G.lastA, mode: G.mode, perso: G.perso, hard: G.hard, edge: G.edge, st: G.st, rec: G.rec });
     saveRuns();
   }
   // les règles spéciales de l'affrontement, toujours visibles (pour ne pas les oublier)
@@ -849,6 +870,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.mode === 'season' && pre && pre.season) out.push(`🗓️ <b>${seasonName(pre.season.rule)}</b> : ${seasonDesc(pre.season.rule)}`);
     if (s.boss) out.push(`👹 <b>${tn(E.TI[s.boss.kind])}</b> : ${td(E.TI[s.boss.kind])}`);
     for (const h of G.hard || []) out.push(`🔥 ${hardName(h)}`);
+    if (G.edge) for (const x of edgeRules(G.edge)) out.push(`🎚️ ${x}`);
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     if (cer >= 3) for (const f of fardeaux(cer)) out.push(`⚖️ ${fardeauText(f, cer)}`);
     if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
@@ -867,7 +889,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
     $('btnUndo').hidden = G.net || !!G.replay;
     $('btnGiveUp').hidden = !!G.replay;
-    $('runBadge').textContent = G.replay ? '🎬 ' + L('Revoir la partie') : G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n} · affrontement {a}', { n: cur + 1, a: run().n }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
+    $('btnTestWin').hidden = !SET.test || !!G.replay || !!G.net || ['daily', 'season', 'duel'].includes(G.mode); // mode test : gagner tout de suite pour avancer plus vite
+    $('runBadge').textContent = G.replay ? '🎬 ' + L('Revoir la partie') : G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n}', { n: cur + 1 }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     setTok(cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run() : null);
     $('rulesCard').innerHTML = rulesHtml();
     show('game');
@@ -897,7 +920,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     }
     renderPlayers();
     askBot(G.s, G.level, opt, a => {
-      const wait = Math.max(0, (SET.anim === 'normal' ? 380 : 150) - (performance.now() - t0));
+      const wait = Math.max(0, (SET.anim === 'normal' ? 900 : SET.anim === 'rapide' ? 450 : 250) - (performance.now() - t0));
       setTimeout(() => {
         if (!G || G.id !== id || G.ver !== ver || G.over) return;
         G.thinking = false;
@@ -906,6 +929,15 @@ const isSh = id => !!T[E.TI[id]].fac;
     });
   }
 
+  $('btnTestWin').onclick = () => { if (!G || G.over || !SET.test) return; G.s.winner = G.me; G.s.why = 'Victoire de test.'; sfx('choix'); endGame(); };
+  // revoir le coup de l'adversaire : la carte d'avant pendant un instant, puis celle d'après
+  function peekBot() {
+    if (!G || !G.botTurn || G.peek) return;
+    const now = G.s, la = G.lastA;
+    G.peek = true; G.s = G.botTurn.before; G.lastA = null; render();
+    sfx('page');
+    setTimeout(() => { if (!G || !G.peek) return; G.s = now; G.lastA = la; G.peek = false; render(); }, 1300);
+  }
   // ---------- exécution d'une action ----------
   function doAction(a) {
     if (G.tuto && G.humans[G.s.turn]) { const st = guideStep(); if (st && !st.free && !st.ok(a, G.s)) { G.sel = null; render(); toast('🎓 ' + st.t, 4500); sfx('annule'); return; } }
@@ -942,6 +974,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     G.lastP = p;
     G.ver++; G.sel = null;
     logLine(describe(before, a, dead), p);
+    if (!G.humans[p]) {
+      if (!G.botTurn || G.botTurn.done) G.botTurn = { p, before, lines: [], done: false }; // un nouveau tour adverse commence
+      G.botTurn.lines.push(describe(before, a, dead)); if (s.turn !== p || s.winner !== null) G.botTurn.done = true; }
+    else if (G.botTurn && G.botTurn.done) G.botTurn = null;
     if (a.k === 'pioche') toast(L('Tu as pioché : {x}', { x: tn(a.t) }));
     if (s._martyr) { sys(L('{p} gagne {m} mana (Martyr).', { p: PN[s.turn], m: s._martyr })); sfx('mana', 1, 400); }
     if (!betBefore && s.betDone) sys(L('Pari : {p} perd en premier !', { p: PN[s.betLoser] }));
@@ -1147,8 +1183,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!r.pp) r.pp = {};
     let ms = 0;
     if (G && G.st) for (const id in G.st.pts) { const a = stars(r.pp[id]); r.pp[id] = (r.pp[id] || 0) + G.st.pts[id]; const b = stars(r.pp[id]); if (b > a && ms++ < 2) r.news.push(L('⭐ Maîtrise : {x} passe à {n} étoile(s)', { x: tn(E.TI[id]), n: b })); }
-    if (w === 0) { r.wins++; if (mode === 'hard') r.winsH++; grantWin(r, mode, s); }
-    else if (w === 1) { r.losses++; lossProgress(r); }
+    if (w === 0) { r.wins++; if (mode === 'hard') r.winsH++; grantWin(r, mode, s); const e0 = r.edge; r.edge = Math.max(0, r.edge - (mode === 'hard' ? 2 : 1)); if (r.edge < e0) r.news.push(L('🎚️ Tu progresses : le bot a moins de désavantages ({n}/{m}).', { n: r.edge, m: EDGE_MAX })); }
+    else if (w === 1) { r.losses++; lossProgress(r); if (r.edge < EDGE_MAX) { r.edge++; r.news.push(L('🎚️ Le bot reçoit un désavantage de plus ({n}/{m}).', { n: r.edge, m: EDGE_MAX })); } }
     r.n++; r.match = null; r.hard = rollHard(r);
   }
   function recordStats() {
@@ -1428,7 +1464,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('bilan').querySelectorAll('[data-km]').forEach(b => b.onclick = e => { e.stopPropagation(); showMoment(+b.dataset.km); });
   }
   function undo() {
-    if (!G) return;
+    if (!G || G.peek) return;
     if (!G.history.length) return toast(L('Aucun coup à annuler.'));
     if (!canBack()) return toast(L('L’affrontement est fini.'));
     startPractice();
@@ -1544,7 +1580,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     render();
   }
   function clickSq(q) {
-    if (!G) return;
+    if (!G || G.peek) return;
     const s = G.s, c = s.b[q];
     if (c > 0) showInfo(E.tix(c), E.own(c), q); else showSpec(q);
     if (!humanTurn()) return;
@@ -1833,7 +1869,9 @@ const isSh = id => !!T[E.TI[id]].fac;
         setTimeout(() => { if (G && G.id === id && G.s.ply === ply && humanTurn() && legal().length === 1) doAction({ k: 'pass' }); }, 1200);
       }
     }
+    if (!G.over && humanTurn() && G.botTurn && G.botTurn.done && G.botTurn.lines.length) h = `<div class="botlast">🤖 ${G.botTurn.lines.join(' · ')} <button class="ghost sm" id="btnPeek">↺ ${L('Revoir son coup')}</button></div>` + h;
     hint.innerHTML = h;
+    if ($('btnPeek')) $('btnPeek').onclick = peekBot;
     opts.innerHTML = o.join('');
     opts.querySelectorAll('button').forEach(b => {
       const k = b.dataset.o;
@@ -1862,7 +1900,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const t = T[i];
     const who = o === 0 || o === 1 ? ' · ' + esc(PN[o]) : ' · ' + L('réserve commune');
     $('infoCard').innerHTML = `<div class="ihead">${token(i, o)}<div><div class="iname">${tn(i)}</div><div class="icat">${catName(t.cat)}${who}${t.cost ? ` · <span class="icost">💎 ${t.cost}</span>` : ''}</div></div></div>
-      <div class="idesc">${td(i)}</div>${q !== undefined ? specLine(q) : ''}`;
+      <div class="ibody"><div class="idesc">${td(i)}</div>${t.cat === 'G' || t.cat === 'S' ? (NODIAG[t.id] ? '' : `<div class="idiag">${moveDiagram(t.id)}<small>${L('vert : où il peut aller · rouge : qui il peut tuer')}</small></div>`) : ''}</div>${q !== undefined ? specLine(q) : ''}`;
   }
   function specLine(q) { const k = G && G.s.g.spec[q]; return k ? `<div class="specline">${k === 3 ? currentSvg(G.s.g.cdir ? G.s.g.cdir[q] : 4) : SPEC_SVG[k]}<span><b>${I18N.specName(k)}</b> : ${I18N.specDesc(k)}</span></div>` : ''; }
   function showSpec(q) { if (G && G.s.g.spec[q]) $('infoCard').innerHTML = specLine(q); }
@@ -1989,7 +2027,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       .concat([1, 2].concat(dlcOn('abysses') ? [3] : [], dlcOn('ombres') ? [4, 5, 6] : []).map(k => card(k === 3 ? currentSvg(4) : SPEC_SVG[k], I18N.specName(k), I18N.specDesc(k), ` <span class="tag2">${L('case spéciale')}</span>`)))
       .concat([textBlock(`<h3>${L('Niveaux de sauvagerie')}</h3><ul>${[0, 1, 2, 3, 4].map(n => `<li><b>${L('Niveau {n}', { n })}</b> : ${I18N.mapLevel(n)}</li>`).join('')}</ul>`)]);
     if (tab === 'decors') return themeList().map(t => `<div class="ccard"><div class="txt"><b>${I18N.themeName(t)}</b>${t === theme ? ` <span class="tag2 on">${L('en ce moment')}</span>` : ''}<div class="themeprev" data-theme="${t}"></div></div></div>`);
-    if (tab === 'bots') return ['facile', 'normal', 'impossible'].map(lv => card(LEVELIC[lv], levelName(lv), ({ facile: L('Joue souvent au hasard et rate des prises. Parfait pour apprendre.'), normal: L('Regarde 2 coups à l’avance, voit les menaces immédiates.'), impossible: L('Le plus fort : il calcule plusieurs coups à l’avance et lit les menaces, en environ 1,5 seconde. Il n’a aucun avantage, et on peut le battre, même en difficile.') })[lv]))
+    if (tab === 'bots') return [textBlock(`<p>${L('Dans tes parties, tu affrontes toujours le bot stratège. Pour que ce soit jouable, il a des désavantages (ton avantage, de 0 à 6) : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Les autres bots servent aux duels et aux défis.')}</p>`)].concat(['facile', 'normal', 'impossible'].map(lv => card(LEVELIC[lv], levelName(lv), ({ facile: L('Joue souvent au hasard et rate des prises. Parfait pour apprendre.'), normal: L('Regarde 2 coups à l’avance, voit les menaces immédiates.'), impossible: L('Le plus fort : il calcule plusieurs coups à l’avance et lit les menaces, en environ 1,5 seconde. Il n’a aucun avantage, et on peut le battre, même en difficile.') })[lv])))
       .concat([textBlock(`<h3>${L('Caractères')}</h3><p class="muted">${L('À chaque affrontement, le bot reçoit un caractère tiré au hasard. Il change sa façon de jouer, pas sa force.')}</p>`)])
       .concat(Object.keys(E.PERSOS).map(id => card('🎭', I18N.persoName(id), I18N.persoDesc(id))))
       .concat([cercleBlock()]);
@@ -2009,7 +2047,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     return [];
   }
   function cercleBlock() {
-    return textBlock(`<h3>${L('Cercles')}</h3><p>${L('Une partie se joue par Cercles. Au Cercle 0 le bot est facile, au Cercle 1 normal, au Cercle 2 stratège ; ensuite chaque Cercle ajoute un fardeau. Quand tu as tout débloqué, tu peux monter au Cercle suivant : tout recommence, en plus dur.')}</p>
+    return textBlock(`<h3>${L('Cercles')}</h3><p>${L('Le bot joue toujours au mieux, mais il a des désavantages qui suivent ton niveau : un de moins à chaque victoire (deux en difficile), un de plus à chaque défaite. Quand tu as tout débloqué, tu montes au Cercle suivant : tout recommence, avec moins d’avantage puis des fardeaux.')}</p>
       <ul>${FARDEAUX.map((f, i) => `<li><b>${cercleLabel(i + 3)}</b> : ${fardeauText(f, i + 3)}</li>`).join('')}<li>${L('Ensuite, chaque Cercle donne 1 point de vie de plus aux boss (3 de plus au maximum, pour qu’ils restent battables).')}</li></ul>
       <p class="muted">${L('Plus haut Cercle atteint : {n}', { n: cercleMax() })}</p>`);
   }
@@ -2420,6 +2458,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
+      <div class="setrow"><div class="lab"><b>🧪 ${L('Mode test')}</b> <small>${L('Ajoute un bouton « Gagner (test) » en haut de l’écran de jeu, pour avancer plus vite. Pas dans les défis ni les duels.')}</small></div>${segH('test', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };

@@ -25,18 +25,18 @@ function StratEngine() {
     { id: 'g1', cat: 'G', sym: '1', name: 'Jumeau', val: 3.2, desc: 'Échange sa place avec n’importe quel perso de la carte (allié ou adverse, même un dieu). S’il choisit un ennemi collé à lui, il le prend au lieu d’échanger.' },
     { id: 'g2', cat: 'G', sym: '2', name: 'Tour', val: 4.5, desc: 'Avance en ligne droite d’autant de cases que voulu (comme la tour aux échecs) ; prend en arrivant sur un ennemi.' },
     { id: 'g3', cat: 'G', sym: '3', name: 'Archer', val: 4.2, desc: 'Tire en diagonale : tue le 1er ennemi de la diagonale sans bouger. Ou fait 1 pas dans n’importe quelle direction.' },
-    { id: 'g4', cat: 'G', sym: '4', name: 'Bélier', val: 4.2, desc: 'Avance d’1 case dans les 8 directions en poussant toute la file devant lui (un perso poussé hors de la carte ou dans un trou meurt), puis peut faire un 2e pas tout droit, vers une case vide ou sur un ennemi (pas un dieu) pour le prendre.' },
-    { id: 'g5', cat: 'G', sym: '5', name: 'Éclaireur', val: 3.4, desc: '3 fois de suite : un pas droit (haut, bas, gauche, droite) sur une case vide, ou une prise en diagonale.' },
-    { id: 'g6', cat: 'G', sym: '6', name: 'Tourbillon', val: 3.8, desc: 'Peut d’abord faire 1 pas, puis frappe toutes les cases autour de lui : tous les ennemis collés meurent.' },
+    { id: 'g4', cat: 'G', sym: '4', name: 'Bélier', val: 4.2, desc: 'Fait 1 pas dans n’importe quelle direction. S’il y a des persos devant lui, il les pousse tous d’une case (un perso poussé hors de la carte ou dans un trou meurt). Ensuite, il peut faire un 2e pas tout droit, vers une case vide ou sur un ennemi (pas un dieu) pour le tuer.' },
+    { id: 'g5', cat: 'G', sym: '5', name: 'Éclaireur', val: 3.4, desc: 'Fait jusqu’à 3 pas d’affilée. À chaque pas : soit tout droit (haut, bas, gauche, droite) vers une case vide, soit en diagonale sur un ennemi pour le tuer.' },
+    { id: 'g6', cat: 'G', sym: '6', name: 'Tourbillon', val: 3.8, desc: 'Peut d’abord faire 1 pas, puis il tourne sur lui-même : tous les ennemis sur les 8 cases autour de lui meurent.' },
     { id: 'g7', cat: 'G', sym: '7', name: 'Danseur', val: 3.6, desc: 'Fait jusqu’à 3 pas en diagonale (il peut prendre à chaque pas).' },
     { id: 'c1', cat: 'G', sym: '8', name: 'Sauteur', val: 3.6, desc: 'Saute par-dessus tout : à 2 cases en diagonale, ou à 2 ou 3 cases en ligne droite.' },
     { id: 'c2', cat: 'G', sym: '9', name: 'Fou', val: 4, desc: 'Avance en diagonale d’autant de cases que voulu (comme le fou aux échecs). Ou fait 1 pas droit vers une case vide.' },
-    { id: 'c3', cat: 'G', sym: '10', name: 'Ombre', val: 3.4, desc: 'Se téléporte sur une case collée à un soldat (n’importe lequel) ou à un de tes persos.' },
+    { id: 'c3', cat: 'G', sym: '10', name: 'Ombre', val: 3.4, desc: 'Disparaît et réapparaît sur une case collée à un soldat (de n’importe quel camp) ou à un de tes persos. S’il y a un ennemi sur cette case, il le tue.' },
     { id: 'c4', cat: 'G', sym: '11', name: 'Arbalétrier', val: 4.3, desc: 'Tire en diagonale : tue le 1er ennemi de la diagonale sans bouger. Ou fait 1 pas en ligne droite vers une case vide.' },
-    { id: 'c5', cat: 'G', sym: '12', name: 'Comète', val: 3.4, desc: 'Se pose sur n’importe quelle case à plus de 6 cases (en comptant lignes + colonnes) ; elle peut y prendre un soldat, ou un garde à plus de 8 cases, jamais un dieu.' },
+    { id: 'c5', cat: 'G', sym: '12', name: 'Comète', val: 3.4, desc: 'Saute loin : elle se pose sur une case à plus de 6 cases d’elle (en additionnant lignes et colonnes). Si un soldat ennemi est sur cette case, elle le tue ; un garde ennemi, seulement s’il est à plus de 8 cases ; jamais un dieu.' },
     { id: 'c6', cat: 'G', sym: '13', name: 'Alchimiste', val: 3, desc: '1 pas dans n’importe quelle direction (prend l’ennemi). Ou change un de tes soldats collés à lui en 60 mana (le soldat disparaît) et tu rejoues tout de suite. Ou il te fait gagner 30 mana.' },
     { id: 'c7', cat: 'G', sym: '14', name: 'Baliste', val: 4.6, desc: 'Tire en ligne droite sans bouger : tue le 1er ennemi de la ligne, et transperce jusqu’au suivant. Ou fait 1 pas en diagonale vers une case vide.' },
-    { id: 'c8', cat: 'G', sym: '15', name: 'Grenouille', val: 3.4, desc: 'Fait 1 pas, ou saute par-dessus toute une file de persos collés.' },
+    { id: 'c8', cat: 'G', sym: '15', name: 'Grenouille', val: 3.4, desc: 'Fait 1 pas dans n’importe quelle direction (il tue l’ennemi s’il y en a un). Ou saute par-dessus toute une file de persos collés les uns aux autres et atterrit sur la case vide juste après.' },
     // Soldat
     { id: 's', cat: 'S', sym: '•', name: 'Soldat', val: 1, desc: 'Avance d’1 case vers l’adversaire, prend en diagonale vers l’avant. Rien d’autre.' },
     // nouveaux
@@ -79,7 +79,7 @@ function StratEngine() {
     { id: 'oe', cat: 'M', sym: 'e', name: 'Éclipse', cost: 25, val: 6.5, fac: 1, desc: 'À son prochain tour, l’adversaire ne peut ni placer ni activer de perso.' },
     { id: 'ou', cat: 'M', sym: 'u', name: 'Dévoreur d’âmes', cost: 0, val: 5, fac: 1, desc: 'Sacrifie un de tes persos collés à lui (pas un dieu) : tu gagnes 60 mana.' },
     { id: 'oa', cat: 'G', sym: 'a', name: 'Assassin', val: 3.6, fac: 1, desc: '1 pas tout droit, ou saut de 2 ou 3 cases tout droit par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
-    { id: 'ob', cat: 'G', sym: 'b', name: 'Brume', val: 3, fac: 1, desc: 'Se téléporte sur une case foncée vide à 4 cases ou moins, ou prend un ennemi collé à elle.' },
+    { id: 'ob', cat: 'G', sym: 'b', name: 'Brume', val: 3, fac: 1, desc: 'Se téléporte sur une case foncée vide à 4 cases ou moins. Ou, sans bouger, tue un ennemi collé à elle.' },
     { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 4 cases, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
     { id: 'ol', cat: 'G', sym: 'l', name: 'Lame', val: 3.6, fac: 1, desc: 'Avance de 2 cases dans une des 8 directions et tue tous les ennemis sur ces 2 cases.' },
     { id: 'ox', cat: 'G', sym: 'x', name: 'Chauve-souris', val: 3.2, fac: 1, desc: '1 pas vers une case vide, ou vol à 2 cases dans les 8 directions, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
@@ -100,17 +100,17 @@ function StratEngine() {
     { id: 'ni', cat: 'M', sym: 'I', name: 'Fléau', cost: 30, val: 6, fac: 1, desc: 'Tue tous les soldats ennemis collés à au moins un de tes persos.' },
     { id: 'nj', cat: 'M', sym: 'J', name: 'Linceul', cost: 20, val: 5.5, fac: 1, desc: 'Choisis un de tes persos : lui et tes persos collés à lui ne peuvent pas mourir jusqu’à ton prochain tour.' },
     { id: 'nk', cat: 'M', sym: 'K', name: 'Marée noire', cost: 15, val: 5, fac: 1, desc: 'Chacune de tes Ombres (soldats) avance d’une case vers l’adversaire.' },
-    { id: 'n1', cat: 'G', sym: '1', name: 'Fantôme', val: 3.4, fac: 1, desc: 'Se pose sur une case vide à 3 cases ou moins. Là, les soldats ennemis collés meurent et les gardes collés sont figés 1 tour.' },
+    { id: 'n1', cat: 'G', sym: '1', name: 'Fantôme', val: 3.4, fac: 1, desc: 'Se pose sur une case vide à 3 cases ou moins. En arrivant, les soldats ennemis collés à lui meurent, et les gardes ennemis collés à lui ne peuvent pas être activés au tour suivant.' },
     { id: 'n2', cat: 'G', sym: '2', name: 'Goule', val: 3.8, fac: 1, desc: '1 pas dans les 8 directions, et prend l’ennemi sur sa case. Après une prise, elle peut refaire un pas (3 pas au plus).' },
     { id: 'n3', cat: 'G', sym: '3', name: 'Vampire', val: 3.6, fac: 1, desc: 'Mord sans bouger un ennemi collé à lui (pas un dieu) : il meurt et tu gagnes 10 mana. Ou 1 pas vers une case vide.' },
-    { id: 'n4', cat: 'G', sym: '4', name: 'Araignée', val: 3.4, fac: 1, desc: 'Tire sa toile sur le 1er ennemi en ligne droite à 4 cases ou moins : un soldat meurt, un garde ou un dieu est figé 2 tours. Ou 1 pas en diagonale (prend l’ennemi).' },
-    { id: 'n5', cat: 'G', sym: '5', name: 'Poltergeist', val: 3.4, fac: 1, desc: 'Jette un ennemi à 1 ou 2 cases (pas un dieu) 2 cases plus loin : il meurt s’il sort de la carte, tombe dans un trou ou sur un perso. Ou 1 pas (prend l’ennemi).' },
+    { id: 'n4', cat: 'G', sym: '4', name: 'Araignée', val: 3.4, fac: 1, desc: 'Lance sa toile tout droit (haut, bas, gauche, droite) sur le 1er ennemi à 4 cases ou moins : un soldat meurt ; un garde ou un dieu est figé et ne peut pas être activé pendant 2 tours. Ou fait 1 pas en diagonale (il tue l’ennemi s’il y en a un).' },
+    { id: 'n5', cat: 'G', sym: '5', name: 'Poltergeist', val: 3.4, fac: 1, desc: 'Attrape un ennemi (pas un dieu) à 1 ou 2 cases de lui en ligne droite ou en diagonale, et le jette 2 cases plus loin dans la même direction : il meurt s’il sort de la carte, tombe dans un trou ou atterrit sur un autre perso. Ou fait 1 pas (il tue l’ennemi s’il y en a un).' },
     { id: 'n6', cat: 'G', sym: '6', name: 'Serpent', val: 3.8, fac: 1, desc: 'Avance jusqu’à 3 pas tout droit par des cases vides, en tournant comme il veut. Il ne prend qu’un ennemi collé à lui (tout droit).' },
     { id: 'n7', cat: 'G', sym: '7', name: 'Loup-garou', val: 3.8, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi). S’il prend, ou s’il est collé à 2 ennemis ou plus, il entre en furie : tous les ennemis collés à lui meurent (pas les dieux).' },
     { id: 'n8', cat: 'G', sym: '8', name: 'Larve', val: 3, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi). Quand elle meurt, 3 Ombres apparaissent autour d’elle.' },
     { id: 'n9', cat: 'G', sym: '9', name: 'Démon', val: 3.6, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi sur sa case), ou apparaît sur une case vide collée à un dieu ennemi.' },
-    { id: 'nl', cat: 'G', sym: 'L', name: 'Squelette', val: 3.2, fac: 1, desc: '1 pas tout droit (prend l’ennemi), ou tue sans bouger un ennemi à 2 ou 3 cases tout droit (pas un dieu). Quand il meurt, une Ombre apparaît à côté.' },
-    { id: 'nm', cat: 'G', sym: 'M', name: 'Reflet', val: 3.4, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi), ou saute sur la case en miroir, de l’autre côté de sa rangée ou de sa colonne, et y prend l’ennemi (pas un dieu).' },
+    { id: 'nl', cat: 'G', sym: 'L', name: 'Squelette', val: 3.2, fac: 1, desc: 'Fait 1 pas tout droit (haut, bas, gauche, droite) et tue l’ennemi s’il y en a un. Ou, sans bouger, tue un ennemi (pas un dieu) à 2 ou 3 cases tout droit. Quand il meurt, une Ombre (soldat) apparaît à côté de lui.' },
+    { id: 'nm', cat: 'G', sym: 'M', name: 'Reflet', val: 3.4, fac: 1, desc: 'Fait 1 pas dans n’importe quelle direction (il tue l’ennemi s’il y en a un). Ou saute sur la case symétrique, de l’autre côté de la carte, sur sa ligne ou sur sa colonne (il y tue l’ennemi, pas un dieu).' },
     { id: 'nn', cat: 'G', sym: 'N', name: 'Bourreau', val: 3.6, fac: 1, desc: '1 pas dans les 8 directions (prend l’ennemi). Ou tue sans bouger un ennemi collé à lui s’il est aussi collé à un autre de tes persos (pas un dieu).' },
     { id: 'no', cat: 'G', sym: 'O', name: 'Rampant', val: 3.4, fac: 1, desc: 'Avance tout droit vers l’adversaire, aussi loin qu’il veut, par des cases vides, et prend l’ennemi sur sa case d’arrivée. Ou 1 pas vers une case vide.' },
   ];
@@ -1812,15 +1812,28 @@ function StratEngine() {
   }
 
   // think(état, niveau, options) — options : { budget (ms), maxMs, perso, canExtend }
+  // valeur d'un coup pour le bilan, en regardant aussi la meilleure réponse de l'adversaire (2 coups) :
+  // un coup qui protège, menace ou prépare une invasion n'est plus pris pour une erreur
+  function worstReply(c, p) {
+    if (c.winner !== null || c.turn === p) return evalS(c, p, true);
+    let w = 1e9; for (const r of gen(c, false)) { const v = evalS(child(c, r), p, true); if (v < w) w = v; }
+    return w === 1e9 ? evalS(c, p, true) : w;
+  }
   function analyse(s0, played) {
     if (!s0 || s0.phase !== 'play' || s0.winner !== null) return null;
     W8 = { wG: 1, wM: 1, opp: null }; X = 1; setPerso(null, .3);
     const s = clone(s0); s.declOn = false;
     const p = s.turn, acts = gen(s, false);
-    let best = -1e9, second = -1e9, bestA = null;
-    for (const a of acts) { const v = evalS(child(s, a), p, true); if (v > best) { second = best; best = v; bestA = a; } else if (v > second) second = v; }
-    const pv = evalS(child(s, played), p, true);
-    if (pv > best) { second = best; best = pv; bestA = played; }
+    // 1 coup : on garde les 8 meilleurs candidats (et le coup joué), puis on regarde la réponse adverse
+    const first = acts.map(a => ({ a, v: evalS(child(s, a), p, true) })).sort((x, y) => y.v - x.v).slice(0, 8);
+    const same = (x, y) => x === y || JSON.stringify(x) === JSON.stringify(y);
+    if (!first.some(f => same(f.a, played))) first.push({ a: played });
+    let best = -1e9, second = -1e9, bestA = null, pv = null;
+    for (const f of first) {
+      const v = worstReply(child(s, f.a), p);
+      if (same(f.a, played)) pv = v;
+      if (v > best) { second = best; best = v; bestA = f.a; } else if (v > second) second = v;
+    }
     return { best, played: pv, second: acts.length > 1 ? second : best, bestA, n: acts.length };
   }
   function think(s0, level, opt) {
