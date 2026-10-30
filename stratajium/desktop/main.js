@@ -54,7 +54,7 @@ function createWindow() {
         out.english = await js(`I18N.setLang('en'); I18N.L('Victoire !')`);
         out.japanese = await js(`I18N.setLang('ja'); I18N.L('Victoire !')`);
         out.errors = errors.slice(0, 5);
-      } catch (err) { out.exception = String(err); }
+      } catch (err) { out.exception = String(err); out.errors = errors.slice(0, 5); }
       console.log('STRATAJIUM_TEST ' + JSON.stringify(out));
       try { fs.rmSync(app.getPath('userData'), { recursive: true, force: true }); } catch (e) { }
       app.exit(0);
