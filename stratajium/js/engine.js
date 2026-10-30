@@ -58,7 +58,7 @@ function StratEngine() {
     { id: 'bw', cat: 'B', sym: 'W', name: 'Tisseuse', val: 14, hp: 3, desc: 'Boss, 3 points de vie. À la fin de chaque tour de son camp, elle tisse une toile (une case bloquée pour toujours) devant ton perso le plus proche d’elle (8 toiles au plus).' },
     { id: 'bs', cat: 'B', sym: 'S', name: 'Spectre', val: 14, hp: 4, desc: 'Boss, 4 points de vie. À la fin de chaque tour de son camp, il apparaît à côté de ton perso le plus précieux. Il est intangible (on ne peut pas le toucher) 1 tour sur 3 ; tous les 3 tours, il emporte un de tes persos collés à lui.' },
     { id: 'bp', cat: 'B', sym: 'P', name: 'Phénix', val: 14, hp: 2, desc: 'Boss, 2 points de vie, mais il renaît une fois de ses cendres avec 2 points de vie en brûlant tes persos collés à lui. Un tour sur deux, ses flammes tuent 2 de tes persos à 2 cases de lui.' },
-    { id: 'bb', cat: 'B', sym: 'B', name: 'Basilic', val: 14, hp: 4, desc: 'Boss, 4 points de vie. Un tour sur deux, il fixe une ligne droite (marquée en rouge) ; au tour suivant, son regard change en pierre le premier de tes persos sur cette ligne.' },
+    { id: 'bb', cat: 'B', sym: 'B', name: 'Basilic', val: 14, hp: 5, desc: 'Boss, 5 points de vie. Un tour sur deux, il fixe une ligne droite (marquée en rouge) ; au tour suivant, son regard change en pierre le premier de tes persos sur cette ligne.' },
     { id: 'bc', cat: 'B', sym: 'C', name: 'Seigneur de guerre', val: 14, hp: 3, mins: 4, desc: 'Boss, 3 points de vie, entouré de 4 sbires. À la fin de chaque tour de son camp, son sbire le plus proche de toi fonce d’un pas vers tes persos (et prend s’il les atteint).' },
     { id: 'mi', cat: 'S', sym: 's', name: 'Sbire', val: 1.2, desc: 'Serviteur du boss : fait 1 pas dans n’importe quelle direction et prend en arrivant sur un ennemi.' },
     { id: 'ab', cat: 'S', sym: 'a', name: 'Abeille', val: 1.4, desc: 'Servante de la Reine : vole à 2 cases (en ligne droite ou en diagonale) par-dessus tout et prend en arrivant sur un ennemi.' },
@@ -83,7 +83,7 @@ function StratEngine() {
     { id: 'oc', cat: 'G', sym: 'c', name: 'Corbeau', val: 3.4, fac: 1, desc: 'Vole en diagonale jusqu’à 4 cases, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
     { id: 'ol', cat: 'G', sym: 'l', name: 'Lame', val: 3.6, fac: 1, desc: 'Avance de 2 cases dans une des 8 directions et tue tous les ennemis sur ces 2 cases.' },
     { id: 'ox', cat: 'G', sym: 'x', name: 'Chauve-souris', val: 3.2, fac: 1, desc: '1 pas vers une case vide, ou vol à 2 cases dans les 8 directions, par-dessus tout. Prend l’ennemi sur sa case d’arrivée.' },
-    { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 5, desc: 'Boss de la Lumière, 5 points de vie. À chaque tour, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
+    { id: 'sa', cat: 'B', sym: 'A', name: 'Archange', val: 14, hp: 6, desc: 'Boss de la Lumière, 6 points de vie. À chaque tour, sa lumière aveugle tous tes persos sur sa ligne et sa colonne : tu ne peux pas les activer à ton tour suivant.' },
     { id: 'sp', cat: 'B', sym: 'P', name: 'Paladin', val: 14, hp: 5, mins: 3, desc: 'Boss de la Lumière, 5 points de vie. Tant que 2 de ses persos sont collés à lui, ils le protègent : tes coups ne lui font rien. Tue ses gardes d’abord ! Il avance vers toi un tour sur deux (en laissant parfois ses gardes derrière lui) et frappe un perso collé à lui tous les 3 tours.' },
     { id: 'sl', cat: 'B', sym: 'L', name: 'Phare', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Il ne bouge pas, mais sa lumière fige tes gardes et tes soldats : ceux à 2 cases ou moins de lui ne peuvent pas être activés (tes dieux, si). Touche-le de loin ! Tous les 4 tours, il appelle un sbire.' },
     { id: 'sg', cat: 'B', sym: 'G', name: 'Golem de cristal', val: 14, hp: 2, desc: 'Boss de la Lumière, 2 points de vie. Son cristal renvoie les tirs et les sorts : seuls les coups au contact le blessent. Tous les 4 tours, il écrase un perso collé à lui.' },
@@ -124,6 +124,13 @@ function StratEngine() {
   const SH_M = ['na', 'nb', 'nd', 'ne', 'nf', 'ng', 'nh', 'nj', 'nk', 'of'];
   const SH_G = ['n1', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'nl', 'nm', 'no', 'oa', 'ob', 'oc', 'ol'];
   const SH_START_M = ['of', 'nk', 'nd'], SH_START_G = ['oa', 'oc', 'n3', 'n8'];
+  // combats de boss : le boss joue seulement avec son armée (ses sbires + ces 3 disciples), personne ne recrute
+  const BOSS_ARMY = {
+    bt: ['g4', 'gd', 'g2'], bn: ['nl', 'n8', 'n3'], bd: ['g3', 'c2', 'cv'], bh: ['n6', 'g5', 'gd'], bq: ['c8', 'g5', 'oc'], bk: ['n4', 'n5', 'g2'],
+    bg: ['g3', 'c3', 'lc'], bv: ['g6', 'g4', 'c5'], bw: ['n4', 'oc', 'c2'], bs: ['n1', 'ob', 'c3'], bp: ['c5', 'g6', 'cv'], bb: ['n6', 'lc', 'c2'],
+    bc: ['gd', 'g2', 'g4'], bl: ['rq', 'mz', 'g2'], bm: ['rq', 'mz', 'lc'], bo: ['mz', 'g4', 'gd'], bj: ['mz', 'g3', 'g5'], bx: ['gd', 'g6', 'cv'],
+    sa: ['g2', 'g3', 'cv'], sp: ['gd', 'g4', 'g6'], sl: ['g3', 'c2', 'lc'], sg: ['g4', 'gd', 'g6'],
+  };
   // le perso de la Lumière qui fait face à chaque perso des Ombres (l'adversaire d'une partie des Ombres a autant de persos, de force proche)
   const TWIN = { na: 'ma', nb: 'mc', nd: 'me', ne: 'mb', nf: 'pd', ng: 'pf', nh: 'pa', nj: 'pr', nk: 'md', of: 'gu',
     n1: 'c3', n3: 'c6', n4: 'g3', n5: 'g4', n6: 'g2', n7: 'g6', n8: 'g5', n9: 'c5', nl: 'lc', nm: 'g1', no: 'gd', oa: 'cv', ob: 'c8', oc: 'c2' };
@@ -451,7 +458,11 @@ function StratEngine() {
       for (const id of (o.shG || SH_START_G)) s.pool[TI[id]] += 2;
       s.pool[OS_I] = 8;
     }
-    if (o.boss) placeBoss(s, o.boss);
+    if (o.boss) placeBoss(s, o.boss, !!o.squad);
+    if (o.squad) { // combat de boss : pas de réserve commune, ton équipe est déjà dans ta réserve
+      s.pool.fill(0); s.noRec = 1;
+      for (const id of o.squad) s.res[0][TI[id]]++;
+    }
     if (ev === 'avantgarde') for (const p of [0, 1]) {
       const z = shuffle(homeEmpty(s, p)).slice(0, 2);
       for (const q of z) s.b[q] = enc(SOLD(s, p), p);
@@ -466,7 +477,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
+      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
       frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
@@ -1053,7 +1064,7 @@ function StratEngine() {
       for (let q = 0; q < g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === p) out.push({ k: 'decl', d: { k: 'act', from: q } });
       return out;
     }
-    for (let i = 0; i < NT; i++) if (s.pool[i] > 0 && canRec(s, p, i)) out.push({ k: 'rec', t: i });
+    if (!s.noRec) for (let i = 0; i < NT; i++) if (s.pool[i] > 0 && canRec(s, p, i)) out.push({ k: 'rec', t: i });
     if (s.bonusRec && s.acts === 1 && out.some(a => a.k === 'rec')) return out.filter(a => a.k === 'rec'); // action bonus du 2e joueur : un recrutement
     if (!s.noPlace[p]) {
       let he = homeEmpty(s, p);
@@ -1139,7 +1150,7 @@ function StratEngine() {
   }
 
   // ---------- boss ----------
-  function placeBoss(s, kind) {
+  function placeBoss(s, kind, army) {
     const g = s.g, own2 = 1, z = g.zl[own2].filter(q => s.b[q] === 0);
     if (!z.length) return;
     // le boss au milieu de sa zone, 3 sbires autour
@@ -1148,7 +1159,9 @@ function StratEngine() {
     const t = T[TI[kind]];
     s.b[z[0]] = enc(TI[kind], own2);
     s.boss = { q: z[0], hp: t.hp, max: t.hp, kind, owner: own2, cd: 0 };
-    for (const q of z.slice(1, 1 + (t.mins || 3))) s.b[q] = enc(TI[t.mt || 'mi'], own2);
+    const mins = t.mins || 3;
+    for (const q of z.slice(1, 1 + mins)) s.b[q] = enc(TI[t.mt || 'mi'], own2);
+    if (army) (BOSS_ARMY[kind] || []).forEach((id, k) => { const q = z[1 + mins + k]; if (q !== undefined && TI[id] !== undefined) s.b[q] = enc(TI[id], own2); }); // ses disciples
   }
   // fait apparaître une créature du boss sur la case libre la plus proche de l'ennemi, autour de q
   function spawnNear(s, q, ti, me, max) {
@@ -1468,7 +1481,6 @@ function StratEngine() {
   }
   let X = 1; // 1 = lecture fine du bot impossible (menaces en 2 pas, reprises, mana des mages…) ; 0 = comme avant (bot normal)
 
-  function magesOnBoard(s, p) { let n = 0; const b = s.b; for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && T[tix(c)].cat === 'M') n++; } return n; }
   function danger(s, q, am, onB) {
     if (s.ev === 'illimite') return 0;
     if (am === 0 && s.lost[q][0] === 0) return 0; // aucun dieu engagé : immunisé
@@ -2056,7 +2068,7 @@ function StratEngine() {
   }
 
   return {
-    RETIRED, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    RETIRED, BOSS_ARMY, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
     gNeed, stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

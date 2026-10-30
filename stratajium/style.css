@@ -885,11 +885,6 @@ body.viewing #opts { visibility: hidden; }
 .hpick button { text-align: left; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .04); font-size: 15px; }
 .hpick button b { color: var(--danger); margin-right: 4px; }
 .hpick button.sel { border-color: var(--danger); background: rgba(255, 90, 90, .16); }
-/* paramètres : touches */
-.keybinds { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; justify-content: flex-end; max-width: 560px; }
-.keybinds .kb { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.keybinds .kb small { font-size: 12.5px; color: var(--muted); max-width: 120px; text-align: center; line-height: 1.15; }
-.keybinds button.wait { border-color: var(--gold); color: var(--gold); animation: tchPulse .8s infinite alternate; }
 /* Codex : la Lumière puis les Ombres */
 .tblock h3.cxhead { margin: 4px 0 0; }
 /* Codex : bande Lumière / Ombres sur toute la largeur */
@@ -952,3 +947,17 @@ input, textarea { cursor: text; }
 #infoCard .idiag .diag { width: 96px; }
 #infoCard .idiag small { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.2; }
 .edge { color: var(--gold); white-space: nowrap; }
+/* combat de boss : choisir son équipe */
+.squad .sqrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 8px; }
+.squad .sqchip { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; padding: 4px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); opacity: .6; }
+.squad .sqchip .tk { width: 42px; height: 42px; }
+.squad .sqchip small { font-size: 12px; line-height: 1.1; }
+.squad .sqchip.sel { opacity: 1; border-color: var(--gold); background: rgba(242, 193, 78, .15); }
+/* recrutement : le perso vole vers la réserve */
+.flytk { position: fixed; z-index: 80; pointer-events: none; }
+.flytk .tk { width: 100%; height: 100%; }
+/* succès : niveaux 🥉 🥈 🥇 */
+.ach .medals { margin-left: 4px; }
+.ach .medal { opacity: .25; filter: grayscale(1); }
+.ach .medal.on { opacity: 1; filter: none; }
+.ach.tier .meter { margin: 4px 0 2px; }

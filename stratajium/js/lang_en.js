@@ -1018,6 +1018,29 @@
   Object.assign(D.ui, {
     "Le bot commence avec {n} garde(s) déjà perdu(s)": "The bot starts with {n} guard(s) already lost",
   });
+  Object.assign(D.ui, {
+    "Ton équipe pour ce combat": "Your team for this battle",
+    "Personne ne recrute : le boss joue avec son armée, toi avec l’équipe que tu choisis ici. Les soldats sont offerts.": "Nobody recruits: the boss plays with its army, you with the team you pick here. The soldiers are free.",
+    "Le boss a {n} point(s) de vie de moins": "The boss has {n} fewer life point(s)",
+    "☀️ Lumière": "☀️ Light",
+    "👹 Boss": "👹 Bosses",
+    "Tous les 10 affrontements, un boss t’attend avec son armée. Personne ne recrute : tu choisis ton équipe avant le combat. Chaque coup lui retire un point de vie ; tue-le pour gagner.": "Every 10 battles, a boss awaits with its army. Nobody recruits: you pick your team before the battle. Each hit removes one life point; kill it to win.",
+    "Gagne {n} affrontement(s).": "Win {n} battle(s).",
+    "Courage": "Courage",
+    "Gagne {n} affrontement(s) difficile(s).": "Win {n} hard battle(s).",
+    "Bats {n} boss.": "Beat {n} boss(es).",
+    "Ascension des Cercles": "Climbing the Circles",
+    "Atteins le Cercle {n}.": "Reach Circle {n}.",
+    "Défis du jour": "Daily challenges",
+    "Joue le défi du jour {n} jour(s) différent(s).": "Play the daily challenge on {n} different day(s).",
+    "Gagne {n} points pour tes persos.": "Earn {n} points for your units.",
+    "Passion": "Passion",
+    "Joue {n} heure(s).": "Play for {n} hour(s).",
+    "À armes égales": "On equal terms",
+    "Gagne contre le bot sans aucun désavantage (avantage 0).": "Win against the bot with no handicap at all (advantage 0).",
+    "Tous les niveaux obtenus !": "All levels earned!",
+    "Succès à niveaux": "Tiered achievements",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -1058,3 +1081,9 @@ I18N.DICT.en.T.n5[1] = "Grabs an enemy (not a god) 1 or 2 squares away in a stra
 I18N.DICT.en.T.nl[1] = "Takes 1 straight step (up, down, left, right), killing the enemy if there is one. Or, without moving, kills an enemy (not a god) 2 or 3 squares straight ahead. When it dies, a Shadow (soldier) appears next to it.";
 I18N.DICT.en.T.nm[1] = "Takes 1 step in any direction (killing the enemy if there is one). Or jumps to the mirror square on the other side of the map, in its row or its column (killing the enemy there, not a god).";
 I18N.DICT.en.T.ob[1] = "Teleports to an empty dark square 4 squares away or less. Or, without moving, kills an enemy next to it.";
+I18N.DICT.en.THEME.printemps = ["Spring forest"];
+I18N.DICT.en.THEME.jungle = ["Jungle"];
+I18N.DICT.en.THEME.volcan = ["Volcano"];
+I18N.DICT.en.THEME.canyon = ["Canyon"];
+I18N.DICT.en.T.bb[1] = "Boss, 5 life points. Every other turn, it stares at a straight line (marked in red); on the next turn, its gaze turns to stone the first of your units on that line.";
+I18N.DICT.en.T.sa[1] = "Boss of the Light, 6 life points. Every turn, its light blinds all your units in its row and column: you can’t activate them on your next turn.";

@@ -1,6 +1,15 @@
-/* Panthéa — interface : parties à affrontements (normal, difficile, boss tous les 10) qui font progresser la réserve,
-   exploits, défi du jour (ses points débloquent des talents), plateau en forêt, créatures animées, sons, raccourcis,
-   tutoriel, plusieurs langues (voir i18n.js : L('texte français')). Tout tient à l'écran, sans défilement. */
+/* Panthéa — interface. Les règles du jeu et les bots sont dans engine.js ; les textes dans i18n.js (L('texte français'))
+   et lang_*.js ; les décors dans decor.js ; les dessins des persos dans art.js ; les sons dans sound.js.
+   Plan de ce fichier (chercher le titre entre les lignes de « ==== ») :
+     Parties ............. emplacements, Cercles, avantage (désavantages du bot), handicaps, progression, récompenses
+     Défi du jour ........ records, persos tirés au hasard
+     Préparation ......... écran avant un affrontement (événement, handicaps, équipe contre un boss)
+     Affrontement ........ début, coups, animations, fin, bilan (erreurs revues sur la carte), carte, consignes, fiches
+     Clavier ............. Échap et flèches
+     Codex ............... onglets Règles, Lumière, Ombres, Boss…
+     Duel, DLC (Ascension, défi de la semaine), Extensions, Statistiques, Paramètres, Tutoriel, Manette,
+     Tutoriel jouable, Succès (à niveaux), Revoir une partie
+   Tout tient à l'écran, sans défilement. */
 (function () {
   'use strict';
   const E = StratEngine();
@@ -16,7 +25,6 @@
   const LEVELS = ['facile', 'normal', 'impossible'];
   const LEVELIC = { facile: '🌱', normal: '⚔️', impossible: '🧠' };
   const levelName = lv => ({ facile: L('Bot facile'), normal: L('Bot normal'), impossible: L('Bot stratège') })[lv] || L('Bot normal');
-  const levelDesc = lv => ({ facile: L('Pour apprendre.'), normal: L('Un vrai adversaire.'), impossible: L('Le plus fort : il calcule plusieurs coups à l’avance.') })[lv];
   const catName = c => ({ M: L('Dieu'), G: L('Garde'), S: L('Soldat'), B: L('Boss') })[c];
   const tn = i => I18N.name(T[i]);
   const td = i => I18N.desc(T[i]);
@@ -115,13 +123,13 @@
   const startM = r => r.fac ? E.SH_START_M : E.START_M, startG = r => r.fac ? E.SH_START_G : E.START_G;
   // jumeaux : perso des Ombres -> perso de la Lumière qui lui fait face (et l'inverse)
   const REV = {}; for (const k in E.TWIN) REV[E.TWIN[k]] = k;
-  const lightOf = ids => [...new Set(ids.map(x => E.TWIN[x] || x).filter(x => !isSh(x)))], shadowOf = ids => [...new Set(ids.map(x => isSh(x) ? x : REV[x]).filter(Boolean))];
+  const shadowOf = ids => [...new Set(ids.map(x => isSh(x) ? x : REV[x]).filter(Boolean))];
   const mid = id => E.MID[E.TI[id]] || id; // ses pouvoirs viennent de ce perso
 const isSh = id => !!T[E.TI[id]].fac;
   // ---------- décors ----------
   const bgDecor = Decor.create(), boardDecor = Decor.create();
   const bgSeed = 1 + rnd(1e6);
-  let theme = SET.decor !== 'auto' && Decor.THEMES[SET.decor] ? SET.decor : pick(themeList());
+  let theme = pick(themeList()); // le décor est toujours choisi tout seul (et change de temps en temps)
   const otherTheme = () => pick(themeList().filter(t => t !== theme));
   function setTheme(t, quiet) {
     if (t === theme) return;
@@ -134,7 +142,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   let themeT = 0;
   function scheduleTheme() {
     clearTimeout(themeT);
-    themeT = setTimeout(() => { if (SET.decor === 'auto') setTheme(otherTheme()); scheduleTheme(); }, (180 + rnd(240)) * 1000);
+    themeT = setTimeout(() => { setTheme(otherTheme()); scheduleTheme(); }, (600 + rnd(300)) * 1000); // le décor change tout seul, toutes les 10 à 15 minutes
   }
   scheduleTheme();
   bgDecor.scene($('bgForest'), bgSeed, theme);
@@ -642,16 +650,23 @@ const isSh = id => !!T[E.TI[id]].fac;
     const map = E.makeMap(mapLv === 0 ? 'classique' : 'aleatoire', mapLv, currents);
     if (r.fac) E.addShadowSpecs(map); // autels, lumières sacrées, portails
     const first = rnd(2); // qui commence : toujours tiré au sort
-    // armée des Ombres : l'adversaire (la Lumière) a autant de sortes de persos que toi
-    const more = (base, all, n) => base.concat(shuffle(all.filter(x => !base.includes(x))).slice(0, Math.max(0, n)));
     // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
-    // partie des Ombres : la Lumière en face a les mêmes sortes de persos (leurs jumeaux)
     // partie des Ombres : l'adversaire joue lui aussi l'armée des Ombres (même réserve commune)
     const oppM = r.fac ? [] : r.gods, oppG = r.fac ? [] : r.gards;
     pre = { ev, map, first, bet: [null, null], level: r.level, mode, hard: hs, perso: pick(Object.keys(E.PERSOS)), gods: oppM, gards: oppG, boss: boss ? bossOf(r) : null, cercle: r.cercle, edge: r.edge,
       fac: r.fac ? [1, 1] : null, shM: r.fac ? r.gods.slice() : null, shG: r.fac ? r.gards.slice() : null, theme: currents ? 'abysses' : r.fac ? 'nuit' : null };
+    if (boss) pre.squad = { gods: r.gods.slice(-SQUAD.gods), gards: r.gards.slice(-SQUAD.gards) }; // par défaut : tes derniers persos
     if (!ev && !hard && !boss) return beginMatch();
     showPre(false);
+  }
+  const SQUAD = { gods: 2, gards: 4, soldiers: 3 };
+  const bossHpCut = e => Math.floor(e / 3); // l'avantage contre un boss : il a un peu moins de points de vie (2 au plus)
+  function squadHtml(r) {
+    const row = (ids, sel, k, max) => `<div class="sqrow" data-sq="${k}">${ids.map(id => `<button class="sqchip ${sel.includes(id) ? 'sel' : ''}" data-id="${id}" title="${esc(tn(E.TI[id]))}">${token(E.TI[id], 0)}<small>${tn(E.TI[id])}</small></button>`).join('')}</div>`;
+    return `<div class="opt squad"><h3>${L('Ton équipe pour ce combat')}</h3><p class="muted small">${L('Personne ne recrute : le boss joue avec son armée, toi avec l’équipe que tu choisis ici. Les soldats sont offerts.')}</p>
+      <b>${L('Dieux')} ${pre.squad.gods.length}/${SQUAD.gods}</b>${row(r.gods, pre.squad.gods, 'gods', SQUAD.gods)}
+      <b>${L('Gardes')} ${pre.squad.gards.length}/${SQUAD.gards}</b>${row(r.gards, pre.squad.gards, 'gards', SQUAD.gards)}
+      <p class="small">+ ${SQUAD.soldiers} ${L('Soldats').toLowerCase()}</p></div>`;
   }
   const bossQuote = id => ({
     bt: L('Je suis la montagne. Les montagnes ne reculent pas.'), bn: L('Tes morts m’appartiennent déjà.'), bd: L('Approche, petit dieu, que je voie si tu brûles bien.'),
@@ -677,6 +692,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       }
     }
     if (pre.mode === 'hard') h += `<h2 class="title">🔥 ${L('Affrontement difficile')}</h2><div class="evcard hardc">${pre.hard.map(x => '• ' + hardName(x)).join('<br>')}</div>`;
+    if (pre.boss && pre.squad && cur >= 0) h += squadHtml(run());
     if (pre.boss) { const b = E.TI[pre.boss]; h += `<h2 class="title">${L('Affrontement de boss !')}</h2><div class="evcard hardc bossc">${token(b, 1)}<div><b>${tn(b)}</b>${bossQuote(pre.boss) ? `<i class="quote">« ${bossQuote(pre.boss)} »</i>` : ''}${td(b)}<br><small>${L('Il a des sbires. Tue le boss (chaque coup lui retire un point de vie) pour gagner.')}</small></div></div>`; }
     if (pre.ev) {
       h += `<h2 class="title">${L('Événement !')}</h2><div class="evcard"><b>🎲 ${I18N.evName(pre.ev)}</b>${I18N.evDesc(pre.ev)}</div>`;
@@ -694,6 +710,11 @@ const isSh = id => !!T[E.TI[id]].fac;
     h += `<div class="menu-actions"><button class="big" id="btnGo" ${ready ? '' : 'disabled'}>${L('Commencer l’affrontement')}</button><button class="ghost" id="btnPreBack">${L('Retour')}</button></div>`;
     $('preBox').innerHTML = h;
     $('preBox').querySelectorAll('[data-bet]').forEach(seg => seg.onclick = ev => { const b = ev.target.closest('button'); if (!b) return; pre.bet[0] = +b.dataset.v; showPre(daily); });
+    $('preBox').querySelectorAll('[data-sq] [data-id]').forEach(b => b.onclick = () => {
+      const k = b.parentElement.dataset.sq, id = b.dataset.id, list = pre.squad[k];
+      if (list.includes(id)) pre.squad[k] = list.filter(x => x !== id); else if (list.length < SQUAD[k]) list.push(id); else { list.shift(); list.push(id); }
+      sfx('choix'); showPre(daily);
+    });
     $('preBox').querySelectorAll('[data-hp]').forEach(b => b.onclick = () => { const k = b.dataset.hp; pre.hard = pre.hard.includes(k) ? pre.hard.filter(x => x !== k) : pre.hard.concat([k]); sfx('choix'); showPre(daily); });
     $('btnGo').onclick = () => { if (ready) beginMatch(); };
     $('btnPreBack').onclick = () => { if (pre.mode === 'daily') { renderMenu(); show('menu'); } else if (pre.mode === 'duel') { renderDuel(); show('duel'); } else if (pre.mode === 'story') { renderStory(); show('story'); } else if (pre.mode === 'season') { renderSeason(); show('season'); } else openRun(cur); };
@@ -792,7 +813,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     const hs = pre.hard || [];
     const of1 = pre.fac ? pre.fac[1] : 0, oGods = of1 === 1 ? pre.shM : of1 === 2 ? (pre.gods || []).concat(pre.shM || []) : pre.gods, oGards = of1 === 1 ? pre.shG : of1 === 2 ? (pre.gards || []).concat(pre.shG || []) : pre.gards; // persos de l'adversaire
     const botSide = (pre.ctl || ['me', 'bot']).indexOf('bot');
-    const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide });
+    const squad = pre.squad ? pre.squad.gods.concat(pre.squad.gards, Array(SQUAD.soldiers).fill(pre.fac && pre.fac[0] === 1 ? 'os' : 's')) : null;
+    const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide, squad });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
     if (hs.includes('mana')) s.mana[0] -= 40;
     if (hs.includes('riche')) s.mana[1] += 100;
@@ -820,7 +842,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (fs.includes('soldat')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI.s, 1); }
       if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
     }
-    if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') { s.mana[0] = Math.max(60, s.mana[0]); if (pre.edge) applyEdge(s, pre.edge, 1); } // jamais moins de 60 mana au départ
+    if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') { s.mana[0] = Math.max(60, s.mana[0]); if (pre.edge && pre.mode !== 'boss') applyEdge(s, pre.edge, 1); if (pre.edge && s.boss) { s.boss.hp = Math.max(1, s.boss.hp - bossHpCut(pre.edge)); s.boss.max = s.boss.hp; } } // jamais moins de 60 mana au départ
     // talents du défi du jour (pas pendant le défi lui-même, ni en duel)
     if (pre.myMana) s.mana[0] = pre.myMana;
     if (pre.mode !== 'daily' && pre.mode !== 'duel' && pre.mode !== 'story' && pre.mode !== 'season') {
@@ -833,7 +855,6 @@ const isSh = id => !!T[E.TI[id]].fac;
     G = newG(s, { level: pre.level, mode: pre.mode, perso: pre.perso, daily: pre.daily || null, chal: pre.chal || null, edge: ['normal', 'hard', 'boss'].includes(pre.mode) ? pre.edge || 0 : 0, hard: hs, names: curNames(), ctl: pre.ctl || ['me', 'bot'], net: !!(pre.ctl && pre.ctl.includes('net')) });
     $('log').innerHTML = '';
     if (pre.theme && themeList().includes(pre.theme)) { setTheme(pre.theme, true); scheduleTheme(); }
-    else if (SET.decor === 'auto') { setTheme(otherTheme(), true); scheduleTheme(); }
     sys(L('Carte : {m}.', { m: I18N.mapName(s.g) }));
     if (s.ev) sys(L('Événement : {e}.', { e: I18N.evName(s.ev) }));
     if (s.goal) sys(L('Objectif : {g}.', { g: I18N.goalName(s.goal) }));
@@ -870,7 +891,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.mode === 'season' && pre && pre.season) out.push(`🗓️ <b>${seasonName(pre.season.rule)}</b> : ${seasonDesc(pre.season.rule)}`);
     if (s.boss) out.push(`👹 <b>${tn(E.TI[s.boss.kind])}</b> : ${td(E.TI[s.boss.kind])}`);
     for (const h of G.hard || []) out.push(`🔥 ${hardName(h)}`);
-    if (G.edge) for (const x of edgeRules(G.edge)) out.push(`🎚️ ${x}`);
+    if (G.edge && s.boss) { if (bossHpCut(G.edge)) out.push(`🎚️ ${L('Le boss a {n} point(s) de vie de moins', { n: bossHpCut(G.edge) })}`); }
+    else if (G.edge) for (const x of edgeRules(G.edge)) out.push(`🎚️ ${x}`);
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     if (cer >= 3) for (const f of fardeaux(cer)) out.push(`⚖️ ${fardeauText(f, cer)}`);
     if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Ombres : 3 persos dans la zone de placement adverse = victoire. Un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
@@ -942,6 +964,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function doAction(a) {
     if (G.tuto && G.humans[G.s.turn]) { const st = guideStep(); if (st && !st.free && !st.ok(a, G.s)) { G.sel = null; render(); toast('🎓 ' + st.t, 4500); sfx('annule'); return; } }
     const s = G.s, p = s.turn, before = E.clone(s);
+    const recFrom = a.k === 'rec' ? document.querySelector(`#pool [data-pool="${a.t}"]`) : null, recBox = recFrom && recFrom.getBoundingClientRect();
     if (!G.rec && !G.replay) G.rec = [frameOf(before, null)];
     const could = G.humans[p] && !G.replay && !G.tuto && s.phase === 'play' ? bestCapture(before, legal()) : null;
     const an = !G.replay && !G.tuto && !G.net ? E.analyse(before, a) : null; // pour le bilan : la valeur du coup joué et du meilleur
@@ -991,6 +1014,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.tuto) guideAfter(before, s, a, p);
     render();
     animate(before, s, a, dead, hits, fire, smash);
+    if (a.k === 'rec' && recBox) flyRecruit(a.t, p, { getBoundingClientRect: () => recBox });
     if (G.chal === 'carnage' && s.winner === null && Math.ceil((s.ply + (s.first0 === 0 ? 1 : 0)) / 2) > 25) { s.winner = 2; s.why = L('25 tours joués.'); }
     saveMatch();
     if (s.winner !== null) endGame();
@@ -1052,6 +1076,18 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function pcEl(q) { return sqEls[q] && sqEls[q].querySelector('.pc'); }
   const IS_MAGE = c => c > 0 && T[E.tix(c)].cat === 'M';
+  function flyRecruit(i, p, from) {
+    if (SET.anim === 'aucune' || !from) return;
+    const to = $('pp' + p); if (!to) return;
+    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    const d = document.createElement('div'); d.className = 'flytk'; d.innerHTML = token(i, p);
+    d.style.left = a.left + 'px'; d.style.top = a.top + 'px'; d.style.width = a.width + 'px'; d.style.height = a.height + 'px';
+    document.body.appendChild(d);
+    const dx = b.left + b.width / 2 - a.left - a.width / 2, dy = b.top + b.height / 2 - a.top - a.height / 2;
+    const an = d.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${dx * .5}px, ${dy * .5 - 60}px) scale(1.5)`, opacity: 1, offset: .5 }, { transform: `translate(${dx}px, ${dy}px) scale(.6)`, opacity: 0 }],
+      { duration: SET.anim === 'rapide' ? 450 : 800, easing: 'cubic-bezier(.4,.1,.3,1)' });
+    an.onfinish = () => d.remove();
+  }
   function slide(el, pts, dur) {
     if (!el || !el.animate || SET.anim === 'aucune') return;
     if (SET.anim === 'rapide') dur *= .5;
@@ -1093,12 +1129,13 @@ const isSh = id => !!T[E.TI[id]].fac;
         if (id && best === a.from && ['g5', 'g7', 's', 'c8'].includes(id)) way = [best].concat(a.cl.filter(v => typeof v === 'number' && v !== q));
         if (id === 'pc' && best === a.cl[0]) way = a.cl.filter(v => typeof v === 'number' && v !== q);
         const pts = way.map(w => { const P = sqXY(w); return [P.x - Q.x, P.y - Q.y]; }).concat([[0, 0]]);
-        slide(el, pts, 220 + 160 * (pts.length - 1) + bd * 25);
+        slide(el, pts, 320 + 220 * (pts.length - 1) + bd * 40);
       } else if (el && el.animate && SET.anim !== 'aucune') {
         el.animate([{ transform: 'translateY(-36px) scale(1.35)', opacity: 0 }, { transform: 'translateY(4px) scale(.95)', opacity: 1, offset: .75 }, { transform: 'none' }], { duration: SET.anim === 'rapide' ? 200 : 380, easing: 'ease-out' });
         setTimeout(() => addFx('dust', q, '', { size: 1.4, life: 600 }), 260);
       }
     }
+    if (id && IS_MAGE(before.b[a.from]) && SET.anim !== 'aucune') { addFx('ring', a.from, '', { color: '#ffd86a', size: 2.6 }); sparks(a.from, 18, '#ffe9a8'); const el = pcEl(a.from); if (el && el.animate) el.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.8) drop-shadow(0 0 12px #ffd86a)' }, { filter: 'brightness(1)' }], { duration: 700 }); }
     // qui frappe ? (le perso activé, s'il n'a pas pris la place de sa victime, prend son élan)
     const atk = a.k === 'act' && before.b[a.from] > 0 ? a.from : -1, atkAt = atk >= 0 && after.b[atk] === before.b[atk] ? atk : -1;
     if (atkAt >= 0 && dead.length && !dead.includes(atkAt) && !IS_MAGE(before.b[atk])) lunge(atkAt, dead[0]);
@@ -1919,7 +1956,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   $('sheetClose').onclick = closeSheet;
 
   // =====================================================================
-  //  Raccourcis clavier
+  //  Clavier : Échap et les flèches seulement (comme la manette)
   // =====================================================================
   function modalOpen() { return ['codexModal', 'setModal', 'evoModal', 'tutoModal', 'endModal', 'statsModal', 'achModal', 'replayModal'].find(id => !$(id).hidden); }
   document.addEventListener('keydown', e => {
@@ -1957,7 +1994,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Codex (pages, sans défilement)
   // =====================================================================
-  const CTABS = () => [['regles', L('📜 Règles')], ['dieux', L('⬢ Dieux')], ['gardes', L('🛡️ Gardes')], ['autres', L('👹 Soldat & boss')], ['evenements', L('🎲 Événements')], ['cartes', L('🗺️ Cartes')],
+  const CTABS = () => [['regles', L('📜 Règles')], ['lumiere', L('☀️ Lumière')], ['ombres', L('🌑 Ombres')], ['boss', L('👹 Boss')], ['evenements', L('🎲 Événements')], ['cartes', L('🗺️ Cartes')],
     ['decors', L('🌲 Décors')], ['bots', L('🤖 Bots')], ['progression', L('📈 Progression')]];
   let codexTab = 'regles', codexPg = 0, codexPages = 1;
   const DIAG_W = 7, DIAG_C = 24;
@@ -1981,10 +2018,29 @@ const isSh = id => !!T[E.TI[id]].fac;
       const v = c > 0 && E.own(c) === 1 && !['mc', 'mb', 'g1'].includes(id) ? 'hit' : c > 0 ? 'ally' : (k === 0 ? 'reach' : 'reach2');
       if (!cls[x] || v === 'hit' || (v === 'reach' && cls[x] === 'reach2')) cls[x] = v;
     });
-    let h = `<div class="diag">`;
+    // l'animation : le perso va sur une case où il peut aller, puis sur un ennemi qu'il peut tuer (ou sa zone s'allume)
+    const seq = [cls.findIndex(c => c === 'reach'), cls.findIndex(c => c === 'hit'), cls.lastIndexOf('reach2')].filter(x => x >= 0);
+    let h = `<div class="diag" data-seq="${seq.join(',')}"${cls.includes('zone') ? ' data-zone="1"' : ''}>`;
     for (let q = 0; q < 49; q++) { const c = s.b[q], light = (((q / DIAG_W) | 0) + q % DIAG_W) % 2 === 0; h += `<i class="${light ? 'l' : ''} ${cls[q]}">${q === DIAG_C ? token(E.tix(c), 0) : c > 0 ? `<b class="${E.own(c) ? 'en' : 'al'}"></b>` : ''}</i>`; }
     return h + '</div>';
   }
+  // anime en boucle les schémas visibles (fiches, Codex, tutoriel)
+  let diagStep = 0;
+  setInterval(() => {
+    if (SET.anim === 'aucune') return;
+    diagStep++;
+    document.querySelectorAll('.diag[data-seq]').forEach(d => {
+      if (!d.offsetParent) return;
+      const cells = d.children, tk = cells[DIAG_C] && cells[DIAG_C].querySelector('.tk');
+      if (d.dataset.zone) { d.querySelectorAll('i.zone').forEach(z => z.animate && z.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.9)' }, { filter: 'brightness(1)' }], { duration: 700 })); }
+      const seq = d.dataset.seq ? d.dataset.seq.split(',').map(Number) : [];
+      if (!tk || !seq.length || !tk.animate) return;
+      const t = seq[diagStep % seq.length], A = cells[DIAG_C].getBoundingClientRect(), B = cells[t].getBoundingClientRect();
+      const dx = B.left - A.left, dy = B.top - A.top, hit = cells[t].classList.contains('hit');
+      tk.animate([{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px, ${dy}px)`, offset: .4 }, { transform: `translate(${dx}px, ${dy}px)`, offset: .7 }, { transform: 'translate(0,0)' }], { duration: 1500, easing: 'ease-in-out' });
+      if (hit) setTimeout(() => cells[t].animate && cells[t].animate([{ boxShadow: '0 0 0 0 #e04a5a' }, { boxShadow: '0 0 0 5px #ff8a8a' }, { boxShadow: '0 0 0 0 #e04a5a' }], { duration: 500 }), 600);
+    });
+  }, 1700);
   const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1); E.SH_M.forEach(x => NODIAG[x] = 1);
   function pieceCards(ids) {
     const r = cur >= 0 ? run() : null;
@@ -2015,11 +2071,12 @@ const isSh = id => !!T[E.TI[id]].fac;
   function codexBlocks(tab) {
     if (tab === 'regles') return rulesBlocks();
     const head = (ic, t, ids) => `<div class="cxhead ${ic === '🌑' ? 'sh' : 'li'}">${ic} ${t}${ids ? ` <small>· ${L('{n}/{t} découverts', { n: ids.filter(x => SEEN.has(x)).length, t: ids.length })}</small>` : ''}</div>`;
-    if (tab === 'dieux') return [head('☀️', L('Dieux de la Lumière'), allM())].concat(pieceCards(allM()), [head('🌑', L('Dieux des Ombres'), E.SH_M)], pieceCards(E.SH_M));
-    if (tab === 'gardes') return [head('☀️', L('Gardes de la Lumière'), allG())].concat(pieceCards(allG()), [head('🌑', L('Gardes des Ombres'), E.SH_G)], pieceCards(E.SH_G));
-    if (tab === 'autres') return [head('☀️', L('Soldat de la Lumière'))].concat(pieceCards(['s']), [head('🌑', L('Soldat des Ombres'))], pieceCards(['os']),
-      [textBlock(`<h3>${L('Boss')}</h3><p>${L('Tous les 10 affrontements, un boss t’attend avec ses sbires. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)], pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])),
-      [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
+    // une armée par onglet : ses dieux, ses gardes, son soldat
+    const army = (ic, M, Gd, sol, tM, tG, tS) => [head(ic, tM, M)].concat(pieceCards(M), [head(ic, tG, Gd)], pieceCards(Gd), [head(ic, tS)], pieceCards([sol]));
+    if (tab === 'lumiere') return army('☀️', allM(), allG(), 's', L('Dieux de la Lumière'), L('Gardes de la Lumière'), L('Soldat de la Lumière'));
+    if (tab === 'ombres') return army('🌑', E.SH_M, E.SH_G, 'os', L('Dieux des Ombres'), L('Gardes des Ombres'), L('Soldat des Ombres'));
+    if (tab === 'boss') return [textBlock(`<p>${L('Tous les 10 affrontements, un boss t’attend avec son armée. Personne ne recrute : tu choisis ton équipe avant le combat. Chaque coup lui retire un point de vie ; tue-le pour gagner.')}</p>`)]
+      .concat(pieceCards(bossList().concat(dlcOn('abysses') ? ['bx'] : [], ['mi', 'ab'])), [textBlock(`<h3>☀️ ${L('Les boss de la Lumière')}</h3><p>${L('Dans une partie des Ombres, ce sont eux que tu affrontes en premier, à la place des boss habituels.')}</p>`)], pieceCards(E.SH_BOSSES));
     if (tab === 'evenements') return E.EVENTS.map(e => card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : ''))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
       .concat(E.GOALS.map(gl => card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id))));
@@ -2107,7 +2164,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('codexTabs').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { codexTab = b.dataset.tab; codexPg = 0; sfx('page'); renderCodex(); });
     while (previews.length) previews.pop().stop();
     const body = $('codexBody'), isText = codexTab === 'regles' || codexTab === 'progression';
-    const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3, ['dieux', 'gardes', 'autres'].includes(codexTab));
+    const r = paginate(body, codexBlocks(codexTab), isText ? 400 : 330, codexPg, isText ? 2 : 3, ['lumiere', 'ombres', 'boss'].includes(codexTab));
     codexPages = r.pages; codexPg = r.pg;
     pagerHtml($('codexPager'), codexPg, codexPages, codexPage);
     body.querySelectorAll('[data-theme]').forEach(el => { const d = Decor.create(); d.scene(el, 7 + Decor.THEME_IDS.indexOf(el.dataset.theme), el.dataset.theme); d.stop(); previews.push(d); });
@@ -2452,7 +2509,6 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>🌍 ${L('Langue')}</b></div><select id="setLang">${I18N.LANGS.map(([c, n]) => `<option value="${c}" ${I18N.lang === c ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="setrow"><div class="lab"><b>🎵 ${L('Musique')}</b></div><div><button class="ghost sm ${Sound.music ? '' : 'off'}" id="setMus">${Sound.music ? L('Activée') : L('Coupée')}</button> <input type="range" min="0" max="100" value="${Math.round(Sound.musicVol * 100)}" id="volMus"></div></div>
       <div class="setrow"><div class="lab"><b>🔊 ${L('Effets sonores')}</b></div><div><button class="ghost sm ${Sound.effects ? '' : 'off'}" id="setSfx">${Sound.effects ? L('Activés') : L('Coupés')}</button> <input type="range" min="0" max="100" value="${Math.round(Sound.sfxVol * 100)}" id="volSfx"></div></div>
-      <div class="setrow wide"><div class="lab"><b>🌲 ${L('Décor')}</b></div>${segH('decor', [['auto', L('Auto')]].concat(themeList().map(t => [t, I18N.themeShort(t)])))}</div>
       <div class="setrow"><div class="lab"><b>✨ ${L('Animations')}</b></div>${segH('anim', [['normal', L('Normales')], ['rapide', L('Rapides')], ['aucune', L('Aucune')]])}</div>
       <div class="setrow"><div class="lab"><b>🔤 ${L('Coordonnées sur la carte')}</b></div>${segH('coords', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
@@ -2473,7 +2529,6 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (v === 'true') v = true; else if (v === 'false') v = false;
       SET[k] = v; lsSet('reglages', SET); applySettings();
       if (k === 'vision') { renderMenu(); if (G && $('game').classList.contains('on')) render(); }
-      if (k === 'decor') { if (v === 'auto') scheduleTheme(); else setTheme(v); }
       renderSettings();
     });
     $('setFs').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast(L('Plein écran impossible ici.'))); setTimeout(renderSettings, 300); };
@@ -2706,66 +2761,59 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   //  Succès (pour toujours, dans stratajium.succes)
   // =====================================================================
-  const ACH = [
-    { id: 'premiere', ic: '🥇', g: c => c.win },
-    { id: 'intact', ic: '🛡️', g: c => c.win && c.lostMe === 0 },
+  // ---------- succès ----------
+  // 1) à niveaux (🥉 🥈 🥇) : une valeur qui grandit ; 2) exploits, du plus facile au plus dur ; 3) ceux des extensions
+  const TIERS = [
+    { id: 'wins', ic: '🏆', tiers: [1, 10, 50, 200], v: d => d.wins },
+    { id: 'hardwins', ic: '🌶️', tiers: [1, 10, 50], v: d => (d.st.modes.hard && d.st.modes.hard.w) || 0 },
+    { id: 'bosses', ic: '👹', tiers: [1, 5, 20], v: d => Object.values(d.st.bosses).reduce((a, b) => a + (b.w || 0), 0) },
+    { id: 'cercles', ic: '🔁', tiers: [3, 6, 10], v: () => cercleMax() },
+    { id: 'jours', ic: '📅', tiers: [1, 7, 30], v: d => Object.keys(d.daily.days).length },
+    { id: 'points', ic: '🌟', tiers: [100, 1000, 5000], v: d => Object.values(d.st.pts).reduce((a, b) => a + b, 0) },
+    { id: 'heures', ic: '⏳', tiers: [1, 10, 50], v: d => Math.floor(d.st.ms / 3600e3) },
+  ];
+  const ACH = [ // exploits, du plus facile au plus dur
     { id: 'eclair', ic: '⚡', g: c => c.win && c.myT <= 12 },
-    { id: 'remontee', ic: '🔥', g: c => c.win && c.s.lost[c.me][1] >= 3 },
-    { id: 'carnage', ic: '💀', g: c => c.kills >= 10 },
+    { id: 'intact', ic: '🛡️', g: c => c.win && c.lostMe === 0 },
     { id: 'deicide', ic: '⚔️', g: c => c.win && c.s.lost[1 - c.me][0] > 0 && E.aliveMages(c.s, 1 - c.me) === 0 },
-    { id: 'difficile', ic: '🌶️', g: c => c.win && c.mode === 'hard' },
+    { id: 'carnage', ic: '💀', g: c => c.kills >= 10 },
+    { id: 'remontee', ic: '🔥', g: c => c.win && c.s.lost[c.me][1] >= 3 },
     { id: 'triple', ic: '🌋', g: c => c.win && c.mode === 'hard' && c.hard.length >= 3 },
-    { id: 'boss', ic: '👹', g: c => c.win && !!c.s.boss },
     { id: 'stratege', ic: '🧠', g: c => c.win && c.mode === 'duel' && c.G.ctl[1] === 'bot' && c.G.level === 'impossible' },
-    { id: 'enligne', ic: '🌐', g: c => !!c.G.net },
-    { id: 'veteran', ic: '🏅', t: d => d.wins >= 10 },
-    { id: 'champion', ic: '🎖️', t: d => d.wins >= 50 },
-    { id: 'legende', ic: '🏆', t: d => d.wins >= 200 },
+    { id: 'pleineforce', ic: '🎚️', g: c => c.win && ['normal', 'hard', 'boss'].includes(c.mode) && c.G.edge === 0 },
     { id: 'tousboss', ic: '🐉', t: d => E.BOSSES.every(b => d.st.bosses[b] && d.st.bosses[b].w > 0) },
-    { id: 'cercle3', ic: '🔁', t: () => cercleMax() >= 3 },
-    { id: 'cercle6', ic: '♾️', t: () => cercleMax() >= 6 },
-    { id: 'cercle10', ic: '🌌', t: () => cercleMax() >= 10 },
     { id: 'collection', ic: '🗝️', t: () => RUNS.some(r => r && runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x))) },
     { id: 'touche', ic: '🎭', t: d => E.ALL_M.concat(E.ALL_G, ['s']).every(id => d.st.used[id]) },
-    { id: 'mille', ic: '🌟', t: d => Object.values(d.st.pts).reduce((a, b) => a + b, 0) >= 1000 },
-    { id: 'defi', ic: '📅', t: d => Object.keys(d.daily.days).length >= 1 },
-    { id: 'fidele', ic: '🗓️', t: d => Object.keys(d.daily.days).length >= 7 },
     { id: 'talents', ic: '✨', t: d => d.daily.total >= TALENTS[TALENTS.length - 1].pts },
-    { id: 'passion', ic: '⏳', t: d => d.st.ms >= 10 * 3600e3 },
+    { id: 'enligne', ic: '🌐', g: c => !!c.G.net },
     { id: 'courants', ic: '🌊', dlc: 'abysses', g: c => c.win && !!c.s.g.cdir },
     { id: 'dieudechu', ic: '👑', dlc: 'abysses', g: c => c.win && !!c.s.boss && c.s.boss.kind === 'bx' },
     { id: 'ascension', ic: '📖', dlc: 'abysses', t: () => storyDone() >= STORY.length },
+    { id: 'semaine', ic: '📆', dlc: 'ombres', t: () => Object.keys(seasonData()).length >= 1 },
     { id: 'invasion', ic: '🌑', dlc: 'ombres', g: c => c.win && /^Invasion/.test(c.s.why || '') },
     { id: 'lumiere', ic: '☀️', dlc: 'ombres', g: c => c.win && !!c.s.boss && E.SH_BOSSES.includes(c.s.boss.kind) },
     { id: 'aube', ic: '🌅', dlc: 'ombres', g: c => c.win && !!c.s.dawn },
-    { id: 'semaine', ic: '📆', dlc: 'ombres', t: () => Object.keys(seasonData()).length >= 1 },
   ];
+  const tierText = id => ({
+    wins: [L('Victoires'), L('Gagne {n} affrontement(s).')], hardwins: [L('Courage'), L('Gagne {n} affrontement(s) difficile(s).')],
+    bosses: [L('Tueur de boss'), L('Bats {n} boss.')], cercles: [L('Ascension des Cercles'), L('Atteins le Cercle {n}.')],
+    jours: [L('Défis du jour'), L('Joue le défi du jour {n} jour(s) différent(s).')], points: [L('Maîtrise'), L('Gagne {n} points pour tes persos.')],
+    heures: [L('Passion'), L('Joue {n} heure(s).')],
+  })[id];
   const achText = id => ({
-    premiere: [L('Premier sang'), L('Gagne ton premier affrontement.')],
     intact: [L('Sans une égratignure'), L('Gagne un affrontement sans perdre un seul perso.')],
     eclair: [L('Éclair'), L('Gagne en 12 de tes tours ou moins.')],
     remontee: [L('Remontée'), L('Gagne après avoir perdu 3 gardes.')],
     carnage: [L('Carnage'), L('Tue 10 persos ennemis dans un seul affrontement.')],
     deicide: [L('Déicide'), L('Gagne en tuant tous les dieux adverses.')],
-    difficile: [L('Sans peur'), L('Gagne un affrontement difficile.')],
     triple: [L('Trois fardeaux'), L('Gagne un affrontement difficile avec 3 handicaps.')],
-    boss: [L('Tueur de boss'), L('Bats un boss.')],
     stratege: [L('Plus malin que le bot'), L('Gagne un duel contre le bot stratège.')],
+    pleineforce: [L('À armes égales'), L('Gagne contre le bot sans aucun désavantage (avantage 0).')],
     enligne: [L('Rencontre'), L('Joue un duel en ligne.')],
-    veteran: [L('Vétéran'), L('Gagne 10 affrontements.')],
-    champion: [L('Champion'), L('Gagne 50 affrontements.')],
-    legende: [L('Légende'), L('Gagne 200 affrontements.')],
     tousboss: [L('Chasseur de légendes'), L('Bats chacun des 13 boss du jeu de base.')],
-    cercle3: [L('Cercle 3'), L('Atteins le Cercle 3.')],
-    cercle6: [L('Cercle 6'), L('Atteins le Cercle 6.')],
-    cercle10: [L('Cercle 10'), L('Atteins le Cercle 10.')],
     collection: [L('Collectionneur'), L('Débloque tous les dieux et tous les gardes dans une partie.')],
     touche: [L('Touche-à-tout'), L('Utilise au moins une fois chaque perso du jeu de base.')],
-    mille: [L('Mille points'), L('Gagne 1000 points de persos au total.')],
-    defi: [L('Défi relevé'), L('Joue un défi du jour.')],
-    fidele: [L('Fidèle'), L('Joue le défi du jour 7 jours différents.')],
     talents: [L('Tous les talents'), L('Débloque les 6 talents.')],
-    passion: [L('Passionné'), L('Joue 10 heures.')],
     courants: [L('Porté par les flots'), L('Gagne sur une carte avec des courants.')],
     dieudechu: [L('Le Dieu déchu'), L('Bats le Dieu déchu, à la fin de L’Ascension.')],
     ascension: [L('L’Ascension'), L('Termine l’histoire.')],
@@ -2774,35 +2822,57 @@ const isSh = id => !!T[E.TI[id]].fac;
     aube: [L('Avant l’aube'), L('Gagne avec le handicap « L’aube arrive ».')],
     semaine: [L('Chaque semaine'), L('Joue un défi de la semaine.')],
   })[id];
-  const achData = () => lsGet('succes', {});
+  const MEDAL = ['🥉', '🥈', '🥇', '💎'];
+  function achData() {
+    const got = lsGet('succes', {});
+    // anciens succès devenus des niveaux
+    const OLD = { premiere: 'wins:0', veteran: 'wins:1', champion: 'wins:2', legende: 'wins:3', difficile: 'hardwins:0', boss: 'bosses:0', cercle3: 'cercles:0', cercle6: 'cercles:1', cercle10: 'cercles:2', defi: 'jours:0', fidele: 'jours:1', mille: 'points:1', passion: 'heures:1' };
+    for (const k in OLD) if (got[k] && !got[OLD[k]]) got[OLD[k]] = got[k];
+    return got;
+  }
   const achList = () => ACH.filter(a => !a.dlc || dlcOn(a.dlc));
+  const achTotal = () => TIERS.reduce((a, t) => a + t.tiers.length, 0) + achList().length;
+  const achStats = () => { const st = statsData(), dd = dailyData(); return { st, daily: dd, wins: Object.values(st.modes).reduce((a, m) => a + (m.w || 0), 0) }; };
   // vérifie les succès ; G0 = l'affrontement qui vient de finir (ou rien) ; quiet = sans annonce (au démarrage)
   function checkAch(G0, quiet) {
-    const got = achData(), st = statsData(), dd = dailyData(), news = [];
-    const d = { st, daily: dd, wins: Object.values(st.modes).reduce((a, m) => a + (m.w || 0), 0) };
+    const got = achData(), d = achStats(), news = [];
     let c = null;
     if (G0 && G0.s && !['replay', 'tuto'].includes(G0.mode)) {
       const s = G0.s, me = G0.me, duo = G0.ctl[0] === 'me' && G0.ctl[1] === 'me';
       c = { G: G0, s, me, mode: G0.mode, hard: G0.hard || [], win: !duo && s.winner === me, lostMe: s.lost[me][0] + s.lost[me][1] + s.lost[me][2],
         kills: duo ? 0 : G0.st.kills[me][0] + G0.st.kills[me][1] + G0.st.kills[me][2], myT: Math.ceil((s.ply + (s.first0 === me ? 1 : 0)) / 2) };
     }
+    for (const t of TIERS) {
+      let v = 0; try { v = t.v(d); } catch (e) { v = 0; }
+      t.tiers.forEach((n, k) => { const key = t.id + ':' + k; if (!got[key] && v >= n) { got[key] = Date.now(); news.push(`${MEDAL[k]} ${tierText(t.id)[0]} (${n})`); } });
+    }
     for (const a of ACH) {
       if (got[a.id]) continue;
       let ok = false;
       try { ok = a.g ? !!(c && a.g(c)) : !!a.t(d); } catch (e) { ok = false; }
-      if (ok) { got[a.id] = Date.now(); news.push(a); }
+      if (ok) { got[a.id] = Date.now(); news.push(a.ic + ' ' + achText(a.id)[0]); }
     }
-    if (!news.length) return;
     lsSet('succes', got);
-    if (!quiet) { toast(`🏆 ${L('Succès débloqué : {x}', { x: news.map(a => a.ic + ' ' + achText(a.id)[0]).join(', ') })}`, 6500); sfx('evolution', .8, 300); }
+    if (news.length && !quiet) { toast(`🏆 ${L('Succès débloqué : {x}', { x: news.join(', ') })}`, 6500); sfx('evolution', .8, 300); }
   }
   let achPg = 0, achPages = 1;
   function renderAch() {
-    const got = achData(), list = achList(), n = list.filter(a => got[a.id]).length;
-    $('achCount').textContent = L('{n} succès sur {t}', { n, t: list.length });
-    const blocks = list.map(a => { const [nm, ds] = achText(a.id), when = got[a.id];
-      return `<div class="ach ${when ? 'done' : ''}"><span class="aic">${when ? a.ic : '🔒'}</span><div><b>${nm}</b><p>${ds}</p><small>${when ? L('Débloqué le {d}', { d: new Date(when).toLocaleDateString() }) : L('Pas encore débloqué')}</small></div></div>`; });
-    const r = paginate($('achBody'), blocks, 300, achPg, 3);
+    const got = achData(), d = achStats(), list = achList();
+    const nGot = TIERS.reduce((a, t) => a + t.tiers.filter((n, k) => got[t.id + ':' + k]).length, 0) + list.filter(a => got[a.id]).length;
+    $('achCount').textContent = L('{n} succès sur {t}', { n: nGot, t: achTotal() });
+    const head = t => `<div class="cxhead li">${t}</div>`;
+    const tiered = TIERS.map(t => {
+      let v = 0; try { v = t.v(d); } catch (e) { v = 0; }
+      const k = t.tiers.findIndex((n, i) => !got[t.id + ':' + i]), next = k < 0 ? null : t.tiers[k], [nm, ds] = tierText(t.id);
+      const medals = t.tiers.map((n, i) => `<span class="medal ${got[t.id + ':' + i] ? 'on' : ''}" title="${n}">${MEDAL[i]}</span>`).join('');
+      return `<div class="ach tier ${k < 0 ? 'done' : ''}"><span class="aic">${t.ic}</span><div><b>${nm}</b> <span class="medals">${medals}</span><p>${ds.replace('{n}', next === null ? t.tiers[t.tiers.length - 1] : next)}</p>
+        ${next === null ? `<small>${L('Tous les niveaux obtenus !')}</small>` : `<div class="meter"><i style="width:${Math.min(100, 100 * v / next)}%"></i></div><small>${Math.min(v, next)} / ${next}</small>`}</div></div>`;
+    });
+    const one = a => { const [nm, ds] = achText(a.id), when = got[a.id];
+      return `<div class="ach ${when ? 'done' : ''}"><span class="aic">${when ? a.ic : '🔒'}</span><div><b>${nm}</b><p>${ds}</p><small>${when ? L('Débloqué le {d}', { d: new Date(when).toLocaleDateString() }) : L('Pas encore débloqué')}</small></div></div>`; };
+    const blocks = [head('🏆 ' + L('Succès à niveaux'))].concat(tiered, [head('⭐ ' + L('Exploits'))], list.filter(a => !a.dlc).map(one),
+      list.some(a => a.dlc) ? [head('🧩 ' + L('Extensions'))] : [], list.filter(a => a.dlc).map(one));
+    const r = paginate($('achBody'), blocks, 300, achPg, 3, true);
     achPages = r.pages; achPg = r.pg;
     pagerHtml($('achPager'), achPg, achPages, achPage);
   }

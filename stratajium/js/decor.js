@@ -50,6 +50,38 @@ const Decor = (function () {
       flowers: ['#c8c8e8', '#e8e0a0'], stone: ['#6a6e64', '#2a2e28'], moss: '#4a6a3a',
       water: ['#2a4a3a', '#0a1a14'], berries: '#a83a5a', particles: 'mist', bladeDensity: 110, pools: true,
     },
+    printemps: {
+      name: 'Forêt de printemps', ground: ['#24402a', '#16301c'], blot: ['#3a6a3a', '#0e2012'], dirt: '#3a3424', under: '#4a3e2a',
+      blades: ['#4a8a44', '#2e6a34'], tufts: ['#4a8a48', '#5aa056', '#3a7a40', '#6ab060'],
+      bush: [['#22482a', '#3a7a3e', '#7ac06a'], ['#4a2a3a', '#a85a7a', '#f0a8c8'], ['#2a4a22', '#4a8a36', '#a8d070']],
+      tree: [['#1a3a22', '#2e6a36', '#5aa84e'], ['#4a2238', '#a04a78', '#f4b4d4']],
+      flowers: ['#f4b4d4', '#fff0a0', '#c8e8ff', '#ffffff', '#e8a0f0'], stone: ['#9a9a90', '#44463e'], moss: '#5a9a48',
+      water: ['#3a8aa0', '#123a4a'], berries: '#e85a8a', particles: 'leaf', bladeDensity: 80,
+    },
+    jungle: {
+      name: 'Jungle', ground: ['#10301a', '#06200e'], blot: ['#1e4a24', '#041008'], dirt: '#2a2a16', under: '#2e3018',
+      blades: ['#2a6a2a', '#1a4e1e'], tufts: ['#2a7a30', '#3a8a36', '#1e5e24', '#4a9a3a'],
+      bush: [['#0e3016', '#1e5a26', '#3a8a3a'], ['#123a14', '#2a6a1e', '#5aa02e'], ['#3a1a0e', '#8a2a1a', '#e05a2a']],
+      tree: [['#0a2410', '#1a4a1e', '#2e7a2e'], ['#0e2a12', '#225a22', '#4a9a32']], palm: true,
+      flowers: ['#ff5a3a', '#ffd23a', '#e83aa8', '#3ad0ff'], stone: ['#6a7060', '#262a22'], moss: '#2e7a30',
+      water: ['#1e6a5a', '#06261e'], berries: '#ff3a5a', particles: 'mist', bladeDensity: 70, pools: true,
+    },
+    volcan: {
+      name: 'Volcan', ground: ['#2a1a16', '#140c0a'], blot: ['#3a2420', '#060302'], dirt: '#3a2218', under: '#4a2a1c',
+      blades: ['#4a3a2a', '#2e2218'], tufts: ['#5a3a22', '#6a4a2a', '#3a2a1a'],
+      bush: [['#2a1a14', '#4a2a1e', '#7a4a2a'], ['#2a120a', '#6a1e0e', '#e04a1a']],
+      tree: [['#1a100c', '#2e1c14', '#4a2e1e'], ['#200c06', '#5a1a0a', '#c0401a']],
+      flowers: ['#ff6a1a', '#ffb23a', '#ff3a1a'], stone: ['#4a3e3a', '#161210'], moss: '#5a2a18',
+      water: ['#e0501a', '#5a0e06'], berries: '#ff5a1a', particles: 'dust', bladeDensity: 400,
+    },
+    canyon: {
+      name: 'Canyon', ground: ['#a85a3a', '#7a3e26'], blot: ['#c87a4a', '#5a2a1a'], dirt: '#8a4a2e', under: '#6a3420',
+      blades: ['#8a6a3a', '#6a4a2a'], tufts: ['#9a7a3a', '#7a5a2a', '#aa8a4a'],
+      bush: [['#4a4a22', '#6a6a32', '#9a9a4a'], ['#5a3a1e', '#8a5a2a', '#c08a3a']],
+      tree: [['#3a4a1e', '#5a6a2a', '#8a9a3a']],
+      flowers: ['#ffd23a', '#ff8a3a'], stone: ['#c07a50', '#5a2e1a'], moss: '#9a7a3a',
+      water: ['#3a8aa0', '#123a4a'], berries: '#d04a2a', particles: 'dust', bladeDensity: 700,
+    },
     // DLC « Les Abysses » : le fond de la mer (algues, coraux, bulles)
     abysses: {
       name: 'Abysses', ground: ['#0e2a3e', '#061624'], blot: ['#164a5e', '#020a12'], dirt: '#2a3a3e', under: '#1a2a30',
@@ -69,7 +101,7 @@ const Decor = (function () {
       water: ['#1a2a5a', '#060a1a'], berries: '#c84aff', particles: 'fly', bladeDensity: 100,
     },
   };
-  const BASE_THEMES = ['ete', 'automne', 'hiver', 'desert', 'marais'];
+  const BASE_THEMES = ['ete', 'printemps', 'automne', 'hiver', 'desert', 'canyon', 'marais', 'jungle', 'volcan'];
   const THEME_IDS = Object.keys(THEMES);
 
   function blotch(ctx, x, y, r, color, alpha) {
