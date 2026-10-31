@@ -983,7 +983,6 @@ input, textarea { cursor: text; }
 #infoCard .idiag { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 104px; }
 #infoCard .idiag .diag { width: 96px; }
 #infoCard .idiag small { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.2; }
-.edge { color: var(--gold); white-space: nowrap; }
 /* combat de boss : choisir son équipe */
 .squad .sqrow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 8px; }
 .squad .sqchip { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; padding: 4px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); opacity: .6; }
@@ -994,7 +993,6 @@ input, textarea { cursor: text; }
 .flytk { position: fixed; z-index: 80; pointer-events: none; }
 .flytk .tk { width: 100%; height: 100%; }
 /* succès : niveaux 🥉 🥈 🥇 */
-.ach.tier .meter { margin: 4px 0 2px; }
 /* Codex : les 3 parties des règles (le jeu, les bots, la progression) */
 .tabs .subtabs { flex-basis: 100%; display: flex; gap: 5px; justify-content: center; margin-top: 4px; }
 .tabs .subtabs button { font-size: 15px; padding: 4px 12px; background: rgba(0, 0, 0, .2); }
@@ -1007,8 +1005,17 @@ input, textarea { cursor: text; }
 .pz.next:not(.done) { border-color: var(--gold); background: rgba(242, 193, 78, .12); }
 .pz.lock { opacity: .45; cursor: var(--cur); }
 /* statistiques à niveaux (sans fin) */
-.ach.tier .tlv { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(242, 193, 78, .18); color: var(--gold); font-size: 13.5px; font-weight: 700; }
-.ach.tier .tval { float: right; font-family: Cinzel, Georgia, serif; font-size: 22px; color: var(--gold); line-height: 1; }
 /* persos maîtres (parties, Cercle 6 et plus) */
 .sq.master .pc { filter: drop-shadow(0 0 7px rgba(255, 215, 90, .95)) drop-shadow(0 4px 3px rgba(0, 0, 0, .55)); }
 .imast { margin: 6px 0 0; color: var(--gold); font-weight: 700; }
+/* statistiques : un chiffre par ligne */
+.stiles { display: flex; flex-direction: column; gap: 6px; }
+.stile { display: grid; grid-template-columns: 34px 72px 1fr; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
+.stile span { font-size: 22px; line-height: 1; text-align: center; }
+.stile b { font-family: Cinzel, Georgia, serif; font-size: 24px; color: var(--gold); line-height: 1.1; text-align: right; }
+.stile small { font-size: 15px; color: var(--text, #e8e2cf); line-height: 1.25; }
+/* avancement du Cercle (menu et écran de la partie) */
+.cpct { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.cpct .meter { flex: 1; max-width: 160px; }
+.cpct small { white-space: nowrap; color: var(--gold); }
+.chip .mst { position: absolute; top: -6px; left: -6px; font-size: 13px; line-height: 1; pointer-events: none; }

@@ -1130,7 +1130,7 @@ function StratEngine() {
     s.decl[p] = s._newDecl || null; s._newDecl = null;
     s.turn = 1 - p; s.acts = s.ply === 0 ? 2 : 1; s.bonusRec = s.ply === 0 ? 1 : 0; s.ply++; // celui qui joue en second recrute un perso de plus à son 1er tour (sinon le 1er gagnait 57 %)
     s.quiet++;
-    if (s.dawn && s.winner === null && s.ply >= s.dawn * 2) { s.winner = 1; s.why = 'L’aube s’est levée : les Ombres n’ont pas gagné à temps.'; } // handicap « L’aube »
+    if (s.dawn && s.winner === null && s.ply >= s.dawn * 2) { s.winner = 1; s.why = s.fac && s.fac[0] === 1 ? 'L’aube s’est levée : les Ombres n’ont pas gagné à temps.' : 'Le temps est écoulé : tu n’as pas gagné à temps.'; } // handicaps « L’aube » et « Contre la montre »
     if ((s.quiet >= 150 || s.ply >= 200) && s.winner === null) { // partie trop longue : le plus de persos vivants, puis le plus de mana, puis le bot
       const a0 = alive(s, 0), a1 = alive(s, 1), m0 = s.mana[0], m1 = s.mana[1];
       s.long = 1; // gagné au temps (les records des défis ne comptent que les vraies victoires)

@@ -1132,6 +1132,48 @@
     "Prochain niveau : {x}": "Next level: {x}",
     "Tes statistiques": "Your statistics",
   });
+  Object.assign(D.ui, {
+    "Contre la montre": "Against the clock",
+    "Blessé": "Wounded",
+    "Gardes d’élite": "Elite guards",
+    "Armée en avance": "Army ahead",
+    "Disette": "Scarcity",
+    "Gagne en {n} de tes tours, sinon c’est perdu": "Win within {n} of your turns, or you lose",
+    "Jusqu’à 3 sortes de gardes adverses sont maîtres : leur mort ne compte pas pour la défaite": "Up to 3 kinds of enemy guards are masters: their deaths don’t count toward defeat",
+    "L’adversaire a déjà recruté 2 gardes et un dieu, et posé un soldat": "The opponent has already recruited 2 guards and a god, and placed a soldier",
+    "La réserve commune n’a qu’un garde de chaque sorte, et l’adversaire en a déjà recruté un": "The shared reserve has only one guard of each kind, and the opponent has already recruited one",
+    "L’adversaire a déjà recruté un garde": "The opponent has already recruited a guard",
+    "Une sorte de garde adverse est maître : sa mort ne compte pas pour la défaite": "One kind of enemy guard is a master: its death doesn’t count toward defeat",
+    "Extrême : un deuxième soldat adverse posé, une deuxième sorte de garde adverse maître, et les boss ont 3 points de vie en plus": "Extreme: a second enemy soldier placed, a second kind of enemy guard as master, and bosses have 3 extra health points",
+    "une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)": "a new reserve drawn at random (the burdens are already at their maximum)",
+    "Quand tout est débloqué (100 %), tu peux monter au Cercle suivant.": "When everything is unlocked (100%), you can climb to the next Circle.",
+    "{c} à {p} %": "{c} at {p}%",
+    "Le bot joue toujours au mieux, à pleine force. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un fardeau de plus à chaque Cercle, jusqu’au Cercle 10.": "The bot always plays its best, at full strength. When you’ve unlocked everything (100%), you climb to the next Circle: everything starts over, with one more burden each Circle, up to Circle 10.",
+    "Bien plus dur : une victoire = 2 points de progression, une défaite ne rapporte rien.": "Much harder: a win = 2 progress points, a loss gives nothing.",
+    "{n} tours restants": "{n} turns left",
+    "Dans tes parties, tu affrontes toujours le bot stratège, à pleine force : il n’est jamais affaibli. Les autres bots servent aux duels et aux défis.": "In your runs, you always face the strategist bot at full strength: it is never weakened. The other bots are for duels and challenges.",
+    "Avant chaque affrontement, tu choisis : <b>normal</b> ou <b>difficile</b> (une contrainte bien plus dure, tirée au hasard).": "Before each battle, you choose: <b>normal</b> or <b>hard</b> (one much tougher constraint, drawn at random).",
+    "victoire normale +1, victoire difficile +2, défaite normale +½ sur tes derniers choix (une défaite en difficile ne rapporte rien). Quand il ne reste qu’une barre dans un groupe, elle avance toute seule.": "normal win +1, hard win +2, normal loss +½ on your last choices (a hard loss gives nothing). When only one bar is left in a group, it advances on its own.",
+    "Contraintes des affrontements difficiles": "Hard battle constraints",
+    "Une seule à la fois, tirée au hasard, jamais deux fois de suite la même.": "Only one at a time, drawn at random, never the same twice in a row.",
+    "Ensuite, plus de nouveau fardeau : la difficulté reste au maximum, et chaque Cercle te donne une nouvelle réserve.": "After that, no new burden: the difficulty stays at its maximum, and each Circle gives you a new reserve.",
+    "Victoires en affrontement normal": "Normal battle wins",
+    "Victoires en affrontement difficile": "Hard battle wins",
+    "Boss tués": "Bosses killed",
+    "Plus haut Cercle": "Highest Circle",
+    "Persos ennemis tués": "Enemy units killed",
+    "Défis du jour joués": "Daily challenges played",
+    "Points gagnés par tes persos": "Points earned by your units",
+    "Heures de jeu": "Hours played",
+    "Toutes les épreuves": "Every trial",
+    "Gagne un affrontement difficile avec chacune des 5 contraintes.": "Win a hard battle with each of the 5 constraints.",
+    "Au sommet": "At the summit",
+    "Gagne un affrontement au Cercle 10 ou plus.": "Win a battle in Circle 10 or higher.",
+    "Le temps est écoulé : tu n’as pas gagné à temps.": "Time’s up: you didn’t win in time.",
+  });
+  Object.assign(D.ui, {
+    "1 fardeau": "1 burden",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
