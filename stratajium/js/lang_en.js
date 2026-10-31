@@ -1060,6 +1060,63 @@
     "Invasion : 4 persos dans la zone adverse.": "Invasion: 4 units in the enemy zone.",
     "Invasion : 5 persos dans la zone adverse.": "Invasion: 5 units in the enemy zone.",
   });
+  Object.assign(D.ui, {
+    "Niveau {n} à chaque fois : {d}": "Level {n} every time: {d}",
+    "Une fois sur deux, niveau {n} : {d}": "One time in two, level {n}: {d}",
+    "+10 % de chance d’un événement à chaque affrontement.": "+10% chance of an event in each battle.",
+    "Le bot joue toujours au mieux, mais il est affaibli pour que ce soit jouable (moins de mana, gardes déjà perdus…). 0 = pleine force. Une faiblesse de moins à chaque victoire (deux en difficile), une de plus à chaque défaite.": "The bot always plays its best, but it is weakened so the game stays playable (less mana, guards already lost…). 0 = full strength. One weakness fewer after each win (two on hard), one more after each loss.",
+    "Bot affaibli {n}/{m}": "Bot weakened {n}/{m}",
+    "Le bot commence affaibli {n}/{m}": "The bot starts weakened {n}/{m}",
+    "bot affaibli {n}/{m}": "bot weakened {n}/{m}",
+    "Le bot joue toujours au mieux, mais il est affaibli selon ton niveau : une faiblesse de moins à chaque victoire (deux en difficile), une de plus à chaque défaite. Quand tu as tout débloqué, tu montes au Cercle suivant : tout recommence, avec un bot moins affaibli puis des fardeaux.": "The bot always plays its best, but it is weakened according to your level: one weakness fewer after each win (two on hard), one more after each loss. Once you have unlocked everything, you move up to the next Circle: everything starts over, with a less weakened bot and then burdens.",
+    "🗺️ Cartes un peu plus sauvages : une fois sur deux, niveau {n} — {d}": "🗺️ Slightly wilder maps: one time in two, level {n} — {d}",
+    "Classement mondial": "World ranking",
+    "Personne n’a encore de score aujourd’hui.": "Nobody has a score yet today.",
+    "Classement mondial du jour": "Today’s world ranking",
+    "Ton équipe": "Your team",
+    "Énigme {i}": "Puzzle {i}",
+    "Tu progresses : le bot est moins affaibli ({n}/{m}).": "You’re improving: the bot is less weakened ({n}/{m}).",
+    "Le bot est un peu plus affaibli ({n}/{m}).": "The bot is a little more weakened ({n}/{m}).",
+    "Énigme résolue !": "Puzzle solved!",
+    "La suivante est ouverte.": "The next one is open.",
+    "Raté : tu peux la retenter autant de fois que tu veux.": "Missed: you can try it again as many times as you like.",
+    "Le jeu": "The game",
+    "Dans tes parties, tu affrontes toujours le bot stratège. Pour que ce soit jouable, il est affaibli (de 0 = pleine force à 6) : moins de mana, des gardes déjà perdus, des tours sans pouvoir agir. Une faiblesse de moins à chaque victoire (deux en difficile), une de plus à chaque défaite. Les autres bots servent aux duels et aux défis.": "In your runs, you always face the strategist bot. To keep it playable, it is weakened (from 0 = full strength to 6): less mana, guards already lost, turns where it cannot act. One weakness fewer after each win (two on hard), one more after each loss. The other bots are for duels and challenges.",
+    "un demi-niveau de plus (niveau 0 à 4) : d’abord une carte sur deux, puis toutes.": "half a level more (level 0 to 4): first one map in two, then all of them.",
+    "+10 % de chance d’un événement.": "+10% chance of an event.",
+    "Les dieux dorment encore : seuls les gardes et les soldats se battent.": "The gods are still asleep: only guards and soldiers fight.",
+    "Roi de la colline : tiens le centre de la carte pour marquer des points.": "King of the hill: hold the center of the map to score points.",
+    "Personne ne recrute : tu affrontes l’Hydre et son armée avec une équipe imposée.": "Nobody recruits: you face the Hydra and its army with a set team.",
+    "Seules les créatures des profondeurs sont dans la réserve, et la marée de mana monte.": "Only creatures of the deep are in the reserve, and the mana tide is rising.",
+    "Tes alliés des profondeurs, sans recruter, contre le Seigneur des marées et son armée.": "Your allies of the deep, without recruiting, against the Lord of the Tides and his army.",
+    "Tes dieux ont fui : six gardes et trois soldats contre le Léviathan.": "Your gods have fled: six guards and three soldiers against the Leviathan.",
+    "Rien que des dieux (et les soldats), 200 mana chacun : un duel de sorts.": "Nothing but gods (and soldiers), 200 mana each: a duel of spells.",
+    "Tous les persos, le bot stratège, et un dieu qui se relève une fois abattu.": "Every unit, the strategist bot, and a god who rises again once struck down.",
+    "Les dieux de Panthéa dorment encore dans la clairière. Un rival en profite : défends-toi avec tes seuls gardes.": "The gods of Panthéa are still asleep in the clearing. A rival takes advantage: defend yourself with your guards alone.",
+    "Dans les abysses, le Léviathan chasse sans bruit. Tes dieux ont fui : il ne te reste que tes gardes. Quand une case devient rouge, fuis !": "In the abyss, the Leviathan hunts silently. Your gods have fled: only your guards remain. When a square turns red, run!",
+    "Les dieux se réunissent pour choisir qui régnera sur Panthéa. Pas de gardes ici : seuls les sorts décident.": "The gods gather to choose who will rule Panthéa. No guards here: only spells decide.",
+    "Énigmes": "Puzzles",
+    "Chaque énigme est une position d’un vrai affrontement. Gagne en 1 ou 2 coups au plus, quoi que réponde le bot stratège. Elles s’ouvrent l’une après l’autre.": "Each puzzle is a position from a real battle. Win in 1 or 2 moves at most, whatever the strategist bot replies. They unlock one after another.",
+    "{n} énigme(s) résolue(s) sur {t}": "{n} puzzle(s) solved out of {t}",
+    "en 1 coup": "in 1 move",
+    "en {n} coups": "in {n} moves",
+    "Énigme {i} : gagne en 1 coup.": "Puzzle {i}: win in 1 move.",
+    "Énigme {i} : gagne en {n} coups au plus, quoi que réponde le bot.": "Puzzle {i}: win in {n} moves at most, whatever the bot replies.",
+    "Gagne en 1 coup.": "Win in 1 move.",
+    "Gagne en {n} coups au plus, quoi que réponde le bot.": "Win in {n} moves at most, whatever the bot replies.",
+    "Trois extensions gratuites. Tu peux les désactiver pour retrouver le jeu de base.": "Three free expansions. You can turn them off to get back the base game.",
+    "L’Ascension : l’histoire en 8 chapitres, chacun avec son combat à part (sans dieux, équipe imposée, que des dieux…), jusqu’au Dieu déchu, un boss en 2 phases": "The Ascension: the story in 8 chapters, each with its own kind of battle (no gods, a set team, gods only…), up to the Fallen God, a 2-phase boss",
+    "Les Énigmes": "Puzzles",
+    "{n} positions tirées de vrais affrontements : gagne en 1 ou 2 coups, quoi que réponde le bot stratège": "{n} positions from real battles: win in 1 or 2 moves, whatever the strategist bot replies",
+    "Chaque énigme est vérifiée : il existe toujours une solution, et une seule ou presque": "Every puzzle is checked: there is always a solution, and only one or nearly so",
+    "De plus en plus dures : elles s’ouvrent l’une après l’autre": "Harder and harder: they unlock one after another",
+    "Gagne contre le bot à pleine force (bot affaibli 0/6).": "Win against the bot at full strength (bot weakened 0/6).",
+    "Grand stratège": "Grand strategist",
+    "Résous toutes les énigmes.": "Solve every puzzle.",
+    "📖 L’Ascension": "📖 The Ascension",
+    "🧩 Énigmes": "🧩 Puzzles",
+    "Énigme ratée : tu n’as pas gagné à temps.": "Puzzle failed: you didn’t win in time.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -1114,3 +1171,7 @@ I18N.DICT.en.T.n3[1] = "Bites an enemy next to it without moving (not a god): it
 I18N.DICT.en.T.n8[1] = "Moves straight toward the opponent by 1 or 2 empty squares, or takes 1 step sideways. It kills on the 3 squares right in front of it. When it dies, 3 Shadows appear around it.";
 I18N.DICT.en.T.n9[1] = "Jumps 2 or 3 squares in a straight line or diagonally, over anything, and kills the enemy there (not a god). Or appears on an empty square next to an enemy god.";
 I18N.DICT.en.T.no[1] = "Slides as far as it wants through empty squares, straight toward the opponent or sideways (left, right), and takes the enemy on the square where it stops.";
+// tenaille et Démon (2026-10-31)
+I18N.DICT.en.T.na[1] = "An enemy (not a god) caught in a pincer, next to at least 2 of your units, switches to your side.";
+I18N.DICT.en.T.of[1] = "Kills an enemy (not a god) caught in a pincer: next to at least 2 of your units.";
+I18N.DICT.en.T.n9[1] = "Jumps 2 squares to an empty square, or 3 squares to kill the enemy there (not a god), in a straight line or diagonally, over anything. Or appears on an empty square next to an enemy god.";

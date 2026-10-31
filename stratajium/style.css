@@ -71,7 +71,7 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 .tag { text-align: center; color: var(--muted); margin: 4px 0 6px; }
 
 /* ----- menu : titre et parties au centre, défi du jour dessous ----- */
-#menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #season.on { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 16px; gap: 14px; }
+#menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #puzzle.on, #season.on { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 16px; gap: 14px; }
 .menu-main { width: 100%; max-width: 760px; padding: 20px 24px; }
 .hello { text-align: center; margin: 0 0 12px; color: var(--muted); }
 .hello b { color: var(--gold); }
@@ -483,7 +483,7 @@ body.no-coords .crd { display: none; }
   .pp .chip .tk { width: 32px; height: 32px; }
 
   /* menus */
-  #menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #season.on { padding: 8px 10px; gap: 10px; justify-content: center; }
+  #menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #puzzle.on, #season.on { padding: 8px 10px; gap: 10px; justify-content: center; }
   .menu-main, .panel-mid { padding: 14px 14px; }
   .daily { grid-template-columns: 1fr auto; gap: 8px 14px; padding: 12px 14px; }
   .daily .dright { grid-column: 1 / -1; max-width: none; display: flex; align-items: center; gap: 12px; justify-content: space-between; text-align: left; }
@@ -793,7 +793,20 @@ body.anim-off .slash, body.anim-off .soul { display: none; }
 .gem.sel { border-color: #fff; box-shadow: 0 0 10px var(--g); }
 .army { font-weight: 700; font-size: .85em; white-space: nowrap; } .army.sh { color: #c8a8ff; } .army.li { color: #ffd86a; }
 /* histoire */
-.storyimg { display: block; width: 100%; max-height: 22vh; object-fit: cover; border-radius: 12px; border: 1px solid rgba(242, 193, 78, .5); box-shadow: 0 6px 18px rgba(0, 0, 0, .45); margin: 4px 0 6px; }
+.storyscene { position: relative; width: 100%; height: 24vh; min-height: 130px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(242, 193, 78, .5); box-shadow: 0 6px 18px rgba(0, 0, 0, .45); margin: 4px 0 6px; }
+.storyscene canvas { position: absolute; left: 0; top: 0; }
+.storyscene::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 60%, transparent 40%, rgba(0, 0, 0, .55)); }
+.storyscene .cast { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 3%; }
+.storyscene .cast span { width: min(16%, 11vh); aspect-ratio: 1; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .7)); animation: castFloat 3.2s ease-in-out infinite; }
+.storyscene .cast span:nth-child(2n) { animation-delay: -1.6s; }
+.storyscene .cast.boss span { width: min(30%, 19vh); filter: drop-shadow(0 0 18px rgba(255, 60, 30, .6)) drop-shadow(0 8px 10px rgba(0, 0, 0, .7)); }
+.storyscene .cast svg { width: 100%; height: 100%; }
+@keyframes castFloat { 50% { transform: translateY(-6px); } }
+.evcard.story .srule { display: block; margin-top: 8px; color: var(--gold); font-family: inherit; font-size: 17px; }
+.sqteam { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 8px; font-weight: 700; }
+.sqteam svg { width: 34px; height: 34px; }
+.chap .ct { display: flex; flex-direction: column; min-width: 0; }
+.chap .ct small { color: var(--muted); font-size: 14px; font-weight: 400; line-height: 1.25; }
 .evcard .quote { display: block; margin: 4px 0; color: #ffe3b0; font-size: 16px; }
 /* aide de la manette */
 .padhint { position: fixed; right: 8px; bottom: 8px; z-index: 60; display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 12px; background: rgba(10, 12, 10, .82); border: 1px solid var(--line); font-size: 14px; color: #f0e8d8; pointer-events: none; white-space: nowrap; }
@@ -918,7 +931,7 @@ body.viewing #opts { visibility: hidden; }
    et un voile sombre autour du centre pour que tout se fonde dans le décor */
 #menu::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(ellipse 70% 75% at 50% 50%, rgba(0, 0, 0, .5), rgba(0, 0, 0, .2) 60%, rgba(0, 0, 0, .55)); }
-.menu-wrap { width: min(1220px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 290px; grid-template-areas: "head head" "main side" "daily side"; grid-template-rows: auto auto 1fr; gap: 16px 20px; align-items: start; }
+.menu-wrap { width: min(920px, 100%); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "side" "daily"; gap: 14px; margin: 0 auto; }
 .menu-head { grid-area: head; text-align: center; }
 .menu-head h1 { font-size: clamp(48px, min(10vw, 11vh), 112px); letter-spacing: .08em; }
 .menu-head .hello { margin: 2px 0 0; font-size: 18px; text-shadow: 0 2px 8px rgba(0, 0, 0, .9); color: #e8dcc0; }
@@ -926,16 +939,17 @@ body.viewing #opts { visibility: hidden; }
   border-color: rgba(242, 193, 78, .22); box-shadow: 0 30px 80px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .07); }
 .menu-wrap .menu-main { grid-area: main; max-width: none; padding: 18px 20px; }
 .menu-wrap .daily { grid-area: daily; max-width: none; }
-.menu-side { grid-area: side; padding: 14px; }
-.menu-side .menu-actions { display: flex; flex-direction: column; gap: 8px; margin: 0; }
-.menu-side .menu-actions .ghost { width: 100%; text-align: left; padding: 12px 18px; font-size: 18px; border-radius: 12px; }
+.menu-side { grid-area: side; }
+.menu-side { padding: 12px; }
+.menu-side .menu-actions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.menu-side .menu-actions .ghost { width: 100%; padding: 11px 10px; font-size: 17px; border-radius: 12px; }
 .menu-side .menu-actions button[hidden] { display: none; }
 @media (min-width: 900px) and (min-height: 601px) { .menu-wrap .slot { padding: 14px 18px; } .menu-wrap .slot .inf b { font-size: 20px; } }
 @media (max-width: 899px), (max-height: 600px) {
-  .menu-wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main" "side" "daily"; grid-template-rows: none; gap: 10px; }
+  .menu-wrap { gap: 10px; }
   .menu-side { padding: 10px; }
-  .menu-side .menu-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-  .menu-side .menu-actions .ghost { text-align: center; padding: 8px 6px; font-size: 16px; }
+  .menu-side .menu-actions { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .menu-side .menu-actions .ghost { padding: 8px 6px; font-size: 16px; }
   .menu-wrap .slot { flex-wrap: wrap; }
   .menu-wrap .slot .inf { min-width: 150px; }
 }
@@ -984,3 +998,14 @@ input, textarea { cursor: text; }
 .ach .medal { opacity: .25; filter: grayscale(1); }
 .ach .medal.on { opacity: 1; filter: none; }
 .ach.tier .meter { margin: 4px 0 2px; }
+/* Codex : les 3 parties des règles (le jeu, les bots, la progression) */
+.tabs .subtabs { flex-basis: 100%; display: flex; gap: 5px; justify-content: center; margin-top: 4px; }
+.tabs .subtabs button { font-size: 15px; padding: 4px 12px; background: rgba(0, 0, 0, .2); }
+/* Énigmes (DLC) */
+.pzs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 10px 0; max-height: 52vh; overflow: auto; padding: 2px; }
+.pz { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); }
+.pz b { font-family: Cinzel, Georgia, serif; font-size: 24px; color: var(--gold); }
+.pz small { color: var(--muted); font-size: 13.5px; }
+.pz.done { border-color: rgba(126, 227, 154, .5); } .pz.done b { color: var(--ok); }
+.pz.next:not(.done) { border-color: var(--gold); background: rgba(242, 193, 78, .12); }
+.pz.lock { opacity: .45; cursor: var(--cur); }

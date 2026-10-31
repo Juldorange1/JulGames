@@ -1,6 +1,6 @@
 // Panthéa (ancien nom : Stratajium) — version programme (Electron) : le jeu se lance dans sa propre fenêtre, sans navigateur.
 // F11 ou Alt+Entrée : plein écran. Les points, records et l'apprentissage du bot sont gardés par le programme.
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -23,7 +23,7 @@ function createWindow() {
     width: display.width, height: display.height, minWidth: 900, minHeight: 600,
     fullscreen: TEST ? false : display.fullscreen, backgroundColor: '#0f0d14', title: 'Panthéa',
     icon: path.join(GAME_DIR, 'icon.png'), autoHideMenuBar: true, show: false,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required', preload: path.join(__dirname, 'preload.js') },
   });
   Menu.setApplicationMenu(null);
   win.loadFile(path.join(GAME_DIR, 'index.html'), MUET ? { query: { muet: '1' } } : undefined);
@@ -74,6 +74,15 @@ function createWindow() {
   win.on('resize', () => { if (!win.isFullScreen() && !win.isMaximized()) { const [w, h] = win.getSize(); display.width = w; display.height = h; saveDisplay(); } });
   win.on('closed', () => { win = null; });
 }
+
+// classement en ligne du défi du jour (version Steam, voir STEAM.md) : branché seulement si steam-lb.js existe
+// et répond { ready(), submit(board, score), top(board, n) } ; sinon le jeu cache le classement
+let LB = null;
+try { LB = require('./steam-lb.js'); } catch (e) { LB = null; }
+const lbCall = async (f, ...a) => { try { return LB && LB.ready() ? await LB[f](...a) : null; } catch (e) { return null; } };
+ipcMain.handle('lb:ready', () => { try { return !!(LB && LB.ready()); } catch (e) { return false; } });
+ipcMain.handle('lb:submit', (e, board, score) => lbCall('submit', board, score));
+ipcMain.handle('lb:top', (e, board, n) => lbCall('top', board, Math.min(50, Math.max(1, n || 10))));
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(createWindow);
