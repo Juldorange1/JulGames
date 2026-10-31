@@ -458,6 +458,7 @@ function StratEngine() {
       for (const id of (o.shG || SH_START_G)) s.pool[TI[id]] += 2;
       s.pool[OS_I] = 8;
     }
+    if (o.mast && o.mast.length) s.mast = [o.mast.map(id => TI[id]).filter(i => i >= 0), []]; // persos maîtres du joueur (camp 0)
     if (o.boss) placeBoss(s, o.boss, !!o.squad);
     if (o.squad) { // combat de boss : pas de réserve commune, ton équipe est déjà dans ta réserve
       s.pool.fill(0); s.noRec = 1;
@@ -477,12 +478,16 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
+      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, mast: s.mast, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
       frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
   }
   const catIdx = c => c === 'M' ? 0 : c === 'G' ? 1 : 2;
+  // persos maîtres (parties, à partir du Cercle 6) : s.mast[p] = leurs numéros. Un dieu maître lance son sort 15 mana moins cher ;
+  // la mort d'un garde maître ne compte pas parmi les gardes perdus
+  const isMast = (s, p, i) => !!(s.mast && s.mast[p].includes(i));
+  const costOf = (s, p, t) => t.cost ? Math.max(0, t.cost - (isMast(s, p, t.i) ? 15 : 0)) : 0;
   const isDark = (g, q) => ((((q / g.W) | 0) + (q % g.W)) & 1) === 1;
   const isHome = (g, q, p) => g.zone[p][q] === 1;
 
@@ -535,7 +540,7 @@ function StratEngine() {
       return;
     }
     const p = own(c), t = T[tix(c)];
-    s.lost[p][catIdx(t.cat)]++;
+    if (!(t.cat === 'G' && isMast(s, p, t.i))) s.lost[p][catIdx(t.cat)]++;
     if (s.dead) s.dead[p][tix(c)]++;
     s.b[q] = wallOk === false ? 0 : s.ev === 'fragile' ? VOID : s.ev === 'murs' ? -1 : 0;
     s.quiet = -1;
@@ -673,7 +678,7 @@ function StratEngine() {
   function genAct0(s, from, full) {
     const g = s.g, b = s.b, c0 = b[from], p = own(c0), t = T[tix(c0)], out = [];
     const opp = 1 - p;
-    if (t.cost && s.mana[p] < t.cost) return out;
+    if (t.cost && s.mana[p] < costOf(s, p, t)) return out;
     switch (MID[t.i]) {
       case 's': for (const q of pawnTargets(s, from, p)) out.push([q]); break;
       case 'g1': { const adj = adjOf(s, from); for (let q = 0; q < g.N; q++) if (q !== from && b[q] > 0 && (!isBl(s, q) && !isBoss(s, q) || adj.includes(q) && foe(s, q, p))) out.push([q]); break; } // ennemi collé : il le prend ; sinon il échange sa place
@@ -955,7 +960,7 @@ function StratEngine() {
   // applique une activation (sans fin de tour)
   function runAct(s, from, cl) {
     const g = s.g, c0 = s.b[from], p = own(c0), t = T[tix(c0)], opp = 1 - p;
-    if (t.cost) s.mana[p] -= t.cost;
+    if (t.cost) s.mana[p] -= costOf(s, p, t);
     switch (MID[t.i]) {
       case 's': case 'g5': case 'g7': case 'g2': case 'c1': case 'c2': case 'c3': case 'c5': case 'c8': case 'cv': case 'gd': case 'mi': case 'ab': case 'rq': case 'oa': case 'ob': case 'oc': case 'ox': case 'os': case 'n2': case 'n6': case 'n8': case 'n9': case 'nm': case 'no': {
         let pos = from;
@@ -1602,7 +1607,7 @@ function StratEngine() {
     for (let f = 0; f < N; f++) {
       const c = b[f]; if (c <= 0 || own(c) !== q) continue;
       const t = T[tix(c)];
-      if (t.cost && s.mana[q] < t.cost) continue;
+      if (t.cost && s.mana[q] < costOf(s, q, t)) continue;
       switch (MID[t.i]) {
         case 's': adj(f, q === 0 ? [0, 2] : [5, 7], c); break;
         case 'g5': case 'g7': {

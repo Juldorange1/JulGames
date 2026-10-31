@@ -1068,4 +1068,18 @@ I18N.KEYS = [
   "📖 L’Ascension",
   "🧩 Énigmes",
   "Énigme ratée : tu n’as pas gagné à temps.",
+  // maîtrise, statistiques sans fin (2026-10-31)
+  "Dieu maître : son sort coûte 15 mana de moins.",
+  "Garde maître : sa mort ne compte pas parmi tes gardes perdus.",
+  "Un de tes persos devient maître : dieu = sort 15 mana moins cher ; garde = sa mort ne compte pas pour la défaite.",
+  "Maîtrise débloquée : après tes victoires, tes persos peuvent devenir maîtres.",
+  "Persos maîtres",
+  "Maîtrise !",
+  "Choisis le perso qui devient maître, pour toute la partie (pas dans les défis).",
+  "à partir du Cercle {c}, {a} points : un perso de ta réserve devient maître (dieu = sort 15 mana moins cher ; garde = sa mort ne compte pas pour la défaite). Pour toute la partie, mais pas dans les défis.",
+  "Au début : <b>des dieux et des gardes tirés au hasard</b> dans la réserve (d’autres à chaque nouveau Cercle) : 3 dieux et 4 gardes aux Cercles 0 à 2, 4 et 6 aux Cercles 3 à 5, 5 et 8 à partir du Cercle 6. Le plateau est classique, sans événement. Tes victoires débloquent le reste (voir Progression).",
+  "Six dieux et les soldats, 200 mana chacun : un duel de sorts.",
+  "Les persos déjà croisés dans l’histoire, le bot stratège, et un dieu qui se relève une fois abattu.",
+  "Prochain niveau : {x}",
+  "Tes statistiques",
 ];

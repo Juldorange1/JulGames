@@ -1117,6 +1117,21 @@
     "🧩 Énigmes": "🧩 Puzzles",
     "Énigme ratée : tu n’as pas gagné à temps.": "Puzzle failed: you didn’t win in time.",
   });
+  Object.assign(D.ui, {
+    "Dieu maître : son sort coûte 15 mana de moins.": "Master god: its spell costs 15 less mana.",
+    "Garde maître : sa mort ne compte pas parmi tes gardes perdus.": "Master guard: its death does not count among your lost guards.",
+    "Un de tes persos devient maître : dieu = sort 15 mana moins cher ; garde = sa mort ne compte pas pour la défaite.": "One of your units becomes a master: god = spell 15 mana cheaper; guard = its death doesn’t count toward defeat.",
+    "Maîtrise débloquée : après tes victoires, tes persos peuvent devenir maîtres.": "Mastery unlocked: after your wins, your units can become masters.",
+    "Persos maîtres": "Master units",
+    "Maîtrise !": "Mastery!",
+    "Choisis le perso qui devient maître, pour toute la partie (pas dans les défis).": "Choose the unit that becomes a master, for the whole run (not in challenges).",
+    "à partir du Cercle {c}, {a} points : un perso de ta réserve devient maître (dieu = sort 15 mana moins cher ; garde = sa mort ne compte pas pour la défaite). Pour toute la partie, mais pas dans les défis.": "from Circle {c}, {a} points: a unit from your reserve becomes a master (god = spell 15 mana cheaper; guard = its death doesn’t count toward defeat). For the whole run, but not in challenges.",
+    "Au début : <b>des dieux et des gardes tirés au hasard</b> dans la réserve (d’autres à chaque nouveau Cercle) : 3 dieux et 4 gardes aux Cercles 0 à 2, 4 et 6 aux Cercles 3 à 5, 5 et 8 à partir du Cercle 6. Le plateau est classique, sans événement. Tes victoires débloquent le reste (voir Progression).": "At the start: <b>gods and guards drawn at random</b> in the reserve (new ones at each new Circle): 3 gods and 4 guards in Circles 0 to 2, 4 and 6 in Circles 3 to 5, 5 and 8 from Circle 6. The board is classic, with no events. Your wins unlock the rest (see Progression).",
+    "Six dieux et les soldats, 200 mana chacun : un duel de sorts.": "Six gods and the soldiers, 200 mana each: a duel of spells.",
+    "Les persos déjà croisés dans l’histoire, le bot stratège, et un dieu qui se relève une fois abattu.": "The units already met in the story, the strategist bot, and a god who rises again once struck down.",
+    "Prochain niveau : {x}": "Next level: {x}",
+    "Tes statistiques": "Your statistics",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";

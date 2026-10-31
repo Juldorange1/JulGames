@@ -972,7 +972,7 @@ body.viewing #opts { visibility: hidden; }
 .hint .botlast .ghost.sm { padding: 1px 8px; font-size: 13.5px; margin-left: 6px; }
 
 /* le curseur de souris du jeu (pas celui du bureau) : flèche dorée, plus claire avec un éclat sur ce qui se clique */
-:root { --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 3 L4 22 L9.5 17 L13.5 25 L17 23.4 L13 15.6 L20.5 15.6 Z' fill='%23f2c14e' stroke='%231a1206' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M6 7 L6 17' stroke='%23fff3c4' stroke-width='1.2' stroke-linecap='round' opacity='.8'/%3E%3C/svg%3E") 4 3, auto; --curp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 3 L4 22 L9.5 17 L13.5 25 L17 23.4 L13 15.6 L20.5 15.6 Z' fill='%23fff3c4' stroke='%238a5a12' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M22 3 L23.2 6 L26 7 L23.2 8 L22 11 L20.8 8 L18 7 L20.8 6 Z' fill='%23f2c14e' stroke='%231a1206' stroke-width='.8'/%3E%3C/svg%3E") 4 3, pointer; }
+:root { --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 3 L4 22 L9.5 17 L13.5 25 L17 23.4 L13 15.6 L20.5 15.6 Z' fill='%23f2c14e' stroke='%231a1206' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M6 7 L6 17' stroke='%23fff3c4' stroke-width='1.2' stroke-linecap='round' opacity='.8'/%3E%3C/svg%3E") 4 3, auto; --curp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M4 3 L4 22 L9.5 17 L13.5 25 L17 23.4 L13 15.6 L20.5 15.6 Z' fill='%23f2c14e' stroke='%231a1206' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M6 7 L6 17' stroke='%23fff3c4' stroke-width='1.2' stroke-linecap='round' opacity='.8'/%3E%3C/svg%3E") 4 3, auto; /* le même curseur partout, comme dans les autres jeux */ }
 html, body { cursor: var(--cur); }
 button, a, select, label, summary, [data-pool], [data-res], [data-km], [data-tab], .sq, .chip, .evo, .choice { cursor: var(--curp); }
 button:disabled { cursor: var(--cur); }
@@ -994,9 +994,6 @@ input, textarea { cursor: text; }
 .flytk { position: fixed; z-index: 80; pointer-events: none; }
 .flytk .tk { width: 100%; height: 100%; }
 /* succès : niveaux 🥉 🥈 🥇 */
-.ach .medals { margin-left: 4px; }
-.ach .medal { opacity: .25; filter: grayscale(1); }
-.ach .medal.on { opacity: 1; filter: none; }
 .ach.tier .meter { margin: 4px 0 2px; }
 /* Codex : les 3 parties des règles (le jeu, les bots, la progression) */
 .tabs .subtabs { flex-basis: 100%; display: flex; gap: 5px; justify-content: center; margin-top: 4px; }
@@ -1009,3 +1006,9 @@ input, textarea { cursor: text; }
 .pz.done { border-color: rgba(126, 227, 154, .5); } .pz.done b { color: var(--ok); }
 .pz.next:not(.done) { border-color: var(--gold); background: rgba(242, 193, 78, .12); }
 .pz.lock { opacity: .45; cursor: var(--cur); }
+/* statistiques à niveaux (sans fin) */
+.ach.tier .tlv { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(242, 193, 78, .18); color: var(--gold); font-size: 13.5px; font-weight: 700; }
+.ach.tier .tval { float: right; font-family: Cinzel, Georgia, serif; font-size: 22px; color: var(--gold); line-height: 1; }
+/* persos maîtres (parties, Cercle 6 et plus) */
+.sq.master .pc { filter: drop-shadow(0 0 7px rgba(255, 215, 90, .95)) drop-shadow(0 4px 3px rgba(0, 0, 0, .55)); }
+.imast { margin: 6px 0 0; color: var(--gold); font-weight: 700; }
