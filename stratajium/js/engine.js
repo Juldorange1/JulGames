@@ -478,7 +478,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, mast: s.mast, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, dawn: s.dawn, tieTo: s.tieTo,
+      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, mast: s.mast, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, gN: s.gN, inv: s.inv, dawn: s.dawn, tieTo: s.tieTo,
       frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
@@ -566,9 +566,7 @@ function StratEngine() {
   // ---------- Générateurs de mouvements ----------
   const nx = (g, q, d) => g.mv[d * g.N + q];
   // ennemi qu'on peut tuer (pas sur une case bénie)
-  // les persos des Ombres se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre de plus de 4 cases
-  let ATK = -1; const STEALTH = 4;
-  const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q) && !(ATK >= 0 && FAC[tix(c)] && cheb(s.g, ATK, q) > STEALTH); };
+  const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q); };
   const cover = (s, q) => s.g.spec && s.g.spec[q] === 2; // bosquet
   const canLand = (s, q, p) => s.b[q] === 0 || foe(s, q, p);
   const mini = s => ({ g: s.g, b: s.b.slice(), ev: s.ev, lost: [[0, 0, 0], [0, 0, 0]], bl: s.bl });
@@ -672,10 +670,6 @@ function StratEngine() {
 
   // séquences de clics possibles pour activer le perso en `from` (clic = case, ou chaîne pour un bouton)
   function genAct(s, from, full) {
-    const prev = ATK; ATK = IS_M[tix(s.b[from])] ? -1 : from;
-    try { return genAct0(s, from, full); } finally { ATK = prev; }
-  }
-  function genAct0(s, from, full) {
     const g = s.g, b = s.b, c0 = b[from], p = own(c0), t = T[tix(c0)], out = [];
     const opp = 1 - p;
     if (t.cost && s.mana[p] < costOf(s, p, t)) return out;
@@ -1399,8 +1393,9 @@ function StratEngine() {
   // persos vivants d'un joueur : sur la carte et dans sa réserve (pas les boss)
   function alive(s, p) { let n = 0; for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q)) n++; for (let i = 0; i < NT; i++) n += s.res[p][i]; return n; }
   // gardes à tuer pour gagner : 4, ou 5 contre l'armée des Ombres quand elle affronte la Lumière (équilibre mesuré)
-  const gNeed = (s, p) => s.fac && s.fac[p] === 1 && s.fac[1 - p] === 0 ? 5 : 4;
-  const invNeed = (s, p) => p === 0 && s.invN ? s.invN : 4; // invasion : 4 persos dans la zone adverse (5 avec le handicap)
+  // gardes à perdre pour perdre, persos à faire entrer pour l'invasion : s.gN / s.inv les fixent pour chaque camp (aide des premiers Cercles)
+  const gNeed = (s, p) => s.gN ? s.gN[p] : s.fac && s.fac[p] === 1 && s.fac[1 - p] === 0 ? 5 : 4;
+  const invNeed = (s, p) => s.inv ? s.inv[p] : p === 0 && s.invN ? s.invN : 4; // invasion : 4 persos dans la zone adverse (5 avec le handicap)
   function invasion(s, p) {
     if (s.boss || s.goal) return false; // contre un boss, il faut le tuer ; l'Objectif mystère remplace le but
     let n = 0; for (const x of s.g.zl[1 - p]) if (s.b[x] > 0 && own(s.b[x]) === p) n++;
@@ -1409,7 +1404,7 @@ function StratEngine() {
   function checkWin(s) {
     if (s.winner !== null) return;
     if (s.boss && s.boss.hp <= 0) { s.winner = 1 - s.boss.owner; s.why = 'Le boss est vaincu !'; return; }
-    for (const p of [s.turn, 1 - s.turn]) if (invasion(s, p)) { s.winner = p; s.why = invNeed(s, p) === 5 ? 'Invasion : 5 persos dans la zone adverse.' : 'Invasion : 4 persos dans la zone adverse.'; return; }
+    for (const p of [s.turn, 1 - s.turn]) if (invasion(s, p)) { s.winner = p; s.why = ['', '', '', 'Invasion : 3 persos dans la zone adverse.', 'Invasion : 4 persos dans la zone adverse.', 'Invasion : 5 persos dans la zone adverse.'][invNeed(s, p)]; return; }
     if (s.goal) {
       const w = goalWinner(s);
       if (!w[0] && !w[1]) return;
@@ -1423,7 +1418,7 @@ function StratEngine() {
     const L = 1 - s.winner;
     s.why = (s.ev === 'illimite')
       ? (s.lost[L][0] >= 2 ? '2 dieux tués.' : '6 gardes tués.')
-      : (s.lost[L][1] >= gNeed(s, L) ? (gNeed(s, L) === 5 ? '5 gardes tués.' : '4 gardes tués.') : 'Tous les dieux adverses sont morts.');
+      : (s.lost[L][1] >= gNeed(s, L) ? (['', '', '', '3 gardes tués.', '4 gardes tués.', '5 gardes tués.'][gNeed(s, L)]) : 'Tous les dieux adverses sont morts.');
   }
   function checkBet(s) {
     if (s.ev !== 'pari' || s.betDone || !s.bet) return;
@@ -1842,31 +1837,7 @@ function StratEngine() {
     return best;
   }
 
-  // think(état, niveau, options) — options : { budget (ms), maxMs, perso, canExtend }
-  // valeur d'un coup pour le bilan, en regardant aussi la meilleure réponse de l'adversaire (2 coups) :
-  // un coup qui protège, menace ou prépare une invasion n'est plus pris pour une erreur
-  function worstReply(c, p) {
-    if (c.winner !== null || c.turn === p) return evalS(c, p, true);
-    let w = 1e9; for (const r of gen(c, false)) { const v = evalS(child(c, r), p, true); if (v < w) w = v; }
-    return w === 1e9 ? evalS(c, p, true) : w;
-  }
-  function analyse(s0, played) {
-    if (!s0 || s0.phase !== 'play' || s0.winner !== null) return null;
-    W8 = { wG: 1, wM: 1, opp: null }; X = 1; setPerso(null, .3);
-    const s = clone(s0); s.declOn = false;
-    const p = s.turn, acts = gen(s, false);
-    // 1 coup : on garde les 8 meilleurs candidats (et le coup joué), puis on regarde la réponse adverse
-    const first = acts.map(a => ({ a, v: evalS(child(s, a), p, true) })).sort((x, y) => y.v - x.v).slice(0, 8);
-    const same = (x, y) => x === y || JSON.stringify(x) === JSON.stringify(y);
-    if (!first.some(f => same(f.a, played))) first.push({ a: played });
-    let best = -1e9, second = -1e9, bestA = null, pv = null;
-    for (const f of first) {
-      const v = worstReply(child(s, f.a), p);
-      if (same(f.a, played)) pv = v;
-      if (v > best) { second = best; best = v; bestA = f.a; } else if (v > second) second = v;
-    }
-    return { best, played: pv, second: acts.length > 1 ? second : best, bestA, n: acts.length };
-  }
+  // think(état, niveau, options) — options : { budget (ms), maxMs, maxNodes, perso, canExtend, exact, force }
   function think(s0, level, opt) {
     opt = opt || {};
     W8 = { wG: 1, wM: 1, opp: null };
@@ -1887,8 +1858,11 @@ function StratEngine() {
       for (const k of kids) { const v = k.v + (Math.random() - 0.5) * 6; if (v > bv) { bv = v; best = k.a; } }
       return best;
     }
-    if (kids[0].v >= WIN / 2) return kids[0].a;
+    if (kids[0].v >= WIN / 2 && !opt.exact) return kids[0].a;
     const imp = level === 'impossible';
+    // opt.maxNodes : recherche limitée en nœuds, seulement sur des profondeurs finies (même résultat sur toutes les machines).
+    // Bilan (opt.exact) : exactement la même recherche que le bot, puis la valeur exacte du meilleur coup, du 2e et du coup joué (opt.force)
+    let maxN = opt.maxNodes || Infinity;
     let budget = opt.budget || (imp ? 6000 : 700);
     const t0 = Date.now();
     let deadline = t0 + budget;
@@ -1954,7 +1928,7 @@ function StratEngine() {
     const beamAt = (ply, depth) => !imp ? 14 : PLYBEAM ? BEAM[Math.min(ply, BEAM.length - 1)] : (depth >= 4 ? 10 : depth === 3 ? 14 : 20);
     function nega(st, depth, alpha, beta, ply) {
       if (st.winner !== null) return st.winner === 2 ? 0 : (st.winner === st.turn ? WIN - st.ply : -WIN + st.ply);
-      nodes++; if (Date.now() > deadline) throw ABORT;
+      nodes++; if (Date.now() > deadline || nodes > maxN) throw ABORT;
       const me = st.turn;
       const key = st._h || hashS(st);
       const ent = tt.get(key);
@@ -2023,6 +1997,8 @@ function StratEngine() {
     let order = kids.slice(0, rootBeam);
     // toujours examiner aussi toutes les prises
     for (const k of kids.slice(rootBeam)) if (k.c._k > 0 && order.length < rootBeam + 12) order.push(k);
+    if (opt.force) { const fs = JSON.stringify(opt.force), k = kids.find(x => JSON.stringify(x.a) === fs); if (k && !order.includes(k)) order.push(k); }
+    let full = null; // la dernière profondeur finie (bilan)
     let bestA = order[0].a, prevBest = null, stable = 0, extended = false;
     stats.depth = 1;
     // impossible : profondeurs impaires seulement (finir sur son propre coup rend la lecture des menaces moins optimiste)
@@ -2038,10 +2014,11 @@ function StratEngine() {
       } catch (e) {
         if (e !== ABORT) throw e;
         // profondeur non finie : on garde quand même ce qui a été vu (les meilleurs coups d'abord)
-        if (scored.length && imp) { scored.sort((x, y) => y.v - x.v); bestA = scored[0].k.a; }
+        if (scored.length && imp && !opt.maxNodes) { scored.sort((x, y) => y.v - x.v); bestA = scored[0].k.a; }
         break;
       }
       scored.sort((x, y) => y.v - x.v);
+      full = scored.slice();
       stats.depth = d; stats.score = scored[0].v;
       if (!imp) {
         let bv = -1e9;
@@ -2067,7 +2044,24 @@ function StratEngine() {
       if (Date.now() > deadline) break;
     }
     stats.nodes = nodes; stats.ms = Date.now() - t0;
+    if (opt.exact) {
+      const D = stats.depth; maxN = Infinity; deadline = Infinity;
+      const L = full || kids.map(k => ({ k, v: k.v })), fs = JSON.stringify(opt.force), fk = kids.find(x => JSON.stringify(x.a) === fs);
+      const ex = k => !full ? k.v : k.c.turn === p ? nega(k.c, D - 1, -Infinity, Infinity, 1) : -nega(k.c, D - 1, -Infinity, Infinity, 1);
+      const best = ex(L[0].k), second = L.length > 1 ? ex(L[1].k) : best, played = !fk ? null : fk === L[0].k ? best : ex(fk);
+      return { a: L[0].k.a, best, second: Math.min(best, second), played: played === null ? null : Math.min(best, played) };
+    }
     return bestA;
+  }
+  const BOT_NODES = 8000; // la réflexion du bot stratège dans une partie (et celle du bilan, pour juger chaque coup pareil)
+  // bilan : la valeur du coup joué et celle du meilleur, d'après la recherche du bot stratège (sans caractère)
+  function analyseDeep(s0, played, nodesMax) {
+    if (!s0 || s0.phase !== 'play' || s0.winner !== null) return null;
+    const n = gen(clone(s0), false).length;
+    if (n <= 1) return { best: 0, played: 0, second: 0, bestA: played, n };
+    const r = think(s0, 'impossible', { exact: true, force: played, maxNodes: nodesMax || BOT_NODES, budget: 1e9, canExtend: false });
+    if (r.played === null) return null;
+    return { best: r.best, played: r.played, second: r.second, bestA: r.a, n };
   }
   const stats = {};
 
@@ -2087,7 +2081,7 @@ function StratEngine() {
   }
 
   return {
-    RETIRED, BOSS_ARMY, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, analyse, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
-    gNeed, stats, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
+    RETIRED, BOSS_ARMY, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    gNeed, stats, analyseDeep, BOT_NODES, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }

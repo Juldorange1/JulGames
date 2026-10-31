@@ -1122,4 +1122,16 @@ I18N.KEYS = [
   "Le temps est écoulé : tu n’as pas gagné à temps.",
   // difficile à une contrainte, fardeaux, statistiques (2026-10-31)
   "1 fardeau",
+  // aide des premiers Cercles, bilan exact (2026-10-31)
+  "Tu gagnes en tuant {n} gardes adverses (au lieu de 4)",
+  "Invasion : {n} de tes persos dans la zone adverse suffisent (au lieu de 4)",
+  "un peu moins d’aide",
+  "fin de l’aide : à armes égales",
+  "Une armée aux pouvoirs que la Lumière n’a pas.",
+  "Aide du Cercle",
+  "Analyse de la partie : encore {n} coup(s)…",
+  "Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux.",
+  "Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas",
+  "Invasion : 3 persos dans la zone adverse.",
+  "3 gardes tués.",
 ];

@@ -102,7 +102,8 @@
     `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="52" rx="30" ry="38" fill="#2a1450" stroke="#9a6bff" stroke-width="7"/><ellipse cx="50" cy="52" rx="18" ry="25" fill="none" stroke="#5ad1ff" stroke-width="5" stroke-dasharray="12 8"/><circle cx="50" cy="52" r="7" fill="#d9c6ff"/></svg>`];
 
   // ---------- réglages ----------
-  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true, test: false }, lsGet('reglages', {}));
+  const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true }, lsGet('reglages', {}));
+  delete SET.test; // le mode test n'existe plus (2026-10-31)
   function applySettings() {
     document.body.classList.toggle('anim-off', SET.anim === 'aucune');
     document.body.classList.toggle('anim-fast', SET.anim === 'rapide');
@@ -298,6 +299,12 @@ const isSh = id => !!T[E.TI[id]].fac;
   const FARDEAUX = ['soldat', 'pv', 'recrue', 'carte', 'elite', 'pv2', 'event', 'dieu', 'boss7', 'extreme'];
   const cercleBot = () => 'impossible'; // dans une partie, le bot joue toujours au mieux (pas de failles faciles à exploiter)
   const fardeaux = c => FARDEAUX.slice(0, Math.min(c || 0, FARDEAUX.length));
+  // aide des premiers Cercles (le bot, lui, joue toujours au mieux) : il te faut moins de gardes tués ou moins de persos chez lui pour gagner
+  // mesuré avec le vrai bot stratège des deux côtés (156 parties chacun) : à armes égales, le camp du joueur ne gagne que 40 %
+  // (les parties trop longues vont au bot) ; 3 gardes à tuer : 63 % ; invasion à 3 : 49 % ; les deux, + un fardeau : 60 %
+  const AIDE = [{ g: 3, i: 3 }, { g: 3, i: 3 }, { g: 3, i: 4 }, { g: 4, i: 3 }]; // Cercles 0 à 3
+  const aideOf = c => AIDE[c] || null;
+  const aideText = a => [a.g < 4 ? L('Tu gagnes en tuant {n} gardes adverses (au lieu de 4)', { n: a.g }) : '', a.i < 4 ? L('Invasion : {n} de tes persos dans la zone adverse suffisent (au lieu de 4)', { n: a.i }) : ''].filter(Boolean);
   const hasF = (r, f) => fardeaux(r.cercle).includes(f);
   const bossHpBonus = c => (c >= 2 ? 1 : 0) + (c >= 6 ? 1 : 0) + (c >= 10 ? 1 : 0); // 3 au plus : mesuré, le boss reste battable
   const fardeauText = (f, c) => ({
@@ -309,7 +316,8 @@ const isSh = id => !!T[E.TI[id]].fac;
   const cercleLabel = c => L('Cercle {n}', { n: c });
   const cercleMax = () => lsGet('cercleMax', 0);
   // ce qui change en montant au Cercle c
-  const cercleNew = c => c <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 1], c) : L('une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)');
+  const cercleNew = c => (c <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 1], c) : L('une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)'))
+    + (c <= AIDE.length && JSON.stringify(aideOf(c)) !== JSON.stringify(aideOf(c - 1)) ? ' ; ' + (aideOf(c) ? L('un peu moins d’aide') : L('fin de l’aide : à armes égales')) : '');
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
   const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
@@ -429,7 +437,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (let c = 1; c <= top; c++) cs.push(`<button data-c="${c}">${cercleLabel(c)} · ${c === 1 ? L('1 fardeau') : fardeaux(c).length + ' ' + L('Fardeaux').toLowerCase()}</button>`);
     $('levels').className = 'newc';
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
-    const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Pouvoirs à part et cachée dans le noir : un garde ou un soldat ennemi ne peut pas la prendre à plus de 4 cases.') : '☀️ ' + L('L’armée de base, sans pouvoir caché.')}</p>` : '';
+    const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Une armée aux pouvoirs que la Lumière n’a pas.') : '☀️ ' + L('L’armée de base, sans pouvoir caché.')}</p>` : '';
     $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Le bot joue toujours au mieux, à pleine force. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un fardeau de plus à chaque Cercle, jusqu’au Cercle 10.')}</p>
       <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small></button>
       <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
@@ -469,6 +477,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <h4>${L('Dieux dans la réserve')}</h4><div class="row">${chips(r.gods, runM(r))}</div>
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, runG(r))}</div>
         ${(r.mast || []).length ? `<h4>🎖️ ${L('Persos maîtres')}</h4><div class="row">${chips(r.mast, r.mast)}</div>` : ''}
+        ${aideOf(r.cercle) ? `<h4>🤝 ${L('Aide du Cercle')}</h4><ul class="fards">${aideText(aideOf(r.cercle)).map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
         ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>` : ''}
       </div><div class="runcol">
         ${fameBlock(r)}
@@ -776,6 +785,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (pre && pre.names) return pre.names.slice();
     if (pre && pre.ctl && pre.ctl[1] === 'me') return [pseudo(), L('Joueur 2')];
     const lv = pre ? pre.level : 'normal', ps = pre && pre.mode !== 'daily' ? pre.perso : null;
+    // le bot stratège : seulement son caractère (« Le Prudent »), qu'on lise en entier ; c'est forcément le stratège
+    if (lv === 'impossible' && ps && ['normal', 'hard', 'boss'].includes(pre.mode)) { const n = I18N.persoName(ps); return [pseudo(), n.charAt(0).toUpperCase() + n.slice(1)]; }
     return [pseudo(), levelName(lv) + (ps ? ' · ' + I18N.persoName(ps) : '')];
   }
 
@@ -800,7 +811,24 @@ const isSh = id => !!T[E.TI[id]].fac;
   //  Affrontement
   // =====================================================================
   let G = null, gid = 0;
+  // ---------- analyse du bilan : en fond pendant la partie, coup par coup, avec la même réflexion que le bot ----------
+  let aworker = null, abusy = false;
+  const ajobs = [];
+  try {
+    const src = 'var E=(' + StratEngine.toString() + ')();onmessage=function(e){var r=null;try{r=E.analyseDeep(e.data.s,e.data.a)}catch(x){}postMessage(r);};';
+    aworker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    aworker.onmessage = e => { const j = ajobs.shift(); abusy = false; if (j) j.cb(e.data); nextJob(); };
+    aworker.onerror = () => { aworker = null; abusy = false; nextJob(); };
+  } catch (e) { aworker = null; }
+  function nextJob() {
+    if (abusy || !ajobs.length) return;
+    abusy = true;
+    if (!aworker) return setTimeout(() => { const j = ajobs.shift(); abusy = false; let r = null; try { r = E.analyseDeep(j.s, j.a); } catch (e) { } j.cb(r); nextJob(); }, 30);
+    try { aworker.postMessage({ s: ajobs[0].s, a: ajobs[0].a }); } catch (e) { aworker = null; abusy = false; nextJob(); }
+  }
+  function analyseLater(s, a, cb) { ajobs.push({ s, a, cb }); nextJob(); }
   function newG(s, extra) {
+    ajobs.splice(abusy ? 1 : 0); // une nouvelle partie : les analyses de l'ancienne ne servent plus
     gid++;
     const G0 = Object.assign({ id: gid, s, ctl: ['me', 'bot'], me: 0, flip: false, net: false, level: 'normal', mode: 'normal', perso: null, daily: null, hard: [],
       sel: null, legal: null, ver: 0, over: false, thinking: false, history: [], seed: 1 + rnd(1e6), lastA: null, committed: false, names: ['', ''], st: newBattleStats() }, extra || {});
@@ -908,6 +936,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (fs.includes('elite') && !s.boss) oppElite(1 + ext);
       if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
     }
+    // aide des premiers Cercles (pas contre un boss : il faut le tuer)
+    const aid = ['normal', 'hard'].includes(pre.mode) ? aideOf(pre.cercle) : null;
+    if (aid && !s.boss) { s.gN = [E.gNeed(s, 0), aid.g]; s.inv = [aid.i, 4]; }
     if (pre.mode === 'normal' || pre.mode === 'hard' || pre.mode === 'boss') { s.mana[0] = Math.max(60, s.mana[0]); } // jamais moins de 60 mana au départ
     // talents du défi du jour (pas pendant le défi lui-même, ni en duel)
     if (pre.myMana) s.mana[0] = pre.myMana;
@@ -937,6 +968,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     try { d = deser(r.match); } catch (e) { r.match = null; saveRuns(); renderRun(); return toast(L('Affrontement illisible : il a été effacé.')); }
     pre = { level: r.level, perso: d.perso || null, mode: d.mode || 'normal' };
     G = newG(d.s, { level: r.level, mode: d.mode || 'normal', perso: d.perso || null, hard: d.hard || [], seed: d.seed || 1, lastA: d.lastA || null, history: [], st: d.st || newBattleStats(), });
+    for (const m of G.st.mv || []) if (m.pend) Object.assign(m, { pend: 0, cls: null, acc: null }); // analyses perdues en quittant le jeu
     G.names = curNames();
     $('log').innerHTML = d.log || '';
     sys(L('Affrontement repris.'));
@@ -961,9 +993,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (s.mast && s.mast[1].length) out.push(`🎖️ <b>${L('Gardes d’élite')}</b> : ${s.mast[1].map(i => tn(i)).join(', ')}`); // lesquels, pour les reconnaître
     const cer = cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run().cercle : 0;
     for (const f of fardeaux(cer)) if (s.boss || !['pv', 'pv2', 'boss7'].includes(f)) out.push(`⚖️ ${fardeauText(f, cer)}`); // seulement ce qui compte dans cet affrontement
-    if (!s.boss && !s.goal) out.push(`🏁 ${L('Invasion : avoir 4 persos dans la zone de placement adverse = victoire.')}`);
+    const aid = cur >= 0 && run() && ['normal', 'hard'].includes(G.mode) && !s.boss ? aideOf(run().cercle) : null;
+    if (aid) for (const x of aideText(aid)) out.push(`🤝 ${x}`);
+    if (!s.boss && !s.goal && !(aid && aid.i < 4)) out.push(`🏁 ${L('Invasion : avoir 4 persos dans la zone de placement adverse = victoire.')}`);
     if (s.fac && [0, 1].some(p => E.gNeed(s, p) === 5)) out.push(`🌑 ${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}`);
-    if (s.fac && (s.fac[0] === 1 || s.fac[1] === 1)) out.push(`🌑 ${L('Persos des Ombres : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}`);
     return out.length ? `<h3>📜 ${L('Règles de cet affrontement')}</h3><ul class="rules">${out.map(x => `<li>${x}</li>`).join('')}</ul>` : '';
   }
   function enterGame() {
@@ -974,9 +1007,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     const gl = G.s.goal ? ['🎯 ' + I18N.goalName(G.s.goal), I18N.goalDesc(G.s.goal)] : G.chal ? ['🏆 ' + dailyName(G.chal), dailyDesc(G.chal)] : G.s.boss ? ['👹 ' + tn(E.TI[G.s.boss.kind]), td(E.TI[G.s.boss.kind])] : null;
     $('goalBadge').hidden = !gl;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; $('goalBadge').onclick = () => toast(`<b>${gl[0]}</b> : ${gl[1]}`, 6000); }
-    $('mapBadge').textContent = '🗺️ ' + I18N.mapName(G.s.g);
+    $('mapBadge').hidden = true; // écran plus léger : la carte se voit, pas besoin de l'écrire
     $('btnUndo').hidden = G.net || G.mode === 'puzzle';
-    $('btnTestWin').hidden = !SET.test || !!G.net || ['daily', 'season', 'duel'].includes(G.mode); // mode test : gagner tout de suite pour avancer plus vite
+    $('runBadge').hidden = ['normal', 'hard', 'boss'].includes(G.mode); // dans une partie, inutile pendant le combat
     $('runBadge').textContent = G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'puzzle' ? '🧩 ' + L('Énigme {i}', { i: G.pz.i + 1 }) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n}', { n: cur + 1 }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     setTok(cur >= 0 && run() && ['normal', 'hard', 'boss'].includes(G.mode) ? run() : null);
     $('rulesCard').innerHTML = rulesHtml();
@@ -1001,7 +1034,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const opt = { perso: G.perso, canExtend: false };
     if (G.level === 'normal') opt.budget = 350;
     if (G.level === 'impossible') {
-      opt.budget = 1500; opt.maxMs = 2000; // toujours à pleine force, à tous les Cercles
+      opt.maxNodes = E.BOT_NODES; opt.budget = 8000; // toujours à pleine force, à tous les Cercles (en nœuds : le bilan juge ses coups avec la même réflexion)
     }
     renderPlayers();
     askBot(G.s, G.level, opt, a => {
@@ -1014,7 +1047,6 @@ const isSh = id => !!T[E.TI[id]].fac;
     });
   }
 
-  $('btnTestWin').onclick = () => { if (!G || G.over || !SET.test) return; G.s.winner = G.me; G.s.why = 'Victoire de test.'; sfx('choix'); endGame(); };
   // revoir le coup de l'adversaire : la carte d'avant pendant un instant, puis celle d'après
   function peekBot() {
     if (!G || !G.botTurn || G.peek) return;
@@ -1029,7 +1061,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const s = G.s, p = s.turn, before = E.clone(s);
     const recFrom = a.k === 'rec' ? document.querySelector(`#pool [data-pool="${a.t}"]`) : null, recBox = recFrom && recFrom.getBoundingClientRect();
     const could = G.humans[p] && !G.tuto && s.phase === 'play' ? bestCapture(before, legal()) : null;
-    const an = !G.tuto && !G.net ? E.analyse(before, a) : null; // pour le bilan : la valeur du coup joué et du meilleur
+    const wantAn = !G.tuto && !G.net && before.phase === 'play' && before.winner === null; // pour le bilan (analysé en fond)
     if (G.humans[p] && !G.net) { G.history.push({ s: before, log: $('log').innerHTML, lastA: G.lastA, st: JSON.stringify(G.st) }); if (G.history.length > 300) G.history.shift(); }
     if (G.net && G.ctl[p] === 'me') netSend({ t: 'act', a, ply: before.ply });
     const iceBefore = s.boss && s.boss.ice ? s.boss.ice.join() : '', warnBefore = s.boss && s.boss.warn ? s.boss.warn.join() : '';
@@ -1045,7 +1077,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const got = (s.lost[1 - p][0] - before.lost[1 - p][0]) * 3 + (s.lost[1 - p][1] - before.lost[1 - p][1]);
       if (got < could.gain && could.vi >= 0) { if (!G.st.missed) G.st.missed = []; missedNow = { p, turn: Math.floor(before.ply / 2) + 1, h: G.history.length, ai: could.ai, vi: could.vi }; G.st.missed.push(missedNow); }
     }
-    if (an) reviewMove(an, before, a, dead, p, missedNow);
+    if (wantAn) reviewMove(before, a, dead, p, missedNow);
     const tide = s._tide; s._tide = 0;
     if (s.boss) {
       if (fire || smash >= 0) sfx('rugir', .55, 120);
@@ -1404,20 +1436,33 @@ const isSh = id => !!T[E.TI[id]].fac;
   const winP = v => 100 / (1 + Math.exp(-v / 3)); // valeur d'une position -> chances de gagner (%)
   const CLS = () => [['unique', '‼', L('Coup unique'), '#26c2a3'], ['meilleur', '★', L('Meilleur coup'), '#81b64c'], ['excellent', '👍', L('Excellent'), '#81b64c'],
     ['bon', '✓', L('Bon'), '#95b776'], ['imprecision', '?!', L('Imprécision'), '#f7c631'], ['erreur', '?', L('Erreur'), '#ffa459'], ['rate', '✕', L('Prise ratée'), '#ff7769'], ['gaffe', '??', L('Gaffe'), '#fa412d']];
-  function reviewMove(an, before, a, dead, p, missed) {
+  // le coup est noté tout de suite, sa valeur arrive quand l'analyse en fond l'a jugé (G.anc garde les résultats, même après « annuler »)
+  function reviewMove(before, a, dead, p, missed) {
+    if (!G.st.mv) G.st.mv = [];
+    const g0 = G, hum = G.humans[p], h = hum ? G.history.length : 0, key = 'k' + (G.akey = (G.akey || 0) + 1);
+    const m = { p, turn: Math.floor(before.ply / 2) + 1, h, key, pend: 1, cls: null, acc: null, ev: 0 };
+    G.st.mv.push(m);
+    analyseLater(before, a, an => {
+      const res = an ? judgeMove(an, before, a, dead, p, missed, hum) : { cls: null, acc: null, ev: 0 };
+      res.pend = 0; (g0.anc || (g0.anc = {}))[key] = res; Object.assign(m, res);
+      if (G === g0 && G.over && !ajobs.length) renderBilan(); // tout est analysé : le bilan se met à jour
+    });
+  }
+  function judgeMove(an, before, a, dead, p, missed, hum) {
     const wb = winP(an.best), wp = winP(an.played), diff = Math.max(0, wb - wp);
     let cls = diff <= 1 ? (an.n > 1 && wb - winP(an.second) >= 15 ? 'unique' : 'meilleur') : diff <= 3 ? 'excellent' : diff <= 7 ? 'bon' : diff <= 14 ? 'imprecision' : diff <= 25 ? 'erreur' : 'gaffe';
     if (missed) cls = 'rate';
     const acc = an.n > 1 ? Math.max(0, Math.min(100, 103.17 * Math.exp(-0.04354 * diff) - 3.17)) : null;
-    const key = G.humans[p] && ['imprecision', 'erreur', 'gaffe', 'rate', 'unique'].includes(cls);
+    const key = hum && ['imprecision', 'erreur', 'gaffe', 'rate', 'unique'].includes(cls), other = an.bestA && JSON.stringify(an.bestA) !== JSON.stringify(a);
     const pack = x => x && { k: x.k, t: x.t, to: x.to, from: x.from, cl: x.cl ? x.cl.slice() : undefined, d: x.d };
-    if (!G.st.mv) G.st.mv = [];
-    G.st.mv.push({ p, turn: Math.floor(before.ply / 2) + 1, h: G.humans[p] ? G.history.length : 0, cls, acc, ev: Math.max(-60, Math.min(60, an.played)),
-      txt: key ? describe(before, a, dead) : '', better: key && cls !== 'unique' && an.bestA && an.bestA !== a ? describe(before, an.bestA, []) : '',
-      ply: key ? before.ply : undefined, a: key ? pack(a) : undefined, ba: key && cls !== 'unique' && an.bestA && an.bestA !== a ? pack(an.bestA) : undefined });
+    return ({ cls, acc, ev: Math.max(-60, Math.min(60, an.played)),
+      txt: key ? describe(before, a, dead) : '', better: key && cls !== 'unique' && other ? describe(before, an.bestA, []) : '',
+      ply: key ? before.ply : undefined, a: key ? pack(a) : undefined, ba: key && cls !== 'unique' && other ? pack(an.bestA) : undefined });
   }
   function reviewData(me) {
-    const op = 1 - me, mv = G.st.mv || [];
+    const op = 1 - me, mv = G.st.mv || [], anc = G.anc || {};
+    for (const m of mv) if (m.pend && anc[m.key]) Object.assign(m, anc[m.key]); // résultats arrivés après un « annuler »
+    const pending = mv.filter(m => m.pend).length;
     const acc = [0, 1].map(o => { const l = mv.filter(m => m.p === o && m.acc !== null); return l.length ? Math.round(l.reduce((x, m) => x + m.acc, 0) / l.length) : null; });
     const cnt = (o, c) => mv.filter(m => m.p === o && m.cls === c).length;
     const rows = CLS().map(([c, ic, lbl, col]) => `<tr><td class="ic" style="color:${col}">${ic}</td><td>${lbl}</td><td class="p${me}">${cnt(me, c)}</td><td class="p${op}">${cnt(op, c)}</td></tr>`).join('');
@@ -1441,7 +1486,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       : `<p class="okmsg">${L('Aucune grosse erreur : bien joué !')}</p>`)
       + (nUnique ? `<p class="small">✨ ${L('{n} coup(s) unique(s) : le seul bon coup, et tu l’as trouvé !', { n: nUnique })}</p>` : '');
     const seeAll = G.km.length ? `<button class="big seeall" data-km="${(big.find(i => G.km.includes(i)) ?? G.km[0])}">👁 ${L('Revoir mes erreurs sur la carte ({n})', { n: G.km.length })}</button>` : '';
-    return { acc, rows, graph, keys, seeAll };
+    return { acc, rows, graph, keys, seeAll, pending };
   }
   // ---------- revoir un moment du bilan sur la carte ----------
   function momentState(m) { const e = G.history.find(x => x.s.ply === m.ply); return e ? e.s : null; }
@@ -1533,6 +1578,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <section class="bcard rvL"><h3>🔑 ${L('Tes erreurs')}</h3><p class="muted small">${L('Clique sur une erreur : la carte montre ton coup en rouge et le bon coup en vert.')}</p>${R.keys}${R.seeAll}</section>
         <section class="bcard rvR">
           <div class="accs">${[me, op].map(o => `<div class="acc p${o}"><small>${esc(PN[o])}</small><b>${R.acc[o] === null ? '–' : R.acc[o] + ' %'}</b><small>${L('précision')}</small></div>`).join('')}</div>
+          ${R.pending ? `<p class="muted small center">⏳ ${L('Analyse de la partie : encore {n} coup(s)…', { n: R.pending })}</p>` : ''}
           <h3>📈 ${L('Avantage au fil de la partie')}</h3>${R.graph}
           <p class="rvmini">⚔️ ${L('{k} ennemi(s) tué(s)', { k: kills })} · 💀 ${L('{n} perdu(s)', { n: lost })} · ⏱️ ${L('{n} tours', { n: myTurns })} · ${mins}:${String(secs).padStart(2, '0')}</p>
           ${best ? `<p class="small">⭐ ${L('Ton meilleur perso : {x}, {k} ennemi(s) tué(s).', { x: pieceLabel(me, E.TI[best.id]), k: best.kills })}</p>` : ''}
@@ -2174,7 +2220,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   function cercleBlock() {
     return textBlock(`<h3>${L('Cercles')}</h3><p>${L('Le bot joue toujours au mieux, à pleine force. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un fardeau de plus à chaque Cercle, jusqu’au Cercle 10.')}</p>
-      <ul>${FARDEAUX.map((f, i) => `<li><b>${cercleLabel(i + 1)}</b> : ${fardeauText(f, i + 1)}</li>`).join('')}<li>${L('Ensuite, plus de nouveau fardeau : la difficulté reste au maximum, et chaque Cercle te donne une nouvelle réserve.')}</li></ul>
+      <ul>${AIDE.map((a, c) => `<li><b>${cercleLabel(c)}</b> : 🤝 ${aideText(a).join(' ; ')}</li>`).join('')}${FARDEAUX.map((f, i) => `<li><b>${cercleLabel(i + 1)}</b> : ${fardeauText(f, i + 1)}</li>`).join('')}<li>${L('Ensuite, plus de nouveau fardeau : la difficulté reste au maximum, et chaque Cercle te donne une nouvelle réserve.')}</li></ul>
       <p class="muted">${L('Plus haut Cercle atteint : {n}', { n: cercleMax() })}</p>`);
   }
   function rulesBlocks() {
@@ -2194,7 +2240,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <li>${L('<b>Placer</b> : clique un perso de ta liste « À placer », puis une case de ta zone.')}</li>
         <li>${L('<b>Activer</b> : clique ton perso sur la carte, puis les cases en surbrillance (vert = déplacement, rouge = attaque, bleu pointillé = choix d’un perso). Les sorts de zone ont des boutons sous la carte (survole-les pour voir la zone).')}</li>
         <li>${L('Touche un perso ou une case spéciale pour voir ce qu’il fait.')}</li></ul>`),,
-      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux. Ils se cachent dans le noir : un garde ou un soldat ennemi ne peut pas les prendre à plus de 4 cases.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}</p>`)] : [])
+      ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}</p>`)] : [])
     ];
   }
   const previews = [];
@@ -2553,9 +2599,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       ${card('abysses', '🌊', L('Les Abysses'), [L('Un nouveau monde sous-marin, avec ses courants qui emportent les persos'), L('4 persos marins : Requin, Méduse, Pieuvre, Sirène'),
         L('4 boss des profondeurs : Léviathan, Seigneur des marées, Grand Corail, Méduse géante'), L('L’Ascension : l’histoire en 8 chapitres, chacun avec son combat à part (sans dieux, équipe imposée, que des dieux…), jusqu’au Dieu déchu, un boss en 2 phases')],
         `<button class="big" id="btnStory">📖 ${L('L’Ascension')}</button>`)}
-      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas, cachée dans le noir'),
+      ${card('ombres', '🌑', L('Les Ombres'), [L('Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas'),
         L('4 boss de la Lumière, rien que pour les parties des Ombres : Archange, Paladin, Phare, Golem de cristal'),
-        L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'), L('5 handicaps difficiles propres aux parties des Ombres'),
+        L('3 nouvelles cases spéciales : autels, lumières sacrées et portails'),
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),
         L('Les statistiques : points de tes persos, réussite de tes affrontements')],
         `<button class="big" id="btnSeason">🗓️ ${L('Défi de la semaine')}</button><button class="ghost" id="btnStats2">📊 ${L('Statistiques')}</button>`)}
@@ -2640,7 +2686,6 @@ const isSh = id => !!T[E.TI[id]].fac;
       <div class="setrow"><div class="lab"><b>👁️ ${L('Couleurs')}</b> <small>${L('Mode daltoniens : un symbole sur chaque perso (▲ toi, ■ l’adversaire), bleu au lieu de violet, motifs en plus des couleurs.')}</small></div>${segH('vision', [['normale', L('Normales')], ['daltonien', L('Daltoniens')]])}</div>
       <div class="setrow"><div class="lab"><b>🎮 ${L('Manette')}</b> <small>${L('Branche une manette, elle marche tout de suite : croix ou stick pour se déplacer, A choisir, B retour, X carte ou boutons, Y annuler le coup, LB/RB pages, Start paramètres, Select Codex.')}</small></div><span class="muted">${padOn ? '✅ ' + L('Connectée') : L('Aucune manette')}</span></div>
       <div class="setrow"><div class="lab"><b>📳 ${L('Vibrations de la manette')}</b></div>${segH('rumble', [[true, L('Oui')], [false, L('Non')]])}</div>
-      <div class="setrow"><div class="lab"><b>🧪 ${L('Mode test')}</b> <small>${L('Ajoute un bouton « Gagner (test) » en haut de l’écran de jeu, pour avancer plus vite. Pas dans les défis ni les duels.')}</small></div>${segH('test', [[true, L('Oui')], [false, L('Non')]])}</div>
       <div class="setrow"><div class="lab"><b>🖥️ ${L('Plein écran')}</b> <small>F11</small></div><button class="ghost sm" id="setFs">${fs ? L('Quitter le plein écran') : L('Plein écran')}</button></div>`;
     $('setPseudo').onchange = e => { lsSet('pseudo', e.target.value.trim().slice(0, 18)); renderMenu(); };
     $('setLang').onchange = e => { I18N.setLang(e.target.value); translateStatic(); renderSettings(); renderMenu(); if ($('run').classList.contains('on')) renderRun(); if (G) { G.names = curNames(); PN[0] = G.names[0]; PN[1] = G.names[1]; render(); } };

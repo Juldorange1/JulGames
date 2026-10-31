@@ -1174,6 +1174,19 @@
   Object.assign(D.ui, {
     "1 fardeau": "1 burden",
   });
+  Object.assign(D.ui, {
+    "Tu gagnes en tuant {n} gardes adverses (au lieu de 4)": "You win by killing {n} enemy guards (instead of 4)",
+    "Invasion : {n} de tes persos dans la zone adverse suffisent (au lieu de 4)": "Invasion: {n} of your units in the enemy zone are enough (instead of 4)",
+    "un peu moins d’aide": "a little less help",
+    "fin de l’aide : à armes égales": "no more help: on equal terms",
+    "Une armée aux pouvoirs que la Lumière n’a pas.": "An army with powers the Light doesn’t have.",
+    "Aide du Cercle": "Circle help",
+    "Analyse de la partie : encore {n} coup(s)…": "Analysing the game: {n} move(s) left…",
+    "Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux.": "A 2nd army, to pick instead of the Light. In a Shadows run, the opponent plays the Shadows too. All its units have powers of their own.",
+    "Le Clan des Ombres : une 2e armée complète (10 dieux, 15 gardes, ses soldats) aux pouvoirs que la Lumière n’a pas": "The Shadow Clan: a complete 2nd army (10 gods, 15 guards, its soldiers) with powers the Light doesn’t have",
+    "Invasion : 3 persos dans la zone adverse.": "Invasion: 3 units in the enemy zone.",
+    "3 gardes tués.": "3 guards killed.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
