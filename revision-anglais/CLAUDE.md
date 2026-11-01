@@ -44,8 +44,11 @@ demandes utilisateur, ne les réintroduis pas sans qu'on te le redemande.
   aussitôt et annulait la note.
   Côté sessions (`buildSession` + `recordResult`) : chaque mot n'apparaît qu'UNE fois par
   session (plus de répétition en boucle pour remplir le quota) ; ❌ revient ~6 questions plus
-  tard, 😐 ~12, ✅ pas dans la session. La "Révision nulle et ennuyeuse" ne propose qu'un mot
-  déjà vu arrivé à échéance (+ des nouveaux plafonnés), sinon toast "prochain mot dans X".
+  tard, 😐 ~12, ✅ pas dans la session. La "Révision nulle et ennuyeuse" fait réviser TOUS les
+  mots à réviser en une seule session (tous les mots arrivés à échéance + tous les jamais vus,
+  sans plafond — demande explicite, ne pas la limiter à N mots), les plus urgents d'abord ; s'il
+  n'y en a aucun, toast "prochain mot dans X". Seuls les boutons de durée rapide en prennent une
+  partie (nouveaux plafonnés).
   `Analyzer.isReviewable()` / `isPlausibleTerm()` est le filtre unique "peut devenir une
   flashcard" : écarte les non-mots ("d", "d)", "st", "4d"...) à l'analyse, dans toutes les
   sessions, et `cleanupLegacyItems()` (app.js) supprime ceux déjà enregistrés.

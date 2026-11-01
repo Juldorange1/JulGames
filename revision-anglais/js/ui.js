@@ -102,10 +102,6 @@
     $('#btn-smart-review').onclick = () => startSmartReview(null, 'smart');
     $('#btn-exam-mode').onclick = () => go('exam-setup');
   }
-
-  // La révision principale ne prend jamais tous les mots à revoir d'un coup : seulement les
-  // plus urgents, par petits paquets. Les autres attendent la session suivante.
-  const SMART_SESSION_SIZE = 10;
   function rateClass(rate) { return rate < 60 ? 'low' : rate < 80 ? 'mid' : 'high'; }
 
   function renderBarChart(sel, data) {
@@ -386,9 +382,11 @@
       toast(`Rien à revoir pour l'instant — prochain mot dans ${formatDelay(next - now)}.`);
       return;
     }
-    const target = mode === 'smart' ? SMART_SESSION_SIZE : Math.max(6, Math.round(minutes * 2.2));
     const ranked = pool.slice().sort((a, b) => smartScore(b, now) - smartScore(a, now));
-    const selected = capNewItems(ranked, target);
+    // Révision principale : TOUS les mots à réviser (exactement le nombre affiché dans "À faire
+    // aujourd'hui"), les plus urgents d'abord. Les boutons de durée, eux, en prennent une partie.
+    const target = mode === 'smart' ? ranked.length : Math.max(6, Math.round(minutes * 2.2));
+    const selected = mode === 'smart' ? ranked : capNewItems(ranked, target);
     startSession(selected, pool, target, mode, mode === 'smart' ? 'Révision nulle et ennuyeuse' : `Révision rapide (${minutes} min)`);
   }
 
