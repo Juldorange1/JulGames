@@ -34,7 +34,8 @@ function createWindow() {
     win.webContents.once('did-finish-load', async () => {
       const js = c => win.webContents.executeJavaScript(c, true), out = {};
       try {
-        await new Promise(r => setTimeout(r, 500));
+        // le menu peut mettre un peu plus de temps au tout premier lancement : on attend qu'il soit là
+        for (let k = 0; k < 50 && !(await js(`!!document.querySelector('[data-new="0"]')`)); k++) await new Promise(r => setTimeout(r, 200));
         out.quitButton = await js('!document.getElementById("btnQuit").hidden');
         out.font = await js('document.fonts.check("800 20px Cinzel")');
         out.music = await js('fetch("music/partie.mp3").then(r => r.ok)');
