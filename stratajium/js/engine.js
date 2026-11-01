@@ -408,15 +408,15 @@ function StratEngine() {
     o = o || {};
     const ev = o.event || null;
     const g = o.map || classicMap();
-    const b = new Int16Array(g.N); // Int16 : au-delà de 63 sortes de persos, les codes dépassent 127
+    const b = new Array(g.N).fill(0); // tableaux simples (pas typés) : bien plus rapides à copier pour le bot
     for (let q = 0; q < g.N; q++) b[q] = g.ex[q] ? 0 : VOID;
     const s = {
       g, b,
-      pool: new Int16Array(NT),
-      res: [new Int16Array(NT), new Int16Array(NT)],
+      pool: new Array(NT).fill(0),
+      res: [new Array(NT).fill(0), new Array(NT).fill(0)],
       mana: ev === 'abondance' ? [200, 200] : [100, 100],
       lost: [[0, 0, 0], [0, 0, 0]], // morts par joueur : dieux, gardes, soldats
-      dead: [new Int16Array(NT), new Int16Array(NT)], // morts par type (pour le Guérisseur)
+      dead: [new Array(NT).fill(0), new Array(NT).fill(0)], // morts par type (pour le Guérisseur)
       bl: [-1, -1], // case bénie par chaque joueur (Protecteur)
       turn: o.first || 0,
       acts: 1,
@@ -478,7 +478,7 @@ function StratEngine() {
       dead: s.dead ? [s.dead[0].slice(), s.dead[1].slice()] : null, bl: s.bl ? s.bl.slice() : [-1, -1],
       turn: s.turn, acts: s.acts, noPlace: s.noPlace.slice(), noAct: s.noAct.slice(), pend: s.pend.slice(),
       decl: s.decl.slice(), ev: s.ev, declOn: s.declOn, phase: s.phase, bet: s.bet, betDone: s.betDone,
-      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, mast: s.mast, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, gN: s.gN, inv: s.inv, dawn: s.dawn, tieTo: s.tieTo,
+      winner: s.winner, why: s.why, long: s.long, bonusRec: s.bonusRec, noRec: s.noRec, mast: s.mast, ply: s.ply, quiet: s.quiet, last: s.last, first0: s.first0, betLoser: s.betLoser, goal: s.goal, hold: s.hold ? s.hold.slice() : [0, 0], boss: s.boss ? cloneBoss(s.boss) : null, fac: s.fac, invN: s.invN, gN: s.gN, inv: s.inv, tys: s.tys, dawn: s.dawn, tieTo: s.tieTo,
       frz: s.frz ? s.frz.map(f => ({ q: f.q, p: f.p, n: f.n })) : null, curse: s.curse ? s.curse.map(c => ({ q: c.q, p: c.p })) : null, shroud: s.shroud ? { p: s.shroud.p, sq: s.shroud.sq.slice() } : null,
       _k: 0, _dead: null, _martyr: 0, _newDecl: s._newDecl || null, _h: 0, // forme fixe (plus rapide pour le bot)
     };
@@ -494,8 +494,8 @@ function StratEngine() {
   function aliveMages(s, p) {
     let n = 0;
     const b = s.b;
-    for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && T[tix(c)].cat === 'M') n++; }
-    for (let t = 0; t < NT; t++) if (T[t].cat === 'M') n += s.res[p][t];
+    for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && IS_M[tix(c)]) n++; }
+    for (let k = 0; k < MAGE_T.length; k++) n += s.res[p][MAGE_T[k]];
     return n;
   }
 
@@ -568,6 +568,13 @@ function StratEngine() {
   // ennemi qu'on peut tuer (pas sur une case bénie)
   const foe = (s, q, p) => { const c = s.b[q]; return c > 0 && own(c) !== p && !isBl(s, q); };
   const cover = (s, q) => s.g.spec && s.g.spec[q] === 2; // bosquet
+  // cases spéciales de la carte, listées une fois (le bot n'a plus à parcourir toute la carte à chaque fin de tour)
+  function specList(g) {
+    if (g._sl && g._sl.n === g.N) return g._sl;
+    const L = { n: g.N, k1: [], k4: [], k5: [], k6: [] };
+    if (g.spec) for (let q = 0; q < g.N; q++) { const k = g.spec[q]; if (k === 1) L.k1.push(q); else if (k === 4) L.k4.push(q); else if (k === 5) L.k5.push(q); else if (k === 6) L.k6.push(q); }
+    return (g._sl = L);
+  }
   const canLand = (s, q, p) => s.b[q] === 0 || foe(s, q, p);
   const mini = s => ({ g: s.g, b: s.b.slice(), ev: s.ev, lost: [[0, 0, 0], [0, 0, 0]], bl: s.bl });
   const KNIGHT = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
@@ -1107,13 +1114,13 @@ function StratEngine() {
       for (let q = 0; q < s.g.N; q++) if (cd[q] >= 0 && s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q)) { const to = nx(s.g, q, cd[q]); if (to >= 0 && s.b[to] === 0) mv2.push([q, to]); }
       for (const [q, to] of mv2) if (s.b[to] === 0 && s.b[q] > 0) { s.b[to] = s.b[q]; s.b[q] = 0; }
     }
-    const sp2 = s.g.spec;
+    const sp2 = s.g.spec, sl2 = sp2 ? specList(s.g) : null;
     if (sp2 && s.fac) {
-      for (let q = 0; q < s.g.N; q++) if (sp2[q] === 5 && s.b[q] > 0 && own(s.b[q]) === p && FAC[tix(s.b[q])] && !IS_M[tix(s.b[q])] && !isBl(s, q)) kill(s, q);
+      for (const q of sl2.k5) if (s.b[q] > 0 && own(s.b[q]) === p && FAC[tix(s.b[q])] && !IS_M[tix(s.b[q])] && !isBl(s, q)) kill(s, q);
     }
     if (sp2) { // portails : de l'autre côté de la carte
       const tp = [];
-      for (let q = 0; q < s.g.N; q++) if (sp2[q] === 6 && s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q) && s.b[s.g.N - 1 - q] === 0) tp.push(q);
+      for (const q of sl2.k6) if (s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q) && s.b[s.g.N - 1 - q] === 0) tp.push(q);
       for (const q of tp) { const m = s.g.N - 1 - q; if (s.b[m] === 0 && s.b[q] > 0) { s.b[m] = s.b[q]; s.b[q] = 0; } }
     }
     // fin du tour de p : ses persos maudits encore sur leur case meurent, ses chaînes s'usent
@@ -1137,8 +1144,7 @@ function StratEngine() {
     if (s.shroud && s.shroud.p === q) s.shroud = null; // le linceul aussi
     if (s.ev === 'maree') s.mana[q] += 10;
     // sources de mana
-    const spec = s.g.spec;
-    if (spec) for (let x = 0; x < s.g.N; x++) if (s.b[x] > 0 && own(s.b[x]) === q) { if (spec[x] === 1) s.mana[q] += 10; else if (spec[x] === 4 && FAC[tix(s.b[x])]) s.mana[q] += 20; }
+    if (s.g.spec) { const sl = specList(s.g); for (const x of sl.k1) if (s.b[x] > 0 && own(s.b[x]) === q) s.mana[q] += 10; for (const x of sl.k4) if (s.b[x] > 0 && own(s.b[x]) === q && FAC[tix(s.b[x])]) s.mana[q] += 20; }
     if (s.goal) {
       if (s.goal === 'colline') {
         let mine = 0, theirs = 0;
@@ -1692,8 +1698,9 @@ function StratEngine() {
     if (!g._row) { g._row = new Int8Array(N); g._col = new Int8Array(N); for (let q = 0; q < N; q++) { g._row[q] = q / g.W | 0; g._col[q] = q % g.W; } }
     const ROW = g._row, COL = g._col;
     let sc = 0;
-    const onB = [0, 0], mpos = [[], []];
-    for (let q = 0; q < N; q++) { const c = b[q]; if (c > 0 && IS_M[tix(c)]) { onB[own(c)]++; mpos[own(c)].push(q); } }
+    const onB = [0, 0], mpos = [[], []], needB = [0, 0]; // dieux sur la carte, et le sort le plus cher de chaque camp (valeur du mana)
+    for (let q = 0; q < N; q++) { const c = b[q]; if (c > 0 && IS_M[tix(c)]) { const o = own(c); onB[o]++; mpos[o].push(q); if (COST[tix(c)] > needB[o]) needB[o] = COST[tix(c)]; } }
+    const tys = s.tys || ALL_T;
     const am = [onB[0], onB[1]];
     for (const i of MAGE_T) { am[0] += s.res[0][i]; am[1] += s.res[1][i]; }
     const mana = s.mana;
@@ -1720,16 +1727,17 @@ function StratEngine() {
     const rp = s.res[p], ro = s.res[1 - p];
     // recrutement illimité : la réserve commune ne se vide jamais, donc garder des recrues ne prive personne ;
     // une seule recrue par type sert (elle fait gagner l'action de recruter), les suivantes ne valent rien
-    if (s.ev === 'illimite') for (let i = 0; i < NT; i++) sc += ((rp[i] ? 1 : 0) - (ro[i] ? 1 : 0)) * VAL[i] * 0.4;
-    else for (let i = 0; i < NT; i++) {
+    if (s.ev === 'illimite') for (let k = 0; k < tys.length; k++) { const i = tys[k]; sc += ((rp[i] ? 1 : 0) - (ro[i] ? 1 : 0)) * VAL[i] * 0.4; }
+    else for (let k = 0; k < tys.length; k++) {
+      const i = tys[k];
       const d = (rp[i] - ro[i]) * F.res;
       // un mage sans assez de mana pour son sort ne sert plus qu'à rester en vie
       if (MAGEV && X && CATN[i] === 0) { if (rp[i] || ro[i]) sc += rp[i] * (mana[p] >= COST[i] ? VAL[i] * 0.75 : MAGEV) - ro[i] * (mana[1 - p] >= COST[i] ? VAL[i] * 0.75 : MAGEV); }
       else if (d) sc += d * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8);
     }
     // persos que seule ton armée peut recruter : ils t'attendent dans la réserve commune, inutile de perdre un tour à les prendre tôt
-    if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) for (let i = 0; i < NT; i++) if (s.pool[i] && canRec(s, o, i) && !canRec(s, 1 - o, i)) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5;
-    sc += (manaVal(s, p) - manaVal(s, 1 - p)) * F.mana;
+    if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) for (let k = 0; k < tys.length; k++) { const i = tys[k]; if (s.pool[i] && canRec(s, o, i) && !canRec(s, 1 - o, i)) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5; }
+    sc += (manaVal(s, p, needB[p]) - manaVal(s, 1 - p, needB[1 - p])) * F.mana;
     if (s.goal) sc += goalEval(s, p, onB);
     else {
       const gp = x => GPRESS[Math.min(Math.max(0, s.lost[x][1] - (gNeed(s, x) - 4)), 7)]; // un camp qui doit perdre 5 gardes a un garde de marge
@@ -1797,26 +1805,43 @@ function StratEngine() {
   }
 
   // valeur du mana : utile jusqu'à de quoi lancer 1,5 fois le sort le plus cher de ses dieux, presque rien au-delà
-  function manaVal(s, p) {
-    let need = 0;
-    for (let i = 0; i < NT; i++) if (CATN[i] === 0 && (s.res[p][i] || s.pool[i]) && COST[i] > need) need = COST[i];
-    const b = s.b; for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && CATN[tix(c)] === 0 && COST[tix(c)] > need) need = COST[tix(c)]; }
+  function manaVal(s, p, nb) { // nb : le sort le plus cher de ses dieux sur la carte (déjà compté par evalS)
+    let need = nb || 0;
+    for (const i of MAGE_T) if ((s.res[p][i] || s.pool[i]) && COST[i] > need) need = COST[i];
+    if (nb === undefined) { const b = s.b; for (let q = 0; q < b.length; q++) { const c = b[q]; if (c > 0 && own(c) === p && CATN[tix(c)] === 0 && COST[tix(c)] > need) need = COST[tix(c)]; } }
     const m = s.mana[p], cap = need * 1.5;
     return m <= cap ? m * 0.05 : cap * 0.05 + (m - cap) * 0.004;
   }
 
   // ----- hachage de position (table de transposition) -----
+  const ALL_T = T.map(t => t.i);
+  // sortes de persos qui comptent dans cette partie (réserve commune, réserves, morts, carte) : le hachage ne regarde qu'elles
+  function typesOf(s) {
+    const set = new Set([OS_I, S_I]);
+    for (let i = 0; i < NT; i++) if (s.pool[i] || s.res[0][i] || s.res[1][i] || (s.dead && (s.dead[0][i] || s.dead[1][i]))) set.add(i);
+    for (let q = 0; q < s.b.length; q++) if (s.b[q] > 0) set.add(tix(s.b[q]));
+    return [...set].filter(i => i >= 0);
+  }
+  // tableaux typés (anciennes sauvegardes, énigmes) -> tableaux simples, une fois au début de la réflexion
+  const plain = a => ArrayBuffer.isView(a) ? Array.from(a) : a;
+  function prep(s) {
+    s.b = plain(s.b); s.pool = plain(s.pool); s.res = [plain(s.res[0]), plain(s.res[1])];
+    if (s.dead) s.dead = [plain(s.dead[0]), plain(s.dead[1])];
+    s.tys = typesOf(s);
+    return s;
+  }
   function hashS(s) {
     let h1 = 2166136261 | 0, h2 = 5381;
     const mix = v => { h1 = Math.imul(h1 ^ v, 16777619); h2 = (Math.imul(h2, 33) + v) | 0; };
     const b = s.b; for (let q = 0; q < b.length; q++) mix(b[q] + 3);
-    for (let i = 0; i < NT; i++) { mix(s.pool[i]); mix(s.res[0][i]); mix(s.res[1][i]); }
+    const tys = s.tys || ALL_T;
+    for (let k = 0; k < tys.length; k++) { const i = tys[k]; mix(s.pool[i]); mix(s.res[0][i]); mix(s.res[1][i]); }
     mix(s.mana[0]); mix(s.mana[1]); mix(s.turn); mix(s.acts);
     mix(s.lost[0][0] * 64 + s.lost[0][1] * 8 + s.lost[0][2]); mix(s.lost[1][0] * 64 + s.lost[1][1] * 8 + s.lost[1][2]);
     mix(s.noPlace[0] * 16 + s.noPlace[1] * 4 + s.pend[0] * 2 + s.pend[1]); mix(s.noAct[0] * 4 + s.noAct[1]);
     if (s.frz || s.curse || s.shroud) { for (const f of s.frz || []) mix(f.q * 8 + f.n * 2 + f.p); for (const c of s.curse || []) mix(1000 + c.q * 2 + c.p); if (s.shroud) mix(2000 + s.shroud.sq.length * 2 + s.shroud.p); }
     mix(s.phase === 'play' ? 1 : 2); if (s.goal) mix(s.hold[0] * 7 + s.hold[1]); if (s.boss) mix(s.boss.hp * 1000 + s.boss.q * 3 + (s.boss.cd % 6) * 7 + (s.boss.warn ? s.boss.warn.length * 5 + s.boss.warn[0] : 0) + (s.boss.ice ? 11 + s.boss.ice[0] : 0) + (s.boss.reborn ? 13 : 0)); if (s.bl) mix((s.bl[0] + 2) * 131 + s.bl[1] + 2);
-    if (s.dead) { let d = 0; for (let i = 0; i < NT; i++) d = d * 3 + s.dead[0][i] * 7 + s.dead[1][i] | 0; mix(d); }
+    if (s.dead) { let d = 0; for (let k = 0; k < tys.length; k++) { const i = tys[k]; d = d * 3 + s.dead[0][i] * 7 + s.dead[1][i] | 0; } mix(d); }
     return (h1 >>> 0) * 4194304 + ((h2 >>> 0) & 4194303);
   }
 
@@ -1845,7 +1870,7 @@ function StratEngine() {
     setPerso(opt.perso, level === 'impossible' ? .3 : level === 'normal' ? 1 : 1.3);
     if (s0.phase === 'draft') return draftPick(s0, level);
     if (s0.phase === 'decl') return chooseDecl(s0, level);
-    const s = clone(s0); s.declOn = false;
+    const s = prep(clone(s0)); s.declOn = false;
     const p = s.turn;
     const acts = gen(s, false);
     if (acts.length === 1) return acts[0];
@@ -2053,13 +2078,13 @@ function StratEngine() {
     }
     return bestA;
   }
-  const BOT_NODES = 8000; // la réflexion du bot stratège dans une partie (et celle du bilan, pour juger chaque coup pareil)
-  // bilan : la valeur du coup joué et celle du meilleur, d'après la recherche du bot stratège (sans caractère)
+  const BOT_NODES = 16000; // la réflexion du bot stratège dans une partie (le bilan regarde 3 fois plus loin)
+  // bilan : la valeur du coup joué et celle du meilleur, d'après une recherche 3 fois plus profonde que celle du bot (sans caractère)
   function analyseDeep(s0, played, nodesMax) {
     if (!s0 || s0.phase !== 'play' || s0.winner !== null) return null;
     const n = gen(clone(s0), false).length;
     if (n <= 1) return { best: 0, played: 0, second: 0, bestA: played, n };
-    const r = think(s0, 'impossible', { exact: true, force: played, maxNodes: nodesMax || BOT_NODES, budget: 1e9, canExtend: false });
+    const r = think(s0, 'impossible', { exact: true, force: played, maxNodes: nodesMax || BOT_NODES * 3, budget: 1e9, canExtend: false });
     if (r.played === null) return null;
     return { best: r.best, played: r.played, second: r.second, bestA: r.a, n };
   }

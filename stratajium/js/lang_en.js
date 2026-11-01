@@ -1187,6 +1187,25 @@
     "Invasion : 3 persos dans la zone adverse.": "Invasion: 3 units in the enemy zone.",
     "3 gardes tués.": "3 guards killed.",
   });
+  Object.assign(D.ui, {
+    "Coup d’avance": "Head start",
+    "Tes gardes d’élite": "Your elite guards",
+    "Élan": "Momentum",
+    "Renforts": "Reinforcements",
+    "L’adversaire a déjà perdu un garde": "The opponent has already lost a guard",
+    "Jusqu’à 3 sortes de tes gardes sont maîtres : leur mort ne compte pas pour la défaite": "Up to 3 kinds of your guards are masters: their deaths don’t count toward defeat",
+    "Tu as déjà recruté 2 gardes et un dieu, et posé un soldat": "You have already recruited 2 guards and a god, and placed a soldier",
+    "Tu as déjà posé 2 gardes et 2 soldats, et recruté un garde": "You have already placed 2 guards and 2 soldiers, and recruited a guard",
+    "Affrontement facile": "Easy battle",
+    "Un bonus pour toi. Une victoire = 1 point, mais une défaite ne rapporte rien.": "A bonus for you. A win = 1 point, but a loss gives nothing.",
+    "Avant chaque affrontement, tu choisis : <b>normal</b> ou <b>facile</b> (un bonus pour toi, tiré au hasard).": "Before each battle, you choose: <b>normal</b> or <b>easy</b> (a random bonus for you).",
+    "victoire +1, défaite normale +½ sur tes derniers choix (une défaite en facile ne rapporte rien). Quand il ne reste qu’une barre dans un groupe, elle avance toute seule.": "win +1, normal loss +½ on your last choices (an easy loss gives nothing). When only one bar is left in a group, it advances on its own.",
+    "Bonus des affrontements faciles": "Easy battle bonuses",
+    "Un seul à la fois, tiré au hasard, jamais deux fois de suite le même.": "Only one at a time, drawn at random, never the same twice in a row.",
+    "Victoires en affrontement facile": "Easy battle wins",
+    "Tous les bonus": "Every bonus",
+    "Gagne un affrontement facile avec chacun des bonus.": "Win an easy battle with each bonus.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";

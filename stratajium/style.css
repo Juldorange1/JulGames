@@ -1019,3 +1019,6 @@ input, textarea { cursor: text; }
 .cpct .meter { flex: 1; max-width: 160px; }
 .cpct small { white-space: nowrap; color: var(--gold); }
 .chip .mst { position: absolute; top: -6px; left: -6px; font-size: 13px; line-height: 1; pointer-events: none; }
+/* affrontement facile : un bonus pour toi */
+.choice.easy { border-color: rgba(120, 220, 140, .5); background: linear-gradient(180deg, rgba(120, 220, 140, .16), rgba(255, 255, 255, .02)); }
+.evcard.easyc { border-color: rgba(120, 220, 140, .6); background: rgba(120, 220, 140, .08); }
