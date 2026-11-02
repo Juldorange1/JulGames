@@ -72,7 +72,7 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 .tag { text-align: center; color: var(--muted); margin: 4px 0 6px; }
 
 /* ----- menu : titre et parties au centre, défi du jour dessous ----- */
-#menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #puzzle.on, #season.on { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px 16px; gap: 14px; }
+#menu.on, #newrun.on, #run.on, #pre.on, #duel.on, #ext.on, #story.on, #puzzle.on, #season.on { display: flex; flex-direction: column; align-items: center; justify-content: safe center; padding: 14px 16px; gap: 14px; }
 .menu-main { width: 100%; max-width: 760px; padding: 20px 24px; }
 .hello { text-align: center; margin: 0 0 12px; color: var(--muted); }
 .hello b { color: var(--gold); }
@@ -187,7 +187,7 @@ h1 { font-family: Cinzel, Georgia, serif; font-weight: 900; font-size: clamp(40p
 #poolCard { flex: 0 1 auto; overflow: hidden; display: flex; flex-direction: column; }
 #poolCard.flash { animation: cardFlash .7s; }
 @keyframes cardFlash { 40% { box-shadow: 0 0 0 3px var(--gold), 0 0 30px rgba(242, 193, 78, .6); } }
-#infoCard { flex: none; }
+#infoCard { flex: none; font-size: 16px; }
 #infoCard:empty { display: none; }
 .logcard { flex: 1 1 80px; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -338,11 +338,11 @@ body.anim-off .crit, body.anim-off .crit .eye { animation: none; }
 /* infos */
 #infoCard .ihead { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 #infoCard .ihead .tk { width: 60px; height: 60px; flex: none; }
-#infoCard .iname { font-weight: 800; font-size: 18px; }
-#infoCard .icat { font-size: 15.5px; color: var(--muted); }
+#infoCard .iname { font-weight: 800; font-size: 1.125em; }
+#infoCard .icat { font-size: .97em; color: var(--muted); }
 #infoCard .icost { color: var(--mana); font-weight: 700; }
-#infoCard .idesc { font-size: 16.5px; }
-.specline { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 15.5px; color: var(--muted); }
+#infoCard .idesc { font-size: 1.03em; }
+.specline { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: .97em; color: var(--muted); }
 .specline .specic { width: 28px; height: 28px; flex: none; }
 #log { margin: 0; padding: 0; list-style: none; overflow: hidden; font-size: 15.5px; color: var(--muted); flex: 1; min-height: 0; }
 #log li { padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, .04); }
@@ -1037,3 +1037,58 @@ body.anim-off .celeb { display: none; }
   #run #runBox { padding-top: 12px; padding-bottom: 12px; }
   #run #runBox > .choices, #run #runBox > .menu-actions { margin-top: 10px; }
 }
+
+/* combat sans défilement : la réserve ne rapetisse jamais, les joueurs non plus ; la fiche (à gauche) et les règles s'adaptent */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px) {
+  #poolCard { flex: none; }
+  .left > .pp { flex: none; }
+  .left > #infoCard { flex: 0 1 auto; min-height: 0; overflow: hidden; }
+  .left > #infoCard .ibody { flex-direction: column; align-items: stretch; }
+  .left > #infoCard .idiag { align-self: center; width: auto; }
+  .left > #infoCard .idiag .diag { width: 150px; }
+  #rulesCard { flex: 0 1 auto; max-height: none; overflow: hidden; }
+}
+#infoCard.nodiag .idiag { display: none; }
+#rulesCard .rmore { margin-top: 6px; width: 100%; }
+#rulesPop { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); padding: 16px; cursor: var(--curp); }
+#rulesPop[hidden] { display: none; }
+#rulesPop > .card { width: min(900px, 100%); background: #141c16; border: 1px solid var(--line2); }
+#rulesPop .rules { columns: 2 330px; column-gap: 24px; font-size: 16px; }
+#rulesPop .rules li { break-inside: avoid; }
+#rulesPop .muted { margin-top: 8px; text-align: center; font-size: 14px; }
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px) {
+  .left { position: relative; }
+  .left > #infoCard.float { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 30; overflow: visible;
+    background: #141c16; border: 1px solid var(--line2); box-shadow: 0 12px 40px rgba(0, 0, 0, .6); pointer-events: none; }
+}
+.morebtn { margin-top: 4px; }
+/* extensions : les 3 côte à côte sur grand écran (sans défilement) */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) {
+  #ext .panel-mid.wide { max-width: 1400px; }
+  .dlcs { grid-template-columns: repeat(3, 1fr); }
+  .dlc { display: flex; flex-direction: column; }
+  .dlc ul { font-size: 15.5px; flex: 1; }
+  .dlc .menu-actions { flex-wrap: wrap; }
+}
+/* retours en arrière restants dans ce combat */
+#btnUndo[data-n]:not([data-n=""])::after { content: attr(data-n); margin-left: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; background: rgba(242, 193, 78, .2); color: var(--gold); }
+#btnUndo[data-n="0"]::after { background: rgba(255, 255, 255, .08); color: var(--muted); }
+/* case spéciale occupée : son icône passe au-dessus du perso, en pastille dans le coin (on voit toujours sur quelle case il est) */
+.sq:has(.pc) .specic, .sq:has(.pc) .specic.cur { z-index: 5; width: 38%; height: 38%; left: -6%; top: -6%; right: auto; bottom: auto; padding: 4%; box-sizing: border-box;
+  border-radius: 50%; background: rgba(10, 14, 12, .92); box-shadow: 0 0 0 2px var(--specc, #9fe8ff), 0 2px 6px rgba(0, 0, 0, .6); opacity: 1; filter: none; }
+.sq.spec1 { --specc: #7fd3ff; } .sq.spec2 { --specc: #62a84e; } .sq.spec3 { --specc: #9fe8ff; } .sq.spec4 { --specc: #9a6bff; } .sq.spec5 { --specc: #ffe27a; } .sq.spec6 { --specc: #5ad1ff; }
+/* sorts des dieux en image (scènes animées) */
+.diag.scene { position: relative; container-type: inline-size; }
+.diag.scene .sp { position: absolute; width: calc(100% / 7); height: calc(100% / 7); z-index: 2; pointer-events: none; transition: left .6s ease-in-out, top .6s ease-in-out; }
+.diag.scene .sp[hidden] { display: none; }
+.diag.scene .sp .tk { position: absolute; inset: -14%; width: 128%; height: 128%; }
+.diag.scene.snap .sp { transition: none; }
+.diag.scene .sp.dead { animation: spDie 1s forwards; }
+@keyframes spDie { 30% { transform: scale(1.2); filter: drop-shadow(0 0 5px #ff4a4a) brightness(1.5); } 100% { transform: scale(.3); opacity: 0; } }
+.diag.scene i.zone { background: #ff8a5a; box-shadow: 0 0 6px #ffb08a; }
+.diag.scene i.wall { background: #2f4a24; }
+.diag.scene i.wall::before { content: "🌿"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9cqw; }
+.diag.scene i[data-ic]:not([data-ic=""])::after { content: attr(data-ic); position: absolute; right: -30%; top: -35%; z-index: 3; font-size: 8cqw; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
+.diag.scene .stxt { position: absolute; left: 0; right: 0; bottom: 2%; z-index: 4; text-align: center; font-style: normal; font-weight: 900; font-size: 11cqw; color: #fff; text-shadow: 0 0 4px #000, 0 0 8px #000; pointer-events: none; }
+.diag.scene .stxt:empty { display: none; }
+.ccard .diag.scene { width: 124px; }

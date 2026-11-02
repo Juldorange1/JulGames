@@ -1206,4 +1206,9 @@ I18N.KEYS = [
   "Très grande",
   // Codex : Cercles à découvrir (2026-11-02)
   "Les Cercles suivants restent à découvrir.",
+  // Combat sans défilement, 2 retours en arrière (2026-11-02)
+  "Voir les {n} fardeaux",
+  "Plus de retour en arrière dans ce combat : {n} au maximum.",
+  "{n} autres règles",
+  "Touche pour fermer",
 ];

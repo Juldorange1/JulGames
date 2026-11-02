@@ -449,7 +449,7 @@ function StratEngine() {
     } else {
       for (const id of mages) s.pool[TI[id]] += 1;
       for (const id of gards) s.pool[TI[id]] += 2;
-      s.pool[S_I] = 8;
+      s.pool[S_I] = 6; // 6 soldats de base dans la réserve commune (2026-11-02, 8 avant)
     }
     // l'armée des Ombres a ses propres persos dans la réserve commune (seuls les Ombres peuvent les recruter)
     if (s.fac && (s.fac[0] || s.fac[1])) {

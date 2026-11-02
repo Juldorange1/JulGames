@@ -108,7 +108,8 @@
   const SIZE_K = { normale: 1, grande: 1.12, enorme: 1.25 };
   let UIZ = 1;
   function applyZoom() {
-    const z = Math.max(1, Math.min(innerWidth / 1150, innerHeight / 700)) * (SIZE_K[SET.taille] || 1);
+    // « Grande » / « Très grande » grossissent seulement tant que la page garde la place de sa mise en page (1150 × 660 points)
+    const z = Math.min(Math.max(1, Math.min(innerWidth / 1150, innerHeight / 700)) * (SIZE_K[SET.taille] || 1), Math.max(1, Math.min(innerWidth / 1150, innerHeight / 660)));
     UIZ = Math.round(z * 40) / 40;
     const st = document.documentElement.style;
     st.zoom = UIZ === 1 ? '' : UIZ;
@@ -163,7 +164,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   let resizeT = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeT);
-    resizeT = setTimeout(() => { applyZoom(); bgDecor.scene($('bgForest'), bgSeed, theme); if (G && $('game').classList.contains('on')) layoutBoard(); if (!$('codexModal').hidden) renderCodex(); }, 200);
+    resizeT = setTimeout(() => { applyZoom(); bgDecor.scene($('bgForest'), bgSeed, theme); if (G && $('game').classList.contains('on')) { layoutBoard(); fitSide(); } else fitScreen(); if (!$('codexModal').hidden) renderCodex(); }, 200);
   });
 
   // ---------- écrans ----------
@@ -172,7 +173,20 @@ const isSh = id => !!T[E.TI[id]].fac;
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
     if (id !== 'game') { boardDecor.stop(); closeSheet(); }
     if (['menu', 'newrun', 'run', 'duel', 'ext', 'story', 'season'].includes(id)) Sound.want(['menu']);
+    fitSoon();
   }
+  // aucun écran ne défile : si le contenu dépasse, il se réduit un peu (jusqu'à 75 %) au lieu d'afficher une barre de défilement
+  let fitRaf = 0;
+  const fitSoon = () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fitScreen); };
+  function fitScreen() {
+    const sc = document.querySelector('.screen.on');
+    if (!sc || sc.id === 'game') return;
+    const kids = [...sc.children], set = z => kids.forEach(c => c.style.zoom = z === 1 ? '' : z);
+    set(1);
+    let z = 1;
+    for (let k = 0; k < 6 && sc.scrollHeight > sc.clientHeight + 1 && z > .75; k++) { z = Math.max(.75, z * sc.clientHeight / sc.scrollHeight - .01); set(z); }
+  }
+  if (window.MutationObserver) document.querySelectorAll('.screen').forEach(sc => { if (sc.id !== 'game') new MutationObserver(() => { if (sc.classList.contains('on')) fitSoon(); }).observe(sc, { childList: true, subtree: true }); });
   let toastT = 0;
   function toast(txt, ms) { const t = $('toast'); t.innerHTML = txt; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms || 3200); }
   document.addEventListener('click', e => { if (e.target.closest('button, .chip.click, .lvl, .evo, .choice')) sfx('clic', .7); }, true);
@@ -348,7 +362,7 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // réserve de départ (nouvelle partie, ou montée au Cercle suivant), tirée au hasard, jamais un perso d'exploit :
   // plus le Cercle est haut, plus elle est grande (Cercles 0-2 : 3 dieux et 4 gardes ; 3-5 : 4 et 6 ; 6 et plus : 5 et 8)
-  const startSize = c => c >= 6 ? [5, 8] : c >= 3 ? [4, 6] : [3, 4];
+  const startSize = c => c >= 6 ? [4, 5] : [3, 4]; // départ d'un Cercle : persos de base (plus de 5 + 8 aux hauts Cercles : trop d'un coup)
   function freshReserve(r) {
     const rnd = (all, n) => shuffle(all.filter(x => !SPECIAL.has(x))).slice(0, n), [nM, nG] = startSize(r.cercle || 0);
     Object.assign(r, { gods: rnd(runM(r), nM), gards: rnd(runG(r), nG), mapLv: 0, evChance: 0, n: 1, match: null, pending: [], exploits: [],
@@ -488,7 +502,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, runG(r))}</div>
         ${(r.mast || []).length ? `<h4>🎖️ ${L('Persos maîtres')}</h4><div class="row">${chips(r.mast, r.mast)}</div>` : ''}
         ${aideOf(r.cercle) ? `<h4>🤝 ${L('Aide du Cercle')}</h4><ul class="fards">${aideText(aideOf(r.cercle)).map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
-        ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>` : ''}
+        ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).slice(-2).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>${fardeaux(r.cercle).length > 2 ? `<button class="ghost sm morebtn" id="btnFards">▸ ${L('Voir les {n} fardeaux', { n: fardeaux(r.cercle).length })}</button>` : ''}` : ''}
       </div><div class="runcol">
         ${fameBlock(r)}
         <h4>${L('Progression')}</h4><p class="muted trkhint">${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
@@ -1046,7 +1060,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('runBadge').hidden = ['normal', 'easy', 'boss'].includes(G.mode); // dans une partie, inutile pendant le combat
     $('runBadge').textContent = G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'puzzle' ? '🧩 ' + L('Énigme {i}', { i: G.pz.i + 1 }) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n}', { n: cur + 1 }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     setTok(cur >= 0 && run() && ['normal', 'easy', 'boss'].includes(G.mode) ? run() : null);
-    $('rulesCard').innerHTML = rulesHtml();
+    $('rulesCard').innerHTML = rulesHtml(); if ($('rulesPop')) $('rulesPop').hidden = true;
     show('game');
     $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
@@ -1669,13 +1683,20 @@ const isSh = id => !!T[E.TI[id]].fac;
     if ($('btnEndUndo')) $('btnEndUndo').onclick = undo;
     $('bilan').querySelectorAll('[data-km]').forEach(b => b.onclick = e => { e.stopPropagation(); showMoment(+b.dataset.km); });
   }
+  // il faut pouvoir perdre : 2 retours en arrière par combat (sans limite au tutoriel et dans l'entraînement d'après-match)
+  const UNDO_MAX = 2;
+  const undoFree = () => G.practice || G.over || G.mode === 'tuto';
+  const undoLeft = () => undoFree() ? Infinity : Math.max(0, UNDO_MAX - ((G.st && G.st.undo) || 0));
   function undo() {
     if (!G || G.peek) return;
     if (!G.history.length) return toast(L('Aucun coup à annuler.'));
     if (!canBack()) return toast(L('L’affrontement est fini.'));
+    if (undoLeft() <= 0) return toast(L('Plus de retour en arrière dans ce combat : {n} au maximum.', { n: UNDO_MAX }));
+    const used = ((G.st && G.st.undo) || 0) + (undoFree() ? 0 : 1);
     startPractice();
     const h = G.history.pop();
     G.s = h.s; G.lastA = h.lastA; $('log').innerHTML = h.log; if (h.st) G.st = JSON.parse(h.st);
+    if (G.st) G.st.undo = used; // le compteur ne revient pas en arrière avec le coup
     G.ver++; G.thinking = false; G.sel = null; G.over = false;
     $('endModal').hidden = true;
     sys(L('Coup annulé.'));
@@ -1904,9 +1925,50 @@ const isSh = id => !!T[E.TI[id]].fac;
     drawLastArrow();
     const oldM = $('momArrows'); if (oldM) oldM.remove();
     if (G.view) momentMarks();
-    $('btnUndo').disabled = !G.history.length || !canBack();
-    renderPlayers(); renderPool(); renderHint(v); music();
+    const ul = undoLeft();
+    $('btnUndo').disabled = !G.history.length || !canBack() || ul <= 0;
+    $('btnUndo').dataset.n = ul === Infinity ? '' : ul;
+    renderPlayers(); renderPool(); renderHint(v); music(); fitSide();
   }
+  // ---------- colonnes sans défilement ----------
+  // grand écran : la fiche du perso touché va à gauche, entre les deux joueurs (la réserve garde toute sa place à droite)
+  const DESK = window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px)');
+  function placeInfo() { const ic = $('infoCard'); if (DESK.matches) { if (ic.parentNode !== $('pp1').parentNode) $('pp1').after(ic); } else if (ic.previousElementSibling !== $('rulesCard')) $('rulesCard').after(ic); }
+  if (DESK.addEventListener) DESK.addEventListener('change', () => { placeInfo(); fitSide(); });
+  placeInfo();
+  for (const id of ['pool', 'board', 'pp0', 'pp1']) $(id).addEventListener('mouseleave', () => { const ic = $('infoCard'); if (ic.classList.contains('float')) { ic.innerHTML = ''; ic.classList.remove('float'); } });
+  // la fiche rapetisse son texte (puis lâche son schéma) jusqu'à tenir ; les règles qui ne tiennent pas passent dans « ▾ n autres règles »
+  function fitSide() {
+    if (!G || !$('game').classList.contains('on')) return;
+    const ic = $('infoCard');
+    if (ic.innerHTML && ic.offsetParent) {
+      ic.classList.remove('nodiag', 'float'); let f = 16; ic.style.fontSize = '';
+      while (ic.scrollHeight > ic.clientHeight + 1 && f > 13) ic.style.fontSize = --f + 'px';
+      // pas la place entre les joueurs : la fiche s'affiche en entier par-dessus la colonne, le temps du survol
+      if (ic.scrollHeight > ic.clientHeight + 1) { ic.style.fontSize = ''; ic.classList.add(DESK.matches ? 'float' : 'nodiag'); }
+    }
+    const rc = $('rulesCard'), ul = rc.querySelector('.rules');
+    if (!ul) return;
+    const items = [...ul.children], old = rc.querySelector('.rmore');
+    items.forEach(li => li.hidden = false); if (old) old.remove();
+    if (!rc.offsetParent || rc.scrollHeight <= rc.clientHeight + 1) return;
+    const btn = document.createElement('button'); btn.className = 'ghost sm rmore'; ul.after(btn); btn.onclick = openRulesPop;
+    let n = items.length;
+    do { items[--n].hidden = true; btn.textContent = '▾ ' + L('{n} autres règles', { n: items.length - n }); } while (n > 1 && rc.scrollHeight > rc.clientHeight + 1);
+  }
+  // fenêtre par-dessus tout (règles, fardeaux…) : ce qui ne tient pas à l'écran, sans barre de défilement
+  function openPop(html) {
+    let pop = $('rulesPop');
+    if (!pop) { pop = document.createElement('div'); pop.id = 'rulesPop'; document.body.appendChild(pop); pop.onclick = () => { pop.hidden = true; sfx('annule'); }; }
+    pop.innerHTML = `<div class="glass card">${html}<p class="muted">${L('Touche pour fermer')}</p></div>`;
+    pop.hidden = false; sfx('page');
+  }
+  const openRulesPop = () => openPop(rulesHtml());
+  document.addEventListener('click', e => {
+    if (!e.target.closest || !e.target.closest('#btnFards') || cur < 0 || !run()) return;
+    const r = run();
+    openPop(`<h3>⚖️ ${L('Fardeaux')} · ${cercleLabel(r.cercle)}</h3><ul class="rules">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>`);
+  });
   function drawLastArrow() {
     const old = $('lastArrow'); if (old) old.remove();
     const la = G.lastA;
@@ -2107,10 +2169,11 @@ const isSh = id => !!T[E.TI[id]].fac;
     const t = T[i];
     const who = o === 0 || o === 1 ? ' · ' + esc(PN[o]) : ' · ' + L('réserve commune');
     $('infoCard').innerHTML = `<div class="ihead">${token(i, o)}<div><div class="iname">${tn(i)}</div><div class="icat">${catName(t.cat)}${who}${t.cost ? ` · <span class="icost">💎 ${t.cost}</span>` : ''}</div></div></div>
-      <div class="ibody"><div class="idesc">${td(i)}${G && G.s.mast && (o === 0 || o === 1) && G.s.mast[o].includes(i) ? `<p class="imast">🎖️ ${mastText(t.id)}</p>` : ''}</div>${t.cat === 'G' || t.cat === 'S' ? (NODIAG[t.id] ? '' : `<div class="idiag">${moveDiagram(t.id)}<small>${L('vert : où il peut aller · rouge : qui il peut tuer')}</small></div>`) : ''}</div>${q !== undefined ? specLine(q) : ''}`;
+      <div class="ibody"><div class="idesc">${td(i)}${G && G.s.mast && (o === 0 || o === 1) && G.s.mast[o].includes(i) ? `<p class="imast">🎖️ ${mastText(t.id)}</p>` : ''}</div>${SCENES[t.id] ? `<div class="idiag">${sceneDiagram(t.id)}</div>` : t.cat === 'G' || t.cat === 'S' ? (NODIAG[t.id] ? '' : `<div class="idiag">${moveDiagram(t.id)}<small>${L('vert : où il peut aller · rouge : qui il peut tuer')}</small></div>`) : ''}</div>${q !== undefined ? specLine(q) : ''}`;
+    fitSide();
   }
   function specLine(q) { const k = G && G.s.g.spec[q]; return k ? `<div class="specline">${k === 3 ? currentSvg(G.s.g.cdir ? G.s.g.cdir[q] : 4) : SPEC_SVG[k]}<span><b>${I18N.specName(k)}</b> : ${I18N.specDesc(k)}</span></div>` : ''; }
-  function showSpec(q) { if (G && G.s.g.spec[q]) $('infoCard').innerHTML = specLine(q); }
+  function showSpec(q) { if (G && G.s.g.spec[q]) { $('infoCard').innerHTML = specLine(q); fitSide(); } }
 
   // ---------- panneau du bas sur petits écrans (réserve, infos, journal) ----------
   let sheet = '';
@@ -2197,6 +2260,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   setInterval(() => {
     if (SET.anim === 'aucune') return;
     diagStep++;
+    document.querySelectorAll('.diag[data-scene]').forEach(d => { if (d.offsetParent) { const n = SCENES[d.dataset.scene].steps.length, ph = (+d.dataset.ph + 1) % (n + 2); d.dataset.ph = ph; sceneApply(d, ph); } });
     document.querySelectorAll('.diag[data-seq]').forEach(d => {
       if (!d.offsetParent) return;
       const cells = d.children, tk = cells[DIAG_C] && cells[DIAG_C].querySelector('.tk');
@@ -2210,6 +2274,93 @@ const isSh = id => !!T[E.TI[id]].fac;
     });
   }, 1700);
   const NODIAG = { mb: 1, mc: 1, md: 1, me: 1, pa: 1, pc: 1, pd: 1, pe: 1, pf: 1, pg: 1, gu: 1, dr: 1, pr: 1, c6: 1, pv: 1, sr: 1, om: 1, of: 1, oe: 1, ou: 1, ob: 1 }; E.BOSSES.concat(E.BOSSES_DLC, E.SH_BOSSES, ['bx']).forEach(b => NODIAG[b] = 1); E.SH_M.forEach(x => NODIAG[x] = 1);
+  // ---------- les sorts des dieux en image : un mini-plateau 7×7 qui rejoue le sort en boucle (fiche en combat, Codex) ----------
+  // p : persos au départ {case: [id, camp]} (camp 0 = toi, en bas ; case = rangée × 7 + colonne) ; steps : étapes jouées l'une après l'autre,
+  // chacune une liste d'effets : glow (cases allumées), mv [de, vers], sw [a, b] (échange), kill [cases], add [case, id, camp], flip [cases] (change de camp),
+  // ic [case, emoji] (état qui reste), wall [cases] (ronces), txt (texte court sous le plateau : chiffres et emojis, pareil dans toutes les langues)
+  const ROW = r => [0, 1, 2, 3, 4, 5, 6].map(c => r * 7 + c);
+  const SCENES = {
+    ma: { p: { 45: ['ma', 0], 1: ['g2', 1], 3: ['s', 1], 5: ['g4', 1], 15: ['s', 1] }, steps: [[{ glow: ROW(0) }], [{ kill: [1, 5] }, { ic: [1, '⚡'] }, { ic: [5, '⚡'] }]] },
+    pb: { p: { 45: ['pb', 0], 8: ['g3', 1], 10: ['s', 1], 12: ['c2', 1], 2: ['s', 1] }, steps: [[{ glow: ROW(1) }], [{ kill: [8, 12] }, { ic: [8, '💥'] }, { ic: [12, '💥'] }]] },
+    mb: { p: { 45: ['mb', 0], 10: ['g2', 1], 31: ['s', 0] }, steps: [[{ glow: [10, 31] }], [{ sw: [10, 31] }]] },
+    mc: { p: { 45: ['mc', 0], 16: ['g4', 1], 36: ['s', 0], 38: ['g2', 0] }, steps: [[{ glow: [16] }], [{ mv: [16, 30] }]] },
+    md: { p: { 45: ['md', 0], 37: ['s', 0], 39: ['s', 0], 31: ['s', 1] }, steps: [[{ glow: [37, 39] }], [{ mv: [37, 30] }, { kill: [31] }, { mv: [39, 31] }]] },
+    me: { p: { 45: ['me', 0], 10: ['g2', 1] }, steps: [[{ ic: [45, '✨'] }, { txt: '➕ ➕' }]] },
+    pa: { p: { 45: ['pa', 0], 36: ['g2', 0], 9: ['s', 1] }, steps: [[{ txt: '⏩ +2' }], [{ mv: [36, 29] }], [{ mv: [29, 22] }], [{ mv: [22, 15] }]] },
+    pc: { p: { 45: ['pc', 0], 38: ['s', 0], 10: ['s', 1] }, steps: [[{ glow: [38] }], [{ mv: [38, 31] }], [{ mv: [31, 24] }]] },
+    pd: { p: { 45: ['pd', 0], 10: ['s', 1] }, steps: [[{ glow: ROW(5) }], [{ add: [37, 's', 0] }]] },
+    pe: { p: { 45: ['pe', 0], 17: ['s', 1] }, steps: [[{ glow: ROW(0).concat(ROW(1)) }], [{ ic: [3, '🔒'] }, { ic: [10, '🔒'] }, { txt: '🔒 ×3' }]] },
+    pf: { p: { 45: ['pf', 0], 9: ['g2', 1], 11: ['g4', 1], 17: ['s', 1] }, steps: [[{ glow: [9, 11, 17] }], [{ ic: [9, '🤫'] }, { ic: [11, '🤫'] }, { ic: [17, '🤫'] }, { txt: '🤫 ×2' }]] },
+    pg: { p: { 45: ['pg', 0], 30: ['s', 0], 32: ['g3', 0], 23: ['g2', 1] }, steps: [[{ kill: [30, 32] }], [{ txt: '💀💀 → +80 💎' }]] },
+    gu: { p: { 45: ['gu', 0], 10: ['g2', 1] }, steps: [[{ txt: '💀 → ✨' }], [{ add: [38, 'g4', 0] }, { ic: [38, '✨'] }]] },
+    dr: { p: { 45: ['dr', 0], 10: ['g2', 1], 38: ['s', 0] }, steps: [[{ glow: [23, 24] }], [{ wall: [23, 24] }]] },
+    pr: { p: { 45: ['pr', 0], 31: ['g2', 0], 17: ['g4', 1] }, steps: [[{ glow: [31] }], [{ ic: [31, '✨'] }, { txt: '✨ 🛡️' }]] },
+    pv: { p: { 38: ['pv', 0], 17: ['g2', 1], 4: ['s', 1] }, steps: [[{ glow: [31, 24, 17] }], [{ mv: [17, 31] }]] },
+    sr: { p: { 24: ['sr', 0], 17: ['s', 1], 25: ['g4', 1], 30: ['g2', 1] }, steps: [[{ glow: [16, 17, 18, 23, 25, 30, 31, 32] }], [{ mv: [17, 10] }, { mv: [25, 26] }, { mv: [30, 36] }]] },
+    om: { p: { 45: ['om', 0], 31: ['c3', 0], 10: ['s', 1] }, steps: [[{ glow: [30] }], [{ add: [30, 'os', 0] }]] },
+    of: { p: { 45: ['of', 0], 17: ['g4', 1], 16: ['c3', 0], 18: ['os', 0] }, steps: [[{ glow: [17] }], [{ kill: [17] }, { ic: [17, '💀'] }]] },
+    oe: { p: { 45: ['oe', 0], 9: ['g2', 1], 11: ['s', 1] }, steps: [[{ glow: ROW(0).concat(ROW(1)) }], [{ ic: [9, '🌑'] }, { ic: [11, '🌑'] }, { txt: '🔒 🤫 ×1' }]] },
+    ou: { p: { 38: ['ou', 0], 37: ['os', 0], 10: ['g2', 1] }, steps: [[{ glow: [37] }], [{ kill: [37] }, { txt: '+60 💎' }]] },
+    na: { p: { 45: ['na', 0], 17: ['g4', 1], 16: ['c3', 0], 18: ['os', 0] }, steps: [[{ glow: [17] }], [{ flip: [17] }]] },
+    nb: { p: { 45: ['nb', 0], 17: ['g2', 1] }, steps: [[{ ic: [17, '☠️'] }], [{ kill: [17] }]] },
+    nc: { p: { 45: ['nc', 0], 11: ['c3', 0], 43: ['os', 0], 9: ['s', 1] }, steps: [[{ glow: [43] }], [{ mv: [43, 18] }]] },
+    nd: { p: { 45: ['nd', 0], 3: ['ma', 1] }, steps: [[{ glow: [3] }], [{ txt: '💎 50 ➜ 💎' }]] },
+    ne: { p: { 45: ['ne', 0], 29: ['s', 1], 33: ['g4', 1], 10: ['g2', 1] }, steps: [[{ glow: [29, 33] }], [{ mv: [29, 22] }, { mv: [33, 26] }]] },
+    nf: { p: { 45: ['nf', 0], 10: ['g2', 1] }, steps: [[{ ic: [45, '✨'] }, { txt: '➕ 3+ 🌑' }]] },
+    ng: { p: { 45: ['ng', 0], 3: ['ma', 1], 10: ['g2', 1] }, steps: [[{ glow: [3] }], [{ ic: [3, '⛓️'] }, { txt: '⛓️ ×2' }]] },
+    nh: { p: { 45: ['nh', 0], 37: ['c3', 0], 17: ['s', 1] }, steps: [[{ glow: ROW(0).concat(ROW(1)) }], [{ mv: [37, 9] }]] },
+    ni: { p: { 45: ['ni', 0], 31: ['c3', 0], 24: ['s', 1], 30: ['s', 1], 10: ['s', 1] }, steps: [[{ glow: [24, 30] }], [{ kill: [24, 30] }]] },
+    nj: { p: { 45: ['nj', 0], 30: ['os', 0], 31: ['c3', 0], 32: ['os', 0], 17: ['g4', 1] }, steps: [[{ glow: [30, 31, 32] }], [{ ic: [30, '🛡️'] }, { ic: [31, '🛡️'] }, { ic: [32, '🛡️'] }]] },
+    nk: { p: { 45: ['nk', 0], 36: ['os', 0], 38: ['os', 0], 40: ['os', 0], 10: ['s', 1] }, steps: [[{ glow: [36, 38, 40] }], [{ mv: [36, 29] }, { mv: [38, 31] }, { mv: [40, 33] }]] },
+  };
+  const sceneActors = sc => {
+    if (sc.actors) return sc.actors;
+    const A = Object.keys(sc.p).map(q => ({ q: +q, id: sc.p[q][0], o: sc.p[q][1] }));
+    sc.steps.forEach((st, i) => st.forEach(f => { if (f.add) A.push({ q: f.add[0], id: f.add[1], o: f.add[2], add: true, step: i }); }));
+    return (sc.actors = A.filter(a => E.TI[a.id] !== undefined));
+  };
+  // l'état après k étapes (live : la dernière étape est en train de se jouer, avec ses lueurs et ses morts qui s'effacent)
+  function sceneState(sc, k, live) {
+    const A = sceneActors(sc).map(a => Object.assign({}, a, { on: !a.add, dead: false, dying: false }));
+    const st = { A, glow: new Set(), wall: new Set(), ic: {}, txt: '' };
+    for (let i = 0; i < k; i++) {
+      const now = live && i === k - 1, at = q => A.find(a => a.on && !a.dead && a.q === q);
+      for (const f of sc.steps[i]) {
+        if (f.glow && now) f.glow.forEach(q => st.glow.add(q));
+        if (f.mv) { const a = at(f.mv[0]); if (a) a.q = f.mv[1]; }
+        if (f.sw) { const a = at(f.sw[0]), b = at(f.sw[1]); if (a) a.q = f.sw[1]; if (b) b.q = f.sw[0]; }
+        if (f.kill) f.kill.forEach(q => { const a = at(q); if (a) { a.dead = true; a.dying = now; } });
+        if (f.add) { const a = A.find(x => x.add && x.step === i && x.q === f.add[0]); if (a) a.on = true; }
+        if (f.flip) f.flip.forEach(q => { const a = at(q); if (a) a.o = 1 - a.o; });
+        if (f.ic) st.ic[f.ic[0]] = f.ic[1];
+        if (f.wall) f.wall.forEach(q => st.wall.add(q));
+        if (f.txt) st.txt = f.txt;
+      }
+    }
+    return st;
+  }
+  const spPos = q => `left:${(q % 7) * 100 / 7}%;top:${((q / 7) | 0) * 100 / 7}%`;
+  function sceneDiagram(id) {
+    const sc = SCENES[id]; if (!sc) return '';
+    const n = sc.steps.length, ph = SET.anim === 'aucune' ? n + 1 : 0, st = sceneState(sc, Math.min(ph, n), false);
+    let h = `<div class="diag scene" data-scene="${id}" data-ph="${ph}">`;
+    for (let q = 0; q < 49; q++) h += `<i class="${(((q / 7) | 0) + q % 7) % 2 === 0 ? 'l' : ''}${st.wall.has(q) ? ' wall' : ''}" data-ic="${st.ic[q] || ''}"></i>`;
+    st.A.forEach((a, k) => h += `<span class="sp" data-k="${k}" data-o="${a.o}" style="${spPos(a.q)}"${!a.on || a.dead ? ' hidden' : ''}>${token(E.TI[a.id], a.o)}</span>`);
+    return h + `<em class="stxt">${st.txt}</em></div>`;
+  }
+  function sceneApply(d, ph) {
+    const sc = SCENES[d.dataset.scene], n = sc.steps.length, st = sceneState(sc, Math.min(ph, n), ph > 0 && ph <= n);
+    if (ph === 0) d.classList.add('snap');
+    for (let q = 0; q < 49; q++) { const c = d.children[q]; c.classList.toggle('zone', st.glow.has(q)); c.classList.toggle('wall', st.wall.has(q)); c.dataset.ic = st.ic[q] || ''; }
+    d.querySelectorAll('.sp').forEach(e => {
+      const a = st.A[+e.dataset.k];
+      e.style.left = (a.q % 7) * 100 / 7 + '%'; e.style.top = ((a.q / 7) | 0) * 100 / 7 + '%';
+      e.hidden = !a.on || (a.dead && !a.dying); e.classList.toggle('dead', a.dying);
+      if (+e.dataset.o !== a.o) { e.dataset.o = a.o; e.innerHTML = token(E.TI[a.id], a.o); }
+    });
+    d.querySelector('.stxt').textContent = st.txt;
+    if (ph === 0) { void d.offsetWidth; d.classList.remove('snap'); }
+  }
   function pieceCards(ids) {
     const r = cur >= 0 ? run() : null;
     return ids.map(id => {
@@ -2221,7 +2372,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       const ex = EXPLOITS.find(x => x.piece === id);
       return `<div class="ccard">${token(i, t.cat === 'B' || id === 'mi' ? 1 : 0)}<div class="txt"><b>${tn(i)}</b>${t.cost ? ` <span class="cost">💎 ${t.cost}</span>` : ''}
         ${start ? `<span class="tag2">${L('de départ')}</span>` : ''}${dlcTag}${r && inRun ? `<span class="tag2 on">${L('dans ta partie')}</span>` : ''}${ex ? `<span class="tag2 gold">🏅 ${exploitText(ex.id)}</span>` : ''}
-        <p>${td(i)}</p></div>${NODIAG[id] ? '' : moveDiagram(id)}</div>`;
+        <p>${td(i)}</p></div>${SCENES[id] ? sceneDiagram(id) : NODIAG[id] ? '' : moveDiagram(id)}</div>`;
     });
   }
   function mapPreview(g) {
@@ -3108,5 +3259,5 @@ const isSh = id => !!T[E.TI[id]].fac;
   checkAch(null, true); // succès déjà mérités (anciennes parties) : sans annonce
 
   window.STRAT_TOKEN = token;
-  window.STRAT = { get G() { return G; }, E, doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo(), get RUNS() { return RUNS; }, openRun: i => openRun(i), startMatch: m => startMatch(m), startDaily: () => startDaily(), get cur() { return cur; }, L, endNext: () => endNext(), dailyCfg: () => dailyCfg(), renderMenu: () => renderMenu() };
+  window.STRAT = { get G() { return G; }, E, render: () => render(), doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo(), get RUNS() { return RUNS; }, openRun: i => openRun(i), startMatch: m => startMatch(m), startDaily: () => startDaily(), get cur() { return cur; }, L, endNext: () => endNext(), dailyCfg: () => dailyCfg(), renderMenu: () => renderMenu() };
 })();

@@ -1262,6 +1262,12 @@
   Object.assign(D.ui, {
     "Les Cercles suivants restent à découvrir.": "The next Circles are yet to be discovered.",
   });
+  Object.assign(D.ui, {
+    "Voir les {n} fardeaux": "See the {n} burdens",
+    "Plus de retour en arrière dans ce combat : {n} au maximum.": "No more undos in this battle: {n} at most.",
+    "{n} autres règles": "{n} more rules",
+    "Touche pour fermer": "Tap to close",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
