@@ -8,8 +8,10 @@ const Sound = (function () {
   function set(k, v) { try { localStorage.setItem('stratajium.' + k, JSON.stringify(v)); } catch (e) { } }
   let musicOn = get('musique', true), sfxOn = get('effets', true), musicVol = get('volMusique', .8), sfxVol = get('volEffets', .9);
   // ambiances : chacune a plusieurs morceaux, joués au hasard l'un après l'autre (fondu enchaîné)
-  const GROUPS = { menu: ['menu', 'menu2', 'menu3'], partie: ['partie', 'partie2', 'partie3'], foret: ['foret'], tension: ['tension', 'tension2'], boss: ['boss'], victoire: ['victoire', 'victoire2'], defaite: ['defaite'], abysses: ['abysses'], ombres: ['ombres'] };
-  const MUSIC_VOL = { menu: .45, menu2: .45, menu3: .42, partie: .38, partie2: .34, partie3: .36, foret: .28, tension: .4, tension2: .38, boss: .4, victoire: .5, victoire2: .5, defaite: .5, abysses: .42, ombres: .5 };
+  const GROUPS = { menu: ['menu', 'menu2', 'menu3'], partie: ['partie', 'partie2', 'partie3', 'partie4'], foret: ['foret'], tension: ['tension', 'tension2'], boss: ['boss', 'boss2'], victoire: ['victoire', 'victoire2'], defaite: ['defaite', 'defaite2'], abysses: ['abysses', 'abysses2'], ombres: ['ombres', 'ombres2'] };
+  // volumes égalisés (2026-11-01) : chaque morceau mesuré (niveau moyen), pour que tous sonnent aussi fort dans une même ambiance
+  const MUSIC_VOL = { menu: .41, menu2: .73, menu3: .46, partie: .5, partie2: .21, partie3: .16, partie4: .76, foret: .28, tension: .41, tension2: .29, boss: .37, boss2: .2, victoire: .48, victoire2: .4, defaite: .36, defaite2: .75, abysses: .39, abysses2: .49, ombres: .71, ombres2: .56 };
+  const EXT = { ombres2: 'ogg' }; // les autres sont en .mp3
   const LOOP = { menu: 1, partie: 1, foret: 1, tension: 1, boss: 1, abysses: 1, ombres: 1 };
   const groupOf = {}; for (const g in GROUPS) for (const f of GROUPS[g]) groupOf[f] = g;
   const curFile = {}; // ambiance -> morceau en cours
@@ -20,7 +22,7 @@ const Sound = (function () {
   const tracks = {};
   function track(name) {
     if (!tracks[name]) {
-      const mk = () => { const a = new Audio('music/' + name + '.mp3'); a.preload = 'auto'; a.volume = 0; a.loop = false; return a; };
+      const mk = () => { const a = new Audio('music/' + name + '.' + (EXT[name] || 'mp3')); a.preload = 'auto'; a.volume = 0; a.loop = false; return a; };
       tracks[name] = { name, a: [mk(), mk()], cur: 0, gain: 0, xf: null };
     }
     return tracks[name];

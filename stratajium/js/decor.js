@@ -1,6 +1,6 @@
 /* Panthéa — décors vus du dessus, dessinés en canvas (rien ne ressemble à une pièce du jeu).
-   5 décors : été, automne, hiver, désert, marais. Le plateau est une clairière ; les trous de la carte
-   deviennent buissons, rochers ou mares. Un canvas fixe + un canvas animé (lucioles, feuilles, neige, poussière, brume).
+   9 décors (été, printemps, automne, hiver, désert, canyon, marais, jungle, volcan) + 2 des extensions. Le plateau est une clairière ; les trous de la carte
+   deviennent buissons, rochers ou mares. Un canvas fixe + un canvas animé (lucioles, feuilles, pétales, neige, poussière, braises, bulles, brume).
    Changer de décor se fait en fondu. */
 const Decor = (function () {
   'use strict';
@@ -56,7 +56,7 @@ const Decor = (function () {
       bush: [['#22482a', '#3a7a3e', '#7ac06a'], ['#4a2a3a', '#a85a7a', '#f0a8c8'], ['#2a4a22', '#4a8a36', '#a8d070']],
       tree: [['#1a3a22', '#2e6a36', '#5aa84e'], ['#4a2238', '#a04a78', '#f4b4d4']],
       flowers: ['#f4b4d4', '#fff0a0', '#c8e8ff', '#ffffff', '#e8a0f0'], stone: ['#9a9a90', '#44463e'], moss: '#5a9a48',
-      water: ['#3a8aa0', '#123a4a'], berries: '#e85a8a', particles: 'leaf', bladeDensity: 80,
+      water: ['#3a8aa0', '#123a4a'], berries: '#e85a8a', particles: 'petal', bladeDensity: 80,
     },
     jungle: {
       name: 'Jungle', ground: ['#10301a', '#06200e'], blot: ['#1e4a24', '#041008'], dirt: '#2a2a16', under: '#2e3018',
@@ -72,7 +72,7 @@ const Decor = (function () {
       bush: [['#2a1a14', '#4a2a1e', '#7a4a2a'], ['#2a120a', '#6a1e0e', '#e04a1a']],
       tree: [['#1a100c', '#2e1c14', '#4a2e1e'], ['#200c06', '#5a1a0a', '#c0401a']],
       flowers: ['#ff6a1a', '#ffb23a', '#ff3a1a'], stone: ['#4a3e3a', '#161210'], moss: '#5a2a18',
-      water: ['#e0501a', '#5a0e06'], berries: '#ff5a1a', particles: 'dust', bladeDensity: 400,
+      water: ['#e0501a', '#5a0e06'], berries: '#ff5a1a', particles: 'ember', bladeDensity: 400,
     },
     canyon: {
       name: 'Canyon', ground: ['#a85a3a', '#7a3e26'], blot: ['#c87a4a', '#5a2a1a'], dirt: '#8a4a2e', under: '#6a3420',
@@ -295,7 +295,7 @@ const Decor = (function () {
 
   // ----- une instance de décor (le fond des menus et la clairière du plateau en sont deux) -----
   function create() {
-    let host = null, cvBack = null, cvAnim = null, raf = 0, info = null, t0 = 0, parts = [], P = THEMES.ete, last = null;
+    let host = null, cvBack = null, cvAnim = null, raf = 0, info = null, t0 = 0, tPrev = 0, parts = [], P = THEMES.ete, last = null;
     function initAnim(CW, CH, seed) {
       const R = rng(seed + 7);
       parts = [];
@@ -303,6 +303,13 @@ const Decor = (function () {
       if (k === 'fly' || k === 'mist') for (let i = 0; i < Math.round((CW + CH) / 40); i++) parts.push({ k: 'fly', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: .3 + R() * .5, r: 1.2 + R() * 1.4 });
       if (k === 'fly') for (let i = 0; i < 9; i++) parts.push({ k: 'leaf', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 8 + R() * 10, rot: R() * 6, col: pick(R, ['#7a9a3a', '#b8902e', '#5a8a3a']) });
       if (k === 'leaf') for (let i = 0; i < 26; i++) parts.push({ k: 'leaf', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 10 + R() * 14, rot: R() * 6, col: pick(R, ['#d0682a', '#e0b23a', '#c03a2a', '#b8902e', '#8a4a1a']) });
+      // printemps : des pétales roses et blancs qui tombent en tournoyant
+      if (k === 'petal') for (let i = 0; i < 30; i++) parts.push({ k: 'leaf', petal: 1, x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 7 + R() * 10, rot: R() * 6, col: pick(R, ['#f4b4d4', '#ffd6e8', '#ffffff', '#f8c8dc', '#e8a0c8']) });
+      // volcan : des braises qui montent en vacillant, et un peu de cendre
+      if (k === 'ember') {
+        for (let i = 0; i < Math.round((CW + CH) / 22); i++) parts.push({ k: 'ember', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 14 + R() * 26, r: .8 + R() * 1.6 });
+        for (let i = 0; i < Math.round((CW + CH) / 30); i++) parts.push({ k: 'dust', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 8 + R() * 14, r: .6 + R() * 1.2, ash: 1 });
+      }
       if (k === 'snow') for (let i = 0; i < Math.round((CW + CH) / 6); i++) parts.push({ k: 'snow', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 14 + R() * 26, r: .8 + R() * 2 });
       if (k === 'dust') for (let i = 0; i < Math.round((CW + CH) / 14); i++) parts.push({ k: 'dust', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 10 + R() * 20, r: .6 + R() * 1.4 });
       if (k === 'bubble') for (let i = 0; i < Math.round((CW + CH) / 18); i++) parts.push({ k: 'bubble', x: R() * CW, y: R() * CH, ph: R() * 6.3, sp: 12 + R() * 24, r: 1 + R() * 3 });
@@ -313,14 +320,15 @@ const Decor = (function () {
       raf = 0;
       if (!cvAnim || !info) return;
       const ctx = cvAnim.getContext('2d'), dpr = info.dpr, CW = info.CW, CH = info.CH;
-      const t = (now - t0) / 1000;
+      const t = (now - t0) / 1000, f = Math.min(3, Math.max(0, (now - (tPrev || now)) / (1000 / 60))); // f = 1 à 60 images par seconde
+      tPrev = now;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, CW, CH);
       for (const p of parts) {
         if (p.k === 'shade') blotch(ctx, p.x + Math.sin(t * .15 + p.ph) * 30, p.y + Math.cos(t * .11 + p.ph) * 20, p.r, '#000', .08);
         else if (p.k === 'mist') blotch(ctx, (p.x + t * 8) % (CW + 200) - 100, p.y + Math.sin(t * .2 + p.ph) * 20, p.r, '#c8d8c8', .12);
         else if (p.k === 'bubble') {
-          p.y -= p.sp / 60; const x = p.x + Math.sin(t * 1.3 + p.ph) * 4;
+          p.y -= p.sp / 60 * f; const x = p.x + Math.sin(t * 1.3 + p.ph) * 4;
           if (p.y < -6) { p.y = CH + 6; p.x = Math.random() * CW; }
           ctx.globalAlpha = .55; ctx.strokeStyle = '#bff0ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
           ctx.globalAlpha = .35; ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x - p.r * .35, p.y - p.r * .35, p.r * .3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
@@ -330,18 +338,24 @@ const Decor = (function () {
           const a = .25 + .55 * Math.max(0, Math.sin(t * 1.7 + p.ph * 3));
           blotch(ctx, x, y, p.r * 5, '#e8f08a', a * .35);
           ctx.globalAlpha = a; ctx.fillStyle = '#f6ffc0'; ctx.beginPath(); ctx.arc(x, y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        } else if (p.k === 'ember') {
+          p.y -= p.sp / 60 * f; const x = p.x + Math.sin(t * 2.1 + p.ph) * 6;
+          if (p.y < -6) { p.y = CH + 6; p.x = Math.random() * CW; }
+          const a = .45 + .45 * Math.sin(t * 6 + p.ph * 4);
+          blotch(ctx, x, p.y, p.r * 4, '#ff7a2a', a * .3);
+          ctx.globalAlpha = a; ctx.fillStyle = '#ffc06a'; ctx.beginPath(); ctx.arc(x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
         } else if (p.k === 'snow' || p.k === 'dust') {
-          p.y += p.sp / 60 * (p.k === 'dust' ? .2 : 1); p.x += (p.k === 'dust' ? p.sp / 60 : Math.sin(t + p.ph) * .3);
+          p.y += p.sp / 60 * f * (p.k === 'dust' ? .2 : 1); p.x += f * (p.k === 'dust' ? p.sp / 60 : Math.sin(t + p.ph) * .3);
           if (p.y > CH + 5) { p.y = -5; p.x = Math.random() * CW; }
           if (p.x > CW + 5) { p.x = -5; p.y = Math.random() * CH; }
-          ctx.globalAlpha = p.k === 'snow' ? .85 : .5; ctx.fillStyle = p.k === 'snow' ? '#fff' : '#e8d0a0';
+          ctx.globalAlpha = p.k === 'snow' ? .85 : .5; ctx.fillStyle = p.k === 'snow' ? '#fff' : p.ash ? '#9a8a86' : '#e8d0a0';
           ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
         } else {
-          p.y += p.sp / 60; p.x += Math.sin(t * .9 + p.ph) * .35; p.rot += .01;
+          p.y += p.sp / 60 * f; p.x += Math.sin(t * .9 + p.ph) * .35 * f; p.rot += .01 * f;
           if (p.y > CH + 10) { p.y = -10; p.x = Math.random() * CW; }
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot + Math.sin(t * 2 + p.ph) * .6);
-          ctx.globalAlpha = .85; ctx.fillStyle = p.col; ctx.beginPath(); ctx.ellipse(0, 0, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = .6; ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(4, 0); ctx.stroke();
+          ctx.globalAlpha = .85; ctx.fillStyle = p.col; ctx.beginPath(); ctx.ellipse(0, 0, p.petal ? 3.2 : 4.5, p.petal ? 2.4 : 2, 0, 0, Math.PI * 2); ctx.fill();
+          if (!p.petal) { ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = .6; ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(4, 0); ctx.stroke(); }
           ctx.restore();
         }
       }
@@ -350,7 +364,7 @@ const Decor = (function () {
     // prépare les canvas ; si un fond existait déjà, le nouveau apparaît en fondu par-dessus
     function canvases(container, CW, CH, fade) {
       host = container;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(2.5, (window.devicePixelRatio || 1) * (parseFloat(document.documentElement.style.zoom) || 1)); // l'interface peut être zoomée : le décor reste net
       const old = cvBack;
       cvBack = document.createElement('canvas'); cvBack.className = 'decor-back';
       if (!cvAnim) { cvAnim = document.createElement('canvas'); cvAnim.className = 'decor-anim'; }
@@ -369,7 +383,7 @@ const Decor = (function () {
     }
     function startAnim(CW, CH, seed) {
       initAnim(CW, CH, seed);
-      t0 = performance.now();
+      t0 = performance.now(); tPrev = 0;
       if (!reduce && !raf) raf = requestAnimationFrame(frame);
       if (reduce) frame(performance.now());
     }

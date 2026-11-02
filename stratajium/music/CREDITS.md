@@ -27,3 +27,14 @@ Les 7 derniers morceaux ont été ajoutés le 2026-10-20 (tous CC0) pour varier 
 | `ombres.mp3` | Dream 2 (Ambience) | TokyoGeisha | https://opengameart.org/content/dream-2-ambience |
 
 Ces 2 morceaux (CC0) ont été ajoutés le 2026-10-22 pour les extensions Les Abysses et Les Ombres.
+
+| Fichier | Morceau | Auteur | Source |
+|---|---|---|---|
+| `partie4.mp3` | Medieval: Exploration | RandomMind | https://opengameart.org/content/medieval-exploration |
+| `boss2.mp3` | Epic Boss Battle | Juhani Junkala (SubspaceAudio) | https://opengameart.org/content/boss-battle-music |
+| `defaite2.mp3` | Fantasy: Lament for a Warrior's Soul | RandomMind | https://opengameart.org/content/fantasy-lament-for-a-warriors-soul |
+| `abysses2.mp3` | Underwater Theme II | Cleyton Kauffman | https://opengameart.org/content/underwater-theme-ii |
+| `ombres2.ogg` | Dark Shrine Loop | yd (qubodup) | https://opengameart.org/content/dark-shrine-loop |
+
+Ces 5 morceaux (CC0) ont été ajoutés le 2026-11-01 pour varier le jeu, l'armée des Ombres, les Abysses, les boss et les défaites.
+Les volumes de tous les morceaux ont été égalisés le même jour.
