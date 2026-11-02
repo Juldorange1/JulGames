@@ -1092,3 +1092,89 @@ body.anim-off .celeb { display: none; }
 .diag.scene .stxt { position: absolute; left: 0; right: 0; bottom: 2%; z-index: 4; text-align: center; font-style: normal; font-weight: 900; font-size: 11cqw; color: #fff; text-shadow: 0 0 4px #000, 0 0 8px #000; pointer-events: none; }
 .diag.scene .stxt:empty { display: none; }
 .ccard .diag.scene { width: 124px; }
+
+/* ===================== la Ruche : plateau d'hexagones (côtés plats, une colonne sur deux décalée d'une demi-case) ===================== */
+#board.hex .sq { width: calc(var(--sq) * 4 / 3 - 2px); height: calc(var(--sq) - 2px); margin: 1px 0 0 calc(var(--sq) / -6 + 1px); border-radius: 0;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); box-shadow: none; }
+#board.hex .sq:nth-child(2n) { top: calc(var(--sq) / 2); }
+#board.hex .sq.m { background: linear-gradient(145deg, color-mix(in srgb, var(--l1, #eadcb8) 55%, var(--d1, #85705a)), color-mix(in srgb, var(--l3, #bba67a) 50%, var(--d3, #574535))); }
+#board.hex .sq.m::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .35;
+  background: radial-gradient(circle at 20% 30%, rgba(0, 0, 0, .12) 0 6%, transparent 7%), radial-gradient(circle at 70% 65%, rgba(0, 0, 0, .1) 0 5%, transparent 6%); }
+#board.hex .sq .pc { width: calc(var(--sq) * .84); height: calc(var(--sq) * .84); flex: none; }
+#board.hex .sq .crd { display: none; }
+#board.hex .sq.zone0, #board.hex .sq.zone1 { outline: none; }
+#board.hex .sq.zone0::before { background: rgba(242, 193, 78, .55); opacity: 1; }
+#board.hex .sq.zone1::before { background: rgba(180, 140, 255, .55); opacity: 1; }
+#board.hex .sq .specic { right: 33%; bottom: 2%; }
+#board.hex .sq:has(.pc) .specic, #board.hex .sq:has(.pc) .specic.cur { left: 28%; top: 0; width: 30%; height: 30%; }
+.mapprev.hex i:nth-child(2n) { transform: translateY(50%); }
+.mapprev.hex { padding-bottom: 5px; }
+
+/* ===== combat (2026-11-02, 2) : le plateau d'abord. Colonnes plus fines, plus de consigne, règles dans le menu « 📜 Règles » ===== */
+@media (min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px) {
+  .layout { grid-template-columns: minmax(200px, 245px) minmax(0, 1fr) minmax(220px, 275px); gap: 8px; padding: 8px; }
+  .right > #infoCard { flex: 0 1 auto; min-height: 0; overflow: hidden; }
+  .right > #infoCard .ibody { flex-direction: column; align-items: stretch; }
+  .right > #infoCard .idiag { align-self: center; width: auto; }
+  .right > #infoCard .idiag .diag { width: 132px; }
+}
+.hint:empty { display: none; }
+.hint { min-height: 0; }
+#rulesCard:empty { display: none; }
+#btnRules[hidden] { display: none; }
+#btnRules:not(.seen) { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(242, 193, 78, .4), 0 0 12px rgba(242, 193, 78, .35); }
+#btnRules b { color: var(--gold); font-weight: 800; }
+/* persos nets : plus de « filter » sur les persos du plateau (avec l'agrandissement de l'interface, la carte graphique
+   les dessinait en basse résolution, donc flous) ; l'ombre et les lueurs sont dessinées derrière le perso */
+.sq .pc, .sq.selp .pc, .sq.master .pc, .sq.ice .pc, .sq .pc.ghost { filter: none; }
+.sq .pc::before { content: ""; position: absolute; left: 10%; right: 10%; bottom: -5%; height: 16%; border-radius: 50%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .6), rgba(0, 0, 0, 0)); }
+.sq.master .pc::before, .sq.selp .pc::before, .sq.ice .pc::before, .sq .pc.ghost::before { inset: -14%; height: auto; }
+.sq.master .pc::before { background: radial-gradient(closest-side, rgba(255, 215, 90, .75), rgba(255, 215, 90, 0)); }
+.sq.selp .pc::before { background: radial-gradient(closest-side, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0)); }
+.sq.ice .pc::before { background: radial-gradient(closest-side, rgba(159, 224, 255, .85), rgba(159, 224, 255, 0)); }
+.sq .pc.ghost::before { background: radial-gradient(closest-side, rgba(143, 216, 255, .7), rgba(143, 216, 255, 0)); }
+@keyframes lift { 50% { transform: translateY(-5px); } }
+@media (hover: hover) { .sq:hover .pc { transform: translateY(-3px); } }
+/* schémas animés : le perso qui bouge passe au-dessus des autres cases (avant, il glissait dessous) */
+.diag i:has(.tk) { z-index: 3; }
+.diag.scene .sp { z-index: 4; }
+.diag.scene .stxt { z-index: 6; }
+
+/* ===================== les Triangles : pointe en haut / pointe en bas, colonnes à moitié superposées ===================== */
+#board.tri { grid-template-columns: repeat(var(--cols), calc(var(--sq) * .58)); }
+#board.tri .sq { width: calc(var(--sq) * 1.16 - 2px); height: calc(var(--sq) - 2px); margin: 1px 0 0 1px; border-radius: 0; box-shadow: none; }
+#board.tri .sq.tup { clip-path: polygon(50% 2%, 98% 98%, 2% 98%); align-items: flex-end; padding-bottom: calc(var(--sq) * .06); }
+#board.tri .sq.tdn { clip-path: polygon(2% 2%, 98% 2%, 50% 98%); align-items: flex-start; padding-top: calc(var(--sq) * .06); }
+#board.tri .sq .pc { width: calc(var(--sq) * .56); height: calc(var(--sq) * .56); flex: none; }
+#board.tri .sq .crd { display: none; }
+#board.tri .sq.zone0, #board.tri .sq.zone1 { outline: none; }
+#board.tri .sq.zone0::before { background: rgba(242, 193, 78, .55); opacity: 1; }
+#board.tri .sq.zone1::before { background: rgba(180, 140, 255, .55); opacity: 1; }
+#board.tri .sq .mk { position: absolute; }
+#board.tri .sq.tup .mk { top: auto; bottom: 18%; } #board.tri .sq.tdn .mk { bottom: auto; top: 18%; }
+#board.tri .sq .specic { right: 38%; bottom: 4%; width: 24%; height: 24%; }
+#board.tri .sq.tdn .specic { bottom: auto; top: 4%; }
+.mapprev.tri i:nth-child(2n) { clip-path: polygon(0 0, 100% 0, 50% 100%); } .mapprev.tri i:nth-child(2n+1) { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+/* le bot réfléchit : un sablier au lieu du texte (le nom n'est plus coupé) */
+.pp .thinking { font-size: 0; }
+.pp .thinking::after { content: "⏳"; font-size: 16px; }
+/* énigmes (2026-11-02) : 60 cases, toutes visibles d'un coup (plus de barre de défilement) */
+.pzs { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; max-height: none; overflow: visible; }
+.pz { padding: 5px 3px; gap: 0; border-radius: 10px; }
+.pz b { font-size: 18px; line-height: 1.2; }
+.pz small { font-size: 11px; white-space: nowrap; }
+
+/* cases des hauts Cercles (2026-11-02) */
+.sq.spec7 { --specc: #c0405e; } .sq.spec8 { --specc: #ffd36a; } .sq.spec9 { --specc: #d8d8e0; } .sq.spec10 { --specc: #ff6a2a; } .sq.spec11 { --specc: #d6e6f4; } .sq.spec12 { --specc: #c8a060; }
+.sq.spec8 { box-shadow: inset 0 0 14px rgba(255, 211, 106, .55); }
+.sq.spec10 { box-shadow: inset 0 0 16px rgba(255, 90, 30, .75); }
+.sq.spec7 { box-shadow: inset 0 0 14px rgba(192, 64, 94, .55); }
+.mapprev i.s7 { background: #c0405e; } .mapprev i.s8 { background: #ffd36a; } .mapprev i.s9 { background: #8a8a94; } .mapprev i.s10 { background: #ff6a2a; } .mapprev i.s11 { background: #d6e6f4; } .mapprev i.s12 { background: #c8a060; }
+.rules .rulesp { display: inline-block; width: 1.5em; height: 1.5em; vertical-align: -.35em; margin-right: .3em; position: relative; }
+.rules .rulesp .specic { position: static; width: 100%; height: 100%; }
+/* les cases des hauts Cercles se voient bien : grand dessin au centre quand la case est vide (pastille dans le coin sous un perso) */
+#board .sq:is(.spec7, .spec8, .spec9, .spec10, .spec11, .spec12):not(:has(.pc)) .specic { width: 62%; height: 62%; left: 50%; top: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); opacity: .92; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); }
+#board.tri .sq.tup:is(.spec7, .spec8, .spec9, .spec10, .spec11, .spec12):not(:has(.pc)) .specic { width: 40%; height: 40%; top: 62%; }
+#board.tri .sq.tdn:is(.spec7, .spec8, .spec9, .spec10, .spec11, .spec12):not(:has(.pc)) .specic { width: 40%; height: 40%; top: 38%; }
+#board .sq.spec10 { background-image: radial-gradient(circle at 50% 55%, rgba(255, 120, 30, .55), rgba(140, 30, 10, .35) 70%); }

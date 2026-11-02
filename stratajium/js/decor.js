@@ -246,12 +246,14 @@ const Decor = (function () {
   // ----- clairière autour du plateau -----
   function drawBack(ctx, P, geo, sq, m, seed) {
     const R = rng(seed);
-    const BW = geo.W * sq, BH = geo.H * sq, CW = BW + 2 * m, CH = BH + 2 * m, area = CW * CH;
+    const hy = c => geo.hex && (c & 1) ? sq / 2 : 0; // la Ruche : une colonne sur deux décalée d'une demi-case
+    const KX = geo.tri ? .58 : 1, cx0 = c => (geo.tri ? c * .58 + .08 : c) * sq; // les Triangles : colonnes à moitié superposées
+    const BW = (geo.tri ? geo.W * .58 + .58 : geo.W) * sq, BH = (geo.H + (geo.hex ? .5 : 0)) * sq, CW = BW + 2 * m, CH = BH + 2 * m, area = CW * CH;
     ground(ctx, R, P, CW, CH);
-    const cellAt = (x, y) => { const c = Math.floor((x - m) / sq), r = Math.floor((y - m) / sq); return r >= 0 && r < geo.H && c >= 0 && c < geo.W && geo.ex[r * geo.W + c]; };
+    const cellAt = (x, y) => { const c = Math.min(geo.W - 1, Math.floor((x - m) / (sq * KX))), r = Math.floor((y - m - hy(c)) / sq); return r >= 0 && r < geo.H && c >= 0 && c < geo.W && geo.ex[r * geo.W + c]; };
     for (let q = 0; q < geo.N; q++) {
       if (!geo.ex[q]) continue;
-      const r = q / geo.W | 0, c = q % geo.W, x = m + c * sq, y = m + r * sq;
+      const r = q / geo.W | 0, c = q % geo.W, x = m + cx0(c), y = m + r * sq + hy(c);
       blotch(ctx, x + sq * .55, y + sq * .6, sq * .95, '#000', .4);
       blotch(ctx, x + sq / 2, y + sq / 2, sq * .85, P.under, .5);
     }
@@ -396,7 +398,7 @@ const Decor = (function () {
     }
     function build(container, geo, sq, m, seed, theme, fade) {
       if (theme) P = THEMES[theme] || P;
-      const CW = Math.round(geo.W * sq + 2 * m), CH = Math.round(geo.H * sq + 2 * m);
+      const CW = Math.round((geo.tri ? geo.W * .58 + .58 : geo.W) * sq + 2 * m), CH = Math.round((geo.H + (geo.hex ? .5 : 0)) * sq + 2 * m);
       drawBack(canvases(container, CW, CH, fade), P, geo, sq, m, seed);
       startAnim(CW, CH, seed);
       last = { kind: 'build', container, geo, sq, m, seed };

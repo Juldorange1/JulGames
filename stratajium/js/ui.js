@@ -101,6 +101,21 @@
     `<svg class="specic" viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="#fff6c8" opacity=".5"/><g stroke="#ffe27a" stroke-width="6" stroke-linecap="round"><path d="M50 8 V24 M50 76 V92 M8 50 H24 M76 50 H92 M20 20 L31 31 M69 69 L80 80 M80 20 L69 31 M31 69 L20 80"/></g><circle cx="50" cy="50" r="16" fill="#fffbe6" stroke="#ffd34a" stroke-width="4"/></svg>`,
     `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="52" rx="30" ry="38" fill="#2a1450" stroke="#9a6bff" stroke-width="7"/><ellipse cx="50" cy="52" rx="18" ry="25" fill="none" stroke="#5ad1ff" stroke-width="5" stroke-dasharray="12 8"/><circle cx="50" cy="52" r="7" fill="#d9c6ff"/></svg>`];
 
+  // cases des hauts Cercles (7 à 12)
+  SPEC_SVG[7] = `<svg class="specic" viewBox="0 0 100 100"><path d="M24 66 C14 46 26 22 50 20 C74 22 86 46 76 66 C68 82 32 82 24 66 Z" fill="#7a1430" stroke="#2a0510" stroke-width="5"/><path d="M34 44 Q50 36 66 44 M30 58 Q50 50 70 58" fill="none" stroke="#c0405e" stroke-width="4"/><circle cx="50" cy="70" r="8" fill="#ff8aa0" stroke="#2a0510" stroke-width="3"/></svg>`;
+  SPEC_SVG[8] = `<svg class="specic" viewBox="0 0 100 100"><path d="M28 90 V34 L36 14 L50 28 L64 14 L72 34 V90 Z" fill="#c8941e" stroke="#5a3a06" stroke-width="5" stroke-linejoin="round"/><rect x="22" y="56" width="56" height="14" rx="3" fill="#9a2a3a" stroke="#5a3a06" stroke-width="4"/><circle cx="50" cy="38" r="6" fill="#ffe27a"/></svg>`;
+  const trapSvg = o => `<svg class="specic" viewBox="0 0 100 100"><circle cx="50" cy="50" r="32" fill="#3a3a40" stroke="${o ? '#b48cff' : '#f2c14e'}" stroke-width="8"/><path d="M26 50 L34 38 L42 50 L50 38 L58 50 L66 38 L74 50 M26 50 L34 62 L42 50 L50 62 L58 50 L66 62 L74 50" fill="none" stroke="#d8d8e0" stroke-width="4" stroke-linejoin="round"/></svg>`;
+  SPEC_SVG[9] = trapSvg(0);
+  SPEC_SVG[10] = `<svg class="specic" viewBox="0 0 100 100"><path d="M14 62 C14 40 34 30 50 34 C66 28 88 40 86 62 C84 80 16 82 14 62 Z" fill="#e2461a" stroke="#6a1606" stroke-width="5"/><path d="M28 58 C34 48 46 48 52 56 C58 46 70 48 74 58" fill="none" stroke="#ffb02e" stroke-width="6" stroke-linecap="round"/><circle cx="40" cy="68" r="5" fill="#ffd36a"/><circle cx="64" cy="66" r="4" fill="#ffd36a"/></svg>`;
+  SPEC_SVG[11] = `<svg class="specic" viewBox="0 0 100 100"><ellipse cx="50" cy="50" rx="27" ry="36" fill="#bfd4e6" stroke="#5a6a7a" stroke-width="6"/><path d="M36 36 L54 22 M38 54 L64 32" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity=".85"/><path d="M40 72 L60 72" stroke="#8aa0b4" stroke-width="4" stroke-linecap="round"/></svg>`;
+  SPEC_SVG[12] = `<svg class="specic" viewBox="0 0 100 100"><path d="M14 84 L50 30 L86 84 Z" fill="#8a6a3a" stroke="#3a2a10" stroke-width="5" stroke-linejoin="round"/><path d="M42 84 L50 60 L58 84 Z" fill="#2a1a08"/><path d="M50 30 V10" stroke="#3a2a10" stroke-width="4"/><path d="M50 10 L68 16 L50 22 Z" fill="#d84040"/></svg>`;
+  const specSvg = (g, q) => g.spec[q] === 3 ? currentSvg(g.cdir ? g.cdir[q] : 4) : g.spec[q] === 9 ? trapSvg(E.trapOwn(g, q)) : SPEC_SVG[g.spec[q]];
+  // à partir du Cercle 5 : une paire de cases des hauts Cercles par combat (deux dès le Cercle 9), parmi celles déjà débloquées
+  function deepKinds(cercle) {
+    const ok = E.DEEP_SPECS.filter(([c]) => cercle >= c).map(x => x[1]);
+    return shuffle(ok).slice(0, cercle >= 9 ? 2 : ok.length ? 1 : 0);
+  }
+
   // ---------- réglages ----------
   const SET = Object.assign({ decor: 'auto', anim: 'normal', coords: true, vision: 'normale', rumble: true, taille: 'normale' }, lsGet('reglages', {}));
   delete SET.test; // le mode test n'existe plus (2026-10-31)
@@ -343,7 +358,9 @@ const isSh = id => !!T[E.TI[id]].fac;
   const cercleMax = () => lsGet('cercleMax', 0);
   // ce qui change en montant au Cercle c
   const cercleNew = c => (c <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 1], c) : L('une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)'))
-    + (c <= AIDE.length && JSON.stringify(aideOf(c)) !== JSON.stringify(aideOf(c - 1)) ? ' ; ' + (aideOf(c) ? L('un peu moins d’aide') : L('fin de l’aide : à armes égales')) : '');
+    + (c <= AIDE.length && JSON.stringify(aideOf(c)) !== JSON.stringify(aideOf(c - 1)) ? ' ; ' + (aideOf(c) ? L('un peu moins d’aide') : L('fin de l’aide : à armes égales')) : '')
+    + E.DEEP_SPECS.filter(([k]) => k === c).map(([, k]) => ' ; ' + L('nouvelle case spéciale : {x}', { x: I18N.specName(k) })).join('')
+    + (c === 9 ? ' ; ' + L('2 cases spéciales des hauts Cercles par combat') : '');
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
   const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
@@ -361,7 +378,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   const allUnlocked = r => runM(r).every(x => r.gods.includes(x)) && runG(r).every(x => r.gards.includes(x)) && r.mapLv >= 4 && r.evChance >= 100;
 
   // réserve de départ (nouvelle partie, ou montée au Cercle suivant), tirée au hasard, jamais un perso d'exploit :
-  // plus le Cercle est haut, plus elle est grande (Cercles 0-2 : 3 dieux et 4 gardes ; 3-5 : 4 et 6 ; 6 et plus : 5 et 8)
+  // un peu plus grande aux hauts Cercles (Cercles 0-5 : 3 dieux et 4 gardes ; 6 et plus : 4 et 5)
   const startSize = c => c >= 6 ? [4, 5] : [3, 4]; // départ d'un Cercle : persos de base (plus de 5 + 8 aux hauts Cercles : trop d'un coup)
   function freshReserve(r) {
     const rnd = (all, n) => shuffle(all.filter(x => !SPECIAL.has(x))).slice(0, n), [nM, nG] = startSize(r.cercle || 0);
@@ -732,8 +749,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     const mapLv = Math.max(boss || hasF(r, 'carte') ? 2 : 0, Math.min(4, lv0 + (hs.includes('sauvage') ? 1 : 0)));
     const ev = boss ? null : (hs.includes('evenement') || hasF(r, 'event') || Math.random() * 100 < r.evChance ? pickEvent() : null);
     const currents = dlcOn('abysses') && mapLv >= 2 && Math.random() < .35;
-    const map = E.makeMap(mapLv === 0 ? 'classique' : 'aleatoire', mapLv, currents);
+    const map = boss && Math.random() < 1 / 3 ? E.hexMap() : E.makeMap(mapLv === 0 ? 'classique' : 'aleatoire', mapLv, currents); // un boss sur trois : la Ruche (hexagones)
     if (r.fac) E.addShadowSpecs(map); // autels, lumières sacrées, portails
+    { const dk = deepKinds(r.cercle); if (dk.length) E.addDeepSpecs(map, dk); } // sangsue, trône, piège, lave, miroir, caserne
     const first = rnd(2); // qui commence : toujours tiré au sort
     // les persos de base vont dans la réserve commune ; ceux des Ombres, seuls les Ombres peuvent les prendre
     // partie des Ombres : l'adversaire joue lui aussi l'armée des Ombres (même réserve commune)
@@ -1036,6 +1054,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (G.chal) out.push(`🏆 <b>${L('Record')} : ${dailyName(G.chal)}</b> : ${dailyDesc(G.chal)} <span class="gold">(${recInfo(G, G.chal).txt})</span>`);
     if (G.mode === 'season' && pre && pre.season) out.push(`🗓️ <b>${seasonName(pre.season.rule)}</b> : ${seasonDesc(pre.season.rule)}`);
     if (s.boss) out.push(`👹 <b>${tn(E.TI[s.boss.kind])}</b> : ${td(E.TI[s.boss.kind])}`);
+    if (s.g.tri) out.push(`🔺 <b>${L('Les Triangles')}</b> : ${L('cases triangulaires, pointe en haut et pointe en bas. Un perso va tout droit, de côté, ou passe par les pointes (les 4 coins). Les cases allumées montrent toujours où aller.')}`);
+    if (s.g.hex && !(G.mode === 'season' && pre && pre.season && pre.season.rule === 'ruche')) out.push(`⬡ <b>${L('La Ruche')}</b> : ${L('cases hexagonales, 6 voisines chacune. « Tout droit » = vers le haut ou le bas ; les diagonales = les 4 voisines en biais ; à gauche ou à droite, on saute une colonne. Les cases allumées montrent toujours où aller.')}`);
+    if (s.g.deep) for (const k of [7, 8, 9, 10, 11, 12]) if (s.g.spec.includes(k)) out.push(`<span class="rulesp">${k === 9 ? trapSvg(0) : SPEC_SVG[k]}</span><b>${I18N.specName(k)}</b> : ${I18N.specDesc(k)}${k === 9 ? ' ' + L('Le tien a le bord de ta couleur.') : ''}`);
     for (const h of G.hard || []) out.push(`🔥 ${hardName(h)}`);
     for (const h of G.easy || []) out.push(`🍀 ${easyLine(h)}`);
     if (s.mast && s.mast[0].length) out.push(`🎖️ <b>${L('Persos maîtres')}</b> : ${s.mast[0].map(i => tn(i)).join(', ')}`); // lesquels, pour les reconnaître
@@ -1050,17 +1071,18 @@ const isSh = id => !!T[E.TI[id]].fac;
   function enterGame() {
     PN[0] = G.names[0]; PN[1] = G.names[1];
     $('endModal').hidden = true;
-    $('evBadge').hidden = !G.s.ev;
+    $('evBadge').hidden = true; // l'événement, l'objectif ou le boss : dans le menu « 📜 Règles »
     if (G.s.ev) { $('evBadge').textContent = '🎲 ' + I18N.evName(G.s.ev); $('evBadge').title = I18N.evDesc(G.s.ev); $('evBadge').onclick = () => toast(`🎲 <b>${I18N.evName(G.s.ev)}</b> : ${I18N.evDesc(G.s.ev)}`, 6000); }
     const gl = G.s.goal ? ['🎯 ' + I18N.goalName(G.s.goal), I18N.goalDesc(G.s.goal)] : G.chal ? ['🏆 ' + dailyName(G.chal), dailyDesc(G.chal)] : G.s.boss ? ['👹 ' + tn(E.TI[G.s.boss.kind]), td(E.TI[G.s.boss.kind])] : null;
-    $('goalBadge').hidden = !gl;
+    $('goalBadge').hidden = true;
     if (gl) { $('goalBadge').textContent = gl[0]; $('goalBadge').title = gl[1]; $('goalBadge').onclick = () => toast(`<b>${gl[0]}</b> : ${gl[1]}`, 6000); }
     $('mapBadge').hidden = true; // écran plus léger : la carte se voit, pas besoin de l'écrire
     $('btnUndo').hidden = G.net || G.mode === 'puzzle';
     $('runBadge').hidden = ['normal', 'easy', 'boss'].includes(G.mode); // dans une partie, inutile pendant le combat
     $('runBadge').textContent = G.mode === 'tuto' ? '🎓 ' + L('Tutoriel') : G.mode === 'story' ? '📖 ' + storyTitle(pre.story) : G.mode === 'puzzle' ? '🧩 ' + L('Énigme {i}', { i: G.pz.i + 1 }) : G.mode === 'season' ? '🗓️ ' + seasonName(pre.season.rule) : G.mode === 'duel' ? '⚔️ ' + L('Duel') + (G.net ? ' · 🌐' : G.ctl[1] === 'me' ? ' · 👥' : '') : G.mode === 'daily' ? L('Défi du jour') : cercleLabel(run().cercle) + ' · ' + L('Partie {n}', { n: cur + 1 }) + (G.mode === 'hard' ? ' · 🔥' : G.mode === 'boss' ? ' · 👹' : '');
     setTok(cur >= 0 && run() && ['normal', 'easy', 'boss'].includes(G.mode) ? run() : null);
-    $('rulesCard').innerHTML = rulesHtml(); if ($('rulesPop')) $('rulesPop').hidden = true;
+    $('rulesCard').innerHTML = ''; if ($('rulesPop')) $('rulesPop').hidden = true;
+    { const n = (rulesHtml().match(/<li>/g) || []).length; $('btnRules').hidden = !n; $('rulesN').textContent = n ? '(' + n + ')' : ''; $('btnRules').classList.remove('seen'); }
     show('game');
     $('terrain').dataset.theme = theme;
     buildBoard(G.s.g);
@@ -1170,7 +1192,11 @@ const isSh = id => !!T[E.TI[id]].fac;
 
   // ---------- animations et sons ----------
   const fxEl = $('fx');
-  function sqXY(q) { const g = G.s.g, v = G.flip ? g.N - 1 - q : q; return { x: (v % g.W) * G.sq, y: ((v / g.W) | 0) * G.sq }; }
+  // forme du plateau : Triangles (une colonne tous les 0,58 case, chaque triangle large de 1,16) ; Ruche (une colonne sur deux décalée d'une demi-case)
+  const TRI_X = .58;
+  const boardW = g => g.tri ? g.W * TRI_X + TRI_X : g.W, boardH = g => g.H + (g.hex ? .5 : 0);
+  // coin haut-gauche du carré d'une case large d'1 (son centre = le centre de la case)
+  function sqXY(q) { const g = G.s.g, v = G.flip ? g.N - 1 - q : q, c = v % g.W; return { x: (g.tri ? c * TRI_X + TRI_X - .5 : c) * G.sq, y: (((v / g.W) | 0) + (g.hex && c & 1 ? .5 : 0)) * G.sq }; }
   function addFx(cls, q, html, opts) {
     const d = document.createElement('div');
     d.className = 'fxe ' + cls;
@@ -1409,7 +1435,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     G.committed = true;
     if (G.mode === 'tuto') { lsSet('tutoJoue', true); return; }
     const s = G.s;
-    if (G.mode === 'puzzle') { if (s.winner === G.me) { const d = pzDone(); d[G.pz.i] = Date.now(); lsSet('enigmes', d); } return; } // une énigme ne compte pas dans les statistiques
+    if (G.mode === 'puzzle') { if (s.winner === G.me) { const d = pzDone(); d[G.pz.i] = Date.now(); lsSet('enigmes2', d); } return; } // une énigme ne compte pas dans les statistiques
     recordStats();
     if (G.mode === 'duel') return;
     if (G.mode === 'story') { if (s.winner === G.me && pre.story >= storyDone()) lsSet('story', pre.story + 1); return; }
@@ -1614,7 +1640,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function momentArrows(list) {
     const old = $('momArrows'); if (old) old.remove();
     if (!G.sq) return;
-    const S = G.sq, g = G.s.g, W = g.W * S, H = g.H * S;
+    const S = G.sq, g = G.s.g, W = boardW(g) * S, H = boardH(g) * S;
     let svg = '';
     for (const [a, col] of list) {
       if (!a || a.k !== 'act') continue;
@@ -1828,7 +1854,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   const boardEl = $('board'), terrainEl = $('terrain');
   let sqEls = [];
   function buildBoard(g) {
-    boardEl.innerHTML = ''; fxEl.innerHTML = ''; sqEls = [];
+    boardEl.innerHTML = ''; fxEl.innerHTML = ''; sqEls = []; boardEl.classList.toggle('hex', !!g.hex); boardEl.classList.toggle('tri', !!g.tri);
     for (let q = 0; q < g.N; q++) {
       const d = document.createElement('div');
       if (g.ex[q]) {
@@ -1845,14 +1871,15 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (!G) return;
     const g = G.s.g, box = $('boardBox');
     const availW = Math.max(200, box.clientWidth), availH = Math.max(200, box.clientHeight);
-    const sq = Math.max(24, Math.floor(Math.min(availW / (g.W + .8), availH / (g.H + .8), 170))); // les petites cartes (rivière, îles…) prennent toute la place
+    const BW = boardW(g), BH = boardH(g);
+    const sq = Math.max(24, Math.floor(Math.min(availW / (BW + .8 + (g.hex ? .5 : 0)), availH / (BH + .8), 170))); // les petites cartes (rivière, îles…) prennent toute la place
     const m = Math.round(sq * .4);
     const key = `${g.W}x${g.H}:${sq}:${G.seed}:${theme}`;
     G.sq = sq; G.m = m;
     const root = document.documentElement.style;
     root.setProperty('--sq', sq + 'px'); root.setProperty('--cols', g.W); root.setProperty('--rows', g.H);
-    terrainEl.style.width = (g.W * sq + 2 * m) + 'px'; terrainEl.style.height = (g.H * sq + 2 * m) + 'px';
-    for (const el of [boardEl, fxEl]) { el.style.left = m + 'px'; el.style.top = m + 'px'; el.style.width = (g.W * sq) + 'px'; el.style.height = (g.H * sq) + 'px'; }
+    terrainEl.style.width = (BW * sq + 2 * m) + 'px'; terrainEl.style.height = (BH * sq + 2 * m) + 'px';
+    for (const el of [boardEl, fxEl]) { el.style.left = m + 'px'; el.style.top = m + 'px'; el.style.width = (BW * sq) + 'px'; el.style.height = (BH * sq) + 'px'; }
     if (key !== lastLayout || !terrainEl.querySelector('canvas')) { boardDecor.build(terrainEl, g, sq, m, G.seed, theme); lastLayout = key; }
   }
   if (window.ResizeObserver) new ResizeObserver(() => { if (G && $('game').classList.contains('on')) layoutBoard(); }).observe($('boardBox'));
@@ -1876,7 +1903,8 @@ const isSh = id => !!T[E.TI[id]].fac;
       if (!g.ex[q]) { el.className = 'sq void'; el.innerHTML = ''; continue; }
       if (c === E.VOID) { el.className = 'sq pit'; el.innerHTML = ''; continue; }
       const r = (q / g.W) | 0, col = q % g.W;
-      let cls = 'sq ' + (E.isDark(g, q) ? 'd' : 'l');
+      let cls = 'sq ' + (g.tone ? 'dlm'[g.tone[q]] : E.isDark(g, q) ? 'd' : 'l'); // la Ruche a 3 couleurs, les Triangles une par sens
+      if (g.tri) cls += (r + col) & 1 ? ' tdn' : ' tup';
       if (g.zone[0][q]) cls += ' zone0 home0'; if (g.zone[1][q]) cls += ' zone1 home1';
       if (showHome) cls += ' showhome';
       if (c < 0) cls += ' wall';
@@ -1898,7 +1926,7 @@ const isSh = id => !!T[E.TI[id]].fac;
       let h = '';
       if (botOf[col] === r) h += `<span class="crd f">${COLS[col]}</span>`;
       if (leftOf[r] === col) h += `<span class="crd r">${g.H - r}</span>`;
-      if (g.spec[q]) h += g.spec[q] === 3 ? currentSvg(g.cdir ? g.cdir[q] : 4) : SPEC_SVG[g.spec[q]];
+      if (g.spec[q]) h += specSvg(g, q);
       if (c < 0) h += s.boss && (s.boss.coral || []).includes(q) ? CORAL : B && B.webs && B.webs.includes(q) ? WEB : B && B.stones && B.stones.includes(q) ? STONE : (s.boss && ((s.boss.webs || []).includes(q))) ? WEB : (s.boss && (s.boss.stones || []).includes(q)) ? STONE : BRAMBLE;
       if (c > 0) {
         const t = T[E.tix(c)];
@@ -1933,7 +1961,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   // ---------- colonnes sans défilement ----------
   // grand écran : la fiche du perso touché va à gauche, entre les deux joueurs (la réserve garde toute sa place à droite)
   const DESK = window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1/1) and (min-height: 561px)');
-  function placeInfo() { const ic = $('infoCard'); if (DESK.matches) { if (ic.parentNode !== $('pp1').parentNode) $('pp1').after(ic); } else if (ic.previousElementSibling !== $('rulesCard')) $('rulesCard').after(ic); }
+  function placeInfo() { const ic = $('infoCard'); if (ic.previousElementSibling !== $('rulesCard')) $('rulesCard').after(ic); }
   if (DESK.addEventListener) DESK.addEventListener('change', () => { placeInfo(); fitSide(); });
   placeInfo();
   for (const id of ['pool', 'board', 'pp0', 'pp1']) $(id).addEventListener('mouseleave', () => { const ic = $('infoCard'); if (ic.classList.contains('float')) { ic.innerHTML = ''; ic.classList.remove('float'); } });
@@ -1944,8 +1972,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (ic.innerHTML && ic.offsetParent) {
       ic.classList.remove('nodiag', 'float'); let f = 16; ic.style.fontSize = '';
       while (ic.scrollHeight > ic.clientHeight + 1 && f > 13) ic.style.fontSize = --f + 'px';
-      // pas la place entre les joueurs : la fiche s'affiche en entier par-dessus la colonne, le temps du survol
-      if (ic.scrollHeight > ic.clientHeight + 1) { ic.style.fontSize = ''; ic.classList.add(DESK.matches ? 'float' : 'nodiag'); }
+      // toujours pas la place : sans le petit schéma, puis encore un peu plus petit
+      if (ic.scrollHeight > ic.clientHeight + 1) { ic.classList.add('nodiag'); ic.style.fontSize = ''; f = 16; while (ic.scrollHeight > ic.clientHeight + 1 && f > 12) ic.style.fontSize = --f + 'px'; }
     }
     const rc = $('rulesCard'), ul = rc.querySelector('.rules');
     if (!ul) return;
@@ -1963,7 +1991,8 @@ const isSh = id => !!T[E.TI[id]].fac;
     pop.innerHTML = `<div class="glass card">${html}<p class="muted">${L('Touche pour fermer')}</p></div>`;
     pop.hidden = false; sfx('page');
   }
-  const openRulesPop = () => openPop(rulesHtml());
+  const openRulesPop = () => { $('btnRules').classList.add('seen'); openPop(rulesHtml()); };
+  $('btnRules').onclick = openRulesPop;
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#btnFards') || cur < 0 || !run()) return;
     const r = run();
@@ -2105,7 +2134,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     const s = G.s, hint = $('hint'), opts = $('opts');
     let h = '', o = [];
     if (G.over) { h = I18N.why(s.why); o.push(`<button class="main" data-o="bilan">📊 ${L('Bilan')}</button>`, `<button data-o="next">${L('Continuer')}</button>`); if (G.history.length && canBack()) o.push(`<button data-o="undo">↶ ${L('Annuler le dernier coup')}</button>`); }
-    else if (!humanTurn()) h = L('{p} réfléchit…', { p: esc(PN[s.turn]) });
+    else if (!humanTurn()) h = '';
     else if (s.phase === 'draft') {
       h = s.ev === 'inverse' ? L('Draft inversé : choisis dans la réserve commune un perso… qui ira à ton adversaire !') : L('Draft caché : pioche une pièce face cachée.');
       if (s.ev === 'cache') o.push(`<button class="main" data-o="draw">${L('Piocher')}</button>`); else o.push(`<button class="main" data-o="pool">${L('Ouvrir la réserve')}</button>`);
@@ -2113,11 +2142,11 @@ const isSh = id => !!T[E.TI[id]].fac;
       h = L('Annonce ta prochaine action : recruter, placer, ou touche un de tes persos pour annoncer que tu l’activeras.');
       o.push(`<button data-o="decl:rec">${L('Annoncer : recruter')}</button>`, `<button data-o="decl:pla">${L('Annoncer : placer')}</button>`);
     } else if (G.sel && G.sel.k === 'place') {
-      h = L('Touche une case encadrée de ta couleur pour y poser <b>{x}</b>.', { x: tn(G.sel.t) }) + (s.ev === 'noir' ? ' ' + L('Les cases vertes (noires) sont gratuites.') : '');
+      h = '';
       o.push(`<button data-o="cancel">${L('Annuler')}</button>`);
     } else if (G.sel) {
       const ti = E.tix(s.b[G.sel.from]), t = T[ti];
-      h = `<b>${tn(ti)}</b> : ${td(ti)}<br><small class="muted">${L('Touche une case qui brille pour choisir où il agit, ou « Annuler ».')}</small>`;
+      h = '';
       for (const x of v.strs) {
         if (x[0] === 'r' || x[0] === 'v') { const i = +x.slice(1); o.push(`<button data-o="s:${x}">${token(i, x[0] === 'v' ? s.turn : -1)} ${x[0] === 'v' ? L('Ranimer') + ' ' : ''}${tn(i)}</button>`); }
         else if (x === 'go') o.push(`<button class="main" data-o="s:go"${mid(t.id) === 'g6' ? ' data-zone="adj"' : ''}>${L('Activer {x}', { x: tn(ti) })}</button>`);
@@ -2127,10 +2156,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       o.push(`<button data-o="cancel">${L('Annuler')}</button>`);
     } else {
       const L2 = legal(), d = s.decl[s.turn];
-      h = L('À toi ! Fais <b>une seule</b> de ces choses : <b>➕ recruter</b> un perso de la réserve commune, <b>poser</b> un perso de ta réserve sur la carte, ou <b>toucher un de tes persos</b> sur la carte pour le faire agir.');
+      h = ''; // plus de consigne générale : le plateau et les boutons suffisent
       if (d && L2.some(a => a.k !== 'pass')) h = L('Tu as annoncé : <b>{d}</b>. Tu dois le faire.', { d: declText(d, s) });
-      if (s.acts > 1) h += ` <b>(${L('{n} actions restantes', { n: s.acts })})</b>`;
-      if (s.bonusRec && s.acts === 1) h = L('Action bonus : comme tu joues en second, tu recrutes un perso de plus.');
+
       if (L2.some(a => a.k === 'rec')) o.push(`<button class="pooltab" data-o="pool">➕ ${L('Recruter')}</button>`);
       if (L2.length === 1 && L2[0].k === 'pass') { // rien à faire : le tour passe tout seul (on ne peut pas passer exprès)
         h = L('Aucune action possible : ton tour passe tout seul.');
@@ -2169,10 +2197,10 @@ const isSh = id => !!T[E.TI[id]].fac;
     const t = T[i];
     const who = o === 0 || o === 1 ? ' · ' + esc(PN[o]) : ' · ' + L('réserve commune');
     $('infoCard').innerHTML = `<div class="ihead">${token(i, o)}<div><div class="iname">${tn(i)}</div><div class="icat">${catName(t.cat)}${who}${t.cost ? ` · <span class="icost">💎 ${t.cost}</span>` : ''}</div></div></div>
-      <div class="ibody"><div class="idesc">${td(i)}${G && G.s.mast && (o === 0 || o === 1) && G.s.mast[o].includes(i) ? `<p class="imast">🎖️ ${mastText(t.id)}</p>` : ''}</div>${SCENES[t.id] ? `<div class="idiag">${sceneDiagram(t.id)}</div>` : t.cat === 'G' || t.cat === 'S' ? (NODIAG[t.id] ? '' : `<div class="idiag">${moveDiagram(t.id)}<small>${L('vert : où il peut aller · rouge : qui il peut tuer')}</small></div>`) : ''}</div>${q !== undefined ? specLine(q) : ''}`;
+      <div class="ibody"><div class="idesc">${td(i)}${G && G.s.mast && (o === 0 || o === 1) && G.s.mast[o].includes(i) ? `<p class="imast">🎖️ ${mastText(t.id)}</p>` : ''}</div>${SCENES[t.id] ? `<div class="idiag">${sceneDiagram(t.id)}</div>` : (t.cat === 'G' || t.cat === 'S') && !(G && (G.s.g.hex || G.s.g.tri)) ? (NODIAG[t.id] ? '' : `<div class="idiag">${moveDiagram(t.id)}<small>${L('vert : où il peut aller · rouge : qui il peut tuer')}</small></div>`) : ''}</div>${q !== undefined ? specLine(q) : ''}`;
     fitSide();
   }
-  function specLine(q) { const k = G && G.s.g.spec[q]; return k ? `<div class="specline">${k === 3 ? currentSvg(G.s.g.cdir ? G.s.g.cdir[q] : 4) : SPEC_SVG[k]}<span><b>${I18N.specName(k)}</b> : ${I18N.specDesc(k)}</span></div>` : ''; }
+  function specLine(q) { const k = G && G.s.g.spec[q]; return k ? `<div class="specline">${specSvg(G.s.g, q)}<span><b>${I18N.specName(k)}</b> : ${I18N.specDesc(k)}</span></div>` : ''; }
   function showSpec(q) { if (G && G.s.g.spec[q]) { $('infoCard').innerHTML = specLine(q); fitSide(); } }
 
   // ---------- panneau du bas sur petits écrans (réserve, infos, journal) ----------
@@ -2376,7 +2404,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     });
   }
   function mapPreview(g) {
-    let h = `<div class="mapprev" style="grid-template-columns:repeat(${g.W},1fr);width:${g.W * 9}px">`;
+    let h = `<div class="mapprev${g.hex ? ' hex' : ''}${g.tri ? ' tri' : ''}" style="grid-template-columns:repeat(${g.W},1fr);width:${g.W * 9}px">`;
     for (let q = 0; q < g.N; q++) h += `<i class="${!g.ex[q] ? 'v' : g.zone[0][q] ? 'z0' : g.zone[1][q] ? 'z1' : g.spec[q] ? 's' + g.spec[q] : ''}"></i>`;
     return h + '</div>';
   }
@@ -2402,8 +2430,9 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (tab === 'evenements') return E.EVENTS.map(e => seenCard('ev:' + e.id, card('🎲', I18N.evName(e.id), I18N.evDesc(e.id), e.weight ? ` <span class="tag2 on">${L('plus fréquent')}</span>` : '')))
       .concat([textBlock(`<h3>${L('Objectifs mystère')}</h3><p class="muted">${L('Pour tous les objectifs : au bout de 60 tours chacun (30 pour l’Endurance), celui qui a perdu le moins de persos gagne.')}</p>`)])
       .concat(E.GOALS.map(gl => seenCard('goal:' + gl.id, card('🎯', I18N.goalName(gl.id), I18N.goalDesc(gl.id)))));
-    if (tab === 'cartes') return E.MAPS.map(([id, , lv]) => { if (!SEEN.has('map:' + id)) return lockCard(); const g = exampleMap(id); return `<div class="ccard"><div class="txt"><b>${I18N.mapKind(id)}</b> <span class="tag2">${L('niveau {n}', { n: lv })}</span><p>${I18N.mapKindDesc(id)}</p></div>${g ? mapPreview(g) : ''}</div>`; })
+    if (tab === 'cartes') return E.MAPS.map(([id, , lv]) => { if (!SEEN.has('map:' + id)) return lockCard(); const g = id === 'ruche' ? E.hexMap() : id === 'triangles' ? E.triMap() : exampleMap(id); return `<div class="ccard"><div class="txt"><b>${I18N.mapKind(id)}</b> <span class="tag2">${id === 'ruche' ? '👹 ' + L('Boss') + ' · 🗓️ ' + L('Défi de la semaine') + ' · 📖 ' + L('L’Ascension') : id === 'triangles' ? '📖 ' + L('L’Ascension') : L('niveau {n}', { n: lv })}</span><p>${I18N.mapKindDesc(id)}</p></div>${g ? mapPreview(g) : ''}</div>`; })
       .concat([1, 2].concat(dlcOn('abysses') ? [3] : [], dlcOn('ombres') ? [4, 5, 6] : []).map(k => seenCard('sp:' + k, card(k === 3 ? currentSvg(4) : SPEC_SVG[k], I18N.specName(k), I18N.specDesc(k), ` <span class="tag2">${L('case spéciale')}</span>`))))
+      .concat(E.DEEP_SPECS.map(([c, k]) => seenCard('sp:' + k, card(SPEC_SVG[k], I18N.specName(k), I18N.specDesc(k), ` <span class="tag2">${L('case spéciale')}</span> <span class="tag2">${L('dès le Cercle {c}', { c })}</span>`))))
       .concat([textBlock(`<h3>${L('Niveaux de sauvagerie')}</h3><ul>${[0, 1, 2, 3, 4].map(n => `<li><b>${L('Niveau {n}', { n })}</b> : ${I18N.mapLevel(n)}</li>`).join('')}</ul>`)]);
     if (tab === 'progression') return [
       textBlock(`<h3>⚔️ ${L('Les affrontements')}</h3><ul>
@@ -2637,12 +2666,12 @@ const isSh = id => !!T[E.TI[id]].fac;
   // cast = les persos de l'illustration (dessinée avec le décor du jeu)
   const STORY = [
     { lv: 'facile', map: ['classique', 0], gods: [], gards: 'start', theme: 'printemps', cast: ['g1', 'cv', 'g3'], rule: 'sansdieux' },
-    { lv: 'normal', map: ['aleatoire', 2], goal: 'colline', theme: 'ete', cast: ['ma', 'mc', 'md'], rule: 'colline' },
+    { lv: 'normal', map: ['ruche'], goal: 'colline', theme: 'ete', cast: ['ma', 'mc', 'md'], rule: 'colline' }, // sur la Ruche (hexagones)
     { lv: 'normal', map: ['aleatoire', 2], boss: 'bh', squad: { gods: ['ma', 'mc'], gards: ['cv', 'g3', 'g5', 'c3'] }, theme: 'marais', cast: ['bh'], rule: 'equipe' },
     { lv: 'normal', map: ['aleatoire', 3, true], ev: 'maree', gods: 'dlc', gards: 'dlc', theme: 'abysses', cast: ['pv', 'rq', 'mz', 'sr'], rule: 'abysses' },
     { lv: 'normal', map: ['aleatoire', 3, true], boss: 'bm', squad: { gods: ['pv', 'sr'], gards: ['rq', 'rq', 'mz', 'mz'] }, theme: 'abysses', cast: ['bm'], rule: 'profondeurs' },
     { lv: 'normal', map: ['aleatoire', 4, true], boss: 'bl', squad: { gods: [], gards: ['cv', 'cv', 'g3', 'g3', 'c5', 'c5'] }, theme: 'abysses', cast: ['bl'], rule: 'sansdieux2' },
-    { lv: 'impossible', map: ['aleatoire', 3], gods: ['ma', 'mc', 'md', 'me', 'pv', 'sr'], gards: [], mana: 200, theme: 'volcan', cast: ['ma', 'mc', 'md', 'me'], rule: 'conseil' },
+    { lv: 'impossible', map: ['triangles'], gods: ['ma', 'mc', 'md', 'me', 'pv', 'sr'], gards: [], mana: 200, theme: 'volcan', cast: ['ma', 'mc', 'md', 'me'], rule: 'conseil' }, // sur les Triangles
     { lv: 'impossible', map: ['aleatoire', 4, true], boss: 'bx', gods: ['ma', 'mc', 'pv', 'sr'], gards: ['cv', 'g3', 'g5', 'c5', 'rq', 'mz'], theme: 'abysses', cast: ['bx'], rule: 'final' }, // seulement des persos déjà croisés dans l'histoire
   ];
   const storyRule = id => ({
@@ -2691,7 +2720,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function openStory() { cur = -1; myCercle = 0; renderStory(); show('story'); }
   function startStory(i) {
     const c = STORY[i], list = (v, M) => v === 'start' ? (M ? E.START_M : E.START_G) : v === 'all' ? (M ? allM() : allG()) : v === 'dlc' ? (M ? E.DLC_M : E.DLC_G) : v || [];
-    pre = { mode: 'story', story: i, level: c.lv, ev: c.goal ? 'objectif' : c.ev || null, goal: c.goal || null, map: E.makeMap(c.map[0], c.map[1], !!c.map[2]), first: rnd(2), bet: [null, null],
+    pre = { mode: 'story', story: i, level: c.lv, ev: c.goal ? 'objectif' : c.ev || null, goal: c.goal || null, map: c.map[0] === 'ruche' ? E.hexMap() : c.map[0] === 'triangles' ? E.triMap() : E.makeMap(c.map[0], c.map[1], !!c.map[2]), first: rnd(2), bet: [null, null],
       perso: pick(Object.keys(E.PERSOS)), gods: c.squad ? E.START_M : list(c.gods === undefined ? 'start' : c.gods, true), gards: c.squad ? E.START_G : list(c.gards === undefined ? 'start' : c.gards, false),
       boss: c.boss || null, squad: c.squad ? { gods: c.squad.gods.slice(), gards: c.squad.gards.slice() } : null, mana: c.mana || null, theme: c.theme || null };
     showPre(false);
@@ -2708,15 +2737,16 @@ const isSh = id => !!T[E.TI[id]].fac;
   const stopStoryScene = () => { if (storyDecor) { storyDecor.stop(); storyDecor = null; } };
 
   // =====================================================================
-  //  DLC « Les Énigmes » : gagner en 1 ou 2 coups, quoi que réponde le bot stratège
+  //  DLC « Les Énigmes » : gagner en 3 à 6 coups (6 plus simples pour commencer), quoi que réponde le bot stratège
   //  (positions de vrais affrontements entre bots, vérifiées coup par coup : voir js/puzzles.js)
   // =====================================================================
   const pzList = () => typeof PUZZLES !== 'undefined' ? PUZZLES : [];
-  const pzDone = () => lsGet('enigmes', {});
+  // 2026-11 : nouvelle liste (3 à 6 coups) ; on garde ce qui était résolu parmi les 6 premières (anciennes 1, 2, 16 à 19)
+  const pzDone = () => { let d = lsGet('enigmes2', null); if (!d) { const o = lsGet('enigmes', {}); d = {}; [0, 1, 15, 16, 17, 18].forEach((k, i) => { if (o[k]) d[i] = o[k]; }); } return d; };
   function renderPuzzles() {
     const done = pzDone(), list = pzList(), open = i => i === 0 || done[i] || done[i - 1];
     $('puzzleBox').innerHTML = `<h2 class="title">🧩 ${L('Énigmes')}</h2>
-      <p class="muted center">${L('Chaque énigme est une position d’un vrai affrontement. Gagne en 1 ou 2 coups au plus, quoi que réponde le bot stratège. Elles s’ouvrent l’une après l’autre.')}</p>
+      <p class="muted center">${L('Chaque énigme est une position d’un vrai affrontement. Gagne en 3 à 6 coups, quoi que réponde le bot stratège : à chaque tour, une seule action mène à la victoire. Les 6 premières servent d’échauffement. Elles s’ouvrent l’une après l’autre.')}</p>
       <p class="center gold">${L('{n} énigme(s) résolue(s) sur {t}', { n: list.filter((p, i) => done[i]).length, t: list.length })}</p>
       <div class="pzs">${list.map((p, i) => `<button class="pz ${done[i] ? 'done' : open(i) ? 'next' : 'lock'}" data-pz="${i}" ${open(i) ? '' : 'disabled'}>
         <b>${done[i] ? '✓' : open(i) ? i + 1 : '🔒'}</b><small>${p.n === 1 ? L('en 1 coup') : L('en {n} coups', { n: p.n })}</small></button>`).join('')}</div>
@@ -2740,8 +2770,9 @@ const isSh = id => !!T[E.TI[id]].fac;
   // =====================================================================
   const SEASON_RULES = ['tempete', 'brulee', 'invasion', 'ombres', 'maree', 'sansdieux', 'cimetiere', 'toutourien', 'lumiere', 'portails'];
   const SEASON_RULES2 = ['tempete', 'guerre', 'brulee', 'invasion', 'ombres', 'maree', 'sansdieux', 'guerre', 'cimetiere', 'toutourien', 'lumiere', 'portails'], SEASON_WK2 = 2965;
+  const SEASON_RULES3 = ['ruche', 'tempete', 'guerre', 'brulee', 'invasion', 'ombres', 'ruche', 'maree', 'sansdieux', 'cimetiere', 'toutourien', 'lumiere', 'portails'], SEASON_WK3 = 2966;
   const seasonName = id => ({ tempete: L('Tempête de mana'), brulee: L('Terres brûlées'), invasion: L('Invasion'), ombres: L('L’armée des Ombres'), maree: L('Marée haute'),
-    sansdieux: L('Sans dieux'), cimetiere: L('Cimetière'), toutourien: L('Tout ou rien'), lumiere: L('La Lumière contre-attaque'), portails: L('Portails'), guerre: L('Guerre des Ombres') })[id];
+    sansdieux: L('Sans dieux'), cimetiere: L('Cimetière'), toutourien: L('Tout ou rien'), lumiere: L('La Lumière contre-attaque'), portails: L('Portails'), guerre: L('Guerre des Ombres'), ruche: L('La Ruche') })[id];
   const seasonDesc = id => ({
     tempete: L('Les deux camps commencent avec 250 mana : les sorts pleuvent.'), brulee: L('Carte très sauvage et sol fragile : là où un perso meurt, un trou s’ouvre.'),
     invasion: L('Un boss au hasard t’attend, mais tu commences avec 150 mana.'), ombres: L('Tu joues l’armée des Ombres contre l’armée de la Lumière.'),
@@ -2750,12 +2781,13 @@ const isSh = id => !!T[E.TI[id]].fac;
     lumiere: L('Tu joues l’armée des Ombres contre un boss de la Lumière, sur une carte avec autels, lumières sacrées et portails.'),
     portails: L('Des portails partout : un perso qui finit son tour dessus passe de l’autre côté de la carte.'),
     guerre: L('Les deux camps jouent l’armée des Ombres.'),
+    ruche: L('Le plateau est fait d’hexagones : chaque case a 6 voisines. Les persos bougent autrement : regarde bien les cases allumées.'),
   })[id];
   const weekId = () => Math.floor((Date.now() / 864e5 + 3) / 7); // semaines du lundi au dimanche
   function seasonCfg() {
     const wk = weekId();
-    const RL = wk >= SEASON_WK2 ? SEASON_RULES2 : SEASON_RULES;
-    let rule = RL[wk % RL.length];
+    const RL = wk >= SEASON_WK3 ? SEASON_RULES3 : wk >= SEASON_WK2 ? SEASON_RULES2 : SEASON_RULES;
+    let rule = wk >= SEASON_WK3 ? RL[(wk - SEASON_WK3) % RL.length] : RL[wk % RL.length];
     if (rule === 'maree' && !dlcOn('abysses')) rule = 'tempete';
     return E.withSeed(hashStr('panthea-saison-' + wk), () => {
       const c = { wk, rule, perso: pick(Object.keys(E.PERSOS)), mapSeed: 1 + rnd(1e9), boss: pick(bossList()), light: pick(E.SH_BOSSES) };
@@ -2788,7 +2820,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   function openSeason(from) { seasonFrom = from === 'menu' ? 'menu' : 'ext'; cur = -1; myCercle = 0; renderSeason(); show('season'); }
   function startSeason() {
     const c = seasonCfg(), R = c.rule;
-    const map = E.withSeed(c.mapSeed, () => { const m = E.makeMap('aleatoire', R === 'brulee' ? 4 : 3, R === 'maree'); if (R === 'ombres' || R === 'lumiere' || R === 'guerre') E.addShadowSpecs(m); if (R === 'portails') E.addShadowSpecs(m, [6, 6, 6]); return m; });
+    const map = E.withSeed(c.mapSeed, () => { const m = R === 'ruche' ? E.hexMap() : E.makeMap('aleatoire', R === 'brulee' ? 4 : 3, R === 'maree'); if (R === 'ombres' || R === 'lumiere' || R === 'guerre') E.addShadowSpecs(m); if (R === 'portails') E.addShadowSpecs(m, [6, 6, 6]); return m; });
     // persos : au hasard pour les règles qui n'imposent pas d'armée ; « Tout ou rien » : tous, Lumière et Ombres mélangées
     if (!c.sh10) { c.sh10 = pick10(E.SH_M, E.SH_G); c.li10 = pick10(E.ALL_M, E.ALL_G); }
     const fixed = ['toutourien', 'ombres', 'lumiere', 'guerre'].includes(R), A = c.army || randomArmy(R === 'sansdieux');
@@ -2822,8 +2854,8 @@ const isSh = id => !!T[E.TI[id]].fac;
         L('Le défi de la semaine : une règle spéciale chaque semaine, ton classement, et des points pour les talents'), L('2 emplacements de partie en plus : 5 parties en cours'),
         L('Les statistiques : points de tes persos, réussite de tes affrontements')],
         `<button class="big" id="btnSeason">🗓️ ${L('Défi de la semaine')}</button><button class="ghost" id="btnStats2">📊 ${L('Statistiques')}</button>`)}
-      ${card('enigmes', '🧩', L('Les Énigmes'), [L('{n} positions tirées de vrais affrontements : gagne en 1 ou 2 coups, quoi que réponde le bot stratège', { n: pzList().length }),
-        L('Chaque énigme est vérifiée : il existe toujours une solution, et une seule ou presque'), L('De plus en plus dures : elles s’ouvrent l’une après l’autre')],
+      ${card('enigmes', '🧩', L('Les Énigmes'), [L('{n} positions tirées de vrais affrontements : gagne en 3 à 6 coups, quoi que réponde le bot stratège', { n: pzList().length }),
+        L('Chaque énigme est vérifiée : à chaque tour, une seule action mène à la victoire'), L('De plus en plus dures : elles s’ouvrent l’une après l’autre')],
         `<button class="big" id="btnPuzzle">🧩 ${L('Énigmes')}</button>`)}
       </div>
       <div class="menu-actions"><button class="ghost" id="btnExtBack">${L('Retour')}</button></div>`;
@@ -3259,5 +3291,5 @@ const isSh = id => !!T[E.TI[id]].fac;
   checkAch(null, true); // succès déjà mérités (anciennes parties) : sans annonce
 
   window.STRAT_TOKEN = token;
-  window.STRAT = { get G() { return G; }, E, render: () => render(), doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo(), get RUNS() { return RUNS; }, openRun: i => openRun(i), startMatch: m => startMatch(m), startDaily: () => startDaily(), get cur() { return cur; }, L, endNext: () => endNext(), dailyCfg: () => dailyCfg(), renderMenu: () => renderMenu() };
+  window.STRAT = { get G() { return G; }, E, render: () => render(), doAction: a => doAction(a), endGame: () => endGame(), undo: () => undo(), get RUNS() { return RUNS; }, openRun: i => openRun(i), startMatch: m => startMatch(m), startDaily: () => startDaily(), get cur() { return cur; }, L, endNext: () => endNext(), dailyCfg: () => dailyCfg(), renderMenu: () => renderMenu(), newRun: (c, f) => newRun(c, f) };
 })();

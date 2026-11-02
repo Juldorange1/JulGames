@@ -198,6 +198,8 @@
     2: ['Grove', 'A unit on it is under cover: neither shots (Archer, Crossbowman, Ballista, Lancer) nor area spells can kill it.'],
   });
   Object.assign(D.MAP, {
+    ruche: ["Hive", "A board of hexagons: each cell has 6 neighbours. Only for some bosses and weekly challenges."],
+    triangles: ["Triangles", "A board of triangles, pointing up and pointing down: you go straight, sideways or through the tips. Only in the Ascension."],
     classique: ['Classic', 'The 8×8 chess board, zones on the 2 back rows.'], plaine: ['Plain', 'A rectangle with no hole, 6 to 10 squares wide.'],
     coins: ['Cut corners', 'The 4 corners are trimmed.'], croix: ['Cross', 'Rectangles removed at the 4 corners: the map forms a cross.'],
     losange: ['Diamond', 'The edges are cut at an angle: wider in the middle.'], dentele: ['Jagged', 'Random squares are missing along the edges.'],
@@ -1268,6 +1270,26 @@
     "{n} autres règles": "{n} more rules",
     "Touche pour fermer": "Tap to close",
   });
+  Object.assign(D.ui, {
+    "La Ruche": "The Hive",
+    "cases hexagonales, 6 voisines chacune. « Tout droit » = vers le haut ou le bas ; les diagonales = les 4 voisines en biais ; à gauche ou à droite, on saute une colonne. Les cases allumées montrent toujours où aller.": "hexagonal cells, 6 neighbours each. “Straight” = up or down; the diagonals = the 4 slanted neighbours; to the left or right, you skip a column. The lit cells always show where to go.",
+    "Le plateau est fait d’hexagones : chaque case a 6 voisines. Les persos bougent autrement : regarde bien les cases allumées.": "The board is made of hexagons: each cell has 6 neighbours. Characters move differently: watch the lit cells.",
+  });
+  Object.assign(D.ui, {
+    "Les Triangles": "The Triangles",
+    "cases triangulaires, pointe en haut et pointe en bas. Un perso va tout droit, de côté, ou passe par les pointes (les 4 coins). Les cases allumées montrent toujours où aller.": "triangular cells, pointing up and pointing down. A character goes straight, sideways, or through the tips (the 4 corners). The lit cells always show where to go.",
+    "Chaque énigme est une position d’un vrai affrontement. Gagne en 3 à 6 coups, quoi que réponde le bot stratège : à chaque tour, une seule action mène à la victoire. Les 6 premières servent d’échauffement. Elles s’ouvrent l’une après l’autre.": "Each puzzle is a position from a real battle. Win in 3 to 6 moves, whatever the strategist bot replies: each turn, only one action leads to victory. The first 6 are a warm-up. They unlock one after another.",
+    "{n} positions tirées de vrais affrontements : gagne en 3 à 6 coups, quoi que réponde le bot stratège": "{n} positions taken from real battles: win in 3 to 6 moves, whatever the strategist bot replies",
+    "Chaque énigme est vérifiée : à chaque tour, une seule action mène à la victoire": "Every puzzle is checked: each turn, only one action leads to victory",
+    "Règles": "Rules",
+  });
+  Object.assign(D.ui, {
+    "Le tien a le bord de ta couleur.": "Yours has a rim in your colour.",
+  });
+  Object.assign(D.ui, {
+    "nouvelle case spéciale : {x}": "new special square: {x}",
+    "2 cases spéciales des hauts Cercles par combat": "2 high-Circle special squares per battle",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";
@@ -1326,3 +1348,10 @@ I18N.DICT.en.T.no[1] = "Slides as far as it wants through empty squares, straigh
 I18N.DICT.en.T.na[1] = "An enemy (not a god) caught in a pincer, next to at least 2 of your units, switches to your side.";
 I18N.DICT.en.T.of[1] = "Kills an enemy (not a god) caught in a pincer: next to at least 2 of your units.";
 I18N.DICT.en.T.n9[1] = "Jumps 2 squares to an empty square, or 3 squares to kill the enemy there (not a god), in a straight line or diagonally, over anything. Or appears on an empty square next to an enemy god.";
+// cases des hauts Cercles (2026-11-02)
+I18N.DICT.en.SPEC[7] = ["Leech", "At the start of your turn, if one of your units is on it: you take 10 mana from the opponent."];
+I18N.DICT.en.SPEC[8] = ["Throne", "At the start of your turn, if one of your units is on it: you take 2 actions this turn instead of one."];
+I18N.DICT.en.SPEC[9] = ["Trap", "Each side has a trap on its half. An enemy unit (even a god) that ends its turn on your trap dies."];
+I18N.DICT.en.SPEC[10] = ["Lava", "You can cross it, but a unit (not a god) that ends its side’s turn on it dies."];
+I18N.DICT.en.SPEC[11] = ["Mirror", "At the end of your turn, your unit on a mirror swaps places with whatever is on the twin mirror, across the board: nothing, or even an enemy."];
+I18N.DICT.en.SPEC[12] = ["Barracks", "At the start of your turn, if one of your units is on it: one more Soldier in your reserve (2 at most)."];

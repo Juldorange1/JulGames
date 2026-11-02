@@ -1211,4 +1211,20 @@ I18N.KEYS = [
   "Plus de retour en arrière dans ce combat : {n} au maximum.",
   "{n} autres règles",
   "Touche pour fermer",
+  // La Ruche, plateau hexagonal (2026-11-02)
+  "La Ruche",
+  "cases hexagonales, 6 voisines chacune. « Tout droit » = vers le haut ou le bas ; les diagonales = les 4 voisines en biais ; à gauche ou à droite, on saute une colonne. Les cases allumées montrent toujours où aller.",
+  "Le plateau est fait d’hexagones : chaque case a 6 voisines. Les persos bougent autrement : regarde bien les cases allumées.",
+  // Les Triangles, Règles, énigmes en 3 à 6 coups (2026-11-02)
+  "Les Triangles",
+  "cases triangulaires, pointe en haut et pointe en bas. Un perso va tout droit, de côté, ou passe par les pointes (les 4 coins). Les cases allumées montrent toujours où aller.",
+  "Chaque énigme est une position d’un vrai affrontement. Gagne en 3 à 6 coups, quoi que réponde le bot stratège : à chaque tour, une seule action mène à la victoire. Les 6 premières servent d’échauffement. Elles s’ouvrent l’une après l’autre.",
+  "{n} positions tirées de vrais affrontements : gagne en 3 à 6 coups, quoi que réponde le bot stratège",
+  "Chaque énigme est vérifiée : à chaque tour, une seule action mène à la victoire",
+  "Règles",
+  // cases des hauts Cercles (2026-11-02)
+  "Le tien a le bord de ta couleur.",
+  // cases des hauts Cercles, annonces (2026-11-02)
+  "nouvelle case spéciale : {x}",
+  "2 cases spéciales des hauts Cercles par combat",
 ];

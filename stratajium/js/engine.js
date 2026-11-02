@@ -186,6 +186,11 @@ function StratEngine() {
   // directions : 0 ↖ 1 ↑ 2 ↗ 3 ← 4 → 5 ↙ 6 ↓ 7 ↘
   const D8 = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
   const DIAG = [0, 2, 5, 7], ORTH = [1, 3, 4, 6], ALL = [0, 1, 2, 3, 4, 5, 6, 7];
+  // plateau hexagonal (« la Ruche ») : hexagones à côtés plats, une colonne sur deux décalée d'une demi-case vers le bas.
+  // Les 8 directions gardent leur sens : 1 haut, 6 bas, 0 / 2 / 5 / 7 les 4 voisines en biais (les « diagonales »),
+  // 3 / 4 la case à 2 colonnes sur la même rangée (gauche / droite, en passant par un coin). Les 6 vraies voisines (« collées ») :
+  const HEX6 = [0, 1, 2, 5, 6, 7];
+  const adjDirs = g => g.hex ? HEX6 : ALL;
   const rnd = n => Math.floor(Math.random() * n);
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
@@ -193,23 +198,28 @@ function StratEngine() {
   // carte = { W, H, N, ex (case existe), zone [mask0, mask1], border, ring2, center, mv (voisins), name }
   // Toujours symétrique par rotation d'un demi-tour : les deux joueurs ont exactement la même situation.
   function buildGeo(W, H, ex, zone0, name, spec, info) {
-    const N = W * H;
+    const N = W * H, hex = !!(info && info.hex);
     const at = (r, c) => (r >= 0 && r < H && c >= 0 && c < W && ex[r * W + c]) ? r * W + c : -1;
     const mv = new Int16Array(8 * N).fill(-1);
     for (let q = 0; q < N; q++) {
       if (!ex[q]) continue;
       const r = (q / W) | 0, c = q % W;
-      for (let d = 0; d < 8; d++) mv[d * N + q] = at(r + D8[d][0], c + D8[d][1]);
+      if (hex) { // W pair : le demi-tour (q → N-1-q) est bien la symétrie du plateau, les 2 camps restent à égalité
+        const o = c & 1; // colonne impaire = décalée vers le bas
+        const nb = [[r - 1 + o, c - 1], [r - 1, c], [r - 1 + o, c + 1], [r, c - 2], [r, c + 2], [r + o, c - 1], [r + 1, c], [r + o, c + 1]];
+        for (let d = 0; d < 8; d++) mv[d * N + q] = at(nb[d][0], nb[d][1]);
+      } else for (let d = 0; d < 8; d++) mv[d * N + q] = at(r + D8[d][0], c + D8[d][1]);
     }
     const zone = [new Uint8Array(N), new Uint8Array(N)];
     for (const q of zone0) { zone[0][q] = 1; zone[1][N - 1 - q] = 1; }
     const border = [], ring2 = [];
     const isB = new Uint8Array(N);
-    for (let q = 0; q < N; q++) if (ex[q] && ORTH.some(d => mv[d * N + q] < 0)) { border.push(q); isB[q] = 1; }
-    for (let q = 0; q < N; q++) if (ex[q] && !isB[q] && ORTH.some(d => mv[d * N + q] >= 0 && isB[mv[d * N + q]])) ring2.push(q);
+    const BD = hex ? HEX6 : ORTH;
+    for (let q = 0; q < N; q++) if (ex[q] && BD.some(d => mv[d * N + q] < 0)) { border.push(q); isB[q] = 1; }
+    for (let q = 0; q < N; q++) if (ex[q] && !isB[q] && BD.some(d => mv[d * N + q] >= 0 && isB[mv[d * N + q]])) ring2.push(q);
     // centre : les cases les plus proches du milieu (4, ou un peu plus en cas d'égalité)
     const cr = (H - 1) / 2, cc = (W - 1) / 2;
-    const cells = []; for (let q = 0; q < N; q++) if (ex[q]) cells.push([q, Math.hypot((q / W | 0) - cr, q % W - cc)]);
+    const cells = []; for (let q = 0; q < N; q++) if (ex[q]) cells.push([q, Math.hypot((q / W | 0) + (hex ? ((q % W) & 1) / 2 - .25 : 0) - cr, (q % W - cc) * (hex ? .87 : 1))]);
     cells.sort((a, b) => a[1] - b[1]);
     const d4 = cells[Math.min(3, cells.length - 1)][1];
     const center = cells.filter(x => x[1] <= d4 + 1e-9).map(x => x[0]);
@@ -225,7 +235,34 @@ function StratEngine() {
       for (const k of [0, 1]) { if (row.length > k) side[k].gauche.push(row[k]); if (row.length > k) side[k].droite.push(row[row.length - 1 - k]); }
     }
     const zl = [[], []]; for (let q = 0; q < N; q++) { if (zone[0][q]) zl[0].push(q); if (zone[1][q]) zl[1].push(q); }
-    return { W, H, N, ex, zone, zl, border, ring2, center, mv, name, nCells, side, spec: spec || new Uint8Array(N), info: info || null };
+    const g = { W, H, N, ex, zone, zl, border, ring2, center, mv, name, nCells, side, spec: spec || new Uint8Array(N), info: info || null };
+    if (hex) { // 3 couleurs (deux voisines n'ont jamais la même) ; les « cases foncées » des règles sont une des 3, choisie symétrique
+      g.hex = 1;
+      const col = q => { const c = q % W, x = c, z = ((q / W) | 0) - (c - (c & 1)) / 2; return ((x - z) % 3 + 3) % 3; };
+      let t = 0; for (let k = 0; k < 3; k++) { let ok = true; for (let q = 0; q < N && ok; q++) ok = ((col(q) + k) % 3 === 0) === ((col(N - 1 - q) + k) % 3 === 0); if (ok) { t = k; break; } }
+      g.tone = new Uint8Array(N); for (let q = 0; q < N; q++) g.tone[q] = (col(q) + t) % 3;
+      g.dark = new Uint8Array(N); for (let q = 0; q < N; q++) g.dark[q] = g.tone[q] === 0 ? 1 : 0;
+    }
+    // les Triangles : rangées de triangles pointe en haut / pointe en bas, en alternance. Les 8 directions restent celles du carré :
+    // haut, bas, gauche, droite et les 4 coins (elles touchent toutes la case par un côté ou une pointe). W + H impair :
+    // le demi-tour (q → N-1-q) retourne bien chaque triangle, les 2 camps restent à égalité.
+    if (info && info.tri) {
+      g.tri = 1;
+      g.tone = new Uint8Array(N); for (let q = 0; q < N; q++) g.tone[q] = ((q / W | 0) + q % W) & 1 ? 0 : 1; // pointe en bas = foncé
+      g.dark = new Uint8Array(N); for (let q = 0; q < N; q++) g.dark[q] = (q % W) & 1; // pour les règles : une colonne sur deux (symétrique)
+    }
+    return g;
+  }
+  function triMap() {
+    const W = 9, H = 8, ex = new Uint8Array(W * H).fill(1), z = [];
+    for (let q = (H - 2) * W; q < W * H; q++) z.push(q);
+    return buildGeo(W, H, ex, z, 'Triangles', null, { kinds: ['triangles'], zk: 'rangees', tri: 1 });
+  }
+  // la Ruche : 8 colonnes d'hexagones, zones de placement sur les 2 rangées du fond
+  function hexMap() {
+    const W = 8, H = 8, ex = new Uint8Array(W * H).fill(1), z = [];
+    for (let q = (H - 2) * W; q < W * H; q++) z.push(q);
+    return buildGeo(W, H, ex, z, 'Ruche', null, { kinds: ['ruche'], zk: 'rangees', hex: 1 });
   }
 
   const SIDES = ['haut', 'bas', 'gauche', 'droite'];
@@ -251,6 +288,8 @@ function StratEngine() {
   // les cartes : [id, nom, niveau de sauvagerie minimum, description]
   const MAPS = [
     ['classique', 'Classique', 0, 'Le plateau 8×8 des échecs, zones sur les 2 rangées du fond.'],
+    ['ruche', 'Ruche', 5, 'Un plateau d’hexagones : chaque case a 6 voisines. Seulement pour certains boss et défis de la semaine.'], // niveau 5 : jamais tirée au hasard
+    ['triangles', 'Triangles', 5, 'Un plateau de triangles, pointe en haut et pointe en bas : on va droit, de côté ou par les pointes. Seulement dans l’Ascension.'],
     ['plaine', 'Plaine', 1, 'Un rectangle sans trou, de 6 à 10 cases de large.'],
     ['coins', 'Coins coupés', 2, 'Les 4 coins sont rognés.'],
     ['croix', 'Croix', 2, 'Des rectangles retirés aux 4 coins : la carte forme une croix.'],
@@ -281,7 +320,35 @@ function StratEngine() {
     { id: 'autel', name: 'Autel des ombres', desc: 'Au début de ton tour, si un de tes persos des Ombres est dessus : +20 mana.' },
     { id: 'lumiere', name: 'Lumière sacrée', desc: 'Un perso des Ombres (pas un dieu) qui y est encore à la fin du tour de son camp meurt.' },
     { id: 'portail', name: 'Portail', desc: 'À la fin de ton tour, ton perso posé sur un portail passe par le portail jumeau (de l’autre côté de la carte), s’il est libre.' },
+    // cases des hauts Cercles (une ou deux paires par combat, à partir du Cercle 5 : voir DEEP_SPECS)
+    { id: 'sangsue', name: 'Sangsue', desc: 'Au début de ton tour, si un de tes persos est dessus : tu prends 10 mana à l’adversaire.' },
+    { id: 'trone', name: 'Trône', desc: 'Au début de ton tour, si un de tes persos est dessus : tu fais 2 actions ce tour au lieu d’une.' },
+    { id: 'piege', name: 'Piège', desc: 'Chaque camp a un piège de son côté. Un perso adverse (même un dieu) qui finit son tour sur ton piège meurt.' },
+    { id: 'lave', name: 'Lave', desc: 'On peut la traverser, mais un perso (pas un dieu) qui y finit le tour de son camp meurt.' },
+    { id: 'miroir', name: 'Miroir', desc: 'À la fin de ton tour, ton perso sur un miroir échange sa place avec ce qu’il y a sur le miroir jumeau, de l’autre côté de la carte : rien, ou même un ennemi.' },
+    { id: 'caserne', name: 'Caserne', desc: 'Au début de ton tour, si un de tes persos est dessus : un Soldat de plus dans ta réserve (2 au plus).' },
   ];
+  // à partir de quel Cercle chaque case des hauts Cercles peut sortir
+  const DEEP_SPECS = [[5, 7], [6, 12], [7, 10], [8, 9], [9, 11], [10, 8]];
+  // camp du piège : celui dont c'est la moitié de la carte (le camp 0 est en bas)
+  const trapOwn = (g, q) => ((q / g.W) | 0) >= g.H / 2 ? 0 : 1;
+  // cases des hauts Cercles : des paires symétriques, hors des zones de placement
+  function addDeepSpecs(g, kinds) {
+    const N = g.N, zs = new Set(g.zl[0].concat(g.zl[1])), cr = (g.H - 1) / 2;
+    for (const k of kinds) {
+      for (let t = 0; t < 120; t++) {
+        const q = rnd(N), m = N - 1 - q, r = q / g.W | 0, dr = Math.abs(r - cr);
+        if (!g.ex[q] || q === m || g.spec[q] || g.spec[m] || zs.has(q) || zs.has(m)) continue;
+        if ((k === 7 || k === 8) && dr > 1.5) continue; // sangsue et trône : au milieu, qu'on se les dispute
+        if (k === 9 && (dr < 1 || dr > g.H / 2 - 1.5)) continue; // piège : bien dans une moitié, devant la zone
+        if (k === 11 && dr < 1.5) continue; // miroirs : loin du milieu
+        if ((k === 10 || k === 12) && dr > g.H / 2 - 2) continue;
+        g.spec[q] = g.spec[m] = k; break;
+      }
+    }
+    g.deep = 1; delete g._sl;
+    return g;
+  }
   // courants (DLC « Les Abysses ») : des traînées de 2 à 3 cases, symétriques ; g.cdir = direction (indice de D8)
   function addCurrents(g) {
     const N = g.N, W = g.W, H = g.H, cdir = new Int8Array(N).fill(-1);
@@ -488,7 +555,7 @@ function StratEngine() {
   // la mort d'un garde maître ne compte pas parmi les gardes perdus
   const isMast = (s, p, i) => !!(s.mast && s.mast[p].includes(i));
   const costOf = (s, p, t) => t.cost ? Math.max(0, t.cost - (isMast(s, p, t.i) ? 15 : 0)) : 0;
-  const isDark = (g, q) => ((((q / g.W) | 0) + (q % g.W)) & 1) === 1;
+  const isDark = (g, q) => g.dark ? g.dark[q] === 1 : ((((q / g.W) | 0) + (q % g.W)) & 1) === 1;
   const isHome = (g, q, p) => g.zone[p][q] === 1;
 
   function aliveMages(s, p) {
@@ -571,8 +638,8 @@ function StratEngine() {
   // cases spéciales de la carte, listées une fois (le bot n'a plus à parcourir toute la carte à chaque fin de tour)
   function specList(g) {
     if (g._sl && g._sl.n === g.N) return g._sl;
-    const L = { n: g.N, k1: [], k4: [], k5: [], k6: [] };
-    if (g.spec) for (let q = 0; q < g.N; q++) { const k = g.spec[q]; if (k === 1) L.k1.push(q); else if (k === 4) L.k4.push(q); else if (k === 5) L.k5.push(q); else if (k === 6) L.k6.push(q); }
+    const L = { n: g.N, k1: [], k4: [], k5: [], k6: [], k7: [], k8: [], k9: [], k10: [], k11: [], k12: [] };
+    if (g.spec) for (let q = 0; q < g.N; q++) { const k = g.spec[q]; if (k && k !== 2 && k !== 3) L['k' + k].push(q); }
     return (g._sl = L);
   }
   const canLand = (s, q, p) => s.b[q] === 0 || foe(s, q, p);
@@ -673,7 +740,7 @@ function StratEngine() {
     for (let q = 0; q < s.g.N; q++) if (s.b[q] > 0 && own(s.b[q]) !== p && T[tix(s.b[q])].cat === 'S' && !isBl(s, q) && !isBoss(s, q) && adjOf(s, q).some(z => s.b[z] > 0 && own(s.b[z]) === p)) out.push(q);
     return out;
   }
-  function adjOf(s, q) { const out = []; for (const d of ALL) { const t = nx(s.g, q, d); if (t >= 0) out.push(t); } return out; }
+  function adjOf(s, q) { const out = []; for (const d of adjDirs(s.g)) { const t = nx(s.g, q, d); if (t >= 0) out.push(t); } return out; }
 
   // séquences de clics possibles pour activer le perso en `from` (clic = case, ou chaîne pour un bouton)
   function genAct(s, from, full) {
@@ -981,7 +1048,7 @@ function StratEngine() {
         const to = nx(g, from, d); if (to >= 0 && s.b[to] === 0) { s.b[to] = s.b[q]; s.b[q] = 0; }
         break;
       }
-      case 'sr': for (const d of ALL) {
+      case 'sr': for (const d of adjDirs(g)) {
         const q = nx(g, from, d); if (q < 0 || !(s.b[q] > 0 && own(s.b[q]) === opp) || isBl(s, q) || isBoss(s, q)) continue;
         const to = nx(g, q, d);
         if (to < 0 || s.b[to] === VOID) kill(s, q, false); else if (s.b[to] === 0) { s.b[to] = s.b[q]; s.b[q] = 0; }
@@ -1123,6 +1190,16 @@ function StratEngine() {
       for (const q of sl2.k6) if (s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q) && s.b[s.g.N - 1 - q] === 0) tp.push(q);
       for (const q of tp) { const m = s.g.N - 1 - q; if (s.b[m] === 0 && s.b[q] > 0) { s.b[m] = s.b[q]; s.b[q] = 0; } }
     }
+    if (sp2 && s.g.deep) { // cases des hauts Cercles
+      const N = s.g.N, mine = q => s.b[q] > 0 && own(s.b[q]) === p && !isBoss(s, q);
+      // miroirs : ton perso échange sa place avec ce qu'il y a sur le miroir jumeau (sauf un de tes persos ou un boss)
+      const sw = []; for (const q of sl2.k11) { const m = N - 1 - q; if (mine(q) && !isBoss(s, m) && !(s.b[m] > 0 && own(s.b[m]) === p)) sw.push(q); }
+      for (const q of sw) { const m = N - 1 - q, t = s.b[q]; s.b[q] = s.b[m]; s.b[m] = t; }
+      let k0 = s._k || 0;
+      for (const q of sl2.k10) if (mine(q) && !IS_M[tix(s.b[q])]) kill(s, q); // lave
+      for (const q of sl2.k9) if (mine(q) && trapOwn(s.g, q) !== p) kill(s, q); // piège adverse
+      if ((s._k || 0) > k0) checkWin(s);
+    }
     // fin du tour de p : ses persos maudits encore sur leur case meurent, ses chaînes s'usent
     if (s.curse) { for (const c of s.curse) if (c.p === p && s.b[c.q] > 0 && own(s.b[c.q]) === p && !isBoss(s, c.q)) kill(s, c.q); s.curse = s.curse.filter(c => c.p !== p); if (!s.curse.length) s.curse = null; }
     if (s.frz) { for (const f of s.frz) if (f.p === p) f.n--; s.frz = s.frz.filter(f => f.n > 0); if (!s.frz.length) s.frz = null; }
@@ -1144,7 +1221,12 @@ function StratEngine() {
     if (s.shroud && s.shroud.p === q) s.shroud = null; // le linceul aussi
     if (s.ev === 'maree') s.mana[q] += 10;
     // sources de mana
-    if (s.g.spec) { const sl = specList(s.g); for (const x of sl.k1) if (s.b[x] > 0 && own(s.b[x]) === q) s.mana[q] += 10; for (const x of sl.k4) if (s.b[x] > 0 && own(s.b[x]) === q && FAC[tix(s.b[x])]) s.mana[q] += 20; }
+    if (s.g.spec) { const sl = specList(s.g); for (const x of sl.k1) if (s.b[x] > 0 && own(s.b[x]) === q) s.mana[q] += 10; for (const x of sl.k4) if (s.b[x] > 0 && own(s.b[x]) === q && FAC[tix(s.b[x])]) s.mana[q] += 20;
+      if (s.g.deep) {
+        for (const x of sl.k7) if (s.b[x] > 0 && own(s.b[x]) === q) { const v = Math.min(10, s.mana[1 - q]); s.mana[1 - q] -= v; s.mana[q] += v; } // sangsue
+        if (sl.k8.some(x => s.b[x] > 0 && own(s.b[x]) === q && !isBoss(s, x))) s.acts++; // trône
+        for (const x of sl.k12) if (s.b[x] > 0 && own(s.b[x]) === q && !isBoss(s, x) && s.res[q][S_I] < 2) s.res[q][S_I]++; // caserne
+      } }
     if (s.goal) {
       if (s.goal === 'colline') {
         let mine = 0, theirs = 0;
@@ -1738,6 +1820,10 @@ function StratEngine() {
     // persos que seule ton armée peut recruter : ils t'attendent dans la réserve commune, inutile de perdre un tour à les prendre tôt
     if (s.fac && s.ev !== 'illimite') for (let o = 0; o < 2; o++) for (let k = 0; k < tys.length; k++) { const i = tys[k]; if (s.pool[i] && canRec(s, o, i) && !canRec(s, 1 - o, i)) sc += (o === p ? 1 : -1) * s.pool[i] * VAL[i] * (CATN[i] === 0 ? 0.75 : 0.8) * F.res * 0.5; }
     sc += (manaVal(s, p, needB[p]) - manaVal(s, 1 - p, needB[1 - p])) * F.mana;
+    if (s.g.deep) { // tenir une case des hauts Cercles rapporte à chaque tour
+      const sl = specList(s.g), on = (L, v) => { for (const x of L) if (s.b[x] > 0) sc += own(s.b[x]) === p ? v : -v; };
+      on(sl.k8, 1.2); on(sl.k7, 0.4); on(sl.k12, 0.5);
+    }
     if (s.goal) sc += goalEval(s, p, onB);
     else {
       const gp = x => GPRESS[Math.min(Math.max(0, s.lost[x][1] - (gNeed(s, x) - 4)), 7)]; // un camp qui doit perdre 5 gardes a un garde de marge
@@ -2106,7 +2192,7 @@ function StratEngine() {
   }
 
   return {
-    RETIRED, BOSS_ARMY, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, MID, TWIN, canRec, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
-    gNeed, stats, analyseDeep, BOT_NODES, own, tix, enc, isHome, isDark, makeMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
+    RETIRED, BOSS_ARMY, BOSSES, BOSSES_DLC, SH_BOSSES, addShadowSpecs, addDeepSpecs, DEEP_SPECS, trapOwn, MID, TWIN, canRec, DLC_M, DLC_G, SH_M, SH_G, SH_START_M, SH_START_G, FAC, isIce, addCurrents, T, NT, TI, EVENTS, GOALS, PERSOS, MAPS, ZONES, SPECIALS, VOID, SHAPES, ALL_M, ALL_G, START_M, START_G, isBl, areaOf, SIDES, buildGeo, withSeed,
+    gNeed, stats, analyseDeep, BOT_NODES, own, tix, enc, isHome, isDark, makeMap, hexMap, triMap, newGame, clone, gen, genAct, apply, think, evalS, aliveMages, placeFree, loses,
   };
 }
