@@ -80,20 +80,23 @@ function genBoss(salle, seed, mega, eviter) {
       l.forEach(id => deja.add(id)); src.push({ cycle: l });
     }
   } else src = esp.phases.map(ph => ({ cycle: ph.cycle.slice(), carte: ph.carte }));
-  if ((mega && salle >= 10) || (!mega && salle >= 18 && r.chance(.25))) {
+  // le combat change en route : à partir de la salle 6, souvent une 3e phase (nouvelle attaque + attaque de fond) ;
+  // les méga boss ont toujours une phase de plus et une attaque inédite par phase
+  if (mega && salle >= 5) src.forEach(ph => { const extra = r.pick(pool.filter(id => !ph.cycle.includes(id) && ATK[id].cat !== 'terrain')); ph.cycle.splice(r.int(1, ph.cycle.length), 0, extra); });
+  if (mega || (salle >= 6 && r.chance(Math.min(.75, .35 + .02 * salle)))) {
     const last = src[src.length - 1], extra = r.pick(pool.filter(id => !last.cycle.includes(id)));
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
-  const invoc = !esp.pasInvoc && salle >= 4 && (r.chance(.22) || (mega && r.chance(.4))) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle']) : null;
+  const invoc = !esp.pasInvoc && salle >= 3 && (r.chance(.42) || (mega && r.chance(.6))) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle', 'totem', 'poseur']) : null;
   let carte = 'normale';
   const phases = src.map((ph, i) => {
     if (ph.carte) carte = ph.carte;
     else if (i === 0) carte = salle >= 6 && r.chance(.25) ? r.pick(['cercle', 'piliers', 'lave', 'glace']) : 'normale';
-    else if (r.chance(.45)) carte = r.pick(Object.keys(CARTES).filter(k => k !== carte));
+    else if (mega || r.chance(.7)) carte = r.pick(Object.keys(CARTES).filter(k => k !== carte));
     const cyc = ph.cycle.slice();
-    if (invoc && i >= 1) cyc.splice(1, 0, 'invocation');
+    if (invoc && (i >= 1 || mega)) cyc.splice(1, 0, 'invocation');
     const rr = esp.chimere ? r : rp;
-    const fondId = ph.finale ? r.pick(ATK_FOND) : null;
+    const fondId = ph.finale || (mega && i >= 1) ? r.pick(ATK_FOND) : null;
     return {
       nom: ph.finale ? 'Dernier souffle' : NOMS_PHASES[Math.min(NOMS_PHASES.length - 2, i)],
       carte, finale: !!ph.finale,
@@ -105,10 +108,11 @@ function genBoss(salle, seed, mega, eviter) {
   let nTr = salle < 4 ? 0 : salle < 10 ? (r.chance(.45) ? 1 : 0) : 1 + (r.chance(.3) ? 1 : 0);
   if (mega) nTr = salle >= 20 ? Math.min(2, nTr + 1) : Math.min(1, nTr);
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
-  // vie pensée pour ~2 min (boss normal) et ~3 min (méga boss) joués parfaitement ; la difficulté monte surtout par le rythme
-  const hpMax = Math.round(9200 * (1 + .006 * Math.min(salle, 60)) * (mega ? 1.45 : 1) * (.85 + .15 * phases.length) * df.hp * (esp.pv || 1));
+  // vie mesurée par un robot qui joue parfaitement : 1 à 2 min par combat, méga boss compris (ils ont plus d'attaques,
+  // pas plus de vie) ; les PV sont les mêmes dans toutes les difficultés, la difficulté change le rythme et les dégâts
+  const hpMax = Math.round(7000 * (1 + .006 * Math.min(salle, 60)) * (mega ? 1.05 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
-    cotes: r.int(3, 9), style: r.pick(FORMES_CHIMERE), pics: r.int(0, 12), picL: r.range(.15, .45),
+    cotes: r.int(3, 9), style: formePourAttaques((() => { const k = {}; for (const q of phases) for (const a of q.cycle) { const cc = ATK[a.id].cat; k[cc] = (k[cc] || 0) + 1; } return k; })(), r), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
   };
   return {
@@ -139,6 +143,8 @@ function initBoss(b) {
   b.introY = b.y;
 }
 function phaseCourante(b) { return b.def.phases[b.phase]; }
+// au-delà de 60 s, le colosse s'épuise et encaisse de plus en plus : aucun combat ne s'éternise
+function fatigueBoss() { const t = G.chrono || 0; return t > 60 && !(G.def && (G.def.invincible || G.def.indestructible)) ? 1 + (t - 60) * .03 : 1; }
 function seuilPhase(b, i) { return b.hpMax * (1 - (i + 1) / b.def.phases.length); }
 function bouclierBoss(b) {
   if (b.esp.bouclier && b.esp.bouclier(b)) return true;
@@ -209,7 +215,7 @@ function majBoss(b, dt) {
     else { b.specT -= dtE; if (b.specT <= 0) { b.spectral = 2.6; b.specT = 8 + R() * 4; } }
   }
   if (tr.includes('carapace') && b.armure <= 0) { b.armureCd -= dtE; if (b.armureCd <= 0) { b.armure = b.armureMax; G.annonce('La carapace repousse', '#bbb', 1.2); } }
-  if (tr.includes('regen')) { b.regenT += dtE; if (b.regenT > 2) { const lim = b.phase > 0 ? seuilPhase(b, b.phase - 1) : b.hpMax; b.hp = Math.min(lim, b.hp + b.hpMax * .012 * dtE); } }
+  if (tr.includes('regen') && fatigueBoss() === 1) { b.regenT += dtE; if (b.regenT > 2) { const lim = b.phase > 0 ? seuilPhase(b, b.phase - 1) : b.hpMax; b.hp = Math.min(lim, b.hp + b.hpMax * .012 * dtE); } }
   if (tr.includes('cristaux') && !G.minions.some(m => m.type === 'cristal')) { b.cristT -= dtE; if (b.cristT <= 0) poserCristaux(b); }
   if (b.main) { if (!pasRunner(b.main)) { b.main = null; b.ctl = false; b.moveMul = 1; } }
   if (b.fond) { if (!pasRunner(b.fond)) b.fond = null; }
@@ -375,6 +381,7 @@ function dessinerBoss(c, b) {
   if (b.def.legendaire) { sprite(c, 'circle6', '#ffb43d', 0, 0, r * 3.6, t * .4, .55, true); if (R() < .3) G.parts.push({ x: b.x + R.range(-r, r), y: b.y + R.range(-r, r), vx: 0, vy: -40, life: .8, max: .8, col: '#ffd86b', r: 2, add: true }); }
   if (b.def.mega) { c.strokeStyle = '#ffd86b'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.globalAlpha = al * (.5 - i * .12); c.beginPath(); c.arc(0, 0, r * (1.35 + i * .15) + Math.sin(t * 2 + i) * 4, 0, TAU); c.stroke(); } c.globalAlpha = al; }
   if (b.wind > 0) { const k = 1 - b.wind / b.windMax; c.strokeStyle = hsl(h, 100, 78, .95); c.lineWidth = 3 + 3 * k; c.beginPath(); c.arc(0, 0, r * (1.9 - .8 * k), 0, TAU); c.stroke(); }
+  armement(c, b, r, t, h, ph, 'dessous');
   const forme = FORMES[L.style];
   if (forme) {
     forme(c, b, r, t, h, ph, b.eyesA);
@@ -421,6 +428,7 @@ function dessinerBoss(c, b) {
     c.fillStyle = ec; c.beginPath(); c.arc(ex + Math.cos(ea) * er * .35, ey + Math.sin(ea) * er * .35, er * .5, 0, TAU); c.fill();
   }
   }
+  armement(c, b, r, t, h, ph, 'dessus');
   for (let i = 0; i < L.sats; i++) {
     const a = t * (1 + i * .2) + i * TAU / L.sats, rr = r * (1.45 + .1 * Math.sin(t + i));
     c.globalCompositeOperation = 'lighter'; c.drawImage(glow(hsl(h, 100, 65, .8), 10 + ph * 2), Math.cos(a) * rr - 10 - ph * 2, Math.sin(a) * rr - 10 - ph * 2); c.globalCompositeOperation = 'source-over';

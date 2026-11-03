@@ -66,15 +66,35 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { Input.k[e.code] = false; });
 addEventListener('blur', () => Input.clear());
 addEventListener('mousemove', e => { Input.sx = e.clientX; Input.sy = e.clientY; });
+// les boutons de la souris sont des « touches » comme les autres (Mouse0 = gauche, Mouse1 = molette, Mouse2 = droit, Mouse3/4 = côtés)
 addEventListener('mousedown', e => {
   Son.init();
+  const c = 'Mouse' + e.button;
+  if (!Input.k[c]) Input.p[c] = true;
+  Input.k[c] = true;
   if (e.button === 0) { Input.lmb = true; Input.lp = true; }
   if (e.button === 2) { Input.rmb = true; Input.rp = true; }
+  if (e.button > 2 || e.button === 1) e.preventDefault();
 });
 addEventListener('mouseup', e => {
+  Input.k['Mouse' + e.button] = false;
   if (e.button === 0) Input.lmb = false;
   if (e.button === 2) Input.rmb = false;
+  if (e.button > 2) e.preventDefault();
 });
+addEventListener('auxclick', e => e.preventDefault());
+// nom lisible d'une touche (selon la disposition du clavier quand le navigateur la donne : Z Q S D en AZERTY)
+let DISPO = null;
+try { if (navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(m => DISPO = m).catch(() => { }); } catch (e) { }
+function nomTouche(c) {
+  if (!c) return '—';
+  const fixes = { Mouse0: 'Clic gauche', Mouse1: 'Clic molette', Mouse2: 'Clic droit', Mouse3: 'Souris 4', Mouse4: 'Souris 5', Space: 'Espace', ShiftLeft: 'Maj', ShiftRight: 'Maj droite',
+    ControlLeft: 'Ctrl', ControlRight: 'Ctrl droit', AltLeft: 'Alt', Tab: 'Tab', Escape: 'Échap', Enter: 'Entrée', CapsLock: 'Verr. maj', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
+  if (fixes[c]) return fixes[c];
+  if (DISPO && DISPO.get(c)) return DISPO.get(c).toUpperCase();
+  return c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'Pavé ');
+}
+function nomToucheCourt(c) { return ({ Mouse0: 'Clic G', Mouse1: 'Molette', Mouse2: 'Clic D' })[c] || nomTouche(c); }
 addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------- Son : échantillons CC0 (dossier sfx/), synthèse en secours, réverbération ----------
@@ -253,9 +273,9 @@ const Musique = {
 // ---------- Sauvegarde ----------
 const SAVE_KEY = 'colosses_v1';
 const DIFFS = {
-  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: .85, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
+  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: 1, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
   guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
-  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.6, hp: 1.15, vit: 1.18, tele: .8, idle: .62, dens: 1.3, soin: 15 }
+  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.6, hp: 1, vit: 1.18, tele: .8, idle: .62, dens: 1.3, soin: 15 }
 };
 function progVide() { return { palier: 0, record: 0, up: { p: {}, s: {}, t: {} }, run: null, megaTemps: {} }; }
 const Save = {
@@ -269,7 +289,7 @@ const Save = {
       chasse: [],
       defis: {}, essais: {},
       opts: { master: 1, vol: .6, musique: .5, tremble: 1, auto: false, chiffres: true, lumiere: true, particules: 'normale', fps: false, alerte: 'rouge', nomsAttaques: true, autoPause: true, decorAnime: true, contour: false, viseur: 'systeme', viseurCol: '#ffffff', vitesse: 1, luminosite: 1, chrono: true, zoomMenu: 1,
-        touches: { spec: 'KeyE', tal: 'Space', tal2: 'ShiftLeft', pause: 'KeyP' } }
+        touches: { haut: 'KeyW', bas: 'KeyS', gauche: 'KeyA', droite: 'KeyD', tir: 'Mouse0', spec: 'Mouse2', spec2: 'KeyE', tal: 'Space', tal2: 'ShiftLeft', pause: 'KeyP' } }
     };
   },
   load() {
@@ -290,6 +310,8 @@ const Save = {
     for (const k in DIFFS) { if (!d.prog[k]) d.prog[k] = progVide(); for (const c of ['p', 's', 't']) if (!d.prog[k].up[c]) d.prog[k].up[c] = {}; }
     if (!DIFFS[d.diff]) d.diff = 'guerrier';
     if (typeof d.opts.tremble === 'boolean') d.opts.tremble = d.opts.tremble ? 1 : 0;
+    // ancienne configuration : la spéciale était « clic droit + une touche » → elle devient deux touches réglables
+    if (d.opts.touches && !d.opts.touches.tir) { d.opts.touches.spec2 = d.opts.touches.spec || 'KeyE'; d.opts.touches.spec = 'Mouse2'; }
     for (const k in def.opts.touches) if (!d.opts.touches[k]) d.opts.touches[k] = def.opts.touches[k];
     this.d = d;
   },
@@ -305,7 +327,10 @@ function QUAL() { return { faible: .4, normale: 1, elevee: 1.4 }[Save.d.opts.par
 
 // ---------- Lueurs pré-rendues ----------
 const glowCache = {};
+// le rayon est arrondi (sinon chaque taille animée créait une nouvelle image : fuite de mémoire qui figeait le jeu)
+let glowN = 0;
 function glow(col, r) {
+  r = r < 24 ? Math.max(1, Math.round(r)) : Math.round(r / 6) * 6;
   const k = col + '|' + r;
   let c = glowCache[k];
   if (c) return c;
@@ -317,6 +342,7 @@ function glow(col, r) {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, s, s);
+  if (++glowN > 900) { for (const q in glowCache) delete glowCache[q]; glowN = 1; }
   glowCache[k] = c;
   return c;
 }

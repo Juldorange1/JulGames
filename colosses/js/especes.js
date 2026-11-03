@@ -37,7 +37,7 @@ defEsp('me_salve', {
     yield* temps(b, 1);
     const a0 = vise(b);
     for (let i = 0; i < 4; i++) { anneauTirs(b.x, b.y, p.n, a0 + (i % 2) * Math.PI / p.n, p.spd, { r: 7 }); Son.play('salve'); yield* temps(b, 1); }
-    anneauTirs(b.x, b.y, p.n * 2, a0, p.spd * .8, { r: 8 }); G.secoue(5); Son.play('choc');
+    anneauTirs(b.x, b.y, Math.min(26, Math.round(p.n * 1.5)), a0, p.spd * .8, { r: 8 }); G.secoue(5); Son.play('choc');
     yield* temps(b, 1);
     ouvrir(b, b.s.temps * 2.3, 3);
     yield b.s.temps * 2;
@@ -193,7 +193,7 @@ defEsp('hy_morsure', {
 
 // =============== La Tisseuse ===============
 espece('tisseuse', {
-  pv: 0.9, nom: 'la Tisseuse', hue: 285, r: 48, mouv: 'errant',
+  pv: 0.65, nom: 'la Tisseuse', hue: 285, r: 48, mouv: 'errant',
   forme: { style: 'araignee', cotes: 8, pics: 8, picL: .5, yeux: 4, sats: 0, anneaux: 0, rot: .1, creux: .45 },
   meca: 'Elle tend des fils mortels entre ses nœuds. Casse un nœud pour couper ses fils. Si tous ses nœuds tombent, elle s\'emmêle : assommée et ×2.',
   maj(b) {
@@ -229,7 +229,7 @@ function spectreAncres(n) {
   return out;
 }
 espece('spectre', {
-  pv: 0.75, nom: 'le Spectre', hue: 265, r: 46, mouv: 'aucun', sansTraits: ['spectral'],
+  pv: 0.55, nom: 'le Spectre', hue: 265, r: 46, mouv: 'aucun', sansTraits: ['spectral'],
   forme: { style: 'fantome', cotes: 3, pics: 0, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'Intouchable, sauf quand il se matérialise sur une de ses ancres (3 s). Il les visite toujours dans le même ordre et la prochaine luit : attends-le là-bas.',
   init(b) { b.s.anc = spectreAncres(4); b.s.ordre = [0, 1, 2, 3]; b.s.i = 0; b.s.mat = 0; b.spectral = 99; const a = b.s.anc[0]; b.x = a.x; b.y = a.y; },
@@ -303,8 +303,10 @@ defEsp('fo_surchauffe', {
     b.wind = warn; b.windMax = warn; Son.play('alerte');
     zoneC(b.x, b.y, 230, warn, { dmg: DMG(1.4) });
     yield warn;
-    anneauTirs(b.x, b.y, p.n, R() * TAU, p.spd);
-    onde(b.x, b.y, 320, { th: 18, r: 270, life: 2.5 });
+    // deux couloirs opposés dans les balles ET dans l'onde (avant : une onde pleine, impossible à esquiver sans talent)
+    const a0 = R() * TAU, gaps = [[a0, .8], [a0 + Math.PI, .8]];
+    for (let k = 0; k < p.n; k++) { const a = a0 + k * TAU / p.n; if (gaps.some(g => Math.abs(angDiff(a, g[0])) < .45)) continue; EB(b.x, b.y, a, p.spd); }
+    onde(b.x, b.y, 320, { th: 18, r: 270, life: 2.5, gaps });
     G.secoue(16); b.s.ch = 0; b.ctl = false;
     G.etourdir(b, 3.5, 'Refroidi !'); ouvrir(b, 3.5, 2.5);
   }
@@ -312,7 +314,7 @@ defEsp('fo_surchauffe', {
 
 // =============== La Reine de l'essaim ===============
 espece('reine', {
-  pv: 0.8, nom: 'la Reine de l\'essaim', hue: 75, r: 52, mouv: 'orbiteur', sansTraits: ['cristaux'], pasInvoc: true,
+  pv: 0.6, nom: 'la Reine de l\'essaim', hue: 75, r: 52, mouv: 'orbiteur', sansTraits: ['cristaux'], pasInvoc: true,
   forme: { style: 'insecte', cotes: 6, pics: 6, picL: .3, yeux: 3, sats: 6, anneaux: 1, rot: .2, creux: .55 },
   meca: 'Elle est protégée tant qu\'au moins 3 drones vivent. Ils sortent en formation : les armes de zone les balaient vite. Tue l\'essaim, puis frappe la Reine.',
   bouclier(b) { return G.minions.filter(m => m.type !== 'cristal' && m.spawn <= 0).length >= 3; },
@@ -391,14 +393,15 @@ espece('horloger', {
   ]
 });
 defEsp('ho_aiguilles', {
-  nom: 'Aiguilles', cat: 'rayon', conseil: 'La grande aiguille tourne vite, la petite lentement, toujours dans le même sens. Suis la grande juste derrière elle.',
+  nom: 'Aiguilles', cat: 'rayon', conseil: 'La grande aiguille tourne vite, la petite lentement, toujours dans le même sens. Recule hors du cadran, ou suis la grande juste derrière elle ; à MIDI, fonce frapper.',
   params: (r, D) => ({ s: D.S }),
   *gen(b, p) {
     b.ctl = true;
     const sens = b.phase ? -1 : 1, warn = 1 * b.D.T, dur = 7.5, aM = vise(b) + Math.PI;
     b.wind = warn; b.windMax = warn;
-    const min = rayon(b.x, b.y, aM, 1500, 22, warn, dur, { suit: b, rot: .6 * sens });
-    const heu = rayon(b.x, b.y, aM + Math.PI * .7, 1500, 34, warn, dur, { suit: b, rot: .22 * sens });
+    // aiguilles de longueur limitée : loin du cadran on est à l'abri (avant, la pointe allait plus vite que le héros)
+    const min = rayon(b.x, b.y, aM, 560, 22, warn, dur, { suit: b, rot: .5 * sens });
+    const heu = rayon(b.x, b.y, aM + Math.PI * .7, 400, 34, warn, dur, { suit: b, rot: .22 * sens });
     if (b.phase) rayon(b.x, b.y, aM + Math.PI * 1.3, 260, 14, warn, dur, { suit: b, rot: 1 * sens, col: '#ffe9a0' });
     let t = 0, lock = 0;
     while (t < warn + dur) {
@@ -427,7 +430,7 @@ defEsp('ho_engrenages', {
 
 // =============== Le Serpent ===============
 espece('serpent', {
-  nom: 'le Serpent', hue: 150, r: 30, mouv: 'serpent', pv: .8,
+  nom: 'le Serpent', hue: 150, r: 30, mouv: 'serpent', pv: .7,
   forme: { style: 'poly', cotes: 6, pics: 0, yeux: 2, sats: 0, anneaux: 0, rot: 0, creux: .5 },
   meca: 'Seules sa tête (×1,4) et le bout de sa queue (lumière jaune, ×3) sont vulnérables. Son corps arrête tes tirs et brûle au contact.',
   init(b) { b.s.trace = []; b.s.n = 15; b.s.seg = []; b.s.dir = Math.PI / 2; b.s.oa = 0; },
@@ -560,20 +563,22 @@ espece('bourreau', {
 });
 defEsp('bo_combo', {
   nom: 'Combo du bourreau', cat: 'corps', conseil: 'Compte les ruées : 2 puis le tourbillon (4 puis le tourbillon en phase 2). Esquive chaque ruée sur le côté, sors du cercle, puis frappe-le.',
-  params: (r, D) => ({ vit: 1300 * D.S }),
+  params: (r, D) => ({ vit: 1050 * Math.min(1.15, D.S) }),
   *gen(b, p) {
     b.ctl = true;
-    const coups = b.phase ? 5 : 3, w0 = Math.max(.42, (b.phase ? .5 : .6) * b.D.T);
+    const coups = b.phase ? 5 : 3, w0 = Math.max(.65, (b.phase ? .65 : .75) * b.D.T);
     for (let i = 0; i < coups - 1; i++) {
-      const ray = rayon(b.x, b.y, vise(b), 470, b.r * 2, w0, 0, { alerte: true, suit: b, track: 5 });
+      const ray = rayon(b.x, b.y, vise(b), 470, b.r * 2, w0, 0, { alerte: true, suit: b, track: 5, lock: .45 });
       b.wind = w0; b.windMax = w0;
       yield* attendre(w0);
       const a = ray.a; let d = 0; b.charge = true; Son.play('epee');
       while (d < 470) { const dt = G.dtE, s = p.vit * dt; d += s; b.x += Math.cos(a) * s; b.y += Math.sin(a) * s; if (!G.arene.dedans(b.x, b.y, b.r)) { G.arene.contenir(b, b.r); break; } yield 0; }
       b.charge = false; yield .1;
     }
-    zoneC(b.x, b.y, 170, .6 * b.D.T, { dmg: DMG(1.4) });
-    yield .6 * b.D.T + .2;
+    // le tourbillon final laisse le temps de sortir (le boss vient de passer tout près)
+    const wz = Math.max(.85, .9 * b.D.T);
+    zoneC(b.x, b.y, 150, wz, { dmg: DMG(1.4) });
+    yield wz + .2;
     b.ctl = false;
     ouvrir(b, 2, 2, 'ESSOUFFLÉ !');
     yield 2;
@@ -592,7 +597,7 @@ defEsp('bo_lames', {
 
 // =============== Le Phénix ===============
 espece('phenix', {
-  pv: 0.85, nom: 'le Phénix', hue: 28, r: 52, mouv: 'orbiteur',
+  pv: 0.75, nom: 'le Phénix', hue: 28, r: 52, mouv: 'orbiteur',
   forme: { style: 'oiseau', cotes: 7, pics: 10, picL: .5, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'À la fin de sa première phase il devient un œuf pendant 7 s. Casse l\'œuf à temps : il renaît affaibli et étourdi. Sinon il renaît en reprenant des forces.',
   transition(b) {

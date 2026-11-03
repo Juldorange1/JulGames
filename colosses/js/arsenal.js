@@ -35,13 +35,16 @@ function calcStats() {
     tRech: Math.max(.35, Math.pow(.94, lv('t', 'rech'))), tPort: 1 + .08 * lv('t', 'port'), tIntan: .03 * lv('t', 'intan'),
     tCharges: 1 + Math.min(2, lv('t', 'charge'))
   };
-  if (aRelique('frenesie')) ST.pCad *= 1.15;
-  if (aRelique('precision')) ST.pCrit += .12;
-  if (aRelique('batterie')) ST.eGain *= 1.4;
-  if (aRelique('economie')) ST.sCout *= .75;
-  if (aRelique('reflexes')) ST.tRech *= .75;
-  if (aRelique('reserve')) ST.tCharges += 1;
-  if (aRelique('verre')) ST.pDmg *= 1.35;
+  // reliques : un avantage, un défaut
+  if (aRelique('frenesie')) { ST.pCad *= 1.15; ST.pDmg *= .85; }
+  if (aRelique('precision')) { ST.pCrit += .12; ST.pCad *= .85; }
+  if (aRelique('batterie')) { ST.eGain *= 1.4; ST.pDmg *= .88; }
+  if (aRelique('economie')) { ST.sCout *= .75; ST.sRech *= 1.35; }
+  if (aRelique('reflexes')) { ST.tRech *= .75; ST.pDmg *= .9; ST.sDmg *= .9; }
+  if (aRelique('reserve')) { ST.tCharges += 1; ST.tRech *= 1.45; }
+  if (aRelique('egide')) ST.tRech *= 1.3;
+  if (aRelique('verre')) ST.pDmg *= 1.25;
+  if (aRelique('tempete')) ST.pDmg *= .88;
   try { const m = modForge(); if (m.portee) ST.pVel *= m.portee; } catch (e) { }
   if (enDefi()) {
     if (G.mut('energie')) ST.sCout = 0;
@@ -560,7 +563,7 @@ PRIM.push(
       w.gx = p.x + Math.cos(w.ga) * 95; w.gy = p.y + Math.sin(w.ga) * 95;
       w.cd = (w.cd || 0) - dt;
       if (w.cd <= 0) { w.cd = .14 / ST.pCad; pShot(w.gx, w.gy, ang(w.gx, w.gy, G.mx, G.my), 850 * ST.pVel, { dmg: 14, r: 4, life: 1.1, col: '#ffd23d' }); Son.play('tir'); }
-      if (Input.lp) {
+      if (Input.hit(TOUCHES().tir)) {
         const ox = p.x, oy = p.y, pt = G.arene.clampPt(w.gx, w.gy, p.r);
         p.x = pt.x; p.y = pt.y; w.ga += Math.PI; w.sens = -w.sens; p.iframe = Math.max(p.iframe, .12);
         G.fx.push({ kind: 'fantome', x: ox, y: oy, t: 0, dur: .25 }); Son.play('dash');
@@ -689,7 +692,7 @@ PRIM.push(
     id: 'croix', nom: 'Lasers croisés', ico: '✚', manuel: true, desc: 'Tire tout seul 4 lasers en croix depuis toi, à chaque seconde. Clic : bascule entre croix « + » et croix « × ». Place-toi dans l\'axe du boss.',
     tick(w, p, dt, held) {
       w.mode = w.mode || 0;
-      if (Input.lp) { w.mode ^= 1; Son.play('clic'); }
+      if (Input.hit(TOUCHES().tir)) { w.mode ^= 1; Son.play('clic'); }
       w.cd = (w.cd || .5) - dt;
       if (w.cd <= 0) {
         w.cd = .8 / ST.pCad;

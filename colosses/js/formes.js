@@ -199,3 +199,107 @@ const FORMES = {
   }
 };
 const FORMES_CHIMERE = ['poly', 'etoile', 'blob', 'meduse', 'crabe', 'cristal', 'astre', 'golem', 'insecte', 'oeil', 'nautile', 'araignee'];
+
+// ---------- Armement : chaque boss porte les armes de ses attaques (créature ou machine de guerre) ----------
+// balles → canons (machine) ou tubes à venin (créature) ; rayon → lentille frontale ; corps → cornes / lames ;
+// zone et terrain → bras et poings ; invocations → poches de ponte ; et toujours des mâchoires ou un blindage.
+const STYLES_MACHINE = { cristal: 1, anneau: 1, astre: 1, golem: 1, oeil: 1, poly: 1 };
+function armesBoss(b) {
+  if (b.def.armesC) return b.def.armesC;
+  const cats = {};
+  for (const ph of b.def.phases) for (const a of ph.cycle) { const c = ATK[a.id] && ATK[a.id].cat; if (c) cats[c] = (cats[c] || 0) + 1; }
+  return (b.def.armesC = cats);
+}
+function armement(c, b, r, t, h, ph, couche) {
+  if (b.esp && b.esp.id === 'serpent') return;
+  const cats = armesBoss(b), mach = !!STYLES_MACHINE[b.def.look.style], f = b.facing;
+  const cur = b.main && ATK[b.main.id] ? ATK[b.main.id].cat : null, prep = b.wind > 0 ? 1 - b.wind / (b.windMax || 1) : 0;
+  const metal = l => hsl(h, 14, l), chair = l => hsl(h, 40, l), vif = a => hsl(h, 100, 64, a);
+  c.save(); c.rotate(f);
+  if (couche === 'dessous') {
+    // bras et poings (zone / terrain) : ils se lèvent pendant l'annonce puis frappent
+    if (cats.zone || cats.terrain) {
+      const leve = (cur === 'zone' || cur === 'terrain') ? prep : 0;
+      for (const s of [-1, 1]) {
+        const fx = r * (.75 + .45 * leve), fy = s * r * (1.4 - .3 * leve + .05 * Math.sin(t * 2.5 + s));
+        c.lineCap = 'round';
+        c.strokeStyle = mach ? metal(14) : chair(12); c.lineWidth = r * .3;
+        c.beginPath(); c.moveTo(-r * .1, s * r * .5); c.quadraticCurveTo(r * .1, s * r * 1.35, fx, fy); c.stroke();
+        c.strokeStyle = mach ? metal(34) : chair(26); c.lineWidth = r * .13; c.stroke();
+        c.lineCap = 'butt';
+        c.save(); c.translate(fx, fy);
+        if (mach) {
+          // pince d'acier
+          c.fillStyle = metal(26); c.strokeStyle = vif(.9); c.lineWidth = 2;
+          c.beginPath(); c.arc(0, 0, r * .27, 0, TAU); c.fill(); c.stroke();
+          for (const q of [-1, 1]) { c.fillStyle = metal(55); c.beginPath(); c.moveTo(r * .1, q * r * .12); c.quadraticCurveTo(r * .55, q * r * .3, r * .62, q * r * .04); c.lineTo(r * .3, q * r * .08); c.closePath(); c.fill(); c.strokeStyle = metal(12); c.lineWidth = 1.5; c.stroke(); }
+          lueur(c, vif(.5 + .4 * leve), r * .16);
+        } else {
+          // main griffue
+          c.fillStyle = chair(20); c.beginPath(); c.ellipse(0, 0, r * .26, r * .22, 0, 0, TAU); c.fill();
+          for (let k = -1; k <= 1; k++) { const a = k * .5; c.fillStyle = '#efe6d6'; c.strokeStyle = '#4a3a2c'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(Math.cos(a) * r * .18, Math.sin(a) * r * .18 - r * .06); c.quadraticCurveTo(Math.cos(a) * r * .5, Math.sin(a) * r * .5, Math.cos(a + .25) * r * .62, Math.sin(a + .25) * r * .62); c.lineTo(Math.cos(a) * r * .2, Math.sin(a) * r * .2 + r * .06); c.closePath(); c.fill(); c.stroke(); }
+        }
+        c.restore();
+      }
+    }
+    // poches de ponte (invocations)
+    if (cats.invoc) for (let k = -1; k <= 1; k++) {
+      const x = -r * .92, y = k * r * .42, pu = .5 + .5 * Math.sin(t * 4 + k * 2);
+      c.fillStyle = mach ? metal(18) : chair(16); c.strokeStyle = vif(.7); c.lineWidth = 2;
+      c.beginPath(); c.ellipse(x, y, r * .26, r * .19, 0, 0, TAU); c.fill(); c.stroke();
+      lueur(c, vif(.3 + .5 * pu), r * .26, x, y);
+    }
+  } else {
+    // canons (machines) ou tubes à venin (créatures) : ce qui tire les balles
+    if (cats.balles) for (const s of [-1, 1]) {
+      const y = s * r * .55, x0 = r * .45, rec = cur === 'balles' ? .06 * Math.max(0, Math.sin(t * 30)) : 0, x1 = r * (1.6 - rec), w = r * .26;
+      const g = c.createLinearGradient(0, y - w / 2, 0, y + w / 2);
+      g.addColorStop(0, mach ? metal(62) : chair(36)); g.addColorStop(.45, mach ? metal(30) : chair(20)); g.addColorStop(1, mach ? metal(10) : chair(8));
+      c.fillStyle = g; c.strokeStyle = mach ? metal(8) : chair(6); c.lineWidth = 1.5;
+      c.beginPath();
+      if (mach) c.rect(x0, y - w / 2, x1 - x0, w);
+      else { c.moveTo(x0, y - w * .6); c.quadraticCurveTo((x0 + x1) / 2, y - w * .25, x1, y - w * .45); c.lineTo(x1, y + w * .45); c.quadraticCurveTo((x0 + x1) / 2, y + w * .25, x0, y + w * .6); c.closePath(); }
+      c.fill(); c.stroke();
+      c.fillStyle = vif(.85);
+      if (mach) for (const xb of [.62, 1.05, 1.45]) c.fillRect(r * xb - rec * r, y - w / 2, r * .06, w);
+      c.fillStyle = mach ? metal(36) : chair(24); c.beginPath(); c.arc(x0, y, w * .62, 0, TAU); c.fill(); c.stroke();
+      c.fillStyle = '#05030a'; c.beginPath(); c.ellipse(x1, y, r * .06, w * .36, 0, 0, TAU); c.fill();
+      if (cur === 'balles' || (prep > .4 && cur === 'balles')) lueur(c, vif(.9), r * .3, x1 + r * .05, y);
+    }
+    // cornes ou lames frontales (attaques de corps)
+    if (cats.corps) for (const s of [-1, 1]) {
+      const k = cur === 'corps' ? .12 : 0;
+      const g = c.createLinearGradient(r * .5, 0, r * 1.8, 0); g.addColorStop(0, mach ? metal(40) : '#bfae90'); g.addColorStop(1, mach ? metal(85) : '#fff6e6');
+      c.fillStyle = g; c.strokeStyle = mach ? vif(.9) : '#5a4a36'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(r * .55, s * r * .16); c.quadraticCurveTo(r * (1.3 + k), s * r * .75, r * (1.8 + k), s * r * .3);
+      c.quadraticCurveTo(r * 1.2, s * r * .42, r * .5, s * r * .52); c.closePath(); c.fill(); c.stroke();
+    }
+    // lentille frontale (rayons) : elle se charge pendant l'annonce
+    if (cats.rayon) {
+      const x = r * .9, ch = cur === 'rayon' ? .45 + .55 * prep : .3;
+      c.fillStyle = mach ? metal(16) : chair(12); c.strokeStyle = mach ? metal(60) : chair(40); c.lineWidth = r * .07;
+      c.beginPath(); c.arc(x, 0, r * .3, 0, TAU); c.fill(); c.stroke();
+      c.strokeStyle = vif(.9); c.lineWidth = 2; c.beginPath(); c.arc(x, 0, r * .3, 0, TAU); c.stroke();
+      lueur(c, hsl(h, 100, 78, ch), r * (.35 + .4 * ch), x, 0);
+      c.fillStyle = cur === 'rayon' && prep > .7 && (t * 20 | 0) % 2 ? '#fff' : hsl(h, 100, 85); c.beginPath(); c.arc(x, 0, r * .13, 0, TAU); c.fill();
+    }
+    // mâchoires (créatures) ou rivets lumineux (machines)
+    if (!mach && b.def.look.style !== 'oiseau' && b.def.look.style !== 'crane') {
+      const ouv = .2 + .16 * Math.max(0, Math.sin(t * 5)) + (b.wind > 0 ? .22 : 0);
+      for (const s of [-1, 1]) {
+        c.fillStyle = '#efe6d6'; c.strokeStyle = '#3a2a20'; c.lineWidth = 1.5;
+        c.beginPath(); c.moveTo(r * .72, s * r * .14); c.quadraticCurveTo(r * 1.15, s * r * (.14 + ouv), r * 1.35, s * r * .04); c.lineTo(r * 1.0, s * r * .12); c.closePath(); c.fill(); c.stroke();
+      }
+    } else if (mach) {
+      c.fillStyle = vif(.9);
+      for (let i = 0; i < 6; i++) { const a = Math.PI * .3 + i * Math.PI * 1.4 / 5, rr = r * .86; c.beginPath(); c.arc(Math.cos(a) * rr, Math.sin(a) * rr, Math.max(1.5, r * .04), 0, TAU); c.fill(); }
+    }
+  }
+  c.restore();
+}
+// la Chimère prend une silhouette qui va avec ses attaques
+function formePourAttaques(cats, r) {
+  const best = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+  const choix = { balles: ['golem', 'insecte', 'crabe'], rayon: ['oeil', 'cristal', 'astre'], corps: ['crane', 'crabe', 'golem'], zone: ['golem', 'crabe', 'araignee'], terrain: ['golem', 'crabe'], invoc: ['insecte', 'araignee'] };
+  return r.pick(choix[best ? best[0] : 'balles'] || ['golem']);
+}

@@ -129,10 +129,11 @@ const G = {
   traine(p) { for (let i = 0; i < 4; i++) this.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: -i * .03, dur: .25 }); },
   dirMouv(p) {
     let x = 0, y = 0;
-    if (Input.down('KeyW') || Input.down('ArrowUp')) y--;
-    if (Input.down('KeyS') || Input.down('ArrowDown')) y++;
-    if (Input.down('KeyA') || Input.down('ArrowLeft')) x--;
-    if (Input.down('KeyD') || Input.down('ArrowRight')) x++;
+    const K = TOUCHES();
+    if (Input.down(K.haut) || Input.down('ArrowUp')) y--;
+    if (Input.down(K.bas) || Input.down('ArrowDown')) y++;
+    if (Input.down(K.gauche) || Input.down('ArrowLeft')) x--;
+    if (Input.down(K.droite) || Input.down('ArrowRight')) x++;
     const l = Math.hypot(x, y);
     if (!l) return { x: Math.cos(p.aim), y: Math.sin(p.aim) };
     return { x: x / l, y: y / l };
@@ -186,9 +187,12 @@ const G = {
       if (tr.includes('souffle')) m *= bossVulnerableSouffle(b) ? 2.2 : .5;
       if (b.stun > 0) m *= 1.3;
       if (b.ouvert > 0) m *= b.ouvertMul;
-      if (this.rel('colere') && this.p.hp < this.p.hpMax * .4) m *= 1.3;
-      if (this.rel('opportun') && (b.ouvert > 0 || b.stun > 0)) m *= 1.5;
-      if (this.rel('assassin') && Math.abs(angDiff(b.facing + Math.PI, ang(b.x, b.y, o.x, o.y))) < 1.05) m *= 1.4;
+      m *= fatigueBoss();
+      if (totemProtege()) m *= .55;
+      if (this.rel('colere')) m *= this.p.hp < this.p.hpMax * .4 ? 1.3 : .85;
+      if (this.rel('opportun')) m *= b.ouvert > 0 || b.stun > 0 ? 1.5 : .85;
+      if (this.rel('assassin')) { const dd = Math.abs(angDiff(b.facing + Math.PI, ang(b.x, b.y, o.x, o.y))); m *= dd < 1.05 ? 1.4 : dd > 2.1 ? .8 : 1; }
+      if (this.rel('chasseur')) m *= .88;
       let d = dmg * m;
       statPlus('degats', undefined, d);
       if (this.rel('vampire')) { this.sal.vamp += d; while (this.sal.vamp >= 250) { this.sal.vamp -= 250; this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); } }
@@ -207,7 +211,7 @@ const G = {
       if (b.phase < n - 1 && b.hp <= seuilPhase(b, b.phase)) { b.hp = seuilPhase(b, b.phase); if (!(b.esp.transition && b.esp.transition(b))) passerPhase(b); }
       else if (b.hp <= 0) this.bossMort();
     } else {
-      const d = dmg * m * (this.rel('chasseur') ? 1.6 : 1);
+      const d = dmg * m * fatigueBoss() * (this.rel('chasseur') ? 1.6 : 1);
       tg.hp -= d; tg.flash = 1;
       this.chiffre(tg, d, crit, o, 1);
       if (tg.hp <= 0) {
@@ -257,6 +261,7 @@ const G = {
       this.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 18, r1: 60, t: 0, dur: .3, col: '#8cf' });
       Son.play('parade'); return false;
     }
+    if (this.rel('epines')) dmg *= 1.2;
     if (p.hp - dmg <= 0 && this.rel('second') && !this.sal.second) { this.sal.second = true; dmg = p.hp - 1; p.iframe = 1.6; this.annonce('Second souffle !', '#ff8fb0', 1.4); }
     p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
     if (this.rel('epines') && this.boss && !this.boss.mort) this.frappe(this.boss, 200, { x: this.boss.x, y: this.boss.y });
@@ -367,7 +372,7 @@ const G = {
     calcStats();
     const p = this.p;
     p.x = CX; p.y = AR.y + AR.h * .82; p.vx = p.vy = 0; p.dash = null; p.ancre = null; p.saut = 0; p.sprint = 0; p.invis = 0; p.hist = [];
-    p.hpMax = (this.mut('verre') ? 60 : DF().pv) - (this.rel('verre') ? 30 : 0); p.hp = Math.min(p.hp, p.hpMax);
+    p.hpMax = Math.max(30, (this.mut('verre') ? 60 : DF().pv) - malusPV()); p.hp = Math.min(p.hp, p.hpMax);
     if (this.mode === 'entrainement') p.hp = p.hpMax;
     if (this.format() === 'unCoup') p.hp = p.hpMax = 1;
     p.bouclier = this.rel('egide') ? 1e6 : 0;
@@ -623,7 +628,8 @@ function majJoueur(dt) {
   p.hist = p.hist || []; p.hist.push({ x: p.x, y: p.y }); if (p.hist.length > 60) p.hist.shift();
   if (p.saut > 0) {
     p.saut -= dt;
-    if (p.saut <= 0) {
+    if (p.saut <= 0 && p.sautDoux) p.sautDoux = false;
+    else if (p.saut <= 0) {
       const r = 95;
       for (const tg of G.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < r) G.frappe(tg, 70 * ST.pDmg, { x: tg.x, y: tg.y });
       for (const e of G.eb) if (d2(p.x, p.y, e.x, e.y) < r * r) e.dead = true;
@@ -635,11 +641,11 @@ function majJoueur(dt) {
   p.lent = 1;
   const actif = G.etat === 'combat';
   const sansArmes = G.format() === 'danse';
-  const held = actif && !sansArmes && (Input.lmb || (G.opts.auto && !prim.manuel)) && p.fantome <= 0;
+  const K = TOUCHES();
+  const held = actif && !sansArmes && (Input.down(K.tir) || (G.opts.auto && !prim.manuel)) && p.fantome <= 0;
   prim.tick(p.prim, p, dt, held);
   if (p.spec.cd > 0) p.spec.cd -= dt;
-  const K = TOUCHES();
-  if (actif && !sansArmes && (Input.rp || Input.hit(K.spec))) {
+  if (actif && !sansArmes && (Input.hit(K.spec) || Input.hit(K.spec2))) {
     const cout = spec.cout * ST.sCout;
     if (p.fantome > 0) { }
     else if (p.spec.cd > 0) { Son.play('vide'); }
@@ -659,7 +665,7 @@ function majJoueur(dt) {
   }
   if (p.saut <= 0) for (const h of G.hz) if (h.kind === 'ronce' && HZ.ronce.actif(h, p)) p.lent = Math.min(p.lent, .5);
   if (G.rel('regen')) { G.sal.regen += dt; if (G.sal.regen >= 3) { G.sal.regen -= 3; p.hp = Math.min(p.hpMax, p.hp + 1); } }
-  let sp = 270 * (p.bulle > 0 ? .2 : 1) * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
+  let sp = 270 * (p.bulle > 0 ? .2 : 1) * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * (G.rel('aimant') ? .88 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
   if (p.dash) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
@@ -668,10 +674,10 @@ function majJoueur(dt) {
     if (d.t >= d.dur) { if (d.grappin) { p.x = d.grappin.x; p.y = d.grappin.y; } p.dash = null; p.vx = d.vx * .15; p.vy = d.vy * .15; }
   } else {
     let mx = 0, my = 0;
-    if (Input.down('KeyW') || Input.down('ArrowUp')) my--;
-    if (Input.down('KeyS') || Input.down('ArrowDown')) my++;
-    if (Input.down('KeyA') || Input.down('ArrowLeft')) mx--;
-    if (Input.down('KeyD') || Input.down('ArrowRight')) mx++;
+    if (Input.down(K.haut) || Input.down('ArrowUp')) my--;
+    if (Input.down(K.bas) || Input.down('ArrowDown')) my++;
+    if (Input.down(K.gauche) || Input.down('ArrowLeft')) mx--;
+    if (Input.down(K.droite) || Input.down('ArrowRight')) mx++;
     const l = Math.hypot(mx, my) || 1;
     let glisse = Arene.glace;
     for (const h of G.hz) if (h.kind === 'givre' && HZ.givre.actif(h, p)) glisse = true;
@@ -1084,8 +1090,15 @@ function majCombat(dt) {
 }
 
 let dernier = performance.now();
+let erreursBoucle = 0;
 function boucle(now) {
-  let dt = (now - dernier) / 1000; dernier = now;
+  // la boucle continue même si une image plante (sinon l'écran restait figé)
+  try { pasBoucle(now); } catch (e) { if (erreursBoucle++ < 20) console.error(e); }
+  Input.endFrame();
+  requestAnimationFrame(boucle);
+}
+function pasBoucle(now) {
+  let dt = Math.max(0, (now - dernier) / 1000); dernier = now;
   G.fps = G.fps ? G.fps * .95 + (dt > 0 ? 1 / dt : 60) * .05 : 60;
   dt = Math.min(dt, 1 / 30);
   if (G.mode === 'normal' || G.mode === 'entrainement') dt *= G.opts.vitesse || 1;
@@ -1106,8 +1119,6 @@ function boucle(now) {
   else if (G.etat === 'pause') { if (UI.capture) UI.clavier(); else if (Input.hit('Escape') || Input.hit(TOUCHES().pause)) UI.reprendre(); else UI.clavier(); }
   else UI.clavier();
   rendu();
-  Input.endFrame();
-  requestAnimationFrame(boucle);
 }
 
 addEventListener('blur', () => { if (G.opts.autoPause && (G.etat === 'combat' || G.etat === 'interlude')) UI.pause(); });

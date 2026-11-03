@@ -29,7 +29,8 @@ function EB(x, y, a, spd, o) {
   G.eb.push(b);
   return b;
 }
-function anneauTirs(x, y, n, a0, spd, o) { for (let k = 0; k < n; k++) EB(x, y, a0 + k * TAU / n, spd, o); }
+// au plus 30 balles par cercle : il reste toujours un passage entre deux balles
+function anneauTirs(x, y, n, a0, spd, o) { n = Math.min(30, n); for (let k = 0; k < n; k++) EB(x, y, a0 + k * TAU / n, spd, o); }
 function zoneC(x, y, r, warn, o) { const h = Object.assign({ kind: 'cercle', x, y, r, warn, t: 0, act: .14, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); Son.play('tele'); return h; }
 function zoneR(x, y, w, h, warn, o) { const z = Object.assign({ kind: 'rect', x, y, w, h, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(z); return z; }
 function rayon(x, y, a, len, w, warn, act, o) {
@@ -82,7 +83,8 @@ const HZ = {
     up(h, dt) {
       h.t += dt;
       if (h.suit) { if (h.suit.mort) h.suit = null; else { h.x = h.suit.x; h.y = h.suit.y; } }
-      if (h.track && h.t < h.warn - .25) {
+      // le rayon arrête de viser un peu avant de partir : on a le temps de sortir de la ligne
+      if (h.track && h.t < h.warn - (h.lock || .38)) {
         const t = cible(), want = ang(h.x, h.y, t.x, t.y) + h.off, d = angDiff(h.a, want), m = h.track * dt;
         h.a += clamp(d, -m, m);
       }
@@ -246,7 +248,7 @@ def('charge', {
   }
 });
 def('bond', {
-  nom: 'Bond écrasant', cat: 'corps', conseil: 'Sors du cercle rouge avant qu\'il atterrisse. L\'onde qui suit se passe avec une esquive (invincibilité) ou en s\'éloignant.',
+  nom: 'Bond écrasant', cat: 'corps', conseil: 'Sors du cercle rouge avant qu\'il atterrisse. L\'onde qui suit a deux trous : glisse-toi dedans.',
   params: (r, D) => ({ rep: r.int(1, 3), r: r.range(110, 140), onde: r.chance(.6), balles: r.chance(.45) }),
   *gen(b, p) {
     b.ctl = true;
@@ -256,7 +258,7 @@ def('bond', {
       b.air = true; const sx = b.x, sy = b.y; let tt = 0;
       while (tt < warn) { tt += G.dtE; const k = Math.min(1, tt / warn); b.x = lerp(sx, pt.x, k); b.y = lerp(sy, pt.y, k); b.haut = Math.sin(k * Math.PI) * 120; yield 0; }
       b.air = false; b.haut = 0; G.secoue(10); Son.play('gros');
-      if (p.onde) onde(pt.x, pt.y, 300 * b.D.S, { th: 18, r: p.r * .5, life: 3 });
+      if (p.onde) { const ga = R() * TAU; onde(pt.x, pt.y, 300 * b.D.S, { th: 18, r: p.r * .5, life: 3, gaps: [[ga, .8], [ga + Math.PI, .8]] }); }
       if (p.balles) anneauTirs(pt.x, pt.y, 18, R() * TAU, 190 * b.D.S);
       yield .55;
     }
@@ -353,8 +355,10 @@ def('anneaux', {
   *gen(b, p) {
     yield* prep(b, .5);
     for (let i = 0; i < p.n; i++) {
-      const gaps = []; for (let g = 0; g < p.trous; g++) gaps.push([R() * TAU, .62]);
-      onde(b.x, b.y, p.spd, { gaps, th: 16, r: b.r }); Son.play('salve'); yield p.pas;
+      // le trou suivant reste à portée du précédent (sinon il fallait traverser tout le cercle en une demi-seconde)
+      p.g0 = p.g0 === undefined ? R() * TAU : p.g0 + R.range(-.75, .75);
+      const gaps = [[p.g0, .7]]; if (p.trous > 1) gaps.push([p.g0 + Math.PI, .7]);
+      onde(b.x, b.y, p.spd, { gaps, th: 16, r: b.r }); Son.play('salve'); yield Math.max(.75, p.pas);
     }
   }
 });
@@ -408,10 +412,10 @@ def('telenova', {
 });
 def('balayage', {
   nom: 'Balayage', cat: 'rayon', conseil: 'La zone pâle montre tout l\'arc balayé : sors-en, ou passe derrière le boss au bon moment.',
-  params: (r, D) => ({ dur: r.range(1.6, 2), arc: r.range(1.6, 2.2), w: r.range(46, 58), retour: r.chance(.3) }),
+  params: (r, D) => ({ dur: r.range(1.6, 2), arc: r.range(1.5, 2), w: r.range(46, 58), retour: r.chance(.3) }),
   *gen(b, p) {
     b.ctl = true;
-    const a = vise(b), s = R.sign(), de = a - s * p.arc / 2, warn = Math.max(1.2, b.D.T);
+    const a = vise(b), s = R.sign(), de = a - s * p.arc / 2, warn = Math.max(1.4, 1.1 * b.D.T);
     b.wind = warn; b.windMax = warn;
     rayon(b.x, b.y, de, 1500, p.w, warn, p.dur * (p.retour ? 2 : 1), { suit: b, balaye: { de, vers: de + s * p.arc, dur: p.dur, retour: p.retour } });
     yield* attendre(warn + p.dur * (p.retour ? 2 : 1));

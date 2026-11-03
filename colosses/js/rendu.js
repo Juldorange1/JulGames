@@ -25,6 +25,7 @@ function tex(n, col) {
   if (c) return c;
   c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
   const x = c.getContext('2d'); x.drawImage(im, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, c.width, c.height);
+  if (Object.keys(texCache).length > 400) for (const q in texCache) delete texCache[q];
   texCache[k] = c; return c;
 }
 function sprite(c, n, col, x, y, taille, rot, alpha, add) {
@@ -479,7 +480,7 @@ function dessinerJoueur(c) {
     c.lineCap = 'butt'; c.globalCompositeOperation = 'source-over';
   }
   if (prim === 'arc' && w.ch > 0) { c.strokeStyle = w.ch >= 1 ? '#fff6a0' : 'rgba(190,255,238,.6)'; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, 24, p.aim - w.ch * 1.4, p.aim + w.ch * 1.4); c.stroke(); }
-  if (G.leurre && !G.leurre.invis) dessinerVaisseau(c, G.leurre.x, G.leurre.y, p.aim, p.r, '#7fe0ff', .45 + .15 * Math.sin(G.t * 10));
+  if (G.leurre && !G.leurre.invis) dessinerVaisseau(c, G.leurre.x, G.leurre.y, p.aim, p.r * 1.4, '#7fe0ff', .45 + .15 * Math.sin(G.t * 10));
   if (prim === 'pistolet' && w.gx !== undefined) {
     c.strokeStyle = 'rgba(255,210,60,.18)'; c.lineWidth = 1; c.beginPath(); c.arc(p.x, p.y, 95, 0, TAU); c.stroke();
     c.save(); c.translate(w.gx, w.gy); c.rotate(ang(w.gx, w.gy, G.mx, G.my)); dessinerArmeMain(c, 1.2, 'fusil'); c.restore();
@@ -533,10 +534,11 @@ function dessinerJoueur(c) {
   const au = equipe('aura'), tr = equipe('trainee');
   c.drawImage(glow(au.col || 'rgba(80,230,255,.45)', (au.col ? 48 : 34) * sc), p.x - (au.col ? 48 : 34) * sc, p.y - haut - (au.col ? 48 : 34) * sc);
   if (au.col && au.id === 'r_feu') sprite(c, 'flame_03', '#ff8a3c', p.x, p.y - haut - 6, 46, Math.sin(G.t * 6) * .1, .5, true);
-  if (au.couronne) { c.fillStyle = '#ffd86b'; c.beginPath(); const cy = p.y - haut - 26; c.moveTo(p.x - 9, cy + 6); c.lineTo(p.x - 9, cy - 2); c.lineTo(p.x - 4, cy + 2); c.lineTo(p.x, cy - 5); c.lineTo(p.x + 4, cy + 2); c.lineTo(p.x + 9, cy - 2); c.lineTo(p.x + 9, cy + 6); c.fill(); }
+  if (au.couronne) { c.fillStyle = '#ffd86b'; c.beginPath(); const cy = p.y - haut - 34; c.moveTo(p.x - 9, cy + 6); c.lineTo(p.x - 9, cy - 2); c.lineTo(p.x - 4, cy + 2); c.lineTo(p.x, cy - 5); c.lineTo(p.x + 4, cy + 2); c.lineTo(p.x + 9, cy - 2); c.lineTo(p.x + 9, cy + 6); c.fill(); }
   if (tr.col && Math.hypot(p.vx, p.vy) > 40 && R() < (tr.gros ? .9 : .5)) G.parts.push({ x: p.x + R.range(-6, 6), y: p.y + R.range(-6, 6), vx: -p.vx * .1 + R.range(-15, 15), vy: -p.vy * .1 + R.range(-15, 15), life: tr.gros ? .8 : .5, max: tr.gros ? .8 : .5, col: tr.col, r: tr.gros ? 3 : 2, add: tr.add });
   c.globalCompositeOperation = 'source-over';
-  dessinerVaisseau(c, p.x, p.y - haut, p.aim, p.r * sc, p.rouge > 0 ? '#ff6b7d' : '#34d6ff', al, p);
+  // le héros est dessiné plus grand que sa zone de collision (seul le point rouge compte pour les coups)
+  dessinerVaisseau(c, p.x, p.y - haut, p.aim, p.r * sc * 1.4, p.rouge > 0 ? '#ff6b7d' : '#34d6ff', al, p);
   c.globalAlpha = al;
   c.fillStyle = '#ff2d55'; c.beginPath(); c.arc(p.x, p.y - haut, p.hr, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
   c.globalAlpha = 1;
@@ -670,7 +672,8 @@ function dessinerButin(c) {
       c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + G.t; c.lineTo(l.x + Math.cos(a) * 26, y + Math.sin(a) * 26); } c.closePath(); c.stroke();
       c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `24px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#fff'; c.fillText(r.ico, l.x, y + 1);
       c.font = `800 15px ${POLICE}`; c.fillStyle = '#e2c2ff'; c.fillText(r.nom, l.x, y + 46);
-      c.font = `12px ${POLICE}`; c.fillStyle = '#cfc8de'; c.fillText(r.desc, l.x, y + 64);
+      c.font = `12px ${POLICE}`; c.fillStyle = '#9fffc8'; c.fillText('+ ' + r.desc, l.x, y + 64);
+      c.fillStyle = '#ff9aa8'; c.fillText('− ' + r.malus.replace(/^−\s*/, ''), l.x, y + 80);
       c.font = `700 10px ${POLICE}`; c.fillStyle = col; c.fillText('RELIQUE', l.x, y - 40);
     } else {
       const col = { p: '#ff8a5c', s: '#5aa8ff', t: '#46e39b' }[l.cat], u = UPG[l.cat].find(x => x.id === l.id);
@@ -723,6 +726,8 @@ function dessinerHUD(c) {
     for (let i = 1; i < n; i++) c.fillRect(bx + bw * (1 - i / n) - 1, by, 3, 14);
     c.font = `600 11px ${POLICE}`; c.textAlign = 'left'; c.fillStyle = '#ddd';
     c.fillText('Phase ' + (b.phase + 1) + '/' + n, bx + bw + 10, by + 7);
+    const fat = fatigueBoss();
+    if (fat > 1 && !b.mort) { c.textAlign = 'right'; texteOmbre(c, '⏳ épuisé ×' + fat.toFixed(1), bx + bw, by + 26, '#ffcf6b', `800 12px ${POLICE}`, 3); c.textAlign = 'left'; }
     c.textAlign = 'right'; c.fillText(Math.ceil(Math.max(0, b.hp)).toLocaleString('fr-FR'), bx - 10, by + 7);
     if (b.armureMax) barre(c, bx, by + 17, bw, 4, b.armure / b.armureMax, '#c9c9d6');
     c.textAlign = 'left'; c.font = `14px Segoe UI Emoji, ${POLICE}`;
@@ -775,9 +780,9 @@ function dessinerHUD(c) {
     const spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t), cout = spec.cout * ST.sCout;
     c.fillStyle = '#fff'; c.fillRect(90 + 260 * Math.min(1, cout / ST.eMax) - 1, y0 + 22, 2, 15);
     const slots = [
-      { a: trouveArme('p', G.ars.p), k: 'Clic G', col: '#ff8a5c' },
-      { a: spec, k: 'Clic D / E', col: '#5aa8ff', cd: p.spec.cd / (spec.rech * ST.sRech), manque: p.energie < cout },
-      { a: tal, k: 'Espace', col: '#46e39b', cd: p.tal.charges > 0 ? 0 : p.tal.cd / (tal.rech * ST.tRech), ch: p.tal.charges }
+      { a: trouveArme('p', G.ars.p), k: nomToucheCourt(TOUCHES().tir), col: '#ff8a5c' },
+      { a: spec, k: nomToucheCourt(TOUCHES().spec) + ' / ' + nomToucheCourt(TOUCHES().spec2), col: '#5aa8ff', cd: p.spec.cd / (spec.rech * ST.sRech), manque: p.energie < cout },
+      { a: tal, k: nomToucheCourt(TOUCHES().tal) + ' / ' + nomToucheCourt(TOUCHES().tal2), col: '#46e39b', cd: p.tal.charges > 0 ? 0 : p.tal.cd / (tal.rech * ST.tRech), ch: p.tal.charges }
     ];
     let sx = 420;
     const tst = G.toast, tk = tst ? Math.min(1, tst.t * 3, (tst.dur - tst.t) * 2) : 0;

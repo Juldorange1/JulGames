@@ -2,28 +2,31 @@
 /* Colosses — reliques (bonus d'un palier), succès, maîtrise des espèces (étoiles) et statistiques. */
 
 // ---------- Reliques : on en choisit une après chaque boss, elles durent jusqu'au méga boss ----------
+// Chacune ÉCHANGE quelque chose contre autre chose : elles changent la façon de jouer, jamais la puissance totale.
 const RELIQUES = {
-  vampire: { nom: 'Vampirisme', ico: '🩸', desc: '+1 PV tous les 250 dégâts infligés' },
-  colere: { nom: 'Colère', ico: '😡', desc: '+30 % de dégâts sous 40 % de vie' },
-  precision: { nom: 'Œil du chasseur', ico: '🎯', desc: '+12 % de coups critiques' },
-  frenesie: { nom: 'Frénésie', ico: '⚡', desc: '+15 % de cadence' },
-  batterie: { nom: 'Batterie', ico: '🔋', desc: 'Énergie +40 % plus vite' },
-  economie: { nom: 'Économie', ico: '💠', desc: 'Spéciales −25 % de coût' },
-  plumes: { nom: 'Plumes', ico: '🪶', desc: '+12 % de vitesse de course' },
-  second: { nom: 'Second souffle', ico: '💖', desc: 'Une fois par salle, un coup mortel te laisse à 1 PV' },
-  egide: { nom: 'Égide', ico: '🛡', desc: 'Chaque salle commence avec un bouclier' },
-  reserve: { nom: 'Réserve', ico: '➕', desc: '+1 charge de talent' },
-  assassin: { nom: 'Assassin', ico: '🗡', desc: '+40 % de dégâts dans le dos du boss' },
-  chasseur: { nom: 'Chasseur', ico: '🏹', desc: '+60 % contre invocations, têtes et cristaux' },
-  reflexes: { nom: 'Réflexes', ico: '💨', desc: 'Talents rechargés 25 % plus vite' },
-  opportun: { nom: 'Opportuniste', ico: '👁', desc: '+50 % quand le boss est ouvert ou étourdi' },
-  epines: { nom: 'Épines', ico: '🌵', desc: 'Chaque coup reçu inflige 200 dégâts au boss' },
-  regen: { nom: 'Régénération', ico: '💚', desc: '+1 PV toutes les 3 s' },
-  verre: { nom: 'Canon de verre', ico: '🔮', desc: '+35 % de dégâts, mais −30 PV max' },
-  brise: { nom: 'Brise-phase', ico: '💥', desc: '+20 PV à chaque nouvelle phase du boss' },
-  tempete: { nom: 'Tempête', ico: '🌩', desc: 'Un éclair frappe le boss toutes les 6 s' },
-  aimant: { nom: 'Champ de force', ico: '🧲', desc: 'Les balles ennemies ralentissent près de toi' }
+  vampire: { nom: 'Vampirisme', ico: '🩸', desc: '+1 PV tous les 250 dégâts', malus: '−25 PV max' },
+  colere: { nom: 'Colère', ico: '😡', desc: '+30 % de dégâts sous 40 % de vie', malus: '−15 % au-dessus' },
+  precision: { nom: 'Œil du chasseur', ico: '🎯', desc: '+12 % de coups critiques', malus: '−15 % de cadence' },
+  frenesie: { nom: 'Frénésie', ico: '⚡', desc: '+15 % de cadence', malus: '−15 % de dégâts' },
+  batterie: { nom: 'Batterie', ico: '🔋', desc: 'Énergie 40 % plus vite', malus: 'arme −12 % de dégâts' },
+  economie: { nom: 'Économie', ico: '💠', desc: 'Spéciales −25 % de coût', malus: 'rechargement +35 %' },
+  plumes: { nom: 'Plumes', ico: '🪶', desc: '+12 % de vitesse de course', malus: '−15 PV max' },
+  second: { nom: 'Second souffle', ico: '💖', desc: 'Une fois par salle, un coup mortel te laisse à 1 PV', malus: '−25 PV max' },
+  egide: { nom: 'Égide', ico: '🛡', desc: 'Chaque salle commence avec un bouclier', malus: 'talents +30 % plus lents' },
+  reserve: { nom: 'Réserve', ico: '➕', desc: '+1 charge de talent', malus: 'talents +45 % plus lents' },
+  assassin: { nom: 'Assassin', ico: '🗡', desc: '+40 % dans le dos du boss', malus: '−20 % de face' },
+  chasseur: { nom: 'Chasseur', ico: '🏹', desc: '+60 % contre invocations, têtes et cristaux', malus: '−12 % contre le boss' },
+  reflexes: { nom: 'Réflexes', ico: '💨', desc: 'Talents 25 % plus vite', malus: '−10 % de dégâts' },
+  opportun: { nom: 'Opportuniste', ico: '👁', desc: '+50 % quand le boss est ouvert ou étourdi', malus: '−15 % le reste du temps' },
+  epines: { nom: 'Épines', ico: '🌵', desc: 'Chaque coup reçu inflige 200 dégâts au boss', malus: 'coups reçus +20 %' },
+  regen: { nom: 'Régénération', ico: '💚', desc: '+1 PV toutes les 3 s', malus: '−40 PV max' },
+  verre: { nom: 'Canon de verre', ico: '🔮', desc: '+25 % de dégâts', malus: '−35 PV max' },
+  brise: { nom: 'Brise-phase', ico: '💥', desc: '+20 PV à chaque nouvelle phase', malus: '−20 PV max' },
+  tempete: { nom: 'Tempête', ico: '🌩', desc: 'Un éclair frappe le boss toutes les 6 s', malus: 'arme −12 % de dégâts' },
+  aimant: { nom: 'Champ de force', ico: '🧲', desc: 'Les balles ennemies ralentissent près de toi', malus: '−12 % de vitesse de course' }
 };
+const MALUS_PV = { vampire: 25, plumes: 15, second: 25, regen: 40, verre: 35, brise: 20 };
+function malusPV() { let n = 0; try { for (const k of G.reliques()) n += MALUS_PV[k] || 0; } catch (e) { } return n; }
 function offrirReliques(r) {
   const deja = G.reliques();
   const dispo = Object.keys(RELIQUES).filter(k => !deja.includes(k));

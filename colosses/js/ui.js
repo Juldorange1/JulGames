@@ -46,6 +46,7 @@ const UI = {
       case 'abandon': case 'relancer': this.cacher(); G.relancer(); break;
       case 'passer': this.cacher(); G.passerBoss(); break;
       case 'quitter': G.mode = 'normal'; this.menu(); break;
+      case 'touchesDef': Save.d.opts.touches = Save.defaut().opts.touches; Save.write(); this.options(this.ongletOptDepuis || 'menu', 'commandes'); break;
       case 'plein': if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); break;
       case 'effacer':
         if (confirm('Effacer TOUTE ta progression (difficultés, défis, succès, améliorations, codex) ?')) { localStorage.removeItem(SAVE_KEY); Save.load(); G.opts = Save.d.opts; calcStats(); majAlerte(); this.menu(); }
@@ -112,7 +113,8 @@ const UI = {
         <button data-a="aide" data-o="pause">❔ Aide</button>
         <button data-a="relancer">↻ Recommencer le combat</button>
         ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss)</button>` : ''}
-        ${G.mode !== 'normal' ? '<button data-a="quitter">Quitter</button>' : ''}</div>
+        <button data-a="quitter">🏠 Menu principal</button></div>
+        <p class="mini centre">Échap : reprendre${G.mode === 'normal' ? ' · ta partie est gardée' : ''}</p>
       </div>`);
   },
   reprendre() {
@@ -240,7 +242,7 @@ const UI = {
       const L = Save.d.legendaires || {};
       corps = '<p class="mini">Parfois (rarement) un boss est LÉGENDAIRE : doré, plus coriace, il donne une apparence légendaire.</p><div class="liste">' + ESP_ORDRE.map(e => L[e] ? `<div class="entree"><b style="color:#ffb43d">✦ ${nomMaj(ESPECES[e].nom)} légendaire</b><p>Vaincu.</p></div>` : inconnu('Pas encore rencontré.')).join('') + '</div>';
     } else if (o === 'reliques') {
-      corps = '<p class="mini">Après chaque boss, deux reliques apparaissent : prends-en une. Elles durent jusqu\'au prochain méga boss.</p><div class="liste">' + Object.values(RELIQUES).map(r => `<div class="entree"><b>${r.ico} ${r.nom}</b><p>${r.desc}</p></div>`).join('') + '</div>';
+      corps = '<p class="mini">Après chaque boss, deux reliques apparaissent : prends-en une (ou aucune). Chacune donne un avantage ET un défaut : elles changent ta façon de jouer, pas ta puissance. Elles durent jusqu\'au prochain méga boss.</p><div class="liste">' + Object.values(RELIQUES).map(r => `<div class="entree"><b>${r.ico} ${r.nom}</b><p><span style="color:#7dffb0">+ ${r.desc}</span><br><span style="color:#ff9aa8">${r.malus}</span></p></div>`).join('') + '</div>';
     } else if (o === 'traits') {
       corps = '<div class="liste">' + Object.keys(TRAITS).map(t => cx.traits[t] ? `<div class="entree"><b>${TRAITS[t].ico} ${TRAITS[t].nom}</b><p>${TRAITS[t].desc}</p></div>` : inconnu('Pas encore rencontrée.')).join('') + '</div>';
     } else if (o === 'cartes') {
@@ -255,19 +257,19 @@ const UI = {
 
   // ---------- Aide ----------
   aide() {
-    const ret = this.retour, K = TOUCHES(), nt = c => c.replace(/^Key/, '').replace('Space', 'Espace').replace('ShiftLeft', 'Maj');
+    const ret = this.retour, K = TOUCHES(), nt = nomToucheCourt;
     this.montrer(`
       <div class="panneau">
         <div class="barre-titre"><button class="rond" data-a="retour" data-echap title="Retour">←</button><h2>❔ Aide</h2></div>
         <div class="aide-g">
-          <div><kbd>ZQSD</kbd><span>se déplacer</span></div><div><kbd>Souris</kbd><span>viser</span></div>
-          <div><kbd>Clic G</kbd><span>arme</span></div><div><kbd>Clic D</kbd> <kbd>${nt(K.spec)}</kbd><span>spéciale</span></div>
-          <div><kbd>${nt(K.tal)}</kbd><span>talent</span></div><div><kbd>Échap</kbd><span>pause</span></div>
+          <div><kbd>${nt(K.haut)}${nt(K.gauche)}${nt(K.bas)}${nt(K.droite)}</kbd><span>se déplacer</span></div><div><kbd>Souris</kbd><span>viser</span></div>
+          <div><kbd>${nt(K.tir)}</kbd><span>arme</span></div><div><kbd>${nt(K.spec)}</kbd> <kbd>${nt(K.spec2)}</kbd><span>spéciale</span></div>
+          <div><kbd>${nt(K.tal)}</kbd> <kbd>${nt(K.tal2)}</kbd><span>talent</span></div><div><kbd>Échap</kbd><span>pause</span></div>
         </div>
         <div class="blocs">
           <div class="bloc"><h3>🔴 Survivre</h3><p>Seul le <b>point rouge</b> de ton héros est touchable. Tout ce qui fait mal est <b>annoncé</b> avant ; quand ça clignote blanc, ça part.</p></div>
           <div class="bloc"><h3>🧠 Apprendre</h3><p>Chaque espèce répète <b>toujours le même cycle</b>. Contour doré = <b>OUVERT</b> : frappe fort. Si tu meurs, tu rejoues le même boss.</p></div>
-          <div class="bloc"><h3>📈 Progresser</h3><p>Après chaque boss : une <b>relique</b> au choix (jusqu'au méga boss). Méga boss : une <b>amélioration</b> pour toujours.</p></div>
+          <div class="bloc"><h3>📈 Progresser</h3><p>Rien ne te rend plus fort : seulement <b>meilleur</b>. Les <b>reliques</b> et la <b>forge</b> changent ton style (un avantage, un défaut) ; la <b>garde-robe</b> change ton look.</p></div>
         </div>
       </div>`);
     this.retour = ret;
@@ -276,9 +278,8 @@ const UI = {
   // ---------- Paramètres ----------
   options(o, onglet) {
     const op = Save.d.opts, depuis = o === 'pause' ? 'pause' : 'menu';
-    onglet = onglet || this.ongletOpt || 'son'; this.ongletOpt = onglet;
+    onglet = onglet || this.ongletOpt || 'son'; this.ongletOpt = onglet; this.ongletOptDepuis = depuis;
     this.retour = depuis === 'pause' ? () => this.pause() : () => this.menu();
-    const nomTouche = c => ({ Space: 'Espace', ShiftLeft: 'Maj gauche', ShiftRight: 'Maj droite', KeyP: 'P', KeyE: 'E', Escape: 'Échap', ControlLeft: 'Ctrl', AltLeft: 'Alt', Tab: 'Tab' }[c] || c.replace(/^Key/, '').replace(/^Digit/, ''));
     const curseur = (id, nom, val, min, max, pas) => `<label class="opt">${nom}<input type="range" min="${min}" max="${max}" step="${pas}" value="${val}" id="${id}"><span class="val" id="${id}-v">${Math.round(val * 100)} %</span></label>`;
     const coche = (id, nom, val) => `<label class="opt interr"><span>${nom}</span><input type="checkbox" id="${id}" ${val ? 'checked' : ''}><i></i></label>`;
     const choix = (id, nom, val, liste) => `<label class="opt">${nom}<select id="${id}">${liste.map(([k, n]) => `<option value="${k}" ${String(k) === String(val) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
@@ -297,7 +298,7 @@ const UI = {
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +
       `<div class="rang"><button data-a="plein">⛶ Plein écran</button></div>`;
-    else corps = [['spec', 'Spéciale'], ['tal', 'Talent'], ['tal2', 'Talent (2e touche)'], ['pause', 'Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique puis appuie sur la nouvelle touche.</p>';
+    else corps = [['haut', '⬆ Haut'], ['bas', '⬇ Bas'], ['gauche', '⬅ Gauche'], ['droite', '➡ Droite'], ['tir', '🔫 Arme'], ['spec', '💥 Spéciale'], ['spec2', '💥 Spéciale (2e)'], ['tal', '💨 Talent'], ['tal2', '💨 Talent (2e)'], ['pause', '⏸ Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique sur une case puis appuie sur une touche <b>ou un bouton de la souris</b> (Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.</p><div class="rang"><button data-a="touchesDef">Touches par défaut</button></div>';
     const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches']];
     this.montrer(`
       <div class="panneau court">
@@ -325,12 +326,25 @@ const UI = {
     if (test) test.addEventListener('click', () => { Son.init(); Son.play('explo'); setTimeout(() => Son.play('parade'), 350); Musique.sting(MUS.victoire); });
     this.el.querySelectorAll('.tch').forEach(b => b.addEventListener('click', ev => {
       ev.stopPropagation(); this.capture = b.dataset.k; b.textContent = '… appuie';
-      const ecoute = e => {
-        e.preventDefault(); removeEventListener('keydown', ecoute, true);
-        if (e.code !== 'Escape') op.touches[this.capture] = e.code;
+      const fini = code => {
+        removeEventListener('keydown', clavier, true); removeEventListener('mousedown', souris, true);
+        if (code) {
+          // si la touche servait déjà ailleurs, on échange les deux
+          const k = this.capture, ancien = op.touches[k];
+          for (const a in op.touches) if (a !== k && op.touches[a] === code) op.touches[a] = ancien;
+          op.touches[k] = code;
+        }
         this.capture = null; Save.write(); Input.clear(); this.options(o, 'commandes');
       };
-      addEventListener('keydown', ecoute, true);
+      const clavier = e => { e.preventDefault(); e.stopPropagation(); fini(e.code === 'Escape' ? null : e.code); };
+      const souris = e => {
+        e.preventDefault(); e.stopPropagation();
+        // le clic qui suit ce bouton ne doit rien déclencher dans le menu
+        const bloque = x => { x.stopPropagation(); x.preventDefault(); removeEventListener('click', bloque, true); };
+        addEventListener('click', bloque, true); setTimeout(() => removeEventListener('click', bloque, true), 400);
+        fini('Mouse' + e.button);
+      };
+      setTimeout(() => { addEventListener('keydown', clavier, true); addEventListener('mousedown', souris, true); }, 0);
     }));
   }
 };

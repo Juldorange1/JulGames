@@ -201,3 +201,4 @@ label.interr input:checked + i::after { left: 21px; }
 .skin.actif { background: color-mix(in srgb, var(--rc) 18%, transparent); }
 .skin.verrou { opacity: .55; }
 kbd { background: #2a2240; border: 1px solid rgba(255,255,255,.25); border-bottom-width: 3px; border-radius: 6px; padding: 3px 8px; font: 700 13px 'Segoe UI', sans-serif; color: #fff; }
+.mini.centre { text-align: center; margin-top: 8px; }
