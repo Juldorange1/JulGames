@@ -25,7 +25,7 @@ const UPG = {
   ]
 };
 const CAT_NOM = { p: 'Armes principales', s: 'Attaques spéciales', t: 'Talents' };
-function lv(cat, id) { return (Save.d.up[cat] && Save.d.up[cat][id]) || 0; }
+function lv(cat, id) { const u = PR().up; return (u[cat] && u[cat][id]) || 0; }
 let ST = null;
 function calcStats() {
   ST = {
@@ -340,5 +340,195 @@ const TAL = [
     use(p) { p.fantome = 1.1 * ST.tPort + ST.tIntan; Son.play('dash'); }
   }
 ];
+// ---------- Armes ajoutées ----------
+PRIM.push(
+  {
+    id: 'faux', nom: 'Faux', ico: '☾', desc: 'Grands moulinets tout autour de toi : touche tout ce qui est proche et coupe les projectiles.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .55 / ST.pCad);
+      if (n) {
+        const reach = 118 * ST.pVel;
+        G.fx.push({ kind: 'moulinet', x: p.x, y: p.y, a: p.aim, t: 0, dur: .2, reach });
+        for (const tg of G.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < reach) G.frappe(tg, 50 * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+        for (const e of G.eb) if (e.des && d2(p.x, p.y, e.x, e.y) < (reach + e.r) ** 2) { e.dead = true; G.etincelle(e.x, e.y, '#fff', 2); }
+        Son.play('epee');
+      }
+    }
+  },
+  {
+    id: 'jumeaux', nom: 'Pistolets jumeaux', ico: '⁑', desc: 'Deux pistolets qui tirent chacun leur tour, très vite.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .085 / ST.pCad);
+      for (let i = 0; i < n; i++) {
+        w.cote = -(w.cote || 1);
+        const ox = Math.cos(p.aim + Math.PI / 2) * 8 * w.cote, oy = Math.sin(p.aim + Math.PI / 2) * 8 * w.cote, o = bout(p, 14);
+        pShot(o.x + ox, o.y + oy, p.aim + R.range(-.05, .05), 950 * ST.pVel, { dmg: 9, r: 3.5, life: 1, col: '#ffb3e6' });
+        Son.play('tir');
+      }
+    }
+  },
+  {
+    id: 'shuriken', nom: 'Shurikens', ico: '✴', desc: 'Étoiles qui transpercent et rebondissent deux fois sur les murs.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .3 / ST.pCad);
+      for (let i = 0; i < n; i++) { const o = bout(p, 16); const b = pShot(o.x, o.y, p.aim, 680 * ST.pVel, { dmg: 25, r: 8, life: 2, pierce: 2, kind: 'shuriken', col: '#e6e6ff', noVel: true }); b.reb = 2; Son.play('tir'); }
+    }
+  },
+  {
+    id: 'roquettes', nom: 'Lance-roquettes', ico: '🚀', desc: 'Roquettes qui accélèrent et explosent en zone.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .85 / ST.pCad);
+      for (let i = 0; i < n; i++) {
+        const o = bout(p, 18);
+        const b = pShot(o.x, o.y, p.aim, 300, { dmg: 20, r: 6, life: 2, kind: 'roquette', col: '#ffcf6b', noVel: true });
+        b.boom = { r: 85 * Math.sqrt(ST.pVel), dmg: 72 * ST.pDmg }; b.accel = 1400;
+        Son.play('missile'); G.recul(p, 50);
+      }
+    }
+  },
+  {
+    id: 'fouet', nom: 'Fouet-chaîne', ico: '〽', desc: 'Un long coup de chaîne en ligne droite qui fouette tout sur son passage.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .5 / ST.pCad);
+      if (n) {
+        const L = Math.min(250 * ST.pVel, G.arene.rayMur(p.x, p.y, p.aim, 250 * ST.pVel)), ex = p.x + Math.cos(p.aim) * L, ey = p.y + Math.sin(p.aim) * L;
+        for (const tg of G.cibles()) if (segD2(tg.x, tg.y, p.x, p.y, ex, ey) < (14 + tg.r) ** 2) G.frappe(tg, 46 * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+        for (const e of G.eb) if (e.des && segD2(e.x, e.y, p.x, p.y, ex, ey) < (12 + e.r) ** 2) { e.dead = true; G.etincelle(e.x, e.y, '#fff', 2); }
+        G.fx.push({ kind: 'fouet', x: p.x, y: p.y, a: p.aim, L, t: 0, dur: .18, s: (w.s = -(w.s || 1)) });
+        Son.play('epee');
+      }
+    }
+  },
+  {
+    id: 'plasma', nom: 'Canon à plasma', ico: '⦿', desc: 'Grosse boule lente qui traverse tout et explose au bout de sa course.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .95 / ST.pCad);
+      for (let i = 0; i < n; i++) {
+        const o = bout(p, 20);
+        const b = pShot(o.x, o.y, p.aim, 400 * ST.pVel, { dmg: 40, r: 14, life: 1.1, pierce: 99, kind: 'plasma', col: '#b388ff', cassable: false });
+        b.boom = { r: 110, dmg: 62 * ST.pDmg, finVie: true };
+        Son.play('tirLourd');
+      }
+    }
+  },
+  {
+    id: 'aiguilles', nom: 'Aiguilles', ico: '⋰', desc: 'Des aiguilles qui se plantent dans la cible. Au bout de 15, tout explose.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .1 / ST.pCad);
+      for (let i = 0; i < n; i++) { const o = bout(p, 14); pShot(o.x, o.y, p.aim + R.range(-.04, .04), 1100 * ST.pVel, { dmg: 5, r: 3, life: .9, kind: 'aiguille', col: '#c8ffd0' }).aig = true; Son.play('tir'); }
+    }
+  },
+  {
+    id: 'railgun', nom: 'Canon électrique', ico: '⌁', desc: 'Maintiens pour charger (tu ralentis), relâche à pleine charge : un trait instantané qui traverse tout.',
+    tick(w, p, dt, held) {
+      w.ch = w.ch || 0; w.cd = Math.max(0, (w.cd || 0) - dt);
+      if (held && w.cd <= 0 && !(G.opts.auto && w.ch >= 1)) { w.ch = Math.min(1, w.ch + dt * ST.pCad / 1.2); p.lent = Math.min(p.lent, .55); if (w.ch >= 1 && !w.pret) { w.pret = true; Son.play('charge'); } }
+      else if (w.ch > 0) {
+        if (w.ch >= 1) {
+          const L = G.arene.rayMur(p.x, p.y, p.aim, 1600), ex = p.x + Math.cos(p.aim) * L, ey = p.y + Math.sin(p.aim) * L;
+          for (const tg of G.cibles()) if (segD2(tg.x, tg.y, p.x, p.y, ex, ey) < (10 + tg.r) ** 2) G.frappe(tg, 175 * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+          for (const e of G.eb) if (e.des && segD2(e.x, e.y, p.x, p.y, ex, ey) < (10 + e.r) ** 2) e.dead = true;
+          G.fx.push({ kind: 'trait', x1: p.x, y1: p.y, x2: ex, y2: ey, t: 0, dur: .25, col: '#9ff' });
+          G.recul(p, 220); G.secoue(5); Son.play('tirLourd'); w.cd = .25;
+        } else Son.play('vide');
+        w.ch = 0; w.pret = false;
+      }
+    }
+  }
+);
+
+SPEC.push(
+  {
+    id: 'gel', nom: 'Gel du temps', ico: '❄', cout: 45, rech: 12, desc: 'Fige tous les projectiles ennemis pendant 2,5 s.',
+    use(p) { const t = 2.5 * ST.sAmp; for (const e of G.eb) e.gel = t; G.gelT = t; G.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 20, r1: 900, t: 0, dur: .5, col: '#bdf' }); }
+  },
+  {
+    id: 'clones', nom: 'Doubles', ico: '👥', cout: 50, rech: 14, desc: 'Deux doubles t\'accompagnent 6 s et tirent avec toi.',
+    use(p) { G.allies.push({ kind: 'clones', t: 0, dur: 6 * ST.sAmp, cd: 0 }); }
+  },
+  {
+    id: 'lamesCiel', nom: 'Pluie de lames', ico: '⚔', cout: 45, rech: 8, desc: '8 lames tombent du ciel sur la cible la plus proche du viseur.',
+    use(p) { for (let i = 0; i < 8; i++) G.allies.push({ kind: 'lameCiel', t: -i * .12, dur: .35, r: 45, dmg: 72 * ST.sDmg }); }
+  },
+  {
+    id: 'onde', nom: 'Onde de choc', ico: '◗', cout: 35, rech: 6, desc: 'Une onde en cône devant toi : dégâts, efface les projectiles, repousse les invocations.',
+    use(p) {
+      const R0 = 270 * ST.sAmp;
+      for (const tg of G.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < R0 && Math.abs(angDiff(p.aim, ang(p.x, p.y, tg.x, tg.y))) < .9) {
+        G.frappe(tg, 230 * ST.sDmg, { spec: true, x: tg.x, y: tg.y });
+        if (tg !== G.boss && !tg.fixe) { tg.x += Math.cos(p.aim) * 90; tg.y += Math.sin(p.aim) * 90; }
+      }
+      for (const e of G.eb) if (d2(p.x, p.y, e.x, e.y) < R0 * R0 && Math.abs(angDiff(p.aim, ang(p.x, p.y, e.x, e.y))) < .9) e.dead = true;
+      G.fx.push({ kind: 'cone', x: p.x, y: p.y, a: p.aim, r: R0, t: 0, dur: .3 });
+      G.secoue(5);
+    }
+  },
+  {
+    id: 'satellite', nom: 'Rayon orbital', ico: '⊙', cout: 55, rech: 11, desc: 'Un rayon tombé du ciel suit ton viseur pendant 3 s.',
+    use(p) { const pt = G.arene.clampPt(G.mx, G.my, 0); G.allies.push({ kind: 'satellite', x: pt.x, y: pt.y, t: 0, dur: 3 * ST.sAmp, r: 48, dps: 270 * ST.sDmg }); }
+  },
+  {
+    id: 'soin', nom: 'Soin', ico: '✚', cout: 80, rech: 25, desc: 'Rend 25 points de vie.',
+    use(p) { const s = Math.round(25 * ST.sAmp); p.hp = Math.min(p.hpMax, p.hp + s); G.texte(p.x, p.y - 30, '+' + s, '#46e39b', 20); Son.play('soin'); G.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 60, r1: 10, t: 0, dur: .4, col: '#46e39b' }); }
+  },
+  {
+    id: 'murForce', nom: 'Mur de force', ico: '▬', cout: 30, rech: 9, desc: 'Un mur devant toi arrête tous les projectiles pendant 4 s.',
+    use(p) { const o = bout(p, 70); G.allies.push({ kind: 'mur', x: o.x, y: o.y, a: p.aim + Math.PI / 2, L: 170 * ST.sAmp, t: 0, dur: 4 * ST.sAmp }); }
+  },
+  {
+    id: 'supernova', nom: 'Supernova', ico: '✹', cout: 90, rech: 20, desc: 'Tu te charges 1 s (ralenti), puis une explosion géante ravage tout autour.',
+    use(p) { G.allies.push({ kind: 'supernova', t: 0, dur: 1, r: 380 * ST.sAmp, dmg: 900 * ST.sDmg }); Son.play('charge'); }
+  }
+);
+
+TAL.push(
+  {
+    id: 'saut', nom: 'Saut', ico: '⤊', rech: 2.2, desc: 'Un bond par-dessus tout (invincible en l\'air). L\'atterrissage fait une petite onde.',
+    use(p) { p.saut = .55 * ST.tPort; p.sautMax = p.saut; p.iframe = Math.max(p.iframe, p.saut + .05 + ST.tIntan); Son.play('dash'); }
+  },
+  {
+    id: 'esquive', nom: 'Esquive parfaite', ico: '≫', rech: 1.1, desc: 'Une ruée. Si un projectile te frôle pendant la ruée, le temps ralentit et tu gagnes de l\'énergie.',
+    use(p) { const d = G.dirMouv(p); p.dash = { t: 0, dur: .16, vx: d.x * 230 * ST.tPort / .16, vy: d.y * 230 * ST.tPort / .16, parfait: true }; p.iframe = Math.max(p.iframe, .22 + ST.tIntan); G.traine(p); Son.play('dash'); }
+  },
+  {
+    id: 'ancre', nom: 'Ancre temporelle', ico: '⚲', rech: 7, desc: 'Pose une ancre. Rappuie dans les 4 s : tu y reviens et récupères la moitié de la vie perdue depuis.',
+    use(p) {
+      if (p.ancre) {
+        const a = p.ancre;
+        G.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: 0, dur: .3 });
+        p.x = a.x; p.y = a.y; p.iframe = Math.max(p.iframe, .35 + ST.tIntan);
+        if (p.hp < a.hp) { const s = Math.round((a.hp - p.hp) / 2); p.hp += s; G.texte(p.x, p.y - 30, '+' + s, '#46e39b', 18); }
+        p.ancre = null; Son.play('teleporte');
+        return;
+      }
+      p.ancre = { x: p.x, y: p.y, hp: p.hp, t: 4 * ST.tPort }; Son.play('tele');
+      return 'gratuit';
+    }
+  },
+  {
+    id: 'ombre', nom: 'Ruée d\'ombre', ico: '⟿', rech: 1.6, desc: 'Une ruée qui laisse une traînée d\'ombre brûlante derrière toi.',
+    use(p) {
+      const d = G.dirMouv(p), L = 260 * ST.tPort;
+      G.allies.push({ kind: 'trainee', x1: p.x, y1: p.y, x2: p.x + d.x * L, y2: p.y + d.y * L, t: 0, dur: 2, dps: 90 * ST.pDmg });
+      p.dash = { t: 0, dur: .17, vx: d.x * L / .17, vy: d.y * L / .17 }; p.iframe = Math.max(p.iframe, .22 + ST.tIntan); Son.play('dash');
+    }
+  },
+  {
+    id: 'echange', nom: 'Permutation', ico: '⇄', rech: 6, desc: 'Tu échanges ta place avec celle du boss.',
+    use(p) {
+      const b = G.boss;
+      if (!b || b.mort || b.air || b.intro > 0) { Son.play('vide'); return 'gratuit'; }
+      const x = p.x, y = p.y;
+      G.fx.push({ kind: 'fantome', x, y, t: 0, dur: .3 });
+      p.x = b.x; p.y = b.y; b.x = x; b.y = y;
+      G.arene.contenir(p, p.r); G.arene.contenir(b, b.r * .8);
+      p.iframe = Math.max(p.iframe, .4 + ST.tIntan); Son.play('teleporte');
+    }
+  },
+  {
+    id: 'sprint', nom: 'Sprint', ico: '⇶', rech: 6, desc: 'Vitesse ×1,6 pendant 2 s.',
+    use(p) { p.sprint = 2 * ST.tPort; p.iframe = Math.max(p.iframe, .15 + ST.tIntan); Son.play('dash'); }
+  }
+);
 const ARS = { p: PRIM, s: SPEC, t: TAL };
 function trouveArme(cat, id) { return ARS[cat].find(a => a.id === id); }

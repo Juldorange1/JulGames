@@ -76,9 +76,17 @@ addEventListener('mouseup', e => {
 });
 addEventListener('contextmenu', e => e.preventDefault());
 
-// ---------- Son (synthétisé, discret) ----------
+// ---------- Son : échantillons CC0 (dossier sfx/), synthèse en secours, réverbération ----------
+const SFX = {
+  explo_grosse: 'explo_grosse.ogg', explo_moyenne: 'explo_moyenne.ogg', explo_petite: 'explo_petite.ogg', explo_boss: 'explo_boss.mp3',
+  choc1: 'choc1.ogg', choc2: 'choc2.ogg', choc3: 'choc3.ogg', blesse: 'blesse.ogg', blesse2: 'blesse2.ogg',
+  touche1: 'touche1.ogg', touche2: 'touche2.ogg', verre1: 'verre1.ogg', verre2: 'verre2.ogg', tir1: 'tir1.ogg', tir2: 'tir2.ogg',
+  laser: 'laser.ogg', tir_lourd: 'tir_lourd.ogg', rayon: 'rayon.wav', tele: 'tele.ogg', cri1: 'cri1.wav', cri2: 'cri2.wav',
+  cri3: 'cri3.wav', cri4: 'cri4.wav', swish1: 'swish1.wav', swish2: 'swish2.wav', swish3: 'swish3.wav', gong: 'gong.ogg',
+  parade: 'parade.ogg', missile: 'missile.ogg', charge: 'charge.ogg', pouvoir: 'pouvoir.ogg'
+};
 const Son = {
-  c: null, master: null, noiseBuf: null, last: {},
+  c: null, master: null, sfx: null, rev: null, noiseBuf: null, last: {}, buf: {},
   init() {
     if (this.c) { if (this.c.state === 'suspended') this.c.resume(); return; }
     const A = window.AudioContext || window.webkitAudioContext;
@@ -86,28 +94,56 @@ const Son = {
     try {
       this.c = new A();
       this.master = this.c.createGain();
-      this.master.gain.value = Save.d ? Save.d.opts.vol : .5;
-      this.master.connect(this.c.destination);
+      this.master.gain.value = Save.d.opts.vol;
+      const comp = this.c.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.ratio.value = 6;
+      this.master.connect(comp); comp.connect(this.c.destination);
+      this.sfx = this.master;
       const n = this.c.sampleRate;
       this.noiseBuf = this.c.createBuffer(1, n, n);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      // réverbération : réponse impulsionnelle fabriquée (bruit qui décroît)
+      const L = Math.floor(n * 2.2), ir = this.c.createBuffer(2, L, n);
+      for (let ch = 0; ch < 2; ch++) { const x = ir.getChannelData(ch); for (let i = 0; i < L; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / L, 3.2); }
+      this.rev = this.c.createConvolver(); this.rev.buffer = ir;
+      const rg = this.c.createGain(); rg.gain.value = .35; this.rev.connect(rg); rg.connect(this.master);
+      this.charger();
     } catch (e) { this.c = null; }
   },
+  charger() {
+    if (location.protocol === 'file:') return; // fetch impossible en file:// : on garde la synthèse
+    for (const k in SFX) {
+      fetch('sfx/' + SFX[k]).then(r => r.arrayBuffer()).then(a => this.c.decodeAudioData(a)).then(b => { this.buf[k] = b; }).catch(() => { });
+    }
+  },
   setVol(v) { if (this.master) this.master.gain.value = v; },
-  tone(f, d, type, v, f2, delay) {
+  ech(nom, v, rate, rev) {
+    const b = this.buf[nom];
+    if (!b || !this.c) return false;
+    const s = this.c.createBufferSource(), g = this.c.createGain();
+    s.buffer = b; s.playbackRate.value = rate || 1;
+    g.gain.value = v;
+    s.connect(g); g.connect(this.sfx);
+    if (rev && this.rev) { const r = this.c.createGain(); r.gain.value = rev; g.connect(r); r.connect(this.rev); }
+    s.start();
+    return true;
+  },
+  tone(f, d, type, v, f2, delay, rev) {
     if (!this.c) return;
     const t0 = this.c.currentTime + (delay || 0);
     const o = this.c.createOscillator(), g = this.c.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(f, t0);
     if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
-    g.gain.setValueAtTime(v, t0);
+    g.gain.setValueAtTime(.0001, t0);
+    g.gain.exponentialRampToValueAtTime(v, t0 + .008);
     g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
-    o.connect(g); g.connect(this.master);
+    o.connect(g); g.connect(this.sfx);
+    if (rev && this.rev) { const r = this.c.createGain(); r.gain.value = rev; g.connect(r); r.connect(this.rev); }
     o.start(t0); o.stop(t0 + d + .02);
   },
-  noise(d, v, fc, delay, fc2) {
+  noise(d, v, fc, delay, fc2, rev) {
     if (!this.c || !this.noiseBuf) return;
     const t0 = this.c.currentTime + (delay || 0);
     const s = this.c.createBufferSource(), f = this.c.createBiquadFilter(), g = this.c.createGain();
@@ -116,52 +152,110 @@ const Son = {
     if (fc2) f.frequency.exponentialRampToValueAtTime(fc2, t0 + d);
     g.gain.setValueAtTime(v, t0);
     g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
-    s.connect(f); f.connect(g); g.connect(this.master);
+    s.connect(f); f.connect(g); g.connect(this.sfx);
+    if (rev && this.rev) { const r = this.c.createGain(); r.gain.value = rev; g.connect(r); r.connect(this.rev); }
     s.start(t0, Math.random() * .5); s.stop(t0 + d + .02);
   },
+  pick(...noms) { return noms[Math.floor(Math.random() * noms.length)]; },
   play(n) {
     if (!this.c) return;
-    const now = performance.now(), gap = { tir: 70, touche: 60, salve: 90, blesse: 120, explo: 60 }[n] || 30;
+    const now = performance.now(), gap = { tir: 55, touche: 45, salve: 80, blesse: 120, explo: 50, tele: 60, tic: 30, epee: 40 }[n] || 25;
     if (this.last[n] && now - this.last[n] < gap) return;
     this.last[n] = now;
+    const rr = () => .92 + Math.random() * .16;
     switch (n) {
-      case 'tir': this.tone(880 + Math.random() * 120, .05, 'square', .015, 500); break;
-      case 'touche': this.tone(240 + Math.random() * 60, .05, 'triangle', .03, 160); break;
-      case 'epee': this.noise(.12, .09, 3000, 0, 600); break;
-      case 'salve': this.tone(300, .18, 'sawtooth', .025, 120); break;
-      case 'tele': this.tone(520, .25, 'sine', .035, 780); break;
-      case 'blesse': this.noise(.25, .22, 900, 0, 200); this.tone(160, .3, 'square', .06, 60); break;
-      case 'explo': this.noise(.45, .16, 700, 0, 90); break;
-      case 'gros': this.noise(.9, .28, 500, 0, 50); this.tone(70, .8, 'sine', .2, 30); break;
-      case 'special': this.tone(330, .3, 'sawtooth', .05, 990); this.noise(.2, .05, 2500); break;
-      case 'dash': this.noise(.14, .07, 2000, 0, 500); break;
-      case 'parade': this.tone(1320, .35, 'triangle', .12, 1980); this.tone(660, .4, 'sine', .08); break;
-      case 'phase': this.tone(110, 1.2, 'sawtooth', .08, 55); this.noise(1.2, .12, 400, 0, 60); break;
-      case 'victoire': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .09, null, i * .12)); break;
-      case 'mega': [392, 523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, .7, 'triangle', .09, null, i * .13)); break;
-      case 'mort': this.tone(300, 1.4, 'sawtooth', .08, 40); this.noise(1, .1, 600, 0, 80); break;
+      case 'tir': if (!this.ech(this.pick('tir1', 'tir2'), .05, rr() * 1.15)) this.tone(880, .05, 'square', .012, 500); break;
+      case 'tirLourd': if (!this.ech('tir_lourd', .22, rr())) this.noise(.3, .2, 1500, 0, 200); this.tone(90, .25, 'sine', .15, 40); break;
+      case 'touche': if (!this.ech(this.pick('touche1', 'touche2'), .09, rr() * 1.2)) this.tone(240, .05, 'triangle', .03, 160); break;
+      case 'epee': if (!this.ech(this.pick('swish1', 'swish2', 'swish3'), .35, rr())) this.noise(.12, .09, 3000, 0, 600); break;
+      case 'salve': this.tone(220, .2, 'sawtooth', .03, 90); this.noise(.12, .04, 1800, 0, 400); break;
+      case 'tele': this.tone(380, .3, 'sine', .03, 900); this.tone(760, .25, 'triangle', .012, 1500); break;
+      case 'rayonTir': if (!this.ech('rayon', .12, rr())) this.noise(.6, .1, 2500, 0, 300); break;
+      case 'blesse': if (!this.ech(this.pick('blesse', 'blesse2'), .55, rr())) this.noise(.25, .22, 900, 0, 200); this.tone(120, .35, 'square', .07, 45); this.noise(.3, .18, 400, 0, 80); break;
+      case 'explo': if (!this.ech(this.pick('explo_petite', 'explo_moyenne'), .28, rr(), .25)) this.noise(.45, .16, 700, 0, 90); break;
+      case 'gros': if (!this.ech(this.pick('explo_grosse', 'choc1', 'choc3'), .55, rr() * .9, .4)) this.noise(.9, .28, 500, 0, 50); this.tone(55, .9, 'sine', .3, 28); break;
+      case 'choc': if (!this.ech(this.pick('choc1', 'choc2', 'choc3'), .5, rr() * .8, .3)) this.noise(.5, .2, 400, 0, 60); this.tone(60, .5, 'sine', .25, 30); break;
+      case 'special': if (!this.ech('pouvoir', .3, rr(), .2)) this.tone(330, .3, 'sawtooth', .05, 990); this.noise(.2, .05, 2500); break;
+      case 'missile': if (!this.ech('missile', .2, rr() * 1.3)) this.noise(.4, .08, 2000, 0, 500); break;
+      case 'dash': if (!this.ech(this.pick('swish1', 'swish2', 'swish3'), .3, rr() * .8)) this.noise(.14, .07, 2000, 0, 500); break;
+      case 'parade': if (!this.ech('parade', .5, 1.2, .5)) this.tone(1320, .35, 'triangle', .12, 1980); this.tone(1980, .5, 'sine', .06, null, 0, .4); break;
+      case 'verre': if (!this.ech(this.pick('verre1', 'verre2'), .45, rr(), .3)) this.noise(.4, .15, 6000, 0, 2000); break;
+      case 'cri': if (!this.ech(this.pick('cri1', 'cri2', 'cri3', 'cri4'), .7, .55 + Math.random() * .25, .6)) this.tone(90, 1.2, 'sawtooth', .1, 45); this.tone(48, 1.3, 'sine', .25, 30); break;
+      case 'phase': this.play('cri'); this.noise(1.4, .2, 600, 0, 50, .5); this.tone(55, 1.6, 'sawtooth', .07, 27); break;
+      case 'gong': if (!this.ech('gong', .5, .8, .7)) this.tone(110, 2, 'sine', .2, 100); break;
+      case 'portail': if (!this.ech('tele', .35, .7, .5)) this.tone(200, 1, 'sine', .08, 800); break;
+      case 'teleporte': if (!this.ech('tele', .3, rr() * 1.2, .3)) this.tone(500, .25, 'sine', .05, 1500); break;
+      case 'mortBoss': if (!this.ech('explo_boss', .7, .8, .6)) this.noise(1.5, .35, 600, 0, 40); this.tone(45, 2, 'sine', .35, 22); this.ech('explo_grosse', .5, .6, .6); break;
+      case 'victoire': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .07, null, i * .1, .3)); break;
+      case 'mort': this.tone(200, 2, 'sawtooth', .08, 30, 0, .6); this.noise(1.6, .15, 500, 0, 50, .5); this.ech('choc3', .6, .5, .6); break;
       case 'clic': this.tone(660, .06, 'triangle', .04); break;
-      case 'soin': this.tone(523, .25, 'sine', .06, 1046); break;
+      case 'soin': this.tone(523, .25, 'sine', .07, 1046, 0, .3); this.tone(784, .3, 'sine', .05, 1568, .08, .3); break;
       case 'vide': this.tone(130, .1, 'square', .03); break;
+      case 'tic': this.tone(1800, .03, 'square', .025); break;
+      case 'tac': this.tone(900, .06, 'square', .04); this.tone(60, .15, 'sine', .15, 40); break;
+      case 'coeur': this.tone(58, .14, 'sine', .3, 40); this.tone(52, .16, 'sine', .25, 36, .16); break;
+      case 'alerte': this.tone(300, .35, 'sawtooth', .025, 600); break;
+      case 'charge': if (!this.ech('charge', .25, rr())) this.tone(150, .8, 'sawtooth', .05, 600); break;
+      case 'ramasse': this.tone(880, .12, 'triangle', .06, 1320); this.tone(1320, .2, 'sine', .04, 1760, .06); break;
     }
+  }
+};
+
+// ---------- Musique (fichiers CC0 du dossier music/, fondus enchaînés) ----------
+const MUS = {
+  combat: ['combat01.ogg', 'combat02.ogg', 'combat03.ogg', 'combat04.ogg', 'combat05.mp3', 'combat06.mp3', 'combat07.ogg', 'combat08.ogg', 'combat09.ogg',
+    'combat10.mp3', 'combat11.ogg', 'combat12.ogg', 'combat13.mp3', 'combat14.ogg', 'combat15.ogg', 'combat16.ogg', 'combat17.ogg'],
+  mega: [['mega1.ogg', 'mega2.ogg', 'mega3.ogg'], ['mega4.mp3', 'mega2.ogg', 'mega3.ogg'], ['mega5.mp3', 'mega2.ogg', 'mega3.ogg']],
+  menu: 'menu.ogg', victoire: 'victoire.ogg'
+};
+const Musique = {
+  el: null, src: '', vol: 0, cible: 1, derniers: [],
+  volume() { return Save.d.opts.musique; },
+  jouer(fichier, boucle) {
+    if (this.src === fichier && this.el && !this.el.paused) { this.cible = 1; return; }
+    const ancien = this.el;
+    if (ancien) { const a = ancien; let v = a.volume; const t = setInterval(() => { v -= .05; if (v <= 0) { clearInterval(t); a.pause(); } else a.volume = v; }, 40); }
+    const el = new Audio('music/' + fichier);
+    el.loop = boucle !== false; el.volume = 0;
+    this.el = el; this.src = fichier; this.vol = 0; this.cible = 1;
+    const p = el.play(); if (p && p.catch) p.catch(() => { });
+  },
+  combat() {
+    const libres = MUS.combat.filter(f => !this.derniers.includes(f));
+    const f = libres[Math.floor(Math.random() * libres.length)];
+    this.derniers.push(f); if (this.derniers.length > 6) this.derniers.shift();
+    this.jouer(f);
+  },
+  sting(f) { const el = new Audio('music/' + f); el.volume = Math.min(1, this.volume() * 1.2); const p = el.play(); if (p && p.catch) p.catch(() => { }); },
+  baisser(k) { this.cible = k; },
+  stop() { this.cible = 0; },
+  maj(dt) {
+    if (!this.el) return;
+    this.vol += clamp(this.cible - this.vol, -dt * 1.5, dt * 1.5);
+    this.el.volume = clamp(this.vol * this.volume(), 0, 1);
+    if (this.cible === 0 && this.vol <= 0 && !this.el.paused) this.el.pause();
+    if (this.cible > 0 && this.el.paused && this.el.readyState > 2 && !this.el.ended) { const p = this.el.play(); if (p && p.catch) p.catch(() => { }); }
   }
 };
 
 // ---------- Sauvegarde ----------
 const SAVE_KEY = 'colosses_v1';
+const DIFFS = {
+  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: .8, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
+  guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.15, hp: 1.1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
+  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.75, hp: 1.35, vit: 1.18, tele: .8, idle: .62, dens: 1.3, soin: 15 }
+};
+function progVide() { return { palier: 0, record: 0, up: { p: {}, s: {}, t: {} }, run: null, megaTemps: {} }; }
 const Save = {
   d: null,
   defaut() {
     return {
-      up: { p: {}, s: {}, t: {} },
-      palier: 0,              // nombre de méga boss vaincus = point de reprise
-      record: 0,              // plus haute salle atteinte
-      stats: { boss: 0, mega: 0, morts: 0, temps: 0, salles: 0 },
-      codex: { att: {}, arm: {}, traits: {}, cartes: {}, invoc: {} },
-      chasse: [],             // derniers boss vaincus
-      megaTemps: {},          // meilleur temps par méga boss
-      run: null,              // { salle, pv }
-      opts: { vol: .5, tremble: true, auto: false, chiffres: true }
+      diff: 'guerrier',
+      prog: { apprenti: progVide(), guerrier: progVide(), cauchemar: progVide() },
+      stats: { boss: 0, mega: 0, morts: 0, temps: 0, salles: 0, parades: 0 },
+      codex: { att: {}, arm: {}, traits: {}, cartes: {}, invoc: {}, especes: {} },
+      chasse: [],
+      opts: { vol: .6, musique: .5, tremble: true, auto: false, chiffres: true, lumiere: true }
     };
   },
   load() {
@@ -169,16 +263,25 @@ const Save = {
     try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { d = null; }
     const def = this.defaut();
     if (!d || typeof d !== 'object') d = def;
+    // ancienne version (une seule progression) → difficulté Guerrier
+    if (!d.prog) {
+      d.prog = def.prog;
+      if (d.up) d.prog.guerrier = { palier: d.palier || 0, record: d.record || 0, up: d.up, run: null, megaTemps: d.megaTemps || {} };
+      delete d.up; delete d.palier; delete d.record; delete d.run; delete d.megaTemps;
+    }
     for (const k in def) if (d[k] === undefined) d[k] = def[k];
     for (const k in def.opts) if (d.opts[k] === undefined) d.opts[k] = def.opts[k];
     for (const k in def.codex) if (!d.codex[k]) d.codex[k] = {};
     for (const k in def.stats) if (d.stats[k] === undefined) d.stats[k] = 0;
-    for (const k of ['p', 's', 't']) if (!d.up[k]) d.up[k] = {};
+    for (const k in DIFFS) { if (!d.prog[k]) d.prog[k] = progVide(); for (const c of ['p', 's', 't']) if (!d.prog[k].up[c]) d.prog[k].up[c] = {}; }
+    if (!DIFFS[d.diff]) d.diff = 'guerrier';
     this.d = d;
   },
   write() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.d)); } catch (e) { } }
 };
 Save.load();
+function PR() { return Save.d.prog[Save.d.diff]; }
+function DF() { return DIFFS[Save.d.diff]; }
 
 // ---------- Lueurs pré-rendues ----------
 const glowCache = {};

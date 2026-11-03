@@ -85,3 +85,16 @@ button.danger { color: #ff8a9a; border-color: rgba(255, 90, 110, .4); }
 
 label.opt { display: flex; align-items: center; gap: 10px; margin: 14px 0; font-size: 15px; }
 label.opt input[type=range] { flex: 1; }
+
+.diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 22px; }
+@media (max-width: 640px) { .diffs { grid-template-columns: 1fr; } }
+button.diff { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px; border-radius: 14px; opacity: .65; }
+button.diff.actif { opacity: 1; box-shadow: 0 0 0 2px var(--dc), 0 10px 30px -12px var(--dc); background: color-mix(in srgb, var(--dc) 16%, transparent); }
+button.diff .dico { font-size: 28px; }
+button.diff b { font-size: 18px; color: var(--dc); }
+button.diff .ddesc { font-size: 12px; color: #cfc8de; line-height: 1.35; }
+button.diff .dprog { font-size: 11px; color: #9a94ad; }
+.d-apprenti { --dc: #46e39b; } .d-guerrier { --dc: #ffb43d; } .d-cauchemar { --dc: #ff4d6a; }
+.liste.large { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+.cyc { font-size: 12px; color: #b8b0cc; margin-top: 4px; }
+.cyc span { color: #ffd86b; font-weight: 700; margin-right: 4px; }

@@ -22,7 +22,7 @@ function EB(x, y, a, spd, o) {
     x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: o.r || 7, dmg: o.dmg || DMG(), life: o.life || 9,
     col: o.col || (G.boss ? G.boss.col : '#f55'), t: 0, hom: o.hom || 0, acc: o.acc || 0, angv: o.angv || 0,
     bounce: o.bounce || 0, split: o.split || null, des: o.des !== false, hp: o.hp || 0, delai: o.delai || 0,
-    ext: !!o.ext, dedans: !o.ext, vmin: o.vmin || 0, src: o.src || G.atkCourante
+    ext: !!o.ext, dedans: !o.ext, vmin: o.vmin || 0, src: o.src || G.atkCourante, boom: o.boom || 0
   };
   G.eb.push(b);
   return b;
@@ -513,6 +513,281 @@ def('mines', {
       yield .08;
     }
     yield .4;
+  }
+});
+
+// ---------- Dangers ajoutés ----------
+// zone entière sauf quelques cercles sûrs
+HZ.sauf = {
+  up(h, dt) { h.t += dt; if (h.t >= h.warn && !h.boom) { h.boom = true; h.at = 0; Son.play('gros'); G.secoue(10); G.flash = .25; } if (h.boom) { h.at += dt; if (h.at > h.act) h.dead = true; } },
+  hit(h, p) { if (!h.boom || h.touche) return false; for (const s of h.surs) if (d2(s.x, s.y, p.x, p.y) < (s.r - p.hr) ** 2) return false; return true; },
+  draw(h, c) {
+    const bb = G.arene.bb(), k = clamp(h.t / h.warn, 0, 1);
+    c.save(); c.beginPath(); c.rect(bb.x, bb.y, bb.w, bb.h);
+    for (const s of h.surs) { c.moveTo(s.x + s.r, s.y); c.arc(s.x, s.y, s.r, 0, TAU, true); }
+    c.fillStyle = h.boom ? `rgba(255,220,200,${.6 * (1 - h.at / h.act)})` : `rgba(255,30,70,${.07 + .2 * k})`; c.fill('evenodd');
+    if (!h.boom) for (const s of h.surs) { c.strokeStyle = k > .8 && (G.t * 20 | 0) % 2 ? '#fff' : '#7dffb0'; c.lineWidth = 3; c.beginPath(); c.arc(s.x, s.y, s.r, 0, TAU); c.stroke(); }
+    c.restore();
+  }
+};
+// mur de feu qui balaie l'arène, avec un passage
+HZ.murFeu = {
+  up(h, dt) {
+    h.t += dt;
+    if (h.t >= h.warn) h.pos += h.spd * dt;
+    const bb = G.arene.bb(), L = h.vert ? bb.w : bb.h;
+    if (h.pos > L + 60) h.dead = true;
+    if (R() < dt * 40 && h.t >= h.warn) { const p = this.pt(h, R()); G.parts.push({ x: p.x, y: p.y, vx: R.range(-30, 30), vy: R.range(-80, -20), life: .6, max: .6, col: '#ff8a3c', r: 3, add: true }); }
+  },
+  pt(h, k) { const bb = G.arene.bb(); return h.vert ? { x: bb.x + h.pos, y: bb.y + k * bb.h } : { x: bb.x + k * bb.w, y: bb.y + h.pos }; },
+  hit(h, p) {
+    if (h.t < h.warn) return false;
+    const bb = G.arene.bb(), c = h.vert ? p.x - bb.x : p.y - bb.y, o = h.vert ? p.y - bb.y : p.x - bb.x;
+    if (Math.abs(c - h.pos) > h.th / 2 + p.hr) return false;
+    return Math.abs(o - h.trou) > h.larg / 2;
+  },
+  draw(h, c) {
+    const bb = G.arene.bb(), L = h.vert ? bb.h : bb.w;
+    const seg = (a, b) => { if (b <= a) return; if (h.vert) c.fillRect(bb.x + h.pos - h.th / 2, bb.y + a, h.th, b - a); else c.fillRect(bb.x + a, bb.y + h.pos - h.th / 2, b - a, h.th); };
+    if (h.t < h.warn) {
+      c.fillStyle = 'rgba(255,90,40,.18)';
+      const t0 = h.trou - h.larg / 2, t1 = h.trou + h.larg / 2;
+      seg(0, t0); seg(t1, L);
+      c.strokeStyle = '#7dffb0'; c.lineWidth = 2;
+      if (h.vert) c.strokeRect(bb.x + h.pos - h.th / 2, bb.y + t0, h.th, h.larg); else c.strokeRect(bb.x + t0, bb.y + h.pos - h.th / 2, h.larg, h.th);
+      return;
+    }
+    const t0 = h.trou - h.larg / 2, t1 = h.trou + h.larg / 2;
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = 'rgba(255,120,30,.55)'; seg(0, t0); seg(t1, L);
+    c.fillStyle = 'rgba(255,230,160,.6)';
+    const th = h.th; h.th = th * .4; seg(0, t0); seg(t1, L); h.th = th;
+    c.globalCompositeOperation = 'source-over';
+  }
+};
+// tornade qui poursuit lentement
+HZ.tornade = {
+  up(h, dt) {
+    h.t += dt;
+    if (h.t > h.warn) { const t = cible(), a = ang(h.x, h.y, t.x, t.y); h.x += Math.cos(a) * h.spd * dt; h.y += Math.sin(a) * h.spd * dt; }
+    if (h.t > h.warn + h.vie) h.dead = true;
+  },
+  hit(h, p) { return h.t > h.warn && d2(h.x, h.y, p.x, p.y) < (h.r * .8 + p.hr) ** 2; },
+  draw(h, c) {
+    if (h.t < h.warn) { c.strokeStyle = ROUGE; c.setLineDash([5, 5]); c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.stroke(); c.setLineDash([]); return; }
+    const fin = Math.min(1, (h.warn + h.vie - h.t) * 2);
+    c.globalAlpha = fin;
+    for (let i = 0; i < 5; i++) {
+      c.strokeStyle = i % 2 ? 'rgba(200,220,255,.6)' : (G.boss ? G.boss.col : '#fff'); c.lineWidth = 3;
+      c.beginPath(); c.arc(h.x, h.y, h.r * (.3 + i * .17), G.t * (6 + i) + i, G.t * (6 + i) + i + 3.6); c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
+};
+// fil d'énergie tendu entre deux nœuds
+HZ.fil = {
+  up(h, dt) { h.t += dt; if (h.a.dead || h.b.dead || !G.boss || G.boss.mort) h.dead = true; },
+  hit(h, p) { return h.t > h.warn && segD2(p.x, p.y, h.a.x, h.a.y, h.b.x, h.b.y) < (5 + p.hr) ** 2; },
+  draw(h, c) {
+    if (h.t < h.warn) { c.strokeStyle = `rgba(255,60,90,${.3 + .5 * h.t / h.warn})`; c.lineWidth = 1; c.setLineDash([6, 6]); }
+    else { c.strokeStyle = G.boss ? G.boss.col : '#f5f'; c.lineWidth = 3 + Math.sin(G.t * 30) ; }
+    c.beginPath(); c.moveTo(h.a.x, h.a.y); c.lineTo(h.b.x, h.b.y); c.stroke(); c.setLineDash([]);
+    if (h.t >= h.warn) { c.strokeStyle = '#fff'; c.lineWidth = 1; c.beginPath(); c.moveTo(h.a.x, h.a.y); c.lineTo(h.b.x, h.b.y); c.stroke(); }
+  }
+};
+// cellule numérotée (Juge) : aperçu sans dégâts
+HZ.apercu = {
+  up(h, dt) { h.t += dt; if (h.t > h.dur) h.dead = true; },
+  hit() { return false; },
+  draw(h, c) {
+    const a = Math.min(1, h.t * 6, (h.dur - h.t) * 4);
+    c.globalAlpha = a; c.strokeStyle = '#ffe9a0'; c.lineWidth = 4; c.strokeRect(h.x + 6, h.y + 6, h.w - 12, h.h - 12);
+    c.fillStyle = 'rgba(255,233,160,.12)'; c.fillRect(h.x + 6, h.y + 6, h.w - 12, h.h - 12);
+    c.fillStyle = '#ffe9a0'; c.font = '800 46px Segoe UI'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(h.n, h.x + h.w / 2, h.y + h.h / 2); c.globalAlpha = 1;
+  }
+};
+// lave temporaire (Forgeron, Phénix)
+HZ.lave = {
+  up(h, dt) { h.t += dt; if (h.t > h.life) h.dead = true; },
+  hit(h, p) { return h.t > .35 && d2(h.x, h.y, p.x, p.y) < (h.r * .88) ** 2; },
+  draw(h, c) {
+    const a = Math.min(1, h.t / .35, (h.life - h.t) / .8);
+    c.globalAlpha = a;
+    const g = c.createRadialGradient(h.x, h.y, 2, h.x, h.y, h.r);
+    g.addColorStop(0, '#ff9a3c'); g.addColorStop(.55, '#c8360a'); g.addColorStop(1, 'rgba(90,15,0,.35)');
+    c.fillStyle = g; c.beginPath(); c.arc(h.x, h.y, h.r * (.96 + .04 * Math.sin(G.t * 4 + h.x)), 0, TAU); c.fill();
+    c.globalAlpha = 1;
+  }
+};
+
+// zone qui suit la cible avant de se figer (marque)
+const _cercleUp = HZ.cercle.up;
+HZ.cercle.up = function (h, dt) {
+  if (h.suitJ && h.t < h.warn - (h.fige || .4)) { const t = cible(); h.x += (t.x - h.x) * Math.min(1, dt * 8); h.y += (t.y - h.y) * Math.min(1, dt * 8); }
+  _cercleUp(h, dt);
+};
+
+// ---------- Attaques ajoutées au catalogue ----------
+def('grille', {
+  nom: 'Grille laser', cat: 'rayon', conseil: 'Trois lignes verticales puis trois horizontales : place-toi entre deux lignes, au milieu d\'une case.',
+  params: (r, D) => ({ rep: r.int(1, 2), ecart: r.range(170, 210), w: r.range(30, 38) }),
+  *gen(b, p) {
+    yield* prep(b, .4);
+    const bb = G.arene.bb(), warn = .9 * b.D.T;
+    for (let i = 0; i < p.rep; i++) {
+      const t = cible(), dx = R.range(-60, 60);
+      for (let k = -1; k <= 1; k++) rayon(t.x + dx + k * p.ecart, bb.y + 1, Math.PI / 2, 1600, p.w, warn, .25);
+      yield warn * .55;
+      const t2 = cible(), dy = R.range(-60, 60);
+      for (let k = -1; k <= 1; k++) rayon(bb.x + 1, t2.y + dy + k * p.ecart, 0, 1800, p.w, warn, .25);
+      yield warn + .35;
+    }
+  }
+});
+def('missiles', {
+  nom: 'Missiles traqueurs', cat: 'balles', conseil: 'Ils tournent mal : attends qu\'ils soient proches puis esquive d\'un coup sec sur le côté. Ils explosent en zone.',
+  params: (r, D) => ({ n: Math.round(r.int(4, 6) * D.C), spd: r.range(170, 210) * D.S }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    for (let k = 0; k < p.n; k++) {
+      const a = vise(b) + Math.PI + (k - (p.n - 1) / 2) * .5;
+      EB(b.x, b.y, a, p.spd, { r: 9, hom: 2.3, life: 4.5, hp: 2, acc: 60, col: '#ffb347', boom: 70 });
+      Son.play('missile'); yield .12;
+    }
+    yield .8;
+  }
+});
+def('sniper', {
+  nom: 'Tir de précision', cat: 'balles', conseil: 'La ligne te suit puis se fige : le tir part aussitôt, très vite. Décale-toi pile quand elle se fige.',
+  params: (r, D) => ({ rep: r.int(2, 3) }),
+  *gen(b, p) {
+    for (let i = 0; i < p.rep; i++) {
+      const warn = 1.1 * b.D.T, ray = rayon(b.x, b.y, vise(b), 1500, 4, warn, 0, { alerte: true, suit: b, track: 5 });
+      b.wind = warn; b.windMax = warn;
+      yield* attendre(warn);
+      EB(b.x, b.y, ray.a, 1500, { r: 9, dmg: DMG(1.5), col: '#fff', life: 1.5 });
+      Son.play('tirLourd'); G.secoue(3);
+      yield .35;
+    }
+  }
+});
+def('orbites', {
+  nom: 'Anneaux orbitaux', cat: 'balles', conseil: 'Les anneaux tournent autour du boss en s\'élargissant : passe par le trou quand il arrive sur toi.',
+  params: (r, D) => ({ n: r.int(2, 3), m: Math.round(r.int(22, 30) * Math.min(1.3, D.C)), av: r.range(.8, 1.3) * D.S, dr: r.range(55, 75) * D.S }),
+  *gen(b, p) {
+    yield* prep(b, .6);
+    for (let i = 0; i < p.n; i++) {
+      const sens = i % 2 ? -1 : 1, trou = R() * TAU;
+      for (let k = 0; k < p.m; k++) {
+        const a = k * TAU / p.m; if (Math.abs(angDiff(a, trou)) < .38) continue;
+        const e = EB(b.x, b.y, 0, 0, { r: 7, life: 9 });
+        e.orb = { c: b, a, r: b.r + 10, av: p.av * sens, dr: p.dr };
+      }
+      Son.play('salve'); yield .9;
+    }
+    yield .5;
+  }
+});
+def('boomerangs', {
+  nom: 'Retours', cat: 'balles', conseil: 'Les balles partent puis reviennent vers le boss : ne reste pas entre lui et elles.',
+  params: (r, D) => ({ n: Math.round(r.int(8, 12) * D.C), spd: r.range(260, 320) * D.S, rep: r.int(1, 2) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    for (let i = 0; i < p.rep; i++) {
+      const a0 = vise(b);
+      for (let k = 0; k < p.n; k++) { const e = EB(b.x, b.y, a0 + (k - (p.n - 1) / 2) * .2, p.spd, { r: 8, life: 6 }); e.retour = { d: 360, s: p.spd }; }
+      Son.play('salve'); yield 1.1;
+    }
+  }
+});
+def('serpentins', {
+  nom: 'Serpentins', cat: 'balles', conseil: 'Des flots de balles qui ondulent : regarde leur rythme et passe dans le creux d\'une vague.',
+  params: (r, D) => ({ flots: r.int(3, 5), dur: r.range(2.2, 3), cad: r.range(9, 12), amp: r.range(.35, .6), spd: r.range(190, 230) * D.S }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    let t = 0, acc = 0; const a0 = vise(b);
+    while (t < p.dur) {
+      const dt = G.dtE; t += dt; acc += dt * p.cad;
+      while (acc >= 1) { acc--; for (let k = 0; k < p.flots; k++) { const base = a0 + (k - (p.flots - 1) / 2) * (TAU / p.flots / 1.6); const e = EB(b.x, b.y, base, p.spd, { r: 6 }); e.ond = { base, amp: p.amp, f: 4, ph: t * 3 }; } }
+      yield 0;
+    }
+  }
+});
+def('zonesSures', {
+  nom: 'Zones sûres', cat: 'zone', conseil: 'Toute l\'arène va exploser sauf les cercles verts : cours vers le plus proche.',
+  params: (r, D) => ({ n: r.int(2, 3), r: r.range(80, 100), rep: r.int(1, 2) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    for (let i = 0; i < p.rep; i++) {
+      const surs = [];
+      for (let k = 0; k < p.n; k++) {
+        let pt, e = 0;
+        do { pt = G.arene.pointAuHasard(p.r + 10); e++; } while (e < 30 && (surs.some(s => d2(s.x, s.y, pt.x, pt.y) < (p.r * 2.5) ** 2) || (k === 0 && (d2(pt.x, pt.y, G.p.x, G.p.y) < 140 * 140 || d2(pt.x, pt.y, G.p.x, G.p.y) > 340 * 340))));
+        surs.push({ x: pt.x, y: pt.y, r: p.r });
+      }
+      G.hz.push({ kind: 'sauf', surs, warn: 1.6 * b.D.T, act: .25, t: 0, dmg: DMG(1.4), src: G.atkCourante });
+      Son.play('alerte');
+      yield 1.6 * b.D.T + .5;
+    }
+  }
+});
+def('murFeu', {
+  nom: 'Murs de feu', cat: 'zone', conseil: 'Le passage du mur est montré en vert avant qu\'il parte : va t\'y placer tout de suite.',
+  params: (r, D) => ({ n: r.int(1, 3), spd: r.range(190, 240) * D.S, larg: r.range(110, 140) }),
+  *gen(b, p) {
+    yield* prep(b, .4);
+    for (let i = 0; i < p.n; i++) {
+      const vert = R() < .5, bb = G.arene.bb(), L = vert ? bb.h : bb.w;
+      G.hz.push({ kind: 'murFeu', vert, pos: -30, spd: p.spd, th: 46, larg: p.larg, trou: p.larg / 2 + 20 + R() * (L - p.larg - 40), warn: .9 * b.D.T, t: 0, dmg: DMG(1.2), src: G.atkCourante });
+      Son.play('alerte');
+      yield 1.4;
+    }
+    yield .6;
+  }
+});
+def('tornades', {
+  nom: 'Tornades', cat: 'zone', conseil: 'Les tornades te poursuivent lentement pendant 5 s : tourne en rond large pour les faire se coller.',
+  params: (r, D) => ({ n: r.int(2, 3), spd: r.range(95, 125) * D.S }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    for (let k = 0; k < p.n; k++) { const pt = G.arene.pointAuHasard(60, 220); G.hz.push({ kind: 'tornade', x: pt.x, y: pt.y, r: 42, spd: p.spd, warn: .8, vie: 5, t: 0, dmg: DMG(), src: G.atkCourante }); }
+    yield 1.2;
+  }
+});
+def('seisme', {
+  nom: 'Séisme', cat: 'rayon', conseil: 'Huit failles partent du boss en étoile, puis huit autres décalées : reste entre deux failles, loin de lui.',
+  params: (r, D) => ({ n: r.pick([6, 8, 8, 10]), w: r.range(34, 44) }),
+  *gen(b, p) {
+    yield* prep(b, .45);
+    b.ctl = true;
+    const a0 = vise(b) + Math.PI / p.n, warn = .85 * b.D.T;
+    for (let v = 0; v < 2; v++) {
+      for (let k = 0; k < p.n; k++) rayon(b.x, b.y, a0 + (k + v * .5) * TAU / p.n, 1500, p.w, warn, .3, { col: '#ffb070' });
+      yield warn + .35; G.secoue(6); Son.play('choc');
+    }
+    b.ctl = false;
+  }
+});
+def('marque', {
+  nom: 'Marque', cat: 'zone', conseil: 'Le cercle te colle puis s\'arrête juste avant d\'exploser : sors-en au moment où il se fige.',
+  params: (r, D) => ({ n: r.int(2, 4), r: r.range(85, 110) }),
+  *gen(b, p) {
+    yield* prep(b, .35);
+    for (let i = 0; i < p.n; i++) { const t = cible(); zoneC(t.x, t.y, p.r, 1.5 * b.D.T, { suitJ: true, fige: .45 * b.D.T, dmg: DMG(1.4) }); yield .75; }
+    yield .9;
+  }
+});
+def('eclats', {
+  nom: 'Éclats suspendus', cat: 'balles', conseil: 'Les éclats s\'arrêtent en l\'air puis repartent tous vers toi : bouge au moment où ils repartent.',
+  params: (r, D) => ({ n: Math.round(r.int(16, 22) * D.C), rep: r.int(1, 2) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    for (let i = 0; i < p.rep; i++) {
+      const a0 = R() * TAU;
+      for (let k = 0; k < p.n; k++) { const e = EB(b.x, b.y, a0 + k * TAU / p.n, R.range(230, 300), { r: 7, life: 5 }); e.stop = { t: .55, d: .55 * b.D.T, spd: 290 * b.D.S }; }
+      Son.play('salve'); yield 1.3;
+    }
   }
 });
 
