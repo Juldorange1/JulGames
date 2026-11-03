@@ -35,6 +35,13 @@ function calcStats() {
     tRech: Math.max(.35, Math.pow(.94, lv('t', 'rech'))), tPort: 1 + .08 * lv('t', 'port'), tIntan: .03 * lv('t', 'intan'),
     tCharges: 1 + Math.min(2, lv('t', 'charge'))
   };
+  if (aRelique('frenesie')) ST.pCad *= 1.15;
+  if (aRelique('precision')) ST.pCrit += .12;
+  if (aRelique('batterie')) ST.eGain *= 1.4;
+  if (aRelique('economie')) ST.sCout *= .75;
+  if (aRelique('reflexes')) ST.tRech *= .75;
+  if (aRelique('reserve')) ST.tCharges += 1;
+  if (aRelique('verre')) ST.pDmg *= 1.35;
   if (enDefi()) {
     if (G.mut('energie')) ST.sCout = 0;
     if (G.mut('reflexes')) ST.tRech *= .5;
@@ -43,6 +50,10 @@ function calcStats() {
   return ST;
 }
 calcStats();
+
+// équilibrage mesuré (dégâts par seconde sur cible fixe) : les armes techniques gardent un léger avantage
+const PRIM_EQ = { iaido: .53, rattrape: .6, ricochets: .5, jumelles: .72, surchauffe: .75, laser: .7, meteorite: .8, shuriken: .67, echo: .83, sniper: .8, pompe: .88,
+  boomerang: .83, croix: 1.05, grenades: 1.05, foudre: 1.05, faux: 1.35, pistolet: 1.3, roquettes: 1.25, orbes: 1.2, mitra: 1.25, railgun: 1.9, plasma: 2, gravite: 1.3, fouet: 1.15 };
 
 // ---------- Tirs du joueur ----------
 function pShot(x, y, a, spd, o) {
@@ -659,7 +670,7 @@ PRIM.push(
           const q = d2(pt.x, pt.y, e.x, e.y);
           if (q < 120 * 120) { const a = ang(e.x, e.y, pt.x, pt.y); e.x += Math.cos(a) * 330 * dt; e.y += Math.sin(a) * 330 * dt; if (q < 26 * 26) { e.dead = true; w.stock = Math.min(45, w.stock + 1); } }
         }
-        for (const tg of G.cibles()) if (Math.sqrt(d2(pt.x, pt.y, tg.x, tg.y)) - tg.r < 110) G.frappe(tg, 34 * dt * ST.pDmg, { prim: true, continu: true, x: tg.x, y: tg.y });
+        for (const tg of G.cibles()) if (Math.sqrt(d2(pt.x, pt.y, tg.x, tg.y)) - tg.r < 110) G.frappe(tg, 60 * dt * ST.pDmg, { prim: true, continu: true, x: tg.x, y: tg.y });
       } else if (w.puits) {
         const pt = w.puits; w.puits = null;
         if (w.stock > 0) {

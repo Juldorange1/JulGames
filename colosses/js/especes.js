@@ -18,8 +18,8 @@ espece('metronome', {
   nom: 'le Métronome', hue: 45, r: 56, mouv: 'ancre',
   forme: { style: 'astre', cotes: 8, pics: 8, picL: .25, yeux: 1, sats: 4, anneaux: 2, rot: .25, creux: .5 },
   meca: 'Tout suit son battement (tic + anneau doré). Ses salves décalent leurs trous d\'un demi-cran à chaque temps. Après sa grande salve, son cœur s\'ouvre : ×3 pendant 2 temps.',
-  init(b) { b.s.temps = .56 / b.D.S; b.s.bt = 0; b.s.n = -1; },
-  phaseInit(b, i) { b.s.temps = (i ? .44 : .56) / b.D.S; },
+  init(b) { b.s.temps = Math.max(.5, .58 / b.D.S); b.s.bt = 0; b.s.n = -1; },
+  phaseInit(b, i) { b.s.temps = Math.max(i ? .45 : .5, (i ? .5 : .58) / b.D.S); },
   maj(b, dt) {
     b.s.bt += dt;
     const n = Math.floor(b.s.bt / b.s.temps);
@@ -27,7 +27,7 @@ espece('metronome', {
   },
   phases: [
     { cycle: ['me_salve', 'me_croix', 'me_salve', 'me_pluie'] },
-    { cycle: ['me_aiguilles', 'me_salve', 'me_pluie', 'me_salve', 'me_croix'], carte: 'cercle' }
+    { cycle: ['me_aiguilles', 'me_salve', 'geysers', 'me_pluie', 'me_salve', 'me_croix'], carte: 'cercle' }
   ]
 });
 defEsp('me_salve', {
@@ -103,8 +103,8 @@ espece('sentinelle', {
     c.restore();
   },
   phases: [
-    { cycle: ['rafale', 'se_charge', 'eventail', 'se_charge'] },
-    { cycle: ['balayage', 'se_charge', 'mur', 'rafale', 'se_charge'], carte: 'piliers' }
+    { cycle: ['rafale', 'rochers', 'se_charge', 'eventail', 'se_charge'] },
+    { cycle: ['balayage', 'se_charge', 'rochers', 'rafale', 'se_charge'], carte: 'piliers' }
   ]
 });
 defEsp('se_charge', {
@@ -153,7 +153,7 @@ espece('hydre', {
   bouclier(b) { return G.minions.some(m => m.type === 'tete'); },
   phases: [
     { cycle: ['hy_souffles', 'spirale', 'hy_morsure', 'hy_souffles'] },
-    { cycle: ['hy_souffles', 'anneaux', 'hy_morsure', 'chercheurs'] }
+    { cycle: ['hy_souffles', 'ronces', 'anneaux', 'hy_morsure', 'chercheurs'] }
   ]
 });
 defEsp('hy_souffles', {
@@ -199,7 +199,7 @@ espece('tisseuse', {
     if (n > 0) b.s.avait = true;
   },
   phases: [
-    { cycle: ['ti_toile', 'rafale', 'bond', 'rafale'] },
+    { cycle: ['ti_toile', 'ronces', 'rafale', 'bond', 'rafale'] },
     { cycle: ['ti_toile', 'cage', 'ti_toile', 'bond', 'petales'] }
   ]
 });
@@ -241,7 +241,7 @@ espece('spectre', {
   },
   phases: [
     { cycle: ['sp_saut', 'petales', 'sp_saut', 'echos'] },
-    { cycle: ['sp_saut', 'chercheurs', 'sp_saut', 'petales', 'sp_saut', 'eclats'] }
+    { cycle: ['sp_saut', 'givre', 'chercheurs', 'sp_saut', 'petales', 'sp_saut', 'eclats'] }
   ]
 });
 defEsp('sp_saut', {
@@ -270,8 +270,8 @@ espece('forgeron', {
     for (let i = 0; i < 3; i++) { c.fillStyle = i < b.s.ch ? '#ff7a1a' : 'rgba(255,255,255,.15)'; c.fillRect(b.x - 24 + i * 17, b.y + b.r + 12, 14, 6); }
   },
   phases: [
-    { cycle: ['fo_frappe', 'eventail', 'fo_frappe', 'rafale', 'fo_frappe'] },
-    { cycle: ['fo_frappe', 'meteores', 'fo_frappe', 'murFeu', 'fo_frappe'], carte: 'lave' }
+    { cycle: ['fo_frappe', 'failles', 'fo_frappe', 'rafale', 'fo_frappe'] },
+    { cycle: ['fo_frappe', 'geysers', 'fo_frappe', 'murFeu', 'fo_frappe'], carte: 'lave' }
   ]
 });
 defEsp('fo_frappe', {
@@ -279,7 +279,7 @@ defEsp('fo_frappe', {
   params: (r, D) => ({ n: Math.round(12 * Math.min(1.5, D.C)), spd: 190 * D.S }),
   *gen(b, p) {
     b.ctl = true;
-    const t = cible(), pt = G.arene.clampPt(t.x, t.y, b.r), warn = 1 * b.D.T;
+    const t = cible(), pt = G.arene.clampPt(t.x, t.y, b.r), warn = Math.max(.85, b.D.T);
     zoneC(pt.x, pt.y, 125, warn, { dmg: DMG(1.4) });
     b.air = true; const sx = b.x, sy = b.y; let tt = 0;
     while (tt < warn) { tt += G.dtE; const k = Math.min(1, tt / warn); b.x = lerp(sx, pt.x, k); b.y = lerp(sy, pt.y, k); b.haut = Math.sin(k * Math.PI) * 130; yield 0; }
@@ -296,9 +296,9 @@ defEsp('fo_surchauffe', {
   params: (r, D) => ({ n: Math.round(28 * Math.min(1.4, D.C)), spd: 210 * D.S }),
   *gen(b, p) {
     b.ctl = true;
-    const warn = 1.6 * b.D.T;
+    const warn = Math.max(1.3, 1.6 * b.D.T);
     b.wind = warn; b.windMax = warn; Son.play('alerte');
-    zoneC(b.x, b.y, 270, warn, { dmg: DMG(1.6) });
+    zoneC(b.x, b.y, 230, warn, { dmg: DMG(1.4) });
     yield warn;
     anneauTirs(b.x, b.y, p.n, R() * TAU, p.spd);
     onde(b.x, b.y, 320, { th: 18, r: 270, life: 2.5 });
@@ -315,7 +315,7 @@ espece('reine', {
   bouclier(b) { return G.minions.filter(m => m.type !== 'cristal' && m.spawn <= 0).length >= 3; },
   phases: [
     { cycle: ['re_essaim', 'chercheurs', 'pluie', 're_essaim', 'rafale'] },
-    { cycle: ['re_essaim', 'vortex', 're_kamikazes', 'pluie'] }
+    { cycle: ['re_essaim', 'pics', 'vortex', 're_kamikazes', 'pluie'] }
   ]
 });
 defEsp('re_essaim', {
@@ -349,7 +349,7 @@ espece('juge', {
   meca: 'Il montre une suite de cases numérotées, puis les fait exploser très vite dans le même ordre. Retiens l\'ordre et file sur une case déjà passée. Après chaque sentence il s\'agenouille (×2).',
   phases: [
     { cycle: ['ju_sentence', 'rayon', 'ju_sentence', 'croix'] },
-    { cycle: ['ju_sentence', 'echos', 'ju_sentence', 'grille', 'sniper'] }
+    { cycle: ['ju_sentence', 'effondrement', 'echos', 'ju_sentence', 'grille', 'sniper'] }
   ]
 });
 defEsp('ju_sentence', {
@@ -368,7 +368,7 @@ defEsp('ju_sentence', {
     yield .55;
     for (let i = 0; i < k; i++) {
       const c = cells[i], x = bb.x + (c % nc) * cw, y = bb.y + Math.floor(c / nc) * ch;
-      zoneR(x, y, cw, ch, .3 * b.D.T, { dmg: DMG(1.3) });
+      zoneR(x, y, cw, ch, Math.max(.36, .3 * b.D.T), { dmg: DMG(1.3) });
       yield .3;
     }
     yield .4;
@@ -384,7 +384,7 @@ espece('horloger', {
   meca: 'Ses aiguilles tournent toujours dans le même sens et à vitesse fixe : tourne avec elles. Quand elles se superposent (« midi »), il est ouvert (×2,5).',
   phases: [
     { cycle: ['ho_aiguilles', 'salve', 'ho_engrenages', 'salve'] },
-    { cycle: ['ho_aiguilles', 'ho_engrenages', 'anneaux', 'ho_aiguilles', 'eclats'] }
+    { cycle: ['ho_aiguilles', 'ho_engrenages', 'pics', 'anneaux', 'ho_aiguilles', 'eclats'] }
   ]
 });
 defEsp('ho_aiguilles', {
@@ -394,9 +394,9 @@ defEsp('ho_aiguilles', {
     b.ctl = true;
     const sens = b.phase ? -1 : 1, warn = 1 * b.D.T, dur = 7.5, aM = vise(b) + Math.PI;
     b.wind = warn; b.windMax = warn;
-    const min = rayon(b.x, b.y, aM, 1500, 22, warn, dur, { suit: b, rot: 1.05 * sens * p.s });
-    const heu = rayon(b.x, b.y, aM + Math.PI * .7, 1500, 34, warn, dur, { suit: b, rot: .36 * sens * p.s });
-    if (b.phase) rayon(b.x, b.y, aM + Math.PI * 1.3, 1500, 14, warn, dur, { suit: b, rot: 2 * sens * p.s, col: '#ffe9a0' });
+    const min = rayon(b.x, b.y, aM, 1500, 22, warn, dur, { suit: b, rot: .6 * sens });
+    const heu = rayon(b.x, b.y, aM + Math.PI * .7, 1500, 34, warn, dur, { suit: b, rot: .22 * sens });
+    if (b.phase) rayon(b.x, b.y, aM + Math.PI * 1.3, 260, 14, warn, dur, { suit: b, rot: 1 * sens, col: '#ffe9a0' });
     let t = 0, lock = 0;
     while (t < warn + dur) {
       t += G.dtE; lock -= G.dtE;
@@ -465,7 +465,7 @@ espece('serpent', {
     }
   },
   phases: [
-    { cycle: ['sn_ruee', 'sn_salve', 'sn_enroule'] },
+    { cycle: ['sn_ruee', 'sn_salve', 'pics', 'sn_enroule'] },
     { cycle: ['sn_ruee', 'sn_salve', 'sn_enroule', 'sn_ruee', 'pluie'], carte: 'cercle' }
   ]
 });
@@ -490,7 +490,7 @@ defEsp('sn_salve', {
   params: (r, D) => ({ spd: 175 * D.S }),
   *gen(b, p) {
     yield* prep(b, .45);
-    const sg = b.s.seg.slice();
+    const sg = (b.s.seg || []).slice();
     for (let i = 0; i < sg.length - 1; i++) {
       const q = sg[i], nq = sg[i + 1] || q, a = ang(nq.x, nq.y, q.x, q.y);
       EB(q.x, q.y, a + Math.PI / 2, p.spd, { r: 6 }); EB(q.x, q.y, a - Math.PI / 2, p.spd, { r: 6 });
@@ -526,12 +526,12 @@ espece('nebuleuse', {
   maj(b) { if (!b.s.inspire) G.aspiration = { x: b.x, y: b.y, f: (b.phase ? 70 : 45) * b.D.S, t: .1 }; },
   phases: [
     { cycle: ['orbites', 'petales', 'ne_inspire', 'spirale'] },
-    { cycle: ['orbites', 'ne_inspire', 'petales', 'vortex', 'ne_inspire'], carte: 'tenebres' }
+    { cycle: ['orbites', 'ne_inspire', 'givre', 'petales', 'effondrement', 'ne_inspire'], carte: 'tenebres' }
   ]
 });
 defEsp('ne_inspire', {
   nom: 'Inspiration', cat: 'balles', conseil: 'Pendant qu\'elle t\'aspire, tire-lui dessus : c\'est son moment faible. Garde ton esquive pour l\'expiration.',
-  params: (r, D) => ({ f: 200 * D.S, n: Math.round(28 * Math.min(1.4, D.C)), spd: 210 * D.S }),
+  params: (r, D) => ({ f: Math.min(165, 150 * D.S), n: Math.round(28 * Math.min(1.4, D.C)), spd: 210 * D.S }),
   *gen(b, p) {
     yield* prep(b, .6); Son.play('charge');
     b.s.inspire = true; b.ctl = true;
@@ -551,8 +551,8 @@ espece('bourreau', {
   forme: { style: 'crane', cotes: 4, pics: 2, picL: .8, yeux: 2, sats: 0, anneaux: 0, rot: 0, creux: .5 },
   meca: 'Toujours le même combo : des ruées annoncées puis un tourbillon (3 coups, 5 en phase 2). Après le tourbillon, il reprend son souffle (×2). La parade y est reine.',
   phases: [
-    { cycle: ['bo_combo', 'bo_lames', 'bo_combo', 'bond'] },
-    { cycle: ['bo_combo', 'mur', 'bo_combo', 'bo_lames', 'rafale'] }
+    { cycle: ['bo_combo', 'pics', 'bo_lames', 'bo_combo', 'bond'] },
+    { cycle: ['bo_combo', 'failles', 'bo_combo', 'bo_lames', 'rafale'] }
   ]
 });
 defEsp('bo_combo', {
@@ -560,7 +560,7 @@ defEsp('bo_combo', {
   params: (r, D) => ({ vit: 1300 * D.S }),
   *gen(b, p) {
     b.ctl = true;
-    const coups = b.phase ? 5 : 3, w0 = (b.phase ? .42 : .55) * b.D.T;
+    const coups = b.phase ? 5 : 3, w0 = Math.max(.42, (b.phase ? .5 : .6) * b.D.T);
     for (let i = 0; i < coups - 1; i++) {
       const ray = rayon(b.x, b.y, vise(b), 470, b.r * 2, w0, 0, { alerte: true, suit: b, track: 5 });
       b.wind = w0; b.windMax = w0;
@@ -606,7 +606,7 @@ espece('phenix', {
     if (!(b.s.oeuf > 0)) return false;
     b.s.oeufHp -= d;
     if (b.s.oeufHp <= 0) {
-      b.s.oeuf = 0; Son.play('verre'); G.explo(b.x, b.y, 140, '#ffb347');
+      b.s.oeuf = 0; Son.play('verre'); succes('oeuf'); G.explo(b.x, b.y, 140, '#ffb347');
       b.hp = Math.max(1, b.hp - b.hpMax * .08); passerPhase(b); b.trans = .4; G.etourdir(b, 2.5, 'Renaissance ratée !');
     }
     return true;
@@ -634,7 +634,7 @@ espece('phenix', {
   },
   phases: [
     { cycle: ['px_plongeon', 'px_plumes', 'pluie', 'px_plumes'] },
-    { cycle: ['px_plongeon', 'anneaux', 'px_plumes', 'px_plongeon', 'meteores'] }
+    { cycle: ['px_plongeon', 'failles', 'px_plumes', 'px_plongeon', 'geysers'] }
   ]
 });
 defEsp('px_plongeon', {

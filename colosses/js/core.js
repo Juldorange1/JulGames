@@ -257,7 +257,7 @@ const Save = {
       codex: { att: {}, arm: {}, traits: {}, cartes: {}, invoc: {}, especes: {} },
       chasse: [],
       defis: {}, essais: {},
-      opts: { master: 1, vol: .6, musique: .5, tremble: 1, auto: false, chiffres: true, lumiere: true, particules: 'normale', fps: false, alerte: 'rouge', nomsAttaques: true, autoPause: true, decorAnime: true,
+      opts: { master: 1, vol: .6, musique: .5, tremble: 1, auto: false, chiffres: true, lumiere: true, particules: 'normale', fps: false, alerte: 'rouge', nomsAttaques: true, autoPause: true, decorAnime: true, contour: false, viseur: 'systeme', viseurCol: '#ffffff', vitesse: 1, luminosite: 1, chrono: true, zoomMenu: 1,
         touches: { spec: 'KeyE', tal: 'Space', tal2: 'ShiftLeft', pause: 'KeyP' } }
     };
   },
@@ -286,7 +286,8 @@ const Save = {
 };
 Save.load();
 function PR() { return Save.d.prog[Save.d.diff]; }
-function enDefi() { try { return G.mode !== 'normal'; } catch (e) { return false; } }
+function enDefi() { try { return G.mode === 'jour' || G.mode === 'semaine'; } catch (e) { return false; } }
+function aRelique(id) { try { return G.rel(id); } catch (e) { return false; } }
 function DF() { return DIFFS[enDefi() ? 'guerrier' : Save.d.diff]; }
 function TOUCHES() { return Save.d.opts.touches; }
 function QUAL() { return { faible: .4, normale: 1, elevee: 1.4 }[Save.d.opts.particules] || 1; }

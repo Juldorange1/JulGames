@@ -250,7 +250,7 @@ def('bond', {
   *gen(b, p) {
     b.ctl = true;
     for (let i = 0; i < p.rep; i++) {
-      const t = cible(), pt = G.arene.clampPt(t.x, t.y, b.r), warn = 1 * b.D.T;
+      const t = cible(), pt = G.arene.clampPt(t.x, t.y, b.r), warn = Math.max(.85, b.D.T);
       zoneC(pt.x, pt.y, p.r, warn, { dmg: DMG(1.4) });
       b.air = true; const sx = b.x, sy = b.y; let tt = 0;
       while (tt < warn) { tt += G.dtE; const k = Math.min(1, tt / warn); b.x = lerp(sx, pt.x, k); b.y = lerp(sy, pt.y, k); b.haut = Math.sin(k * Math.PI) * 120; yield 0; }
@@ -264,7 +264,7 @@ def('bond', {
 });
 def('lasers', {
   nom: 'Lasers tournants', cat: 'rayon', conseil: 'Reste loin du boss : les rayons y sont plus espacés. Tourne avec eux, et attention s\'ils changent de sens.',
-  params: (r, D) => ({ n: r.int(2, 5), dur: r.range(2.6, 3.6), rot: r.range(.5, .85) * r.sign() * D.S, inv: r.chance(.35) }),
+  params: (r, D) => ({ n: r.int(2, 5), dur: r.range(2.6, 3.6), rot: Math.min(.7, r.range(.45, .7) * D.S) * r.sign(), inv: r.chance(.35) }),
   *gen(b, p) {
     b.ctl = true;
     const a0 = vise(b) + Math.PI / p.n, warn = 1 * b.D.T, beams = [];
@@ -375,7 +375,7 @@ def('cage', {
 });
 def('vortex', {
   nom: 'Vortex', cat: 'balles', conseil: 'Il t\'aspire : cours à contre-sens en permanence et faufile-toi entre les bras de la spirale.',
-  params: (r, D) => ({ dur: r.range(3, 4), force: r.range(120, 160) * D.S, bras: r.int(2, 3), cad: r.range(4.5, 6.5) }),
+  params: (r, D) => ({ dur: r.range(3, 4), force: Math.min(150, r.range(110, 140) * D.S), bras: r.int(2, 3), cad: r.range(4.5, 6.5) }),
   *gen(b, p) {
     yield* prep(b, .6); b.ctl = true;
     let t = 0, acc = 0, a = R() * TAU;
@@ -407,10 +407,10 @@ def('telenova', {
 });
 def('balayage', {
   nom: 'Balayage', cat: 'rayon', conseil: 'La zone pâle montre tout l\'arc balayé : sors-en, ou passe derrière le boss au bon moment.',
-  params: (r, D) => ({ dur: r.range(1.4, 1.9) / D.S, arc: r.range(2.6, 3.4), w: r.range(50, 64), retour: r.chance(.35) }),
+  params: (r, D) => ({ dur: r.range(1.6, 2), arc: r.range(1.6, 2.2), w: r.range(46, 58), retour: r.chance(.3) }),
   *gen(b, p) {
     b.ctl = true;
-    const a = vise(b), s = R.sign(), de = a - s * p.arc / 2, warn = 1 * b.D.T;
+    const a = vise(b), s = R.sign(), de = a - s * p.arc / 2, warn = Math.max(1.2, b.D.T);
     b.wind = warn; b.windMax = warn;
     rayon(b.x, b.y, de, 1500, p.w, warn, p.dur * (p.retour ? 2 : 1), { suit: b, balaye: { de, vers: de + s * p.arc, dur: p.dur, retour: p.retour } });
     yield* attendre(warn + p.dur * (p.retour ? 2 : 1));
@@ -437,6 +437,7 @@ def('invocation', {
   params: (r, D) => ({ n: Math.min(4, Math.round(r.int(2, 3) * Math.min(1.5, D.C))) }),
   *gen(b, p) {
     yield* prep(b, .7);
+    if (!b.def.invoc) return;
     const n = Math.min(p.n, 7 - G.minions.length);
     for (let i = 0; i < n; i++) { const pt = G.arene.pointAuHasard(60, 200); G.invoquer(b.def.invoc, pt.x, pt.y); yield .12; }
     yield .8;
@@ -492,7 +493,7 @@ def('echos', {
 });
 def('pluie', {
   nom: 'Averse', cat: 'balles', conseil: 'Les balles tombent du haut : reste en bas de l\'arène, elles arrivent plus espacées, et regarde vers le haut.',
-  params: (r, D, l) => ({ dur: l ? 3 : r.range(2.6, 3.4), cad: r.range(14, 20) * D.C * (l ? .4 : 1), spd: r.range(220, 280) * D.S * (l ? .8 : 1), pente: r.range(-.35, .35) }),
+  params: (r, D, l) => ({ dur: l ? 3 : r.range(2.6, 3.4), cad: Math.min(24, r.range(14, 18) * D.C) * (l ? .4 : 1), spd: r.range(220, 280) * D.S * (l ? .8 : 1), pente: r.range(-.35, .35) }),
   *gen(b, p) {
     yield* prep(b, .45);
     let t = 0, acc = 0;
@@ -725,10 +726,10 @@ def('zonesSures', {
       const surs = [];
       for (let k = 0; k < p.n; k++) {
         let pt, e = 0;
-        do { pt = G.arene.pointAuHasard(p.r + 10); e++; } while (e < 30 && (surs.some(s => d2(s.x, s.y, pt.x, pt.y) < (p.r * 2.5) ** 2) || (k === 0 && (d2(pt.x, pt.y, G.p.x, G.p.y) < 140 * 140 || d2(pt.x, pt.y, G.p.x, G.p.y) > 340 * 340))));
+        do { pt = G.arene.pointAuHasard(p.r + 10); e++; } while (e < 30 && (surs.some(s => d2(s.x, s.y, pt.x, pt.y) < (p.r * 2.5) ** 2) || (k === 0 && (d2(pt.x, pt.y, G.p.x, G.p.y) < 110 * 110 || d2(pt.x, pt.y, G.p.x, G.p.y) > 230 * 230))));
         surs.push({ x: pt.x, y: pt.y, r: p.r });
       }
-      G.hz.push({ kind: 'sauf', surs, warn: 1.6 * b.D.T, act: .25, t: 0, dmg: DMG(1.4), src: G.atkCourante });
+      G.hz.push({ kind: 'sauf', surs, warn: Math.max(1.4, 1.6 * b.D.T), act: .25, t: 0, dmg: DMG(1.4), src: G.atkCourante });
       Son.play('alerte');
       yield 1.6 * b.D.T + .5;
     }
@@ -776,7 +777,7 @@ def('marque', {
   params: (r, D) => ({ n: r.int(2, 4), r: r.range(85, 110) }),
   *gen(b, p) {
     yield* prep(b, .35);
-    for (let i = 0; i < p.n; i++) { const t = cible(); zoneC(t.x, t.y, p.r, 1.5 * b.D.T, { suitJ: true, fige: .45 * b.D.T, dmg: DMG(1.4) }); yield .75; }
+    for (let i = 0; i < p.n; i++) { const t = cible(); zoneC(t.x, t.y, Math.min(95, p.r), Math.max(1.3, 1.5 * b.D.T), { suitJ: true, fige: Math.max(.55, .5 * b.D.T), dmg: DMG(1.3) }); yield .75; }
     yield .9;
   }
 });
@@ -790,6 +791,183 @@ def('eclats', {
       for (let k = 0; k < p.n; k++) { const e = EB(b.x, b.y, a0 + k * TAU / p.n, R.range(230, 300), { r: 7, life: 5 }); e.stop = { t: .55, d: .55 * b.D.T, spd: 290 * b.D.S }; }
       Son.play('salve'); yield 1.3;
     }
+  }
+});
+
+// ---------- Attaques qui transforment le terrain ----------
+HZ.fissure = {
+  continu: true,
+  up(h, dt) {
+    h.t += dt; if (h.t > h.warn + h.life) h.dead = true;
+    if (!h.pts) { h.pts = []; const n = 14; for (let i = 0; i <= n; i++) { const k = i / n; h.pts.push([lerp(h.x1, h.x2, k) + (i && i < n ? R.range(-9, 9) : 0), lerp(h.y1, h.y2, k) + (i && i < n ? R.range(-9, 9) : 0)]); } }
+  },
+  hit(h, p) { return h.t > h.warn && segD2(p.x, p.y, h.x1, h.y1, h.x2, h.y2) < (h.w / 2 + p.hr) ** 2; },
+  draw(h, c) {
+    const path = () => { c.beginPath(); h.pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); };
+    if (!h.pts) return;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    if (h.t < h.warn) { const k = h.t / h.warn; c.strokeStyle = `rgba(${AL},${.12 + .25 * k})`; c.lineWidth = h.w; path(); c.stroke(); c.strokeStyle = ROUGE; c.lineWidth = 1.5; c.setLineDash([8, 8]); path(); c.stroke(); c.setLineDash([]); }
+    else {
+      const fin = Math.min(1, (h.warn + h.life - h.t) * 2);
+      c.globalAlpha = fin; c.strokeStyle = '#1a0500'; c.lineWidth = h.w + 6; path(); c.stroke();
+      c.globalCompositeOperation = 'lighter'; c.strokeStyle = 'rgba(255,110,20,.85)'; c.lineWidth = h.w * .7; path(); c.stroke();
+      c.strokeStyle = 'rgba(255,240,170,.9)'; c.lineWidth = h.w * .22; path(); c.stroke(); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    }
+    c.lineCap = 'butt'; c.lineJoin = 'miter';
+  }
+};
+HZ.abime = {
+  continu: true,
+  up(h, dt) { h.t += dt; if (h.t > h.warn + h.life) h.dead = true; },
+  hit(h, p) { return h.t > h.warn && p.x > h.x && p.x < h.x + h.w && p.y > h.y && p.y < h.y + h.h; },
+  draw(h, c) {
+    if (h.t < h.warn) {
+      const k = h.t / h.warn;
+      c.fillStyle = `rgba(${AL},${.06 + .16 * k})`; c.fillRect(h.x, h.y, h.w, h.h);
+      c.strokeStyle = (G.t * 10 | 0) % 2 && k > .7 ? '#fff' : ROUGE; c.lineWidth = 2; c.setLineDash([10, 6]); c.strokeRect(h.x + 2, h.y + 2, h.w - 4, h.h - 4); c.setLineDash([]);
+      return;
+    }
+    const fin = Math.min(1, (h.warn + h.life - h.t) * 1.5, (h.t - h.warn) * 4);
+    c.globalAlpha = fin;
+    const g = c.createLinearGradient(h.x, h.y, h.x + h.w, h.y + h.h); g.addColorStop(0, '#000'); g.addColorStop(1, '#0a0410');
+    c.fillStyle = g; c.fillRect(h.x, h.y, h.w, h.h);
+    c.strokeStyle = 'rgba(160,100,255,.5)'; c.lineWidth = 3; c.strokeRect(h.x, h.y, h.w, h.h);
+    c.globalAlpha = 1;
+  }
+};
+HZ.geyser = {
+  continu: true,
+  up(h, dt) { h.t += dt; if (h.t > h.life) h.dead = true; },
+  phase(h) { return (h.t + h.dec) % h.per; },
+  hit(h, p) { const f = this.phase(h); return h.t > .4 && f > h.warn && f < h.warn + .3 && d2(h.x, h.y, p.x, p.y) < (h.r + p.hr) ** 2; },
+  draw(h, c) {
+    const f = this.phase(h), fin = Math.min(1, (h.life - h.t) * 2, h.t * 3);
+    c.globalAlpha = fin;
+    c.fillStyle = '#120a06'; c.beginPath(); c.ellipse(h.x, h.y, 16, 10, 0, 0, TAU); c.fill(); c.strokeStyle = '#5a3a20'; c.lineWidth = 2; c.stroke();
+    if (f < h.warn) { const k = f / h.warn; c.strokeStyle = `rgba(${AL},${.3 + .6 * k})`; c.lineWidth = 2; c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.stroke(); c.fillStyle = `rgba(${AL},${.12 * k})`; c.fill(); }
+    else if (f < h.warn + .3) {
+      c.globalCompositeOperation = 'lighter';
+      c.drawImage(glow('rgba(255,160,60,.9)', h.r * 1.4), h.x - h.r * 1.4, h.y - h.r * 1.4);
+      c.fillStyle = 'rgba(255,240,200,.8)'; c.beginPath(); c.arc(h.x, h.y, h.r * .5, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'source-over';
+    }
+    c.globalAlpha = 1;
+  }
+};
+HZ.givre = {
+  up(h, dt) { h.t += dt; if (h.t > h.warn + h.life) h.dead = true; },
+  hit() { return false; },
+  actif(h, p) { return h.t > h.warn && d2(h.x, h.y, p.x, p.y) < h.r * h.r; },
+  draw(h, c) {
+    const k = Math.min(1, h.t / h.warn), fin = Math.min(1, (h.warn + h.life - h.t) * 1.5);
+    c.globalAlpha = fin;
+    const g = c.createRadialGradient(h.x, h.y, 4, h.x, h.y, h.r * k);
+    g.addColorStop(0, 'rgba(220,245,255,.55)'); g.addColorStop(1, 'rgba(120,190,255,.15)');
+    c.fillStyle = g; c.beginPath(); c.arc(h.x, h.y, h.r * k, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(230,250,255,.6)'; c.lineWidth = 1.5; c.stroke();
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + h.x; c.beginPath(); c.moveTo(h.x, h.y); c.lineTo(h.x + Math.cos(a) * h.r * k * .8, h.y + Math.sin(a) * h.r * k * .8); c.stroke(); }
+    c.globalAlpha = 1;
+  }
+};
+HZ.ronce = {
+  up(h, dt) { h.t += dt; if (h.t > h.life) h.dead = true; if (!h.brins) { h.brins = Array.from({ length: 14 }, () => [R() * TAU, R.range(.2, 1), R.range(.4, 1)]); } },
+  hit() { return false; },
+  actif(h, p) { return h.t > .4 && d2(h.x, h.y, p.x, p.y) < h.r * h.r; },
+  draw(h, c) {
+    if (!h.brins) return;
+    const k = Math.min(1, h.t / .4), fin = Math.min(1, (h.life - h.t) * 1.5);
+    c.globalAlpha = fin;
+    c.fillStyle = 'rgba(40,70,30,.35)'; c.beginPath(); c.arc(h.x, h.y, h.r * k, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(120,160,70,.8)'; c.lineWidth = 2.5;
+    for (const [a, d, l] of h.brins) { const x = h.x + Math.cos(a) * h.r * d * k, y = h.y + Math.sin(a) * h.r * d * k; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 10, y - 12 * l, x + 4, y - 22 * l); c.stroke(); }
+    c.globalAlpha = 1;
+  }
+};
+for (const k of ['rayon', 'onde', 'murFeu', 'fil', 'tornade']) HZ[k].continu = true;
+
+def('rochers', {
+  nom: 'Chute de rochers', cat: 'terrain', conseil: 'Les rochers tombent autour de toi puis RESTENT comme des piliers : sers-t\'en d\'abri, ou pour faire foncer le boss dedans.',
+  params: (r, D) => ({ n: r.int(3, 5) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    const t = cible();
+    for (let i = 0; i < p.n; i++) {
+      const a = R() * TAU, dd = i ? R.range(130, 260) : 0, pt = G.arene.clampPt(t.x + Math.cos(a) * dd, t.y + Math.sin(a) * dd, 50);
+      zoneC(pt.x, pt.y, 46, Math.max(1, 1.1 * b.D.T), { dmg: DMG(1.3), apres: h => { if (G.boss && !G.boss.mort && Arene.piliers.length < 12) { Arene.piliers.push({ x: h.x, y: h.y, r: 34, tmp: 12 }); G.secoue(6); Son.play('choc'); if (G.p) { Arene.sortirPiliers(G.p, G.p.r); } } } });
+      yield .25;
+    }
+    yield .6;
+  }
+});
+def('failles', {
+  nom: 'Fissures de lave', cat: 'terrain', conseil: 'Trois failles partent du boss vers toi puis brûlent 7 s : sors de la ligne pointillée et ne les traverse qu\'en sautant ou en esquivant.',
+  params: (r, D) => ({ n: 3, w: r.range(26, 34), ec: r.range(.45, .6) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    const a0 = vise(b);
+    for (let k = 0; k < p.n; k++) {
+      const a = a0 + (k - (p.n - 1) / 2) * p.ec, L = Math.min(620, G.arene.rayMur(b.x, b.y, a, 620));
+      G.hz.push({ kind: 'fissure', x1: b.x + Math.cos(a) * b.r, y1: b.y + Math.sin(a) * b.r, x2: b.x + Math.cos(a) * L, y2: b.y + Math.sin(a) * L, w: p.w, warn: Math.max(.9, b.D.T), life: 7, t: 0, dmg: DMG(.8), src: 'failles' });
+    }
+    Son.play('choc'); G.secoue(5);
+    yield 1.4;
+  }
+});
+def('givre', {
+  nom: 'Sol gelé', cat: 'terrain', conseil: 'Des plaques de glace apparaissent : dessus, tu glisses et tu freines mal. Anticipe tes esquives ou contourne-les.',
+  params: (r, D) => ({ n: r.int(3, 4) }),
+  *gen(b, p) {
+    yield* prep(b, .4);
+    const t = cible();
+    for (let i = 0; i < p.n; i++) { const a = R() * TAU, dd = i ? R.range(120, 280) : 0, pt = G.arene.clampPt(t.x + Math.cos(a) * dd, t.y + Math.sin(a) * dd, 20); G.hz.push({ kind: 'givre', x: pt.x, y: pt.y, r: R.range(100, 130), warn: .6, life: 9, t: 0 }); }
+    Son.play('verre');
+    yield .9;
+  }
+});
+def('ronces', {
+  nom: 'Ronces', cat: 'terrain', conseil: 'Les ronces te ralentissent de moitié pendant 8 s : ne t\'y laisse pas coincer quand une grosse attaque arrive.',
+  params: (r, D) => ({ n: r.int(3, 5) }),
+  *gen(b, p) {
+    yield* prep(b, .4);
+    for (let i = 0; i < p.n; i++) { const pt = i ? G.arene.pointAuHasard(60) : G.arene.clampPt(cible().x, cible().y, 20); G.hz.push({ kind: 'ronce', x: pt.x, y: pt.y, r: R.range(80, 105), life: 8, t: 0 }); }
+    yield .8;
+  }
+});
+def('pics', {
+  nom: 'Vagues de pics', cat: 'terrain', conseil: 'Des pics jaillissent du sol en ligne depuis le boss vers toi : écarte-toi de la trajectoire, les lignes sont annoncées.',
+  params: (r, D) => ({ lignes: r.int(2, 3), ec: r.range(.35, .55) }),
+  *gen(b, p) {
+    yield* prep(b, .45);
+    const a0 = vise(b), dirs = [];
+    for (let k = 0; k < p.lignes; k++) dirs.push(a0 + (k - (p.lignes - 1) / 2) * p.ec);
+    for (let s = 1; s < 16; s++) {
+      for (const a of dirs) { const x = b.x + Math.cos(a) * (b.r + s * 42), y = b.y + Math.sin(a) * (b.r + s * 42); if (G.arene.dedans(x, y, 0)) zoneC(x, y, 30, .55, { dmg: DMG(1.1) }); }
+      yield .07;
+    }
+    yield .5;
+  }
+});
+def('effondrement', {
+  nom: 'Effondrement', cat: 'terrain', conseil: 'Tout un côté de l\'arène s\'effondre dans le vide pendant 8 s : quitte la bande annoncée, l\'arène rétrécit.',
+  params: (r, D) => ({ prof: r.range(150, 190) }),
+  *gen(b, p) {
+    yield* prep(b, .5);
+    const bb = G.arene.bb(), t = cible();
+    const cotes = [['g', t.x - bb.x], ['d', bb.x + bb.w - t.x], ['h', t.y - bb.y], ['b', bb.y + bb.h - t.y]].sort((x, y) => y[1] - x[1]);
+    const c = cotes[R.int(1, 3)][0], d = p.prof;
+    const z = c === 'g' ? [bb.x, bb.y, d, bb.h] : c === 'd' ? [bb.x + bb.w - d, bb.y, d, bb.h] : c === 'h' ? [bb.x, bb.y, bb.w, d] : [bb.x, bb.y + bb.h - d, bb.w, d];
+    G.hz.push({ kind: 'abime', x: z[0], y: z[1], w: z[2], h: z[3], warn: Math.max(1.4, 1.5 * b.D.T), life: 8, t: 0, dmg: DMG(.9), src: 'effondrement' });
+    Son.play('alerte');
+    yield 1.6;
+  }
+});
+def('geysers', {
+  nom: 'Geysers', cat: 'terrain', conseil: 'Les geysers crachent à tour de rôle, toujours au même rythme : apprends leur cadence et passe entre deux jets.',
+  params: (r, D) => ({ n: r.int(4, 6) }),
+  *gen(b, p) {
+    yield* prep(b, .4);
+    for (let i = 0; i < p.n; i++) { const pt = i ? G.arene.pointAuHasard(50) : G.arene.clampPt(cible().x + R.range(-80, 80), cible().y + R.range(-80, 80), 30); G.hz.push({ kind: 'geyser', x: pt.x, y: pt.y, r: 58, per: 1.8, warn: .65, dec: i * .45, life: 8, t: 0, dmg: DMG(1.2), src: 'geysers' }); }
+    yield 1;
   }
 });
 

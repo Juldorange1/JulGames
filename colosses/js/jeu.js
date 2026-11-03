@@ -74,6 +74,8 @@ const Arene = {
     if (G.p) { this.sortirPiliers(G.p, G.p.r); this.contenir(G.p, G.p.r); }
   },
   maj(dt) {
+    for (const pl of this.piliers) if (pl.tmp !== undefined) { pl.tmp -= dt; if (pl.tmp <= 0) { pl.dead = true; G.explo(pl.x, pl.y, 40, '#8a8070'); } }
+    if (this.piliers.some(pl => pl.dead)) this.piliers = this.piliers.filter(pl => !pl.dead);
     if (this.insetMax > this.inset) this.inset = Math.min(this.insetMax, this.inset + 9 * dt);
     else if (this.inset > this.insetMax) this.inset = Math.max(this.insetMax, this.inset - 40 * dt);
     if (this.vent) {
@@ -155,6 +157,7 @@ const G = {
     if (tg.proxy) { mult = tg.mult; tg = tg.proxy; }
     if (tg.dead || tg.spawn > 0) return;
     let m = mult, crit = false;
+    if (o.prim) m *= PRIM_EQ[G.ars.p] || 1;
     if (o.prim && !o.continu && R() < ST.pCrit + (o.critB || 0)) { m *= 2; crit = true; }
     const b = this.boss;
     if (tg === b) {
@@ -169,10 +172,15 @@ const G = {
       if (tr.includes('souffle')) m *= bossVulnerableSouffle(b) ? 2.2 : .5;
       if (b.stun > 0) m *= 1.3;
       if (b.ouvert > 0) m *= b.ouvertMul;
+      if (this.rel('colere') && this.p.hp < this.p.hpMax * .4) m *= 1.3;
+      if (this.rel('opportun') && (b.ouvert > 0 || b.stun > 0)) m *= 1.5;
+      if (this.rel('assassin') && Math.abs(angDiff(b.facing + Math.PI, ang(b.x, b.y, o.x, o.y))) < 1.05) m *= 1.4;
       let d = dmg * m;
+      statPlus('degats', undefined, d);
+      if (this.rel('vampire')) { this.sal.vamp += d; while (this.sal.vamp >= 250) { this.sal.vamp -= 250; this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); } }
       if (b.armure > 0) {
         b.armure -= d * (o.spec ? 3 : 1); d *= .25;
-        if (b.armure <= 0) { b.armure = 0; b.armureCd = 12; this.annonce('Carapace brisée !', '#fff', 1.3); Son.play('verre'); this.secoue(8); }
+        if (b.armure <= 0) { b.armure = 0; b.armureCd = 12; this.annonce('Carapace brisée !', '#fff', 1.3); Son.play('verre'); this.secoue(8); succes('carapace'); }
       }
       if (o.prim) this.p.energie = Math.min(ST.eMax, this.p.energie + d * .1 * ST.eGain);
       b.flash = Math.max(b.flash, o.continu ? .2 : .5); b.regenT = 0;
@@ -184,7 +192,7 @@ const G = {
       if (b.phase < n - 1 && b.hp <= seuilPhase(b, b.phase)) { b.hp = seuilPhase(b, b.phase); if (!(b.esp.transition && b.esp.transition(b))) passerPhase(b); }
       else if (b.hp <= 0) this.bossMort();
     } else {
-      const d = dmg * m;
+      const d = dmg * m * (this.rel('chasseur') ? 1.6 : 1);
       tg.hp -= d; tg.flash = 1;
       this.chiffre(tg, d, crit, o, 1);
       if (tg.hp <= 0) {
@@ -226,7 +234,9 @@ const G = {
       this.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 18, r1: 60, t: 0, dur: .3, col: '#8cf' });
       Son.play('parade'); return false;
     }
-    p.hp -= dmg; p.iframe = .8; p.rouge = .35; this.coupsPris++;
+    if (p.hp - dmg <= 0 && this.rel('second') && !this.sal.second) { this.sal.second = true; dmg = p.hp - 1; p.iframe = 1.6; this.annonce('Second souffle !', '#ff8fb0', 1.4); }
+    p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
+    if (this.rel('epines') && this.boss && !this.boss.mort) this.frappe(this.boss, 200, { x: this.boss.x, y: this.boss.y });
     this.secoue(12); this.gel = .07; this.flash = Math.max(this.flash, .15); Son.play('blesse');
     this.texte(p.x, p.y - 24, '-' + Math.round(dmg), '#ff5a6e', 19);
     for (let i = 0; i < 10; i++) { const a = R() * TAU, s = R.range(60, 240); this.parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .4, max: .4, col: '#ff4d6a', r: 2, trait: true, add: true }); }
@@ -259,7 +269,19 @@ const G = {
     this.ars = null;
     this.entrerSalle();
   },
-  mut(id) { return this.mode !== 'normal' && this.defi && this.defi.mut.includes(id); },
+  mut(id) { return (this.mode === 'jour' || this.mode === 'semaine') && this.defi && this.defi.mut.includes(id); },
+  reliques() {
+    if (this.mode === 'normal') { const run = PR().run; return run ? (run.reliques = run.reliques || []) : []; }
+    if (this.mode === 'entrainement') return this.entr ? (this.entr.reliques = this.entr.reliques || []) : [];
+    return this.defi ? (this.defi.reliques = this.defi.reliques || []) : [];
+  },
+  rel(id) { return this.reliques().includes(id); },
+  lancerEntrainement(cfg) {
+    this.mode = 'entrainement'; this.entr = cfg; this.finDefi = null; this.defi = null;
+    calcStats();
+    this.p = creerJoueur(DF().pv); this.ars = null;
+    this.entrerSalle();
+  },
   entrerSalle() {
     const d = Save.d;
     let def, ars;
@@ -278,6 +300,13 @@ const G = {
         run.boss = { salle: this.salle, seed, eviter, ars };
         this.recents.push(def.esp); if (this.recents.length > 3) this.recents.shift();
       }
+    } else if (this.mode === 'entrainement') {
+      const cfg = this.entr; this.salle = cfg.salle; this.mega = false;
+      def = genBoss(cfg.salle, cfg.seed, false, []);
+      for (let i = 1; def.esp !== cfg.esp && i < 600; i++) def = genBoss(cfg.salle, cfg.seed + i * 7919, false, []);
+      cfg.seed = def.seed;
+      const tire = l => R.pick(l).id;
+      ars = { p: cfg.p || tire(PRIM), s: cfg.s || tire(SPEC), t: cfg.t || tire(TAL) };
     } else {
       const df = this.defi, b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
@@ -297,7 +326,10 @@ const G = {
     calcStats();
     const p = this.p;
     p.x = CX; p.y = AR.y + AR.h * .82; p.vx = p.vy = 0; p.dash = null; p.ancre = null; p.saut = 0; p.sprint = 0; p.invis = 0; p.hist = [];
-    p.hpMax = this.mut('verre') ? 60 : DF().pv; p.hp = Math.min(p.hp, p.hpMax);
+    p.hpMax = (this.mut('verre') ? 60 : DF().pv) - (this.rel('verre') ? 30 : 0); p.hp = Math.min(p.hp, p.hpMax);
+    if (this.mode === 'entrainement') p.hp = p.hpMax;
+    p.bouclier = this.rel('egide') ? 1e6 : 0;
+    this.sal = { spec: 0, tal: 0, second: false, tempete: 6, vamp: 0, regen: 0 };
     p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 }; p.energie = Math.max(p.energie, ST.eMax * .5); p.iframe = 1.5;
     Arene.appliquer(this.def.phases[0].carte);
     this.boss = creerBoss(this.def);
@@ -337,6 +369,17 @@ const G = {
     Musique.baisser(.3); setTimeout(() => Musique.sting(MUS.victoire), 600);
     this.annonce(this.def.mega ? 'MÉGA BOSS VAINCU !' : 'VAINCU !', '#ffe14d', 2.4);
     const d = Save.d;
+    if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
+    statPlus('tuesArme', this.ars.p);
+    noterMaitrise(this.def.esp, this.coupsPris === 0 || this.chrono < 60, this.mode === 'normal' && d.diff === 'cauchemar');
+    succes('premier');
+    if (this.coupsPris === 0) succes('intouchable');
+    if (this.chrono < 45) succes('eclair');
+    if (this.p.hp < 10) succes('fil');
+    if (!this.sal.spec && !this.sal.tal) succes('frugal');
+    if (((d.essais || {})[d.diff + ':' + this.salle] || 0) >= 5) succes('revanche');
+    if (this.mode === 'normal' && d.diff === 'cauchemar') { succes('cauchemar'); if (this.def.mega) succes('cauchMega'); }
+    if (this.def.mega) succes('mega1');
     d.stats.boss++; d.stats.salles++; d.stats.temps += this.chrono;
     if (d.codex.especes[this.def.esp]) d.codex.especes[this.def.esp].tues++;
     d.chasse.unshift({ nom: this.def.nom, titre: this.def.titre, salle: this.salle, mega: this.def.mega, temps: Math.round(this.chrono), hue: this.def.hue, phases: this.def.phases.length, diff: this.mode === 'normal' ? d.diff : this.mode });
@@ -352,6 +395,7 @@ const G = {
         if (!old || this.chrono < old) pr.megaTemps[k] = Math.round(this.chrono);
       }
       pr.run.salle = this.salle + 1; pr.run.boss = null;
+      if (this.def.mega && (pr.run.reliques || []).length) { pr.run.reliques = []; calcStats(); this.texte(this.p.x, this.p.y - 50, 'Les reliques se dissipent', '#c06bff', 16); }
       pr.record = Math.max(pr.record, pr.run.salle);
       pr.run.pv = this.p.hp;
     } else {
@@ -359,6 +403,7 @@ const G = {
       df.tues++; df.temps += this.chrono; df.i++;
       if (df.i >= df.boss.length) this.terminerDefi(true);
     }
+    verifierSucces();
     Save.write();
   },
   terminerDefi(reussi) {
@@ -367,6 +412,7 @@ const G = {
     const mieux = !rec.best || res.tues > rec.best.tues || (res.tues === rec.best.tues && res.temps < rec.best.temps);
     res.ancien = rec.best; res.record = mieux;
     if (mieux && res.tues > 0) rec.best = { tues: res.tues, temps: Math.round(res.temps * 10) / 10 };
+    if (reussi) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); }
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });
     Save.d.defisHist = Save.d.defisHist.slice(0, 30);
@@ -384,6 +430,7 @@ const G = {
       this.texte(p.x, p.y - 30, 'Vie restaurée', '#46e39b', 18); Son.play('soin');
     } else {
       if (!this.mut('jeune')) this.loot.push({ kind: 'soin', x: this.boss.x, y: this.boss.y, t: 0, val: DF().soin });
+      if (!this.finDefi && this.mode !== 'entrainement') offrirReliques().forEach((id, i) => this.loot.push({ kind: 'relique', id, x: CX + (i ? 130 : -130), y: CY + 40, t: -i * .15 }));
       if (!this.finDefi) this.ouvrirPortail();
     }
   },
@@ -393,6 +440,12 @@ const G = {
     if (l.kind === 'soin') {
       const s = Math.min(l.val, p.hpMax - p.hp); p.hp += s;
       this.texte(p.x, p.y - 30, '+' + Math.round(s) + ' vie', '#46e39b', 18); Son.play('soin');
+    } else if (l.kind === 'relique') {
+      this.reliques().push(l.id); calcStats();
+      for (const o of this.loot) if (o.kind === 'relique') o.dead = true;
+      const r = RELIQUES[l.id]; this.annonce(r.ico + ' ' + r.nom, '#c06bff', 2); Son.play('ramasse');
+      this.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 10, r1: 140, t: 0, dur: .5, col: '#c06bff' });
+      if (this.reliques().length >= 5) succes('reliques5');
     } else {
       const up = PR().up[l.cat]; up[l.id] = (up[l.id] || 0) + 1;
       calcStats(); Son.play('ramasse');
@@ -415,18 +468,18 @@ const G = {
   mortJoueur() {
     const d = Save.d;
     this.etat = 'mort'; this.finT = 1.7; this.ralentir(.3, 1.4); Son.play('mort'); this.secoue(18); this.flash = .5;
-    d.stats.morts++; d.stats.temps += this.chrono;
+    d.stats.morts++; d.stats.temps += this.chrono; statPlus('mortsAttaque', this.tueur || 'inconnu');
     this.resMort = { salle: this.salle, def: this.def, pct: this.boss ? 1 - Math.max(0, this.boss.hp) / this.boss.hpMax : 0, phase: this.boss ? this.boss.phase + 1 : 1, temps: this.chrono };
     if (this.mode === 'normal') {
       // on rejoue le même boss, avec les mêmes armes, tout le monde à pleine vie
       const pr = PR(); pr.run.pv = DF().pv;
       const e = d.essais = d.essais || {}; const k = Save.d.diff + ':' + this.salle; e[k] = (e[k] || 0) + 1;
-    } else { this.defi.temps += this.chrono; this.terminerDefi(false); }
+    } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(false); }
     Save.write();
     Musique.stop();
   },
   recommencer() {
-    if (this.mode === 'normal') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
+    if (this.mode === 'normal' || this.mode === 'entrainement') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
     else this.lancerDefi(this.defi.type);
   },
   abandonner() { const p = this.p; p.iframe = 0; p.fantome = 0; p.parade = 0; p.bouclier = 0; p.saut = 0; this.etat = 'combat'; this.blesser(99999, 'abandon'); }
@@ -502,7 +555,7 @@ function majJoueur(dt) {
     if (p.fantome > 0) { }
     else if (p.spec.cd > 0) { Son.play('vide'); }
     else if (p.energie < cout) { Son.play('vide'); G.texte(p.x, p.y - 28, 'énergie', '#5aa8ff', 13); }
-    else { p.energie -= cout; p.spec.cd = spec.rech * ST.sRech; spec.use(p); Son.play('special'); G.lumiere(p.x, p.y, 220, '#9cf', .25); }
+    else { p.energie -= cout; p.spec.cd = spec.rech * ST.sRech; spec.use(p); G.sal.spec++; Son.play('special'); G.lumiere(p.x, p.y, 220, '#9cf', .25); }
   }
   const T = p.tal, maxC = ST.tCharges;
   if (T.charges < maxC) { T.cd -= dt; if (T.cd <= 0) { T.charges++; T.cd = T.charges < maxC ? tal.rech * ST.tRech : 0; } }
@@ -510,12 +563,14 @@ function majJoueur(dt) {
     if (T.charges > 0 && !p.dash) {
       const avant = T.charges === maxC;
       T.charges--;
-      const res = tal.use(p);
+      const res = tal.use(p); G.sal.tal++;
       if (res === 'gratuit') T.charges++;
       else if (avant) T.cd = tal.rech * ST.tRech;
     } else Son.play('vide');
   }
-  let sp = 270 * (G.mut('vitesse') ? 1.25 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
+  if (p.saut <= 0) for (const h of G.hz) if (h.kind === 'ronce' && HZ.ronce.actif(h, p)) p.lent = Math.min(p.lent, .5);
+  if (G.rel('regen')) { G.sal.regen += dt; if (G.sal.regen >= 3) { G.sal.regen -= 3; p.hp = Math.min(p.hpMax, p.hp + 1); } }
+  let sp = 270 * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
   if (p.dash) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
@@ -529,7 +584,9 @@ function majJoueur(dt) {
     if (Input.down('KeyA') || Input.down('ArrowLeft')) mx--;
     if (Input.down('KeyD') || Input.down('ArrowRight')) mx++;
     const l = Math.hypot(mx, my) || 1;
-    const tvx = mx / l * sp, tvy = my / l * sp, k = Arene.glace ? 2.2 : 16;
+    let glisse = Arene.glace;
+    for (const h of G.hz) if (h.kind === 'givre' && HZ.givre.actif(h, p)) glisse = true;
+    const tvx = mx / l * sp, tvy = my / l * sp, k = glisse ? 2.2 : 16;
     p.vx += (tvx - p.vx) * Math.min(1, k * dt); p.vy += (tvy - p.vy) * Math.min(1, k * dt);
     p.x += p.vx * dt; p.y += p.vy * dt;
     if ((mx || my) && R() < dt * 25) G.parts.push({ x: p.x - mx / l * 10, y: p.y - my / l * 10, vx: -mx / l * 60 + R.range(-20, 20), vy: -my / l * 60 + R.range(-20, 20), life: .3, max: .3, col: '#34d6ff', r: 1.6, add: true });
@@ -646,7 +703,8 @@ function majTirsEnnemis(dt) {
         const rt = e.retour; rt.parc = (rt.parc || 0) + Math.hypot(e.vx, e.vy) * dt;
         if (rt.parc > rt.d && bo && !bo.mort) { const a = ang(e.x, e.y, bo.x, bo.y); e.vx = Math.cos(a) * rt.s * 1.1; e.vy = Math.sin(a) * rt.s * 1.1; if (d2(e.x, e.y, bo.x, bo.y) < bo.r * bo.r) e.dead = true; }
       }
-      e.x += e.vx * dt; e.y += e.vy * dt;
+      const fr = G.rel('aimant') && d2(e.x, e.y, p.x, p.y) < 130 * 130 ? .65 : 1;
+      e.x += e.vx * dt * fr; e.y += e.vy * dt * fr;
       e.life -= dt;
       if (e.life <= 0) { if (e.boom) zoneC(e.x, e.y, e.boom, .28, { dmg: DMG(1.2), src: e.src }); e.dead = true; continue; }
       if (e.boom && p.hp > 0 && d2(e.x, e.y, p.x, p.y) < 50 * 50) { zoneC(e.x, e.y, e.boom, .28, { dmg: DMG(1.2), src: e.src }); e.dead = true; continue; }
@@ -829,7 +887,7 @@ function majCombat(dt) {
   majTirsEnnemis(G.dtE);
   for (const h of G.hz) {
     if (G.arretHz <= 0) HZ[h.kind].up(h, G.dtE);
-    if (enCombat && p.hp > 0 && p.saut <= 0 && h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p)) { if (G.blesser(h.dmg, h.src) && h.kind !== 'rayon' && h.kind !== 'onde' && h.kind !== 'murFeu' && h.kind !== 'fil' && h.kind !== 'tornade') h.touche = true; }
+    if (enCombat && p.hp > 0 && p.saut <= 0 && h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p)) { if (G.blesser(h.dmg, h.src) && !HZ[h.kind].continu) h.touche = true; }
   }
   majAllies(dt);
   // contacts
@@ -875,6 +933,8 @@ function majCombat(dt) {
   if (G.parts.length > maxP) G.parts.splice(0, G.parts.length - maxP);
   if (G.arretHz > 0) G.arretHz -= dt;
   if (G.mut('energie')) p.energie = ST.eMax;
+  if (G.rel('tempete') && enCombat && b && !b.mort && b.intro <= 0) { G.sal.tempete -= dt; if (G.sal.tempete <= 0) { G.sal.tempete = 6; G.fx.push({ kind: 'eclair', pts: [[b.x + R.range(-30, 30), AR.y], [b.x, b.y]], t: 0, dur: .2 }); G.frappe(b, 150, { x: b.x, y: b.y }); Son.play('tirLourd'); } }
+  if (G.succesFile && G.succesFile.length) { G.succesFile[0].t += dt; if (G.succesFile[0].t > 3) G.succesFile.shift(); }
   Decor.maj(dt);
   G.textes = G.textes.filter(x => x.t < x.dur);
   if (G.etat === 'mort' && !G.ecranMort) {
@@ -888,6 +948,7 @@ function boucle(now) {
   let dt = (now - dernier) / 1000; dernier = now;
   G.fps = G.fps ? G.fps * .95 + (dt > 0 ? 1 / dt : 60) * .05 : 60;
   dt = Math.min(dt, 1 / 30);
+  if (G.mode === 'normal' || G.mode === 'entrainement') dt *= G.opts.vitesse || 1;
   G.mx = (Input.sx - offX) / scale; G.my = (Input.sy - offY) / scale;
   Musique.maj(dt);
   if ((G.etat === 'combat' || G.etat === 'interlude') && (Input.hit('Escape') || Input.hit(TOUCHES().pause))) UI.pause();
@@ -912,7 +973,7 @@ function boucle(now) {
 addEventListener('blur', () => { if (G.opts.autoPause && (G.etat === 'combat' || G.etat === 'interlude')) UI.pause(); });
 window.addEventListener('load', () => {
   cv = document.getElementById('jeu'); ctx = cv.getContext('2d');
-  majAlerte(); Decor.nouvelleSalle();
+  majAlerte(); Decor.nouvelleSalle(); appliquerAffichage();
   redim(); addEventListener('resize', redim);
   UI.menu();
   requestAnimationFrame(boucle);

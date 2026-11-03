@@ -492,6 +492,7 @@ function dessinerTirsEnnemis(c) {
     let al = 1;
     if (noir && p) { const dd = Math.sqrt(d2(e.x, e.y, p.x, p.y)); al = dd < 240 ? 1 : Math.max(.3, 1 - (dd - 240) / 300); }
     c.globalAlpha = al;
+    if (G.opts.contour) { c.strokeStyle = '#000'; c.lineWidth = 3; c.beginPath(); c.arc(e.x, e.y, e.r + 1.5, 0, TAU); c.stroke(); }
     c.fillStyle = '#fff'; c.beginPath(); c.arc(e.x, e.y, e.r * .6, 0, TAU); c.fill();
     c.strokeStyle = e.gel > 0 ? '#bfe6ff' : e.col; c.lineWidth = Math.max(2, e.r * .35); c.beginPath(); c.arc(e.x, e.y, e.r * .8, 0, TAU); c.stroke();
     if (e.hp > 0) { c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.setLineDash([3, 4]); c.beginPath(); c.arc(e.x, e.y, e.r + 4, G.t * 3, G.t * 3 + TAU); c.stroke(); c.setLineDash([]); }
@@ -587,6 +588,14 @@ function dessinerButin(c) {
     if (l.kind === 'soin') {
       c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(70,227,155,.8)', 34 * k), l.x - 34 * k, y - 34 * k); c.globalCompositeOperation = 'source-over';
       c.fillStyle = '#eafff3'; c.fillRect(l.x - 3, y - 10, 6, 20); c.fillRect(l.x - 10, y - 3, 20, 6);
+    } else if (l.kind === 'relique') {
+      const r = RELIQUES[l.id], col = '#c06bff';
+      c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(192,107,255,.8)', 46 * k), l.x - 46 * k, y - 46 * k); c.globalCompositeOperation = 'source-over';
+      c.strokeStyle = col; c.lineWidth = 3; c.beginPath(); for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + G.t; c.lineTo(l.x + Math.cos(a) * 26, y + Math.sin(a) * 26); } c.closePath(); c.stroke();
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `24px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#fff'; c.fillText(r.ico, l.x, y + 1);
+      c.font = `800 15px ${POLICE}`; c.fillStyle = '#e2c2ff'; c.fillText(r.nom, l.x, y + 46);
+      c.font = `12px ${POLICE}`; c.fillStyle = '#cfc8de'; c.fillText(r.desc, l.x, y + 64);
+      c.font = `700 10px ${POLICE}`; c.fillStyle = col; c.fillText('RELIQUE', l.x, y - 40);
     } else {
       const col = { p: '#ff8a5c', s: '#5aa8ff', t: '#46e39b' }[l.cat], u = UPG[l.cat].find(x => x.id === l.id);
       c.globalCompositeOperation = 'lighter'; c.drawImage(glow(col, 50 * k), l.x - 50 * k, y - 50 * k); c.globalCompositeOperation = 'source-over';
@@ -656,8 +665,17 @@ function dessinerHUD(c) {
   if (G.mode === 'normal') c.fillText(DF().ico + ' ' + DF().nom + ' · palier ' + PR().palier, 16, 54);
   else { c.fillStyle = '#ffd86b'; c.fillText((G.mode === 'jour' ? 'Défi du jour' : 'Défi de la semaine') + ' · boss ' + (G.defi.i + 1) + '/' + G.defi.boss.length + ' · ' + G.defi.mut.map(m => MUTATEURS[m].ico).join(' '), 16, 54); }
   if (G.opts.fps) { c.textAlign = 'right'; c.fillStyle = '#7dffb0'; c.fillText(Math.round(G.fps || 0) + ' i/s', W - 16, 54); c.textAlign = 'left'; }
+  const rels = G.reliques ? G.reliques() : [];
+  if (rels.length) { c.textAlign = 'left'; c.font = `16px Segoe UI Emoji, ${POLICE}`; rels.forEach((id, i) => c.fillText(RELIQUES[id].ico, 16 + i * 22, 72)); }
   c.textAlign = 'right'; c.font = `600 15px ${POLICE}`; c.fillStyle = '#ddd';
-  c.fillText(fmtTemps(G.chrono), W - 16, 18);
+  if (G.opts.chrono !== false) c.fillText(fmtTemps(G.chrono), W - 16, 18);
+  if (G.succesFile && G.succesFile.length) {
+    const s = G.succesFile[0], x = SUCCES[s.id], a = Math.min(1, s.t * 4, (3 - s.t) * 3);
+    c.globalAlpha = a; c.fillStyle = 'rgba(20,14,34,.92)'; c.fillRect(W - 330, 70, 314, 54); c.strokeStyle = '#ffd86b'; c.lineWidth = 2; c.strokeRect(W - 330, 70, 314, 54);
+    c.textAlign = 'left'; c.font = `26px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#fff'; c.fillText(x.ico, W - 318, 97);
+    c.font = `700 11px ${POLICE}`; c.fillStyle = '#ffd86b'; c.fillText('SUCCÈS DÉBLOQUÉ', W - 280, 86);
+    c.font = `800 16px ${POLICE}`; c.fillStyle = '#fff'; c.fillText(x.nom, W - 280, 106); c.globalAlpha = 1;
+  }
   c.font = `11px ${POLICE}`; c.fillStyle = '#777'; c.fillText('Échap : pause', W - 16, 36);
   if (p) {
     const y0 = 736;
@@ -780,10 +798,32 @@ function bloom() {
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }
 
+const SOL_HZ = new Set(['flaque', 'lave', 'fissure', 'abime', 'givre', 'ronce', 'geyser']);
+// fond animé de l'accueil : un colosse qui flotte dans la brume
+const MENU_FOND = { forme: null, hue: 0, t: 0, braises: [] };
+function fondMenu() {
+  const F = MENU_FOND, k = cv.width / W;
+  if (!F.forme) { const l = Object.keys(FORMES); F.forme = l[Math.floor(Math.random() * l.length)]; F.hue = Math.floor(Math.random() * 360); F.b = { s: {}, wind: 0, ouvert: 0, flash: 0, eyesA: 0 }; }
+  F.t += 1 / 60;
+  ctx.setTransform(k, 0, 0, k, 0, (cv.height - H * k) / 2);
+  const g = ctx.createRadialGradient(W * .68, H * .45, 30, W * .68, H * .45, 700);
+  g.addColorStop(0, hsl(F.hue, 50, 14)); g.addColorStop(1, '#030208');
+  ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, H * 3);
+  ctx.save(); ctx.translate(W * .7, H * .48 + Math.sin(F.t * .7) * 14); ctx.globalAlpha = .55;
+  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow(hsl(F.hue, 100, 50, .35), 320), -320, -320); ctx.globalCompositeOperation = 'source-over';
+  ctx.scale(2.6, 2.6); F.b.eyesA = Math.PI * .9 + Math.sin(F.t * .5) * .3;
+  try { FORMES[F.forme](ctx, F.b, 60, F.t, F.hue, 0, F.b.eyesA); } catch (e) { }
+  ctx.restore();
+  if (F.braises.length < 70) F.braises.push({ x: Math.random() * W, y: H + 10, v: 20 + Math.random() * 50, r: 1 + Math.random() * 2, p: Math.random() * 6 });
+  ctx.globalCompositeOperation = 'lighter';
+  for (const q of F.braises) { q.y -= q.v / 60; q.x += Math.sin(F.t + q.p) * .4; ctx.globalAlpha = Math.min(1, (q.y / H) * 1.5); ctx.fillStyle = hsl(F.hue + 30, 100, 65); ctx.fillRect(q.x, q.y, q.r, q.r); }
+  F.braises = F.braises.filter(q => q.y > -10);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+}
 function rendu() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#030208'; ctx.fillRect(0, 0, cv.width, cv.height);
-  if (!G.p || G.etat === 'menu') return;
+  if (G.etat === 'menu' || !G.p) { fondMenu(); return; }
   const sh = G.shake, sx = sh ? R.range(-sh, sh) * .6 : 0, sy = sh ? R.range(-sh, sh) * .6 : 0;
   const base = () => ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offX, dpr * offY);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (offX + sx * scale), dpr * (offY + sy * scale));
@@ -792,7 +832,7 @@ function rendu() {
   dessinerLumieres(c);
   c.save();
   c.beginPath(); c.rect(AR.x - 40, AR.y - 40, AR.w + 80, AR.h + 80); c.clip();
-  for (const h of G.hz) if (h.kind === 'flaque' || h.kind === 'lave') HZ[h.kind].draw(h, c);
+  for (const h of G.hz) if (SOL_HZ.has(h.kind)) HZ[h.kind].draw(h, c);
   if (G.boss && !G.boss.mort && G.boss.esp.dessinSol) G.boss.esp.dessinSol(c, G.boss);
   dessinerPiliers(c);
   dessinerButin(c);
@@ -807,7 +847,7 @@ function rendu() {
   }
   if (G.boss && !G.boss.mort) dessinerBoss(c, G.boss);
   c.save(); cheminArene(c); c.clip();
-  for (const h of G.hz) if (h.kind !== 'flaque' && h.kind !== 'lave') HZ[h.kind].draw(h, c);
+  for (const h of G.hz) if (!SOL_HZ.has(h.kind)) HZ[h.kind].draw(h, c);
   c.restore();
   dessinerTirsEnnemis(c);
   dessinerJoueur(c);
@@ -832,4 +872,13 @@ function rendu() {
   if (G.fondu > 0) { c.fillStyle = `rgba(3,2,8,${Math.min(1, G.fondu)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'passage') { const k = G.passage.t / G.passage.dur; c.fillStyle = `rgba(230,220,255,${Math.min(1, k * 1.4)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'mort' && G.ecranMort) dessinerEcranMort(c);
+  cv.style.cursor = G.opts.viseur && G.opts.viseur !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude') ? 'none' : 'crosshair';
+  const vs = G.opts.viseur;
+  if (vs && vs !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude')) {
+    const x = G.mx, y = G.my, col = G.opts.viseurCol || '#ffffff';
+    c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 4; c.fillStyle = col;
+    const forme = () => { c.beginPath(); if (vs === 'croix') { c.moveTo(x - 12, y); c.lineTo(x - 4, y); c.moveTo(x + 4, y); c.lineTo(x + 12, y); c.moveTo(x, y - 12); c.lineTo(x, y - 4); c.moveTo(x, y + 4); c.lineTo(x, y + 12); } else if (vs === 'cercle') { c.arc(x, y, 10, 0, TAU); } c.stroke(); };
+    if (vs === 'point') { c.beginPath(); c.arc(x, y, 4, 0, TAU); c.fillStyle = 'rgba(0,0,0,.7)'; c.fill(); c.beginPath(); c.arc(x, y, 2.6, 0, TAU); c.fillStyle = col; c.fill(); }
+    else { forme(); c.strokeStyle = col; c.lineWidth = 2; forme(); }
+  }
 }

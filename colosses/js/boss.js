@@ -32,7 +32,7 @@ const INVOC = {
   noeud: { nom: 'Nœuds de toile', desc: 'Les fils de la Tisseuse passent entre eux.', hp: 150, r: 14, vit: 0 }
 };
 const MOUVS = { ancre: 'Ancré', traqueur: 'Traqueur', errant: 'Errant', orbiteur: 'Orbiteur', clignotant: 'Clignotant', centre: 'Central', aucun: 'Immobile', serpent: 'Rampant' };
-const MIN_SALLE = { croix: 2, balayage: 2, cage: 3, damier: 3, vortex: 4, mines: 4, echos: 5, fragmentation: 2, zonesSures: 3, murFeu: 3, tornades: 4, marque: 2, seisme: 3, grille: 3 };
+const MIN_SALLE = { rochers: 2, failles: 3, givre: 3, ronces: 2, pics: 2, effondrement: 6, geysers: 4, croix: 2, balayage: 2, cage: 3, damier: 3, vortex: 4, mines: 4, echos: 5, fragmentation: 2, zonesSures: 3, murFeu: 3, tornades: 4, marque: 2, seisme: 3, grille: 3 };
 const NOMS_PHASES = ['Éveil', 'Colère', 'Démence', 'Fureur', 'Éclipse', 'Apothéose', 'Agonie', 'Dernier souffle'];
 
 const SYL1 = ['Vor', 'Kha', 'Zul', 'Mor', 'Ash', 'Thra', 'Gel', 'Nyx', 'Oub', 'Rak', 'Sey', 'Bal', 'Dra', 'Xe', 'Ul', 'Gro', 'Phy', 'Ka', 'Lith', 'Mal', 'Ira', 'Quo', 'Sor', 'Tey', 'Vel', 'Ygg', 'Aza', 'Brel', 'Cth', 'Ezo'];
@@ -54,7 +54,7 @@ function genBoss(salle, seed, mega, eviter) {
   const D = {
     S: Math.min(1.7, 1 + .022 * (salle - 1)) * (mega ? 1.05 : 1) * df.vit,
     C: Math.min(1.8, 1 + .02 * (salle - 1)) * df.dens,
-    T: Math.max(.55, (1 - .011 * (salle - 1)) * df.tele)
+    T: Math.max(.7, (1 - .011 * (salle - 1)) * df.tele)
   };
   const rp = RNG(hashNum((ESP_ORDRE.indexOf(espId) + 3) * 977)); // réglages fixes propres à l'espèce
   const pool = ATK_IDS.filter(id => id !== 'invocation' && (MIN_SALLE[id] || 1) <= salle);
@@ -266,6 +266,7 @@ function passerPhase(b) {
   G.secoue(16); G.gel = .12; G.flash = .35; Son.play('phase');
   G.fx.push({ kind: 'anneau', x: b.x, y: b.y, r0: b.r, r1: 900, t: 0, dur: .8, col: b.col });
   G.musiquePhase();
+  if (G.rel('brise') && G.p) { G.p.hp = Math.min(G.p.hpMax, G.p.hp + 20); G.texte(G.p.x, G.p.y - 30, '+20', '#46e39b', 18); }
 }
 
 // ---------- Invocations ----------
