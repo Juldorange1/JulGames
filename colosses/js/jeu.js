@@ -110,10 +110,11 @@ const G = {
   },
   annonce(txt, col, dur) { this.banner = { txt, col: col || '#fff', t: 0, dur: dur || 1.6 }; },
   texte(x, y, txt, col, size) { if (this.textes.length < 80) this.textes.push({ x: x + R.range(-8, 8), y, txt, col, t: 0, dur: .8, size: size || 15 }); },
-  secoue(n) { if (this.opts.tremble) this.shake = Math.max(this.shake, n); },
+  secoue(n) { this.shake = Math.max(this.shake, n * (+this.opts.tremble || 0)); },
+  marque(x, y, r) { Decor.brulure(x, y, r); },
   ralentir(f, t) { this.slowF = f; this.slowT = t; },
   lumiere(x, y, r, col, dur) { if (this.lumieres.length < 40) this.lumieres.push({ x, y, r, col, t: 0, dur }); },
-  etincelle(x, y, col, n) { for (let i = 0; i < n; i++) { const a = R() * TAU, s = R.range(80, 280); this.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .3, max: .3, col, r: R.range(1.2, 2.4), trait: true, add: true }); } },
+  etincelle(x, y, col, n) { n = Math.round(n * QUAL()); for (let i = 0; i < n; i++) { const a = R() * TAU, s = R.range(80, 280); this.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .3, max: .3, col, r: R.range(1.2, 2.4), trait: true, add: true }); } },
   explo(x, y, r, col) {
     this.fx.push({ kind: 'anneau', x, y, r0: r * .3, r1: r, t: 0, dur: .3, col });
     this.fx.push({ kind: 'boule', x, y, r, t: 0, dur: .35, col });
@@ -234,7 +235,10 @@ const G = {
   },
 
   // ---------- Enchaînement des salles ----------
+  // mode : 'normal' (progression), 'jour' ou 'semaine' (défis à graine fixe)
+  mode: 'normal', defi: null, finDefi: null,
   nouvellePartie() {
+    this.mode = 'normal'; this.defi = null; this.finDefi = null;
     calcStats();
     const pr = PR();
     if (!pr.run) pr.run = { salle: pr.palier * 5 + 1, pv: DF().pv };
@@ -242,24 +246,59 @@ const G = {
     this.ars = null;
     this.entrerSalle();
   },
+  lancerDefi(type) {
+    const df = defiCourant(type);
+    this.mode = type; this.finDefi = null;
+    this.defi = Object.assign(df, { i: 0, temps: 0, tues: 0 });
+    const rec = Save.d.defis[type];
+    if (!rec || rec.cle !== df.cle) Save.d.defis[type] = { cle: df.cle, best: null, essais: 0 };
+    Save.d.defis[type].essais++;
+    Save.write();
+    calcStats();
+    this.p = creerJoueur(this.mut('verre') ? 60 : DF().pv);
+    this.ars = null;
+    this.entrerSalle();
+  },
+  mut(id) { return this.mode !== 'normal' && this.defi && this.defi.mut.includes(id); },
   entrerSalle() {
-    const pr = PR(), run = pr.run, d = Save.d;
-    this.salle = run.salle;
-    this.mega = this.salle % 5 === 0;
-    const seed = this.mega ? hashNum(this.salle * 7919 + 13 + Object.keys(DIFFS).indexOf(d.diff) * 101) : R.int(1, 2147483646);
-    this.def = genBoss(this.salle, seed, this.mega, this.recents);
-    this.recents.push(this.def.esp); if (this.recents.length > 3) this.recents.shift();
-    const prev = this.ars || {};
-    const tire = (liste, avant) => R.pick(liste.filter(a => a.id !== avant)).id;
-    this.ars = { p: tire(PRIM, prev.p), s: tire(SPEC, prev.s), t: tire(TAL, prev.t) };
+    const d = Save.d;
+    let def, ars;
+    if (this.mode === 'normal') {
+      const pr = PR(), run = pr.run;
+      this.salle = run.salle;
+      this.mega = this.salle % 5 === 0;
+      if (run.boss && run.boss.salle === this.salle) { def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; }
+      else {
+        const seed = this.mega ? hashNum(this.salle * 7919 + 13 + Object.keys(DIFFS).indexOf(d.diff) * 101) : R.int(1, 2147483646);
+        const eviter = this.recents.slice();
+        def = genBoss(this.salle, seed, this.mega, eviter);
+        const prev = this.ars || {};
+        const tire = (liste, avant) => R.pick(liste.filter(a => a.id !== avant)).id;
+        ars = { p: tire(PRIM, prev.p), s: tire(SPEC, prev.s), t: tire(TAL, prev.t) };
+        run.boss = { salle: this.salle, seed, eviter, ars };
+        this.recents.push(def.esp); if (this.recents.length > 3) this.recents.shift();
+      }
+    } else {
+      const df = this.defi, b = df.boss[df.i];
+      this.salle = b.salle; this.mega = b.mega;
+      def = genBoss(b.salle, b.seed, b.mega, []); ars = b.ars;
+      if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
+      if (this.mut('vitesse')) def.D.S *= 1.12;
+      if (this.mut('colosses')) def.hpMax = Math.round(def.hpMax * 1.4);
+      if (this.mut('nuit')) def.phases.forEach(ph => ph.carte = 'tenebres');
+      if (this.mut('patinoire')) def.phases.forEach(ph => ph.carte = 'glace');
+      if (this.mut('chaos')) { const r = RNG(b.seed); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, 2)) def.traits.push(t); }
+    }
+    this.def = def; this.ars = ars;
     const nouveaux = ['p', 's', 't'].map(c => !d.codex.arm[c + ':' + this.ars[c]]);
     this.minions = []; this.pb = []; this.eb = []; this.hz = []; this.fx = []; this.allies = []; this.parts = []; this.textes = []; this.lumieres = []; this.loot = [];
-    this.leurre = null; this.tueur = null; this.ralenti = 0; this.aspiration = null; this.slowT = 0; this.banner = null; this.boss = null; this.portail = null; this.passage = null; this.gelT = 0;
-    Arene.inset = 0;
+    this.leurre = null; this.tueur = null; this.ralenti = 0; this.aspiration = null; this.slowT = 0; this.banner = null; this.boss = null; this.portail = null; this.passage = null; this.gelT = 0; this.arretHz = 0;
+    Arene.inset = 0; Decor.nouvelleSalle();
     calcStats();
     const p = this.p;
-    p.x = CX; p.y = AR.y + AR.h * .82; p.vx = p.vy = 0; p.dash = null; p.ancre = null; p.saut = 0; p.sprint = 0;
-    p.hpMax = DF().pv; p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 }; p.energie = Math.max(p.energie, ST.eMax * .5); p.iframe = 1.5;
+    p.x = CX; p.y = AR.y + AR.h * .82; p.vx = p.vy = 0; p.dash = null; p.ancre = null; p.saut = 0; p.sprint = 0; p.invis = 0; p.hist = [];
+    p.hpMax = this.mut('verre') ? 60 : DF().pv; p.hp = Math.min(p.hp, p.hpMax);
+    p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 }; p.energie = Math.max(p.energie, ST.eMax * .5); p.iframe = 1.5;
     Arene.appliquer(this.def.phases[0].carte);
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
@@ -272,16 +311,15 @@ const G = {
     cx.especes[this.def.esp] = cx.especes[this.def.esp] || { vus: 0, tues: 0 };
     cx.especes[this.def.esp].vus++;
     for (const t of this.def.traits) cx.traits[t] = 1;
-    pr.record = Math.max(pr.record, this.salle);
-    run.pv = p.hp;
+    if (this.mode === 'normal') { const pr = PR(); pr.record = Math.max(pr.record, this.salle); pr.run.pv = p.hp; }
     Save.write();
-    if (this.mega) { Musique.jouer(MUS.mega[(this.salle / 5 - 1) % MUS.mega.length][0]); Son.play('gong'); }
+    if (this.mega) { Musique.jouer(MUS.mega[(Math.max(1, Math.round(this.salle / 5)) - 1) % MUS.mega.length][0]); Son.play('gong'); }
     else Musique.combat();
     Input.clear();
   },
   musiquePhase() {
     if (!this.mega || !this.boss) return;
-    const piste = MUS.mega[(this.salle / 5 - 1) % MUS.mega.length], n = this.def.phases.length;
+    const piste = MUS.mega[(Math.max(1, Math.round(this.salle / 5)) - 1) % MUS.mega.length], n = this.def.phases.length;
     const i = this.boss.phase >= n - 1 ? 2 : Math.min(1, this.boss.phase);
     Musique.jouer(piste[i]);
   },
@@ -294,40 +332,59 @@ const G = {
     for (const m of this.minions) { m.dead = true; this.explo(m.x, m.y, 30, b.col); }
     for (let i = 0; i < 7; i++) setTimeout(() => { this.explo(b.x + R.range(-50, 50), b.y + R.range(-50, 50), 130, i % 2 ? '#fff' : b.col); this.secoue(10); }, i * 150);
     this.ralentir(.25, 1.3); this.secoue(22); this.gel = .2; this.flash = .6; Son.play('mortBoss');
-    this.lumiere(b.x, b.y, 600, b.col, 1.2);
+    this.lumiere(b.x, b.y, 600, b.col, 1.2); this.marque(b.x, b.y, b.r * 2.2);
     this.etat = 'interlude'; this.interT = 0;
     Musique.baisser(.3); setTimeout(() => Musique.sting(MUS.victoire), 600);
     this.annonce(this.def.mega ? 'MÉGA BOSS VAINCU !' : 'VAINCU !', '#ffe14d', 2.4);
-    // bilan et sauvegarde tout de suite
-    const d = Save.d, pr = PR();
+    const d = Save.d;
     d.stats.boss++; d.stats.salles++; d.stats.temps += this.chrono;
     if (d.codex.especes[this.def.esp]) d.codex.especes[this.def.esp].tues++;
-    d.chasse.unshift({ nom: this.def.nom, titre: this.def.titre, salle: this.salle, mega: this.def.mega, temps: Math.round(this.chrono), hue: this.def.hue, phases: this.def.phases.length, diff: d.diff });
+    d.chasse.unshift({ nom: this.def.nom, titre: this.def.titre, salle: this.salle, mega: this.def.mega, temps: Math.round(this.chrono), hue: this.def.hue, phases: this.def.phases.length, diff: this.mode === 'normal' ? d.diff : this.mode });
     d.chasse = d.chasse.slice(0, 60);
-    if (this.def.mega) {
-      d.stats.mega++;
-      pr.palier = Math.max(pr.palier, this.salle / 5);
-      const k = String(this.salle), old = pr.megaTemps[k];
-      if (!old || this.chrono < old) { pr.megaTemps[k] = Math.round(this.chrono); this.recordMega = true; } else this.recordMega = false;
+    const esp = d.especesTemps = d.especesTemps || {};
+    if (!esp[this.def.esp] || this.chrono < esp[this.def.esp]) esp[this.def.esp] = Math.round(this.chrono);
+    if (this.mode === 'normal') {
+      const pr = PR();
+      if (this.def.mega) {
+        d.stats.mega++;
+        pr.palier = Math.max(pr.palier, Math.round(this.salle / 5));
+        const k = String(this.salle), old = pr.megaTemps[k];
+        if (!old || this.chrono < old) pr.megaTemps[k] = Math.round(this.chrono);
+      }
+      pr.run.salle = this.salle + 1; pr.run.boss = null;
+      pr.record = Math.max(pr.record, pr.run.salle);
+      pr.run.pv = this.p.hp;
+    } else {
+      const df = this.defi;
+      df.tues++; df.temps += this.chrono; df.i++;
+      if (df.i >= df.boss.length) this.terminerDefi(true);
     }
-    pr.run.salle = this.salle + 1;
-    pr.record = Math.max(pr.record, pr.run.salle);
-    pr.run.pv = this.p.hp;
+    Save.write();
+  },
+  terminerDefi(reussi) {
+    const df = this.defi, rec = Save.d.defis[df.type];
+    const res = { reussi, tues: df.tues, total: df.boss.length, temps: df.temps, type: df.type };
+    const mieux = !rec.best || res.tues > rec.best.tues || (res.tues === rec.best.tues && res.temps < rec.best.temps);
+    res.ancien = rec.best; res.record = mieux;
+    if (mieux && res.tues > 0) rec.best = { tues: res.tues, temps: Math.round(res.temps * 10) / 10 };
+    Save.d.defisHist = Save.d.defisHist || [];
+    Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });
+    Save.d.defisHist = Save.d.defisHist.slice(0, 30);
+    this.finDefi = res;
     Save.write();
   },
   poserButin() {
     const p = this.p;
-    if (this.def.mega) {
-      const cats = ['p', 's', 't'];
-      cats.forEach((cat, i) => {
+    if (this.def.mega && this.mode === 'normal') {
+      ['p', 's', 't'].forEach((cat, i) => {
         const dispo = UPG[cat].filter(u => !u.max || lv(cat, u.id) < u.max), u = R.pick(dispo);
         this.loot.push({ kind: 'up', cat, id: u.id, x: CX + (i - 1) * 190, y: CY - 20, t: -i * .15 });
       });
       p.hp = p.hpMax;
       this.texte(p.x, p.y - 30, 'Vie restaurée', '#46e39b', 18); Son.play('soin');
     } else {
-      this.loot.push({ kind: 'soin', x: this.boss.x, y: this.boss.y, t: 0, val: DF().soin });
-      this.ouvrirPortail();
+      if (!this.mut('jeune')) this.loot.push({ kind: 'soin', x: this.boss.x, y: this.boss.y, t: 0, val: DF().soin });
+      if (!this.finDefi) this.ouvrirPortail();
     }
   },
   ouvrirPortail() { if (!this.portail) { this.portail = { x: CX, y: AR.y + AR.h * .3, t: 0 }; Son.play('portail'); } },
@@ -346,25 +403,65 @@ const G = {
       this.ouvrirPortail();
     }
     l.dead = true;
-    PR().run.pv = p.hp; Save.write();
+    if (this.mode === 'normal') PR().run.pv = p.hp;
+    Save.write();
   },
   traverserPortail() {
     this.passage = { t: 0, dur: .7 };
     this.etat = 'passage';
     Son.play('teleporte');
-    PR().run.pv = this.p.hp; Save.write();
+    if (this.mode === 'normal') { PR().run.pv = this.p.hp; Save.write(); }
   },
   mortJoueur() {
-    const d = Save.d, pr = PR();
+    const d = Save.d;
     this.etat = 'mort'; this.finT = 1.7; this.ralentir(.3, 1.4); Son.play('mort'); this.secoue(18); this.flash = .5;
     d.stats.morts++; d.stats.temps += this.chrono;
     this.resMort = { salle: this.salle, def: this.def, pct: this.boss ? 1 - Math.max(0, this.boss.hp) / this.boss.hpMax : 0, phase: this.boss ? this.boss.phase + 1 : 1, temps: this.chrono };
-    pr.run = { salle: pr.palier * 5 + 1, pv: DF().pv };
+    if (this.mode === 'normal') {
+      // on rejoue le même boss, avec les mêmes armes, tout le monde à pleine vie
+      const pr = PR(); pr.run.pv = DF().pv;
+      const e = d.essais = d.essais || {}; const k = Save.d.diff + ':' + this.salle; e[k] = (e[k] || 0) + 1;
+    } else { this.defi.temps += this.chrono; this.terminerDefi(false); }
     Save.write();
     Musique.stop();
   },
+  recommencer() {
+    if (this.mode === 'normal') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
+    else this.lancerDefi(this.defi.type);
+  },
   abandonner() { const p = this.p; p.iframe = 0; p.fantome = 0; p.parade = 0; p.bouclier = 0; p.saut = 0; this.etat = 'combat'; this.blesser(99999, 'abandon'); }
 };
+
+// ---------- Défis du jour et de la semaine ----------
+const MUTATEURS = {
+  verre: { nom: 'Corps de verre', ico: '🥚', desc: 'Tu n\'as que 60 points de vie.' },
+  frenesie: { nom: 'Frénésie', ico: '⚡', desc: 'Les boss attaquent 20 % plus vite.' },
+  nuit: { nom: 'Nuit noire', ico: '🌑', desc: 'Toutes les arènes sont plongées dans les ténèbres.' },
+  patinoire: { nom: 'Patinoire', ico: '❄', desc: 'Toutes les arènes sont gelées.' },
+  energie: { nom: 'Énergie infinie', ico: '🔋', desc: 'Les attaques spéciales ne coûtent rien.' },
+  colosses: { nom: 'Colosses', ico: '🗿', desc: 'Boss 40 % plus résistants, mais tes armes frappent 25 % plus fort.' },
+  reflexes: { nom: 'Réflexes', ico: '💨', desc: 'Talents rechargés deux fois plus vite.' },
+  jeune: { nom: 'Jeûne', ico: '🚫', desc: 'Aucun soin entre les boss.' },
+  chaos: { nom: 'Chaos', ico: '🌀', desc: 'Chaque boss a deux mutations de plus.' },
+  vitesse: { nom: 'Pas de géant', ico: '👟', desc: 'Tu cours 25 % plus vite, les boss aussi.' }
+};
+function cleJour(d) { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function cleSemaine(d) {
+  d = d || new Date();
+  const u = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), n = (u.getUTCDay() + 6) % 7;
+  u.setUTCDate(u.getUTCDate() - n + 3);
+  const a = new Date(Date.UTC(u.getUTCFullYear(), 0, 4));
+  const w = 1 + Math.round(((u - a) / 864e5 - 3 + ((a.getUTCDay() + 6) % 7)) / 7);
+  return u.getUTCFullYear() + '-S' + String(w).padStart(2, '0');
+}
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function defiCourant(type) {
+  const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
+  const salles = type === 'jour' ? [6, 10, 14] : [8, 12, 16, 20, 24, 25];
+  const mut = r.shuffle(Object.keys(MUTATEURS)).slice(0, type === 'jour' ? 1 : 2);
+  const boss = salles.map(s => ({ salle: s, seed: r.int(1, 2000000000), mega: s % 5 === 0, ars: { p: r.pick(PRIM).id, s: r.pick(SPEC).id, t: r.pick(TAL).id } }));
+  return { type, cle, mut, boss };
+}
 
 function creerJoueur(pv) {
   return {
@@ -381,6 +478,8 @@ function majJoueur(dt) {
   p.aim = ang(p.x, p.y, G.mx, G.my);
   for (const k of ['iframe', 'miroir', 'parade', 'bouclier', 'fantome', 'vite', 'rouge', 'sprint']) if (p[k] > 0) p[k] -= dt;
   if (p.ancre) { p.ancre.t -= dt; if (p.ancre.t <= 0) p.ancre = null; }
+  if (p.invis > 0) p.invis -= dt;
+  p.hist = p.hist || []; p.hist.push({ x: p.x, y: p.y }); if (p.hist.length > 60) p.hist.shift();
   if (p.saut > 0) {
     p.saut -= dt;
     if (p.saut <= 0) {
@@ -391,12 +490,14 @@ function majJoueur(dt) {
     }
   }
   p.energie = Math.min(ST.eMax, p.energie + 4 * ST.eGain * dt);
+  p.marche = (p.marche || 0) + Math.hypot(p.vx, p.vy) * dt * .07;
   p.lent = 1;
   const actif = G.etat === 'combat';
-  const held = actif && (Input.lmb || G.opts.auto) && p.fantome <= 0;
+  const held = actif && (Input.lmb || (G.opts.auto && !prim.manuel)) && p.fantome <= 0;
   prim.tick(p.prim, p, dt, held);
   if (p.spec.cd > 0) p.spec.cd -= dt;
-  if (actif && (Input.rp || Input.hit('KeyE'))) {
+  const K = TOUCHES();
+  if (actif && (Input.rp || Input.hit(K.spec))) {
     const cout = spec.cout * ST.sCout;
     if (p.fantome > 0) { }
     else if (p.spec.cd > 0) { Son.play('vide'); }
@@ -405,7 +506,7 @@ function majJoueur(dt) {
   }
   const T = p.tal, maxC = ST.tCharges;
   if (T.charges < maxC) { T.cd -= dt; if (T.cd <= 0) { T.charges++; T.cd = T.charges < maxC ? tal.rech * ST.tRech : 0; } }
-  if (Input.hit('Space') || Input.hit('ShiftLeft') || Input.hit('ShiftRight')) {
+  if (Input.hit(K.tal) || Input.hit(K.tal2)) {
     if (T.charges > 0 && !p.dash) {
       const avant = T.charges === maxC;
       T.charges--;
@@ -414,7 +515,7 @@ function majJoueur(dt) {
       else if (avant) T.cd = tal.rech * ST.tRech;
     } else Son.play('vide');
   }
-  let sp = 270 * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
+  let sp = 270 * (G.mut('vitesse') ? 1.25 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
   if (p.dash) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
@@ -471,7 +572,7 @@ function majTirsJoueur(dt) {
     if (!Arene.dedans(b.x, b.y, 0) || Arene.pilierTouche(b.x, b.y, 2)) {
       if (b.kind === 'boom' && !b.retour) { b.retour = true; b.hits.clear(); }
       else if (b.reb > 0) {
-        b.reb--; b.hits.clear();
+        b.reb--; b.hits.clear(); if (b.bonusReb) b.dmg *= b.bonusReb;
         if (Arene.kind === 'cercle') { const a = ang(CX, CY, b.x, b.y), nx = Math.cos(a), ny = Math.sin(a), dt2 = b.vx * nx + b.vy * ny; b.vx -= 2 * dt2 * nx; b.vy -= 2 * dt2 * ny; }
         else { const bb = Arene.bb(); if (b.x < bb.x || b.x > bb.x + bb.w) b.vx = -b.vx; if (b.y < bb.y || b.y > bb.y + bb.h) b.vy = -b.vy; }
         Arene.contenir(b, 1); G.etincelle(b.x, b.y, b.col, 3);
@@ -595,9 +696,27 @@ function majAllies(dt) {
         break;
       case 'meteore':
         if (a.t >= a.dur) {
-          a.dead = true; G.explo(a.x, a.y, a.r, a.petit ? '#9cf' : '#ffd27f'); Son.play(a.petit ? 'explo' : 'gros'); G.secoue(a.petit ? 2 : 10);
-          for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) G.frappe(tg, a.dmg, { spec: true, x: tg.x, y: tg.y });
+          a.dead = true; G.explo(a.x, a.y, a.r, a.petit ? '#9cf' : '#ffd27f'); Son.play(a.petit ? 'explo' : 'gros'); G.secoue(a.petit ? 2 : 10); G.marque(a.x, a.y, a.r * .7);
+          for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) G.frappe(tg, a.dmg, a.prim ? { prim: true, x: tg.x, y: tg.y } : { spec: true, x: tg.x, y: tg.y });
+          if (a.efface) for (const e of G.eb) if (d2(a.x, a.y, e.x, e.y) < a.r * a.r) e.dead = true;
         }
+        break;
+      case 'echoFrappe':
+        if (a.t >= a.dur) {
+          a.dead = true; G.explo(a.x, a.y, a.r, '#c77aff'); Son.play('explo'); G.secoue(4); G.marque(a.x, a.y, a.r * .6);
+          for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) G.frappe(tg, a.dmg, { prim: true, x: tg.x, y: tg.y });
+        }
+        break;
+      case 'trampo':
+        a.pret -= dt;
+        if (a.pret <= 0 && p.saut <= 0 && !p.dash && d2(a.x, a.y, p.x, p.y) < 26 * 26) {
+          a.pret = .8;
+          const an = ang(p.x, p.y, G.mx, G.my), L = Math.min(320 * ST.tPort, Math.hypot(G.mx - p.x, G.my - p.y));
+          p.saut = .6; p.sautMax = .6; p.iframe = Math.max(p.iframe, .65 + ST.tIntan);
+          p.dash = { t: 0, dur: .6, vx: Math.cos(an) * L / .6, vy: Math.sin(an) * L / .6 };
+          Son.play('dash'); G.fx.push({ kind: 'anneau', x: a.x, y: a.y, r0: 10, r1: 50, t: 0, dur: .3, col: '#7dffb0' });
+        }
+        if (a.t >= a.dur) a.dead = true;
         break;
       case 'tourelle': {
         a.cd -= dt;
@@ -709,7 +828,7 @@ function majCombat(dt) {
   majTirsJoueur(dt);
   majTirsEnnemis(G.dtE);
   for (const h of G.hz) {
-    HZ[h.kind].up(h, G.dtE);
+    if (G.arretHz <= 0) HZ[h.kind].up(h, G.dtE);
     if (enCombat && p.hp > 0 && p.saut <= 0 && h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p)) { if (G.blesser(h.dmg, h.src) && h.kind !== 'rayon' && h.kind !== 'onde' && h.kind !== 'murFeu' && h.kind !== 'fil' && h.kind !== 'tornade') h.touche = true; }
   }
   majAllies(dt);
@@ -733,6 +852,7 @@ function majCombat(dt) {
       if (po.t > 6) { const a = ang(p.x, p.y, po.x, po.y); p.x += Math.cos(a) * 200 * dt; p.y += Math.sin(a) * 200 * dt; }
       if (po.t > .6 && d2(p.x, p.y, po.x, po.y) < 44 * 44) G.traverserPortail();
     }
+    if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.stop(); }
   } else G.butinPose = false;
   // effets
   for (const f of G.fx) f.t += dt;
@@ -751,7 +871,11 @@ function majCombat(dt) {
   G.fx = G.fx.filter(f => f.t < f.dur);
   G.lumieres = G.lumieres.filter(l => l.t < l.dur);
   G.parts = G.parts.filter(q => q.life > 0);
-  if (G.parts.length > 900) G.parts.splice(0, G.parts.length - 900);
+  const maxP = { faible: 250, normale: 900, elevee: 1800 }[G.opts.particules] || 900;
+  if (G.parts.length > maxP) G.parts.splice(0, G.parts.length - maxP);
+  if (G.arretHz > 0) G.arretHz -= dt;
+  if (G.mut('energie')) p.energie = ST.eMax;
+  Decor.maj(dt);
   G.textes = G.textes.filter(x => x.t < x.dur);
   if (G.etat === 'mort' && !G.ecranMort) {
     G.finT -= dt / Math.max(.25, G.slowT > 0 ? G.slowF : 1);
@@ -762,30 +886,33 @@ function majCombat(dt) {
 let dernier = performance.now();
 function boucle(now) {
   let dt = (now - dernier) / 1000; dernier = now;
+  G.fps = G.fps ? G.fps * .95 + (dt > 0 ? 1 / dt : 60) * .05 : 60;
   dt = Math.min(dt, 1 / 30);
   G.mx = (Input.sx - offX) / scale; G.my = (Input.sy - offY) / scale;
   Musique.maj(dt);
-  if ((G.etat === 'combat' || G.etat === 'interlude') && (Input.hit('Escape') || Input.hit('KeyP'))) UI.pause();
+  if ((G.etat === 'combat' || G.etat === 'interlude') && (Input.hit('Escape') || Input.hit(TOUCHES().pause))) UI.pause();
   else if (G.etat === 'combat' || G.etat === 'interlude' || G.etat === 'mort') {
     majCombat(dt);
     if (G.etat === 'mort' && G.ecranMort) {
-      if (Input.hit('Space') || Input.hit('Enter') || Input.hit('KeyR')) G.nouvellePartie();
-      else if (Input.hit('Escape')) UI.menu();
+      if (Input.hit('Space') || Input.hit('Enter') || Input.hit('KeyR')) G.recommencer();
+      else if (Input.hit('Escape')) { G.mode = 'normal'; UI.menu(); }
     }
   }
   else if (G.etat === 'passage') {
     G.passage.t += dt;
     if (G.passage.t >= G.passage.dur) G.entrerSalle();
   }
-  else if (G.etat === 'pause') { if (Input.hit('Escape') || Input.hit('KeyP')) UI.reprendre(); else UI.clavier(); }
+  else if (G.etat === 'pause') { if (UI.capture) UI.clavier(); else if (Input.hit('Escape') || Input.hit(TOUCHES().pause)) UI.reprendre(); else UI.clavier(); }
   else UI.clavier();
   rendu();
   Input.endFrame();
   requestAnimationFrame(boucle);
 }
 
+addEventListener('blur', () => { if (G.opts.autoPause && (G.etat === 'combat' || G.etat === 'interlude')) UI.pause(); });
 window.addEventListener('load', () => {
   cv = document.getElementById('jeu'); ctx = cv.getContext('2d');
+  majAlerte(); Decor.nouvelleSalle();
   redim(); addEventListener('resize', redim);
   UI.menu();
   requestAnimationFrame(boucle);

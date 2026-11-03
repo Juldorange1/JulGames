@@ -16,7 +16,7 @@ const P0 = () => ({}); // attaques d'espèce : réglages fixes (seule la difficu
 function* temps(b, n) { for (let i = 0; i < n; i++) { const reste = b.s.temps - (b.s.bt % b.s.temps); yield reste + .001; } }
 espece('metronome', {
   nom: 'le Métronome', hue: 45, r: 56, mouv: 'ancre',
-  forme: { style: 'poly', cotes: 8, pics: 8, picL: .25, yeux: 1, sats: 4, anneaux: 2, rot: .25, creux: .5 },
+  forme: { style: 'astre', cotes: 8, pics: 8, picL: .25, yeux: 1, sats: 4, anneaux: 2, rot: .25, creux: .5 },
   meca: 'Tout suit son battement (tic + anneau doré). Ses salves décalent leurs trous d\'un demi-cran à chaque temps. Après sa grande salve, son cœur s\'ouvre : ×3 pendant 2 temps.',
   init(b) { b.s.temps = .56 / b.D.S; b.s.bt = 0; b.s.n = -1; },
   phaseInit(b, i) { b.s.temps = (i ? .44 : .56) / b.D.S; },
@@ -85,7 +85,7 @@ defEsp('me_aiguilles', {
 // =============== La Sentinelle ===============
 espece('sentinelle', {
   nom: 'la Sentinelle', hue: 210, r: 54, mouv: 'traqueur', tourne: [1.0, 1.5],
-  forme: { style: 'poly', cotes: 6, pics: 0, yeux: 1, sats: 0, anneaux: 1, rot: 0, creux: .5 },
+  forme: { style: 'cristal', cotes: 6, pics: 0, yeux: 1, sats: 0, anneaux: 1, rot: 0, creux: .5 },
   meca: 'Son bouclier frontal arrête tous tes tirs : frappe-la dans le dos (×2). Si sa charge finit dans un mur ou un pilier, elle est assommée et son bouclier tombe.',
   mult(b, o) {
     if (b.stun > 0) return 1.6;
@@ -191,7 +191,7 @@ defEsp('hy_morsure', {
 // =============== La Tisseuse ===============
 espece('tisseuse', {
   nom: 'la Tisseuse', hue: 285, r: 48, mouv: 'errant',
-  forme: { style: 'etoile', cotes: 8, pics: 8, picL: .5, yeux: 4, sats: 0, anneaux: 0, rot: .1, creux: .45 },
+  forme: { style: 'araignee', cotes: 8, pics: 8, picL: .5, yeux: 4, sats: 0, anneaux: 0, rot: .1, creux: .45 },
   meca: 'Elle tend des fils mortels entre ses nœuds. Casse un nœud pour couper ses fils. Si tous ses nœuds tombent, elle s\'emmêle : assommée et ×2.',
   maj(b) {
     const n = G.minions.filter(m => m.type === 'noeud').length;
@@ -227,7 +227,7 @@ function spectreAncres(n) {
 }
 espece('spectre', {
   nom: 'le Spectre', hue: 265, r: 46, mouv: 'aucun', sansTraits: ['spectral'],
-  forme: { style: 'blob', cotes: 3, pics: 0, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
+  forme: { style: 'fantome', cotes: 3, pics: 0, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'Intouchable, sauf quand il se matérialise sur une de ses ancres (3 s). Il les visite toujours dans le même ordre et la prochaine luit : attends-le là-bas.',
   init(b) { b.s.anc = spectreAncres(4); b.s.ordre = [0, 1, 2, 3]; b.s.i = 0; b.s.mat = 0; b.spectral = 99; const a = b.s.anc[0]; b.x = a.x; b.y = a.y; },
   phaseInit(b, i) { if (i > 0) { b.s.anc = spectreAncres(6); b.s.ordre = [0, 3, 1, 4, 2, 5]; b.s.i = 0; } },
@@ -262,7 +262,7 @@ defEsp('sp_saut', {
 // =============== Le Forgeron ===============
 espece('forgeron', {
   nom: 'le Forgeron', hue: 15, r: 60, mouv: 'traqueur',
-  forme: { style: 'poly', cotes: 5, pics: 6, picL: .3, yeux: 2, sats: 0, anneaux: 1, rot: .1, creux: .5 },
+  forme: { style: 'golem', cotes: 5, pics: 6, picL: .3, yeux: 2, sats: 0, anneaux: 1, rot: .1, creux: .5 },
   meca: 'Chaque frappe le fait chauffer (3 crans). Au 3e, il surchauffe : fuis l\'explosion, puis il refroidit sans défense (×2,5).',
   init(b) { b.s.ch = 0; },
   prochaine(b) { return b.s.ch >= 3 ? 'fo_surchauffe' : null; },
@@ -310,7 +310,7 @@ defEsp('fo_surchauffe', {
 // =============== La Reine de l'essaim ===============
 espece('reine', {
   nom: 'la Reine de l\'essaim', hue: 75, r: 52, mouv: 'orbiteur', sansTraits: ['cristaux'], pasInvoc: true,
-  forme: { style: 'etoile', cotes: 6, pics: 6, picL: .3, yeux: 3, sats: 6, anneaux: 1, rot: .2, creux: .55 },
+  forme: { style: 'insecte', cotes: 6, pics: 6, picL: .3, yeux: 3, sats: 6, anneaux: 1, rot: .2, creux: .55 },
   meca: 'Elle est protégée tant qu\'au moins 3 drones vivent. Ils sortent en formation : les armes de zone les balaient vite. Tue l\'essaim, puis frappe la Reine.',
   bouclier(b) { return G.minions.filter(m => m.type !== 'cristal' && m.spawn <= 0).length >= 3; },
   phases: [
@@ -345,7 +345,7 @@ defEsp('re_kamikazes', {
 // =============== Le Juge ===============
 espece('juge', {
   nom: 'le Juge', hue: 52, r: 54, mouv: 'ancre',
-  forme: { style: 'poly', cotes: 4, pics: 4, picL: .45, yeux: 1, sats: 2, anneaux: 2, rot: .15, creux: .5 },
+  forme: { style: 'oeil', cotes: 4, pics: 4, picL: .45, yeux: 1, sats: 2, anneaux: 2, rot: .15, creux: .5 },
   meca: 'Il montre une suite de cases numérotées, puis les fait exploser très vite dans le même ordre. Retiens l\'ordre et file sur une case déjà passée. Après chaque sentence il s\'agenouille (×2).',
   phases: [
     { cycle: ['ju_sentence', 'rayon', 'ju_sentence', 'croix'] },
@@ -380,7 +380,7 @@ defEsp('ju_sentence', {
 // =============== L'Horloger ===============
 espece('horloger', {
   nom: 'l\'Horloger', hue: 32, r: 58, mouv: 'centre',
-  forme: { style: 'poly', cotes: 12, pics: 12, picL: .12, yeux: 1, sats: 0, anneaux: 2, rot: .05, creux: .5 },
+  forme: { style: 'anneau', cotes: 12, pics: 12, picL: .12, yeux: 1, sats: 0, anneaux: 2, rot: .05, creux: .5 },
   meca: 'Ses aiguilles tournent toujours dans le même sens et à vitesse fixe : tourne avec elles. Quand elles se superposent (« midi »), il est ouvert (×2,5).',
   phases: [
     { cycle: ['ho_aiguilles', 'salve', 'ho_engrenages', 'salve'] },
@@ -521,7 +521,7 @@ defEsp('sn_enroule', {
 // =============== La Nébuleuse ===============
 espece('nebuleuse', {
   nom: 'la Nébuleuse', hue: 315, r: 50, mouv: 'ancre',
-  forme: { style: 'blob', cotes: 7, pics: 0, yeux: 1, sats: 5, anneaux: 2, rot: .4, creux: .5 },
+  forme: { style: 'nautile', cotes: 7, pics: 0, yeux: 1, sats: 5, anneaux: 2, rot: .4, creux: .5 },
   meca: 'Elle t\'attire en permanence. Quand elle inspire (elle gonfle et aspire fort), son cœur est à nu (×2,5) : tire en courant à contre-sens, puis éloigne-toi avant qu\'elle expire.',
   maj(b) { if (!b.s.inspire) G.aspiration = { x: b.x, y: b.y, f: (b.phase ? 70 : 45) * b.D.S, t: .1 }; },
   phases: [
@@ -548,7 +548,7 @@ defEsp('ne_inspire', {
 // =============== Le Bourreau ===============
 espece('bourreau', {
   nom: 'le Bourreau', hue: 352, r: 44, mouv: 'traqueur',
-  forme: { style: 'etoile', cotes: 4, pics: 2, picL: .8, yeux: 2, sats: 0, anneaux: 0, rot: 0, creux: .5 },
+  forme: { style: 'crane', cotes: 4, pics: 2, picL: .8, yeux: 2, sats: 0, anneaux: 0, rot: 0, creux: .5 },
   meca: 'Toujours le même combo : des ruées annoncées puis un tourbillon (3 coups, 5 en phase 2). Après le tourbillon, il reprend son souffle (×2). La parade y est reine.',
   phases: [
     { cycle: ['bo_combo', 'bo_lames', 'bo_combo', 'bond'] },
@@ -590,7 +590,7 @@ defEsp('bo_lames', {
 // =============== Le Phénix ===============
 espece('phenix', {
   nom: 'le Phénix', hue: 28, r: 52, mouv: 'orbiteur',
-  forme: { style: 'etoile', cotes: 7, pics: 10, picL: .5, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
+  forme: { style: 'oiseau', cotes: 7, pics: 10, picL: .5, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'À la fin de sa première phase il devient un œuf pendant 7 s. Casse l\'œuf à temps : il renaît affaibli et étourdi. Sinon il renaît en reprenant des forces.',
   transition(b) {
     if (b.phase === 0 && !b.s.oeufFait) {

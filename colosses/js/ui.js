@@ -3,7 +3,7 @@
    En combat, tout se passe dans l'arène (pas d'écran entre les salles). */
 
 const UI = {
-  el: null, retour: null,
+  el: null, retour: null, capture: null, ongletOpt: null,
   montrer(html, classe) {
     const e = this.el || (this.el = document.getElementById('ecran'));
     e.className = 'ouvert ' + (classe || '');
@@ -13,7 +13,7 @@ const UI = {
   },
   cacher() { const e = this.el || (this.el = document.getElementById('ecran')); e.className = ''; e.innerHTML = ''; },
   clavier() {
-    if (!this.el || !this.el.classList.contains('ouvert')) return;
+    if (!this.el || !this.el.classList.contains('ouvert') || this.capture) return;
     if (Input.hit('Space') || Input.hit('Enter') || Input.hit('NumpadEnter')) { const b = this.el.querySelector('[data-def]'); if (b) b.click(); }
     if (Input.hit('Escape')) { const b = this.el.querySelector('[data-echap]'); if (b) b.click(); }
     for (let i = 1; i <= 3; i++) if (Input.hit('Digit' + i) || Input.hit('Numpad' + i)) { const b = this.el.querySelector('[data-n="' + i + '"]'); if (b) b.click(); }
@@ -21,20 +21,36 @@ const UI = {
   action(a, btn) {
     switch (a) {
       case 'jouer': this.cacher(); G.nouvellePartie(); break;
+      case 'defi': this.cacher(); G.lancerDefi(btn.dataset.t); break;
       case 'diff': Save.d.diff = btn.dataset.d; Save.write(); calcStats(); this.menu(); break;
       case 'menu': this.menu(); break;
       case 'ameliorations': this.ameliorations(); break;
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
       case 'chasse': this.chasse(); break;
       case 'aide': this.aide(); break;
-      case 'options': this.options(btn.dataset.o); break;
+      case 'options': this.options(btn.dataset.o, btn.dataset.onglet); break;
       case 'retour': (this.retour || (() => this.menu()))(); break;
       case 'reprendre': this.reprendre(); break;
       case 'abandon': this.cacher(); G.abandonner(); break;
       case 'effacer':
-        if (confirm('Effacer TOUTE ta progression (toutes difficultés, améliorations, codex) ?')) { localStorage.removeItem(SAVE_KEY); Save.load(); G.opts = Save.d.opts; calcStats(); this.menu(); }
+        if (confirm('Effacer TOUTE ta progression (toutes difficultés, défis, améliorations, codex) ?')) { localStorage.removeItem(SAVE_KEY); Save.load(); G.opts = Save.d.opts; calcStats(); majAlerte(); this.menu(); }
         break;
     }
+  },
+
+  carteDefi(type) {
+    const df = defiCourant(type), rec = Save.d.defis[type], bon = rec && rec.cle === df.cle ? rec : null;
+    const fin = new Date(); let reste;
+    if (type === 'jour') { const d = new Date(fin); d.setHours(24, 0, 0, 0); reste = (d - fin) / 36e5; }
+    else { const d = new Date(fin); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); reste = (d - fin) / 36e5; }
+    const resteTxt = reste >= 48 ? Math.floor(reste / 24) + ' j' : Math.floor(reste) + ' h ' + Math.floor((reste % 1) * 60) + ' min';
+    return `<div class="defi d-${type}">
+      <div class="dtete"><b>${type === 'jour' ? '☀ Défi du jour' : '🗓 Défi de la semaine'}</b><span>encore ${resteTxt}</span></div>
+      <div class="dmut">${df.mut.map(m => `<span title="${MUTATEURS[m].desc}">${MUTATEURS[m].ico} ${MUTATEURS[m].nom}</span>`).join('')}</div>
+      <p class="mini">${df.boss.length} boss d'affilée${df.boss.some(b => b.mega) ? ' dont un méga boss' : ''}, armes imposées, sans améliorations, une seule vie. ${df.mut.map(m => MUTATEURS[m].desc).join(' ')}</p>
+      <div class="drec">${bon && bon.best ? `Record : <b>${bon.best.tues}/${df.boss.length}</b> en <b>${fmtTemps(bon.best.temps)}</b>` : 'Pas encore de record'}${bon ? ` · ${bon.essais} essai(s)` : ''}</div>
+      <button data-a="defi" data-t="${type}">Relever le défi</button>
+    </div>`;
   },
 
   menu() {
@@ -42,6 +58,8 @@ const UI = {
     const d = Save.d, s = d.stats, pr = PR();
     const salle = pr.run ? pr.run.salle : pr.palier * 5 + 1;
     const nbUp = ['p', 's', 't'].reduce((n, c) => n + Object.values(pr.up[c]).reduce((a, b) => a + b, 0), 0);
+    const revanche = pr.run && pr.run.boss && pr.run.boss.salle === salle;
+    const essais = (d.essais || {})[d.diff + ':' + salle] || 0;
     this.retour = () => this.menu();
     Musique.jouer(MUS.menu);
     const diffs = Object.entries(DIFFS).map(([k, v], i) => {
@@ -56,6 +74,8 @@ const UI = {
         <p class="sous">Des boss à l'infini. Apprends-les, ou meurs en essayant.</p>
         <div class="diffs">${diffs}</div>
         <button class="gros" data-a="jouer" data-def>⚔ Combattre — salle ${salle}${salle % 5 === 0 ? ' (méga boss)' : ''}</button>
+        ${revanche && essais ? `<p class="mini">Revanche : même boss, mêmes armes (${essais} essai${essais > 1 ? 's' : ''}).</p>` : ''}
+        <div class="defis">${this.carteDefi('jour')}${this.carteDefi('semaine')}</div>
         <div class="stats">
           <div><b>${pr.palier}</b><span>palier</span></div>
           <div><b>${pr.record}</b><span>record</span></div>
@@ -69,7 +89,7 @@ const UI = {
           <button data-a="codex">Codex</button>
           <button data-a="chasse">Tableau de chasse</button>
           <button data-a="aide">Comment jouer</button>
-          <button data-a="options">Options</button>
+          <button data-a="options">⚙ Paramètres</button>
         </div>
       </div>`, 'fond');
   },
@@ -83,7 +103,7 @@ const UI = {
       <div class="panneau court">
         <h2>Pause</h2>
         <div class="rang col"><button class="gros" data-a="reprendre" data-def>Reprendre (Échap)</button>
-        <button data-a="options" data-o="pause">Options</button>
+        <button data-a="options" data-o="pause">Paramètres</button>
         <button data-a="aide" data-o="pause">Comment jouer</button>
         <button data-a="abandon">Abandonner ce combat (compte comme une mort)</button></div>
       </div>`);
@@ -186,26 +206,56 @@ const UI = {
     this.retour = ret;
   },
 
-  options(o) {
-    const op = Save.d.opts;
-    this.retour = o === 'pause' ? () => this.pause() : () => this.menu();
+  options(o, onglet) {
+    const op = Save.d.opts, depuis = o === 'pause' ? 'pause' : 'menu';
+    onglet = onglet || this.ongletOpt || 'son'; this.ongletOpt = onglet;
+    this.retour = depuis === 'pause' ? () => this.pause() : () => this.menu();
+    const nomTouche = c => ({ Space: 'Espace', ShiftLeft: 'Maj gauche', ShiftRight: 'Maj droite', KeyP: 'P', KeyE: 'E', Escape: 'Échap', ControlLeft: 'Ctrl', AltLeft: 'Alt', Tab: 'Tab' }[c] || c.replace(/^Key/, '').replace(/^Digit/, ''));
+    const curseur = (id, nom, val, min, max, pas) => `<label class="opt">${nom}<input type="range" min="${min}" max="${max}" step="${pas}" value="${val}" id="${id}"><span class="val" id="${id}-v">${Math.round(val * 100)} %</span></label>`;
+    const coche = (id, nom, val) => `<label class="opt"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}> ${nom}</label>`;
+    const choix = (id, nom, val, liste) => `<label class="opt">${nom}<select id="${id}">${liste.map(([k, n]) => `<option value="${k}" ${k === val ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
+    let corps = '';
+    if (onglet === 'son') corps = curseur('o-master', 'Volume général', op.master, 0, 1, .05) + curseur('o-vol', 'Bruitages', op.vol, 0, 1, .05) + curseur('o-mus', 'Musique', op.musique, 0, 1, .05) +
+      `<div class="rang"><button id="o-test">🔊 Tester le son</button></div>
+       <p class="mini">Tu n'entends rien ? Vérifie la sortie audio de ton ordinateur (le casque doit être la sortie par défaut) et que l'onglet n'est pas coupé. Le son démarre au premier clic ou à la première touche.</p>`;
+    else if (onglet === 'image') corps = coche('o-lum', 'Halos lumineux (plus beau, un peu plus lourd)', op.lumiere) + coche('o-decor', 'Décor animé (brume, poussière)', op.decorAnime) +
+      choix('o-part', 'Particules', op.particules, [['faible', 'Peu'], ['normale', 'Normales'], ['elevee', 'Beaucoup']]) +
+      curseur('o-tremble', 'Tremblements de l\'écran', +op.tremble, 0, 1, .1) +
+      choix('o-alerte', 'Couleur des zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta (daltoniens)'], ['jaune', 'Jaune (daltoniens)']]) +
+      coche('o-fps', 'Afficher les images par seconde', op.fps);
+    else if (onglet === 'jeu') corps = coche('o-auto', 'Tir automatique (sauf armes à charger)', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
+      coche('o-noms', 'Nom de l\'attaque du boss sous sa barre de vie', op.nomsAttaques) + coche('o-pause', 'Pause automatique quand la fenêtre n\'est plus active', op.autoPause);
+    else corps = `<p class="mini">Clique sur une touche puis appuie sur la nouvelle. Déplacements : ZQSD / WASD / flèches. Arme : clic gauche. Échap met toujours en pause.</p>` +
+      [['spec', 'Attaque spéciale (en plus du clic droit)'], ['tal', 'Talent'], ['tal2', 'Talent (2e touche)'], ['pause', 'Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie sur une touche' : nomTouche(op.touches[k])}</button></div>`).join('');
+    const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Commandes']];
     this.montrer(`
       <div class="panneau court">
-        <h2>Options</h2>
-        <label class="opt">Bruitages <input type="range" min="0" max="1" step="0.05" value="${op.vol}" id="o-vol"></label>
-        <label class="opt">Musique <input type="range" min="0" max="1" step="0.05" value="${op.musique}" id="o-mus"></label>
-        <label class="opt"><input type="checkbox" id="o-lum" ${op.lumiere ? 'checked' : ''}> Halos lumineux (plus beau, un peu plus lourd)</label>
-        <label class="opt"><input type="checkbox" id="o-tremble" ${op.tremble ? 'checked' : ''}> Tremblements de l'écran</label>
-        <label class="opt"><input type="checkbox" id="o-auto" ${op.auto ? 'checked' : ''}> Tir automatique</label>
-        <label class="opt"><input type="checkbox" id="o-chiffres" ${op.chiffres ? 'checked' : ''}> Chiffres de dégâts</label>
-        <div class="rang"><button data-a="retour" data-def data-echap>Retour</button>${o === 'pause' ? '' : '<button class="danger" data-a="effacer">Effacer la progression</button>'}</div>
+        <h2>Paramètres</h2>
+        <div class="onglets">${onglets.map(([k, n]) => `<button data-a="options" data-o="${depuis}" data-onglet="${k}" class="${k === onglet ? 'actif' : ''}">${n}</button>`).join('')}</div>
+        ${corps}
+        <div class="rang"><button data-a="retour" data-def data-echap>Retour</button>${depuis === 'pause' ? '' : '<button class="danger" data-a="effacer">Effacer la progression</button>'}</div>
       </div>`);
     const q = id => document.getElementById(id);
-    q('o-vol').addEventListener('input', e => { op.vol = +e.target.value; Son.init(); Son.setVol(op.vol); Save.write(); });
-    q('o-mus').addEventListener('input', e => { op.musique = +e.target.value; Save.write(); });
-    q('o-lum').addEventListener('change', e => { op.lumiere = e.target.checked; Save.write(); });
-    q('o-tremble').addEventListener('change', e => { op.tremble = e.target.checked; Save.write(); });
-    q('o-auto').addEventListener('change', e => { op.auto = e.target.checked; Save.write(); });
-    q('o-chiffres').addEventListener('change', e => { op.chiffres = e.target.checked; Save.write(); });
+    const lier = (id, fn, ev) => { const e = q(id); if (e) e.addEventListener(ev || 'change', x => { fn(x.target); Save.write(); }); };
+    const pct = (id, v) => { const e = q(id + '-v'); if (e) e.textContent = Math.round(v * 100) + ' %'; };
+    lier('o-master', t => { op.master = +t.value; pct('o-master', op.master); Son.init(); Son.setVol(); }, 'input');
+    lier('o-vol', t => { op.vol = +t.value; pct('o-vol', op.vol); Son.init(); Son.setVol(); }, 'input');
+    lier('o-mus', t => { op.musique = +t.value; pct('o-mus', op.musique); }, 'input');
+    lier('o-tremble', t => { op.tremble = +t.value; pct('o-tremble', op.tremble); }, 'input');
+    lier('o-lum', t => op.lumiere = t.checked); lier('o-decor', t => op.decorAnime = t.checked);
+    lier('o-part', t => op.particules = t.value); lier('o-alerte', t => { op.alerte = t.value; majAlerte(); });
+    lier('o-fps', t => op.fps = t.checked); lier('o-auto', t => op.auto = t.checked); lier('o-chiffres', t => op.chiffres = t.checked);
+    lier('o-noms', t => op.nomsAttaques = t.checked); lier('o-pause', t => op.autoPause = t.checked);
+    const test = q('o-test');
+    if (test) test.addEventListener('click', () => { Son.init(); Son.play('explo'); setTimeout(() => Son.play('parade'), 350); Musique.sting(MUS.victoire); });
+    this.el.querySelectorAll('.tch').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation(); this.capture = b.dataset.k; b.textContent = '… appuie sur une touche';
+      const ecoute = e => {
+        e.preventDefault(); removeEventListener('keydown', ecoute, true);
+        if (e.code !== 'Escape') op.touches[this.capture] = e.code;
+        this.capture = null; Save.write(); Input.clear(); this.options(o, 'commandes');
+      };
+      addEventListener('keydown', ecoute, true);
+    }));
   }
 };

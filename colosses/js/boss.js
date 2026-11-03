@@ -93,9 +93,9 @@ function genBoss(salle, seed, mega, eviter) {
   if (mega) nTr = Math.min(2, nTr + 1);
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
   const croiss = 1 + .08 * Math.min(salle - 1, 30) + .03 * Math.max(0, salle - 31);
-  const hpMax = Math.round(5000 * croiss * (mega ? 2 : 1) * (.85 + .15 * phases.length) * df.hp * (esp.pv || 1));
+  const hpMax = Math.round(6750 * croiss * (mega ? 2 : 1) * (.85 + .15 * phases.length) * df.hp * (esp.pv || 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
-    cotes: r.int(3, 9), style: r.pick(['poly', 'etoile', 'blob', 'poly']), pics: r.int(0, 12), picL: r.range(.15, .45),
+    cotes: r.int(3, 9), style: r.pick(FORMES_CHIMERE), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
   };
   return {
@@ -354,7 +354,13 @@ function dessinerBoss(c, b) {
   c.globalCompositeOperation = 'source-over';
   if (b.def.mega) { c.strokeStyle = '#ffd86b'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.globalAlpha = al * (.5 - i * .12); c.beginPath(); c.arc(0, 0, r * (1.35 + i * .15) + Math.sin(t * 2 + i) * 4, 0, TAU); c.stroke(); } c.globalAlpha = al; }
   if (b.wind > 0) { const k = 1 - b.wind / b.windMax; c.strokeStyle = hsl(h, 100, 78, .95); c.lineWidth = 3 + 3 * k; c.beginPath(); c.arc(0, 0, r * (1.9 - .8 * k), 0, TAU); c.stroke(); }
-  if (L.pics) {
+  const forme = FORMES[L.style];
+  if (forme) {
+    forme(c, b, r, t, h, ph, b.eyesA);
+    if (b.flash > 0) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = al * b.flash * .5; c.drawImage(glow('#ffffff', r * 1.2), -r * 1.2, -r * 1.2); c.globalAlpha = al; c.globalCompositeOperation = 'source-over'; }
+    if (b.ouvert > 0) lueur(c, 'rgba(255,220,90,.7)', r * .9);
+  }
+  if (!forme && L.pics) {
     const pl = L.picL * (1 + .3 * ph);
     for (let i = 0; i < L.pics; i++) {
       const a = i * TAU / L.pics - t * L.rot * .5;
@@ -366,6 +372,7 @@ function dessinerBoss(c, b) {
       c.lineTo(Math.cos(a + .14) * r * .9, Math.sin(a + .14) * r * .9); c.closePath(); c.fill();
     }
   }
+  if (!forme) {
   // corps éclairé depuis le haut-gauche
   cheminCorps(c, L, r, t);
   const g = c.createRadialGradient(-r * .35, -r * .4, r * .05, 0, 0, r * 1.15);
@@ -391,6 +398,7 @@ function dessinerBoss(c, b) {
     const ec = b.wind > 0 ? '#fff' : b.ouvert > 0 ? '#ffe14d' : hsl(h, 100, 70);
     c.globalCompositeOperation = 'lighter'; c.drawImage(glow(ec, er * 1.6), ex - er * 1.6, ey - er * 1.6); c.globalCompositeOperation = 'source-over';
     c.fillStyle = ec; c.beginPath(); c.arc(ex + Math.cos(ea) * er * .35, ey + Math.sin(ea) * er * .35, er * .5, 0, TAU); c.fill();
+  }
   }
   for (let i = 0; i < L.sats; i++) {
     const a = t * (1 + i * .2) + i * TAU / L.sats, rr = r * (1.45 + .1 * Math.sin(t + i));

@@ -25,7 +25,7 @@ const UPG = {
   ]
 };
 const CAT_NOM = { p: 'Armes principales', s: 'Attaques spéciales', t: 'Talents' };
-function lv(cat, id) { const u = PR().up; return (u[cat] && u[cat][id]) || 0; }
+function lv(cat, id) { if (enDefi()) return 0; const u = PR().up; return (u[cat] && u[cat][id]) || 0; }
 let ST = null;
 function calcStats() {
   ST = {
@@ -35,6 +35,11 @@ function calcStats() {
     tRech: Math.max(.35, Math.pow(.94, lv('t', 'rech'))), tPort: 1 + .08 * lv('t', 'port'), tIntan: .03 * lv('t', 'intan'),
     tCharges: 1 + Math.min(2, lv('t', 'charge'))
   };
+  if (enDefi()) {
+    if (G.mut('energie')) ST.sCout = 0;
+    if (G.mut('reflexes')) ST.tRech *= .5;
+    if (G.mut('colosses')) ST.pDmg *= 1.25;
+  }
   return ST;
 }
 calcStats();
@@ -528,6 +533,253 @@ TAL.push(
   {
     id: 'sprint', nom: 'Sprint', ico: '⇶', rech: 6, desc: 'Vitesse ×1,6 pendant 2 s.',
     use(p) { p.sprint = 2 * ST.tPort; p.iframe = Math.max(p.iframe, .15 + ST.tIntan); Son.play('dash'); }
+  }
+);
+// ---------- Armes techniques (difficiles à maîtriser) ----------
+PRIM.push(
+  {
+    id: 'pistolet', nom: 'Pistolet vivant', ico: '⌖', manuel: true, desc: 'Un pistolet tourne autour de toi et tire tout seul vers le viseur. Clic : tu échanges ta place avec lui (et il change de sens).',
+    tick(w, p, dt, held) {
+      if (w.ga === undefined) { w.ga = -Math.PI / 2; w.sens = 1; }
+      w.ga += 1.8 * dt * w.sens;
+      w.gx = p.x + Math.cos(w.ga) * 95; w.gy = p.y + Math.sin(w.ga) * 95;
+      w.cd = (w.cd || 0) - dt;
+      if (w.cd <= 0) { w.cd = .14 / ST.pCad; pShot(w.gx, w.gy, ang(w.gx, w.gy, G.mx, G.my), 850 * ST.pVel, { dmg: 14, r: 4, life: 1.1, col: '#ffd23d' }); Son.play('tir'); }
+      if (Input.lp) {
+        const ox = p.x, oy = p.y, pt = G.arene.clampPt(w.gx, w.gy, p.r);
+        p.x = pt.x; p.y = pt.y; w.ga += Math.PI; w.sens = -w.sens; p.iframe = Math.max(p.iframe, .12);
+        G.fx.push({ kind: 'fantome', x: ox, y: oy, t: 0, dur: .25 }); Son.play('dash');
+      }
+    }
+  },
+  {
+    id: 'rattrape', nom: 'Boomerang à rattraper', ico: '↺', manuel: true, desc: 'Gros boomerang : il faut le RATTRAPER au retour. Chaque prise d\'affilée ajoute +20 % de dégâts (jusqu\'à ×2). Raté : il tombe et il faut aller le chercher.',
+    tick(w, p, dt, held) {
+      w.etat = w.etat || 'main'; w.combo = w.combo || 0;
+      if (w.etat === 'sol' && d2(p.x, p.y, w.sx, w.sy) < 34 * 34) { w.etat = 'main'; Son.play('ramasse'); }
+      if (w.etat === 'main' && held) {
+        const o = bout(p, 18);
+        const b = pShot(o.x, o.y, p.aim, 720 * ST.pVel, { dmg: 55 * (1 + .2 * w.combo), r: 14, life: 30, pierce: 99, kind: 'boom', col: w.combo ? '#ffe14d' : '#9fffb0', noVel: true, cassable: false });
+        b.dist = 0; b.portee = 380 * ST.pVel; b.retour = false; b.tr = 0;
+        b.up = (b, dt) => {
+          const sp = Math.hypot(b.vx, b.vy);
+          b.rot = (b.rot || 0) + dt * 20;
+          if (!b.retour) { b.dist += sp * dt; if (b.dist >= b.portee) { b.retour = true; b.hits.clear(); } return; }
+          b.tr += dt;
+          const a = ang(b.x, b.y, G.p.x, G.p.y), s = Math.min(950, sp + 1500 * dt);
+          b.vx = Math.cos(a) * s; b.vy = Math.sin(a) * s;
+          if (d2(b.x, b.y, G.p.x, G.p.y) < 30 * 30) {
+            b.dead = true; w.etat = 'main'; w.combo = Math.min(5, w.combo + 1);
+            G.texte(G.p.x, G.p.y - 26, 'Prise ×' + (1 + .2 * w.combo).toFixed(1), '#ffe14d', 15); Son.play('ramasse');
+          } else if (b.tr > 1.25) {
+            b.dead = true; w.etat = 'sol'; w.sx = b.x; w.sy = b.y; w.combo = 0;
+            G.texte(b.x, b.y - 20, 'Raté', '#888', 14); Son.play('vide');
+          }
+        };
+        w.etat = 'vol'; Son.play('epee');
+      }
+    }
+  },
+  {
+    id: 'echo', nom: 'Frappe différée', ico: '◎', desc: 'Marque l\'endroit visé : une frappe lourde y tombe 1 s plus tard. Il faut viser où le boss SERA.',
+    tick(w, p, dt, held) {
+      w.cd = (w.cd || 0) - dt;
+      if (held && w.cd <= 0) {
+        w.cd = .6 / ST.pCad;
+        const pt = G.arene.clampPt(G.mx, G.my, 0);
+        G.allies.push({ kind: 'echoFrappe', x: pt.x, y: pt.y, t: 0, dur: 1, r: 72, dmg: 98 * ST.pDmg });
+        Son.play('tele');
+      }
+    }
+  },
+  {
+    id: 'meteorite', nom: 'Météorite chargée', ico: '☄', manuel: true, desc: 'Maintiens pour grossir la météorite, relâche : elle tombe sur le viseur une demi-seconde plus tard. Pleine charge : énorme, et elle efface les projectiles.',
+    tick(w, p, dt, held) {
+      w.ch = w.ch || 0;
+      if (held) { w.ch = Math.min(1, w.ch + dt * ST.pCad / 1.4); p.lent = Math.min(p.lent, .75); }
+      else if (w.ch > 0) {
+        const c = Math.max(.15, w.ch), pt = G.arene.clampPt(G.mx, G.my, 0);
+        G.allies.push({ kind: 'meteore', prim: true, efface: c >= 1, x: pt.x, y: pt.y, t: 0, dur: .5, r: 50 + 65 * c, dmg: (40 + 225 * c) * ST.pDmg });
+        w.ch = 0; Son.play('charge');
+      }
+    }
+  },
+  {
+    id: 'jumelles', nom: 'Orbes jumelles', ico: '⚭', desc: 'Deux orbes partent de chaque côté et se percutent sur le viseur : si le choc a lieu SUR l\'ennemi, gros dégâts. Sinon, presque rien.',
+    tick(w, p, dt, held) {
+      w.cd = (w.cd || 0) - dt;
+      if (held && w.cd <= 0 && !w.vol) { w.cd = 1 / ST.pCad; w.vol = { t: 0, tx: G.mx, ty: G.my, x0: p.x, y0: p.y, h: [new Set(), new Set()] }; Son.play('tir'); }
+      const per = p.aim + Math.PI / 2;
+      if (!w.vol) {
+        const a = G.t * 4;
+        w.o = [[p.x + Math.cos(a) * 30, p.y + Math.sin(a) * 30], [p.x - Math.cos(a) * 30, p.y - Math.sin(a) * 30]];
+        return;
+      }
+      const v = w.vol; v.t += dt;
+      const k = v.t / .4;
+      const pts = [];
+      for (const s of [-1, 1]) {
+        let x, y;
+        if (k <= 1) {
+          const cx = (v.x0 + v.tx) / 2 + Math.cos(per) * 140 * s, cy = (v.y0 + v.ty) / 2 + Math.sin(per) * 140 * s, u = k;
+          x = (1 - u) * (1 - u) * v.x0 + 2 * (1 - u) * u * cx + u * u * v.tx; y = (1 - u) * (1 - u) * v.y0 + 2 * (1 - u) * u * cy + u * u * v.ty;
+        } else { const u = Math.min(1, k - 1); x = lerp(v.tx, p.x, u); y = lerp(v.ty, p.y, u); }
+        pts.push([x, y]);
+        if (k <= 1) { const hs = v.h[s < 0 ? 0 : 1]; for (const tg of G.cibles()) { const id = tg.proxy || tg; if (!hs.has(id) && d2(x, y, tg.x, tg.y) < (10 + tg.r) ** 2) { hs.add(id); G.frappe(tg, 22 * ST.pDmg, { prim: true, x, y }); } } }
+      }
+      w.o = pts;
+      if (k >= 1 && !v.choc) {
+        v.choc = true;
+        let touche = false;
+        for (const tg of G.cibles()) if (Math.sqrt(d2(v.tx, v.ty, tg.x, tg.y)) - tg.r < 40) { G.frappe(tg, 150 * ST.pDmg, { prim: true, x: v.tx, y: v.ty }); touche = true; }
+        G.explo(v.tx, v.ty, touche ? 60 : 25, touche ? '#ffe14d' : '#888');
+        Son.play(touche ? 'explo' : 'vide');
+      }
+      if (k >= 2) w.vol = null;
+    }
+  },
+  {
+    id: 'ricochets', nom: 'Lames ricochets', ico: '⇋', desc: 'Deux lames à la fois, une devant et une DERRIÈRE toi. Elles rebondissent 4 fois et frappent 30 % plus fort à chaque rebond.',
+    tick(w, p, dt, held) {
+      const n = cadence(w, dt, held, .45 / ST.pCad);
+      for (let i = 0; i < n; i++) for (const s of [0, Math.PI]) {
+        const b = pShot(p.x + Math.cos(p.aim + s) * 14, p.y + Math.sin(p.aim + s) * 14, p.aim + s, 620 * ST.pVel, { dmg: 16, r: 7, life: 3, pierce: 3, kind: 'shuriken', col: '#7fd8ff', noVel: true });
+        b.reb = 4; b.bonusReb = 1.3;
+        Son.play('tir');
+      }
+    }
+  },
+  {
+    id: 'gravite', nom: 'Puits gravitationnel', ico: '◍', manuel: true, desc: 'Maintiens : un puits au viseur aspire et stocke les projectiles ennemis. Relâche : il les renvoie tous sur la cible la plus proche.',
+    tick(w, p, dt, held) {
+      w.stock = w.stock || 0;
+      if (held) {
+        const pt = G.arene.clampPt(G.mx, G.my, 0); w.puits = pt; p.lent = Math.min(p.lent, .8);
+        for (const e of G.eb) {
+          const q = d2(pt.x, pt.y, e.x, e.y);
+          if (q < 120 * 120) { const a = ang(e.x, e.y, pt.x, pt.y); e.x += Math.cos(a) * 330 * dt; e.y += Math.sin(a) * 330 * dt; if (q < 26 * 26) { e.dead = true; w.stock = Math.min(45, w.stock + 1); } }
+        }
+        for (const tg of G.cibles()) if (Math.sqrt(d2(pt.x, pt.y, tg.x, tg.y)) - tg.r < 110) G.frappe(tg, 34 * dt * ST.pDmg, { prim: true, continu: true, x: tg.x, y: tg.y });
+      } else if (w.puits) {
+        const pt = w.puits; w.puits = null;
+        if (w.stock > 0) {
+          const t = plusProche(pt.x, pt.y), a0 = t ? ang(pt.x, pt.y, t.x, t.y) : p.aim;
+          for (let i = 0; i < w.stock; i++) { const b = pShot(pt.x, pt.y, a0 + R.range(-.35, .35), R.range(500, 700), { dmg: 17, r: 5, life: 2, col: '#d29bff', noVel: true }); b.hom = 3; }
+          G.texte(pt.x, pt.y - 20, '×' + w.stock, '#d29bff', 16); Son.play('special'); w.stock = 0;
+        }
+      }
+    }
+  },
+  {
+    id: 'croix', nom: 'Lasers croisés', ico: '✚', manuel: true, desc: 'Tire tout seul 4 lasers en croix depuis toi, à chaque seconde. Clic : bascule entre croix « + » et croix « × ». Place-toi dans l\'axe du boss.',
+    tick(w, p, dt, held) {
+      w.mode = w.mode || 0;
+      if (Input.lp) { w.mode ^= 1; Son.play('clic'); }
+      w.cd = (w.cd || .5) - dt;
+      if (w.cd <= 0) {
+        w.cd = .8 / ST.pCad;
+        for (let k = 0; k < 4; k++) {
+          const a = k * Math.PI / 2 + (w.mode ? Math.PI / 4 : 0), L = G.arene.rayMur(p.x, p.y, a, 1500), ex = p.x + Math.cos(a) * L, ey = p.y + Math.sin(a) * L;
+          for (const tg of G.cibles()) if (segD2(tg.x, tg.y, p.x, p.y, ex, ey) < (12 + tg.r) ** 2) G.frappe(tg, 95 * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+          G.fx.push({ kind: 'trait', x1: p.x, y1: p.y, x2: ex, y2: ey, t: 0, dur: .2, col: '#ff7a3d' });
+        }
+        Son.play('tirLourd');
+      }
+    }
+  },
+  {
+    id: 'surchauffe', nom: 'Canon à surchauffe', ico: '♨', manuel: true, desc: 'Tire très vite mais chauffe. Lâche la détente quand la jauge est dans la zone verte : refroidi d\'un coup et +35 % de dégâts 3 s. Trop chaud : bloqué 2 s.',
+    tick(w, p, dt, held) {
+      w.heat = w.heat || 0; w.bonus = Math.max(0, (w.bonus || 0) - dt);
+      if (w.bloque > 0) { w.bloque -= dt; if (w.bloque <= 0) w.heat = 0; w.avant = held; return; }
+      const n = cadence(w, dt, held, .083 / ST.pCad);
+      for (let i = 0; i < n; i++) {
+        w.heat += .045;
+        const o = bout(p, 16);
+        pShot(o.x, o.y, p.aim + R.range(-.05, .05), 950 * ST.pVel, { dmg: 11 * (w.bonus > 0 ? 1.35 : 1), r: 4, life: 1, col: w.bonus > 0 ? '#fff17a' : '#ff9a5c' });
+        Son.play('tir');
+        if (w.heat >= 1) { w.bloque = 2; G.texte(p.x, p.y - 28, 'SURCHAUFFE', '#ff5a3c', 16); Son.play('vide'); break; }
+      }
+      if (!held && w.avant && w.heat >= .7 && w.heat <= .88) { w.heat = 0; w.bonus = 3; G.texte(p.x, p.y - 28, 'PARFAIT', '#7dffb0', 17); Son.play('parade'); }
+      if (!held) w.heat = Math.max(0, w.heat - .25 * dt);
+      w.avant = held;
+    }
+  },
+  {
+    id: 'iaido', nom: 'Iaido', ico: '⚔', manuel: true, desc: 'Maintiens pour te mettre en garde, relâche pour traverser l\'ennemi d\'un coup de sabre. Relâche pile quand la lame brille : ×4 dégâts.',
+    tick(w, p, dt, held) {
+      w.ch = w.ch || 0;
+      if (held) { w.ch = Math.min(1.6, w.ch + dt * ST.pCad); p.lent = Math.min(p.lent, .55); if (w.ch >= .8 && !w.bip) { w.bip = true; Son.play('tic'); } return; }
+      if (w.ch <= 0) return;
+      const c = w.ch; w.ch = 0; w.bip = false;
+      if (c < .3) {
+        G.fx.push({ kind: 'taillade', x: p.x, y: p.y, a: p.aim, sens: 1, t: 0, dur: .14, reach: 90 });
+        for (const tg of G.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < 90 && Math.abs(angDiff(p.aim, ang(p.x, p.y, tg.x, tg.y))) < 1) G.frappe(tg, 28 * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+        Son.play('epee'); return;
+      }
+      const parfait = c >= .8 && c <= .98, L = Math.min(240 * ST.pVel, G.arene.rayMur(p.x, p.y, p.aim, 240 * ST.pVel) - p.r);
+      const ex = p.x + Math.cos(p.aim) * L, ey = p.y + Math.sin(p.aim) * L;
+      for (const tg of G.cibles()) if (segD2(tg.x, tg.y, p.x, p.y, ex, ey) < (30 + tg.r) ** 2) G.frappe(tg, (parfait ? 270 : 70) * ST.pDmg, { prim: true, x: tg.x, y: tg.y });
+      for (const e of G.eb) if (e.des && segD2(e.x, e.y, p.x, p.y, ex, ey) < (24 + e.r) ** 2) e.dead = true;
+      G.fx.push({ kind: 'trait', x1: p.x, y1: p.y, x2: ex, y2: ey, t: 0, dur: .3, col: parfait ? '#ffe14d' : '#ffffff' });
+      p.dash = { t: 0, dur: .1, vx: (ex - p.x) / .1, vy: (ey - p.y) / .1 }; p.iframe = Math.max(p.iframe, .25);
+      if (parfait) { G.texte(p.x, p.y - 30, 'PARFAIT', '#ffe14d', 18); Son.play('parade'); G.gel = .05; G.secoue(6); } else Son.play('epee');
+    }
+  }
+);
+
+SPEC.push(
+  {
+    id: 'quatre', nom: 'Quatre météores', ico: '⁜', cout: 55, rech: 10, desc: 'Quatre météores tombent en carré autour du viseur.',
+    use(p) { const pt = G.arene.clampPt(G.mx, G.my, 0); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b], i) => G.allies.push({ kind: 'meteore', x: pt.x + a * 70, y: pt.y + b * 70, t: -i * .1, dur: .8, r: 85 * Math.sqrt(ST.sAmp), dmg: 280 * ST.sDmg })); }
+  },
+  {
+    id: 'renvoi', nom: 'Renvoi', ico: '⟲', cout: 55, rech: 12, desc: 'Tous les projectiles proches se retournent contre la cible la plus proche.',
+    use(p) {
+      const R0 = 210 * ST.sAmp; let n = 0;
+      for (const e of G.eb) if (d2(p.x, p.y, e.x, e.y) < R0 * R0) {
+        e.dead = true; n++;
+        const t = plusProche(e.x, e.y), a = t ? ang(e.x, e.y, t.x, t.y) : R() * TAU;
+        pShot(e.x, e.y, a, 650, { dmg: 18, r: 5, life: 2, spec: true, col: '#ffffff', noVel: true }).hom = 4;
+      }
+      G.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: R0, r1: 20, t: 0, dur: .3, col: '#fff' });
+      G.texte(p.x, p.y - 30, n + ' renvoyés', '#fff', 15);
+    }
+  },
+  {
+    id: 'arret', nom: 'Arrêt du temps', ico: '⏸', cout: 100, rech: 25, desc: 'Tout s\'arrête 1,8 s : le boss, ses projectiles et ses zones. Toi, tu continues.',
+    use(p) {
+      const t = 1.8 * ST.sAmp;
+      for (const e of G.eb) e.gel = t;
+      G.gelT = t; G.arretHz = t;
+      if (G.boss && !G.boss.mort) G.etourdir(G.boss, t, 'Figé !');
+      G.flash = .3; Son.play('gong');
+    }
+  }
+);
+
+TAL.push(
+  {
+    id: 'rembobine', nom: 'Rembobinage', ico: '⏪', rech: 6, desc: 'Tu reviens là où tu étais il y a 1 s, invincible pendant 1 s.',
+    use(p) {
+      const h = p.hist && p.hist[0];
+      if (!h) return 'gratuit';
+      G.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: 0, dur: .3 });
+      p.x = h.x; p.y = h.y; p.iframe = Math.max(p.iframe, 1 + ST.tIntan); p.hist.length = 0;
+      Son.play('teleporte');
+    }
+  },
+  {
+    id: 'invisible', nom: 'Invisibilité', ico: '◐', rech: 7, desc: 'Invisible 2 s : le boss vise l\'endroit où tu as disparu. Invincible au début.',
+    use(p) { const t = 2 * ST.tPort; p.invis = t; G.leurre = { x: p.x, y: p.y, t, invis: true }; p.iframe = Math.max(p.iframe, .4 + ST.tIntan); Son.play('dash'); }
+  },
+  {
+    id: 'trampoline', nom: 'Trampoline', ico: '⊻', rech: 4, desc: 'Pose un trampoline (2 max). Marche dessus : tu bondis vers le viseur, invincible.',
+    use(p) {
+      const pads = G.allies.filter(a => a.kind === 'trampo');
+      if (pads.length >= 2) pads[0].dead = true;
+      G.allies.push({ kind: 'trampo', x: p.x, y: p.y, t: 0, dur: 14, pret: .5 }); Son.play('clic');
+    }
   }
 );
 const ARS = { p: PRIM, s: SPEC, t: TAL };

@@ -57,6 +57,7 @@ const Input = {
   clear() { this.k = {}; this.p = {}; this.lmb = this.rmb = false; }
 };
 addEventListener('keydown', e => {
+  if (typeof Son !== 'undefined') Son.init();
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   if (!e.repeat && !Input.k[e.code]) Input.p[e.code] = true;
   Input.k[e.code] = true;
@@ -94,7 +95,7 @@ const Son = {
     try {
       this.c = new A();
       this.master = this.c.createGain();
-      this.master.gain.value = Save.d.opts.vol;
+      this.master.gain.value = Save.d.opts.vol * Save.d.opts.master;
       const comp = this.c.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 6;
       this.master.connect(comp); comp.connect(this.c.destination);
@@ -117,7 +118,7 @@ const Son = {
       fetch('sfx/' + SFX[k]).then(r => r.arrayBuffer()).then(a => this.c.decodeAudioData(a)).then(b => { this.buf[k] = b; }).catch(() => { });
     }
   },
-  setVol(v) { if (this.master) this.master.gain.value = v; },
+  setVol() { if (this.master) this.master.gain.value = Save.d.opts.vol * Save.d.opts.master; },
   ech(nom, v, rate, rev) {
     const b = this.buf[nom];
     if (!b || !this.c) return false;
@@ -210,7 +211,7 @@ const MUS = {
 };
 const Musique = {
   el: null, src: '', vol: 0, cible: 1, derniers: [],
-  volume() { return Save.d.opts.musique; },
+  volume() { return Save.d.opts.musique * Save.d.opts.master; },
   jouer(fichier, boucle) {
     if (this.src === fichier && this.el && !this.el.paused) { this.cible = 1; return; }
     const ancien = this.el;
@@ -255,7 +256,9 @@ const Save = {
       stats: { boss: 0, mega: 0, morts: 0, temps: 0, salles: 0, parades: 0 },
       codex: { att: {}, arm: {}, traits: {}, cartes: {}, invoc: {}, especes: {} },
       chasse: [],
-      opts: { vol: .6, musique: .5, tremble: true, auto: false, chiffres: true, lumiere: true }
+      defis: {}, essais: {},
+      opts: { master: 1, vol: .6, musique: .5, tremble: 1, auto: false, chiffres: true, lumiere: true, particules: 'normale', fps: false, alerte: 'rouge', nomsAttaques: true, autoPause: true, decorAnime: true,
+        touches: { spec: 'KeyE', tal: 'Space', tal2: 'ShiftLeft', pause: 'KeyP' } }
     };
   },
   load() {
@@ -275,13 +278,18 @@ const Save = {
     for (const k in def.stats) if (d.stats[k] === undefined) d.stats[k] = 0;
     for (const k in DIFFS) { if (!d.prog[k]) d.prog[k] = progVide(); for (const c of ['p', 's', 't']) if (!d.prog[k].up[c]) d.prog[k].up[c] = {}; }
     if (!DIFFS[d.diff]) d.diff = 'guerrier';
+    if (typeof d.opts.tremble === 'boolean') d.opts.tremble = d.opts.tremble ? 1 : 0;
+    for (const k in def.opts.touches) if (!d.opts.touches[k]) d.opts.touches[k] = def.opts.touches[k];
     this.d = d;
   },
   write() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.d)); } catch (e) { } }
 };
 Save.load();
 function PR() { return Save.d.prog[Save.d.diff]; }
-function DF() { return DIFFS[Save.d.diff]; }
+function enDefi() { try { return G.mode !== 'normal'; } catch (e) { return false; } }
+function DF() { return DIFFS[enDefi() ? 'guerrier' : Save.d.diff]; }
+function TOUCHES() { return Save.d.opts.touches; }
+function QUAL() { return { faible: .4, normale: 1, elevee: 1.4 }[Save.d.opts.particules] || 1; }
 
 // ---------- Lueurs pré-rendues ----------
 const glowCache = {};
