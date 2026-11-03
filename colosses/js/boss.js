@@ -33,6 +33,13 @@ const INVOC = {
 };
 const MOUVS = { ancre: 'Ancré', traqueur: 'Traqueur', errant: 'Errant', orbiteur: 'Orbiteur', clignotant: 'Clignotant', centre: 'Central', aucun: 'Immobile', serpent: 'Rampant' };
 const MIN_SALLE = { rochers: 2, failles: 3, givre: 3, ronces: 2, pics: 2, effondrement: 6, geysers: 4, croix: 2, balayage: 2, cage: 3, damier: 3, vortex: 4, mines: 4, echos: 5, fragmentation: 2, zonesSures: 3, murFeu: 3, tornades: 4, marque: 2, seisme: 3, grille: 3 };
+// poids d'une attaque = sa difficulté (1 léger, 3 très lourd) : temps de récupération après, phases équilibrées, combinaisons limitées
+const POIDS = { zonesSures: 3, damier: 3, cage: 3, vortex: 3, balayage: 3, effondrement: 3, lasers: 3, me_aiguilles: 3, ho_aiguilles: 3, ju_sentence: 3, fo_surchauffe: 3, sn_enroule: 3, bo_combo: 3,
+  meteores: 2.5, mur: 2.5, murFeu: 2.5, seisme: 2.5, grille: 2.5, spirale: 2.5, tornades: 2, marque: 2, croix: 2, echos: 2, geysers: 2, failles: 2, rochers: 2, mines: 2, pluie: 2,
+  salve: 1.5, rafale: 1, eventail: 1.5, chercheurs: 1.5, petales: 1.5, rebonds: 1.5, sniper: 1.5, ronces: 1, givre: 1, invocation: 1, re_essaim: 1, re_kamikazes: 1.5 };
+Object.assign(POIDS, POIDS_EXTRA);
+function poids(id) { return POIDS[id] || ({ balles: 1.7, invoc: 1, terrain: 2, zone: 2, rayon: 2.2, corps: 2 }[ATK[id].cat] || 2); }
+
 const NOMS_PHASES = ['Éveil', 'Colère', 'Démence', 'Fureur', 'Éclipse', 'Apothéose', 'Agonie', 'Dernier souffle'];
 
 const SYL1 = ['Vor', 'Kha', 'Zul', 'Mor', 'Ash', 'Thra', 'Gel', 'Nyx', 'Oub', 'Rak', 'Sey', 'Bal', 'Dra', 'Xe', 'Ul', 'Gro', 'Phy', 'Ka', 'Lith', 'Mal', 'Ira', 'Quo', 'Sor', 'Tey', 'Vel', 'Ygg', 'Aza', 'Brel', 'Cth', 'Ezo'];
@@ -52,7 +59,7 @@ function genBoss(salle, seed, mega, eviter) {
   let hue = esp.hue != null ? (esp.hue + r.int(-10, 10) + 360) % 360 : r.int(0, 359);
   if (esp.chimere && hue > 150 && hue < 215) hue = (hue + 90) % 360;
   const D = {
-    S: Math.min(1.7, 1 + .022 * (salle - 1)) * (mega ? 1.05 : 1) * df.vit,
+    S: Math.min(1.6, 1 + .02 * (salle - 1)) * df.vit,
     C: Math.min(1.8, 1 + .02 * (salle - 1)) * df.dens,
     T: Math.max(.7, (1 - .011 * (salle - 1)) * df.tele)
   };
@@ -63,11 +70,17 @@ function genBoss(salle, seed, mega, eviter) {
     const deja = new Set(); src = [];
     const n = salle >= 12 ? 3 : 2;
     for (let i = 0; i < n; i++) {
-      const l = r.shuffle(pool.filter(id => !deja.has(id))).slice(0, r.int(3, 4));
+      const l = [], parCat = {}; let lourds = 0;
+      for (const id of r.shuffle(pool.filter(id => !deja.has(id)))) {
+        const c = ATK[id].cat, pd = poids(id);
+        if ((parCat[c] || 0) >= 2 || (pd >= 3 && lourds >= 1) || (c === 'terrain' && parCat[c])) continue;
+        l.push(id); parCat[c] = (parCat[c] || 0) + 1; if (pd >= 3) lourds++;
+        if (l.length >= r.int(3, 4)) break;
+      }
       l.forEach(id => deja.add(id)); src.push({ cycle: l });
     }
   } else src = esp.phases.map(ph => ({ cycle: ph.cycle.slice(), carte: ph.carte }));
-  if (mega || (salle >= 15 && r.chance(.3))) {
+  if ((mega && salle >= 10) || (!mega && salle >= 18 && r.chance(.25))) {
     const last = src[src.length - 1], extra = r.pick(pool.filter(id => !last.cycle.includes(id)));
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
@@ -80,25 +93,26 @@ function genBoss(salle, seed, mega, eviter) {
     const cyc = ph.cycle.slice();
     if (invoc && i >= 1) cyc.splice(1, 0, 'invocation');
     const rr = esp.chimere ? r : rp;
-    const fondId = ph.finale || (mega && i >= 1) ? r.pick(ATK_FOND) : null;
+    const fondId = ph.finale ? r.pick(ATK_FOND) : null;
     return {
       nom: ph.finale ? 'Dernier souffle' : NOMS_PHASES[Math.min(NOMS_PHASES.length - 2, i)],
       carte, finale: !!ph.finale,
       cycle: cyc.map(id => ({ id, p: ATK[id].params(rr, D, false) })),
       fond: fondId ? { id: fondId, p: ATK[fondId].params(r, D, true) } : null,
-      tempo: 1 + .12 * i + (ph.finale ? .15 : 0)
+      tempo: (1 + .1 * i + (ph.finale ? .1 : 0)) * clamp(1.75 / (cyc.reduce((s, id) => s + poids(id), 0) / cyc.length), .8, 1.15)
     };
   });
   let nTr = salle < 4 ? 0 : salle < 10 ? (r.chance(.45) ? 1 : 0) : 1 + (r.chance(.3) ? 1 : 0);
-  if (mega) nTr = Math.min(2, nTr + 1);
+  if (mega) nTr = salle >= 20 ? Math.min(2, nTr + 1) : Math.min(1, nTr);
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
-  const croiss = 1 + .08 * Math.min(salle - 1, 30) + .03 * Math.max(0, salle - 31);
-  const hpMax = Math.round(6750 * croiss * (mega ? 2 : 1) * (.85 + .15 * phases.length) * df.hp * (esp.pv || 1));
+  // vie pensée pour ~2 min (boss normal) et ~3 min (méga boss) joués parfaitement ; la difficulté monte surtout par le rythme
+  const hpMax = Math.round(9200 * (1 + .006 * Math.min(salle, 60)) * (mega ? 1.45 : 1) * (.85 + .15 * phases.length) * df.hp * (esp.pv || 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
     cotes: r.int(3, 9), style: r.pick(FORMES_CHIMERE), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
   };
   return {
+    elem: ELEM_ESPECE[espId] || r.pick(Object.keys(ELEMENTS)),
     seed, salle, mega, esp: espId, nom, titre: esp.chimere ? 'la Chimère' : esp.nom, hue, col: hsl(hue, 100, 66), D, traits, invoc, phases, hpMax,
     r: Math.round((esp.r || r.int(46, 60)) * (mega ? 1.25 : 1)), mouv: esp.mouv || r.pick(['ancre', 'traqueur', 'errant', 'orbiteur', 'clignotant']),
     idle: r.range(.7, 1) * Math.max(.5, 1 - .01 * salle) * df.idle, look
@@ -169,6 +183,9 @@ function majBoss(b, dt) {
   b.flash = Math.max(0, b.flash - dt * 6);
   b.atkNomT -= dt;
   if (b.ouvert > 0) b.ouvert -= dtE;
+  if (b.froid > 0) b.froid = Math.max(0, b.froid - .25 * dtE);
+  if (b.racine > 0) b.racine -= dtE;
+  if (b.harpon > 0) b.harpon -= dtE;
   b.eyesA += angDiff(b.eyesA, ang(b.x, b.y, cible().x, cible().y)) * Math.min(1, dt * 6);
   if (b.intro > 0) {
     b.intro -= dt;
@@ -199,11 +216,11 @@ function majBoss(b, dt) {
   if (!b.main && b.stun <= 0) {
     let tempo = ph.tempo;
     if (tr.includes('rage')) tempo *= 1 + .7 * (1 - b.hp / b.hpMax);
-    b.idle -= dtE * tempo;
-    if (b.idle <= 0) { lancerAttaque(b, prochaineAttaque(b)); b.idle = b.def.idle; }
+    b.idle -= dtE * tempo * (1 - .35 * (b.froid || 0));
+    if (b.idle <= 0) { const a = prochaineAttaque(b); lancerAttaque(b, a); b.idle = b.def.idle + .3 * poids(a.id); }
   }
-  if (ph.fond && !b.fond) { b.fondCd -= dtE; if (b.fondCd <= 0) { lancerAttaque(b, ph.fond, true); b.fondCd = 5 + R() * 3; } }
-  if (!b.ctl && !(b.esp.bouger && b.esp.bouger(b, dtE))) bougerBoss(b, dtE);
+  if (ph.fond && !b.fond && !(b.main && poids(b.main.id) >= 2.5)) { b.fondCd -= dtE; if (b.fondCd <= 0) { lancerAttaque(b, ph.fond, true); b.fondCd = 5 + R() * 3; } }
+  if (!b.ctl && !(b.racine > 0) && !(b.esp.bouger && b.esp.bouger(b, dtE))) bougerBoss(b, dtE);
   if (b.def.mouv !== 'serpent') {
     const t = cible(), want = ang(b.x, b.y, t.x, t.y), tr2 = (b.esp.tourne ? b.esp.tourne[Math.min(1, b.phase)] : 1.4) * dtE;
     b.facing += clamp(angDiff(b.facing, want), -tr2, tr2);
@@ -353,6 +370,9 @@ function dessinerBoss(c, b) {
   c.globalCompositeOperation = 'lighter';
   c.drawImage(glow(hsl(h, 100, 50, .4), r * 2.6), -r * 2.6, -r * 2.6);
   c.globalCompositeOperation = 'source-over';
+  sprite(c, 'magic_03', hsl(h, 100, 60), 0, 0, r * 3.4, t * .3, .28, true);
+  if (b.intro > 0) sprite(c, 'circle7', hsl(h, 100, 65), 0, 0, r * 4, -t, .6, true);
+  if (b.def.legendaire) { sprite(c, 'circle6', '#ffb43d', 0, 0, r * 3.6, t * .4, .55, true); if (R() < .3) G.parts.push({ x: b.x + R.range(-r, r), y: b.y + R.range(-r, r), vx: 0, vy: -40, life: .8, max: .8, col: '#ffd86b', r: 2, add: true }); }
   if (b.def.mega) { c.strokeStyle = '#ffd86b'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.globalAlpha = al * (.5 - i * .12); c.beginPath(); c.arc(0, 0, r * (1.35 + i * .15) + Math.sin(t * 2 + i) * 4, 0, TAU); c.stroke(); } c.globalAlpha = al; }
   if (b.wind > 0) { const k = 1 - b.wind / b.windMax; c.strokeStyle = hsl(h, 100, 78, .95); c.lineWidth = 3 + 3 * k; c.beginPath(); c.arc(0, 0, r * (1.9 - .8 * k), 0, TAU); c.stroke(); }
   const forme = FORMES[L.style];

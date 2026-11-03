@@ -55,6 +55,7 @@ const HZ = {
         const k = clamp(h.t / h.warn, 0, 1);
         c.fillStyle = `rgba(${AL},.10)`; c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.fill();
         c.fillStyle = `rgba(${AL},.28)`; c.beginPath(); c.arc(h.x, h.y, h.r * k, 0, TAU); c.fill();
+        if (h.r > 40) sprite(c, 'circle5', ROUGE, h.x, h.y, h.r * 2.15, G.t * .7 + h.x, .35 + .4 * k, true);
         c.strokeStyle = k > .8 && (G.t * 20 | 0) % 2 ? '#fff' : ROUGE; c.lineWidth = 2;
         c.beginPath(); c.arc(h.x, h.y, h.r, 0, TAU); c.stroke();
       } else {
@@ -123,7 +124,7 @@ const HZ = {
     }
   },
   onde: {
-    up(h, dt) { h.t += dt; h.r += h.spd * dt; if (h.t > h.life || h.r > 1500) h.dead = true; },
+    up(h, dt) { h.t += dt; h.r += h.spd * dt; if (h.t > h.life || h.r > 1500 || h.r < 4) h.dead = true; },
     hit(h, p) {
       const dd = Math.sqrt(d2(h.x, h.y, p.x, p.y));
       if (Math.abs(dd - h.r) > h.th / 2 + p.hr) return false;

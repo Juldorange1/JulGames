@@ -44,3 +44,12 @@ on remercie quand même les auteurs.
 | `rayon` | Doomsday Laser Cannon — https://opengameart.org/content/doomsday-laser-cannon-sound-effect | TAD |
 | `cri1-4` | Monster Sound Effects Pack — https://opengameart.org/content/monster-sound-effects-pack | Ogrebane |
 | `swish1-3` | Swishes Sound Pack — https://opengameart.org/content/swishes-sound-pack | artisticdude |
+
+## Textures (`img/`)
+
+Toutes en CC0 (domaine public), redimensionnées et converties en blanc + transparence pour être teintées dans le jeu.
+
+| Fichiers | Source | Auteur |
+|---|---|---|
+| `circle_05`, `dirt_*`, `fire_*`, `flame_*`, `flare_01`, `light_*`, `magic_*`, `muzzle_*`, `scorch_*`, `scratch_01`, `slash_*`, `smoke_*`, `spark_*`, `star_*`, `symbol_*`, `trace_*`, `twirl_*` | Particle Pack — https://opengameart.org/content/particle-pack-80-sprites (aussi sur kenney.nl) | Kenney |
+| `circle4` à `circle7` | 4 summoning circles — https://opengameart.org/content/4-summoning-circles | Luke.RUSTLTD |

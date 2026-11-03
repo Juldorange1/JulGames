@@ -26,7 +26,13 @@ const UI = {
       case 'defi': this.cacher(); G.lancerDefi(btn.dataset.t); break;
       case 'diff': Save.d.diff = btn.dataset.d; Save.write(); calcStats(); this.menu(); break;
       case 'menu': G.mode = 'normal'; this.menu(); break;
-      case 'ameliorations': this.ameliorations(); break;
+      case 'ameliorations': case 'forge': this.forge(btn.dataset.o); break;
+      case 'garderobe': this.garderobe(btn.dataset.o); break;
+      case 'abysses': this.cacher(); G.lancerAbysses(); break;
+      case 'forgeAch': { const F = forgeSave(), k = btn.dataset.k; if (F.eclats >= COUT_FORGE) { F.eclats -= COUT_FORGE; F.debloque[k] = 1; Save.write(); Son.play('ramasse'); } this.forge('forge'); break; }
+      case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
+      case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
+      case 'skin': { const S = skinsSave(), s = skin(btn.dataset.k); if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); } this.garderobe(s.slot); break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
       case 'stats': this.stats(); break;
       case 'succes': this.succes(); break;
@@ -37,7 +43,8 @@ const UI = {
       case 'options': this.options(btn.dataset.o, btn.dataset.onglet); break;
       case 'retour': (this.retour || (() => this.menu()))(); break;
       case 'reprendre': this.reprendre(); break;
-      case 'abandon': this.cacher(); G.abandonner(); break;
+      case 'abandon': case 'relancer': this.cacher(); G.relancer(); break;
+      case 'passer': this.cacher(); G.passerBoss(); break;
       case 'quitter': G.mode = 'normal'; this.menu(); break;
       case 'plein': if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); break;
       case 'effacer':
@@ -62,11 +69,11 @@ const UI = {
     Musique.jouer(MUS.menu);
     const pills = Object.entries(DIFFS).map(([k, v], i) => `<button class="pill ${k === d.diff ? 'actif' : ''} d-${k}" data-a="diff" data-d="${k}" data-n="${i + 1}" title="${v.desc}">${v.ico} ${v.nom}</button>`).join('');
     const defi = type => {
-      const x = defiCourant(type), rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.best ? rec.best : null;
-      return `<button class="defi2 d-${type}" data-a="defi" data-t="${type}" title="${x.mut.map(m => MUTATEURS[m].nom + ' : ' + MUTATEURS[m].desc).join('\n')}">
-        <span class="di">${type === 'jour' ? '☀' : '🗓'}</span>
-        <span class="dtx"><b>${type === 'jour' ? 'Défi du jour' : 'Défi de la semaine'}</b><span class="dm">${x.mut.map(m => MUTATEURS[m].ico).join(' ')} · ${x.boss.length} boss</span></span>
-        <span class="dr">${bon ? '🏆 ' + bon.tues + '/' + x.boss.length + '<small>' + fmtTemps(bon.temps) + '</small>' : '—'}</span></button>`;
+      const x = defiCourant(type), F = FORMATS[x.format], rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.best && rec.best.score !== undefined ? rec.best : null;
+      return `<button class="defi2 d-${type}" data-a="defi" data-t="${type}" title="${F.obj}${x.mut.length ? '\n' + x.mut.map(m => MUTATEURS[m].nom + ' : ' + MUTATEURS[m].desc).join('\n') : ''}">
+        <span class="di">${F.ico}</span>
+        <span class="dtx"><b>${type === 'jour' ? 'Défi du jour' : 'Défi de la semaine'}</b><span class="dm">${F.nom}${x.mut.length ? ' · ' + x.mut.map(m => MUTATEURS[m].ico).join(' ') : ''}</span></span>
+        <span class="dr">${bon ? '🏆<small>' + F.fmt(bon.score) + '</small>' : '—'}</span></button>`;
     };
     const tuile = (a, ico, nom, extra) => `<button class="tuile" data-a="${a}"><span>${ico}</span>${nom}${extra ? `<small>${extra}</small>` : ''}</button>`;
     this.montrer(`
@@ -74,10 +81,14 @@ const UI = {
         <h1 class="titre">COLOSSES</h1>
         <div class="pills">${pills}</div>
         <button class="jouer" data-a="jouer" data-def>▶ JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
-        <div class="defis2">${defi('jour')}${defi('semaine')}</div>
+        <div class="defis2">${defi('jour')}${defi('semaine')}
+          <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">sans fin · une vie</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
+          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des fragments d'apparence."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
+        </div>
         <div class="tuiles">
           ${tuile('entrainement', '🎯', 'Entraînement')}
-          ${tuile('ameliorations', '⬆', 'Améliorations')}
+          ${tuile('forge', '⚒', 'Forge', forgeSave().eclats + ' éclats')}
+          ${tuile('garderobe', '👕', 'Garde-robe')}
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
           ${tuile('succes', '🏆', 'Succès', nbS + '/' + totS)}
@@ -99,7 +110,9 @@ const UI = {
         <div class="rang col"><button class="gros" data-a="reprendre" data-def>▶ Reprendre</button>
         <button data-a="options" data-o="pause">⚙ Paramètres</button>
         <button data-a="aide" data-o="pause">❔ Aide</button>
-        ${G.mode === 'entrainement' ? '<button data-a="quitter">Quitter l\'entraînement</button>' : '<button class="danger" data-a="abandon">Abandonner ce combat</button>'}</div>
+        <button data-a="relancer">↻ Recommencer le combat</button>
+        ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss)</button>` : ''}
+        ${G.mode !== 'normal' ? '<button data-a="quitter">Quitter</button>' : ''}</div>
       </div>`);
   },
   reprendre() {
@@ -170,16 +183,46 @@ const UI = {
     }).join('')}</div>`);
   },
 
-  // ---------- Améliorations ----------
-  ameliorations() {
-    const bloc = cat => `<div class="bloc c-${cat}"><h3>${CAT_NOM[cat]}</h3>${UPG[cat].map(u => `<div class="ligne"><span>${u.ico} ${u.nom}</span><b>niv. ${lv(cat, u.id)}${u.max ? ' / ' + u.max : ''}</b><em>${u.desc}</em></div>`).join('')}</div>`;
-    this.ecran('⬆ Améliorations — ' + DF().nom, `<p class="mini">Un méga boss vaincu = une orbe d'amélioration au choix, pour toujours.</p><div class="blocs">${bloc('p')}${bloc('s')}${bloc('t')}</div>`);
+  // ---------- Forge et affinités ----------
+  forge(o) {
+    o = o || 'forge';
+    const F = forgeSave(), A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] };
+    const onglets = `<div class="onglets"><button data-a="forge" data-o="forge" class="${o === 'forge' ? 'actif' : ''}">⚒ Forge</button><button data-a="forge" data-o="affinites" class="${o === 'affinites' ? 'actif' : ''}">🎲 Affinités</button></div>`;
+    let corps = '';
+    if (o === 'forge') {
+      corps = `<p class="mini">Les éclats (un par boss, trois par méga boss) débloquent des <b>évolutions</b> pour une famille d'armes. Chacune change la façon de jouer sans rendre plus fort : on gagne d'un côté, on perd de l'autre. Une seule active par famille.</p>
+        <div class="eclats">💎 ${F.eclats} éclats · ${COUT_FORGE} par évolution</div><div class="blocs forge">` +
+        Object.entries(FORGE).map(([fam, evos]) => `<div class="bloc"><h3>${FAMILLES[fam].ico} ${FAMILLES[fam].nom}</h3>${evos.map(e => {
+          const k = fam + ':' + e.id, ok = F.debloque[k], actif = F.actif[fam] === e.id;
+          return `<div class="evo ${actif ? 'actif' : ''}"><b>${e.nom}</b><em>${e.desc}</em>${ok ? `<button data-a="forgeEq" data-k="${k}">${actif ? '✔ Équipée' : 'Équiper'}</button>` : `<button data-a="forgeAch" data-k="${k}" ${F.eclats >= COUT_FORGE ? '' : 'disabled'}>Débloquer · ${COUT_FORGE} 💎</button>`}</div>`;
+        }).join('')}</div>`).join('') + '</div>';
+    } else {
+      const puce = (c, v, nom) => `<button class="puce ${A[c].includes(v) ? 'actif' : ''}" data-a="aff" data-c="${c}" data-v="${v}">${nom}</button>`;
+      corps = `<p class="mini">Choisis jusqu'à 2 préférences par type : les armes qui y correspondent tombent bien plus souvent. Ça ne change pas leur puissance.</p>
+        <h4>Arme principale</h4><div class="puces">${Object.entries(FAMILLES).map(([k, v]) => puce('p', k, v.ico + ' ' + v.nom)).join('')}${Object.entries(ELEMENTS).map(([k, v]) => puce('p', k, v.ico + ' ' + v.nom)).join('')}</div>
+        <h4>Attaque spéciale</h4><div class="puces">${Object.entries(ELEMENTS).map(([k, v]) => puce('s', k, v.ico + ' ' + v.nom)).join('')}</div>
+        <h4>Talent</h4><div class="puces">${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => puce('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}</div>`;
+    }
+    this.ecran('⚒ Forge', onglets + corps);
+  },
+
+  // ---------- Garde-robe ----------
+  garderobe(slot) {
+    slot = slot || 'armure';
+    const S = skinsSave();
+    const onglets = '<div class="onglets">' + Object.entries(SLOTS).map(([k, n]) => `<button data-a="garderobe" data-o="${k}" class="${k === slot ? 'actif' : ''}">${n}</button>`).join('') + '</div>';
+    const cartes = SKINS.filter(s => s.slot === slot).map(s => {
+      const R0 = RARETES[s.rar], ok = possede(s.id), n = S.frag[s.id] || 0, eq = S.equip[slot] === s.id;
+      const apercu = s.c ? `<span class="pastille" style="background:linear-gradient(135deg,${s.c.join(',')})"></span>` : `<span class="pastille" style="background:${s.col || '#333'}"></span>`;
+      return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}">${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span>`}</button>`;
+    }).join('');
+    this.ecran('👕 Garde-robe', onglets + `<p class="mini">Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
   },
 
   // ---------- Codex ----------
   codex(o) {
     const cx = Save.d.codex;
-    const onglets = [['especes', 'Bestiaire'], ['att', 'Attaques'], ['reliques', 'Reliques'], ['traits', 'Mutations'], ['cartes', 'Arènes'], ['invoc', 'Invocations'], ['arm', 'Arsenal']];
+    const onglets = [['especes', 'Bestiaire'], ['att', 'Attaques'], ['reliques', 'Reliques'], ['legend', 'Légendaires'], ['traits', 'Mutations'], ['cartes', 'Arènes'], ['invoc', 'Invocations'], ['arm', 'Arsenal']];
     let corps = '';
     const inconnu = t => `<div class="entree inconnu"><b>???</b><p>${t}</p></div>`;
     if (o === 'especes') {
@@ -193,6 +236,9 @@ const UI = {
     } else if (o === 'att') {
       const ids = Object.keys(ATK);
       corps = `<p class="mini">${ids.filter(i => cx.att[i]).length} / ${ids.length} découvertes</p><div class="liste">` + ids.map(i => cx.att[i] ? `<div class="entree"><b>${ATK[i].nom}</b><span class="cpt">${cx.att[i]}×</span><p>${ATK[i].conseil}</p></div>` : inconnu('Pas encore rencontrée.')).join('') + '</div>';
+    } else if (o === 'legend') {
+      const L = Save.d.legendaires || {};
+      corps = '<p class="mini">Parfois (rarement) un boss est LÉGENDAIRE : doré, plus coriace, il donne une apparence légendaire.</p><div class="liste">' + ESP_ORDRE.map(e => L[e] ? `<div class="entree"><b style="color:#ffb43d">✦ ${nomMaj(ESPECES[e].nom)} légendaire</b><p>Vaincu.</p></div>` : inconnu('Pas encore rencontré.')).join('') + '</div>';
     } else if (o === 'reliques') {
       corps = '<p class="mini">Après chaque boss, deux reliques apparaissent : prends-en une. Elles durent jusqu\'au prochain méga boss.</p><div class="liste">' + Object.values(RELIQUES).map(r => `<div class="entree"><b>${r.ico} ${r.nom}</b><p>${r.desc}</p></div>`).join('') + '</div>';
     } else if (o === 'traits') {

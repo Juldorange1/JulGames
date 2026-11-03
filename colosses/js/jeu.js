@@ -157,11 +157,25 @@ const G = {
     if (tg.proxy) { mult = tg.mult; tg = tg.proxy; }
     if (tg.dead || tg.spawn > 0) return;
     let m = mult, crit = false;
-    if (o.prim) m *= PRIM_EQ[G.ars.p] || 1;
-    if (o.prim && !o.continu && R() < ST.pCrit + (o.critB || 0)) { m *= 2; crit = true; }
+    if (o.prim) {
+      m *= PRIM_EQ[G.ars.p] || 1;
+      const mf = modForge();
+      if (mf.dmg) m *= mf.dmg;
+      if (mf.canal) m *= Math.hypot(this.p.vx, this.p.vy) < 25 ? 1.25 : .85;
+      if (mf.vampire && (this.p.vampT || 0) < G.t) { this.p.vampT = G.t + 1; this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); }
+    }
+    const cible0 = tg.proxy || tg;
+    if (cible0.harpon > 0 && o.prim) m *= 1.3;
+    let elemTxt = 0;
+    if ((o.prim || o.spec) && this.def && (cible0 === this.boss)) {
+      const el = elemArme(o.prim ? this.ars.p : this.ars.s);
+      if (el === FAIBLESSE[this.def.elem]) { m *= 1.3; elemTxt = 1; } else if (el === this.def.elem) { m *= .75; elemTxt = -1; }
+    }
+    if (o.prim && !o.continu && R() < ST.pCrit + (o.critB || 0)) { m *= 2; crit = true; this.fx.push({ kind: 'etoile', x: o.x || tg.x, y: o.y || tg.y, t: 0, dur: .25 }); if (this.ars.p === 'pacte') this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); }
     const b = this.boss;
     if (tg === b) {
       if (b.trans > 0 || b.air || b.mort || b.intro > 0) return;
+      if (b.def.invincible) { if (this.protegeT <= 0) { this.texte(b.x, b.y - b.r - 14, 'Invincible', '#888', 13); this.protegeT = .8; } return; }
       if (bouclierBoss(b)) { if (this.protegeT <= 0) { this.texte(b.x, b.y - b.r - 14, 'Protégé', '#7fd8ff', 14); this.protegeT = .6; } return; }
       if (b.miroir > 0 && o.prim) { if (this.protegeT <= 0) { this.texte(b.x, b.y - b.r - 14, 'Reflété !', '#fff', 15); this.protegeT = .5; } return; }
       const me = b.esp.mult ? b.esp.mult(b, o) : 1;
@@ -182,11 +196,12 @@ const G = {
         b.armure -= d * (o.spec ? 3 : 1); d *= .25;
         if (b.armure <= 0) { b.armure = 0; b.armureCd = 12; this.annonce('Carapace brisée !', '#fff', 1.3); Son.play('verre'); this.secoue(8); succes('carapace'); }
       }
-      if (o.prim) this.p.energie = Math.min(ST.eMax, this.p.energie + d * .1 * ST.eGain);
+      if (o.prim) this.p.energie = Math.min(ST.eMax, this.p.energie + d * .1 * ST.eGain * (modForge().energie || 1));
       b.flash = Math.max(b.flash, o.continu ? .2 : .5); b.regenT = 0;
       if (!o.continu) Son.play('touche');
       this.chiffre(tg, d, crit, o, m);
       if (b.esp.absorbe && b.esp.absorbe(b, d)) return;
+      if (b.def.indestructible) { this.defi.degats += d; return; }
       b.hp -= d;
       const n = b.def.phases.length;
       if (b.phase < n - 1 && b.hp <= seuilPhase(b, b.phase)) { b.hp = seuilPhase(b, b.phase); if (!(b.esp.transition && b.esp.transition(b))) passerPhase(b); }
@@ -216,6 +231,14 @@ const G = {
     const p = this.p;
     if (this.etat !== 'combat' || !p || p.hp <= 0) return false;
     if (p.fantome > 0 || p.iframe > 0) return false;
+    if (this.format() === 'danse') { this.defi.coups++; p.iframe = .9; p.rouge = .35; this.secoue(8); Son.play('blesse'); this.texte(p.x, p.y - 24, 'touché', '#ff5a6e', 16); return true; }
+    if (p.contre > 0 && this.boss && !this.boss.mort) {
+      const b = this.boss; p.contre = 0; p.iframe = .9; this.gel = .06;
+      G.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: 0, dur: .3 });
+      const pt = Arene.clampPt(b.x - Math.cos(b.facing) * (b.r + 45), b.y - Math.sin(b.facing) * (b.r + 45), p.r); p.x = pt.x; p.y = pt.y;
+      this.frappe(b, 220 * ST.pDmg, { x: b.x, y: b.y }); this.texte(p.x, p.y - 26, 'CONTRE !', '#ff8a5c', 20); Son.play('parade'); this.secoue(6);
+      return false;
+    }
     if (p.parade > 0) {
       p.parade = 0; p.iframe = .8; this.ralentir(.3, .3); this.gel = .08;
       const r = 210;
@@ -256,10 +279,16 @@ const G = {
     this.ars = null;
     this.entrerSalle();
   },
+  lancerAbysses() {
+    this.mode = 'abysses'; this.finDefi = null;
+    this.defi = { type: 'abysses', format: 'abysses', cle: '∞', mut: [], boss: [], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
+    this.entrerSalle();
+  },
   lancerDefi(type) {
     const df = defiCourant(type);
     this.mode = type; this.finDefi = null;
-    this.defi = Object.assign(df, { i: 0, temps: 0, tues: 0 });
+    this.defi = Object.assign(df, { i: 0, temps: 0, tues: 0, degats: 0, coups: 0 });
     const rec = Save.d.defis[type];
     if (!rec || rec.cle !== df.cle) Save.d.defis[type] = { cle: df.cle, best: null, essais: 0 };
     Save.d.defis[type].essais++;
@@ -269,8 +298,10 @@ const G = {
     this.ars = null;
     this.entrerSalle();
   },
-  mut(id) { return (this.mode === 'jour' || this.mode === 'semaine') && this.defi && this.defi.mut.includes(id); },
+  mut(id) { return (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses') && this.defi && this.defi.mut.includes(id); },
+  format() { return this.defi && this.mode !== 'normal' && this.mode !== 'entrainement' ? this.defi.format : null; },
   reliques() {
+    if (this.mode === 'abysses') return this.defi ? (this.defi.reliques = this.defi.reliques || []) : [];
     if (this.mode === 'normal') { const run = PR().run; return run ? (run.reliques = run.reliques || []) : []; }
     if (this.mode === 'entrainement') return this.entr ? (this.entr.reliques = this.entr.reliques || []) : [];
     return this.defi ? (this.defi.reliques = this.defi.reliques || []) : [];
@@ -289,15 +320,15 @@ const G = {
       const pr = PR(), run = pr.run;
       this.salle = run.salle;
       this.mega = this.salle % 5 === 0;
-      if (run.boss && run.boss.salle === this.salle) { def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; }
+      if (run.boss && run.boss.salle === this.salle) { def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg; }
       else {
         const seed = this.mega ? hashNum(this.salle * 7919 + 13 + Object.keys(DIFFS).indexOf(d.diff) * 101) : R.int(1, 2147483646);
         const eviter = this.recents.slice();
         def = genBoss(this.salle, seed, this.mega, eviter);
+        if (!this.mega && this.salle >= 6 && R() < .035) def.legendaire = true;
         const prev = this.ars || {};
-        const tire = (liste, avant) => R.pick(liste.filter(a => a.id !== avant)).id;
-        ars = { p: tire(PRIM, prev.p), s: tire(SPEC, prev.s), t: tire(TAL, prev.t) };
-        run.boss = { salle: this.salle, seed, eviter, ars };
+        ars = { p: tirerArme('p', prev.p, def), s: tirerArme('s', prev.s, def), t: tirerArme('t', prev.t, def) };
+        run.boss = { salle: this.salle, seed, eviter, ars, leg: !!def.legendaire };
         this.recents.push(def.esp); if (this.recents.length > 3) this.recents.shift();
       }
     } else if (this.mode === 'entrainement') {
@@ -308,9 +339,18 @@ const G = {
       const tire = l => R.pick(l).id;
       ars = { p: cfg.p || tire(PRIM), s: cfg.s || tire(SPEC), t: cfg.t || tire(TAL) };
     } else {
-      const df = this.defi, b = df.boss[df.i];
+      const df = this.defi;
+      if (df.format === 'abysses' && !df.boss[df.i]) {
+        if (df.i && df.i % 2 === 0 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].ico + ' ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
+        df.boss[df.i] = { salle: 3 + df.i * 2, seed: R.int(1, 2e9), mega: false, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
+      }
+      const b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
       def = genBoss(b.salle, b.seed, b.mega, []); ars = b.ars;
+      if (df.format === 'abysses') { const r = RNG(b.seed + 3); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, Math.min(3, Math.floor(df.i / 2)))) def.traits.push(t); }
+      if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
+      if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
+      if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
       if (this.mut('colosses')) def.hpMax = Math.round(def.hpMax * 1.4);
@@ -318,6 +358,7 @@ const G = {
       if (this.mut('patinoire')) def.phases.forEach(ph => ph.carte = 'glace');
       if (this.mut('chaos')) { const r = RNG(b.seed); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, 2)) def.traits.push(t); }
     }
+    if (def.legendaire) { def.hpMax = Math.round(def.hpMax * 1.15); def.phases.forEach(ph => { if (!ph.fond) ph.fond = { id: 'salve', p: ATK.salve.params(RNG(def.seed), def.D, true) }; }); }
     this.def = def; this.ars = ars;
     const nouveaux = ['p', 's', 't'].map(c => !d.codex.arm[c + ':' + this.ars[c]]);
     this.minions = []; this.pb = []; this.eb = []; this.hz = []; this.fx = []; this.allies = []; this.parts = []; this.textes = []; this.lumieres = []; this.loot = [];
@@ -328,6 +369,7 @@ const G = {
     p.x = CX; p.y = AR.y + AR.h * .82; p.vx = p.vy = 0; p.dash = null; p.ancre = null; p.saut = 0; p.sprint = 0; p.invis = 0; p.hist = [];
     p.hpMax = (this.mut('verre') ? 60 : DF().pv) - (this.rel('verre') ? 30 : 0); p.hp = Math.min(p.hp, p.hpMax);
     if (this.mode === 'entrainement') p.hp = p.hpMax;
+    if (this.format() === 'unCoup') p.hp = p.hpMax = 1;
     p.bouclier = this.rel('egide') ? 1e6 : 0;
     this.sal = { spec: 0, tal: 0, second: false, tempete: 6, vamp: 0, regen: 0 };
     p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 }; p.energie = Math.max(p.energie, ST.eMax * .5); p.iframe = 1.5;
@@ -345,15 +387,17 @@ const G = {
     for (const t of this.def.traits) cx.traits[t] = 1;
     if (this.mode === 'normal') { const pr = PR(); pr.record = Math.max(pr.record, this.salle); pr.run.pv = p.hp; }
     Save.write();
-    if (this.mega) { Musique.jouer(MUS.mega[(Math.max(1, Math.round(this.salle / 5)) - 1) % MUS.mega.length][0]); Son.play('gong'); }
-    else Musique.combat();
+    Musique.baisser(1);
+    if (this.mega) { Musique.jouer(MUS.mega[(Math.max(1, Math.round(this.salle / 5)) - 1) % MUS.mega.length][0], 4); Son.play('gong'); }
+    else Musique.combat(this.salle % 5 === 1 && this.salleMusique !== this.salle);
+    this.salleMusique = this.salle;
     Input.clear();
   },
   musiquePhase() {
     if (!this.mega || !this.boss) return;
     const piste = MUS.mega[(Math.max(1, Math.round(this.salle / 5)) - 1) % MUS.mega.length], n = this.def.phases.length;
     const i = this.boss.phase >= n - 1 ? 2 : Math.min(1, this.boss.phase);
-    Musique.jouer(piste[i]);
+    Musique.jouer(piste[i], 3.5);
   },
   bossMort() {
     const b = this.boss;
@@ -366,10 +410,19 @@ const G = {
     this.ralentir(.25, 1.3); this.secoue(22); this.gel = .2; this.flash = .6; Son.play('mortBoss');
     this.lumiere(b.x, b.y, 600, b.col, 1.2); this.marque(b.x, b.y, b.r * 2.2);
     this.etat = 'interlude'; this.interT = 0;
-    Musique.baisser(.3); setTimeout(() => Musique.sting(MUS.victoire), 600);
+    Musique.baisser(.55);
+    this.p.hp = this.p.hpMax; this.texte(this.p.x, this.p.y - 34, 'Vie restaurée', '#46e39b', 18);
     this.annonce(this.def.mega ? 'MÉGA BOSS VAINCU !' : 'VAINCU !', '#ffe14d', 2.4);
     const d = Save.d;
     if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
+    // récompenses : éclats de forge et fragments d'apparence, jamais de puissance
+    const gains = [];
+    const ecl = this.def.mega ? 3 : 1; gagnerEclats(ecl); gains.push('+' + ecl + ' éclat' + (ecl > 1 ? 's' : ''));
+    if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
+    else if (this.def.mega) { gains.push(donnerFragment('rare')); gains.push(donnerFragment('rare')); }
+    else if (R() < .3) gains.push(donnerFragment());
+    gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
+    if (this.mode === 'normal') noterChasse(this.def.esp, this.chrono);
     statPlus('tuesArme', this.ars.p);
     noterMaitrise(this.def.esp, this.coupsPris === 0 || this.chrono < 60, this.mode === 'normal' && d.diff === 'cauchemar');
     succes('premier');
@@ -394,25 +447,32 @@ const G = {
         const k = String(this.salle), old = pr.megaTemps[k];
         if (!old || this.chrono < old) pr.megaTemps[k] = Math.round(this.chrono);
       }
-      pr.run.salle = this.salle + 1; pr.run.boss = null;
+      pr.run.salle = this.salle + 1; pr.run.boss = null; pr.run.depuisPasse = (pr.run.depuisPasse === undefined ? 3 : pr.run.depuisPasse) + 1;
       if (this.def.mega && (pr.run.reliques || []).length) { pr.run.reliques = []; calcStats(); this.texte(this.p.x, this.p.y - 50, 'Les reliques se dissipent', '#c06bff', 16); }
       pr.record = Math.max(pr.record, pr.run.salle);
       pr.run.pv = this.p.hp;
     } else {
       const df = this.defi;
       df.tues++; df.temps += this.chrono; df.i++;
-      if (df.i >= df.boss.length) this.terminerDefi(true);
+      if (df.format !== 'abysses' && df.i >= df.boss.length) this.terminerDefi(true);
     }
     verifierSucces();
     Save.write();
   },
   terminerDefi(reussi) {
-    const df = this.defi, rec = Save.d.defis[df.type];
-    const res = { reussi, tues: df.tues, total: df.boss.length, temps: df.temps, type: df.type };
-    const mieux = !rec.best || res.tues > rec.best.tues || (res.tues === rec.best.tues && res.temps < rec.best.temps);
-    res.ancien = rec.best; res.record = mieux;
-    if (mieux && res.tues > 0) rec.best = { tues: res.tues, temps: Math.round(res.temps * 10) / 10 };
-    if (reussi) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); }
+    const df = this.defi;
+    if (this.finDefi) return;
+    const F = FORMATS[df.format] || FORMATS.chrono;
+    if (df.type === 'abysses') { Save.d.abysses = Save.d.abysses || { best: 0 }; }
+    const rec = df.type === 'abysses' ? Save.d.abysses : Save.d.defis[df.type];
+    const res = { reussi, tues: df.tues, total: df.boss.length, temps: df.temps, type: df.type, format: df.format, degats: Math.round(df.degats), coups: df.coups };
+    res.score = F.score(res);
+    const ancien = df.type === 'abysses' ? (rec.best ? { score: rec.best } : null) : rec.best;
+    const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
+    res.ancien = ancien; res.record = mieux;
+    if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
+    if (reussi && df.type !== 'abysses') { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, donnerFragment(), '#ffd86b', 15); }
+    if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });
     Save.d.defisHist = Save.d.defisHist.slice(0, 30);
@@ -421,16 +481,8 @@ const G = {
   },
   poserButin() {
     const p = this.p;
-    if (this.def.mega && this.mode === 'normal') {
-      ['p', 's', 't'].forEach((cat, i) => {
-        const dispo = UPG[cat].filter(u => !u.max || lv(cat, u.id) < u.max), u = R.pick(dispo);
-        this.loot.push({ kind: 'up', cat, id: u.id, x: CX + (i - 1) * 190, y: CY - 20, t: -i * .15 });
-      });
-      p.hp = p.hpMax;
-      this.texte(p.x, p.y - 30, 'Vie restaurée', '#46e39b', 18); Son.play('soin');
-    } else {
-      if (!this.mut('jeune')) this.loot.push({ kind: 'soin', x: this.boss.x, y: this.boss.y, t: 0, val: DF().soin });
-      if (!this.finDefi && this.mode !== 'entrainement') offrirReliques().forEach((id, i) => this.loot.push({ kind: 'relique', id, x: CX + (i ? 130 : -130), y: CY + 40, t: -i * .15 }));
+    if (this.def.mega && this.mode === 'normal') { this.ouvrirPortail(); } else {
+      if (!this.finDefi && this.mode !== 'entrainement' && this.format() !== 'unCoup') offrirReliques().forEach((id, i) => this.loot.push({ kind: 'relique', id, x: CX + (i ? 130 : -130), y: CY + 40, t: -i * .15 }));
       if (!this.finDefi) this.ouvrirPortail();
     }
   },
@@ -474,15 +526,34 @@ const G = {
       // on rejoue le même boss, avec les mêmes armes, tout le monde à pleine vie
       const pr = PR(); pr.run.pv = DF().pv;
       const e = d.essais = d.essais || {}; const k = Save.d.diff + ':' + this.salle; e[k] = (e[k] || 0) + 1;
-    } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(false); }
+    } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(['survie', 'deluge'].includes(this.defi.format)); }
     Save.write();
-    Musique.stop();
+    Musique.baisser(.25);
   },
   recommencer() {
     if (this.mode === 'normal' || this.mode === 'entrainement') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
+    else if (this.mode === 'abysses') this.lancerAbysses();
     else this.lancerDefi(this.defi.type);
   },
-  abandonner() { const p = this.p; p.iframe = 0; p.fantome = 0; p.parade = 0; p.bouclier = 0; p.saut = 0; this.etat = 'combat'; this.blesser(99999, 'abandon'); }
+  // relance le même combat, même boss, mêmes armes, tout le monde à pleine vie (sans compter de mort)
+  relancer() {
+    this.finDefi = null;
+    if (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses') return this.recommencer();
+    this.p = creerJoueur(DF().pv);
+    this.entrerSalle();
+  },
+  passeDispo() { if (this.mode !== 'normal') return -1; const run = PR().run; const n = run.depuisPasse === undefined ? 3 : run.depuisPasse; return Math.max(0, 3 - n); },
+  passerBoss() {
+    if (this.passeDispo() !== 0) return;
+    const run = PR().run;
+    run.salle++; run.boss = null; run.depuisPasse = 0; run.pv = DF().pv;
+    if ((run.salle - 1) % 5 === 0 && run.reliques) run.reliques = [];
+    Save.write();
+    this.p = creerJoueur(DF().pv);
+    this.entrerSalle();
+    this.annonce('Boss passé', '#9a94ad', 1.4);
+  },
+  abandonner() { this.relancer(); }
 };
 
 // ---------- Défis du jour et de la semaine ----------
@@ -508,12 +579,29 @@ function cleSemaine(d) {
   return u.getUTCFullYear() + '-S' + String(w).padStart(2, '0');
 }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+// formats des défis : chacun a son objectif et son score (sens : +1 plus haut = mieux, −1 plus bas = mieux)
+const FORMATS = {
+  chrono: { nom: 'Contre-la-montre', ico: '⏱', obj: 'Tue les boss le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
+  survie: { nom: 'Survie', ico: '🛡', obj: 'Le boss est invincible et accélère : tiens le plus longtemps possible', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
+  unCoup: { nom: 'Un seul coup', ico: '💀', obj: '1 PV : tue un maximum de boss', sens: 1, score: r => r.tues, fmt: v => v + ' boss' },
+  danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, esquive 90 s en te faisant toucher le moins possible', sens: -1, score: r => r.reussi ? r.coups : null, fmt: v => v + ' coup' + (v > 1 ? 's' : ''), un: true, duree: 90 },
+  deluge: { nom: 'Déluge', ico: '💥', obj: '60 s contre un colosse indestructible : un maximum de dégâts', sens: 1, score: r => r.degats, fmt: v => Math.round(v / 100) / 10 + ' k dégâts', un: true, duree: 60 },
+  etau: { nom: 'Étau', ico: '🧱', obj: 'L\'arène se resserre sans arrêt : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
+  arsenal: { nom: 'Arsenal fou', ico: '🎲', obj: 'Tes armes changent toutes les 15 s : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
+  geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
+  abysses: { nom: 'Abysses', ico: '🌌', obj: 'Sans fin : chaque boss est plus fou, une seule vie', sens: 1, score: r => r.tues, fmt: v => 'profondeur ' + v }
+};
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
-  const salles = type === 'jour' ? [6, 10, 14] : [8, 12, 16, 20, 24, 25];
-  const mut = r.shuffle(Object.keys(MUTATEURS)).slice(0, type === 'jour' ? 1 : 2);
-  const boss = salles.map(s => ({ salle: s, seed: r.int(1, 2000000000), mega: s % 5 === 0, ars: { p: r.pick(PRIM).id, s: r.pick(SPEC).id, t: r.pick(TAL).id } }));
-  return { type, cle, mut, boss };
+  const format = type === 'jour' ? r.pick(['chrono', 'survie', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
+  const F = FORMATS[format];
+  let salles = type === 'jour' ? [6, 10, 14] : [8, 12, 16, 20, 24];
+  if (F.un) salles = [type === 'jour' ? 10 : 18];
+  if (format === 'geant') salles = [type === 'jour' ? 15 : 25];
+  if (format === 'unCoup') salles = Array.from({ length: 15 }, (_, i) => 4 + i * 2);
+  const mut = r.shuffle(Object.keys(MUTATEURS).filter(m => !(format === 'unCoup' && m === 'verre'))).slice(0, type === 'jour' ? 1 : 2);
+  const boss = salles.map(s => ({ salle: s, seed: r.int(1, 2000000000), mega: format === 'geant' || (s % 5 === 0 && !F.un), ars: { p: r.pick(PRIM).id, s: r.pick(SPEC).id, t: r.pick(TAL).id } }));
+  return { type, cle, mut, boss, format };
 }
 
 function creerJoueur(pv) {
@@ -529,7 +617,7 @@ function majJoueur(dt) {
   const p = G.p;
   const prim = trouveArme('p', G.ars.p), spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t);
   p.aim = ang(p.x, p.y, G.mx, G.my);
-  for (const k of ['iframe', 'miroir', 'parade', 'bouclier', 'fantome', 'vite', 'rouge', 'sprint']) if (p[k] > 0) p[k] -= dt;
+  for (const k of ['iframe', 'miroir', 'parade', 'bouclier', 'fantome', 'vite', 'rouge', 'sprint', 'contre', 'bulle']) if (p[k] > 0) p[k] -= dt;
   if (p.ancre) { p.ancre.t -= dt; if (p.ancre.t <= 0) p.ancre = null; }
   if (p.invis > 0) p.invis -= dt;
   p.hist = p.hist || []; p.hist.push({ x: p.x, y: p.y }); if (p.hist.length > 60) p.hist.shift();
@@ -546,11 +634,12 @@ function majJoueur(dt) {
   p.marche = (p.marche || 0) + Math.hypot(p.vx, p.vy) * dt * .07;
   p.lent = 1;
   const actif = G.etat === 'combat';
-  const held = actif && (Input.lmb || (G.opts.auto && !prim.manuel)) && p.fantome <= 0;
+  const sansArmes = G.format() === 'danse';
+  const held = actif && !sansArmes && (Input.lmb || (G.opts.auto && !prim.manuel)) && p.fantome <= 0;
   prim.tick(p.prim, p, dt, held);
   if (p.spec.cd > 0) p.spec.cd -= dt;
   const K = TOUCHES();
-  if (actif && (Input.rp || Input.hit(K.spec))) {
+  if (actif && !sansArmes && (Input.rp || Input.hit(K.spec))) {
     const cout = spec.cout * ST.sCout;
     if (p.fantome > 0) { }
     else if (p.spec.cd > 0) { Son.play('vide'); }
@@ -570,7 +659,7 @@ function majJoueur(dt) {
   }
   if (p.saut <= 0) for (const h of G.hz) if (h.kind === 'ronce' && HZ.ronce.actif(h, p)) p.lent = Math.min(p.lent, .5);
   if (G.rel('regen')) { G.sal.regen += dt; if (G.sal.regen >= 3) { G.sal.regen -= 3; p.hp = Math.min(p.hpMax, p.hp + 1); } }
-  let sp = 270 * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
+  let sp = 270 * (p.bulle > 0 ? .2 : 1) * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
   if (p.dash) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
@@ -602,7 +691,9 @@ function majJoueur(dt) {
 
 // ---------- Tirs du joueur ----------
 function exploserTir(b) {
-  const B = b.boom;
+  const B = b.boom, mf = b.spec ? {} : modForge();
+  if (mf.zone) B.r *= mf.zone;
+  if (mf.grappe) for (let i = 0; i < 3; i++) { const a = R() * TAU; G.allies.push({ kind: 'meteore', petit: true, prim: true, x: b.x + Math.cos(a) * 60, y: b.y + Math.sin(a) * 60, t: -.1 - i * .08, dur: .15, r: 42, dmg: B.dmg * .3 }); }
   G.explo(b.x, b.y, B.r, b.col); Son.play('explo'); G.secoue(3);
   for (const tg of G.cibles()) if (Math.sqrt(d2(b.x, b.y, tg.x, tg.y)) - tg.r < B.r) G.frappe(tg, B.dmg, { prim: !b.spec, spec: b.spec, x: tg.x, y: tg.y });
   b.dead = true;
@@ -623,13 +714,15 @@ function majTirsJoueur(dt) {
       b.vx = Math.cos(na) * ns; b.vy = Math.sin(na) * ns;
     }
     if (b.grow) b.r += b.grow * dt;
+    if (b.angv) { const c = Math.cos(b.angv * dt), s = Math.sin(b.angv * dt), vx = b.vx; b.vx = vx * c - b.vy * s; b.vy = vx * s + b.vy * c; }
     b.x += b.vx * dt; b.y += b.vy * dt;
     b.life -= dt;
-    if (b.life <= 0) { if (b.boom && (b.boom.finVie || b.kind === 'roquette')) exploserTir(b); b.dead = true; continue; }
+    if (b.life <= 0) { if (b.boom && (b.boom.finVie || b.kind === 'roquette')) exploserTir(b); if (b.ronce) G.allies.push({ kind: 'roncier', x: b.x, y: b.y, r: 70, t: 0, dur: 4, dps: 42 * ST.pDmg }); b.dead = true; continue; }
     if (!Arene.dedans(b.x, b.y, 0) || Arene.pilierTouche(b.x, b.y, 2)) {
       if (b.kind === 'boom' && !b.retour) { b.retour = true; b.hits.clear(); }
       else if (b.reb > 0) {
         b.reb--; b.hits.clear(); if (b.bonusReb) b.dmg *= b.bonusReb;
+        if (b.glaive) { const t = plusProche(b.x, b.y); if (t) { const a = ang(b.x, b.y, t.x, t.y), s = Math.hypot(b.vx, b.vy); b.vx = Math.cos(a) * s; b.vy = Math.sin(a) * s; } }
         if (Arene.kind === 'cercle') { const a = ang(CX, CY, b.x, b.y), nx = Math.cos(a), ny = Math.sin(a), dt2 = b.vx * nx + b.vy * ny; b.vx -= 2 * dt2 * nx; b.vy -= 2 * dt2 * ny; }
         else { const bb = Arene.bb(); if (b.x < bb.x || b.x > bb.x + bb.w) b.vx = -b.vx; if (b.y < bb.y || b.y > bb.y + bb.h) b.vy = -b.vy; }
         Arene.contenir(b, 1); G.etincelle(b.x, b.y, b.col, 3);
@@ -655,6 +748,11 @@ function majTirsJoueur(dt) {
           if (vrai.aig >= 15) { vrai.aig = 0; G.frappe(tg, 95 * ST.pDmg, { prim: true, x: tg.x, y: tg.y }); G.explo(tg.x, tg.y, 60, '#c8ffd0'); Son.play('explo'); }
         }
         if (b.stun && vrai === bo && !bo.mort) G.etourdir(bo, b.stun, 'Paralysé !');
+        if (b.eclat && !b.fils) { const a = Math.atan2(b.vy, b.vx); for (const s of [-.6, .6]) { const x = pShot(b.x, b.y, a + s, 700, { dmg: b.dmg * .3 / ST.pDmg, r: 3, life: .4, col: b.col }); x.fils = true; x.hits.add(vrai); } }
+        if (b.froid) vrai.froid = Math.min(1, (vrai.froid || 0) + .025);
+        if (b.harpon) { vrai.harpon = 2.5; G.texte(tg.x, tg.y - 30, 'Harponné', '#c0c8d4', 14); }
+        if (b.ronce) { G.allies.push({ kind: 'roncier', x: b.x, y: b.y, r: 70, t: 0, dur: 4, dps: 42 * ST.pDmg }); b.ronce = false; }
+        if (b.prisme) { b.prisme = false; const a = Math.atan2(b.vy, b.vx); for (const s of [-.35, 0, .35]) { const x = pShot(b.x, b.y, a + s, 900, { dmg: 12, r: 4, life: .5, col: '#fff2b0', kind: 'trait' }); x.hits.add(vrai); } }
         if (b.kind !== 'flamme') G.etincelle(b.x, b.y, b.col, 3);
         if (b.pierce > 0) b.pierce--; else { b.dead = true; break; }
       }
@@ -703,6 +801,7 @@ function majTirsEnnemis(dt) {
         const rt = e.retour; rt.parc = (rt.parc || 0) + Math.hypot(e.vx, e.vy) * dt;
         if (rt.parc > rt.d && bo && !bo.mort) { const a = ang(e.x, e.y, bo.x, bo.y); e.vx = Math.cos(a) * rt.s * 1.1; e.vy = Math.sin(a) * rt.s * 1.1; if (d2(e.x, e.y, bo.x, bo.y) < bo.r * bo.r) e.dead = true; }
       }
+      if (e.tir) { e.tir.cd -= dt; if (e.tir.cd <= 0) { e.tir.cd = e.tir.per; EB(e.x, e.y, ang(e.x, e.y, t.x, t.y), e.tir.spd, { r: 6, src: e.src }); } }
       const fr = G.rel('aimant') && d2(e.x, e.y, p.x, p.y) < 130 * 130 ? .65 : 1;
       e.x += e.vx * dt * fr; e.y += e.vy * dt * fr;
       e.life -= dt;
@@ -776,6 +875,39 @@ function majAllies(dt) {
         }
         if (a.t >= a.dur) a.dead = true;
         break;
+      case 'retarde': if (a.t >= a.dur) { a.dead = true; a.f(); } break;
+      case 'roncier':
+        for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) G.frappe(tg, a.dps * dt, { prim: true, continu: true, x: tg.x, y: tg.y });
+        if (a.t >= a.dur) a.dead = true; break;
+      case 'chakram': {
+        const k = a.t / a.dur, an = a.t * 12;
+        if (k < .3) { a.x = lerp(p.x, a.tx, k / .3); a.y = lerp(p.y, a.ty, k / .3); }
+        else if (k < .75) { a.x = a.tx + Math.cos(an) * 22; a.y = a.ty + Math.sin(an) * 22; }
+        else { const u = (k - .75) / .25; a.x = lerp(a.tx, p.x, u); a.y = lerp(a.ty, p.y, u); }
+        for (const tg of G.cibles()) if (d2(a.x, a.y, tg.x, tg.y) < (16 + tg.r) ** 2) { const id = tg.proxy || tg; if (!a.hitcd.get(id) || a.hitcd.get(id) < G.t) { a.hitcd.set(id, G.t + .18); G.frappe(tg, a.dmg, { prim: true, x: a.x, y: a.y }); } }
+        if (a.t >= a.dur) a.dead = true; break;
+      }
+      case 'blizzard':
+        for (const e of G.eb) if (d2(a.x, a.y, e.x, e.y) < a.r * a.r) { e.x -= e.vx * dt * .65; e.y -= e.vy * dt * .65; }
+        for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) { G.frappe(tg, a.dps * dt, { spec: true, continu: true, x: tg.x, y: tg.y }); (tg.proxy || tg).froid = Math.min(1, ((tg.proxy || tg).froid || 0) + dt * .3); }
+        if (R() < .6) G.parts.push({ x: a.x + R.range(-a.r, a.r), y: a.y + R.range(-a.r, a.r), vx: 40, vy: 90, life: .6, max: .6, col: '#e8f6ff', r: 2 });
+        if (a.t >= a.dur) a.dead = true; break;
+      case 'colonne':
+        for (const e of G.eb) if (d2(a.x, a.y, e.x, e.y) < (a.r + e.r) ** 2) { e.dead = true; G.etincelle(e.x, e.y, '#ffb347', 2); }
+        for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < a.r) G.frappe(tg, a.dps * dt, { spec: true, continu: true, x: tg.x, y: tg.y });
+        if (R() < .8) G.parts.push({ x: a.x + R.range(-a.r, a.r) * .6, y: a.y, vx: R.range(-20, 20), vy: -R.range(80, 160), life: .6, max: .6, col: '#ffb347', r: 3, add: true });
+        G.lumiere(a.x, a.y, 200, '#ff8a3c', .05);
+        if (a.t >= a.dur) a.dead = true; break;
+      case 'ombre': {
+        const t = plusProche(a.x, a.y);
+        if (t) { const an = ang(a.x, a.y, t.x, t.y); a.a += clamp(angDiff(a.a, an), -6 * dt, 6 * dt); }
+        a.x += Math.cos(a.a) * 520 * dt; a.y += Math.sin(a.a) * 520 * dt;
+        if ((t && Math.sqrt(d2(a.x, a.y, t.x, t.y)) < t.r + 12) || a.t >= a.dur) {
+          a.dead = true; G.explo(a.x, a.y, 70, '#a070ff'); Son.play('explo');
+          for (const tg of G.cibles()) if (Math.sqrt(d2(a.x, a.y, tg.x, tg.y)) - tg.r < 70) G.frappe(tg, a.dmg, { spec: true, x: tg.x, y: tg.y });
+        }
+        break;
+      }
       case 'tourelle': {
         a.cd -= dt;
         const best = plusProche(a.x, a.y);
@@ -910,7 +1042,7 @@ function majCombat(dt) {
       if (po.t > 6) { const a = ang(p.x, p.y, po.x, po.y); p.x += Math.cos(a) * 200 * dt; p.y += Math.sin(a) * 200 * dt; }
       if (po.t > .6 && d2(p.x, p.y, po.x, po.y) < 44 * 44) G.traverserPortail();
     }
-    if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.stop(); }
+    if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
   } else G.butinPose = false;
   // effets
   for (const f of G.fx) f.t += dt;
@@ -933,6 +1065,14 @@ function majCombat(dt) {
   if (G.parts.length > maxP) G.parts.splice(0, G.parts.length - maxP);
   if (G.arretHz > 0) G.arretHz -= dt;
   if (G.mut('energie')) p.energie = ST.eMax;
+  const fmt = G.format();
+  if (fmt && enCombat && G.boss && G.boss.intro <= 0) {
+    const F = FORMATS[fmt];
+    if (F.duree && G.chrono >= F.duree) { G.defi.temps += G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
+    if (fmt === 'survie') { G.survieT = (G.survieT || 0) + dt; if (G.survieT > 15) { G.survieT = 0; G.def.D.S = Math.min(2, G.def.D.S * 1.07); G.def.idle *= .92; G.annonce('Le boss accélère !', '#ff8a5c', 1.2); } }
+    if (fmt === 'arsenal') { G.arsT = (G.arsT || 0) + dt; if (G.arsT > 15) { G.arsT = 0; G.ars = { p: tirerArme('p', G.ars.p, G.def), s: tirerArme('s', G.ars.s, G.def), t: tirerArme('t', G.ars.t, G.def) }; p.prim = { cd: 0 }; G.toast = { t: 0, dur: 2.5, nouveaux: [false, false, false] }; Son.play('pouvoir'); calcStats(); } }
+    if (fmt === 'etau') Arene.insetMax = 230;
+  }
   if (G.rel('tempete') && enCombat && b && !b.mort && b.intro <= 0) { G.sal.tempete -= dt; if (G.sal.tempete <= 0) { G.sal.tempete = 6; G.fx.push({ kind: 'eclair', pts: [[b.x + R.range(-30, 30), AR.y], [b.x, b.y]], t: 0, dur: .2 }); G.frappe(b, 150, { x: b.x, y: b.y }); Son.play('tirLourd'); } }
   if (G.succesFile && G.succesFile.length) { G.succesFile[0].t += dt; if (G.succesFile[0].t > 3) G.succesFile.shift(); }
   Decor.maj(dt);

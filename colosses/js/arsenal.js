@@ -25,7 +25,7 @@ const UPG = {
   ]
 };
 const CAT_NOM = { p: 'Armes principales', s: 'Attaques spéciales', t: 'Talents' };
-function lv(cat, id) { if (enDefi()) return 0; const u = PR().up; return (u[cat] && u[cat][id]) || 0; }
+function lv(cat, id) { return 0; } // la puissance ne progresse plus : seules les apparences, la forge et les affinités changent
 let ST = null;
 function calcStats() {
   ST = {
@@ -42,6 +42,7 @@ function calcStats() {
   if (aRelique('reflexes')) ST.tRech *= .75;
   if (aRelique('reserve')) ST.tCharges += 1;
   if (aRelique('verre')) ST.pDmg *= 1.35;
+  try { const m = modForge(); if (m.portee) ST.pVel *= m.portee; } catch (e) { }
   if (enDefi()) {
     if (G.mut('energie')) ST.sCout = 0;
     if (G.mut('reflexes')) ST.tRech *= .5;
@@ -53,6 +54,7 @@ calcStats();
 
 // équilibrage mesuré (dégâts par seconde sur cible fixe) : les armes techniques gardent un léger avantage
 const PRIM_EQ = { iaido: .53, rattrape: .6, ricochets: .5, jumelles: .72, surchauffe: .75, laser: .7, meteorite: .8, shuriken: .67, echo: .83, sniper: .8, pompe: .88,
+  ronceLance: .52, foreuse: .73, lameSpectrale: .82, hachettes: .79, prisme: 1.26, harpon: 1.3, lucioles: 2.4, glaive: 2.2,
   boomerang: .83, croix: 1.05, grenades: 1.05, foudre: 1.05, faux: 1.35, pistolet: 1.3, roquettes: 1.25, orbes: 1.2, mitra: 1.25, railgun: 1.9, plasma: 2, gravite: 1.3, fouet: 1.15 };
 
 // ---------- Tirs du joueur ----------
@@ -64,13 +66,15 @@ function pShot(x, y, a, spd, o) {
     hom: o.hom || 0, crit: o.crit || 0, spec: !!o.spec, up: o.up || null, grow: o.grow || 0, cassable: o.cassable !== false
   };
   if (o.spec) b.dmg = o.dmg * ST.sDmg;
+  else { if (b.kind !== 'flamme' && G.fx.length < 260 && (G.muzzleT || 0) < G.t) { G.muzzleT = G.t + .05; G.fx.push({ kind: 'muzzle', x, y, a, t: 0, dur: .07 }); } const mf = modForge(); if (mf.pierce) b.pierce += mf.pierce; if (mf.hom && !b.hom) b.hom = mf.hom; if (mf.taille) b.r *= mf.taille; if (mf.vit) { b.vx *= mf.vit; b.vy *= mf.vit; } if (mf.eclat) b.eclat = true; }
   G.pb.push(b);
   return b;
 }
 function cadence(w, dt, held, iv) {
+  const mf = modForge(); iv /= (mf.cad || 1);
   w.cd -= dt;
   let n = 0;
-  if (held) { while (w.cd <= 0 && n < 4) { w.cd += iv; n++; } }
+  if (held) { while (w.cd <= 0 && n < 4) { w.cd += iv; n++; if (mf.echo && R() < mf.echo) n++; } }
   else if (w.cd < 0) w.cd = 0;
   return n;
 }

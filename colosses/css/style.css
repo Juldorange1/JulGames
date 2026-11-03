@@ -184,4 +184,20 @@ label.interr input:checked + i::after { left: 21px; }
 .etoiles { color: #ffd86b; font-size: 13px; }
 .aide-g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .aide-g div { background: rgba(255,255,255,.05); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; color: #cfc8de; }
+.d-abysses { --fc: #7a5cff; } .d-chasse { --fc: #46e39b; cursor: default; }
+.eclats { font-weight: 800; color: #9fe4ff; margin: 6px 0 12px; }
+.forge .evo { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 4px; }
+.forge .evo em { font-size: 12px; color: #b8b0cc; font-style: normal; }
+.forge .evo.actif b { color: #7dffb0; }
+.forge .evo button { align-self: flex-start; padding: 5px 12px; font-size: 13px; }
+.puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.puce { border-radius: 20px; padding: 6px 12px; font-size: 13px; }
+.puce.actif { background: #c0379a; border-color: #c0379a; }
+.grille-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.skin { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; border-radius: 14px; border-top: 3px solid var(--rc); }
+.skin .pastille { width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); }
+.skin .rar { font-size: 11px; color: var(--rc); font-weight: 700; }
+.skin span:last-child { font-size: 12px; color: #9a94ad; }
+.skin.actif { background: color-mix(in srgb, var(--rc) 18%, transparent); }
+.skin.verrou { opacity: .55; }
 kbd { background: #2a2240; border: 1px solid rgba(255,255,255,.25); border-bottom-width: 3px; border-radius: 6px; padding: 3px 8px; font: 700 13px 'Segoe UI', sans-serif; color: #fff; }

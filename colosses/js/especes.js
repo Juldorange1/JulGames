@@ -27,7 +27,7 @@ espece('metronome', {
   },
   phases: [
     { cycle: ['me_salve', 'me_croix', 'me_salve', 'me_pluie'] },
-    { cycle: ['me_aiguilles', 'me_salve', 'geysers', 'me_pluie', 'me_salve', 'me_croix'], carte: 'cercle' }
+    { cycle: ['me_aiguilles', 'me_salve', 'satellites', 'me_pluie', 'me_salve', 'me_croix'], carte: 'cercle' }
   ]
 });
 defEsp('me_salve', {
@@ -84,7 +84,7 @@ defEsp('me_aiguilles', {
 
 // =============== La Sentinelle ===============
 espece('sentinelle', {
-  nom: 'la Sentinelle', hue: 210, r: 54, mouv: 'traqueur', tourne: [1.0, 1.5],
+  pv: 0.85, nom: 'la Sentinelle', hue: 210, r: 54, mouv: 'traqueur', tourne: [1.0, 1.5],
   forme: { style: 'cristal', cotes: 6, pics: 0, yeux: 1, sats: 0, anneaux: 1, rot: 0, creux: .5 },
   meca: 'Son bouclier frontal arrête tous tes tirs : frappe-la dans le dos (×2). Si sa charge finit dans un mur ou un pilier, elle est assommée et son bouclier tombe.',
   mult(b, o) {
@@ -104,7 +104,7 @@ espece('sentinelle', {
   },
   phases: [
     { cycle: ['rafale', 'rochers', 'se_charge', 'eventail', 'se_charge'] },
-    { cycle: ['balayage', 'se_charge', 'rochers', 'rafale', 'se_charge'], carte: 'piliers' }
+    { cycle: ['balayage', 'se_charge', 'rochers', 'murEpines', 'se_charge'], carte: 'piliers' }
   ]
 });
 defEsp('se_charge', {
@@ -133,26 +133,29 @@ defEsp('se_charge', {
 function hydreTetes(b) {
   G.minions = G.minions.filter(m => m.type !== 'tete');
   const n = b.phase > 0 ? 4 : 3;
-  for (let i = 0; i < n; i++) { const m = G.invoquer('tete', b.x, b.y); m.idx = i; m.n = n; m.hp = m.hpMax = b.hpMax * .045; }
+  for (let i = 0; i < n; i++) { const m = G.invoquer('tete', b.x, b.y); m.idx = i; m.n = n; m.hp = m.hpMax = b.hpMax * .035; }
   b.s.repousse = 0; b.s.vides = false;
 }
 espece('hydre', {
-  nom: 'l\'Hydre', hue: 120, r: 50, mouv: 'errant', sansTraits: ['cristaux'],
+  pv: 0.8, nom: 'l\'Hydre', hue: 120, r: 50, mouv: 'errant', sansTraits: ['cristaux'],
   forme: { style: 'blob', cotes: 5, pics: 0, yeux: 2, sats: 0, anneaux: 1, rot: .2, creux: .5 },
   meca: 'Son corps est protégé tant qu\'une tête vit. Les têtes crachent chacune leur tour, dans le sens des aiguilles d\'une montre. Coupe-les toutes : le corps s\'effondre (×1,5) avant qu\'elles repoussent.',
   init(b) { b.s.rot = 0; b.s.mi = 0; hydreTetes(b); },
   phaseInit(b) { hydreTetes(b); },
   maj(b, dt) {
     b.s.rot += dt * .45;
-    const vivantes = G.minions.some(m => m.type === 'tete');
+    const nt = G.minions.filter(m => m.type === 'tete').length, vivantes = nt > 0;
+    // chaque tête coupée arrache un morceau du corps : le combat avance même hors des fenêtres
+    if (b.s.nt !== undefined && nt < b.s.nt && !b.trans) { const perte = Math.min(b.hp - 1, b.hpMax * .06 * (b.s.nt - nt)); if (perte > 0) { b.hp -= perte; G.texte(b.x, b.y - b.r - 20, '−' + Math.round(perte), '#7dffb0', 15); } }
+    b.s.nt = nt;
     if (!vivantes) {
-      if (!b.s.vides) { b.s.vides = true; b.s.repousse = b.phase ? 5 : 7; G.etourdir(b, 1.4, 'Effondrée !'); ouvrir(b, b.s.repousse, 1.5); }
+      if (!b.s.vides) { b.s.vides = true; b.s.repousse = b.phase ? 7 : 9; G.etourdir(b, 1.4, 'Effondrée !'); ouvrir(b, b.s.repousse, 1.5); }
       else { b.s.repousse -= dt; if (b.s.repousse <= 0) { hydreTetes(b); G.annonce('Les têtes repoussent', b.col, 1.2); Son.play('cri'); } }
     }
   },
   bouclier(b) { return G.minions.some(m => m.type === 'tete'); },
   phases: [
-    { cycle: ['hy_souffles', 'spirale', 'hy_morsure', 'hy_souffles'] },
+    { cycle: ['hy_souffles', 'spirale', 'hy_morsure', 'feuxFollets', 'hy_souffles'] },
     { cycle: ['hy_souffles', 'ronces', 'anneaux', 'hy_morsure', 'chercheurs'] }
   ]
 });
@@ -190,7 +193,7 @@ defEsp('hy_morsure', {
 
 // =============== La Tisseuse ===============
 espece('tisseuse', {
-  nom: 'la Tisseuse', hue: 285, r: 48, mouv: 'errant',
+  pv: 0.9, nom: 'la Tisseuse', hue: 285, r: 48, mouv: 'errant',
   forme: { style: 'araignee', cotes: 8, pics: 8, picL: .5, yeux: 4, sats: 0, anneaux: 0, rot: .1, creux: .45 },
   meca: 'Elle tend des fils mortels entre ses nœuds. Casse un nœud pour couper ses fils. Si tous ses nœuds tombent, elle s\'emmêle : assommée et ×2.',
   maj(b) {
@@ -200,7 +203,7 @@ espece('tisseuse', {
   },
   phases: [
     { cycle: ['ti_toile', 'ronces', 'rafale', 'bond', 'rafale'] },
-    { cycle: ['ti_toile', 'cage', 'ti_toile', 'bond', 'petales'] }
+    { cycle: ['ti_toile', 'tourellesLaser', 'ti_toile', 'bond', 'petales'] }
   ]
 });
 defEsp('ti_toile', {
@@ -226,7 +229,7 @@ function spectreAncres(n) {
   return out;
 }
 espece('spectre', {
-  nom: 'le Spectre', hue: 265, r: 46, mouv: 'aucun', sansTraits: ['spectral'],
+  pv: 0.75, nom: 'le Spectre', hue: 265, r: 46, mouv: 'aucun', sansTraits: ['spectral'],
   forme: { style: 'fantome', cotes: 3, pics: 0, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'Intouchable, sauf quand il se matérialise sur une de ses ancres (3 s). Il les visite toujours dans le même ordre et la prochaine luit : attends-le là-bas.',
   init(b) { b.s.anc = spectreAncres(4); b.s.ordre = [0, 1, 2, 3]; b.s.i = 0; b.s.mat = 0; b.spectral = 99; const a = b.s.anc[0]; b.x = a.x; b.y = a.y; },
@@ -240,7 +243,7 @@ espece('spectre', {
     });
   },
   phases: [
-    { cycle: ['sp_saut', 'petales', 'sp_saut', 'echos'] },
+    { cycle: ['sp_saut', 'lunes', 'sp_saut', 'echos'] },
     { cycle: ['sp_saut', 'givre', 'chercheurs', 'sp_saut', 'petales', 'sp_saut', 'eclats'] }
   ]
 });
@@ -271,7 +274,7 @@ espece('forgeron', {
   },
   phases: [
     { cycle: ['fo_frappe', 'failles', 'fo_frappe', 'rafale', 'fo_frappe'] },
-    { cycle: ['fo_frappe', 'geysers', 'fo_frappe', 'murFeu', 'fo_frappe'], carte: 'lave' }
+    { cycle: ['fo_frappe', 'geysers', 'fo_frappe', 'meteoreGeant', 'fo_frappe'], carte: 'lave' }
   ]
 });
 defEsp('fo_frappe', {
@@ -309,12 +312,12 @@ defEsp('fo_surchauffe', {
 
 // =============== La Reine de l'essaim ===============
 espece('reine', {
-  nom: 'la Reine de l\'essaim', hue: 75, r: 52, mouv: 'orbiteur', sansTraits: ['cristaux'], pasInvoc: true,
+  pv: 0.8, nom: 'la Reine de l\'essaim', hue: 75, r: 52, mouv: 'orbiteur', sansTraits: ['cristaux'], pasInvoc: true,
   forme: { style: 'insecte', cotes: 6, pics: 6, picL: .3, yeux: 3, sats: 6, anneaux: 1, rot: .2, creux: .55 },
   meca: 'Elle est protégée tant qu\'au moins 3 drones vivent. Ils sortent en formation : les armes de zone les balaient vite. Tue l\'essaim, puis frappe la Reine.',
   bouclier(b) { return G.minions.filter(m => m.type !== 'cristal' && m.spawn <= 0).length >= 3; },
   phases: [
-    { cycle: ['re_essaim', 'chercheurs', 'pluie', 're_essaim', 'rafale'] },
+    { cycle: ['re_essaim', 'feuxFollets', 'pluie', 're_essaim', 'rafale'] },
     { cycle: ['re_essaim', 'pics', 'vortex', 're_kamikazes', 'pluie'] }
   ]
 });
@@ -344,11 +347,11 @@ defEsp('re_kamikazes', {
 
 // =============== Le Juge ===============
 espece('juge', {
-  nom: 'le Juge', hue: 52, r: 54, mouv: 'ancre',
+  pv: 0.9, nom: 'le Juge', hue: 52, r: 54, mouv: 'ancre',
   forme: { style: 'oeil', cotes: 4, pics: 4, picL: .45, yeux: 1, sats: 2, anneaux: 2, rot: .15, creux: .5 },
   meca: 'Il montre une suite de cases numérotées, puis les fait exploser très vite dans le même ordre. Retiens l\'ordre et file sur une case déjà passée. Après chaque sentence il s\'agenouille (×2).',
   phases: [
-    { cycle: ['ju_sentence', 'rayon', 'ju_sentence', 'croix'] },
+    { cycle: ['ju_sentence', 'lanceGeante', 'ju_sentence', 'croix'] },
     { cycle: ['ju_sentence', 'effondrement', 'echos', 'ju_sentence', 'grille', 'sniper'] }
   ]
 });
@@ -383,7 +386,7 @@ espece('horloger', {
   forme: { style: 'anneau', cotes: 12, pics: 12, picL: .12, yeux: 1, sats: 0, anneaux: 2, rot: .05, creux: .5 },
   meca: 'Ses aiguilles tournent toujours dans le même sens et à vitesse fixe : tourne avec elles. Quand elles se superposent (« midi »), il est ouvert (×2,5).',
   phases: [
-    { cycle: ['ho_aiguilles', 'salve', 'ho_engrenages', 'salve'] },
+    { cycle: ['ho_aiguilles', 'pendule', 'ho_engrenages', 'salve'] },
     { cycle: ['ho_aiguilles', 'ho_engrenages', 'pics', 'anneaux', 'ho_aiguilles', 'eclats'] }
   ]
 });
@@ -466,7 +469,7 @@ espece('serpent', {
   },
   phases: [
     { cycle: ['sn_ruee', 'sn_salve', 'pics', 'sn_enroule'] },
-    { cycle: ['sn_ruee', 'sn_salve', 'sn_enroule', 'sn_ruee', 'pluie'], carte: 'cercle' }
+    { cycle: ['sn_ruee', 'sn_salve', 'sn_enroule', 'sn_ruee', 'tsunami'], carte: 'cercle' }
   ]
 });
 defEsp('sn_ruee', {
@@ -520,13 +523,13 @@ defEsp('sn_enroule', {
 
 // =============== La Nébuleuse ===============
 espece('nebuleuse', {
-  nom: 'la Nébuleuse', hue: 315, r: 50, mouv: 'ancre',
+  pv: 0.9, nom: 'la Nébuleuse', hue: 315, r: 50, mouv: 'ancre',
   forme: { style: 'nautile', cotes: 7, pics: 0, yeux: 1, sats: 5, anneaux: 2, rot: .4, creux: .5 },
   meca: 'Elle t\'attire en permanence. Quand elle inspire (elle gonfle et aspire fort), son cœur est à nu (×2,5) : tire en courant à contre-sens, puis éloigne-toi avant qu\'elle expire.',
   maj(b) { if (!b.s.inspire) G.aspiration = { x: b.x, y: b.y, f: (b.phase ? 70 : 45) * b.D.S, t: .1 }; },
   phases: [
     { cycle: ['orbites', 'petales', 'ne_inspire', 'spirale'] },
-    { cycle: ['orbites', 'ne_inspire', 'givre', 'petales', 'effondrement', 'ne_inspire'], carte: 'tenebres' }
+    { cycle: ['orbites', 'ne_inspire', 'cercleVide', 'petales', 'poles', 'ne_inspire'], carte: 'tenebres' }
   ]
 });
 defEsp('ne_inspire', {
@@ -552,7 +555,7 @@ espece('bourreau', {
   meca: 'Toujours le même combo : des ruées annoncées puis un tourbillon (3 coups, 5 en phase 2). Après le tourbillon, il reprend son souffle (×2). La parade y est reine.',
   phases: [
     { cycle: ['bo_combo', 'pics', 'bo_lames', 'bo_combo', 'bond'] },
-    { cycle: ['bo_combo', 'failles', 'bo_combo', 'bo_lames', 'rafale'] }
+    { cycle: ['bo_combo', 'failles', 'bo_combo', 'bo_lames', 'rebondsTerre'] }
   ]
 });
 defEsp('bo_combo', {
@@ -589,7 +592,7 @@ defEsp('bo_lames', {
 
 // =============== Le Phénix ===============
 espece('phenix', {
-  nom: 'le Phénix', hue: 28, r: 52, mouv: 'orbiteur',
+  pv: 0.85, nom: 'le Phénix', hue: 28, r: 52, mouv: 'orbiteur',
   forme: { style: 'oiseau', cotes: 7, pics: 10, picL: .5, yeux: 2, sats: 3, anneaux: 1, rot: .3, creux: .5 },
   meca: 'À la fin de sa première phase il devient un œuf pendant 7 s. Casse l\'œuf à temps : il renaît affaibli et étourdi. Sinon il renaît en reprenant des forces.',
   transition(b) {
@@ -633,8 +636,8 @@ espece('phenix', {
     return true;
   },
   phases: [
-    { cycle: ['px_plongeon', 'px_plumes', 'pluie', 'px_plumes'] },
-    { cycle: ['px_plongeon', 'failles', 'px_plumes', 'px_plongeon', 'geysers'] }
+    { cycle: ['px_plongeon', 'px_plumes', 'grele', 'px_plumes'] },
+    { cycle: ['px_plongeon', 'failles', 'px_plumes', 'eclairsChaine', 'geysers'] }
   ]
 });
 defEsp('px_plongeon', {

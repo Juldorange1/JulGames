@@ -187,7 +187,7 @@ const Son = {
       case 'portail': if (!this.ech('tele', .35, .7, .5)) this.tone(200, 1, 'sine', .08, 800); break;
       case 'teleporte': if (!this.ech('tele', .3, rr() * 1.2, .3)) this.tone(500, .25, 'sine', .05, 1500); break;
       case 'mortBoss': if (!this.ech('explo_boss', .7, .8, .6)) this.noise(1.5, .35, 600, 0, 40); this.tone(45, 2, 'sine', .35, 22); this.ech('explo_grosse', .5, .6, .6); break;
-      case 'victoire': [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .5, 'triangle', .07, null, i * .1, .3)); break;
+      case 'victoire': this.tone(392, .9, 'sine', .05, null, 0, .6); this.tone(587, 1.1, 'sine', .04, null, .12, .6); break;
       case 'mort': this.tone(200, 2, 'sawtooth', .08, 30, 0, .6); this.noise(1.6, .15, 500, 0, 50, .5); this.ech('choc3', .6, .5, .6); break;
       case 'clic': this.tone(660, .06, 'triangle', .04); break;
       case 'soin': this.tone(523, .25, 'sine', .07, 1046, 0, .3); this.tone(784, .3, 'sine', .05, 1568, .08, .3); break;
@@ -210,41 +210,52 @@ const MUS = {
   menu: 'menu.ogg', victoire: 'victoire.ogg'
 };
 const Musique = {
-  el: null, src: '', vol: 0, cible: 1, derniers: [],
+  pistes: [], courant: null, derniers: [], duck: 1, duckCible: 1,
   volume() { return Save.d.opts.musique * Save.d.opts.master; },
-  jouer(fichier, boucle) {
-    if (this.src === fichier && this.el && !this.el.paused) { this.cible = 1; return; }
-    const ancien = this.el;
-    if (ancien) { const a = ancien; let v = a.volume; const t = setInterval(() => { v -= .05; if (v <= 0) { clearInterval(t); a.pause(); } else a.volume = v; }, 40); }
-    const el = new Audio('music/' + fichier);
-    el.loop = boucle !== false; el.volume = 0;
-    this.el = el; this.src = fichier; this.vol = 0; this.cible = 1;
-    const p = el.play(); if (p && p.catch) p.catch(() => { });
+  jouer(fichier, fondu) {
+    fondu = fondu || 3;
+    if (this.courant && this.courant.src === fichier) { this.courant.cible = 1; this.courant.vitesse = 1 / fondu; return; }
+    if (this.courant) { this.courant.cible = 0; this.courant.vitesse = 1 / fondu; }
+    let p = this.pistes.find(x => x.src === fichier);
+    if (!p) {
+      const el = new Audio('music/' + fichier);
+      el.loop = true; el.volume = 0;
+      p = { el, src: fichier, vol: 0 };
+      this.pistes.push(p);
+      const pr = el.play(); if (pr && pr.catch) pr.catch(() => { });
+    }
+    p.cible = 1; p.vitesse = 1 / fondu;
+    this.courant = p;
   },
-  combat() {
+  // nouvelle = true pour changer de morceau (nouveau palier) ; sinon on garde celui qui joue
+  combat(nouvelle) {
+    if (!nouvelle && this.courant && MUS.combat.includes(this.courant.src)) { this.courant.cible = 1; return; }
     const libres = MUS.combat.filter(f => !this.derniers.includes(f));
     const f = libres[Math.floor(Math.random() * libres.length)];
     this.derniers.push(f); if (this.derniers.length > 6) this.derniers.shift();
-    this.jouer(f);
+    this.jouer(f, 4);
   },
-  sting(f) { const el = new Audio('music/' + f); el.volume = Math.min(1, this.volume() * 1.2); const p = el.play(); if (p && p.catch) p.catch(() => { }); },
-  baisser(k) { this.cible = k; },
-  stop() { this.cible = 0; },
+  baisser(k) { this.duckCible = k; },
+  stop() { this.duckCible = 0; },
   maj(dt) {
-    if (!this.el) return;
-    this.vol += clamp(this.cible - this.vol, -dt * 1.5, dt * 1.5);
-    this.el.volume = clamp(this.vol * this.volume(), 0, 1);
-    if (this.cible === 0 && this.vol <= 0 && !this.el.paused) this.el.pause();
-    if (this.cible > 0 && this.el.paused && this.el.readyState > 2 && !this.el.ended) { const p = this.el.play(); if (p && p.catch) p.catch(() => { }); }
+    this.duck += clamp(this.duckCible - this.duck, -dt * .7, dt * .7);
+    const v = this.volume();
+    for (const p of this.pistes) {
+      p.vol += clamp(p.cible - p.vol, -dt * p.vitesse, dt * p.vitesse);
+      p.el.volume = clamp(p.vol * this.duck * v, 0, 1);
+      if (p.cible > 0 && p.el.paused && p.el.readyState > 2) { const pr = p.el.play(); if (pr && pr.catch) pr.catch(() => { }); }
+      if (p.cible === 0 && p.vol <= 0) { p.el.pause(); p.mort = true; }
+    }
+    if (this.pistes.some(p => p.mort)) this.pistes = this.pistes.filter(p => !p.mort);
   }
 };
 
 // ---------- Sauvegarde ----------
 const SAVE_KEY = 'colosses_v1';
 const DIFFS = {
-  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: .8, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
-  guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.15, hp: 1.1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
-  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.75, hp: 1.35, vit: 1.18, tele: .8, idle: .62, dens: 1.3, soin: 15 }
+  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: .85, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
+  guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
+  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.6, hp: 1.15, vit: 1.18, tele: .8, idle: .62, dens: 1.3, soin: 15 }
 };
 function progVide() { return { palier: 0, record: 0, up: { p: {}, s: {}, t: {} }, run: null, megaTemps: {} }; }
 const Save = {

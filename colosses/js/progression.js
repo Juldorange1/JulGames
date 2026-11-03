@@ -59,6 +59,8 @@ const SUCCES = {
   defiSemaine: { nom: 'Semaine parfaite', ico: '🗓', desc: 'Réussir un défi de la semaine' },
   oeuf: { nom: 'Omelette', ico: '🥚', desc: 'Casser l\'œuf du Phénix à temps' },
   carapace: { nom: 'Casse-noix', ico: '🔨', desc: 'Briser une carapace' },
+  legende: { nom: 'Chasseur de légendes', ico: '✦', desc: 'Vaincre un boss légendaire' },
+  abysses10: { nom: 'Plongée', ico: '🌌', desc: 'Atteindre la profondeur 10 des Abysses' },
   marathon: { nom: 'Marathon', ico: '⌛', desc: 'Jouer 10 heures', obj: () => Save.d.stats.temps / 36000 }
 };
 function maxPalier() { return Math.max(...Object.values(Save.d.prog).map(p => p.palier)); }
@@ -67,7 +69,7 @@ function succes(id) {
   if (s[id] || !SUCCES[id]) return;
   s[id] = Date.now(); Save.write();
   G.succesFile = G.succesFile || []; G.succesFile.push({ id, t: 0 });
-  Son.play('victoire');
+  Son.play('ramasse');
 }
 function verifierSucces() {
   for (const [id, x] of Object.entries(SUCCES)) if (x.obj && x.obj() >= 1) succes(id);
@@ -89,4 +91,123 @@ function statPlus(cle, sous, n) {
   const s = Save.d.stats;
   if (sous === undefined) { s[cle] = (s[cle] || 0) + (n || 1); return; }
   const o = s[cle] = s[cle] || {}; o[sous] = (o[sous] || 0) + (n || 1);
+}
+
+// ---------- Apparences : fragments à collectionner (aucun bonus de puissance) ----------
+const RARETES = { commun: { nom: 'Commun', col: '#b8c4d0', frags: 3, poids: 60 }, rare: { nom: 'Rare', col: '#5aa8ff', frags: 5, poids: 30 }, epique: { nom: 'Épique', col: '#c06bff', frags: 8, poids: 10 }, legendaire: { nom: 'Légendaire', col: '#ffb43d', frags: 1, poids: 0 } };
+const SLOTS = { armure: 'Armure', cape: 'Cape', visiere: 'Visière', trainee: 'Traînée', aura: 'Aura' };
+const SKINS = [
+  { id: 'a_acier', slot: 'armure', nom: 'Acier', rar: 'commun', c: ['#e6eef8', '#7d8fa3', '#232b36'], base: true },
+  { id: 'a_bronze', slot: 'armure', nom: 'Bronze', rar: 'commun', c: ['#ffe2b8', '#b07a3c', '#3a2414'] },
+  { id: 'a_jade', slot: 'armure', nom: 'Jade', rar: 'commun', c: ['#dfffe8', '#4fa07a', '#143224'] },
+  { id: 'a_obsidienne', slot: 'armure', nom: 'Obsidienne', rar: 'rare', c: ['#9a8fb8', '#2c2440', '#08060e'] },
+  { id: 'a_sang', slot: 'armure', nom: 'Sang', rar: 'rare', c: ['#ffc2c8', '#a02434', '#2a0610'] },
+  { id: 'a_givre', slot: 'armure', nom: 'Givre', rar: 'rare', c: ['#ffffff', '#8fd0f0', '#24506a'] },
+  { id: 'a_or', slot: 'armure', nom: 'Or', rar: 'epique', c: ['#fff6c8', '#e0a830', '#5a3a08'] },
+  { id: 'a_neant', slot: 'armure', nom: 'Néant', rar: 'epique', c: ['#e0c8ff', '#5a2aa0', '#10041e'] },
+  { id: 'a_soleil', slot: 'armure', nom: 'Soleil noir', rar: 'legendaire', c: ['#fff0a0', '#ff7a1a', '#1a0400'] },
+  { id: 'c_pourpre', slot: 'cape', nom: 'Pourpre', rar: 'commun', c: ['#8a1430', '#2a0410'], base: true },
+  { id: 'c_nuit', slot: 'cape', nom: 'Nuit', rar: 'commun', c: ['#1e2a5a', '#060a1a'] },
+  { id: 'c_foret', slot: 'cape', nom: 'Forêt', rar: 'commun', c: ['#2a6a34', '#0a1a0c'] },
+  { id: 'c_braise', slot: 'cape', nom: 'Braise', rar: 'rare', c: ['#ff6a1a', '#3a0800'], motif: 'flammes' },
+  { id: 'c_azur', slot: 'cape', nom: 'Azur étoilé', rar: 'rare', c: ['#2a7aff', '#08143a'], motif: 'etoiles' },
+  { id: 'c_royale', slot: 'cape', nom: 'Royale', rar: 'epique', c: ['#7a1aa0', '#1a0428'], motif: 'liseré' },
+  { id: 'c_aurore', slot: 'cape', nom: 'Aurore', rar: 'epique', c: ['#3affc0', '#c040ff'], motif: 'etoiles' },
+  { id: 'c_dragon', slot: 'cape', nom: 'Ailes de dragon', rar: 'legendaire', c: ['#ffb43d', '#5a0a00'], motif: 'flammes' },
+  { id: 'v_cyan', slot: 'visiere', nom: 'Cyan', rar: 'commun', col: '#34d6ff', base: true },
+  { id: 'v_rouge', slot: 'visiere', nom: 'Rouge', rar: 'commun', col: '#ff3a4a' },
+  { id: 'v_vert', slot: 'visiere', nom: 'Émeraude', rar: 'commun', col: '#3aff8a' },
+  { id: 'v_or', slot: 'visiere', nom: 'Doré', rar: 'rare', col: '#ffd24d' },
+  { id: 'v_violet', slot: 'visiere', nom: 'Améthyste', rar: 'rare', col: '#c06bff' },
+  { id: 'v_blanc', slot: 'visiere', nom: 'Lumière pure', rar: 'epique', col: '#ffffff' },
+  { id: 't_aucune', slot: 'trainee', nom: 'Aucune', rar: 'commun', base: true },
+  { id: 't_poussiere', slot: 'trainee', nom: 'Poussière', rar: 'commun', col: 'rgba(200,190,170,.6)' },
+  { id: 't_braises', slot: 'trainee', nom: 'Braises', rar: 'rare', col: '#ff8a3c', add: true },
+  { id: 't_givre', slot: 'trainee', nom: 'Givre', rar: 'rare', col: '#bfe9ff', add: true },
+  { id: 't_ombre', slot: 'trainee', nom: 'Ombre', rar: 'epique', col: '#a070ff', add: true, gros: true },
+  { id: 't_etoiles', slot: 'trainee', nom: 'Poussière d\'étoiles', rar: 'legendaire', col: '#fff2b0', add: true, gros: true },
+  { id: 'r_aucune', slot: 'aura', nom: 'Aucune', rar: 'commun', base: true },
+  { id: 'r_cyan', slot: 'aura', nom: 'Lueur', rar: 'rare', col: 'rgba(80,230,255,.35)' },
+  { id: 'r_feu', slot: 'aura', nom: 'Flammes', rar: 'epique', col: 'rgba(255,120,40,.45)' },
+  { id: 'r_couronne', slot: 'aura', nom: 'Couronne', rar: 'legendaire', col: 'rgba(255,210,80,.5)', couronne: true }
+];
+function skin(id) { return SKINS.find(s => s.id === id); }
+function skinsSave() { const s = Save.d.skins = Save.d.skins || { frag: {}, equip: {} }; for (const k in SLOTS) if (!s.equip[k]) s.equip[k] = SKINS.find(x => x.slot === k && x.base).id; return s; }
+function possede(id) { const s = skin(id); return s.base || (skinsSave().frag[id] || 0) >= RARETES[s.rar].frags; }
+function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => x.slot === slot && x.base); }
+// donne un fragment d'une apparence de la rareté tirée (ou au-dessus) ; renvoie le texte affiché
+function donnerFragment(rarMin) {
+  const ordre = ['commun', 'rare', 'epique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
+  const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire');
+  if (!dispo.length) { gagnerEclats(2); return '+2 éclats'; }
+  const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
+  S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write();
+  const n = S.frag[s.id], tot = RARETES[s.rar].frags;
+  return (n >= tot ? '✔ ' : '') + SLOTS[s.slot] + ' « ' + s.nom + ' » ' + Math.min(n, tot) + '/' + tot;
+}
+function donnerLegendaire() {
+  const dispo = SKINS.filter(s => s.rar === 'legendaire' && !possede(s.id));
+  if (!dispo.length) { gagnerEclats(5); return '+5 éclats'; }
+  const s = R.pick(dispo); skinsSave().frag[s.id] = 1; Save.write();
+  return '★ ' + SLOTS[s.slot] + ' légendaire : « ' + s.nom + ' »';
+}
+
+// ---------- Forge : chaque famille d'armes peut prendre une évolution (échange, pas de bonus gratuit) ----------
+const FORGE = {
+  fusil: [
+    { id: 'perforant', nom: 'Perforant', desc: 'Les balles traversent une cible de plus · −15 % de dégâts', mod: { pierce: 1, dmg: .85 } },
+    { id: 'rafale', nom: 'Rafale', desc: '+30 % de cadence · −25 % de dégâts', mod: { cad: 1.3, dmg: .75 } },
+    { id: 'calibre', nom: 'Gros calibre', desc: '−35 % de cadence · +55 % de dégâts, balles plus grosses', mod: { cad: .65, dmg: 1.55, taille: 1.5 } }
+  ],
+  lame: [
+    { id: 'allonge', nom: 'Allonge', desc: '+25 % de portée · −15 % de dégâts', mod: { portee: 1.25, dmg: .85 } },
+    { id: 'vampire', nom: 'Vampire', desc: 'Les coups rendent 1 PV (au plus 1 par seconde) · −20 % de dégâts', mod: { dmg: .8, vampire: 1 } },
+    { id: 'tempo', nom: 'Tempo', desc: '+25 % de vitesse de frappe · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } }
+  ],
+  trait: [
+    { id: 'chercheur', nom: 'Chercheur', desc: 'Les projectiles s\'orientent un peu vers la cible · −15 % de dégâts', mod: { hom: 2.2, dmg: .85 } },
+    { id: 'lourd', nom: 'Lourd', desc: '+40 % de dégâts · projectiles 30 % plus lents, cadence −15 %', mod: { dmg: 1.4, vit: .7, cad: .85 } },
+    { id: 'eclat', nom: 'Éclatement', desc: 'À l\'impact, deux éclats repartent · −20 % de dégâts', mod: { dmg: .8, eclat: 1 } }
+  ],
+  explosif: [
+    { id: 'large', nom: 'Grande zone', desc: '+30 % de zone · −15 % de dégâts', mod: { zone: 1.3, dmg: .85 } },
+    { id: 'grappe', nom: 'Grappe', desc: 'Chaque explosion en lâche trois petites · −30 % de dégâts', mod: { dmg: .7, grappe: 1 } },
+    { id: 'vif', nom: 'Vif', desc: '+25 % de cadence · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } }
+  ],
+  magie: [
+    { id: 'echo', nom: 'Écho', desc: '15 % de chance de lancer deux fois · −10 % de dégâts', mod: { echo: .15, dmg: .9 } },
+    { id: 'canal', nom: 'Canalisation', desc: '+25 % de dégâts immobile · −15 % en mouvement', mod: { canal: 1 } },
+    { id: 'drain', nom: 'Drain', desc: 'Les coups rendent 50 % d\'énergie en plus · −15 % de dégâts', mod: { dmg: .85, energie: 1.5 } }
+  ]
+};
+const COUT_FORGE = 6;
+function forgeSave() { return Save.d.forge = Save.d.forge || { eclats: 0, debloque: {}, actif: {} }; }
+function gagnerEclats(n) { forgeSave().eclats += n; Save.write(); }
+function modForge() {
+  try {
+    const fam = FAMILLE[G.ars.p], id = forgeSave().actif[fam];
+    if (!id || G.mode === 'jour' || G.mode === 'semaine') return {};
+    const e = (FORGE[fam] || []).find(x => x.id === id); return e ? e.mod : {};
+  } catch (e) { return {}; }
+}
+
+// ---------- Chasse de la semaine : une espèce à battre de plus en plus vite ----------
+const CHASSE_PALIERS = [180, 120, 90];
+function chasseCourante() {
+  const cle = cleSemaine(), r = RNG(hashStr('chasse-' + cle));
+  const c = Save.d.chasseH = Save.d.chasseH && Save.d.chasseH.cle === cle ? Save.d.chasseH : { cle, esp: r.pick(ESP_ORDRE), best: 0, paliers: [] };
+  return c;
+}
+function noterChasse(esp, temps) {
+  const c = chasseCourante();
+  if (c.esp !== esp) return;
+  if (!c.best || temps < c.best) c.best = Math.round(temps);
+  CHASSE_PALIERS.forEach((lim, i) => {
+    if (temps <= lim && !c.paliers.includes(i)) {
+      c.paliers.push(i);
+      const txt = donnerFragment(i === 2 ? 'epique' : 'rare');
+      G.annonce('Chasse : palier ' + (i + 1) + ' réussi !', '#ffd86b', 2.2); G.texte(G.p.x, G.p.y - 70, txt, '#ffd86b', 14);
+    }
+  });
+  Save.write();
 }
