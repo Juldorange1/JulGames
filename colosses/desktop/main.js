@@ -48,7 +48,7 @@ function createWindow() {
         out.menu = await js('!!document.querySelector("[data-a=jouer]")');
         out.police = await js('document.fonts.check("700 30px Cinzel")');
         out.shaders = await js('PostFX.ok');
-        out.combat = await js(`(() => { UI.cacher(); G.nouvellePartie(); for (let i = 0; i < 600; i++) { G.p.iframe = 1; G.mx = G.boss.x; G.my = G.boss.y; Input.k = { Mouse0: true }; majCombat(1 / 60); if (i % 10 === 0) rendu(); Input.endFrame(); } return G.etat + ' ' + G.def.nom + ' ' + Math.round((1 - G.boss.hp / G.boss.hpMax) * 100) + ' %'; })()`);
+        out.combat = await js(`(() => { UI.cacher(); G.nouvellePartie(); if (G.etat === 'avant' && typeof Avant !== 'undefined') Avant.entrer(); for (let i = 0; i < 600; i++) { G.p.iframe = 1; G.mx = G.boss.x; G.my = G.boss.y; Input.k = { Mouse0: true }; majCombat(1 / 60); if (i % 10 === 0) rendu(); Input.endFrame(); } return G.etat + ' ' + G.def.nom + ' ' + Math.round((1 - G.boss.hp / G.boss.hpMax) * 100) + ' %'; })()`);
         out.musique = await js('fetch("music/menu.ogg").then(r => r.ok)');
         out.errors = errors.slice(0, 5);
       } catch (err) { out.exception = String(err); out.errors = errors.slice(0, 5); }
