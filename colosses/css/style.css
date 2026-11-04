@@ -339,3 +339,13 @@ h4.cx-cat small { color: #9a94ad; font-family: system-ui, sans-serif; font-weigh
 .ico-grand.eteint { filter: grayscale(1) brightness(.4); }
 /* manette : bouton choisi */
 .focus-manette { outline: 2px solid #ffd86b !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(255,210,100,.55) !important; }
+/* ---------- Entre amis ---------- */
+.amis-g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.amis-g input, .amis-g textarea { width: 100%; box-sizing: border-box; background: rgba(0,0,0,.45); color: #f1e6c8; border: 1px solid rgba(201,168,101,.4); border-radius: 4px; padding: 6px 8px; font: 12px ui-monospace, Consolas, monospace; resize: vertical; }
+.amis-msg { color: #9dffc4; font-weight: 600; }
+.amis-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+.amis-t th { text-align: left; color: #c9a865; font-family: Cinzel, Georgia, serif; font-weight: 700; padding: 6px; border-bottom: 1px solid rgba(201,168,101,.4); }
+.amis-t td { padding: 7px 6px; border-bottom: 1px solid rgba(255,255,255,.06); color: #d8ccb4; }
+.amis-t td small { display: block; color: #9a94ad; font-size: 11px; }
+.amis-t tr.moi td { background: rgba(201,168,101,.08); }
+.amis-t td.top { color: #ffd86b; font-weight: 800; }
