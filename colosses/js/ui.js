@@ -91,7 +91,7 @@ const UI = {
     this.montrer(`
       <div class="accueil">
         <h1 class="titre">COLOSSES</h1>${typeof titrePorte === 'function' ? `<div class="titre-joueur" data-a="hauts" data-o="titres" title="Changer de titre">« ${titrePorte().nom} »</div>` : ''}
-        <div class="pills">${pills}</div>
+        <div class="pills">${pills}${typeof Coop !== 'undefined' ? Coop.boutonMenu() : ''}</div>
         <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
         <div class="defis2">${defi('jour')}${defi('semaine')}
           <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>

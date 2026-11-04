@@ -337,3 +337,5 @@ h4.cx-cat small { color: #9a94ad; font-family: system-ui, sans-serif; font-weigh
 .ico-grand { display: inline-flex; width: 52px; height: 52px; flex: none; }
 .ico-grand svg { width: 100%; height: 100%; }
 .ico-grand.eteint { filter: grayscale(1) brightness(.4); }
+/* manette : bouton choisi */
+.focus-manette { outline: 2px solid #ffd86b !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(255,210,100,.55) !important; }
