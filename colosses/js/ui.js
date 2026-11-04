@@ -90,7 +90,7 @@ const UI = {
     const tuile = (a, ico, nom, extra) => `<button class="tuile" data-a="${a}"><span>${ico}</span>${nom}${extra ? `<small>${extra}</small>` : ''}</button>`;
     this.montrer(`
       <div class="accueil">
-        <h1 class="titre">COLOSSES</h1>
+        <h1 class="titre">COLOSSES</h1>${typeof titrePorte === 'function' ? `<div class="titre-joueur" data-a="hauts" data-o="titres" title="Changer de titre">« ${titrePorte().nom} »</div>` : ''}
         <div class="pills">${pills}</div>
         <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
         <div class="defis2">${defi('jour')}${defi('semaine')}
@@ -100,11 +100,12 @@ const UI = {
         <div class="tuiles">
           ${tuile('forge', '🎲', 'Affinités', forgeSave().eclats + ' 💎')}
           ${tuile('garderobe', '👕', 'Garde-robe')}
+          ${tuile('hauts', '🏆', 'Hauts faits', typeof titresSave === 'function' && d.titresNouveaux ? d.titresNouveaux + ' nouveau(x) titre(s)' : '')}
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
           ${tuile('options', '⚙', 'Paramètres')}
-          ${/Electron/.test(navigator.userAgent) ? tuile('quitterJeu', '⏻', 'Quitter') : ''}
         </div>
+        ${/Electron/.test(navigator.userAgent) ? '<button class="quitter-jeu" data-a="quitterJeu">⏻ Quitter le jeu</button>' : ''}
       </div>`, 'fond');
   },
 
@@ -186,8 +187,8 @@ const UI = {
         <div class="bloc"><h3>Ce qui te bat (part des défaites)</h3>${barres(s.mortsAttaque, nomAtk, 5, true)}</div>
       </div>
       <h4>Espèces</h4>
-      <div class="tab-esp">${esp.map(e => { const v = d.codex.especes[e], t = (d.especesTemps || {})[e], m = ((s.mortsEsp || {})[e]) || 0; return `<div><b>${nomMaj(ESPECES[e].nom)}</b><span>${'★'.repeat(etoiles(e))}${'☆'.repeat(3 - etoiles(e))}</span><span>${pct(v.tues, v.tues + m)} gagnés</span><span>${t ? fmtTemps(t) : '—'}</span></div>`; }).join('') || '<p class="mini">Aucune espèce rencontrée.</p>'}</div>
-      <p class="mini">Étoiles · part des combats gagnés · meilleur temps. ★ vaincue · ★★ sans être touché ou en moins d'une minute · ★★★ en Cauchemar.</p>`);
+      <div class="tab-esp">${esp.map(e => { const v = d.codex.especes[e], t = (d.especesTemps || {})[e], m = ((s.mortsEsp || {})[e]) || 0; return `<div><b>${nomMaj(ESPECES[e].nom)}</b><span>${'★'.repeat(etoiles(e))}${'☆'.repeat(Math.max(0, 4 - etoiles(e)))}</span><span>${pct(v.tues, v.tues + m)} gagnés</span><span>${t ? fmtTemps(t) : '—'}</span></div>`; }).join('') || '<p class="mini">Aucune espèce rencontrée.</p>'}</div>
+      <p class="mini">Étoiles · part des combats gagnés · meilleur temps. ★ vaincue · rapide (moins de 1:30) · propre (3 coups ou moins) · en Cauchemar. Détails dans Hauts faits.</p>`);
   },
 
   // ---------- Succès ----------

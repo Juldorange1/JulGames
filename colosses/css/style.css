@@ -272,3 +272,20 @@ input[type=range]::-moz-range-track { height: 8px; border-radius: 6px; backgroun
 input[type=range]::-moz-range-progress { height: 8px; border-radius: 6px; background: linear-gradient(90deg, #8a6f3a, #ecd9a4); }
 input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6d8, #e3c27a 45%, #7a5a26); border: 2px solid #1a140c; }
 select { background: #15120e; color: #e8e0cc; border: 1px solid rgba(201,168,101,.4); border-radius: 4px; padding: 4px 6px; }
+
+/* ---------- Hauts faits ---------- */
+.titre-joueur { font-family: Cinzel, Georgia, serif; color: #c9a865; font-size: 17px; letter-spacing: .06em; margin: 2px 0 8px; cursor: pointer; text-shadow: 0 2px 6px #000; }
+.titre-joueur:hover { color: #ffe3a0; }
+.entree.maitrise .cpt { color: #ffd86b; font-size: 14px; }
+.entree.maitrise .cpt .or, .defis-m .dm.or.fait { color: #ffcf6b; text-shadow: 0 0 6px rgba(255,200,80,.6); }
+.defis-m { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.defis-m .dm { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.05); color: #8d86a0; border: 1px solid rgba(255,255,255,.08); }
+.defis-m .dm.fait { color: #e9ffe9; background: rgba(90,200,120,.14); border-color: rgba(120,230,150,.35); }
+.rec-m { display: flex; gap: 14px; margin-top: 7px; font-size: 12px; color: #a59fb8; flex-wrap: wrap; }
+.titre-c.ok { cursor: pointer; }
+.titre-c.ok:hover { border-color: #ffd86b; }
+.titre-c.porte { background: rgba(255,216,107,.18); border: 1px solid #ffd86b; box-shadow: 0 0 12px rgba(255,200,80,.25); }
+.titre-c b { font-family: Cinzel, Georgia, serif; }
+.journal .ligne small { color: #9a94ad; margin-left: 6px; }
+.quitter-jeu { align-self: flex-start; margin-top: 10px; padding: 7px 16px; font-family: Cinzel, Georgia, serif; font-size: 13px; background: rgba(12,10,8,.8); border: 1px solid rgba(201,168,101,.35); border-radius: 6px; color: #d8c8a8; }
+.quitter-jeu:hover { border-color: #ff7a7a; color: #ffd0d0; }
