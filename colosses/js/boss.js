@@ -425,7 +425,7 @@ function corpsFin(cm, b, h) {
   cm.restore();
   // la silhouette dessinée sert aussi de zone touchable : un tir ne touche que là où le boss est vraiment
   if (b && b.def && (G.etat === 'combat' || G.etat === 'interlude')) {
-    try { b.masque = { a: calqueCorps.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, S, S).data, S, k: k / (1 + (b.haut || 0) / 300), cx: b.x, cy: b.y - (b.haut || 0), t: G.t }; } catch (e) { b.masque = null; }
+    try { b.masque = { a: calqueCorps.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, S, S).data, S, k: k / ((1 + (b.haut || 0) / 300) * (b._as || 1)), cx: b.x + (b._adx || 0), cy: b.y + (b._ady || 0) - (b.haut || 0) * (b._as || 1), t: G.t }; } catch (e) { b.masque = null; }
   }
   return cm;
 }

@@ -640,7 +640,7 @@ function creerJoueur(pv) {
 function majJoueur(dt) {
   const p = G.p;
   const prim = trouveArme('p', G.ars.p), spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t);
-  p.aim = ang(p.x, p.y, G.mx, G.my);
+  { const a = ang(p.x, p.y, G.mx, G.my); if (Number.isFinite(a)) p.aim = a; else if (!Number.isFinite(p.aim)) p.aim = -Math.PI / 2; }
   for (const k of ['iframe', 'miroir', 'parade', 'bouclier', 'fantome', 'vite', 'rouge', 'sprint', 'contre', 'bulle']) if (p[k] > 0) p[k] -= dt;
   if (p.ancre) { p.ancre.t -= dt; if (p.ancre.t <= 0) p.ancre = null; }
   if (p.invis > 0) p.invis -= dt;
@@ -1123,7 +1123,8 @@ function pasBoucle(now) {
   G.fps = G.fps ? G.fps * .95 + (dt > 0 ? 1 / dt : 60) * .05 : 60;
   dt = Math.min(dt, 1 / 30);
   if (G.mode === 'normal' || G.mode === 'entrainement') dt *= G.opts.vitesse || 1;
-  G.mx = (Input.sx - offX) / scale; G.my = (Input.sy - offY) / scale;
+  // fenêtre réduite (taille nulle) : on garde la dernière visée au lieu de produire une valeur invalide
+  if (scale > 0 && Number.isFinite(scale)) { G.mx = (Input.sx - offX) / scale; G.my = (Input.sy - offY) / scale; }
   Musique.maj(dt);
   if ((G.etat === 'combat' || G.etat === 'interlude') && (Input.hit('Escape') || Input.hit(TOUCHES().pause))) UI.pause();
   else if (G.etat === 'combat' || G.etat === 'interlude' || G.etat === 'mort') {
