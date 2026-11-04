@@ -266,7 +266,6 @@ dessinerHUD = function (c) {
   _rgHud(c);
   const rg = Regions.rg;
   if (rg && (G.etat === 'combat' || G.etat === 'interlude')) {
-    c.save(); c.textAlign = 'left'; c.font = `600 12px ${POLICE_ER}`; c.fillStyle = '#c9a865'; c.fillText(romain(rg.num) + ' · ' + rg.nom, 16, 72); c.restore();
     Regions.dessinerCarte(c);
   }
 };

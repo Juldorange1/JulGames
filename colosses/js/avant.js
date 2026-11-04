@@ -226,7 +226,7 @@ const Avant = {
       const L = { p: ['Arme', PRIM], s: ['Spéciale', SPEC], t: ['Talent', TAL] };
       for (const k of armes) { const a = L[k][1].find(x => x.id === G.ars[k]); if (a) out.push({ cle: 'arme:' + k + ':' + a.id, demo: 'arme:' + k, data: { ico: a.ico }, titre: L[k][0] + ' : ' + a.nom, ico: a.ico, texte: a.desc + (a.cout === undefined && a.rech ? ' Recharge : ' + a.rech + ' s.' : '') }); }
     }
-    if (!V.finale && V.base) out.push({ cle: 'finale', demo: 'finale', titre: 'Dernier souffle', ico: 'ui:sablier', texte: 'Quand sa vie tombe à zéro, le colosse lance une dernière attaque spectaculaire. Il ne peut plus te tuer, mais chaque coup reçu compte pour les défis de maîtrise.' });
+    if (!V.finale && V.base) out.push({ cle: 'finale', demo: 'finale', titre: 'Dernier souffle', ico: 'ui:sablier', texte: 'Parfois, quand sa vie tombe à zéro, le colosse lance une dernière attaque spectaculaire, jamais deux fois la même. Il ne peut plus te tuer, mais chaque coup reçu compte pour les défis de maîtrise.' });
     if (G.mode === 'normal' && ((d.essais || {})[d.diff + ':' + G.salle] || 0) > 0 && !V.retour) out.push({ cle: 'retour', demo: 'retour', titre: 'Même boss', ico: 'ui:recommencer', texte: `Après une mort, tu retrouves exactement le même colosse avec les mêmes armes. Bloqué ? ${T_('pause')} puis « Passer ce boss » : le joker est commun aux 3 difficultés et revient après 3 boss vaincus.` });
     if (false) out.push({ cle: 'cristaux', demo: 'cristaux', titre: 'Cristaux', ico: 'ui:cristal', texte: 'Chaque boss vaincu donne des cristaux (Cauchemar ×2, Apprenti ×½). Ils achètent des affinités (tes armes préférées sortent plus souvent) et des apparences, au menu. Jamais de puissance.' });
     return out;

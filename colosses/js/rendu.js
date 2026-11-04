@@ -762,22 +762,40 @@ function dessinerHUD(c) {
       texteOmbre(c, ATK[b.main ? b.main.id : b.last].nom, W / 2, by + 32, '#fff', `700 13px ${POLICE}`, 3); c.globalAlpha = 1;
     }
   }
-  c.textAlign = 'left';
-  texteOmbre(c, 'Salle ' + G.salle, 16, 18, '#fff', `800 16px ${POLICE}`, 3);
-  c.font = `12px ${POLICE}`; c.fillStyle = '#9a94ad';
-  const reste = 5 - ((G.salle - 1) % 5) - 1;
-  c.fillText(G.mega ? 'MÉGA BOSS du palier ' + (G.salle / 5) : 'Méga boss dans ' + reste + ' salle' + (reste > 1 ? 's' : ''), 16, 37);
-  if (G.mode === 'normal') { icoDessin(c, DF().ico, 23, 54, 14); c.fillText(DF().nom + ' · palier ' + PR().palier, 34, 54); }
-  else if (G.mode === 'entrainement') { c.fillStyle = '#7dffb0'; c.fillText('Entraînement', 16, 54); }
-  else {
-    const df = G.defi, F = FORMATS[df.format];
-    let info = F.nom; icoDessin(c, F.ico, 23, 54, 14);
-    if (df.format === 'abysses') info += ' · profondeur ' + df.i;
-    else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
-    else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
-    else if (df.format === 'survie') info += ' · ' + fmtTemps(G.chrono);
-    else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
-    c.fillStyle = '#ffd86b'; c.fillText(info + (df.mut.length ? ' · ' + df.mut.map(m => MUTATEURS[m].nom).join(', ') : ''), 34, 54);
+  // ---------- infos en haut à gauche : un cadre, une ligne par info, rien ne se chevauche ----------
+  {
+    const lignes = [];
+    const reste = 5 - ((G.salle - 1) % 5) - 1;
+    const rg = typeof Regions !== 'undefined' && Regions.rg;
+    if (rg) lignes.push({ txt: romain(rg.num) + ' · ' + rg.nom, col: '#e8c47a', font: `700 15px ${POLICE_ER}` });
+    if (G.mode === 'normal') lignes.push({ ico: DF().ico, txt: DF().nom + ' · palier ' + PR().palier, col: '#e6e0f0' });
+    else if (G.mode === 'entrainement') lignes.push({ txt: 'Entraînement', col: '#7dffb0' });
+    else {
+      const df = G.defi, F = FORMATS[df.format];
+      let info = F.nom;
+      if (df.format === 'abysses') info += ' · profondeur ' + df.i;
+      else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
+      else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
+      else if (df.format === 'survie') info += ' · ' + fmtTemps(G.chrono);
+      else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
+      lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
+      for (const m of df.mut) lignes.push({ ico: MUTATEURS[m].ico, txt: MUTATEURS[m].nom, col: '#d8b8ff', petit: true });
+    }
+    if (G.mode === 'normal' || G.mode === 'entrainement') lignes.push(G.mega ? { txt: 'MÉGA BOSS du palier ' + (G.salle / 5), col: '#ffd86b', font: `800 14px ${POLICE}` } : { txt: 'Méga boss dans ' + reste + ' salle' + (reste > 1 ? 's' : ''), col: '#b8b0cc' });
+    const x0 = 12, y0 = 8, larg = 250, ht = 34 + lignes.reduce((n, l) => n + (l.petit ? 18 : 22), 0) + 6;
+    c.save();
+    c.fillStyle = 'rgba(8,6,10,.62)'; c.fillRect(x0, y0, larg, ht);
+    c.strokeStyle = 'rgba(201,168,101,.45)'; c.lineWidth = 1; c.strokeRect(x0 + .5, y0 + .5, larg - 1, ht - 1);
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    texteOmbre(c, 'Salle ' + G.salle, x0 + 12, y0 + 18, '#ffffff', `800 21px ${POLICE_ER}`, 4);
+    let y = y0 + 34 + 10;
+    for (const l of lignes) {
+      let tx = x0 + 12;
+      if (l.ico) { icoDessin(c, l.ico, tx + 8, y, l.petit ? 14 : 17); tx += l.petit ? 20 : 24; }
+      texteOmbre(c, l.txt, tx, y, l.col, l.font || `${l.petit ? 600 : 700} ${l.petit ? 12 : 14}px ${POLICE}`, 3);
+      y += l.petit ? 18 : 22;
+    }
+    c.restore();
   }
   if (G.opts.fps) { c.textAlign = 'right'; c.fillStyle = '#7dffb0'; c.fillText(Math.round(G.fps || 0) + ' i/s', W - 16, 54); c.textAlign = 'left'; }
   const rels = G.reliques ? G.reliques() : [];

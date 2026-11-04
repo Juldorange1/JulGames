@@ -660,12 +660,12 @@ PRIM.push(
     }
   },
   {
-    id: 'ricochets', nom: 'Lames ricochets', ico: '⇋', desc: 'Deux lames à la fois, une devant et une DERRIÈRE toi. Elles rebondissent 4 fois et frappent 30 % plus fort à chaque rebond.',
+    id: 'ricochets', nom: 'Lames ricochets', ico: '⇋', desc: 'Deux lames à la fois, une devant et une DERRIÈRE toi. Elles rebondissent 4 fois et frappent 20 % plus fort à chaque rebond.',
     tick(w, p, dt, held) {
       const n = cadence(w, dt, held, .45 / ST.pCad);
       for (let i = 0; i < n; i++) for (const s of [0, Math.PI]) {
-        const b = pShot(p.x + Math.cos(p.aim + s) * 14, p.y + Math.sin(p.aim + s) * 14, p.aim + s, 620 * ST.pVel, { dmg: 16, r: 7, life: 3, pierce: 3, kind: 'shuriken', col: '#7fd8ff', noVel: true });
-        b.reb = 4; b.bonusReb = 1.3;
+        const b = pShot(p.x + Math.cos(p.aim + s) * 14, p.y + Math.sin(p.aim + s) * 14, p.aim + s, 620 * ST.pVel, { dmg: 21, r: 7, life: 3, pierce: 3, kind: 'shuriken', col: '#7fd8ff', noVel: true });
+        b.reb = 4; b.bonusReb = 1.2;
         Son.play('tir');
       }
     }

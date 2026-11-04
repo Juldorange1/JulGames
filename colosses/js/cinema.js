@@ -214,7 +214,7 @@ const _dessinerHUDCristaux = dessinerHUD;
 dessinerHUD = function (c) {
   _dessinerHUDCristaux(c);
   if (!G.p || G.mode !== 'normal') return;
-  const gc = G.gainCristaux, cx = 22, cy = 74;
+  const gc = G.gainCristaux, cx = 204, cy = 26; // à droite de « Salle N », dans le cadre
   let puls = 0;
   if (gc) {
     gc.t += 1 / 60;

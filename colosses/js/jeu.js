@@ -299,9 +299,14 @@ const G = {
     this.ars = null;
     this.entrerSalle();
   },
+  // point de reprise des Abysses : on repart 2 boss avant son record (record 4 → on repart avec 2 boss vaincus)
+  repriseAbysses() { const best = (Save.d.abysses || {}).best || 0; return Math.max(0, best - 2); },
   lancerAbysses() {
     this.mode = 'abysses'; this.finDefi = null;
-    this.defi = { type: 'abysses', format: 'abysses', cle: '∞', mut: [], boss: [], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    const k = this.repriseAbysses();
+    this.defi = { type: 'abysses', format: 'abysses', cle: '∞', mut: [], boss: [], i: k, temps: 0, tues: k, degats: 0, coups: 0, depart: k };
+    // les mutations qu'on aurait déjà eues à cette profondeur (une tous les 2 boss)
+    for (let j = 2; j < k && this.defi.mut.length < 6; j += 2) { const m = R.pick(Object.keys(MUTATEURS).filter(x => !this.defi.mut.includes(x) && x !== 'verre' && x !== 'jeune')); if (m) this.defi.mut.push(m); }
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
   },
