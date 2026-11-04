@@ -681,7 +681,7 @@ function majJoueur(dt) {
   }
   if (p.saut <= 0) for (const h of G.hz) if (h.kind === 'ronce' && HZ.ronce.actif(h, p)) p.lent = Math.min(p.lent, .5);
   if (G.rel('regen')) { G.sal.regen += dt; if (G.sal.regen >= 3) { G.sal.regen -= 3; p.hp = Math.min(p.hpMax, p.hp + 1); } }
-  let sp = 270 * (p.bulle > 0 ? .2 : 1) * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * (G.rel('aimant') ? .88 : 1) * p.lent * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
+  let sp = 270 * (p.bulle > 0 ? .2 : 1) * (G.mut('vitesse') ? 1.25 : 1) * (G.rel('plumes') ? 1.12 : 1) * (G.rel('aimant') ? .88 : 1) * p.lent * (G.lenteur || 1) * (p.fantome > 0 ? 1.35 : 1) * (p.vite > 0 ? 1.3 : 1) * (p.sprint > 0 ? 1.6 : 1);
   if (p.dash) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
