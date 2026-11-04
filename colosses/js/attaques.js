@@ -42,7 +42,18 @@ function rayon(x, y, a, len, w, warn, act, o) {
   G.hz.push(h);
   return h;
 }
-function onde(x, y, spd, o) { const h = Object.assign({ kind: 'onde', x, y, r: 20, spd, th: 16, gaps: [], life: 4, t: 0, dmg: DMG(), src: G.atkCourante }, o || {}); G.hz.push(h); return h; }
+// onde qui s'élargit (ou se referme) : un de ses trous s'ouvre toujours en face du héros, assez large pour y passer
+function onde(x, y, spd, o) {
+  o = Object.assign({}, o || {});
+  if (o.gaps && o.gaps.length && !o.fixe && G.p) {
+    const t = cible(), aP = ang(x, y, t.x, t.y), d = Math.max(60, Math.sqrt(d2(x, y, t.x, t.y)));
+    let best = o.gaps[0]; for (const g of o.gaps) if (Math.abs(angDiff(g[0], aP)) < Math.abs(angDiff(best[0], aP))) best = g;
+    const dec = angDiff(best[0], aP) + R.range(-.2, .2);
+    o.gaps = o.gaps.map(g => [g[0] + dec, Math.max(g[1], .9, Math.min(1.6, 170 / d))]);
+  }
+  if (Math.abs(spd) > 260) spd = Math.sign(spd) * 260;
+  const h = Object.assign({ kind: 'onde', x, y, r: 20, spd, th: 16, gaps: [], life: 4, t: 0, dmg: DMG(), src: G.atkCourante }, o); G.hz.push(h); return h;
+}
 function flaque(x, y, r, life) { G.hz.push({ kind: 'flaque', x, y, r, life, t: 0, dmg: DMG(.6), src: 'flaques' }); }
 
 // ---------- Comportement des dangers ----------

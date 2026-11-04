@@ -198,11 +198,11 @@ SPEC.push(
     } },
   { id: 'ombres', nom: 'Ombres', ico: '👤', cout: 50, rech: 10, desc: 'Trois ombres foncent sur l\'ennemi le plus proche et explosent.',
     use(p) { for (let i = 0; i < 3; i++) G.allies.push({ kind: 'ombre', x: p.x, y: p.y, t: -i * .12, dur: 2, dmg: 140 * ST.sDmg, a: p.aim + (i - 1) * .7 }); } },
-  { id: 'aimantSpe', nom: 'Aimant', ico: '🧲', cout: 25, rech: 9, desc: 'Absorbe toutes les balles proches : chacune rend de l\'énergie. Au-delà de 10, tu gagnes un bouclier.',
+  { id: 'aimantSpe', nom: 'Aimant', ico: '🧲', cout: 25, rech: 9, desc: 'Absorbe toutes les balles proches : chacune avance la recharge de ta spéciale. Au-delà de 10, tu gagnes un bouclier.',
     use(p) {
       let n = 0; const r = 260 * ST.sAmp;
       for (const e of G.eb) if (d2(p.x, p.y, e.x, e.y) < r * r) { e.dead = true; n++; G.fx.push({ kind: 'trait', x1: e.x, y1: e.y, x2: p.x, y2: p.y, t: 0, dur: .2, col: '#c0c8d4' }); }
-      p.energie = Math.min(ST.eMax, p.energie + n * 4); if (n >= 10) p.bouclier = Math.max(p.bouclier, 4);
+      p.spec.cd = Math.max(0, p.spec.cd - n * .15); if (n >= 10) p.bouclier = Math.max(p.bouclier, 4);
       G.texte(p.x, p.y - 30, n + ' absorbées', '#c0c8d4', 15);
     } }
 );
@@ -305,10 +305,10 @@ nouvelleAttaque('tsunami', { nom: 'Raz-de-marée', cat: 'balles', conseil: 'Des 
   params: (r, D) => ({ spd: 200 * Math.min(1.3, D.S) }),
   *gen(b, p) {
     yield* prep(b, .5);
-    const bb = G.arene.bb(), base = .3 + R() * .4, cote = R.int(0, 1);
+    const bb = G.arene.bb(), base = clamp((cible().y - bb.y) / bb.h + R.range(-.06, .06), .25, .75), cote = R.int(0, 1); // le trou part en face du héros
     for (let i = 0; i < 7; i++) {
-      const g = (base + Math.sin(i * .9) * .22) * bb.h;
-      for (let s = 15; s < bb.h; s += 30) if (Math.abs(s - g) > 70) EB(cote ? bb.x + bb.w - 2 : bb.x + 2, bb.y + s, cote ? Math.PI : 0, p.spd, { ext: true });
+      const g = (base + Math.sin(i * .9) * .17) * bb.h;
+      for (let s = 15; s < bb.h; s += 30) if (Math.abs(s - g) > 85) EB(cote ? bb.x + bb.w - 2 : bb.x + 2, bb.y + s, cote ? Math.PI : 0, p.spd, { ext: true });
       Son.play('salve'); yield .36;
     }
   } });

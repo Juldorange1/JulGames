@@ -785,13 +785,10 @@ function dessinerHUD(c) {
     c.textAlign = 'left'; c.font = `800 12px ${POLICE}`; c.fillStyle = '#fff';
     icoDessin(c, 'ui:vie', 34, y0 + 7, 16); c.fillText(String(Math.ceil(p.hp)), 46, y0 + 7);
     barre(c, 90, y0, 260, 14, p.hp / p.hpMax, p.hp < p.hpMax * .3 ? '#ff4d6a' : '#46e39b');
-    c.fillStyle = '#9cf'; c.font = `800 12px ${POLICE}`; icoDessin(c, 'ui:energie', 40, y0 + 30, 15);
-    barre(c, 90, y0 + 24, 260, 11, p.energie / ST.eMax, '#5aa8ff');
-    const spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t), cout = spec.cout * ST.sCout;
-    c.fillStyle = '#fff'; c.fillRect(90 + 260 * Math.min(1, cout / ST.eMax) - 1, y0 + 22, 2, 15);
+    const spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t);
     const slots = [
       { a: trouveArme('p', G.ars.p), k: nomToucheCourt(TOUCHES().tir), col: '#ff8a5c' },
-      { a: spec, k: nomToucheCourt(TOUCHES().spec) + ' / ' + nomToucheCourt(TOUCHES().spec2), col: '#5aa8ff', cd: p.spec.cd / (spec.rech * ST.sRech), manque: p.energie < cout },
+      { a: spec, k: nomToucheCourt(TOUCHES().spec) + ' / ' + nomToucheCourt(TOUCHES().spec2), col: '#5aa8ff', cd: p.spec.cd / (spec.rech * ST.sRech) },
       { a: tal, k: nomToucheCourt(TOUCHES().tal) + ' / ' + nomToucheCourt(TOUCHES().tal2), col: '#46e39b', cd: p.tal.charges > 0 ? 0 : p.tal.cd / (tal.rech * ST.tRech), ch: p.tal.charges }
     ];
     let sx = 420;
@@ -807,7 +804,7 @@ function dessinerHUD(c) {
       c.fillText(s.a.nom, sx + 50, y0 + 10);
       c.font = `11px ${POLICE}`; c.fillStyle = s.col; c.fillText(s.k, sx + 50, y0 + 29);
       if (s.ch !== undefined && ST.tCharges > 1) { c.textAlign = 'right'; c.fillStyle = '#ffe9a0'; c.font = `800 13px ${POLICE}`; c.fillText('×' + s.ch, sx + w - 8, y0 + 10); }
-      if (s.manque && !(s.cd > 0)) { c.textAlign = 'right'; c.fillStyle = '#5aa8ff'; c.font = `11px ${POLICE}`; c.fillText(String(Math.round(cout)), sx + w - 22, y0 + 29); icoDessin(c, 'ui:energie', sx + w - 13, y0 + 29, 12, '#5aa8ff', false); }
+      if (s.cd > 0) { c.textAlign = 'right'; c.fillStyle = '#9cf'; c.font = `11px ${POLICE}`; c.fillText(Math.ceil(s.cd * (s === slots[1] ? spec.rech * ST.sRech : tal.rech * ST.tRech)) + ' s', sx + w - 8, y0 + 29); }
       if (tk > 0) {
         c.globalAlpha = tk; c.textAlign = 'center';
         texteOmbre(c, s.a.nom, sx + w / 2 + 12, y0 - 34, s.col, `800 17px ${POLICE}`, 4); icoDessin(c, s.a.ico, sx + w / 2 + 12 - c.measureText(s.a.nom).width / 2 - 16, y0 - 34, 22, s.col);

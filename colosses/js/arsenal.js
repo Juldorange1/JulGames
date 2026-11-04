@@ -256,7 +256,7 @@ const PRIM = [
   }
 ];
 
-// ---------- Type 2 : attaques spéciales (énergie + recharge) ----------
+// ---------- Type 2 : attaques spéciales (temps de recharge) ----------
 const SPEC = [
   {
     id: 'meteore', nom: 'Météore', ico: '☄', cout: 40, rech: 6, desc: 'Fait tomber un météore sur le viseur après 0,7 s. Énormes dégâts en zone.',
@@ -334,7 +334,7 @@ const TAL = [
     }
   },
   {
-    id: 'parade', nom: 'Parade', ico: '⛨', rech: 1.1, desc: 'Fenêtre de 0,32 s : si un coup te touche pile à ce moment, tu ne prends rien, une onde frappe autour de toi et tu regagnes de l\'énergie. Le talent se recharge aussitôt.',
+    id: 'parade', nom: 'Parade', ico: '⛨', rech: 1.1, desc: 'Fenêtre de 0,32 s : si un coup te touche pile à ce moment, tu ne prends rien, une onde frappe autour de toi et ton attaque spéciale se recharge d\'une seconde. Le talent se recharge aussitôt.',
     use(p) { p.parade = .32 + ST.tIntan; G.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 30, r1: 34, t: 0, dur: .32, col: '#ffe9a0', suit: true }); }
   },
   {
@@ -513,7 +513,7 @@ TAL.push(
     use(p) { p.saut = .55 * ST.tPort; p.sautMax = p.saut; p.iframe = Math.max(p.iframe, p.saut + .05 + ST.tIntan); Son.play('dash'); }
   },
   {
-    id: 'esquive', nom: 'Esquive parfaite', ico: '≫', rech: 1.1, desc: 'Une ruée. Si un projectile te frôle pendant la ruée, le temps ralentit et tu gagnes de l\'énergie.',
+    id: 'esquive', nom: 'Esquive parfaite', ico: '≫', rech: 1.1, desc: 'Une ruée. Si un projectile te frôle pendant la ruée, le temps ralentit et ton attaque spéciale se recharge plus vite.',
     use(p) { const d = G.dirMouv(p); p.dash = { t: 0, dur: .16, vx: d.x * 230 * ST.tPort / .16, vy: d.y * 230 * ST.tPort / .16, parfait: true }; p.iframe = Math.max(p.iframe, .22 + ST.tIntan); G.traine(p); Son.play('dash'); }
   },
   {

@@ -196,7 +196,6 @@ const G = {
         b.armure -= d * (o.spec ? 3 : 1); d *= .25;
         if (b.armure <= 0) { b.armure = 0; b.armureCd = 12; this.annonce('Carapace brisée !', '#fff', 1.3); Son.play('verre'); this.secoue(8); succes('carapace'); }
       }
-      if (o.prim) this.p.energie = Math.min(ST.eMax, this.p.energie + d * .1 * ST.eGain * (modForge().energie || 1));
       b.flash = Math.max(b.flash, o.continu ? .2 : .5); b.regenT = 0;
       if (!o.continu) Son.play('touche');
       this.chiffre(tg, d, crit, o, m);
@@ -214,7 +213,7 @@ const G = {
         tg.dead = true; this.explo(tg.x, tg.y, 40, tg.type === 'cristal' ? '#7fd8ff' : b.col);
         Son.play(tg.type === 'cristal' || tg.type === 'noeud' ? 'verre' : 'explo');
         if (tg.type === 'tete') Son.play('cri');
-        this.p.energie = Math.min(ST.eMax, this.p.energie + 8 * ST.eGain);
+        this.p.spec.cd = Math.max(0, this.p.spec.cd - .3);
         if (tg.type === 'cristal' && !this.minions.some(x => x !== tg && !x.dead && x.type === 'cristal')) { this.annonce('Bouclier brisé !', '#7fd8ff', 1.3); b.cristT = 18; }
       }
     }
@@ -245,7 +244,7 @@ const G = {
       const r = 210;
       for (const tg of this.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < r) this.frappe(tg, 260 * ST.pDmg, { x: tg.x, y: tg.y });
       for (const e of this.eb) if (d2(p.x, p.y, e.x, e.y) < r * r) e.dead = true;
-      p.energie = Math.min(ST.eMax, p.energie + 25 * ST.eGain);
+      p.spec.cd = Math.max(0, p.spec.cd - 1);
       p.tal.charges = ST.tCharges; p.tal.cd = 0;
       this.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 20, r1: r, t: 0, dur: .3, col: '#ffe9a0' });
       this.lumiere(p.x, p.y, 300, '#ffe9a0', .3);
@@ -469,7 +468,7 @@ const G = {
         const k = String(this.salle), old = pr.megaTemps[k];
         if (!old || this.chrono < old) pr.megaTemps[k] = Math.round(this.chrono);
       }
-      pr.run.salle = this.salle + 1; pr.run.boss = null; pr.run.depuisPasse = (pr.run.depuisPasse === undefined ? 3 : pr.run.depuisPasse) + 1;
+      pr.run.salle = this.salle + 1; pr.run.boss = null; Save.d.joker = Math.min(3, (Save.d.joker === undefined ? 3 : Save.d.joker) + 1); // joker commun aux 3 difficultés
       if (this.def.mega && (pr.run.reliques || []).length) { pr.run.reliques = []; calcStats(); this.texte(this.p.x, this.p.y - 50, 'Les reliques se dissipent', '#c06bff', 16); }
       pr.record = Math.max(pr.record, pr.run.salle);
       pr.run.pv = this.p.hp;
@@ -567,11 +566,12 @@ const G = {
     this.p = creerJoueur(DF().pv);
     this.entrerSalle();
   },
-  passeDispo() { if (this.mode !== 'normal') return -1; const run = PR().run; const n = run.depuisPasse === undefined ? 3 : run.depuisPasse; return Math.max(0, 3 - n); },
+  // joker de passage : un seul compteur pour toutes les difficultés, +1 par boss tué (au plus 3)
+  passeDispo() { if (this.mode !== 'normal') return -1; const n = Save.d.joker === undefined ? 3 : Save.d.joker; return Math.max(0, 3 - n); },
   passerBoss() {
     if (this.passeDispo() !== 0) return;
     const run = PR().run;
-    run.salle++; run.boss = null; run.depuisPasse = 0; run.pv = DF().pv;
+    run.salle++; run.boss = null; Save.d.joker = 0; run.pv = DF().pv;
     if ((run.salle - 1) % 5 === 0 && run.reliques) run.reliques = [];
     Save.write();
     this.p = creerJoueur(DF().pv);
@@ -587,7 +587,6 @@ const MUTATEURS = {
   frenesie: { nom: 'Frénésie', ico: '⚡', desc: 'Les boss attaquent 20 % plus vite.' },
   nuit: { nom: 'Nuit noire', ico: '🌑', desc: 'Toutes les arènes sont plongées dans les ténèbres.' },
   patinoire: { nom: 'Patinoire', ico: '❄', desc: 'Toutes les arènes sont gelées.' },
-  energie: { nom: 'Énergie infinie', ico: '🔋', desc: 'Les attaques spéciales ne coûtent rien.' },
   colosses: { nom: 'Colosses', ico: '🗿', desc: 'Boss 40 % plus résistants, mais tes armes frappent 25 % plus fort.' },
   reflexes: { nom: 'Réflexes', ico: '💨', desc: 'Talents rechargés deux fois plus vite.' },
   jeune: { nom: 'Jeûne', ico: '🚫', desc: 'Aucun soin entre les boss.' },
@@ -656,7 +655,6 @@ function majJoueur(dt) {
       G.fx.push({ kind: 'anneau', x: p.x, y: p.y, r0: 10, r1: r, t: 0, dur: .25, col: '#9ff' }); G.secoue(4); Son.play('choc');
     }
   }
-  p.energie = Math.min(ST.eMax, p.energie + 4 * ST.eGain * dt);
   p.marche = (p.marche || 0) + Math.hypot(p.vx, p.vy) * dt * .07;
   p.lent = 1;
   const actif = G.etat === 'combat';
@@ -666,11 +664,9 @@ function majJoueur(dt) {
   prim.tick(p.prim, p, dt, held);
   if (p.spec.cd > 0) p.spec.cd -= dt;
   if (actif && !sansArmes && (Input.hit(K.spec) || Input.hit(K.spec2))) {
-    const cout = spec.cout * ST.sCout;
     if (p.fantome > 0) { }
     else if (p.spec.cd > 0) { Son.play('vide'); }
-    else if (p.energie < cout) { Son.play('vide'); G.texte(p.x, p.y - 28, 'énergie', '#5aa8ff', 13); }
-    else { p.energie -= cout; p.spec.cd = spec.rech * ST.sRech; spec.use(p); G.sal.spec++; Son.play('special'); G.lumiere(p.x, p.y, 220, '#9cf', .25); }
+    else { p.spec.cd = spec.rech * ST.sRech; spec.use(p); G.sal.spec++; Son.play('special'); G.lumiere(p.x, p.y, 220, '#9cf', .25); }
   }
   const T = p.tal, maxC = ST.tCharges;
   if (T.charges < maxC) { T.cd -= dt; if (T.cd <= 0) { T.charges++; T.cd = T.charges < maxC ? tal.rech * ST.tRech : 0; } }
@@ -690,7 +686,7 @@ function majJoueur(dt) {
     const d = p.dash; d.t += dt;
     p.x += d.vx * dt; p.y += d.vy * dt;
     if (d.roule && R() < .5) G.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: 0, dur: .15 });
-    if (d.parfait && !d.reussi) for (const e of G.eb) if (d2(e.x, e.y, p.x, p.y) < (e.r + 34) ** 2) { d.reussi = true; G.ralenti = 1.2; p.energie = Math.min(ST.eMax, p.energie + 20); G.texte(p.x, p.y - 28, 'PARFAIT', '#9ff', 18); Son.play('parade'); break; }
+    if (d.parfait && !d.reussi) for (const e of G.eb) if (d2(e.x, e.y, p.x, p.y) < (e.r + 34) ** 2) { d.reussi = true; G.ralenti = 1.2; p.spec.cd = Math.max(0, p.spec.cd - .8); G.texte(p.x, p.y - 28, 'PARFAIT', '#9ff', 18); Son.play('parade'); break; }
     if (d.t >= d.dur) { if (d.grappin) { p.x = d.grappin.x; p.y = d.grappin.y; } p.dash = null; p.vx = d.vx * .15; p.vy = d.vy * .15; }
   } else {
     let mx = 0, my = 0;

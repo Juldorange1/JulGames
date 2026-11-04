@@ -305,9 +305,9 @@ defEsp('fo_surchauffe', {
     zoneC(b.x, b.y, 230, warn, { dmg: DMG(1.4) });
     yield warn;
     // deux couloirs opposés dans les balles ET dans l'onde (avant : une onde pleine, impossible à esquiver sans talent)
-    const a0 = R() * TAU, gaps = [[a0, .8], [a0 + Math.PI, .8]];
-    for (let k = 0; k < p.n; k++) { const a = a0 + k * TAU / p.n; if (gaps.some(g => Math.abs(angDiff(a, g[0])) < .45)) continue; EB(b.x, b.y, a, p.spd); }
-    onde(b.x, b.y, 320, { th: 18, r: 270, life: 2.5, gaps });
+    const a0 = vise(b) + R.range(-.25, .25), gaps = [[a0, 1], [a0 + Math.PI, 1]]; // un couloir face au héros
+    for (let k = 0; k < p.n; k++) { const a = a0 + k * TAU / p.n; if (gaps.some(g => Math.abs(angDiff(a, g[0])) < .55)) continue; EB(b.x, b.y, a, p.spd); }
+    onde(b.x, b.y, 260, { th: 18, r: 270, life: 2.8, gaps, fixe: true });
     G.secoue(16); b.s.ch = 0; b.ctl = false;
     G.etourdir(b, 3.5, 'Refroidi !'); ouvrir(b, 3.5, 2.5);
   }

@@ -119,7 +119,7 @@ const UI = {
         <div class="rang col"><button class="gros" data-a="reprendre" data-def>▶ Reprendre</button>
         <button data-a="options" data-o="pause">⚙ Paramètres</button>
         <button data-a="relancer">↻ Recommencer le combat</button>
-        ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss en ${DF().nom})</button>` : ''}
+        ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss, toutes difficultés)</button>` : ''}
         <button data-a="quitter">🏠 Menu principal</button></div>
         <p class="mini centre">Échap : reprendre${G.mode === 'normal' ? ' · ta partie est gardée' : ''}</p>
       </div>`);
