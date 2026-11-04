@@ -5,11 +5,12 @@
 function ICO(k) { return '⟦' + k + '⟧'; }
 function icoCle(v) { const m = /^⟦([^⟧]+)⟧$/.exec(v || ''); return m ? m[1] : v; }
 // chaque icône a sa couleur (élément de l'arme, rôle du bouton…) pour qu'on les distingue au premier coup d'œil
-const COUL_ELEM = { feu: '#ff8a3c', glace: '#8fe0ff', foudre: '#ffe14d', nature: '#7ddc6a', ombre: '#b48cff', lumiere: '#fff0a8', arcane: '#e07bff', acier: '#cfd6e0' };
+const COUL_ELEM = { feu: '#ff8a3c', glace: '#8fe0ff', foudre: '#ffe14d', nature: '#7ddc6a', ombre: '#b48cff', lumiere: '#fff0a8', arcane: '#e07bff', acier: '#8fc3f0' };
 const COUL_UI = { cristal: '#7fe8ff', vie: '#ff5a6e', energie: '#6ab8ff', etoile: '#ffd24d', legende: '#ffb43d', cadeau: '#ff9a5c', abysses: '#9b7bff', chasse: '#7dffb0',
-  apprenti: '#7fd0ff', guerrier: '#ffcf6b', cauchemar: '#ff5a6e', options: '#c8ccd6', codex: '#e8c27a', stats: '#7ab8ff', garderobe: '#ff8fd8', affinites: '#b48cff',
-  jouer: '#ffd27a', sablier: '#ffcf6b', non: '#ff6a6a', ok: '#7dffb0', son: '#c8ccd6', plein: '#c8ccd6', jeu: '#c8ccd6', touches: '#c8ccd6', image: '#c8ccd6',
-  trophee: '#ffd24d', panier: '#7fe8ff', recommencer: '#ffcf6b', passer: '#ffcf6b', maison: '#e8c27a', idee: '#fff0a8', arme: '#ff9a5c', special: '#7ab8ff', talent: '#7dffb0', pause: '#c8ccd6', forge: '#ff9a5c' };
+  apprenti: '#7fd0ff', guerrier: '#ffcf6b', cauchemar: '#ff5a6e', options: '#ffa95a', codex: '#e8c27a', stats: '#7ab8ff', garderobe: '#ff8fd8', affinites: '#b48cff',
+  jouer: '#ffd27a', sablier: '#ffcf6b', non: '#ff6a6a', ok: '#7dffb0', son: '#6fe0a0', plein: '#5fd8ff', jeu: '#ffb84d', touches: '#b48cff', image: '#ff8fc8',
+  jour: '#ffcf6b', semaine: '#c06bff', couronne: '#ffd24d', aide: '#7fd0ff', retour: '#ffd27a',
+  trophee: '#ffd24d', panier: '#7fe8ff', recommencer: '#ffcf6b', passer: '#ffcf6b', maison: '#e8c27a', idee: '#fff0a8', arme: '#ff9a5c', special: '#7ab8ff', talent: '#7dffb0', pause: '#7fd0ff', forge: '#ff9a5c' };
 function icoCouleur(k) {
   const [cat, id] = String(k).split(':');
   if (cat === 'p' || cat === 's' || cat === 't') { const e = typeof ELEM_ARME !== 'undefined' && ELEM_ARME[id]; return COUL_ELEM[e] || { p: '#ffb46a', s: '#7ab8ff', t: '#7dffb0' }[cat]; }
@@ -17,7 +18,7 @@ function icoCouleur(k) {
   if (cat === 'm') return '#c39bff';
   if (cat === 'fmt') return '#ffd86b';
   if (cat === 'f') return '#ffcf6b';
-  return COUL_UI[id] || '#ecdcb4';
+  return COUL_UI[id] || '#e8b04a';
 }
 function nuance(hex, k) { const v = parseInt(hex.slice(1), 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255, f = c => Math.round(k > 0 ? c + (255 - c) * k : c * (1 + k)); return `rgb(${f(r)},${f(g)},${f(b)})`; }
 let icoN = 0;

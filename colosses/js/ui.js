@@ -228,7 +228,7 @@ const UI = {
       corps = `<p class="mini">Les cristaux se gagnent en battant des boss (1, ou 3 pour un méga boss). Ils servent seulement ici (rendre un type d'arme plus fréquent) et dans la garde-robe (apparences). Paie des cristaux pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
         <div class="eclats">💎 ${F2.eclats} cristaux</div>
 
-        <h4>🔫 Arme principale — familles</h4>${Object.entries(FAMILLES).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
+        <h4>🔫 Arme principale — familles</h4>${(() => { const vues = k => PRIM.filter(a => FAMILLE[a.id] === k && Save.d.codex.arm['p:' + a.id]); const l = Object.entries(FAMILLES).filter(([k]) => vues(k).length); return l.map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom + '<small class="vues">' + vues(k).map(a => a.nom).join(' · ') + '</small>')).join('') || '<p class="mini">Découvre des armes en jouant : une famille apparaît ici dès que tu as croisé une de ses armes.</p>'; })()}
         <h4>💥 Attaques spéciales</h4>${SPEC.filter(a => Save.d.codex.arm['s:' + a.id]).map(a => ligne('s', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des attaques spéciales en jouant.</p>'}
         <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
     }
@@ -322,11 +322,11 @@ const UI = {
       coche('o-contour', 'Contour noir autour des balles ennemies', op.contour) +
       choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
       `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
-    else if (onglet === 'jeu') corps = coche('o-conseils', 'Conseils pour débuter (bulles la première fois)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
+    else if (onglet === 'jeu') corps = coche('o-conseils', 'Expliquer les nouveautés avant d\'entrer dans une salle (avec animations)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
       coche('o-noms', 'Nom des attaques du boss', op.nomsAttaques) + coche('o-chrono', 'Chronomètre', op.chrono) + coche('o-pause', 'Pause quand la fenêtre est quittée', op.autoPause) +
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +
-      `<div class="rang"><button data-a="conseilsRaz">Revoir les conseils</button><button data-a="plein">⛶ Plein écran</button></div>`;
+      `<div class="rang"><button data-a="conseilsRaz">Revoir les explications</button><button data-a="plein">⛶ Plein écran</button></div>`;
     else corps = [['haut', '⬆ Haut'], ['bas', '⬇ Bas'], ['gauche', '⬅ Gauche'], ['droite', '➡ Droite'], ['tir', '🔫 Arme'], ['spec', '💥 Spéciale'], ['spec2', '💥 Spéciale (2e)'], ['tal', '💨 Talent'], ['tal2', '💨 Talent (2e)'], ['pause', '⏸ Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique sur une case puis appuie sur une touche <b>ou un bouton de la souris</b> (Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.</p><div class="rang"><button data-a="touchesDef">Touches par défaut</button></div>';
     const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches']];
     this.montrer(`
@@ -334,7 +334,6 @@ const UI = {
         <div class="barre-titre"><button class="rond" data-a="retour" data-echap title="Retour">←</button><h2>⚙ Paramètres</h2></div>
         <div class="onglets">${onglets.map(([k, n]) => `<button data-a="options" data-o="${depuis}" data-onglet="${k}" class="${k === onglet ? 'actif' : ''}">${n}</button>`).join('')}</div>
         <div class="opts">${corps}</div>
-        ${depuis === 'pause' ? '' : '<div class="rang"><button class="danger petit" data-a="effacer">Effacer la progression</button></div>'}
       </div>`);
     const q = id => document.getElementById(id);
     const lier = (id, fn, ev) => { const e = q(id); if (e) e.addEventListener(ev || 'change', x => { fn(x.target); Save.write(); }); };
