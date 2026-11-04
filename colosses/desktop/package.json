@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "start:muet": "electron . --muet",
-    "build": "electron-builder --win dir portable"
+    "build": "electron-builder --win dir portable",
+    "prebuild": "node manifeste.js"
   },
   "devDependencies": {
     "electron": "38.8.6",
@@ -24,6 +25,7 @@
     },
     "files": [
       "main.js",
+      "maj.js",
       "package.json"
     ],
     "extraResources": [
@@ -33,6 +35,7 @@
         "filter": [
           "index.html",
           "icon.png",
+          "version.json",
           "css/**/*",
           "js/**/*",
           "img/**/*",
@@ -53,6 +56,11 @@
       "artifactName": "Colosses-${version}-portable.exe"
     },
     "asar": true,
-    "executableName": "Colosses"
+    "executableName": "Colosses",
+    "electronLanguages": [
+      "fr",
+      "en-US"
+    ],
+    "afterPack": "./alleger.js"
   }
 }

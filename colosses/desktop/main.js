@@ -8,9 +8,14 @@ const fs = require('fs');
 app.setName('Colosses');
 const TEST = process.argv.includes('--test');
 if (TEST) app.setPath('userData', path.join(app.getPath('temp'), 'colosses-test-' + process.pid));
-if (!TEST && !app.requestSingleInstanceLock()) app.quit();
+if (!TEST && !process.argv.includes('--maj-seule') && !app.requestSingleInstanceLock()) app.quit();
 
 const GAME_DIR = app.isPackaged ? path.join(process.resourcesPath, 'game') : path.join(__dirname, '..');
+// mise à jour automatique depuis le site (voir maj.js) ; « --site=URL » pour tester avec un autre serveur
+const argSite = process.argv.find(a => a.startsWith('--site='));
+const SITE = argSite ? argSite.slice(7).replace(/\/?$/, '/') : 'https://juldorange1.github.io/JulGames/colosses/';
+const MAJ_SEULE = process.argv.includes('--maj-seule');
+const MAJ = require('./maj').creer(app.getPath('userData'), GAME_DIR);
 const DISPLAY_FILE = path.join(app.getPath('userData'), 'affichage.json');
 const MUET = TEST || process.argv.includes('--muet');
 
@@ -27,7 +32,11 @@ function createWindow() {
     webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' },
   });
   Menu.setApplicationMenu(null);
-  win.loadFile(path.join(GAME_DIR, 'index.html'), MUET ? { query: { muet: '1' } } : undefined);
+  if (!TEST) MAJ.installerEnAttente();
+  win.loadFile(path.join(MAJ.dossierActif(), 'index.html'), MUET ? { query: { muet: '1' } } : undefined);
+  if (!TEST) win.webContents.once('did-finish-load', () => setTimeout(verifierMaj, 4000));
+  // le bouton « Redémarrer » de l'avis de mise à jour change juste l'ancre de la page
+  win.webContents.on('did-navigate-in-page', (e, url) => { if (/#maj-redemarrer$/.test(url)) { app.relaunch(); app.exit(0); } });
   win.once('ready-to-show', () => { if (TEST) return; if (display.maximized && !display.fullscreen) win.maximize(); win.show(); });
   if (TEST) {
     const errors = [];
@@ -62,6 +71,24 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
+async function verifierMaj() {
+  const r = await MAJ.verifier(SITE);
+  if (r.etat !== 'pret' || !win) return;
+  const js = `(() => { if (document.getElementById('avis-maj')) return; const d = document.createElement('div'); d.id = 'avis-maj';
+    d.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9999;padding:12px 16px;background:linear-gradient(180deg,rgba(30,26,20,.96),rgba(12,11,9,.96));border:1px solid #c9a865;border-radius:6px;color:#eadcbc;font:14px Cinzel,Georgia,serif;box-shadow:0 6px 24px rgba(0,0,0,.6);user-select:none;display:flex;gap:12px;align-items:center';
+    d.innerHTML = '<span>Nouvelle version téléchargée</span><a href="#maj-redemarrer" style="color:#1a1206;background:#d9b46a;padding:6px 12px;border-radius:4px;text-decoration:none;font-weight:700">Redémarrer</a><a href="javascript:void 0" onclick="this.parentNode.remove()" style="color:#9a8c6c;text-decoration:none">Plus tard</a>';
+    document.body.appendChild(d); })()`;
+  try { await win.webContents.executeJavaScript(js); } catch (e) { }
+}
+
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.whenReady().then(createWindow);
+if (MAJ_SEULE) {
+  // outil de test : vérifie et télécharge la mise à jour, affiche le résultat, puis quitte
+  app.whenReady().then(async () => {
+    const installe = MAJ.installerEnAttente();
+    const r = await MAJ.verifier(SITE);
+    console.log('COLOSSES_MAJ ' + JSON.stringify({ installe, actif: MAJ.dossierActif() === GAME_DIR ? 'livre' : 'copie', version: MAJ.versionActive(), r }));
+    app.exit(0);
+  });
+} else app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
