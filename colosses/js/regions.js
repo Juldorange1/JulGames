@@ -46,6 +46,7 @@ texteSol = function () {
     // vase sombre, flaques d'eau noire, pierres moussues, roseaux et nénuphars
     x.fillStyle = '#121a0c'; x.fillRect(0, 0, W, H);
     tachesDouces(x, r, 40, .75, [[40, 55, 22], [22, 30, 14], [60, 70, 30], [12, 16, 8]]);
+    if (typeof fondPhoto === 'function') fondPhoto(x, 'marais');
     for (let i = 0; i < 26; i++) {
       const cx = AR.x + r() * AR.w, cy = AR.y + r() * AR.h, rx = r.range(40, 110), ry = rx * r.range(.45, .7);
       const g = x.createRadialGradient(cx, cy, 2, cx, cy, rx); g.addColorStop(0, 'rgba(10,22,18,.95)'); g.addColorStop(.8, 'rgba(14,26,18,.85)'); g.addColorStop(1, 'rgba(14,26,18,0)');

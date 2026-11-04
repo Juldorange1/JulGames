@@ -49,7 +49,7 @@ texteSol = function () {
   x.fillStyle = hsl(sh, ss, sl * .55); x.fillRect(0, 0, W, H);
   if (th === 'volcan') {
     // colonnes de basalte hexagonales, lave qui luit entre elles
-    x.fillStyle = '#2a0600'; x.fillRect(0, 0, W, H);
+    if (!(typeof fondPhoto === 'function' && fondPhoto(x, 'volcan'))) { x.fillStyle = '#2a0600'; x.fillRect(0, 0, W, H); }
     const s = 44, hx = s * Math.sqrt(3);
     for (let row = -1, y = AR.y - s; y < AR.y + AR.h + s; row++, y += s * 1.5) for (let xx = AR.x - hx + (row % 2 ? hx / 2 : 0); xx < AR.x + AR.w + hx; xx += hx) {
       const rr = s * r.range(.86, .95), pts = []; for (let k = 0; k < 6; k++) { const a = k * TAU / 6 + Math.PI / 6; pts.push([xx + Math.cos(a) * rr + r.range(-2, 2), y + Math.sin(a) * rr + r.range(-2, 2)]); }

@@ -57,3 +57,13 @@ Toutes en CC0 (domaine public), redimensionnées et converties en blanc + transp
 ## Icônes (`js/icones-data.js`)
 
 Icônes de https://game-icons.net, licence CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). Auteurs : andymeneely, badges, carl-olsen, caro-asercion, darkzaitzev, delapouite, felbrigg, guard13007, john-colburn, lorc, sbed, skoll, viscious-speed.
+
+## Textures photo des sols (img/sols/)
+
+Textures de [ambientCG](https://ambientcg.com/), licence **CC0 1.0** (domaine public). Seule l'image de couleur est
+gardée, réduite à 512×512 :
+
+- `celeste.jpg` — Marble012 (marbre ; aussi utilisé pour le temple, les ruines et la cathédrale)
+- `forge.jpg` — MetalPlates006
+- `marais.jpg` — Ground054
+- `volcan.jpg` — Lava004
