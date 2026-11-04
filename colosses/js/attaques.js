@@ -31,9 +31,12 @@ function EB(x, y, a, spd, o) {
 }
 // au plus 30 balles par cercle : il reste toujours un passage entre deux balles
 function anneauTirs(x, y, n, a0, spd, o) { n = Math.min(30, n); for (let k = 0; k < n; k++) EB(x, y, a0 + k * TAU / n, spd, o); }
-function zoneC(x, y, r, warn, o) { const h = Object.assign({ kind: 'cercle', x, y, r, warn, t: 0, act: .14, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); Son.play('tele'); return h; }
-function zoneR(x, y, w, h, warn, o) { const z = Object.assign({ kind: 'rect', x, y, w, h, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(z); return z; }
+// toute zone prévient au moins 0,6 s avant de frapper (même en Cauchemar, même tard) : tout reste esquivable
+const ANNONCE_MIN = .6, ANNONCE_RAYON = .65;
+function zoneC(x, y, r, warn, o) { warn = Math.max(ANNONCE_MIN, warn); const h = Object.assign({ kind: 'cercle', x, y, r, warn, t: 0, act: .14, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); Son.play('tele'); return h; }
+function zoneR(x, y, w, h, warn, o) { warn = Math.max(ANNONCE_MIN, warn); const z = Object.assign({ kind: 'rect', x, y, w, h, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(z); return z; }
 function rayon(x, y, a, len, w, warn, act, o) {
+  if (!(o && o.alerte) && warn > 0) warn = Math.max(ANNONCE_RAYON, warn);
   const h = Object.assign({ kind: 'rayon', x, y, a, len, w, warn, act, t: 0, rot: 0, suit: null, track: 0, off: 0, L: len, dmg: DMG(1.25), src: G.atkCourante }, o || {});
   h.L = G.arene.rayMur(h.x, h.y, h.a, h.len);
   G.hz.push(h);
@@ -266,13 +269,13 @@ def('bond', {
   }
 });
 def('lasers', {
-  nom: 'Lasers tournants', cat: 'rayon', conseil: 'Reste loin du boss : les rayons y sont plus espacés. Tourne avec eux, et attention s\'ils changent de sens.',
-  params: (r, D) => ({ n: r.int(2, 5), dur: r.range(2.6, 3.6), rot: Math.min(.7, r.range(.45, .7) * D.S) * r.sign(), inv: r.chance(.35) }),
+  nom: 'Lasers tournants', cat: 'rayon', conseil: 'Tourne avec eux à mi-distance, ou sors de leur portée tout au bord de l\'arène. Attention s\'ils changent de sens.',
+  params: (r, D) => ({ n: r.int(2, 5), dur: r.range(2.6, 3.6), rot: Math.min(.5, r.range(.38, .5) * D.S) * r.sign(), inv: r.chance(.35) }),
   *gen(b, p) {
     b.ctl = true;
     const a0 = vise(b) + Math.PI / p.n, warn = 1 * b.D.T, beams = [];
     b.wind = warn; b.windMax = warn;
-    for (let k = 0; k < p.n; k++) beams.push(rayon(b.x, b.y, a0 + k * TAU / p.n, 1500, 26, warn, p.dur, { suit: b, rot: p.rot }));
+    for (let k = 0; k < p.n; k++) beams.push(rayon(b.x, b.y, a0 + k * TAU / p.n, 900, 26, warn, p.dur, { suit: b, rot: p.rot }));
     let t = 0, flip = false;
     while (t < warn + p.dur) { t += G.dtE; if (p.inv && !flip && t > warn + p.dur / 2) { flip = true; beams.forEach(h => h.rot = -h.rot); } yield 0; }
     b.ctl = false;
@@ -281,10 +284,10 @@ def('lasers', {
 });
 def('rayon', {
   nom: 'Rayon visé', cat: 'rayon', conseil: 'Le rayon te suit puis se fige un instant avant de tirer : bouge juste après qu\'il se fige.',
-  params: (r, D) => ({ rep: r.int(2, 3), w: r.range(30, 40), multi: r.pick([1, 1, 3]), ecart: r.range(.3, .45) }),
+  params: (r, D) => ({ rep: r.int(2, 3), w: r.range(30, 40), multi: r.pick([1, 1, 3]), ecart: r.range(.42, .55) }),
   *gen(b, p) {
     for (let i = 0; i < p.rep; i++) {
-      const warn = .9 * b.D.T, a = vise(b);
+      const warn = Math.max(.85, .95 * b.D.T), a = vise(b);
       b.wind = warn; b.windMax = warn;
       for (let m = 0; m < p.multi; m++) { const off = (m - (p.multi - 1) / 2) * p.ecart; rayon(b.x, b.y, a + off, 1500, p.w, warn, .35, { suit: b, track: 3.5, off }); }
       yield* attendre(warn + .35); yield .25;
@@ -310,7 +313,8 @@ def('meteores', {
 function murBalles(cote, spd, trou) {
   const bb = G.arene.bb(), pas = 30;
   const horiz = cote < 2; // 0 gauche→droite, 1 droite→gauche, 2 haut→bas, 3 bas→haut
-  const L = horiz ? bb.h : bb.w, g = trou / 2 + R() * (L - trou);
+  const L = horiz ? bb.h : bb.w, t = cible(), ici = horiz ? t.y - bb.y : t.x - bb.x;
+  const g = clamp(ici + R.range(-230, 230), trou / 2, L - trou / 2); // trou à portée de course
   for (let s = pas / 2; s < L; s += pas) {
     if (Math.abs(s - g) < trou / 2) continue;
     if (cote === 0) EB(bb.x + 2, bb.y + s, 0, spd, { ext: true });
@@ -682,13 +686,13 @@ def('sniper', {
 });
 def('orbites', {
   nom: 'Anneaux orbitaux', cat: 'balles', conseil: 'Les anneaux tournent autour du boss en s\'élargissant : passe par le trou quand il arrive sur toi.',
-  params: (r, D) => ({ n: r.int(2, 3), m: Math.round(r.int(22, 30) * Math.min(1.3, D.C)), av: r.range(.8, 1.3) * D.S, dr: r.range(55, 75) * D.S }),
+  params: (r, D) => ({ n: r.int(2, 3), m: Math.min(26, Math.round(r.int(20, 26) * Math.min(1.2, D.C))), av: r.range(.35, .55), dr: r.range(55, 75) * Math.min(1.3, D.S) }),
   *gen(b, p) {
     yield* prep(b, .6);
     for (let i = 0; i < p.n; i++) {
       const sens = i % 2 ? -1 : 1, trou = R() * TAU;
       for (let k = 0; k < p.m; k++) {
-        const a = k * TAU / p.m; if (Math.abs(angDiff(a, trou)) < .38) continue;
+        const a = k * TAU / p.m; if (Math.abs(angDiff(a, trou)) < .5) continue; // trou assez lent pour le suivre en courant
         const e = EB(b.x, b.y, 0, 0, { r: 7, life: 9 });
         e.orb = { c: b, a, r: b.r + 10, av: p.av * sens, dr: p.dr };
       }
@@ -699,7 +703,7 @@ def('orbites', {
 });
 def('boomerangs', {
   nom: 'Retours', cat: 'balles', conseil: 'Les balles partent puis reviennent vers le boss : ne reste pas entre lui et elles.',
-  params: (r, D) => ({ n: Math.round(r.int(8, 12) * D.C), spd: r.range(260, 320) * D.S, rep: r.int(1, 2) }),
+  params: (r, D) => ({ n: Math.min(12, Math.round(r.int(7, 10) * D.C)), spd: Math.min(340, r.range(250, 300) * D.S), rep: r.int(1, 2) }),
   *gen(b, p) {
     yield* prep(b, .5);
     for (let i = 0; i < p.rep; i++) {
@@ -756,7 +760,7 @@ def('murFeu', {
 });
 def('tornades', {
   nom: 'Tornades', cat: 'zone', conseil: 'Les tornades te poursuivent lentement pendant 5 s : tourne en rond large pour les faire se coller.',
-  params: (r, D) => ({ n: r.int(2, 3), spd: r.range(95, 125) * D.S }),
+  params: (r, D) => ({ n: r.int(2, 3), spd: Math.min(160, r.range(90, 115) * D.S) }),
   *gen(b, p) {
     yield* prep(b, .5);
     for (let k = 0; k < p.n; k++) { const pt = G.arene.pointAuHasard(60, 220); G.hz.push({ kind: 'tornade', x: pt.x, y: pt.y, r: 42, spd: p.spd, warn: .8, vie: 5, t: 0, dmg: DMG(), src: G.atkCourante }); }

@@ -15,7 +15,7 @@ const RELIQUES = {
   egide: { nom: 'Égide', ico: '🛡', desc: 'Chaque salle commence avec un bouclier', malus: 'talents +30 % plus lents' },
   reserve: { nom: 'Réserve', ico: '➕', desc: '+1 charge de talent', malus: 'talents +45 % plus lents' },
   assassin: { nom: 'Assassin', ico: '🗡', desc: '+40 % dans le dos du boss', malus: '−20 % de face' },
-  chasseur: { nom: 'Chasseur', ico: '🏹', desc: '+60 % contre invocations, têtes et cristaux', malus: '−12 % contre le boss' },
+  chasseur: { nom: 'Élan', ico: '🏹', desc: '+18 % de dégâts en courant', malus: '−20 % à l\'arrêt' },
   reflexes: { nom: 'Réflexes', ico: '💨', desc: 'Talents 25 % plus vite', malus: '−10 % de dégâts' },
   opportun: { nom: 'Opportuniste', ico: '👁', desc: '+50 % quand le boss est ouvert ou étourdi', malus: '−15 % le reste du temps' },
   epines: { nom: 'Épines', ico: '🌵', desc: 'Chaque coup reçu inflige 200 dégâts au boss', malus: 'coups reçus +20 %' },

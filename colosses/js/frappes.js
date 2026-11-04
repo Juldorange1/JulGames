@@ -3,8 +3,8 @@
    secteurs, anneaux, fractures. Moins de projectiles partout, plus de lecture du terrain. */
 
 // ---------- Nouveaux dangers : secteur (part de tarte) et couronne (anneau) ----------
-function secteur(x, y, a0, a1, R, warn, o) { const h = Object.assign({ kind: 'secteur', x, y, a0, a1, R, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); return h; }
-function couronne(x, y, r1, r2, warn, o) { const h = Object.assign({ kind: 'couronne', x, y, r1, r2, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); return h; }
+function secteur(x, y, a0, a1, R, warn, o) { warn = Math.max(ANNONCE_MIN, warn); const h = Object.assign({ kind: 'secteur', x, y, a0, a1, R, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); return h; }
+function couronne(x, y, r1, r2, warn, o) { warn = Math.max(ANNONCE_MIN, warn); const h = Object.assign({ kind: 'couronne', x, y, r1, r2, warn, t: 0, act: .16, dmg: DMG(1.3), src: G.atkCourante }, o || {}); G.hz.push(h); return h; }
 function dansSecteur(h, px, py) { let a = ang(h.x, h.y, px, py) - h.a0; a = ((a % TAU) + TAU) % TAU; return a <= ((h.a1 - h.a0) % TAU + TAU) % TAU || h.a1 - h.a0 >= TAU - .001; }
 function explosionZone(h, cx, cy, r) { if (!h.boom) { h.boom = true; h.at = 0; G.explo(cx, cy, r, h.col || ROUGE); Son.play('explo'); G.secoue(r > 150 ? 7 : 4); } }
 HZ.secteur = {

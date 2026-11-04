@@ -212,7 +212,8 @@ function armesBoss(b) {
 }
 function armement(c, b, r, t, h, ph, couche) {
   if (b.esp && b.esp.id === 'serpent') return;
-  const cats = armesBoss(b), mach = !!STYLES_MACHINE[b.def.look.style], f = b.facing;
+  const st = b.def.look.style, cats = Object.assign({}, armesBoss(b)), mach = !!STYLES_MACHINE[st], f = b.facing;
+  if (st === 'mante') delete cats.corps; // ses faux sont déjà ses armes de corps
   const cur = b.main && ATK[b.main.id] ? ATK[b.main.id].cat : null, prep = b.wind > 0 ? 1 - b.wind / (b.windMax || 1) : 0;
   const metal = l => hsl(h, 14, l), chair = l => hsl(h, 40, l), vif = a => hsl(h, 100, 64, a);
   c.save(); c.rotate(f);
@@ -284,7 +285,7 @@ function armement(c, b, r, t, h, ph, couche) {
       c.fillStyle = cur === 'rayon' && prep > .7 && (t * 20 | 0) % 2 ? '#fff' : hsl(h, 100, 85); c.beginPath(); c.arc(x, 0, r * .13, 0, TAU); c.fill();
     }
     // mâchoires (créatures) ou rivets lumineux (machines)
-    if (!mach && b.def.look.style !== 'oiseau' && b.def.look.style !== 'crane') {
+    if (!mach && st !== 'oiseau' && st !== 'crane' && st !== 'mante') {
       const ouv = .2 + .16 * Math.max(0, Math.sin(t * 5)) + (b.wind > 0 ? .22 : 0);
       for (const s of [-1, 1]) {
         c.fillStyle = '#efe6d6'; c.strokeStyle = '#3a2a20'; c.lineWidth = 1.5;

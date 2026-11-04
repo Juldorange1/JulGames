@@ -170,7 +170,6 @@ const G = {
     let elemTxt = 0;
     if ((o.prim || o.spec) && this.def && (cible0 === this.boss)) {
       const el = elemArme(o.prim ? this.ars.p : this.ars.s);
-      if (el === FAIBLESSE[this.def.elem]) { m *= 1.3; elemTxt = 1; } else if (el === this.def.elem) { m *= .75; elemTxt = -1; }
     }
     if (o.prim && !o.continu && R() < ST.pCrit + (o.critB || 0)) { m *= 2; crit = true; this.fx.push({ kind: 'etoile', x: o.x || tg.x, y: o.y || tg.y, t: 0, dur: .25 }); if (this.ars.p === 'pacte') this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); }
     const b = this.boss;
@@ -190,9 +189,9 @@ const G = {
       m *= fatigueBoss();
       if (totemProtege()) m *= .55;
       if (this.rel('colere')) m *= this.p.hp < this.p.hpMax * .4 ? 1.3 : .85;
+      if (this.rel('chasseur')) m *= Math.hypot(this.p.vx, this.p.vy) > 60 ? 1.18 : .8;
       if (this.rel('opportun')) m *= b.ouvert > 0 || b.stun > 0 ? 1.5 : .85;
       if (this.rel('assassin')) { const dd = Math.abs(angDiff(b.facing + Math.PI, ang(b.x, b.y, o.x, o.y))); m *= dd < 1.05 ? 1.4 : dd > 2.1 ? .8 : 1; }
-      if (this.rel('chasseur')) m *= .88;
       let d = dmg * m;
       statPlus('degats', undefined, d);
       if (this.rel('vampire')) { this.sal.vamp += d; while (this.sal.vamp >= 250) { this.sal.vamp -= 250; this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); } }
@@ -211,7 +210,7 @@ const G = {
       if (b.phase < n - 1 && b.hp <= seuilPhase(b, b.phase)) { b.hp = seuilPhase(b, b.phase); if (!(b.esp.transition && b.esp.transition(b))) passerPhase(b); }
       else if (b.hp <= 0) this.bossMort();
     } else {
-      const d = dmg * m * fatigueBoss() * (this.rel('chasseur') ? 1.6 : 1);
+      const d = dmg * m * fatigueBoss();
       tg.hp -= d; tg.flash = 1;
       this.chiffre(tg, d, crit, o, 1);
       if (tg.hp <= 0) {

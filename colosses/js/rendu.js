@@ -734,7 +734,7 @@ function dessinerHUD(c) {
     let tx = bx + bw + 80;
     for (const t of def.traits) { c.fillText(TRAITS[t].ico, tx, by + 7); tx += 22; }
     const el = ELEMENTS[def.elem], fb = ELEMENTS[FAIBLESSE[def.elem]];
-    if (el) { c.textAlign = 'right'; c.font = `600 11px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#ddd'; c.fillText(el.ico + ' ' + el.nom + '  ·  faible : ' + fb.ico, bx - 10, by - 8); }
+    if (el) { c.textAlign = 'right'; c.font = `600 11px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#ddd'; c.fillText(el.ico + ' ' + el.nom, bx - 10, by - 8); }
     if (b.atkNomT > 0 && !b.mort && b.last) {
       c.globalAlpha = Math.min(1, b.atkNomT); c.textAlign = 'center';
       texteOmbre(c, '▶ ' + ATK[b.main ? b.main.id : b.last].nom, W / 2, by + 32, '#fff', `700 13px ${POLICE}`, 3); c.globalAlpha = 1;

@@ -109,10 +109,10 @@ espece('sentinelle', {
 });
 defEsp('se_charge', {
   nom: 'Charge au bouclier', cat: 'corps', conseil: 'Mets-toi dos à un mur ou à un pilier, attends la charge et esquive au dernier moment : elle s\'y assomme.',
-  params: (r, D) => ({ vit: 1000 * D.S }),
+  params: (r, D) => ({ vit: 1000 * Math.min(1.2, D.S) }),
   *gen(b, p) {
     b.ctl = true;
-    const warn = .8 * b.D.T, ray = rayon(b.x, b.y, vise(b), 1400, b.r * 2, warn, 0, { alerte: true, suit: b, track: 5 });
+    const warn = Math.max(.75, .8 * b.D.T), ray = rayon(b.x, b.y, vise(b), 1400, b.r * 2, warn, 0, { alerte: true, suit: b, track: 5 });
     b.wind = warn; b.windMax = warn;
     yield* attendre(warn);
     const a = ray.a; let tt = 0; b.charge = true; b.facing = a;
@@ -402,7 +402,7 @@ defEsp('ho_aiguilles', {
     // aiguilles de longueur limitée : loin du cadran on est à l'abri (avant, la pointe allait plus vite que le héros)
     const min = rayon(b.x, b.y, aM, 560, 22, warn, dur, { suit: b, rot: .5 * sens });
     const heu = rayon(b.x, b.y, aM + Math.PI * .7, 400, 34, warn, dur, { suit: b, rot: .22 * sens });
-    if (b.phase) rayon(b.x, b.y, aM + Math.PI * 1.3, 260, 14, warn, dur, { suit: b, rot: 1 * sens, col: '#ffe9a0' });
+    if (b.phase) rayon(b.x, b.y, aM + Math.PI * 1.3, 260, 14, warn, dur, { suit: b, rot: .8 * sens, col: '#ffe9a0' });
     let t = 0, lock = 0;
     while (t < warn + dur) {
       t += G.dtE; lock -= G.dtE;

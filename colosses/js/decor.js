@@ -243,3 +243,86 @@ Decor.dessinerAmbiance = function (c) {
   c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   c.restore();
 };
+
+// ---------- Fond du menu : un vrai boss du jeu (silhouette, armes, aura), mis en scène ----------
+const SCENE_MENU = { def: null, b: null, t: 0, vu: 0, braises: [], brumes: [] };
+function nouveauBossMenu() {
+  const S = SCENE_MENU;
+  let def = null;
+  for (let i = 0; i < 30 && (!def || def.esp === 'serpent'); i++) def = genBoss(R.int(8, 26), R.int(1, 2e9), R() < .3, []);
+  const bb = Arene.bb(), b = creerBoss(def);
+  b.intro = 0; b.x = 0; b.y = 0; b.armure = 0; b.armureMax = 0;
+  S.def = def; S.b = b; S.t = 0;
+  S.brumes = Array.from({ length: 7 }, () => ({ x: R() * W, y: H * (.55 + R() * .45), r: R.range(180, 340), v: R.range(-14, 14) }));
+}
+fondMenu = function () {
+  const S = SCENE_MENU, k = cv.width / W;
+  if (!S.b || performance.now() - S.vu > 1500) nouveauBossMenu();
+  S.vu = performance.now(); S.t += 1 / 60;
+  const b = S.b, def = S.def, h = def.hue, t = S.t;
+  ctx.setTransform(k, 0, 0, k, 0, (cv.height - H * k) / 2);
+  // ciel et lointain
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, hsl(h, 40, 6)); g.addColorStop(.6, hsl(h, 45, 10)); g.addColorStop(1, '#020106');
+  ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, H * 3);
+  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow(hsl(h, 100, 45, .25), 520), W * .7 - 520, H * .42 - 520); ctx.globalCompositeOperation = 'source-over';
+  // colonnes en ruine au loin
+  ctx.fillStyle = hsl(h, 25, 5);
+  for (let i = 0; i < 9; i++) { const x = W * (.38 + i * .08), hh = 180 + ((i * 97) % 5) * 45, w = 34 + (i % 3) * 8; ctx.fillRect(x - w / 2, H * .64 - hh, w, hh); ctx.fillRect(x - w * .7, H * .64 - hh - 12, w * 1.4, 12); if (i % 3 === 1) { ctx.beginPath(); ctx.moveTo(x - w / 2, H * .64 - hh); ctx.lineTo(x + w / 2, H * .64 - hh - 40); ctx.lineTo(x + w / 2, H * .64 - hh); ctx.fill(); } }
+  // faisceau de lumière qui tombe sur le boss
+  const cx = W * .72, cy = H * .5 + Math.sin(t * .7) * 10;
+  const lg = ctx.createLinearGradient(cx, 0, cx, cy + 120); lg.addColorStop(0, hsl(h, 80, 70, .16)); lg.addColorStop(1, hsl(h, 80, 70, 0));
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(cx - 70, -20); ctx.lineTo(cx + 70, -20); ctx.lineTo(cx + 260, cy + 140); ctx.lineTo(cx - 260, cy + 140); ctx.closePath(); ctx.fill();
+  // estrade : cercle runique couché sous le boss
+  ctx.save(); ctx.translate(cx, H * .74); ctx.scale(1, .32);
+  const sg = ctx.createRadialGradient(0, 0, 20, 0, 0, 330); sg.addColorStop(0, hsl(h, 30, 18)); sg.addColorStop(.85, hsl(h, 35, 7)); sg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(0, 0, 330, 0, TAU); ctx.fill();
+  sprite(ctx, 'circle6', hsl(h, 100, 62), 0, 0, 560, t * .12, .55, true);
+  ctx.restore();
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.ellipse(cx, H * .74, 150 - Math.sin(t * .7) * 8, 40, 0, 0, TAU); ctx.fill();
+  // le boss, en grand : il regarde vers le joueur et charge régulièrement une attaque (ses armes s'allument)
+  const cyc = t % 5;
+  b.wind = cyc > 3.6 ? 5 - cyc : 0; b.windMax = 1.4;
+  b.main = cyc > 3.6 ? { id: def.phases[0].cycle[Math.floor(t / 5) % def.phases[0].cycle.length].id } : null;
+  b.facing = Math.PI * .95 + Math.sin(t * .4) * .25; b.eyesA = b.facing; b.flash = 0;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(1.95, 1.95);
+  b.x = 0; b.y = 0;
+  try { dessinerBoss(ctx, b); } catch (e) { }
+  ctx.restore();
+  // brume au sol et braises
+  ctx.globalCompositeOperation = 'lighter';
+  for (const q of S.brumes) { q.x += q.v / 60; if (q.x < -400) q.x = W + 300; if (q.x > W + 400) q.x = -300; ctx.drawImage(glow(hsl(h, 60, 50, .06), q.r), q.x - q.r, q.y - q.r); }
+  if (S.braises.length < 80) S.braises.push({ x: W * .35 + Math.random() * W * .7, y: H + 10, v: 20 + Math.random() * 60, r: 1 + Math.random() * 2.2, p: Math.random() * 6 });
+  for (const q of S.braises) { q.y -= q.v / 60; q.x += Math.sin(t + q.p) * .5; ctx.globalAlpha = Math.min(1, (q.y / H) * 1.5); ctx.drawImage(glow(hsl(h + 30, 100, 65), q.r * 3), q.x - q.r * 3, q.y - q.r * 3); }
+  S.braises = S.braises.filter(q => q.y > -10);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  // nom du colosse
+  ctx.textAlign = 'center'; ctx.globalAlpha = .75;
+  texteOmbre(ctx, (def.legendaire ? '✦ ' : '') + def.nom, cx, H * .86, hsl(h, 90, 72), `900 30px ${POLICE}`, 5);
+  ctx.font = `italic 15px ${POLICE}`; ctx.fillStyle = '#cfc6e0'; ctx.fillText(def.titre + (def.mega ? ' — méga boss' : ''), cx, H * .89);
+  ctx.globalAlpha = 1;
+};
+
+// ---------- Matière des boss : ombrage (lumière venant d'en haut à gauche) et grain, sur toutes les silhouettes ----------
+let grainBoss = null;
+function motifGrain() {
+  if (grainBoss) return grainBoss;
+  const t = document.createElement('canvas'); t.width = t.height = 128; const x = t.getContext('2d'), im = x.createImageData(128, 128);
+  for (let i = 0; i < 128 * 128; i++) { const v = 100 + Math.random() * 110 | 0; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  // quelques rayures et piqûres
+  x.strokeStyle = 'rgba(40,40,40,.5)'; for (let i = 0; i < 14; i++) { x.lineWidth = Math.random() * 1.5 + .5; x.beginPath(); const a = Math.random() * 128, b = Math.random() * 128; x.moveTo(a, b); x.lineTo(a + Math.random() * 30 - 15, b + Math.random() * 30 - 15); x.stroke(); }
+  grainBoss = x.createPattern(t, 'repeat');
+  return grainBoss;
+}
+function matiereBoss(c, r) {
+  c.save();
+  c.beginPath(); c.arc(0, 0, r * 1.02, 0, TAU); c.clip();
+  c.globalCompositeOperation = 'soft-light'; c.globalAlpha = .55; c.fillStyle = motifGrain(); c.fillRect(-r * 1.1, -r * 1.1, r * 2.2, r * 2.2);
+  c.globalAlpha = 1; c.globalCompositeOperation = 'multiply';
+  const g = c.createRadialGradient(-r * .45, -r * .5, r * .1, 0, 0, r * 1.05); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.55, 'rgba(200,200,210,1)'); g.addColorStop(1, 'rgba(70,65,80,1)');
+  c.fillStyle = g; c.fillRect(-r * 1.1, -r * 1.1, r * 2.2, r * 2.2);
+  c.globalCompositeOperation = 'screen'; c.globalAlpha = .35;
+  const s = c.createRadialGradient(-r * .45, -r * .55, 0, -r * .45, -r * .55, r * .55); s.addColorStop(0, 'rgba(255,255,255,.8)'); s.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = s; c.fillRect(-r, -r, r * 2, r * 2);
+  c.restore();
+}

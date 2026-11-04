@@ -47,6 +47,8 @@ const SYL2 = ['gath', 'ros', 'neth', 'ax', 'iel', 'oum', 'ra', 'tor', 'zar', 'mi
 function nomBoss(r) { let n = r.pick(SYL1) + r.pick(SYL2); if (r.chance(.3)) n += r.pick(SYL2); return n; }
 
 // ---------- Génération (définition pure, rejouable avec la même graine) ----------
+// attaques d'espèce qui marchent sur n'importe quel boss : elles rejoignent le tirage commun
+const ATK_PARTAGEES = ['se_charge', 're_kamikazes', 'ho_aiguilles', 'ho_engrenages', 'bo_combo', 'bo_lames', 'px_plongeon', 'px_plumes'];
 function genBoss(salle, seed, mega, eviter) {
   const r = RNG(seed), df = DF();
   const dispo = ESP_ORDRE.slice(0, Math.min(ESP_ORDRE.length, 4 + Math.floor((salle - 1) / 2)));
@@ -59,12 +61,12 @@ function genBoss(salle, seed, mega, eviter) {
   let hue = esp.hue != null ? (esp.hue + r.int(-10, 10) + 360) % 360 : r.int(0, 359);
   if (esp.chimere && hue > 150 && hue < 215) hue = (hue + 90) % 360;
   const D = {
-    S: Math.min(1.6, 1 + .02 * (salle - 1)) * df.vit,
+    S: Math.min(1.6, (1 + .02 * (salle - 1)) * df.vit),
     C: Math.min(1.6, 1 + .015 * (salle - 1)) * df.dens * .85,
-    T: Math.max(.7, (1 - .011 * (salle - 1)) * df.tele)
+    T: Math.max(.62, (1 - .011 * (salle - 1)) * df.tele)
   };
   const rp = RNG(hashNum((ESP_ORDRE.indexOf(espId) + 3) * 977)); // réglages fixes propres à l'espèce
-  const pool = ATK_IDS.filter(id => id !== 'invocation' && (MIN_SALLE[id] || 1) <= salle);
+  const pool = ATK_IDS.concat(ATK_PARTAGEES.filter(id => ATK[id] && !ATK_IDS.includes(id))).filter(id => id !== 'invocation' && (MIN_SALLE[id] || 1) <= salle);
   let src;
   if (esp.chimere) {
     const deja = new Set(); src = [];
@@ -79,7 +81,27 @@ function genBoss(salle, seed, mega, eviter) {
       }
       l.forEach(id => deja.add(id)); src.push({ cycle: l });
     }
-  } else src = esp.phases.map(ph => ({ cycle: ph.cycle.slice(), carte: ph.carte }));
+  } else {
+    // chaque boss garde les attaques liées à la mécanique de son espèce ; le reste de son cycle est tiré
+    // au sort dans TOUTES les attaques : n'importe quelle apparence peut porter n'importe quelle attaque
+    const deja = new Set();
+    src = esp.phases.map(ph => {
+      const parCat = {}; let lourds = 0;
+      const garde = id => ATK[id].esp;
+      for (const id of ph.cycle) if (garde(id)) { const c = ATK[id].cat; parCat[c] = (parCat[c] || 0) + 1; if (poids(id) >= 3) lourds++; }
+      const cycle = ph.cycle.map(id => {
+        if (garde(id)) return id;
+        const choix = pool.filter(x => !deja.has(x) && !ph.cycle.includes(x));
+        for (let essai = 0; essai < 40; essai++) {
+          const x = r.weighted(choix, y => ({ zone: 2, rayon: 1.3, corps: 1.1, terrain: .8, balles: .7 })[ATK[y].cat] || 1), c = ATK[x].cat, pd = poids(x);
+          if ((parCat[c] || 0) >= 2 || (pd >= 3 && lourds >= 1) || (c === 'terrain' && parCat[c])) continue;
+          parCat[c] = (parCat[c] || 0) + 1; if (pd >= 3) lourds++; deja.add(x); return x;
+        }
+        return id;
+      });
+      return { cycle, carte: ph.carte };
+    });
+  }
   // le combat change en route : à partir de la salle 6, souvent une 3e phase (nouvelle attaque + attaque de fond) ;
   // les méga boss ont toujours une phase de plus et une attaque inédite par phase
   if (mega && salle >= 5) src.forEach(ph => { const extra = r.pick(pool.filter(id => !ph.cycle.includes(id) && ATK[id].cat !== 'terrain')); ph.cycle.splice(r.int(1, ph.cycle.length), 0, extra); });
@@ -312,7 +334,7 @@ function majMinion(m, dt) {
     }
     case 'kamikaze':
       if (m.boom === undefined) { m.x += Math.cos(a) * m.vit * S * dt; m.y += Math.sin(a) * m.vit * S * dt; if (dd < 75) { m.boom = 0; Son.play('tele'); } }
-      else { m.boom += dt; if (m.boom >= .55) { m.dead = true; G.explo(m.x, m.y, 85, ROUGE); Son.play('explo'); if (d2(m.x, m.y, G.p.x, G.p.y) < (85 + G.p.hr) ** 2) G.blesser(DMG(1.2), 'invocation'); } }
+      else { m.boom += dt; if (m.boom >= .7) { m.dead = true; G.explo(m.x, m.y, 85, ROUGE); Son.play('explo'); if (d2(m.x, m.y, G.p.x, G.p.y) < (85 + G.p.hr) ** 2) G.blesser(DMG(1.2), 'invocation'); } }
       break;
     case 'tourelle':
       m.a += 1.6 * dt; m.cd -= dt;
@@ -344,7 +366,7 @@ function dessinerMinion(c, m) {
   if (m.type === 'cristal' || m.type === 'noeud') { c.globalAlpha = .4 + .3 * Math.sin(G.t * 5); c.fillStyle = col; c.fill(); c.globalAlpha = 1; }
   else { c.fillStyle = col; c.beginPath(); const ea = ang(m.x, m.y, G.p.x, G.p.y); c.arc(Math.cos(ea) * m.r * .35, Math.sin(ea) * m.r * .35, 3, 0, TAU); c.fill(); }
   c.restore();
-  if (m.type === 'kamikaze' && m.boom !== undefined) { c.fillStyle = 'rgba(255,40,80,.2)'; c.beginPath(); c.arc(m.x, m.y, 85 * Math.min(1, m.boom / .55), 0, TAU); c.fill(); c.strokeStyle = ROUGE; c.beginPath(); c.arc(m.x, m.y, 85, 0, TAU); c.stroke(); }
+  if (m.type === 'kamikaze' && m.boom !== undefined) { c.fillStyle = 'rgba(255,40,80,.2)'; c.beginPath(); c.arc(m.x, m.y, 85 * Math.min(1, m.boom / .7), 0, TAU); c.fill(); c.strokeStyle = ROUGE; c.beginPath(); c.arc(m.x, m.y, 85, 0, TAU); c.stroke(); }
   if (m.hp < m.hpMax && m.spawn <= 0) { c.fillStyle = '#000a'; c.fillRect(m.x - 16, m.y - m.r - 10, 32, 4); c.fillStyle = col; c.fillRect(m.x - 16, m.y - m.r - 10, 32 * m.hp / m.hpMax, 4); }
 }
 
@@ -387,6 +409,7 @@ function dessinerBoss(c, b) {
   const forme = FORMES[L.style];
   if (forme) {
     forme(c, b, r, t, h, ph, b.eyesA);
+    if (b.esp.id !== 'spectre' && b.def.look.style !== 'nautile' && b.def.look.style !== 'fantome' && typeof matiereBoss === 'function') matiereBoss(c, r);
     if (b.flash > 0) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = al * b.flash * .5; c.drawImage(glow('#ffffff', r * 1.2), -r * 1.2, -r * 1.2); c.globalAlpha = al; c.globalCompositeOperation = 'source-over'; }
     if (b.ouvert > 0) lueur(c, 'rgba(255,220,90,.7)', r * .9);
   }

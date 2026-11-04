@@ -249,7 +249,8 @@ const UI = {
       corps = `<div class="liste large">` + ids.map(i => {
         const e = ESPECES[i], v = cx.especes[i];
         if (!v) return inconnu('Pas encore rencontrée.');
-        const cyc = e.phases.map((ph, k) => `<div class="cyc"><span>Phase ${k + 1}</span> ${ph.cycle.map(id => ATK[id].nom).join(' → ')}</div>`).join('');
+        const sig = [...new Set(e.phases.flatMap(ph => ph.cycle).filter(id => ATK[id].esp))];
+        const cyc = sig.length ? `<div class="cyc"><span>Signature</span> ${sig.map(id => ATK[id].nom).join(' · ')} <em>+ attaques tirées au sort pour chaque boss</em></div>` : '<div class="cyc"><em>Toutes ses attaques sont tirées au sort.</em></div>';
         return `<div class="entree"><b style="color:${e.hue != null ? hsl(e.hue, 100, 66) : '#ddd'}">${nomMaj(e.nom)} <span class="etoiles">${'★'.repeat(etoiles(i))}</span></b><span class="cpt">${v.tues} / ${v.vus}</span><p>${e.meca}</p>${cyc}</div>`;
       }).join('') + '</div>';
     } else if (o === 'att') {
