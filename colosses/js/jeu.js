@@ -360,11 +360,14 @@ const G = {
       this.salle = b.salle; this.mega = b.mega;
       def = genBoss(b.salle, b.seed, b.mega, []); ars = b.ars;
       if (df.format === 'abysses') { const r = RNG(b.seed + 3); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, Math.min(3, Math.floor(df.i / 2)))) def.traits.push(t); }
+      // Abysses : chaque boss attaque plus vite, plus dense, avec moins de répit (les annonces restent au minimum garanti)
+      if (df.format === 'abysses') { const k = df.i; def.D.S *= Math.min(1.45, 1 + .045 * k); def.D.C *= Math.min(1.55, 1 + .05 * k); def.D.T = Math.max(.6, def.D.T * Math.max(.72, 1 - .025 * k)); def.idle *= Math.max(.55, 1 - .04 * k); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
       if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
+      if (df.format === 'abysses') def.D.S = Math.min(1.75, def.D.S); // toujours esquivable
       if (this.mut('colosses')) def.hpMax = Math.round(def.hpMax * 1.4);
       if (this.mode === 'jour') def.hpMax = Math.round(def.hpMax * .6); // défi du jour : court
       else if (this.mode === 'semaine' || this.mode === 'abysses') def.hpMax = Math.round(def.hpMax * .75);
@@ -391,6 +394,7 @@ const G = {
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
     this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.1 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
+    if (this.format() === 'abysses' && this.defi) this.dmgE *= Math.min(2.6, 1 + .12 * this.defi.i); // Abysses : les coups font de plus en plus mal
     this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
     const cx = d.codex;

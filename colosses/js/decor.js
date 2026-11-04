@@ -265,9 +265,8 @@ fondMenu = function () {
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, hsl(h, 40, 6)); g.addColorStop(.6, hsl(h, 45, 10)); g.addColorStop(1, '#020106');
   ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, H * 3);
   ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow(hsl(h, 100, 45, .25), 520), W * .7 - 520, H * .42 - 520); ctx.globalCompositeOperation = 'source-over';
-  // colonnes en ruine au loin
-  ctx.fillStyle = hsl(h, 25, 5);
-  for (let i = 0; i < 9; i++) { const x = W * (.38 + i * .08), hh = 180 + ((i * 97) % 5) * 45, w = 34 + (i % 3) * 8; ctx.fillRect(x - w / 2, H * .64 - hh, w, hh); ctx.fillRect(x - w * .7, H * .64 - hh - 12, w * 1.4, 12); if (i % 3 === 1) { ctx.beginPath(); ctx.moveTo(x - w / 2, H * .64 - hh); ctx.lineTo(x + w / 2, H * .64 - hh - 40); ctx.lineTo(x + w / 2, H * .64 - hh); ctx.fill(); } }
+  // colonnes en ruine au loin (dessinées une fois par teinte : cannelures, chapiteau, base, éclairage, brume)
+  ctx.drawImage(colonnesMenu(h), 0, 0);
   // faisceau de lumière qui tombe sur le boss
   const cx = W * .72, cy = H * .5 + Math.sin(t * .7) * 10;
   const lg = ctx.createLinearGradient(cx, 0, cx, cy + 120); lg.addColorStop(0, hsl(h, 80, 70, .16)); lg.addColorStop(1, hsl(h, 80, 70, 0));
@@ -325,4 +324,61 @@ function matiereBoss(c, r) {
   const s = c.createRadialGradient(-r * .45, -r * .55, 0, -r * .45, -r * .55, r * .55); s.addColorStop(0, 'rgba(255,255,255,.8)'); s.addColorStop(1, 'rgba(255,255,255,0)');
   c.fillStyle = s; c.fillRect(-r, -r, r * 2, r * 2);
   c.restore();
+}
+
+// ---------- colonnes en ruine du menu : de vraies colonnes dans l'ombre ----------
+let _colMenu = null, _colMenuCle = '';
+function colonnesMenu(h) {
+  if (_colMenu && _colMenuCle === String(h)) return _colMenu;
+  _colMenuCle = String(h);
+  const cv = _colMenu || document.createElement('canvas'); cv.width = W; cv.height = H; _colMenu = cv;
+  const x = cv.getContext('2d'), r = RNG(hashNum(h * 31 + 7)), sol = H * .64, lx = W * .72;
+  x.clearRect(0, 0, W, H);
+  // du plus loin au plus proche : les lointaines sont plus petites, plus pâles (brume) et plus floues de contraste
+  const cols = [];
+  for (let i = 0; i < 9; i++) cols.push({ x: W * (.38 + i * .08) + r.range(-14, 14), prof: r.range(.55, 1), casse: i % 3 === 1 || r() < .2 });
+  cols.sort((a, b) => a.prof - b.prof);
+  for (const c of cols) {
+    const k = c.prof, w = (30 + r.range(0, 16)) * (.75 + k * .35), hh = (190 + r.range(0, 170)) * (.8 + k * .3), base = sol + (1 - k) * -18;
+    const top = base - hh, cote = c.x < lx ? 1 : -1; // côté tourné vers la lumière du boss
+    const L = (d) => hsl(h, 14, Math.max(2, (4 + 7 * k) + d)); // plus proche = un peu plus éclairée
+    x.save();
+    // fût : dégradé d'éclairage en travers
+    const g = x.createLinearGradient(c.x - w / 2, 0, c.x + w / 2, 0);
+    g.addColorStop(0, cote > 0 ? L(-3) : L(6)); g.addColorStop(.5, L(1)); g.addColorStop(1, cote > 0 ? L(7) : L(-3));
+    x.fillStyle = g;
+    const hautFut = c.casse ? top + r.range(20, 90) : top + 22;
+    x.beginPath(); x.moveTo(c.x - w / 2, base - 14); x.lineTo(c.x - w / 2 + 2, hautFut);
+    if (c.casse) { const n = 5; for (let s = 0; s <= n; s++) x.lineTo(c.x - w / 2 + w * s / n, hautFut - r.range(0, 26) - (s === 2 ? 20 : 0)); }
+    else x.lineTo(c.x + w / 2 - 2, hautFut);
+    x.lineTo(c.x + w / 2, base - 14); x.closePath(); x.fill();
+    // cannelures
+    x.save(); x.clip();
+    for (let f = 1; f < 7; f++) { const fx = c.x - w / 2 + w * f / 7; x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(fx - .8, hautFut - 30, 1.6, base - hautFut + 30); x.fillStyle = hsl(h, 20, 20, .08 + .06 * k); x.fillRect(fx + .9, hautFut - 30, .8, base - hautFut + 30); }
+    // fissures
+    for (let q = 0; q < 2; q++) { x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 1; x.beginPath(); let px = c.x + r.range(-w / 3, w / 3), py = hautFut + r.range(10, hh * .6); x.moveTo(px, py); for (let s = 0; s < 5; s++) { px += r.range(-5, 5); py += r.range(6, 16); x.lineTo(px, py); } x.stroke(); }
+    // ombre propre en bas du fût
+    const go = x.createLinearGradient(0, base - 60, 0, base); go.addColorStop(0, 'rgba(0,0,0,0)'); go.addColorStop(1, 'rgba(0,0,0,.5)'); x.fillStyle = go; x.fillRect(c.x - w, base - 60, w * 2, 60);
+    x.restore();
+    // liseré de lumière du côté du boss
+    x.strokeStyle = hsl(h, 70, 55, .12 + .14 * k); x.lineWidth = 1.5; x.beginPath(); const ex = c.x + cote * (w / 2 - 1); x.moveTo(ex, base - 16); x.lineTo(ex, hautFut + 4); x.stroke();
+    // chapiteau (colonnes entières) et base à deux marches
+    if (!c.casse) {
+      x.fillStyle = L(3); x.fillRect(c.x - w * .72, top, w * 1.44, 10);
+      x.fillStyle = L(0); x.beginPath(); x.moveTo(c.x - w * .62, top + 10); x.quadraticCurveTo(c.x, top + 26, c.x + w * .62, top + 10); x.lineTo(c.x + w * .5, top + 22); x.lineTo(c.x - w * .5, top + 22); x.closePath(); x.fill();
+      x.fillStyle = hsl(h, 60, 55, .1 * k); x.fillRect(c.x - w * .72, top, w * 1.44, 2);
+    } else if (r() < .7) {
+      // bloc tombé au pied
+      x.fillStyle = L(-1); x.save(); x.translate(c.x + cote * -w * .9, base - 8); x.rotate(r.range(-.4, .4)); x.fillRect(-w * .45, -10, w * .9, 18); x.restore();
+    }
+    x.fillStyle = L(2); x.fillRect(c.x - w * .66, base - 14, w * 1.32, 8);
+    x.fillStyle = L(-1); x.fillRect(c.x - w * .78, base - 6, w * 1.56, 8);
+    // voile de brume selon la distance
+    x.globalAlpha = (1 - k) * .55; x.fillStyle = hsl(h, 40, 9); x.fillRect(c.x - w, top - 40, w * 2, hh + 60); x.globalAlpha = 1;
+    x.restore();
+  }
+  // brume au pied des colonnes
+  const gb = x.createLinearGradient(0, sol - 120, 0, sol + 30); gb.addColorStop(0, hsl(h, 40, 8, 0)); gb.addColorStop(1, hsl(h, 40, 8, .85));
+  x.fillStyle = gb; x.fillRect(0, sol - 120, W, 150);
+  return cv;
 }

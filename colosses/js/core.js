@@ -280,7 +280,7 @@ const SAVE_KEY = 'colosses_v1';
 const DIFFS = {
   apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 130, dmg: .75, hp: 1, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 },
   guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
-  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Deux ou trois coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.6, hp: 1, vit: 1.24, tele: .78, idle: .6, dens: 1.25, soin: 15, cran: 1 }
+  cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Trois ou quatre coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.45, hp: 1, vit: 1.18, tele: .82, idle: .66, dens: 1.2, soin: 15, cran: 1 }
 };
 function progVide() { return { palier: 0, record: 0, up: { p: {}, s: {}, t: {} }, run: null, megaTemps: {} }; }
 const Save = {

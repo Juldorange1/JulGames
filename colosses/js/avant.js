@@ -10,6 +10,11 @@ Conseils.dessiner = () => { };
 // la grande carte de région en plein combat aussi (elle passe dans l'écran d'avant)
 Regions.dessinerCarte = () => { };
 
+// seulement ce qui est difficile à comprendre tout seul en quelques secondes
+const ARMES_COMPLEXES = new Set(['p:arc', 'p:laser', 'p:railgun', 'p:rattrape', 'p:echo', 'p:meteorite', 'p:gravite', 'p:iaido', 'p:lucioles', 'p:pacte', 'p:calice', 'p:froleur', 'p:couleuvrine', 'p:surchauffe', 'p:aiguilles', 'p:harpon', 'p:pistolet', 'p:jumelles', 'p:croix', 'p:ricochets',
+  's:trou', 's:supernova', 's:renvoi', 's:aimantSpe', 's:miroir', 's:faille',
+  't:parade', 't:contre', 't:ancre', 't:rembobine', 't:dephasage', 't:echange', 't:trampoline', 't:fantome', 't:leurre', 't:ombre', 't:esquive']);
+const PIEGES_COMPLEXES = new Set(['vase', 'bourrasque']);
 function vusAvant() { return Save.d.vusAvant || (Save.d.vusAvant = {}); }
 
 // ---------- petites animations (canvas 260×140) ----------
@@ -213,17 +218,17 @@ const Avant = {
       out.push({ cle: 'esp:' + def.esp, demo: 'espece', data: { hue: def.hue, img: portraitBoss(b) }, titre: 'Nouveau colosse : ' + nomMaj(E.nom || def.titre), ico: 'ui:codex', texte: (E.meca || '') + (sig.length ? ' Ses attaques fétiches : ' + sig.join(', ') + '.' : '') });
     }
     for (const t of def.traits) if (!av.traits[t] && TRAITS[t]) out.push({ cle: 'trait:' + t, demo: 'trait:' + t, titre: 'Trait : ' + TRAITS[t].nom, ico: 'tr:' + t, texte: TRAITS[t].desc });
-    if (G.mega && !V.mega) out.push({ cle: 'mega', demo: 'mega', titre: 'Méga boss', ico: 'ui:trophee', texte: 'Toutes les 5 salles : un boss plus résistant, avec un halo doré. Il rapporte trois fois plus de cristaux et deux fragments rares.' });
+    if (false) out.push({ cle: 'mega', demo: 'mega', titre: 'Méga boss', ico: 'ui:trophee', texte: 'Toutes les 5 salles : un boss plus résistant, avec un halo doré. Il rapporte trois fois plus de cristaux et deux fragments rares.' });
     const rg = typeof Regions !== 'undefined' && Regions.rg;
-    if (rg && rg.piege && !V['piege:' + rg.piege]) out.push({ cle: 'piege:' + rg.piege, demo: 'piege:' + rg.piege, titre: 'Région ' + romain(rg.num) + ' · ' + rg.nom, ico: 'ui:idee', texte: 'Piège de la région : ' + rg.pdesc });
-    const armes = ['p', 's', 't'].filter(k => !av.arm[k + ':' + G.ars[k]]);
+    if (rg && PIEGES_COMPLEXES.has(rg.piege) && !V['piege:' + rg.piege]) out.push({ cle: 'piege:' + rg.piege, demo: 'piege:' + rg.piege, titre: 'Région ' + romain(rg.num) + ' · ' + rg.nom, ico: 'ui:idee', texte: 'Piège de la région : ' + rg.pdesc });
+    const armes = ['p', 's', 't'].filter(k => !av.arm[k + ':' + G.ars[k]] && ARMES_COMPLEXES.has(k + ':' + G.ars[k]));
     if (armes.length) {
       const L = { p: ['Arme', PRIM], s: ['Spéciale', SPEC], t: ['Talent', TAL] };
       for (const k of armes) { const a = L[k][1].find(x => x.id === G.ars[k]); if (a) out.push({ cle: 'arme:' + k + ':' + a.id, demo: 'arme:' + k, data: { ico: a.ico }, titre: L[k][0] + ' : ' + a.nom, ico: a.ico, texte: a.desc + (a.cout === undefined && a.rech ? ' Recharge : ' + a.rech + ' s.' : '') }); }
     }
     if (!V.finale && V.base) out.push({ cle: 'finale', demo: 'finale', titre: 'Dernier souffle', ico: 'ui:sablier', texte: 'Quand sa vie tombe à zéro, le colosse lance une dernière attaque spectaculaire. Il ne peut plus te tuer, mais chaque coup reçu compte pour les défis de maîtrise.' });
     if (G.mode === 'normal' && ((d.essais || {})[d.diff + ':' + G.salle] || 0) > 0 && !V.retour) out.push({ cle: 'retour', demo: 'retour', titre: 'Même boss', ico: 'ui:recommencer', texte: `Après une mort, tu retrouves exactement le même colosse avec les mêmes armes. Bloqué ? ${T_('pause')} puis « Passer ce boss » : le joker est commun aux 3 difficultés et revient après 3 boss vaincus.` });
-    if ((d.stats.boss || 0) >= 1 && !V.cristaux) out.push({ cle: 'cristaux', demo: 'cristaux', titre: 'Cristaux', ico: 'ui:cristal', texte: 'Chaque boss vaincu donne des cristaux (Cauchemar ×2, Apprenti ×½). Ils achètent des affinités (tes armes préférées sortent plus souvent) et des apparences, au menu. Jamais de puissance.' });
+    if (false) out.push({ cle: 'cristaux', demo: 'cristaux', titre: 'Cristaux', ico: 'ui:cristal', texte: 'Chaque boss vaincu donne des cristaux (Cauchemar ×2, Apprenti ×½). Ils achètent des affinités (tes armes préférées sortent plus souvent) et des apparences, au menu. Jamais de puissance.' });
     return out;
   },
   montrer(cartes) {
