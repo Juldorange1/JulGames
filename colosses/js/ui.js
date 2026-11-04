@@ -57,6 +57,7 @@ const UI = {
       case 'quitter': G.mode = 'normal'; this.menu(); break;
       case 'touchesDef': Save.d.opts.touches = Save.defaut().opts.touches; Save.write(); this.options(this.ongletOptDepuis || 'menu', 'commandes'); break;
       case 'quitterJeu': Save.write(); window.close(); break;
+      case 'conseilsRaz': Conseils.reinitialiser(); Save.d.opts.conseils = true; Save.write(); this.options(this.ongletOptDepuis || 'menu', 'jeu'); break;
       case 'plein': if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); break;
       case 'effacer':
         if (confirm('Effacer TOUTE ta progression (difficultés, défis, succès, améliorations, codex) ?')) { localStorage.removeItem(SAVE_KEY); Save.load(); G.opts = Save.d.opts; calcStats(); majAlerte(); this.menu(); }
@@ -320,11 +321,11 @@ const UI = {
       coche('o-contour', 'Contour noir autour des balles ennemies', op.contour) +
       choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
       `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
-    else if (onglet === 'jeu') corps = coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
+    else if (onglet === 'jeu') corps = coche('o-conseils', 'Conseils pour débuter (bulles la première fois)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
       coche('o-noms', 'Nom des attaques du boss', op.nomsAttaques) + coche('o-chrono', 'Chronomètre', op.chrono) + coche('o-pause', 'Pause quand la fenêtre est quittée', op.autoPause) +
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +
-      `<div class="rang"><button data-a="plein">⛶ Plein écran</button></div>`;
+      `<div class="rang"><button data-a="conseilsRaz">Revoir les conseils</button><button data-a="plein">⛶ Plein écran</button></div>`;
     else corps = [['haut', '⬆ Haut'], ['bas', '⬇ Bas'], ['gauche', '⬅ Gauche'], ['droite', '➡ Droite'], ['tir', '🔫 Arme'], ['spec', '💥 Spéciale'], ['spec2', '💥 Spéciale (2e)'], ['tal', '💨 Talent'], ['tal2', '💨 Talent (2e)'], ['pause', '⏸ Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique sur une case puis appuie sur une touche <b>ou un bouton de la souris</b> (Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.</p><div class="rang"><button data-a="touchesDef">Touches par défaut</button></div>';
     const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches']];
     this.montrer(`
@@ -350,7 +351,7 @@ const UI = {
     lier('o-part', t => op.particules = t.value); lier('o-alerte', t => { op.alerte = t.value; majAlerte(); });
     lier('o-contour', t => op.contour = t.checked); lier('o-viseur', t => op.viseur = t.value); lier('o-vcol', t => op.viseurCol = t.value, 'input');
     lier('o-fps', t => op.fps = t.checked); lier('o-auto', t => op.auto = t.checked); lier('o-chiffres', t => op.chiffres = t.checked);
-    lier('o-noms', t => op.nomsAttaques = t.checked); lier('o-pause', t => op.autoPause = t.checked); lier('o-chrono', t => op.chrono = t.checked);
+    lier('o-conseils', t => op.conseils = t.checked); lier('o-noms', t => op.nomsAttaques = t.checked); lier('o-pause', t => op.autoPause = t.checked); lier('o-chrono', t => op.chrono = t.checked);
     lier('o-vit', t => op.vitesse = +t.value);
     const test = q('o-test');
     if (test) test.addEventListener('click', () => { Son.init(); Son.play('explo'); setTimeout(() => Son.play('parade'), 350); Musique.sting(MUS.victoire); });

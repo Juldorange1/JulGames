@@ -301,7 +301,7 @@ function dessinerVaisseau(c, x, y, a, r, col, al, p) {
   c.save(); c.translate(x, y); c.globalAlpha = al;
   // la cape reste dans le dos (au plus 1 radian de côté), suit le mouvement en douceur et ne passe jamais à travers le corps
   let ca = a + Math.PI;
-  if (p) { const dos = a + Math.PI, voulu = dos + clamp(angDiff(dos, bouge ? Math.atan2(p.vy, p.vx) + Math.PI : dos), -1, 1); p.capeA = p.capeA === undefined ? voulu : p.capeA + angDiff(p.capeA, voulu) * .14; ca = dos + clamp(angDiff(dos, p.capeA), -1, 1); }
+  if (p) { const dos = a + Math.PI, voulu = dos + clamp(angDiff(dos, bouge ? Math.atan2(p.vy, p.vx) + Math.PI : dos), -1, 1); p.capeA = !Number.isFinite(p.capeA) ? (Number.isFinite(voulu) ? voulu : dos) : p.capeA + angDiff(p.capeA, Number.isFinite(voulu) ? voulu : dos) * .14; ca = dos + clamp(angDiff(dos, p.capeA), -1, 1); }
   const fl = Math.sin(G.t * 9 + x * .01) * 3 * k;
   const per = a + Math.PI / 2, sx = Math.cos(per) * 9 * k, sy = Math.sin(per) * 9 * k;
   const L = (bouge ? 26 : 18) * k, ex = Math.cos(ca) * L, ey = Math.sin(ca) * L;
