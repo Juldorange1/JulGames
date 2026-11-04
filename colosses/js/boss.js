@@ -61,9 +61,9 @@ function genBoss(salle, seed, mega, eviter) {
   let hue = esp.hue != null ? (esp.hue + r.int(-10, 10) + 360) % 360 : r.int(0, 359);
   if (esp.chimere && hue > 150 && hue < 215) hue = (hue + 90) % 360;
   const D = {
-    S: Math.min(1.6, (1 + .02 * (salle - 1)) * df.vit),
-    C: Math.min(1.6, 1 + .015 * (salle - 1)) * df.dens * .85,
-    T: Math.max(.62, (1 - .011 * (salle - 1)) * df.tele)
+    S: Math.min(1.6, (1.08 + .02 * (salle - 1)) * df.vit),
+    C: Math.min(1.7, 1.1 + .015 * (salle - 1)) * df.dens * .85,
+    T: Math.max(.62, (.92 - .011 * (salle - 1)) * df.tele)
   };
   const rp = RNG(hashNum((ESP_ORDRE.indexOf(espId) + 3) * 977)); // réglages fixes propres à l'espèce
   const pool = ATK_IDS.concat(ATK_PARTAGEES.filter(id => ATK[id] && !ATK_IDS.includes(id))).filter(id => id !== 'invocation' && (MIN_SALLE[id] || 1) <= salle);
@@ -110,6 +110,16 @@ function genBoss(salle, seed, mega, eviter) {
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
   const invoc = !esp.pasInvoc && salle >= 3 && (r.chance(.42) || (mega && r.chance(.6))) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle', 'totem', 'poseur']) : null;
+  // plus d'attaques différentes dans chaque phase (2 de plus, tirées dans tout le catalogue, en respectant les limites)
+  src.forEach(ph => {
+    const parCat = {}; let lourds = 0;
+    for (const id of ph.cycle) { const c = ATK[id].cat; parCat[c] = (parCat[c] || 0) + 1; if (poids(id) >= 3) lourds++; }
+    for (let k = 0, essais = 0; k < 2 && essais < 60; essais++) {
+      const x = r.pick(pool), c = ATK[x].cat, pd = poids(x);
+      if (ph.cycle.includes(x) || (parCat[c] || 0) >= 3 || (pd >= 3 && lourds >= 1) || (c === 'terrain' && parCat[c])) continue;
+      ph.cycle.splice(r.int(1, ph.cycle.length), 0, x); parCat[c] = (parCat[c] || 0) + 1; if (pd >= 3) lourds++; k++;
+    }
+  });
   if (df.cran) src.forEach(ph => { const z = pool.filter(id => !ph.cycle.includes(id) && (ATK[id].cat === 'zone' || ATK[id].cat === 'rayon')); if (z.length) ph.cycle.splice(r.int(1, ph.cycle.length), 0, r.pick(z)); });
   let carte = 'normale';
   const phases = src.map((ph, i) => {
@@ -119,7 +129,7 @@ function genBoss(salle, seed, mega, eviter) {
     const cyc = ph.cycle.slice();
     if (invoc && (i >= 1 || mega)) cyc.splice(1, 0, 'invocation');
     const rr = esp.chimere ? r : rp;
-    const fondId = ph.finale ? r.pick(ATK_FOND) : null;
+    const fondId = ph.finale || i >= 1 ? r.pick(ATK_FOND) : null; // dès la 2e phase, une attaque de fond se superpose
     return {
       nom: ph.finale ? 'Dernier souffle' : NOMS_PHASES[Math.min(NOMS_PHASES.length - 2, i)],
       carte, finale: !!ph.finale,

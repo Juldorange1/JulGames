@@ -83,7 +83,7 @@ function noterMaitrise(esp, pur, cauch) {
   const avant = etoiles(esp);
   m.v = 1; if (pur) m.pur = 1; if (cauch) m.cauch = 1;
   const apres = etoiles(esp);
-  if (apres > avant) G.annonce('★'.repeat(apres) + ' Maîtrise : ' + ESPECES[esp].nom, '#ffd86b', 2.2);
+  if (apres > avant) G.annonce('Maîtrise ' + apres + '/3 : ' + ESPECES[esp].nom, '#ffd86b', 2.2);
   if (apres >= 3) succes('maitre');
 }
 
@@ -132,25 +132,60 @@ const SKINS = [
   { id: 'r_feu', slot: 'aura', nom: 'Flammes', rar: 'epique', col: 'rgba(255,120,40,.45)' },
   { id: 'r_couronne', slot: 'aura', nom: 'Couronne', rar: 'legendaire', col: 'rgba(255,210,80,.5)', couronne: true }
 ];
+// apparences de plus
+SKINS.push(
+  { id: 'a_rouille', slot: 'armure', nom: 'Rouille', rar: 'commun', c: ['#f0c8a0', '#9a5a32', '#2e180c'] },
+  { id: 'a_os', slot: 'armure', nom: 'Os', rar: 'commun', c: ['#fffaf0', '#cfc4a8', '#4a4232'] },
+  { id: 'a_ardoise', slot: 'armure', nom: 'Ardoise', rar: 'commun', c: ['#c8d0dc', '#4c5462', '#14181e'] },
+  { id: 'a_corail', slot: 'armure', nom: 'Corail', rar: 'rare', c: ['#ffd8cc', '#e0604a', '#4a1208'] },
+  { id: 'a_saphir', slot: 'armure', nom: 'Saphir', rar: 'rare', c: ['#d8e8ff', '#2a5ad0', '#081838'] },
+  { id: 'a_cendre', slot: 'armure', nom: 'Cendre', rar: 'epique', c: ['#e0dcd8', '#56504c', '#0c0a0a'] },
+  { id: 'a_emeraude', slot: 'armure', nom: 'Émeraude royale', rar: 'epique', c: ['#e8fff0', '#1aa060', '#042a16'] },
+  { id: 'a_aube', slot: 'armure', nom: 'Aube', rar: 'legendaire', c: ['#fffaf0', '#ffc8a0', '#a04a6a'] },
+  { id: 'c_sable', slot: 'cape', nom: 'Sable', rar: 'commun', c: ['#c8a46a', '#3a2a14'] },
+  { id: 'c_cendree', slot: 'cape', nom: 'Cendrée', rar: 'commun', c: ['#6a6a72', '#141418'] },
+  { id: 'c_venin', slot: 'cape', nom: 'Venin', rar: 'rare', c: ['#7ae04a', '#0a2a04'], motif: 'liseré' },
+  { id: 'c_givree', slot: 'cape', nom: 'Givrée', rar: 'rare', c: ['#bfe8ff', '#14304a'], motif: 'etoiles' },
+  { id: 'c_sangroyal', slot: 'cape', nom: 'Sang royal', rar: 'epique', c: ['#c01830', '#1a0006'], motif: 'liseré' },
+  { id: 'c_nebuleuse', slot: 'cape', nom: 'Nébuleuse', rar: 'epique', c: ['#a050ff', '#0a0430'], motif: 'etoiles' },
+  { id: 'c_phenix', slot: 'cape', nom: 'Plumes de phénix', rar: 'legendaire', c: ['#ffd04a', '#a01800'], motif: 'flammes' },
+  { id: 'v_ambre', slot: 'visiere', nom: 'Ambre', rar: 'commun', col: '#ffa63a' },
+  { id: 'v_rose', slot: 'visiere', nom: 'Rose', rar: 'commun', col: '#ff7ac8' },
+  { id: 'v_glace', slot: 'visiere', nom: 'Glace', rar: 'rare', col: '#bff4ff' },
+  { id: 'v_toxique', slot: 'visiere', nom: 'Toxique', rar: 'rare', col: '#b4ff3a' },
+  { id: 'v_sang', slot: 'visiere', nom: 'Sang', rar: 'epique', col: '#ff1030' },
+  { id: 'v_soleil', slot: 'visiere', nom: 'Soleil', rar: 'legendaire', col: '#fff0a0' },
+  { id: 't_feuilles', slot: 'trainee', nom: 'Feuilles', rar: 'commun', col: 'rgba(120,190,70,.8)' },
+  { id: 't_cendres', slot: 'trainee', nom: 'Cendres', rar: 'commun', col: 'rgba(120,110,105,.7)' },
+  { id: 't_sang', slot: 'trainee', nom: 'Sang', rar: 'rare', col: '#d01830' },
+  { id: 't_foudre', slot: 'trainee', nom: 'Foudre', rar: 'rare', col: '#fff36a', add: true },
+  { id: 't_petales', slot: 'trainee', nom: 'Pétales', rar: 'epique', col: '#ffb0d8', add: true, gros: true },
+  { id: 't_aurore', slot: 'trainee', nom: 'Aurore', rar: 'legendaire', col: '#7affd0', add: true, gros: true },
+  { id: 'r_brume', slot: 'aura', nom: 'Brume', rar: 'commun', col: 'rgba(200,200,220,.25)' },
+  { id: 'r_givre', slot: 'aura', nom: 'Givre', rar: 'rare', col: 'rgba(170,230,255,.35)' },
+  { id: 'r_venin', slot: 'aura', nom: 'Venin', rar: 'rare', col: 'rgba(140,255,80,.3)' },
+  { id: 'r_sang', slot: 'aura', nom: 'Sang', rar: 'epique', col: 'rgba(255,40,60,.4)' },
+  { id: 'r_divine', slot: 'aura', nom: 'Divine', rar: 'legendaire', col: 'rgba(255,245,200,.5)', couronne: true }
+);
 function skin(id) { return SKINS.find(s => s.id === id); }
 function skinsSave() { const s = Save.d.skins = Save.d.skins || { frag: {}, equip: {} }; for (const k in SLOTS) if (!s.equip[k]) s.equip[k] = SKINS.find(x => x.slot === k && x.base).id; return s; }
 function possede(id) { const s = skin(id); return s.base || (skinsSave().frag[id] || 0) >= RARETES[s.rar].frags; }
 function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => x.slot === slot && x.base); }
 // donne un fragment d'une apparence de la rareté tirée (ou au-dessus) ; renvoie le texte affiché
-function donnerFragment(rarMin) {
+function donnerFragment(rarMin, slot) {
   const ordre = ['commun', 'rare', 'epique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
-  const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire');
+  const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire' && (!slot || s.slot === slot));
   if (!dispo.length) { gagnerEclats(2); return '+2 cristaux'; }
   const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
   S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write();
   const n = S.frag[s.id], tot = RARETES[s.rar].frags;
-  return (n >= tot ? '✔ ' : '') + SLOTS[s.slot] + ' « ' + s.nom + ' » ' + Math.min(n, tot) + '/' + tot;
+  return (n >= tot ? 'Débloqué : ' : '') + SLOTS[s.slot] + ' « ' + s.nom + ' » ' + Math.min(n, tot) + '/' + tot;
 }
 function donnerLegendaire() {
   const dispo = SKINS.filter(s => s.rar === 'legendaire' && !possede(s.id));
   if (!dispo.length) { gagnerEclats(5); return '+5 cristaux'; }
   const s = R.pick(dispo); skinsSave().frag[s.id] = 1; Save.write();
-  return '★ ' + SLOTS[s.slot] + ' légendaire : « ' + s.nom + ' »';
+  return SLOTS[s.slot] + ' légendaire : « ' + s.nom + ' »';
 }
 
 // ---------- Forge : chaque famille d'armes peut prendre une évolution (échange, pas de bonus gratuit) ----------
@@ -230,9 +265,11 @@ function affSave() {
   let A = Save.d.affinites;
   if (!A || Array.isArray(A.p)) { const v = A || {}; A = Save.d.affinites = { p: {}, s: {}, t: {} }; for (const c of ['p', 's', 't']) for (const k of (v[c] || [])) A[c][k] = 1; }
   for (const c of ['p', 's', 't']) A[c] = A[c] || {};
+  // les éléments n'existent plus : les cristaux mis dans une affinité d'élément sont rendus
+  for (const c of ['p', 's', 't']) for (const k of Object.keys(A[c])) if (ELEMENTS[k]) { let n = 0; for (let i = 0; i < A[c][k]; i++) n += AFF_PRIX[i]; forgeSave().eclats += n; delete A[c][k]; }
   return A;
 }
-function correspond(a, cible) { return elemArme(a.id) === cible || FAMILLE[a.id] === cible || a.id === cible; }
+function correspond(a, cible) { return FAMILLE[a.id] === cible || a.id === cible; }
 function multAff(cat, a) { const A = affSave()[cat]; let m = 1; for (const k in A) if (A[k] > 0 && correspond(a, k)) m = Math.max(m, AFF_MULT[A[k]]); return m; }
 // chance qu'une arme tirée corresponde à la cible : sans affinité, et avec le niveau donné
 function chanceAff(cat, cible, niv) {

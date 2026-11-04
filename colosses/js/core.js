@@ -106,6 +106,8 @@ const SFX = {
   cri3: 'cri3.wav', cri4: 'cri4.wav', swish1: 'swish1.wav', swish2: 'swish2.wav', swish3: 'swish3.wav', gong: 'gong.ogg',
   parade: 'parade.ogg', missile: 'missile.ogg', charge: 'charge.ogg', pouvoir: 'pouvoir.ogg'
 };
+// tout le son +40 %, et les bruitages encore deux fois plus forts pour bien passer au-dessus de la musique
+const GAIN_BRUITAGES = 2.8;
 const Son = {
   c: null, master: null, sfx: null, rev: null, noiseBuf: null, last: {}, buf: {},
   init() {
@@ -115,10 +117,13 @@ const Son = {
     try {
       this.c = new A();
       this.master = this.c.createGain();
-      this.master.gain.value = Save.d.opts.vol * Save.d.opts.master;
+      this.master.gain.value = Save.d.opts.vol * Save.d.opts.master * GAIN_BRUITAGES;
+      // compresseur doux + gain de compensation + limiteur : les bruitages passent au-dessus de la musique sans saturer
       const comp = this.c.createDynamicsCompressor();
-      comp.threshold.value = -14; comp.ratio.value = 6;
-      this.master.connect(comp); comp.connect(this.c.destination);
+      comp.threshold.value = -12; comp.ratio.value = 4; comp.knee.value = 10;
+      const gainC = this.c.createGain(); gainC.gain.value = 1.6;
+      const lim = this.c.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.ratio.value = 20; lim.attack.value = .002; lim.release.value = .12;
+      this.master.connect(comp); comp.connect(gainC); gainC.connect(lim); lim.connect(this.c.destination);
       this.sfx = this.master;
       const n = this.c.sampleRate;
       this.noiseBuf = this.c.createBuffer(1, n, n);
@@ -138,7 +143,7 @@ const Son = {
       fetch('sfx/' + SFX[k]).then(r => r.arrayBuffer()).then(a => this.c.decodeAudioData(a)).then(b => { this.buf[k] = b; }).catch(() => { });
     }
   },
-  setVol() { if (this.master) this.master.gain.value = Save.d.opts.vol * Save.d.opts.master; },
+  setVol() { if (this.master) this.master.gain.value = Save.d.opts.vol * Save.d.opts.master * GAIN_BRUITAGES; },
   ech(nom, v, rate, rev) {
     const b = this.buf[nom];
     if (!b || !this.c) return false;
@@ -231,7 +236,7 @@ const MUS = {
 };
 const Musique = {
   pistes: [], courant: null, derniers: [], duck: 1, duckCible: 1,
-  volume() { return Save.d.opts.musique * Save.d.opts.master; },
+  volume() { return Math.min(1, Save.d.opts.musique * Save.d.opts.master * 1.4); }, // +40 %
   jouer(fichier, fondu) {
     fondu = fondu || 3;
     if (this.courant && this.courant.src === fichier) { this.courant.cible = 1; this.courant.vitesse = 1 / fondu; return; }

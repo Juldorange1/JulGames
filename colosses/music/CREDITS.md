@@ -53,3 +53,7 @@ Toutes en CC0 (domaine public), redimensionnées et converties en blanc + transp
 |---|---|---|
 | `circle_05`, `dirt_*`, `fire_*`, `flame_*`, `flare_01`, `light_*`, `magic_*`, `muzzle_*`, `scorch_*`, `scratch_01`, `slash_*`, `smoke_*`, `spark_*`, `star_*`, `symbol_*`, `trace_*`, `twirl_*` | Particle Pack — https://opengameart.org/content/particle-pack-80-sprites (aussi sur kenney.nl) | Kenney |
 | `circle4` à `circle7` | 4 summoning circles — https://opengameart.org/content/4-summoning-circles | Luke.RUSTLTD |
+
+## Icônes (`js/icones-data.js`)
+
+Icônes de https://game-icons.net, licence CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). Auteurs : andymeneely, badges, carl-olsen, caro-asercion, darkzaitzev, delapouite, felbrigg, guard13007, john-colburn, lorc, sbed, skoll, viscious-speed.

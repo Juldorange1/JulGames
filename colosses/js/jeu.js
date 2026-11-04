@@ -168,10 +168,6 @@ const G = {
     }
     const cible0 = tg.proxy || tg;
     if (cible0.harpon > 0 && o.prim) m *= 1.3;
-    let elemTxt = 0;
-    if ((o.prim || o.spec) && this.def && (cible0 === this.boss)) {
-      const el = elemArme(o.prim ? this.ars.p : this.ars.s);
-    }
     if (o.prim && !o.continu && R() < ST.pCrit + (o.critB || 0)) { m *= 2; crit = true; this.fx.push({ kind: 'etoile', x: o.x || tg.x, y: o.y || tg.y, t: 0, dur: .25 }); if (this.ars.p === 'pacte') this.p.hp = Math.min(this.p.hpMax, this.p.hp + 1); }
     const b = this.boss;
     if (tg === b) {
@@ -358,7 +354,7 @@ const G = {
     } else {
       const df = this.defi;
       if (df.format === 'abysses' && !df.boss[df.i]) {
-        if (df.i && df.i % 2 === 0 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].ico + ' ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
+        if (df.i && df.i % 2 === 0 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
         df.boss[df.i] = { salle: 3 + df.i * 2, seed: R.int(1, 2e9), mega: false, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
       }
       const b = df.boss[df.i];

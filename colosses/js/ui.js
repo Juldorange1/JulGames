@@ -33,7 +33,7 @@ const UI = {
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
       case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
       case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
-      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.eclats').after(p); } break; }
+      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.eclats').after(p); } break; }
       case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
       case 'skin': {
         const S = skinsSave(), s = skin(btn.dataset.k), F = forgeSave(), prix = PRIX_FRAG[s.rar];
@@ -41,7 +41,7 @@ const UI = {
         else if (prix && F.eclats >= prix) { F.eclats -= prix; S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write(); Son.play('ramasse'); }
         this.garderobe(s.slot); break;
       }
-      case 'fragHasard': { const F = forgeSave(); let t = ''; if (F.eclats >= 3) { F.eclats -= 3; t = donnerFragment(); Son.play('ramasse'); } this.garderobe(btn.dataset.o); if (t) { const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.grille-skins').before(p); } break; }
+      case 'fragHasard': { const F = forgeSave(); let t = ''; if (F.eclats >= 3) { F.eclats -= 3; t = donnerFragment(null, btn.dataset.o); Son.play('ramasse'); } this.garderobe(btn.dataset.o); if (t) { const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.grille-skins').before(p); } break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
       case 'stats': this.stats(); break;
       case 'succes': this.succes(); break;
@@ -225,8 +225,7 @@ const UI = {
         <div class="eclats">💎 ${F2.eclats} cristaux</div>
 
         <h4>🔫 Arme principale — familles</h4>${Object.entries(FAMILLES).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
-        <h4>🔫 Arme principale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
-        <h4>💥 Attaque spéciale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('s', k, v.ico + ' ' + v.nom)).join('')}
+        <h4>💥 Attaques spéciales</h4>${SPEC.filter(a => Save.d.codex.arm['s:' + a.id]).map(a => ligne('s', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des attaques spéciales en jouant.</p>'}
         <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
     }
     this.ecran('🎲 Affinités', corps);
@@ -243,7 +242,7 @@ const UI = {
       const prix = PRIX_FRAG[s.rar], cristaux = forgeSave().eclats;
       return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}" ${!ok && (!prix || cristaux < prix) ? 'title="' + (prix ? 'Pas assez de cristaux' : 'Seulement sur un boss légendaire') + '"' : ''}>${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span><span class="achat ${prix && cristaux >= prix ? 'ok' : ''}">${prix ? '🛒 1 fragment · ' + prix + ' 💎' : '★ boss légendaire'}</span>`}</button>`;
     }).join('');
-    this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang"><button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= 3 ? '' : 'disabled'}>🎁 Fragment au hasard · 3 💎</button></div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
+    this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang"><button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= 3 ? '' : 'disabled'}>🎁 Fragment au hasard (${SLOTS[slot]}) · 3 💎</button></div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
   },
 
   // ---------- Codex ----------
