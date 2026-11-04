@@ -113,13 +113,16 @@ const PRIM = [
   {
     id: 'arc', nom: 'Arc chargé', ico: '🏹', desc: 'Maintiens pour bander l\'arc, relâche pour tirer. Flèche pleine charge : perce et frappe très fort.',
     tick(w, p, dt, held) {
-      w.ch = w.ch || 0;
-      if (held && !(G.opts.auto && w.ch >= 1)) { w.ch = Math.min(1, w.ch + dt * ST.pCad / .85); p.lent = Math.min(p.lent, .7); }
-      else if (w.ch > 0) {
-        const c = Math.max(.12, w.ch), o = bout(p, 16);
-        pShot(o.x, o.y, p.aim, (650 + 950 * c) * ST.pVel, { dmg: 16 + 112 * Math.pow(c, 1.3), r: 3 + 3 * c, life: 1.2, pierce: c >= 1 ? 4 : 0, kind: 'fleche', col: c >= 1 ? '#fff6a0' : '#bfe' });
-        Son.play('tir'); w.ch = 0;
-      }
+      // maintenir = l'arc se bande et tire tout seul à pleine charge ; relâcher tôt tire une flèche faible
+      w.ch = w.ch || 0; w.cdTir = Math.max(0, (w.cdTir || 0) - dt);
+      const tirer = () => {
+        const c = w.ch, o = bout(p, 16);
+        pShot(o.x, o.y, p.aim, (650 + 950 * c) * ST.pVel, { dmg: 128 * Math.pow(c, 1.6), r: 3 + 3 * c, life: 1.2, pierce: c >= 1 ? 4 : 0, kind: 'fleche', col: c >= 1 ? '#fff6a0' : '#bfe' });
+        Son.play('tir'); w.ch = 0; w.cdTir = .2;
+      };
+      if (held && w.cdTir <= 0) { w.ch = Math.min(1, w.ch + dt * ST.pCad / .85); p.lent = Math.min(p.lent, .7); if (w.ch >= 1) tirer(); }
+      else if (!held && w.ch > .05) tirer();
+      else if (!held) w.ch = 0;
     }
   },
   {
@@ -708,18 +711,19 @@ PRIM.push(
   {
     id: 'surchauffe', nom: 'Canon à surchauffe', ico: '♨', manuel: true, desc: 'Tire très vite mais chauffe. Lâche la détente quand la jauge est dans la zone verte : refroidi d\'un coup et +35 % de dégâts 3 s. Trop chaud : bloqué 2 s.',
     tick(w, p, dt, held) {
+      // maintenir = cadence maximale : il ralentit en chauffant (sans jamais se bloquer) et refroidit pareil qu'on appuie ou non
       w.heat = w.heat || 0; w.bonus = Math.max(0, (w.bonus || 0) - dt);
-      if (w.bloque > 0) { w.bloque -= dt; if (w.bloque <= 0) w.heat = 0; w.avant = held; return; }
-      const n = cadence(w, dt, held, .083 / ST.pCad);
+      w.heat = Math.max(0, w.heat - .3 * dt);
+      const n = cadence(w, dt, held, .083 * (1 + 1.6 * Math.max(0, w.heat - .5) / .5) / ST.pCad);
       for (let i = 0; i < n; i++) {
-        w.heat += .045;
+        w.heat = Math.min(1, w.heat + .045);
         const o = bout(p, 16);
-        pShot(o.x, o.y, p.aim + R.range(-.05, .05), 950 * ST.pVel, { dmg: 11 * (w.bonus > 0 ? 1.35 : 1), r: 4, life: 1, col: w.bonus > 0 ? '#fff17a' : '#ff9a5c' });
+        pShot(o.x, o.y, p.aim + R.range(-.05, .05), 950 * ST.pVel, { dmg: 11 * (w.bonus > 0 ? 1.2 : 1), r: 4, life: 1, col: w.bonus > 0 ? '#fff17a' : '#ff9a5c' });
         Son.play('tir');
-        if (w.heat >= 1) { w.bloque = 2; G.texte(p.x, p.y - 28, 'SURCHAUFFE', '#ff5a3c', 16); Son.play('vide'); break; }
       }
-      if (!held && w.avant && w.heat >= .7 && w.heat <= .88) { w.heat = 0; w.bonus = 3; G.texte(p.x, p.y - 28, 'PARFAIT', '#7dffb0', 17); Son.play('parade'); }
-      if (!held) w.heat = Math.max(0, w.heat - .25 * dt);
+      // relâcher dans la zone verte : refroidit à moitié et +20 % pendant 2,5 s (une seule fois tant que le bonus dure)
+      if (!held && w.avant && w.tenu >= .8 && w.heat >= .72 && w.heat <= .9 && !(w.bonus > 0)) { w.heat = .35; w.bonus = 2.5; G.texte(p.x, p.y - 28, 'PARFAIT', '#7dffb0', 17); Son.play('parade'); }
+      w.tenu = held ? (w.tenu || 0) + dt : 0;
       w.avant = held;
     }
   },

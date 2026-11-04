@@ -239,3 +239,8 @@ button.gros, .jouer { background: linear-gradient(180deg, #3a2f1f, #1a140c); bor
 .stat b { color: var(--or-clair); font-family: Cinzel, Georgia, serif; }
 .accueil { margin-left: max(24px, 5vw) !important; margin-right: auto !important; max-width: min(560px, 46vw) !important; }
 #ecran.fond { justify-content: flex-start; }
+
+/* menu un peu plus vers le centre ; curseur propre au jeu */
+.accueil { margin-left: max(24px, 13vw) !important; }
+html, body, button, #ecran, #jeu, label, select { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%23e8cf8e' stroke='%23140e06' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M5 6 L5 17 L8 14.5' fill='none' stroke='%23fff6d8' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E") 3 2, auto; }
+input[type=range], input[type=color] { cursor: inherit; }

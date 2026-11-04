@@ -313,6 +313,7 @@ const Save = {
     // ancienne configuration : la spéciale était « clic droit + une touche » → elle devient deux touches réglables
     if (d.opts.touches && !d.opts.touches.tir) { d.opts.touches.spec2 = d.opts.touches.spec || 'KeyE'; d.opts.touches.spec = 'Mouse2'; }
     for (const k in def.opts.touches) if (!d.opts.touches[k]) d.opts.touches[k] = def.opts.touches[k];
+    if (!d.opts.viseurV2) { d.opts.viseurV2 = true; d.opts.viseur = 'colosses'; } // le jeu a maintenant son propre viseur
     this.d = d;
   },
   write() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.d)); } catch (e) { } }

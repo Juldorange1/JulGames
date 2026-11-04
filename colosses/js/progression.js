@@ -140,7 +140,7 @@ function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => 
 function donnerFragment(rarMin) {
   const ordre = ['commun', 'rare', 'epique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
   const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire');
-  if (!dispo.length) { gagnerEclats(2); return '+2 éclats'; }
+  if (!dispo.length) { gagnerEclats(2); return '+2 cristaux'; }
   const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
   S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write();
   const n = S.frag[s.id], tot = RARETES[s.rar].frags;
@@ -148,7 +148,7 @@ function donnerFragment(rarMin) {
 }
 function donnerLegendaire() {
   const dispo = SKINS.filter(s => s.rar === 'legendaire' && !possede(s.id));
-  if (!dispo.length) { gagnerEclats(5); return '+5 éclats'; }
+  if (!dispo.length) { gagnerEclats(5); return '+5 cristaux'; }
   const s = R.pick(dispo); skinsSave().frag[s.id] = 1; Save.write();
   return '★ ' + SLOTS[s.slot] + ' légendaire : « ' + s.nom + ' »';
 }
@@ -195,6 +195,7 @@ const COUT_FORGE = 6;
 function forgeSave() { return Save.d.forge = Save.d.forge || { eclats: 0, debloque: {}, actif: {} }; }
 function gagnerEclats(n) { forgeSave().eclats += n; Save.write(); }
 function modForge() {
+  return {}; // la forge n'existe plus : aucune arme ne se construit
   try {
     const fam = FAMILLE[G.ars.p], id = forgeSave().actif[fam];
     if (!id || G.mode === 'jour' || G.mode === 'semaine') return {};

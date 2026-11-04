@@ -16,15 +16,15 @@ const PostFX = {
       const gl = c.getContext('webgl', { alpha: false, antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
       if (!gl) return;
       const vs = 'attribute vec2 p; varying vec2 uv; void main(){ uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }';
-      const fs = `precision mediump float;
+      const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT).precision > 0 ? 'highp' : 'mediump';
+      const fs = `precision ${hp} float;
         varying vec2 uv; uniform sampler2D img; uniform vec2 res; uniform float t; uniform float force;
         float h(vec2 q){ return fract(sin(dot(q, vec2(12.9898, 78.233))) * 43758.5453); }
         vec3 lum3(vec3 c){ return vec3(dot(c, vec3(.299, .587, .114))); }
         void main(){
           vec2 d = uv - .5; float r2 = dot(d, d);
-          // aberration chromatique, plus forte sur les bords
-          vec2 ca = d * (.0035 * force) * (.4 + r2 * 3.);
-          vec3 col = vec3(texture2D(img, uv + ca).r, texture2D(img, uv).g, texture2D(img, uv - ca).b);
+          // image nette : un seul échantillon, pixel pour pixel
+          vec3 col = texture2D(img, uv).rgb;
           // halo : on récupère les parties claires autour (deux anneaux de 8 échantillons)
           vec3 bl = vec3(0.); vec2 px = 1. / res;
           for (int i = 0; i < 8; i++) { float a = float(i) * .7854; vec2 o = vec2(cos(a), sin(a));
@@ -43,7 +43,7 @@ const PostFX = {
           float v = smoothstep(.85, .2, length(d * vec2(1., .9)));
           col *= mix(1., mix(.42, 1., v), force);
           // grain de pellicule
-          col += (h(uv * res + fract(t * 7.3) * 97.) - .5) * .045 * force;
+          col += (h(floor(uv * res * .5) + floor(t * 24.)) - .5) * .018 * force;
           gl_FragColor = vec4(clamp(col, 0., 1.), 1.);
         }`;
       const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
@@ -53,7 +53,7 @@ const PostFX = {
       const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
       const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
       const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       this.u = { res: gl.getUniformLocation(pr, 'res'), t: gl.getUniformLocation(pr, 't'), force: gl.getUniformLocation(pr, 'force'), img: gl.getUniformLocation(pr, 'img') };
@@ -213,4 +213,28 @@ dessinerHUD = function (c) {
     }
   }
   _dessinerHUDCinema(c);
+};
+
+// ---------- Cristaux : compteur en haut à gauche, les cristaux gagnés y volent ----------
+const _dessinerHUDCristaux = dessinerHUD;
+dessinerHUD = function (c) {
+  _dessinerHUDCristaux(c);
+  if (!G.p || G.mode !== 'normal') return;
+  const gc = G.gainCristaux, cx = 22, cy = 74;
+  let puls = 0;
+  if (gc) {
+    gc.t += 1 / 60;
+    const k = Math.min(1, Math.max(0, (gc.t - .5) / 1.1)), e = k * k * (3 - 2 * k);
+    if (gc.t < 1.6) {
+      const x = lerp(gc.x, cx, e), y = lerp(gc.y, cy, e) - Math.sin(e * Math.PI) * 120;
+      c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(140,220,255,.8)', 26), x - 26, y - 26); c.restore();
+      c.textAlign = 'center'; c.font = `22px Segoe UI Emoji, ${POLICE}`; c.fillText('💎', x, y);
+      texteGrave(c, '+' + gc.n + ' cristal' + (gc.n > 1 ? 'x' : ''), gc.x, gc.y - 70 - gc.t * 20, 24, '#bfefff', Math.min(1, gc.t * 3) * Math.max(0, 1.6 - gc.t), 'rgba(120,210,255,.8)');
+    } else if (gc.t < 2.2) puls = 1 - (gc.t - 1.6) / .6;
+    else G.gainCristaux = null;
+  }
+  c.save(); c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.font = `${18 + puls * 6}px Segoe UI Emoji, ${POLICE}`; c.fillText('💎', cx - 8, cy);
+  texteOmbre(c, String(forgeSave().eclats), cx + 16, cy + 1, puls > 0 ? '#ffffff' : '#bfefff', `700 ${15 + puls * 4}px ${POLICE_ER}`, 3);
+  c.restore();
 };

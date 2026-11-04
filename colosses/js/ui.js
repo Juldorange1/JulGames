@@ -33,7 +33,7 @@ const UI = {
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
       case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
       case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
-      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('forge'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.eclats').after(p); } break; }
+      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.eclats').after(p); } break; }
       case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
       case 'skin': { const S = skinsSave(), s = skin(btn.dataset.k); if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); } this.garderobe(s.slot); break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
@@ -90,7 +90,7 @@ const UI = {
           ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des fragments d'apparence."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
         </div>
         <div class="tuiles">
-          ${tuile('forge', '⚒', 'Forge', forgeSave().eclats + ' éclats')}
+          ${tuile('forge', '💎', 'Cristaux', forgeSave().eclats + ' cristaux')}
           ${tuile('garderobe', '👕', 'Garde-robe')}
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
@@ -193,7 +193,7 @@ const UI = {
 
   // ---------- Forge et affinités ----------
   forge(o) {
-    o = o || 'forge';
+    o = 'affinites';
     const F = forgeSave(), A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] };
     const onglets = `<div class="onglets"><button data-a="forge" data-o="forge" class="${o === 'forge' ? 'actif' : ''}">⚒ Forge</button><button data-a="forge" data-o="affinites" class="${o === 'affinites' ? 'actif' : ''}">🎲 Affinités</button></div>`;
     let corps = '';
@@ -215,14 +215,15 @@ const UI = {
         const btnA = n >= 3 ? '<button disabled>Max</button>' : `<button data-a="affNiv" data-c="${c}" data-v="${v}" ${plein || F2.eclats < AFF_PRIX[n] ? 'disabled' : ''} title="${plein ? '2 affinités au plus par type' : 'Passe à ' + pct(ch.apres)}">${n ? '+' : 'Acheter'} · ${AFF_PRIX[n]} 💎</button>`;
         return `<div class="aff-l ${n ? 'actif' : ''}"><b>${nom}</b><div>${etat}</div>${btnA}${n ? `<button class="petit" data-a="affOff" data-c="${c}" data-v="${v}" title="Retirer (les éclats ne sont pas rendus)">✕</button>` : ''}</div>`;
       };
-      corps = `<p class="mini">Paie des éclats pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
-        <div class="eclats">💎 ${F2.eclats} éclats</div>
+      corps = `<p class="mini">Les cristaux se gagnent en battant des boss (1, ou 3 pour un méga boss). Ils servent seulement ici : rendre un type d'arme plus fréquent, ou acheter une apparence au hasard. Paie des cristaux pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
+        <div class="eclats">💎 ${F2.eclats} cristaux</div>
+        <div class="rang"><button data-a="fragAch" ${F2.eclats >= 4 ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · 4 💎</button></div>
         <h4>🔫 Arme principale — familles</h4>${Object.entries(FAMILLES).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
         <h4>🔫 Arme principale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
         <h4>💥 Attaque spéciale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('s', k, v.ico + ' ' + v.nom)).join('')}
         <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
     }
-    this.ecran('⚒ Forge', onglets + corps);
+    this.ecran('💎 Cristaux', corps);
   },
 
   // ---------- Garde-robe ----------
@@ -241,7 +242,7 @@ const UI = {
   // ---------- Codex ----------
   codex(o) {
     const cx = Save.d.codex;
-    const onglets = [['especes', 'Bestiaire'], ['att', 'Attaques'], ['reliques', 'Reliques'], ['legend', 'Légendaires'], ['traits', 'Mutations'], ['cartes', 'Arènes'], ['invoc', 'Invocations'], ['arm', 'Arsenal']];
+    const onglets = [['especes', 'Bestiaire'], ['att', 'Attaques'], ['legend', 'Légendaires'], ['traits', 'Mutations'], ['cartes', 'Arènes'], ['invoc', 'Invocations'], ['arm', 'Arsenal']];
     let corps = '';
     const inconnu = t => `<div class="entree inconnu"><b>???</b><p>${t}</p></div>`;
     if (o === 'especes') {
@@ -309,7 +310,7 @@ const UI = {
       curseur('o-tremble', 'Tremblements', +op.tremble, 0, 1, .1) + curseur('o-lumi', 'Luminosité', op.luminosite, .7, 1.4, .05) +
       choix('o-alerte', 'Zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta'], ['jaune', 'Jaune']]) +
       coche('o-contour', 'Contour noir autour des balles ennemies', op.contour) +
-      choix('o-viseur', 'Viseur', op.viseur, [['systeme', 'Curseur normal'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
+      choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
       `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
     else if (onglet === 'jeu') corps = coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
       coche('o-noms', 'Nom des attaques du boss', op.nomsAttaques) + coche('o-chrono', 'Chronomètre', op.chrono) + coche('o-pause', 'Pause quand la fenêtre est quittée', op.autoPause) +

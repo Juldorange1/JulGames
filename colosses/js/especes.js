@@ -6,7 +6,8 @@
 const ESPECES = {};
 function espece(id, o) { o.id = id; ESPECES[id] = o; }
 function ouvrir(b, t, mul, txt) {
-  b.ouvert = Math.max(b.ouvert, t); b.ouvertMul = mul;
+  // ouvertures plus rares en effet : plus courtes et bonus réduit de moitié
+  b.ouvert = Math.max(b.ouvert, t * .65); b.ouvertMul = 1 + (mul - 1) * .5;
   G.texte(b.x, b.y - b.r - 22, txt || 'OUVERT !', '#ffd24d', 20);
 }
 function defEsp(id, o) { o.esp = true; def(id, o); }

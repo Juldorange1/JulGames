@@ -299,7 +299,10 @@ function dessinerArmeMain(c, k, type) {
 function dessinerVaisseau(c, x, y, a, r, col, al, p) {
   const k = r / 13, bouge = p ? Math.hypot(p.vx, p.vy) > 30 : false, marche = p ? (p.marche || 0) : 0;
   c.save(); c.translate(x, y); c.globalAlpha = al;
-  const ca = bouge ? Math.atan2(p.vy, p.vx) + Math.PI : a + Math.PI, fl = Math.sin(G.t * 9 + x * .01) * 3 * k;
+  // la cape reste dans le dos (au plus 1 radian de côté), suit le mouvement en douceur et ne passe jamais à travers le corps
+  let ca = a + Math.PI;
+  if (p) { const dos = a + Math.PI, voulu = dos + clamp(angDiff(dos, bouge ? Math.atan2(p.vy, p.vx) + Math.PI : dos), -1, 1); p.capeA = p.capeA === undefined ? voulu : p.capeA + angDiff(p.capeA, voulu) * .14; ca = dos + clamp(angDiff(dos, p.capeA), -1, 1); }
+  const fl = Math.sin(G.t * 9 + x * .01) * 3 * k;
   const per = a + Math.PI / 2, sx = Math.cos(per) * 9 * k, sy = Math.sin(per) * 9 * k;
   const L = (bouge ? 26 : 18) * k, ex = Math.cos(ca) * L, ey = Math.sin(ca) * L;
   const gc = c.createLinearGradient(0, 0, ex, ey);
@@ -974,9 +977,20 @@ function rendu() {
   if (G.fondu > 0) { c.fillStyle = `rgba(3,2,8,${Math.min(1, G.fondu)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'passage') { const k = G.passage.t / G.passage.dur; c.fillStyle = `rgba(230,220,255,${Math.min(1, k * 1.4)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'mort' && G.ecranMort) dessinerEcranMort(c);
-  cv.style.cursor = G.opts.viseur && G.opts.viseur !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude') ? 'none' : 'crosshair';
+  cv.style.cursor = G.opts.viseur && G.opts.viseur !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude') ? 'none' : '';
   const vs = G.opts.viseur;
-  if (vs && vs !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude')) {
+  if (vs === 'colosses' && (G.etat === 'combat' || G.etat === 'interlude')) {
+    // viseur du jeu : anneau doré à quatre crans, qui se resserre quand on tire
+    const x = G.mx, y = G.my, tir = Input.down(TOUCHES().tir) ? 1 : 0; G.viseurK = (G.viseurK || 0) + (tir - (G.viseurK || 0)) * .25;
+    const rr = 13 - 3 * G.viseurK, rot = G.t * .6;
+    c.save(); c.translate(x, y);
+    c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, rr, 0, TAU); c.stroke();
+    c.strokeStyle = '#e8cf8e'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, rr, 0, TAU); c.stroke();
+    c.rotate(rot);
+    for (let i = 0; i < 4; i++) { c.rotate(TAU / 4); c.fillStyle = 'rgba(0,0,0,.75)'; c.beginPath(); c.moveTo(rr + 2, 0); c.lineTo(rr + 10, -4); c.lineTo(rr + 10, 4); c.closePath(); c.fill(); c.fillStyle = '#f3dea3'; c.beginPath(); c.moveTo(rr + 3, 0); c.lineTo(rr + 9, -2.6); c.lineTo(rr + 9, 2.6); c.closePath(); c.fill(); }
+    c.restore();
+    c.fillStyle = '#fff4d0'; c.beginPath(); c.arc(x, y, 1.8, 0, TAU); c.fill();
+  } else if (vs && vs !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude')) {
     const x = G.mx, y = G.my, col = G.opts.viseurCol || '#ffffff';
     c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 4; c.fillStyle = col;
     const forme = () => { c.beginPath(); if (vs === 'croix') { c.moveTo(x - 12, y); c.lineTo(x - 4, y); c.moveTo(x + 4, y); c.lineTo(x + 12, y); c.moveTo(x, y - 12); c.lineTo(x, y - 4); c.moveTo(x, y + 4); c.lineTo(x, y + 12); } else if (vs === 'cercle') { c.arc(x, y, 10, 0, TAU); } c.stroke(); };

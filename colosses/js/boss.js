@@ -105,7 +105,7 @@ function genBoss(salle, seed, mega, eviter) {
   // le combat change en route : à partir de la salle 6, souvent une 3e phase (nouvelle attaque + attaque de fond) ;
   // les méga boss ont toujours une phase de plus et une attaque inédite par phase
   if (mega && salle >= 5) src.forEach(ph => { const extra = r.pick(pool.filter(id => !ph.cycle.includes(id) && ATK[id].cat !== 'terrain')); ph.cycle.splice(r.int(1, ph.cycle.length), 0, extra); });
-  if (mega || (salle >= 6 && r.chance(Math.min(.75, .35 + .02 * salle)))) {
+  if (mega || (salle >= 4 && r.chance(Math.min(.9, .55 + .015 * salle)))) {
     const last = src[src.length - 1], extra = r.pick(pool.filter(id => !last.cycle.includes(id)));
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
@@ -119,7 +119,7 @@ function genBoss(salle, seed, mega, eviter) {
     const cyc = ph.cycle.slice();
     if (invoc && (i >= 1 || mega)) cyc.splice(1, 0, 'invocation');
     const rr = esp.chimere ? r : rp;
-    const fondId = ph.finale || (mega && i >= 1) ? r.pick(ATK_FOND) : null;
+    const fondId = ph.finale ? r.pick(ATK_FOND) : null;
     return {
       nom: ph.finale ? 'Dernier souffle' : NOMS_PHASES[Math.min(NOMS_PHASES.length - 2, i)],
       carte, finale: !!ph.finale,
@@ -133,7 +133,7 @@ function genBoss(salle, seed, mega, eviter) {
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
   // vie mesurée par un robot qui joue parfaitement : 1 à 2 min par combat, méga boss compris (ils ont plus d'attaques,
   // pas plus de vie) ; les PV sont les mêmes dans toutes les difficultés, la difficulté change le rythme et les dégâts
-  const hpMax = Math.round(7000 * (1 + .006 * Math.min(salle, 60)) * (mega ? 1.05 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1));
+  const hpMax = Math.round(12200 * (1 + .003 * Math.min(salle, 60)) * (mega ? 1.15 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
     cotes: r.int(3, 9), style: formePourAttaques((() => { const k = {}; for (const q of phases) for (const a of q.cycle) { const cc = ATK[a.id].cat; k[cc] = (k[cc] || 0) + 1; } return k; })(), r), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
@@ -166,8 +166,8 @@ function initBoss(b) {
   b.introY = b.y;
 }
 function phaseCourante(b) { return b.def.phases[b.phase]; }
-// au-delà de 60 s, le colosse s'épuise et encaisse de plus en plus : aucun combat ne s'éternise
-function fatigueBoss() { const t = G.chrono || 0; return t > 60 && !(G.def && (G.def.invincible || G.def.indestructible)) ? 1 + (t - 60) * .03 : 1; }
+// au-delà de 90 s, le colosse s'épuise et encaisse de plus en plus : aucun combat ne s'éternise
+function fatigueBoss() { const t = G.chrono || 0; return t > 90 && !(G.def && (G.def.invincible || G.def.indestructible)) ? 1 + (t - 90) * .06 : 1; }
 function seuilPhase(b, i) { return b.hpMax * (1 - (i + 1) / b.def.phases.length); }
 function bouclierBoss(b) {
   if (b.esp.bouclier && b.esp.bouclier(b)) return true;

@@ -248,8 +248,9 @@ Decor.dessinerAmbiance = function (c) {
 const SCENE_MENU = { def: null, b: null, t: 0, vu: 0, braises: [], brumes: [] };
 function nouveauBossMenu() {
   const S = SCENE_MENU;
-  let def = null;
-  for (let i = 0; i < 30 && (!def || def.esp === 'serpent'); i++) def = genBoss(R.int(8, 26), R.int(1, 2e9), R() < .3, []);
+  // le boss de la prochaine salle de la partie choisie (même graine que le vrai combat)
+  const rb = G.preparerBoss(), def = genBoss(rb.salle, rb.seed, rb.salle % 5 === 0, rb.eviter);
+  def.legendaire = rb.leg; S.cle = Save.d.diff + '|' + rb.salle + '|' + rb.seed;
   const bb = Arene.bb(), b = creerBoss(def);
   b.intro = 0; b.x = 0; b.y = 0; b.armure = 0; b.armureMax = 0;
   S.def = def; S.b = b; S.t = 0;
@@ -257,7 +258,8 @@ function nouveauBossMenu() {
 }
 fondMenu = function () {
   const S = SCENE_MENU, k = cv.width / W;
-  if (!S.b || performance.now() - S.vu > 1500) nouveauBossMenu();
+  const rb = G.preparerBoss();
+  if (!S.b || S.cle !== Save.d.diff + '|' + rb.salle + '|' + rb.seed) nouveauBossMenu();
   S.vu = performance.now(); S.t += 1 / 60;
   const b = S.b, def = S.def, h = def.hue, t = S.t;
   ctx.setTransform(k, 0, 0, k, 0, (cv.height - H * k) / 2);

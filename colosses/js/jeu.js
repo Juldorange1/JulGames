@@ -139,6 +139,7 @@ const G = {
     return { x: x / l, y: y / l };
   },
   etourdir(b, t, txt) {
+    t *= .7; // étourdissements plus courts
     b.stun = Math.max(b.stun, t); b.main = null; b.ctl = false; b.charge = false; b.alpha = 1; b.wind = 0;
     if (b.air) { b.air = false; b.haut = 0; }
     this.texte(b.x, b.y - b.r - 20, txt || 'Étourdi !', '#ffe14d', 18);
@@ -184,7 +185,7 @@ const G = {
       const tr = b.def.traits;
       if (tr.includes('dos')) { const dif = Math.abs(angDiff(b.facing + Math.PI, ang(b.x, b.y, o.x, o.y))); m *= dif < 1.05 ? 2.5 : dif > 2.1 ? .4 : 1; }
       if (tr.includes('souffle')) m *= bossVulnerableSouffle(b) ? 2.2 : .5;
-      if (b.stun > 0) m *= 1.3;
+      if (b.stun > 0) m *= 1.12;
       if (b.ouvert > 0) m *= b.ouvertMul;
       m *= fatigueBoss();
       if (totemProtege()) m *= .55;
@@ -277,6 +278,23 @@ const G = {
   // ---------- Enchaînement des salles ----------
   // mode : 'normal' (progression), 'jour' ou 'semaine' (défis à graine fixe)
   mode: 'normal', defi: null, finDefi: null,
+  // fixe le boss (et les armes) de la prochaine salle de la partie en cours, une seule fois
+  preparerBoss() {
+    const d = Save.d, pr = PR();
+    if (!pr.run) pr.run = { salle: pr.palier * 5 + 1, pv: DF().pv };
+    const run = pr.run, salle = run.salle, mega = salle % 5 === 0;
+    if (run.boss && run.boss.salle === salle) return run.boss;
+    const seed = mega ? hashNum(salle * 7919 + 13 + Object.keys(DIFFS).indexOf(d.diff) * 101) : R.int(1, 2147483646);
+    const eviter = (this.recents || []).slice();
+    const def = genBoss(salle, seed, mega, eviter);
+    const leg = !mega && salle >= 6 && R() < .035;
+    const prev = this.ars || {};
+    const ars = { p: tirerArme('p', prev.p, def), s: tirerArme('s', prev.s, def), t: tirerArme('t', prev.t, def) };
+    run.boss = { salle, seed, eviter, ars, leg };
+    this.recents = this.recents || []; this.recents.push(def.esp); if (this.recents.length > 3) this.recents.shift();
+    Save.write();
+    return run.boss;
+  },
   nouvellePartie() {
     this.mode = 'normal'; this.defi = null; this.finDefi = null;
     calcStats();
@@ -308,12 +326,13 @@ const G = {
   mut(id) { return (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses') && this.defi && this.defi.mut.includes(id); },
   format() { return this.defi && this.mode !== 'normal' && this.mode !== 'entrainement' ? this.defi.format : null; },
   reliques() {
+    return []; // plus de reliques
     if (this.mode === 'abysses') return this.defi ? (this.defi.reliques = this.defi.reliques || []) : [];
     if (this.mode === 'normal') { const run = PR().run; return run ? (run.reliques = run.reliques || []) : []; }
     if (this.mode === 'entrainement') return this.entr ? (this.entr.reliques = this.entr.reliques || []) : [];
     return this.defi ? (this.defi.reliques = this.defi.reliques || []) : [];
   },
-  rel(id) { return this.reliques().includes(id); },
+  rel(id) { return false; }, // plus de reliques : rien ne se construit en cours de partie
   lancerEntrainement(cfg) {
     this.mode = 'entrainement'; this.entr = cfg; this.finDefi = null; this.defi = null;
     calcStats();
@@ -327,17 +346,8 @@ const G = {
       const pr = PR(), run = pr.run;
       this.salle = run.salle;
       this.mega = this.salle % 5 === 0;
-      if (run.boss && run.boss.salle === this.salle) { def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg; }
-      else {
-        const seed = this.mega ? hashNum(this.salle * 7919 + 13 + Object.keys(DIFFS).indexOf(d.diff) * 101) : R.int(1, 2147483646);
-        const eviter = this.recents.slice();
-        def = genBoss(this.salle, seed, this.mega, eviter);
-        if (!this.mega && this.salle >= 6 && R() < .035) def.legendaire = true;
-        const prev = this.ars || {};
-        ars = { p: tirerArme('p', prev.p, def), s: tirerArme('s', prev.s, def), t: tirerArme('t', prev.t, def) };
-        run.boss = { salle: this.salle, seed, eviter, ars, leg: !!def.legendaire };
-        this.recents.push(def.esp); if (this.recents.length > 3) this.recents.shift();
-      }
+      this.preparerBoss();
+      def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg;
     } else if (this.mode === 'entrainement') {
       const cfg = this.entr; this.salle = cfg.salle; this.mega = false;
       def = genBoss(cfg.salle, cfg.seed, false, []);
@@ -361,6 +371,8 @@ const G = {
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
       if (this.mut('colosses')) def.hpMax = Math.round(def.hpMax * 1.4);
+      if (this.mode === 'jour') def.hpMax = Math.round(def.hpMax * .6); // défi du jour : court
+      else if (this.mode === 'semaine' || this.mode === 'abysses') def.hpMax = Math.round(def.hpMax * .75);
       if (this.mut('nuit')) def.phases.forEach(ph => ph.carte = 'tenebres');
       if (this.mut('patinoire')) def.phases.forEach(ph => ph.carte = 'glace');
       if (this.mut('chaos')) { const r = RNG(b.seed); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, 2)) def.traits.push(t); }
@@ -421,9 +433,9 @@ const G = {
     this.p.hp = this.p.hpMax; this.texte(this.p.x, this.p.y - 34, 'Vie restaurée', '#46e39b', 18);
     const d = Save.d;
     if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
-    // récompenses : éclats de forge et fragments d'apparence, jamais de puissance
+    // récompenses : des cristaux (affinités et apparences seulement) et des fragments d'apparence, jamais de puissance
     const gains = [];
-    const ecl = this.def.mega ? 3 : 1; gagnerEclats(ecl); gains.push('+' + ecl + ' éclat' + (ecl > 1 ? 's' : ''));
+    const ecl = this.def.mega ? 3 : 1; gagnerEclats(ecl); this.gainCristaux = { n: ecl, t: 0, x: b.x, y: b.y };
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
     else if (this.def.mega) { gains.push(donnerFragment('rare')); gains.push(donnerFragment('rare')); }
     else if (R() < .3) gains.push(donnerFragment());
@@ -492,7 +504,6 @@ const G = {
   poserButin() {
     const p = this.p;
     if (this.def.mega && this.mode === 'normal') { this.ouvrirPortail(); } else {
-      if (!this.finDefi && this.mode !== 'entrainement' && this.format() !== 'unCoup') offrirReliques().forEach((id, i) => this.loot.push({ kind: 'relique', id, x: CX + (i ? 130 : -130), y: CY + 40, t: -i * .15 }));
       if (!this.finDefi) this.ouvrirPortail();
     }
   },
@@ -1060,7 +1071,6 @@ function majCombat(dt) {
     G.loot = G.loot.filter(l => !l.dead);
     if (G.portail) {
       const po = G.portail; po.t += dt;
-      if (po.t > 6) { const a = ang(p.x, p.y, po.x, po.y); p.x += Math.cos(a) * 200 * dt; p.y += Math.sin(a) * 200 * dt; }
       if (po.t > .6 && d2(p.x, p.y, po.x, po.y) < 44 * 44) G.traverserPortail();
     }
     if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
