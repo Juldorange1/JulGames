@@ -53,7 +53,7 @@ texteSol = function () {
       x.strokeStyle = 'rgba(190,230,200,.12)'; x.lineWidth = 2; x.beginPath(); x.ellipse(cx - rx * .2, cy - ry * .3, rx * .45, ry * .2, 0, Math.PI * 1.1, Math.PI * 1.8); x.stroke();
       if (r() < .6) for (let k = 0; k < r.int(1, 3); k++) { const lx = cx + r.range(-rx * .6, rx * .6), ly = cy + r.range(-ry * .5, ry * .5), lr = r.range(7, 13); x.fillStyle = hsl(110, 45, 26 + r() * 10); x.beginPath(); x.moveTo(lx, ly); x.arc(lx, ly, lr, r() * TAU, r() * TAU + 5.6); x.closePath(); x.fill(); x.strokeStyle = 'rgba(0,0,0,.4)'; x.lineWidth = 1; x.stroke(); }
     }
-    for (let i = 0; i < 70; i++) { const cx = AR.x + r() * AR.w, cy = AR.y + r() * AR.h; pierre(x, polyJitter(r, cx, cy, r.range(16, 34), 7, .3), dl => hsl(90, 14, Math.max(4, 16 + dl)), r, 4); x.fillStyle = 'rgba(90,140,50,.35)'; x.beginPath(); x.ellipse(cx - 4, cy - 6, 10, 6, 0, 0, TAU); x.fill(); }
+    for (let i = 0; i < 40; i++) { const cx = AR.x + r() * AR.w, cy = AR.y + r() * AR.h; x.save(); x.globalAlpha = .55; x.beginPath(); polyJitter(r, cx, cy, r.range(16, 34), 7, .3).forEach(([a2, b2], k2) => k2 ? x.lineTo(a2, b2) : x.moveTo(a2, b2)); x.closePath(); x.fillStyle = hsl(90, 12, 15); x.fill(); x.restore(); x.fillStyle = 'rgba(90,140,50,.35)'; x.beginPath(); x.ellipse(cx - 4, cy - 6, 10, 6, 0, 0, TAU); x.fill(); }
     for (let i = 0; i < 260; i++) { const px = AR.x + r() * AR.w, py = AR.y + r() * AR.h; x.strokeStyle = hsl(70 + r() * 40, 35, 18 + r() * 16, .85); x.lineWidth = 1.5; for (let k = 0; k < 4; k++) { x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + r.range(-6, 6), py - 8, px + r.range(-10, 10), py - r.range(10, 22)); x.stroke(); } }
   } else if (th === 'cathedrale') {
     // dallage en damier de marbre, rosace au centre, taches de lumière colorée des vitraux, eau qui affleure
@@ -64,7 +64,7 @@ texteSol = function () {
       pierre(x, [[gx + 1, gy + 1], [gx + s - 1, gy + 1], [gx + s - 1, gy + s - 1], [gx + 1, gy + s - 1]], dl => clair ? hsl(222, 9, Math.max(8, 25 + dl)) : hsl(232, 16, Math.max(3, 12 + dl)), r, 3);
       if (clair && r() < .5) for (let k = 0; k < 3; k++) { x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 1; x.beginPath(); x.moveTo(gx + r() * s, gy); x.bezierCurveTo(gx + r() * s, gy + s * .3, gx + r() * s, gy + s * .7, gx + r() * s, gy + s); x.stroke(); }
     }
-    x.save(); x.translate(CX, CY);
+    x.save(); x.translate(CX, CY); x.globalAlpha = .35; // très discret : ne doit pas ressembler à une zone d'attaque
     for (const [rr, w] of [[230, 8], [200, 3], [120, 5], [60, 3]]) { x.strokeStyle = 'rgba(0,0,0,.45)'; x.lineWidth = w + 2; x.beginPath(); x.arc(0, 0, rr, 0, TAU); x.stroke(); x.strokeStyle = 'rgba(200,210,255,.2)'; x.lineWidth = w; x.stroke(); }
     for (let i = 0; i < 12; i++) { x.rotate(TAU / 12); x.strokeStyle = 'rgba(200,210,255,.16)'; x.lineWidth = 3; x.beginPath(); x.moveTo(60, 0); x.quadraticCurveTo(140, 50, 200, 0); x.quadraticCurveTo(140, -50, 60, 0); x.stroke(); }
     x.restore();
@@ -85,7 +85,7 @@ texteSol = function () {
     for (let i = 0; i < 40; i++) { const cx = AR.x + r() * AR.w, cy = AR.y + r() * AR.h, rr = r.range(40, 110); const gg = x.createRadialGradient(cx, cy, 2, cx, cy, rr); gg.addColorStop(0, 'rgba(255,240,220,.3)'); gg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gg; x.beginPath(); x.ellipse(cx, cy, rr * 1.6, rr * .6, 0, 0, TAU); x.fill(); }
     const s = 86;
     for (const [gx, gy] of carreauxGrille(s, true)) {
-      if (r() < .1) continue; // une dalle manque : on voit le ciel
+      // (plus de dalles manquantes : on les prenait pour des trous dans lesquels on tombe)
       const j = 4, pts = [[gx + 4 + r.range(-j, j), gy + 4 + r.range(-j, j)], [gx + s - 4 + r.range(-j, j), gy + 4 + r.range(-j, j)], [gx + s - 4 + r.range(-j, j), gy + s - 4 + r.range(-j, j)], [gx + 4 + r.range(-j, j), gy + s - 4 + r.range(-j, j)]];
       x.fillStyle = 'rgba(60,40,30,.35)'; x.beginPath(); pts.forEach(([a, b], i) => i ? x.lineTo(a + 6, b + 9) : x.moveTo(a + 6, b + 9)); x.closePath(); x.fill();
       pierre(x, pts, dl => hsl(214, 8 + r() * 5, Math.max(8, 40 + dl)), r, 6);
@@ -93,8 +93,7 @@ texteSol = function () {
       if (r() < .3) fissure(x, r, gx + r() * s, gy + r() * s, r.int(3, 6), 'rgba(0,0,0,.35)', 1);
     }
   }
-  // finitions communes : ombre des murs, sceau du boss, vignette
-  x.strokeStyle = hsl(hue, 80, 55, .08); x.lineWidth = 3; x.beginPath(); x.arc(CX, CY, 180, 0, TAU); x.stroke();
+  // finitions communes : ombre des murs, vignette (pas de cercle au sol : il ressemblait à une zone d'attaque)
   const v = x.createRadialGradient(CX, CY, 260, CX, CY, 780); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, th === 'celeste' ? 'rgba(20,10,5,.45)' : 'rgba(0,0,0,.5)');
   x.fillStyle = v; x.fillRect(0, 0, W, H);
   for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, AR.y, 0, AR.y + 50, AR.x, AR.y, AR.w, 50], [0, AR.y + AR.h, 0, AR.y + AR.h - 30, AR.x, AR.y + AR.h - 30, AR.w, 30]]) {

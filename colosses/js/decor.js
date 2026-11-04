@@ -98,7 +98,7 @@ texteSol = function () {
     }
     if (th === 'temple') {
       // mosaïque centrale gravée
-      x.save(); x.translate(CX, CY);
+      x.save(); x.translate(CX, CY); x.globalAlpha = .35; // très discret : ne doit pas ressembler à une zone d'attaque
       for (const [rr, w] of [[250, 10], [210, 3], [130, 6]]) { x.strokeStyle = 'rgba(0,0,0,.4)'; x.lineWidth = w + 2; x.beginPath(); x.arc(0, 0, rr, 0, TAU); x.stroke(); x.strokeStyle = 'rgba(210,190,150,.18)'; x.lineWidth = w; x.beginPath(); x.arc(0, 0, rr, 0, TAU); x.stroke(); }
       for (let i = 0; i < 16; i++) { x.rotate(TAU / 16); x.strokeStyle = 'rgba(210,190,150,.16)'; x.lineWidth = 3; x.beginPath(); x.moveTo(130, 0); x.lineTo(210, 0); x.stroke(); x.fillStyle = 'rgba(210,190,150,.14)'; x.beginPath(); x.moveTo(230, -8); x.lineTo(242, 0); x.lineTo(230, 8); x.lineTo(218, 0); x.closePath(); x.fill(); }
       x.restore();
@@ -112,9 +112,7 @@ texteSol = function () {
   // poussière, gravats, taches
   for (let i = 0; i < 160; i++) { const px = AR.x + r() * AR.w, py = AR.y + r() * AR.h, rr = r.range(1.5, 4); x.fillStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.ellipse(px + 1.5, py + 1.5, rr, rr * .7, 0, 0, TAU); x.fill(); x.fillStyle = hsl(sh, ss * .6, sl + 14 + r() * 10, .6); x.beginPath(); x.ellipse(px, py, rr, rr * .7, r() * 3, 0, TAU); x.fill(); }
   tachesDouces(x, r, 120, .25, [[0, 0, 0], [0, 0, 0], [255, 255, 255]]);
-  // sceau du boss, discret
-  x.strokeStyle = hsl(hue, 80, 55, .08); x.lineWidth = 3;
-  x.beginPath(); x.arc(CX, CY, 180, 0, TAU); x.stroke();
+  // (plus de « sceau » circulaire au sol : on pouvait le prendre pour une zone d'attaque)
   // ombre des murs sur le sol et vignette
   const bb = { x: AR.x, y: AR.y, w: AR.w, h: AR.h };
   for (const [x0, y0, x1, y1, rx, ry, rw, rh] of [[0, bb.y, 0, bb.y + 60, bb.x, bb.y, bb.w, 60], [0, bb.y + bb.h, 0, bb.y + bb.h - 35, bb.x, bb.y + bb.h - 35, bb.w, 35], [bb.x, 0, bb.x + 45, 0, bb.x, bb.y, 45, bb.h], [bb.x + bb.w, 0, bb.x + bb.w - 45, 0, bb.x + bb.w - 45, bb.y, 45, bb.h]]) {
