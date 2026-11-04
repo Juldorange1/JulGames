@@ -18,7 +18,9 @@ const PostFX = {
       const vs = 'attribute vec2 p; varying vec2 uv; void main(){ uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }';
       const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT).precision > 0 ? 'highp' : 'mediump';
       const fs = `precision ${hp} float;
-        varying vec2 uv; uniform sampler2D img; uniform vec2 res; uniform float t; uniform float force;
+        varying vec2 uv; uniform sampler2D img; uniform vec2 res; uniform float t; uniform float force; uniform float dalto;
+        vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0., -1./3., 2./3., -1.); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); float e = 1.0e-10; return vec3(abs(q.z + (q.w - q.y) / (6. * d + e)), d / (q.x + e), q.x); }
+        vec3 hsv2rgb(vec3 c){ vec4 K = vec4(1., 2./3., 1./3., 3.); vec3 p = abs(fract(c.xxx + K.xyz) * 6. - K.www); return c.z * mix(K.xxx, clamp(p - K.xxx, 0., 1.), c.y); }
         float h(vec2 q){ return fract(sin(dot(q, vec2(12.9898, 78.233))) * 43758.5453); }
         vec3 lum3(vec3 c){ return vec3(dot(c, vec3(.299, .587, .114))); }
         void main(){
@@ -37,7 +39,20 @@ const PostFX = {
           // vignette et brume des coins
           float v = smoothstep(.85, .2, length(d * vec2(1., .9)));
           col *= mix(1., mix(.42, 1., v), force);
-          // grain de pellicule
+          // mode daltonien : les rouges (dangers) deviennent bleus et les verts jaunes ; ou les bleus deviennent roses
+          if (dalto > .5) {
+            vec3 hsv = rgb2hsv(clamp(col, 0., 1.)); float hh = hsv.x, s = smoothstep(.3, .5, hsv.y) * smoothstep(.12, .25, hsv.z);
+            // on remplace la couleur (mélange en RVB, jamais de dégradé de teinte qui ferait un arc-en-ciel)
+            if (dalto < 1.5) {
+              float rouge = (1. - smoothstep(.025, .05, hh)) + smoothstep(.92, .95, hh);
+              float vert = smoothstep(.22, .27, hh) * (1. - smoothstep(.42, .47, hh));
+              col = mix(col, hsv2rgb(vec3(.58, hsv.y, hsv.z)), clamp(rouge * s, 0., 1.));
+              col = mix(col, hsv2rgb(vec3(.15, hsv.y, hsv.z)), clamp(vert * s, 0., 1.));
+            } else {
+              float bleu = smoothstep(.52, .56, hh) * (1. - smoothstep(.7, .74, hh));
+              col = mix(col, hsv2rgb(vec3(.9, hsv.y, hsv.z)), clamp(bleu * s, 0., 1.));
+            }
+          }
           gl_FragColor = vec4(clamp(col, 0., 1.), 1.);
         }`;
       const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
@@ -50,14 +65,15 @@ const PostFX = {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-      this.u = { res: gl.getUniformLocation(pr, 'res'), t: gl.getUniformLocation(pr, 't'), force: gl.getUniformLocation(pr, 'force'), img: gl.getUniformLocation(pr, 'img') };
+      this.u = { res: gl.getUniformLocation(pr, 'res'), t: gl.getUniformLocation(pr, 't'), force: gl.getUniformLocation(pr, 'force'), img: gl.getUniformLocation(pr, 'img'), dalto: gl.getUniformLocation(pr, 'dalto') };
       gl.uniform1i(this.u.img, 0);
       cv.after(c);
       Object.assign(this, { gl, cv: c, prog: pr, tex, ok: true });
     } catch (e) { console.warn('Effets cinématiques indisponibles', e); this.ok = false; }
   },
   rendre() {
-    const actif = this.ok && G.opts.postfx !== false && cv.width > 0;
+    const dalto = { rv: 1, bj: 2 }[G.opts.dalto] || 0;
+    const actif = this.ok && (G.opts.postfx !== false || dalto) && cv.width > 0; // le mode daltonien a besoin du shader
     if (!actif) { if (this.cv) this.cv.style.display = 'none'; cv.style.opacity = '1'; return; }
     const gl = this.gl, c = this.cv;
     if (c.width !== cv.width || c.height !== cv.height) { c.width = cv.width; c.height = cv.height; gl.viewport(0, 0, c.width, c.height); }
@@ -65,7 +81,7 @@ const PostFX = {
     gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
     gl.uniform2f(this.u.res, c.width, c.height); gl.uniform1f(this.u.t, G.t || performance.now() / 1000);
-    gl.uniform1f(this.u.force, G.opts.postfxForce || 1);
+    gl.uniform1f(this.u.force, G.opts.postfx === false ? 0 : (G.opts.postfxForce || 1)); gl.uniform1f(this.u.dalto, dalto);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 };

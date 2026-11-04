@@ -320,6 +320,7 @@ const UI = {
       curseur('o-tremble', 'Tremblements', +op.tremble, 0, 1, .1) + curseur('o-lumi', 'Luminosité', op.luminosite, .7, 1.4, .05) +
       choix('o-alerte', 'Zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta'], ['jaune', 'Jaune']]) +
       coche('o-contour', 'Contour noir autour des balles ennemies', op.contour) +
+      choix('o-dalto', 'Mode daltonien', op.dalto || 'non', [['non', 'Désactivé'], ['rv', 'Rouge-vert (protanopie, deutéranopie) : dangers en bleu'], ['bj', 'Bleu-jaune (tritanopie) : bleus en rose']]) +
       choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
       `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
     else if (onglet === 'jeu') corps = coche('o-conseils', 'Expliquer les nouveautés avant d\'entrer dans une salle (avec animations)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
@@ -349,7 +350,7 @@ const UI = {
     lier('o-reduits', t => op.effetsReduits = t.checked); lier('o-fx', t => op.postfx = t.checked); lier('o-fxf', t => { op.postfxForce = +t.value; pct('o-fxf', op.postfxForce); }, 'input');
     lier('o-lum', t => op.lumiere = t.checked); lier('o-decor', t => op.decorAnime = t.checked);
     lier('o-part', t => op.particules = t.value); lier('o-alerte', t => { op.alerte = t.value; majAlerte(); });
-    lier('o-contour', t => op.contour = t.checked); lier('o-viseur', t => op.viseur = t.value); lier('o-vcol', t => op.viseurCol = t.value, 'input');
+    lier('o-contour', t => op.contour = t.checked); lier('o-viseur', t => op.viseur = t.value); lier('o-dalto', t => op.dalto = t.value); lier('o-vcol', t => op.viseurCol = t.value, 'input');
     lier('o-fps', t => op.fps = t.checked); lier('o-auto', t => op.auto = t.checked); lier('o-chiffres', t => op.chiffres = t.checked);
     lier('o-conseils', t => op.conseils = t.checked); lier('o-noms', t => op.nomsAttaques = t.checked); lier('o-pause', t => op.autoPause = t.checked); lier('o-chrono', t => op.chrono = t.checked);
     lier('o-vit', t => op.vitesse = +t.value);
