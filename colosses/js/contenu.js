@@ -30,12 +30,12 @@ const FAMILLES = { fusil: { nom: 'Fusils', ico: '🔫' }, lame: { nom: 'Lames', 
 function elemArme(id) { return ELEM_ARME[id] || 'arcane'; }
 // pondère le tirage : armes de la faiblesse du boss plus fréquentes, et affinités choisies par le joueur
 function tirerArme(cat, avant, def) {
-  const liste = ARS[cat].filter(a => a.id !== avant), aff = (Save.d.affinites || {})[cat] || [];
+  const liste = ARS[cat].filter(a => a.id !== avant);
   const faible = def ? FAIBLESSE[def.elem] : null;
   return R.weighted(liste, a => {
     let w = 1;
     if (cat !== 't' && elemArme(a.id) === faible) w *= 2.2;
-    if (aff.includes(elemArme(a.id)) || aff.includes(FAMILLE[a.id]) || aff.includes(a.id)) w *= 2.5;
+    w *= multAff(cat, a);
     return w;
   }).id;
 }

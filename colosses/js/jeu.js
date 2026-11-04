@@ -206,7 +206,7 @@ const G = {
       this.chiffre(tg, d, crit, o, m);
       if (b.esp.absorbe && b.esp.absorbe(b, d)) return;
       if (b.def.indestructible) { this.defi.degats += d; return; }
-      b.hp -= d;
+      b.hp -= d; this.degatsCombat = (this.degatsCombat || 0) + d;
       const n = b.def.phases.length;
       if (b.phase < n - 1 && b.hp <= seuilPhase(b, b.phase)) { b.hp = seuilPhase(b, b.phase); if (!(b.esp.transition && b.esp.transition(b))) passerPhase(b); }
       else if (b.hp <= 0) this.bossMort();
@@ -264,6 +264,8 @@ const G = {
     if (this.rel('epines')) dmg *= 1.2;
     if (p.hp - dmg <= 0 && this.rel('second') && !this.sal.second) { this.sal.second = true; dmg = p.hp - 1; p.iframe = 1.6; this.annonce('Second souffle !', '#ff8fb0', 1.4); }
     p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
+    if (this.coupsSrc) this.coupsSrc[src || 'contact'] = (this.coupsSrc[src || 'contact'] || 0) + dmg;
+    if (this.boss && this.boss.main && src === this.boss.main.id && !this.boss.main.touche) { this.boss.main.touche = true; statPlus('atkTouche'); }
     if (this.rel('epines') && this.boss && !this.boss.mort) this.frappe(this.boss, 200, { x: this.boss.x, y: this.boss.y });
     this.secoue(12); this.gel = .07; this.flash = Math.max(this.flash, .15); Son.play('blesse');
     this.texte(p.x, p.y - 24, '-' + Math.round(dmg), '#ff5a6e', 19);
@@ -382,7 +384,7 @@ const G = {
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
     this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.1 : 1) * DF().dmg;
-    this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false;
+    this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
     const cx = d.codex;
     cx.arm['p:' + this.ars.p] = 1; cx.arm['s:' + this.ars.s] = 1; cx.arm['t:' + this.ars.t] = 1;
@@ -428,7 +430,11 @@ const G = {
     else if (R() < .3) gains.push(donnerFragment());
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
     if (this.mode === 'normal') noterChasse(this.def.esp, this.chrono);
-    statPlus('tuesArme', this.ars.p);
+    statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
+    d.stats.serie = (d.stats.serie || 0) + 1; d.stats.serieMax = Math.max(d.stats.serieMax || 0, d.stats.serie);
+    if (this.mode === 'normal' && !((d.essais || {})[d.diff + ':' + this.salle])) statPlus('premierEssai');
+    if (this.mode === 'normal') statPlus('victDiff', d.diff);
+    if (this.coupsPris === 0) statPlus('sansCoup');
     noterMaitrise(this.def.esp, this.coupsPris === 0 || this.chrono < 60, this.mode === 'normal' && d.diff === 'cauchemar');
     succes('premier');
     if (this.coupsPris === 0) succes('intouchable');
@@ -525,8 +531,12 @@ const G = {
   mortJoueur() {
     const d = Save.d;
     this.etat = 'mort'; this.finT = 1.7; this.ralentir(.3, 1.4); Son.play('mort'); this.secoue(18); this.flash = .5;
-    d.stats.morts++; d.stats.temps += this.chrono; statPlus('mortsAttaque', this.tueur || 'inconnu');
-    this.resMort = { salle: this.salle, def: this.def, pct: this.boss ? 1 - Math.max(0, this.boss.hp) / this.boss.hpMax : 0, phase: this.boss ? this.boss.phase + 1 : 1, temps: this.chrono };
+    d.stats.morts++; d.stats.temps += this.chrono; statPlus('mortsAttaque', this.tueur || 'inconnu'); statPlus('mortsEsp', this.def.esp); d.stats.serie = 0;
+    const ek = Save.d.diff + ':' + this.salle, meil = (d.meilleurPct = d.meilleurPct || {});
+    const pct = this.boss ? 1 - Math.max(0, this.boss.hp) / this.boss.hpMax : 0, ancienMeil = meil[ek] || 0;
+    if (this.mode === 'normal' && pct > ancienMeil) meil[ek] = pct;
+    this.resMort = { salle: this.salle, def: this.def, pct, phase: this.boss ? this.boss.phase + 1 : 1, temps: this.chrono, dps: this.chrono > 1 ? (this.degatsCombat || 0) / this.chrono : 0,
+      coups: Object.entries(this.coupsSrc || {}).sort((a, b) => b[1] - a[1]).slice(0, 3), essai: ((d.essais || {})[ek] || 0) + 1, meilleur: ancienMeil, record: this.mode === 'normal' && pct > ancienMeil };
     if (this.mode === 'normal') {
       // on rejoue le même boss, avec les mêmes armes, tout le monde à pleine vie
       const pr = PR(); pr.run.pv = DF().pv;
@@ -589,8 +599,8 @@ const FORMATS = {
   chrono: { nom: 'Contre-la-montre', ico: '⏱', obj: 'Tue les boss le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   survie: { nom: 'Survie', ico: '🛡', obj: 'Le boss est invincible et accélère : tiens le plus longtemps possible', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
   unCoup: { nom: 'Un seul coup', ico: '💀', obj: '1 PV : tue un maximum de boss', sens: 1, score: r => r.tues, fmt: v => v + ' boss' },
-  danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, esquive 90 s en te faisant toucher le moins possible', sens: -1, score: r => r.reussi ? r.coups : null, fmt: v => v + ' coup' + (v > 1 ? 's' : ''), un: true, duree: 90 },
-  deluge: { nom: 'Déluge', ico: '💥', obj: '60 s contre un colosse indestructible : un maximum de dégâts', sens: 1, score: r => r.degats, fmt: v => Math.round(v / 100) / 10 + ' k dégâts', un: true, duree: 60 },
+  danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, esquive 60 s en te faisant toucher le moins possible', sens: -1, score: r => r.reussi ? r.coups : null, fmt: v => v + ' coup' + (v > 1 ? 's' : ''), un: true, duree: 60 },
+  deluge: { nom: 'Déluge', ico: '💥', obj: '45 s contre un colosse indestructible : un maximum de dégâts', sens: 1, score: r => r.degats, fmt: v => Math.round(v / 100) / 10 + ' k dégâts', un: true, duree: 45 },
   etau: { nom: 'Étau', ico: '🧱', obj: 'L\'arène se resserre sans arrêt : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   arsenal: { nom: 'Arsenal fou', ico: '🎲', obj: 'Tes armes changent toutes les 15 s : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
@@ -600,10 +610,10 @@ function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
   const format = type === 'jour' ? r.pick(['chrono', 'survie', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
   const F = FORMATS[format];
-  let salles = type === 'jour' ? [6, 10, 14] : [8, 12, 16, 20, 24];
+  let salles = type === 'jour' ? [8, 14] : [8, 12, 16, 20, 24];
   if (F.un) salles = [type === 'jour' ? 10 : 18];
   if (format === 'geant') salles = [type === 'jour' ? 15 : 25];
-  if (format === 'unCoup') salles = Array.from({ length: 15 }, (_, i) => 4 + i * 2);
+  if (format === 'unCoup') salles = Array.from({ length: type === 'jour' ? 6 : 12 }, (_, i) => 4 + i * 2);
   const mut = r.shuffle(Object.keys(MUTATEURS).filter(m => !(format === 'unCoup' && m === 'verre'))).slice(0, type === 'jour' ? 1 : 2);
   const boss = salles.map(s => ({ salle: s, seed: r.int(1, 2000000000), mega: format === 'geant' || (s % 5 === 0 && !F.un), ars: { p: r.pick(PRIM).id, s: r.pick(SPEC).id, t: r.pick(TAL).id } }));
   return { type, cle, mut, boss, format };
@@ -688,6 +698,12 @@ function majJoueur(dt) {
   }
   if (G.aspiration && p.saut <= 0) { const a = G.aspiration, aa = ang(p.x, p.y, a.x, a.y); p.x += Math.cos(aa) * a.f * dt; p.y += Math.sin(aa) * a.f * dt; }
   if (Arene.vent) { p.x += Math.cos(Arene.vent.a) * Arene.vent.f * dt; p.y += Math.sin(Arene.vent.a) * Arene.vent.f * dt; }
+  // le corps du boss est solide : on ne le traverse plus (ses charges, elles, font toujours mal)
+  const bs = G.boss;
+  if (bs && !bs.mort && !bs.air && bs.alpha > .5 && !(bs.spectral > 0) && bs.intro <= 0 && p.saut <= 0 && !p.fantome) {
+    const m = bs.r * .85 + p.hr + 3, dd = Math.sqrt(d2(bs.x, bs.y, p.x, p.y));
+    if (dd < m) { const a = dd > .01 ? ang(bs.x, bs.y, p.x, p.y) : R() * TAU; p.x = bs.x + Math.cos(a) * m; p.y = bs.y + Math.sin(a) * m; if (p.dash && !p.dash.grappin) p.dash = null; }
+  }
   Arene.contenir(p, p.r); Arene.sortirPiliers(p, p.r); Arene.contenir(p, p.r);
   if (p.saut <= 0) {
     for (const l of Arene.lave) if (d2(p.x, p.y, l.x, l.y) < (l.r - 4) ** 2) G.blesser(DMG(.6), 'lave');

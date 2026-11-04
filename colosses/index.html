@@ -5,22 +5,24 @@
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Colosses</title>
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
 <canvas id="jeu"></canvas>
 <div id="ecran"></div>
-<script src="js/core.js?v=8"></script>
-<script src="js/arsenal.js?v=8"></script>
-<script src="js/attaques.js?v=8"></script>
-<script src="js/especes.js?v=8"></script>
-<script src="js/contenu.js?v=8"></script>
-<script src="js/formes.js?v=8"></script>
-<script src="js/boss.js?v=8"></script>
-<script src="js/rendu.js?v=8"></script>
-<script src="js/progression.js?v=8"></script>
-<script src="js/jeu.js?v=8"></script>
-<script src="js/objets.js?v=8"></script>
-<script src="js/ui.js?v=8"></script>
+<script src="js/core.js?v=10"></script>
+<script src="js/arsenal.js?v=10"></script>
+<script src="js/attaques.js?v=10"></script>
+<script src="js/especes.js?v=10"></script>
+<script src="js/contenu.js?v=10"></script>
+<script src="js/formes.js?v=10"></script>
+<script src="js/boss.js?v=10"></script>
+<script src="js/rendu.js?v=10"></script>
+<script src="js/progression.js?v=10"></script>
+<script src="js/jeu.js?v=10"></script>
+<script src="js/objets.js?v=10"></script>
+<script src="js/frappes.js?v=10"></script>
+<script src="js/decor.js?v=10"></script>
+<script src="js/ui.js?v=10"></script>
 </body>
 </html>

@@ -71,8 +71,6 @@ function succes(id) {
   const s = Save.d.succes = Save.d.succes || {};
   if (s[id] || !SUCCES[id]) return;
   s[id] = Date.now(); Save.write();
-  G.succesFile = G.succesFile || []; G.succesFile.push({ id, t: 0 });
-  Son.play('ramasse');
 }
 function verifierSucces() {
   for (const [id, x] of Object.entries(SUCCES)) if (x.obj && x.obj() >= 1) succes(id);
@@ -160,27 +158,37 @@ const FORGE = {
   fusil: [
     { id: 'perforant', nom: 'Perforant', desc: 'Les balles traversent une cible de plus · −15 % de dégâts', mod: { pierce: 1, dmg: .85 } },
     { id: 'rafale', nom: 'Rafale', desc: '+30 % de cadence · −25 % de dégâts', mod: { cad: 1.3, dmg: .75 } },
-    { id: 'calibre', nom: 'Gros calibre', desc: '−35 % de cadence · +55 % de dégâts, balles plus grosses', mod: { cad: .65, dmg: 1.55, taille: 1.5 } }
+    { id: 'calibre', nom: 'Gros calibre', desc: '−35 % de cadence · +55 % de dégâts, balles plus grosses', mod: { cad: .65, dmg: 1.55, taille: 1.5 } },
+    { id: 'tete', nom: 'Tête chercheuse', desc: 'Les balles s\'orientent un peu vers la cible · −15 % de dégâts', mod: { hom: 1.6, dmg: .85 } },
+    { id: 'shrapnel', nom: 'Shrapnel', desc: 'Les balles éclatent en deux à l\'impact · −22 % de dégâts', mod: { eclat: 1, dmg: .78 } }
   ],
   lame: [
     { id: 'allonge', nom: 'Allonge', desc: '+25 % de portée · −15 % de dégâts', mod: { portee: 1.25, dmg: .85 } },
     { id: 'vampire', nom: 'Vampire', desc: 'Les coups rendent 1 PV (au plus 1 par seconde) · −20 % de dégâts', mod: { dmg: .8, vampire: 1 } },
-    { id: 'tempo', nom: 'Tempo', desc: '+25 % de vitesse de frappe · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } }
+    { id: 'tempo', nom: 'Tempo', desc: '+25 % de vitesse de frappe · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } },
+    { id: 'siphon', nom: 'Siphon', desc: 'Les coups rendent 60 % d\'énergie en plus · −15 % de dégâts', mod: { energie: 1.6, dmg: .85 } },
+    { id: 'lente', nom: 'Lame lourde', desc: '−25 % de vitesse de frappe · +40 % de dégâts', mod: { cad: .75, dmg: 1.4 } }
   ],
   trait: [
     { id: 'chercheur', nom: 'Chercheur', desc: 'Les projectiles s\'orientent un peu vers la cible · −15 % de dégâts', mod: { hom: 2.2, dmg: .85 } },
     { id: 'lourd', nom: 'Lourd', desc: '+40 % de dégâts · projectiles 30 % plus lents, cadence −15 %', mod: { dmg: 1.4, vit: .7, cad: .85 } },
-    { id: 'eclat', nom: 'Éclatement', desc: 'À l\'impact, deux éclats repartent · −20 % de dégâts', mod: { dmg: .8, eclat: 1 } }
+    { id: 'eclat', nom: 'Éclatement', desc: 'À l\'impact, deux éclats repartent · −20 % de dégâts', mod: { dmg: .8, eclat: 1 } },
+    { id: 'perceur', nom: 'Perceur', desc: 'Traverse une cible de plus, 20 % plus rapide · −18 % de dégâts', mod: { pierce: 1, vit: 1.2, dmg: .82 } },
+    { id: 'salve', nom: 'Salve', desc: '+25 % de cadence · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } }
   ],
   explosif: [
     { id: 'large', nom: 'Grande zone', desc: '+30 % de zone · −15 % de dégâts', mod: { zone: 1.3, dmg: .85 } },
     { id: 'grappe', nom: 'Grappe', desc: 'Chaque explosion en lâche trois petites · −30 % de dégâts', mod: { dmg: .7, grappe: 1 } },
-    { id: 'vif', nom: 'Vif', desc: '+25 % de cadence · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } }
+    { id: 'vif', nom: 'Vif', desc: '+25 % de cadence · −20 % de dégâts', mod: { cad: 1.25, dmg: .8 } },
+    { id: 'obus', nom: 'Obus', desc: '−30 % de cadence · +25 % de zone · +35 % de dégâts', mod: { cad: .7, zone: 1.25, dmg: 1.35 } },
+    { id: 'recup', nom: 'Récupération', desc: 'Les explosions rendent 50 % d\'énergie en plus · −15 % de dégâts', mod: { energie: 1.5, dmg: .85 } }
   ],
   magie: [
     { id: 'echo', nom: 'Écho', desc: '15 % de chance de lancer deux fois · −10 % de dégâts', mod: { echo: .15, dmg: .9 } },
     { id: 'canal', nom: 'Canalisation', desc: '+25 % de dégâts immobile · −15 % en mouvement', mod: { canal: 1 } },
-    { id: 'drain', nom: 'Drain', desc: 'Les coups rendent 50 % d\'énergie en plus · −15 % de dégâts', mod: { dmg: .85, energie: 1.5 } }
+    { id: 'drain', nom: 'Drain', desc: 'Les coups rendent 50 % d\'énergie en plus · −15 % de dégâts', mod: { dmg: .85, energie: 1.5 } },
+    { id: 'sang', nom: 'Magie de sang', desc: 'Les coups rendent 1 PV (au plus 1 par seconde) · −20 % de dégâts', mod: { vampire: 1, dmg: .8 } },
+    { id: 'ample', nom: 'Ampleur', desc: 'Projectiles 40 % plus gros, 20 % plus lents', mod: { taille: 1.4, vit: .8 } }
   ]
 };
 const COUT_FORGE = 6;
@@ -213,4 +221,24 @@ function noterChasse(esp, temps) {
     }
   });
   Save.write();
+}
+
+// ---------- Affinités : on paie des éclats pour qu'un type d'arme tombe plus souvent (même puissance) ----------
+const AFF_PRIX = [3, 6, 10], AFF_MULT = [1, 1.6, 2.2, 2.8];
+function affSave() {
+  let A = Save.d.affinites;
+  if (!A || Array.isArray(A.p)) { const v = A || {}; A = Save.d.affinites = { p: {}, s: {}, t: {} }; for (const c of ['p', 's', 't']) for (const k of (v[c] || [])) A[c][k] = 1; }
+  for (const c of ['p', 's', 't']) A[c] = A[c] || {};
+  return A;
+}
+function correspond(a, cible) { return elemArme(a.id) === cible || FAMILLE[a.id] === cible || a.id === cible; }
+function multAff(cat, a) { const A = affSave()[cat]; let m = 1; for (const k in A) if (A[k] > 0 && correspond(a, k)) m = Math.max(m, AFF_MULT[A[k]]); return m; }
+// chance qu'une arme tirée corresponde à la cible : sans affinité, et avec le niveau donné
+function chanceAff(cat, cible, niv) {
+  const l = ARS[cat]; let tot = 0, ok = 0, tot0 = 0, ok0 = 0;
+  for (const a of l) {
+    const m = correspond(a, cible) ? AFF_MULT[niv] : multAff(cat, a), c = correspond(a, cible);
+    tot += m; if (c) ok += m; tot0 += 1; if (c) ok0 += 1;
+  }
+  return { avant: ok0 / tot0, apres: ok / tot };
 }

@@ -762,7 +762,7 @@ function dessinerHUD(c) {
   if (rels.length) { c.textAlign = 'left'; c.font = `16px Segoe UI Emoji, ${POLICE}`; rels.forEach((id, i) => c.fillText(RELIQUES[id].ico, 16 + i * 22, 72)); }
   c.textAlign = 'right'; c.font = `600 15px ${POLICE}`; c.fillStyle = '#ddd';
   if (G.opts.chrono !== false) c.fillText(fmtTemps(G.chrono), W - 16, 18);
-  if (G.succesFile && G.succesFile.length) {
+  if (false) {
     const s = G.succesFile[0], x = SUCCES[s.id], a = Math.min(1, s.t * 4, (3 - s.t) * 3);
     c.globalAlpha = a; c.fillStyle = 'rgba(20,14,34,.92)'; c.fillRect(W - 330, 70, 314, 54); c.strokeStyle = '#ffd86b'; c.lineWidth = 2; c.strokeRect(W - 330, 70, 314, 54);
     c.textAlign = 'left'; c.font = `26px Segoe UI Emoji, ${POLICE}`; c.fillStyle = '#fff'; c.fillText(x.ico, W - 318, 97);
@@ -847,39 +847,56 @@ function dessinerEcranMort(c) {
   if (G.finDefi && G.defi) return dessinerEcranDefi(c);
   const r = G.resMort;
   if (!r) return;
-  c.fillStyle = 'rgba(8,0,4,.78)'; c.fillRect(0, 0, W, H);
+  // fond : vignette rouge sombre, le combat reste visible derrière
+  const vg = c.createRadialGradient(W / 2, H / 2, 120, W / 2, H / 2, W * .7); vg.addColorStop(0, 'rgba(10,2,8,.72)'); vg.addColorStop(1, 'rgba(40,0,10,.92)');
+  c.fillStyle = vg; c.fillRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  texteOmbre(c, 'TU ES TOMBÉ', W / 2, 200, '#ff4d6a', `900 64px ${POLICE}`, 8);
-  c.font = `600 18px ${POLICE}`; c.fillStyle = '#e8e2f5';
-  c.fillText(r.def.nom + ', ' + r.def.titre + ' — phase ' + r.phase + '/' + r.def.phases.length + ' — ' + Math.round(r.pct * 100) + ' % de sa vie arrachée', W / 2, 270);
-  const tu = G.tueur && ATK[G.tueur] ? ATK[G.tueur] : null;
-  let titre = '', conseil = '';
-  if (tu) { titre = 'Tué par « ' + tu.nom + ' »'; conseil = tu.conseil; }
-  else if (G.tueur === 'contact') { titre = 'Tué au contact'; conseil = 'Son corps fait mal : ne reste pas collé à lui et garde ton talent pour sortir d\'un mauvais pas.'; }
-  else if (G.tueur === 'lave') { titre = 'Brûlé par la lave'; conseil = 'Les bassins ne bougent pas : repère-les avant d\'esquiver.'; }
-  else if (G.tueur === 'invocation') { titre = 'Tué par ses invocations'; conseil = 'Élimine les invocations dès qu\'elles apparaissent : les armes de zone les balaient.'; }
-  if (titre) {
-    c.fillStyle = 'rgba(255,216,107,.08)'; c.fillRect(W / 2 - 360, 310, 720, 120);
-    c.strokeStyle = '#ffd86b'; c.lineWidth = 2; c.beginPath(); c.moveTo(W / 2 - 360, 310); c.lineTo(W / 2 - 360, 430); c.stroke();
-    c.font = `800 18px ${POLICE}`; c.fillStyle = '#ffd86b'; c.fillText(titre, W / 2, 334);
-    c.font = `15px ${POLICE}`; c.fillStyle = '#e8e2f5';
-    lignes(c, conseil, 660).forEach((l, i) => c.fillText(l, W / 2, 362 + i * 21));
+  const nomSrc = s => ATK[s] ? ATK[s].nom : ({ contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges' }[s] || s);
+  texteOmbre(c, 'MORT', W / 2, 150, '#ff4d6a', `900 58px ${POLICE}`, 8);
+  c.font = `600 17px ${POLICE}`; c.fillStyle = '#cfc6e0';
+  c.fillText('Dernier coup : ' + nomSrc(G.tueur || 'contact'), W / 2, 200);
+  // barre de vie du boss avec les phases
+  const bx = W / 2 - 300, by = 238, bw = 600, n = r.def.phases.length;
+  c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(bx - 2, by - 2, bw + 4, 22);
+  c.fillStyle = '#3a1420'; c.fillRect(bx, by, bw, 18);
+  c.fillStyle = '#ff4d6a'; c.fillRect(bx, by, bw * (1 - r.pct), 18);
+  if (r.meilleur > 0) { const mx = bx + bw * (1 - r.meilleur); c.fillStyle = '#ffd86b'; c.fillRect(mx - 1, by - 6, 3, 30); }
+  c.fillStyle = 'rgba(255,255,255,.6)'; for (let i = 1; i < n; i++) c.fillRect(bx + bw * (1 - i / n) - 1, by, 2, 18);
+  c.font = `700 13px ${POLICE}`; c.fillStyle = '#fff'; c.textAlign = 'left'; c.fillText(r.def.nom + ' — phase ' + r.phase + '/' + n, bx, by + 36);
+  c.textAlign = 'right'; c.fillStyle = r.record ? '#7dffb0' : '#cfc6e0'; c.fillText(Math.round(r.pct * 100) + ' % retirés' + (r.record ? ' · meilleur essai !' : r.meilleur > 0 ? ' · meilleur : ' + Math.round(r.meilleur * 100) + ' %' : ''), bx + bw, by + 36);
+  // trois cartes de chiffres utiles
+  const carte = (x, titre, val, sous) => {
+    c.fillStyle = 'rgba(255,255,255,.05)'; c.fillRect(x - 130, 300, 260, 92); c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1; c.strokeRect(x - 129.5, 300.5, 259, 91);
+    c.textAlign = 'center'; c.font = `700 12px ${POLICE}`; c.fillStyle = '#9a94ad'; c.fillText(titre.toUpperCase(), x, 320);
+    c.font = `900 30px ${POLICE}`; c.fillStyle = '#fff'; c.fillText(val, x, 352);
+    c.font = `12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(sous, x, 378);
+  };
+  carte(W / 2 - 280, 'Durée', fmtTemps(r.temps), 'combat parfait : 1 à 2 min');
+  carte(W / 2, 'Tes dégâts', Math.round(r.dps) + ' /s', r.pct > 0 && r.dps > 0 ? 'encore ' + fmtTemps((1 - r.pct) * r.def.hpMax / r.dps) + ' à ce rythme' : '—');
+  carte(W / 2 + 280, 'Essai', '#' + r.essai, r.essai > 1 ? 'tu progresses à chaque essai' : 'premier essai');
+  // ce qui t'a fait le plus mal
+  if (r.coups.length) {
+    c.textAlign = 'center'; c.font = `700 12px ${POLICE}`; c.fillStyle = '#9a94ad'; c.fillText('CE QUI T\'A FAIT LE PLUS MAL', W / 2, 420);
+    const tot = r.coups.reduce((s, x) => s + x[1], 0);
+    r.coups.forEach(([s, v], i) => {
+      const y = 446 + i * 26, w = 360 * v / tot;
+      c.fillStyle = 'rgba(255,77,106,.25)'; c.fillRect(W / 2 - 180, y - 10, w, 20);
+      c.textAlign = 'left'; c.font = `600 14px ${POLICE}`; c.fillStyle = '#fff'; c.fillText(nomSrc(s), W / 2 - 172, y);
+      c.textAlign = 'right'; c.fillStyle = '#ffb3c0'; c.fillText(Math.round(v / tot * 100) + ' %', W / 2 + 172, y);
+    });
+    const tu = ATK[r.coups[0][0]];
+    if (tu && tu.conseil) { c.textAlign = 'center'; c.font = `italic 14px ${POLICE}`; c.fillStyle = '#ffd86b'; lignes(c, '💡 ' + tu.conseil, 720).slice(0, 2).forEach((l, i) => c.fillText(l, W / 2, 540 + i * 19)); }
   }
-  const esp = ESPECES[r.def.esp];
-  if (esp && esp.meca) {
-    c.font = `italic 14px ${POLICE}`; c.fillStyle = '#b8b0cc';
-    lignes(c, esp.nom.charAt(0).toUpperCase() + esp.nom.slice(1) + ' : ' + esp.meca, 760).forEach((l, i) => c.fillText(l, W / 2, 462 + i * 19));
-  }
-  const k = .6 + .4 * Math.sin(G.t * 4);
-  c.globalAlpha = k;
-  texteOmbre(c, 'ESPACE — retenter ce boss (vous repartez tous les deux à pleine vie)', W / 2, 580, '#fff', `800 22px ${POLICE}`, 5);
+  c.textAlign = 'center';
+  c.globalAlpha = .65 + .35 * Math.sin(G.t * 4);
+  texteOmbre(c, 'ESPACE — réessayer', W / 2, 610, '#fff', `800 22px ${POLICE}`, 5);
   c.globalAlpha = 1;
-  c.font = `14px ${POLICE}`; c.fillStyle = '#9a94ad'; c.fillText('Échap — menu', W / 2, 620);
+  c.font = `13px ${POLICE}`; c.fillStyle = '#9a94ad'; c.fillText('Le boss et toi repartez à pleine vie, avec les mêmes armes · Échap — menu', W / 2, 642);
 }
 
 // ---------- Halo lumineux (bloom) ----------
 let bloomCv = null, bloomCtx = null;
-function bloom() {
+function bloom() { if (!cv.width || !cv.height) return;
   const w = Math.max(1, Math.ceil(cv.width / 4)), h = Math.max(1, Math.ceil(cv.height / 4));
   if (!bloomCv) { bloomCv = document.createElement('canvas'); bloomCtx = bloomCv.getContext('2d'); }
   if (bloomCv.width !== w || bloomCv.height !== h) { bloomCv.width = w; bloomCv.height = h; }

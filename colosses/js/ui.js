@@ -31,6 +31,9 @@ const UI = {
       case 'abysses': this.cacher(); G.lancerAbysses(); break;
       case 'forgeAch': { const F = forgeSave(), k = btn.dataset.k; if (F.eclats >= COUT_FORGE) { F.eclats -= COUT_FORGE; F.debloque[k] = 1; Save.write(); Son.play('ramasse'); } this.forge('forge'); break; }
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
+      case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
+      case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
+      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('forge'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.eclats').after(p); } break; }
       case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
       case 'skin': { const S = skinsSave(), s = skin(btn.dataset.k); if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); } this.garderobe(s.slot); break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
@@ -87,14 +90,11 @@ const UI = {
           ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des fragments d'apparence."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
         </div>
         <div class="tuiles">
-          ${tuile('entrainement', '🎯', 'Entraînement')}
           ${tuile('forge', '⚒', 'Forge', forgeSave().eclats + ' éclats')}
           ${tuile('garderobe', '👕', 'Garde-robe')}
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
-          ${tuile('succes', '🏆', 'Succès', nbS + '/' + totS)}
           ${tuile('options', '⚙', 'Paramètres')}
-          ${tuile('aide', '❔', 'Aide')}
         </div>
       </div>`, 'fond');
   },
@@ -110,7 +110,6 @@ const UI = {
         <h2>Pause</h2>
         <div class="rang col"><button class="gros" data-a="reprendre" data-def>▶ Reprendre</button>
         <button data-a="options" data-o="pause">⚙ Paramètres</button>
-        <button data-a="aide" data-o="pause">❔ Aide</button>
         <button data-a="relancer">↻ Recommencer le combat</button>
         ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss)</button>` : ''}
         <button data-a="quitter">🏠 Menu principal</button></div>
@@ -149,30 +148,37 @@ const UI = {
   // ---------- Statistiques ----------
   stats() {
     const d = Save.d, s = d.stats;
-    const h = Math.floor(s.temps / 3600), m = Math.floor(s.temps % 3600 / 60);
-    const gros = (v, n) => `<div class="stat"><b>${v}</b><span>${n}</span></div>`;
-    const barres = (obj, nom, n) => {
+    const pct = (a, b) => b > 0 ? Math.round(a / b * 100) + ' %' : '—';
+    const gros = (v, n, t) => `<div class="stat" ${t ? `title="${t}"` : ''}><b>${v}</b><span>${n}</span></div>`;
+    const barres = (obj, nom, n, enPct) => {
       const l = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).slice(0, n || 5);
       if (!l.length) return '<p class="mini">Pas encore de données.</p>';
-      const max = l[0][1];
-      return l.map(([k, v]) => `<div class="barre-st"><span>${nom(k)}</span><i style="width:${Math.max(4, v / max * 100)}%"></i><b>${v}</b></div>`).join('');
+      const max = l[0][1], tot = Object.values(obj).reduce((x, y) => x + y, 0);
+      return l.map(([k, v]) => `<div class="barre-st"><span>${nom(k)}</span><i style="width:${Math.max(4, v / max * 100)}%"></i><b>${enPct ? Math.round(v / tot * 100) + ' %' : v}</b></div>`).join('');
     };
     const nomArme = k => { const a = PRIM.find(x => x.id === k); return a ? a.ico + ' ' + a.nom : k; };
-    const nomAtk = k => ATK[k] ? ATK[k].nom : { contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', abandon: 'Abandon', inconnu: '?' }[k] || k;
-    const esp = ESP_ORDRE.concat(['chimere']).filter(e => d.codex.especes[e]);
+    const nomAtk = k => ATK[k] ? ATK[k].nom : { contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges', abandon: 'Abandon', inconnu: '?' }[k] || k;
+    const combats = s.boss + s.morts, esp = ESP_ORDRE.concat(['chimere']).filter(e => d.codex.especes[e]);
+    const moy = s.boss ? fmtTemps((s.tempsVictoires || 0) / s.boss) : '—';
     this.ecran('📊 Statistiques', `
       <div class="stats-g">
-        ${gros(h + ' h ' + m + ' min', 'temps de jeu')}${gros(s.boss, 'boss vaincus')}${gros(s.mega, 'méga boss')}${gros(s.morts, 'morts')}
-        ${gros(s.parades || 0, 'parades')}${gros(Math.round((s.degats || 0) / 1000) + ' k', 'dégâts infligés')}${gros(s.coups || 0, 'coups reçus')}${gros(s.defisReussis || 0, 'défis réussis')}
+        ${gros(pct(s.boss, combats), 'combats gagnés', 'Part des combats gagnés (victoires ÷ combats joués)')}
+        ${gros(pct(s.premierEssai || 0, s.boss), 'du premier coup', 'Boss battus dès le premier essai')}
+        ${gros(pct(s.sansCoup || 0, s.boss), 'sans être touché', 'Victoires sans prendre un seul coup')}
+        ${gros(pct((s.atkLancees || 0) - (s.atkTouche || 0), s.atkLancees || 0), 'attaques esquivées', 'Attaques du boss passées sans te toucher')}
+        ${gros(moy, 'durée d\'une victoire', 'Durée moyenne d\'un combat gagné')}
+        ${gros(s.serieMax || 0, 'meilleure série', 'Le plus de boss battus d\'affilée sans mourir')}
+        ${gros(s.mega, 'méga boss vaincus')}
+        ${gros(s.defisReussis || 0, 'défis réussis')}
       </div>
       <div class="blocs">
-        <div class="bloc"><h3>Par difficulté</h3>${Object.entries(DIFFS).map(([k, v]) => `<div class="ligne"><span>${v.ico} ${v.nom}</span><b>palier ${d.prog[k].palier} · salle ${d.prog[k].record}</b></div>`).join('')}</div>
-        <div class="bloc"><h3>Armes favorites</h3>${barres(s.tuesArme, nomArme)}</div>
-        <div class="bloc"><h3>Ce qui te tue le plus</h3>${barres(s.mortsAttaque, nomAtk)}</div>
+        <div class="bloc"><h3>Par difficulté</h3>${Object.entries(DIFFS).map(([k, v]) => `<div class="ligne"><span>${v.ico} ${v.nom}</span><b>palier ${d.prog[k].palier} · record salle ${d.prog[k].record}</b></div>`).join('')}</div>
+        <div class="bloc"><h3>Armes qui gagnent</h3>${barres(s.tuesArme, nomArme)}</div>
+        <div class="bloc"><h3>Ce qui te bat (part des défaites)</h3>${barres(s.mortsAttaque, nomAtk, 5, true)}</div>
       </div>
       <h4>Espèces</h4>
-      <div class="tab-esp">${esp.map(e => { const v = d.codex.especes[e], t = (d.especesTemps || {})[e]; return `<div><b>${nomMaj(ESPECES[e].nom)}</b><span>${'★'.repeat(etoiles(e))}${'☆'.repeat(3 - etoiles(e))}</span><span>${v.tues} / ${v.vus}</span><span>${t ? fmtTemps(t) : '—'}</span></div>`; }).join('') || '<p class="mini">Aucune espèce rencontrée.</p>'}</div>
-      <p class="mini">Étoiles · tuées / rencontrées · meilleur temps. ★ vaincue · ★★ sans être touché ou en moins d'une minute · ★★★ en Cauchemar.</p>`);
+      <div class="tab-esp">${esp.map(e => { const v = d.codex.especes[e], t = (d.especesTemps || {})[e], m = ((s.mortsEsp || {})[e]) || 0; return `<div><b>${nomMaj(ESPECES[e].nom)}</b><span>${'★'.repeat(etoiles(e))}${'☆'.repeat(3 - etoiles(e))}</span><span>${pct(v.tues, v.tues + m)} gagnés</span><span>${t ? fmtTemps(t) : '—'}</span></div>`; }).join('') || '<p class="mini">Aucune espèce rencontrée.</p>'}</div>
+      <p class="mini">Étoiles · part des combats gagnés · meilleur temps. ★ vaincue · ★★ sans être touché ou en moins d'une minute · ★★★ en Cauchemar.</p>`);
   },
 
   // ---------- Succès ----------
@@ -193,17 +199,28 @@ const UI = {
     let corps = '';
     if (o === 'forge') {
       corps = `<p class="mini">Les éclats (un par boss, trois par méga boss) débloquent des <b>évolutions</b> pour une famille d'armes. Chacune change la façon de jouer sans rendre plus fort : on gagne d'un côté, on perd de l'autre. Une seule active par famille.</p>
-        <div class="eclats">💎 ${F.eclats} éclats · ${COUT_FORGE} par évolution</div><div class="blocs forge">` +
+        <div class="eclats">💎 ${F.eclats} éclats · ${COUT_FORGE} par évolution</div>
+        <div class="rang"><button data-a="fragAch" ${F.eclats >= 4 ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · 4 💎</button></div><div class="blocs forge">` +
         Object.entries(FORGE).map(([fam, evos]) => `<div class="bloc"><h3>${FAMILLES[fam].ico} ${FAMILLES[fam].nom}</h3>${evos.map(e => {
           const k = fam + ':' + e.id, ok = F.debloque[k], actif = F.actif[fam] === e.id;
           return `<div class="evo ${actif ? 'actif' : ''}"><b>${e.nom}</b><em>${e.desc}</em>${ok ? `<button data-a="forgeEq" data-k="${k}">${actif ? '✔ Équipée' : 'Équiper'}</button>` : `<button data-a="forgeAch" data-k="${k}" ${F.eclats >= COUT_FORGE ? '' : 'disabled'}>Débloquer · ${COUT_FORGE} 💎</button>`}</div>`;
         }).join('')}</div>`).join('') + '</div>';
     } else {
-      const puce = (c, v, nom) => `<button class="puce ${A[c].includes(v) ? 'actif' : ''}" data-a="aff" data-c="${c}" data-v="${v}">${nom}</button>`;
-      corps = `<p class="mini">Choisis jusqu'à 2 préférences par type : les armes qui y correspondent tombent bien plus souvent. Ça ne change pas leur puissance.</p>
-        <h4>Arme principale</h4><div class="puces">${Object.entries(FAMILLES).map(([k, v]) => puce('p', k, v.ico + ' ' + v.nom)).join('')}${Object.entries(ELEMENTS).map(([k, v]) => puce('p', k, v.ico + ' ' + v.nom)).join('')}</div>
-        <h4>Attaque spéciale</h4><div class="puces">${Object.entries(ELEMENTS).map(([k, v]) => puce('s', k, v.ico + ' ' + v.nom)).join('')}</div>
-        <h4>Talent</h4><div class="puces">${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => puce('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}</div>`;
+      const A = affSave(), F2 = forgeSave();
+      const ligne = (c, v, nom) => {
+        const n = A[c][v] || 0, plein = Object.keys(A[c]).filter(k => A[c][k] > 0).length >= 2 && !n;
+        const ch = chanceAff(c, v, Math.min(3, n + 1)), ch0 = chanceAff(c, v, n);
+        const pct = x => Math.round(x * 100) + ' %';
+        const etat = n ? `<span class="niv">${'◆'.repeat(n)}${'◇'.repeat(3 - n)}</span><em>${pct(ch0.apres)} de chance (au lieu de ${pct(ch0.avant)})</em>` : `<em>${pct(ch0.avant)} de chance</em>`;
+        const btnA = n >= 3 ? '<button disabled>Max</button>' : `<button data-a="affNiv" data-c="${c}" data-v="${v}" ${plein || F2.eclats < AFF_PRIX[n] ? 'disabled' : ''} title="${plein ? '2 affinités au plus par type' : 'Passe à ' + pct(ch.apres)}">${n ? '+' : 'Acheter'} · ${AFF_PRIX[n]} 💎</button>`;
+        return `<div class="aff-l ${n ? 'actif' : ''}"><b>${nom}</b><div>${etat}</div>${btnA}${n ? `<button class="petit" data-a="affOff" data-c="${c}" data-v="${v}" title="Retirer (les éclats ne sont pas rendus)">✕</button>` : ''}</div>`;
+      };
+      corps = `<p class="mini">Paie des éclats pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
+        <div class="eclats">💎 ${F2.eclats} éclats</div>
+        <h4>🔫 Arme principale — familles</h4>${Object.entries(FAMILLES).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
+        <h4>🔫 Arme principale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
+        <h4>💥 Attaque spéciale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('s', k, v.ico + ' ' + v.nom)).join('')}
+        <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
     }
     this.ecran('⚒ Forge', onglets + corps);
   },

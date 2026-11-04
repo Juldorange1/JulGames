@@ -17,7 +17,7 @@ const TRAITS = {
   dos: { nom: 'Point faible dorsal', ico: '🎯', desc: 'Il se tourne vers toi : ×2,5 de dégâts dans le dos, ×0,4 de face. Contourne-le.' },
   carapace: { nom: 'Carapace', ico: '🛡', desc: 'Une armure absorbe 75 % des dégâts. Les attaques spéciales la brisent 3× plus vite. Elle repousse 12 s après.' },
   miroir: { nom: 'Reflets', ico: '🪞', desc: 'Quand il scintille de blanc, tes tirs te reviennent dessus. Arrête de tirer à ce moment !' },
-  regen: { nom: 'Régénération', ico: '💚', desc: 'Il se soigne vite s\'il n\'est pas touché pendant 2 s. Ne relâche jamais la pression.' },
+  regen: { nom: 'Régénération', ico: '💚', desc: 'Il se soigne doucement s\'il n\'est pas touché pendant 3 s (au plus 6 % de sa vie par phase).' },
   souffle: { nom: 'Souffle court', ico: '💨', desc: 'Il n\'encaisse vraiment qu\'entre deux attaques (contour doré) : ×2,2 à ce moment, ×0,5 sinon.' },
   rage: { nom: 'Rage', ico: '🔥', desc: 'Plus il est blessé, plus il enchaîne vite ses attaques.' },
   spectral: { nom: 'Spectral', ico: '👻', desc: 'De temps en temps il devient transparent : tes tirs le traversent. Profites-en pour te replacer.' }
@@ -60,7 +60,7 @@ function genBoss(salle, seed, mega, eviter) {
   if (esp.chimere && hue > 150 && hue < 215) hue = (hue + 90) % 360;
   const D = {
     S: Math.min(1.6, 1 + .02 * (salle - 1)) * df.vit,
-    C: Math.min(1.8, 1 + .02 * (salle - 1)) * df.dens,
+    C: Math.min(1.6, 1 + .015 * (salle - 1)) * df.dens * .85,
     T: Math.max(.7, (1 - .011 * (salle - 1)) * df.tele)
   };
   const rp = RNG(hashNum((ESP_ORDRE.indexOf(espId) + 3) * 977)); // réglages fixes propres à l'espèce
@@ -71,7 +71,7 @@ function genBoss(salle, seed, mega, eviter) {
     const n = salle >= 12 ? 3 : 2;
     for (let i = 0; i < n; i++) {
       const l = [], parCat = {}; let lourds = 0;
-      for (const id of r.shuffle(pool.filter(id => !deja.has(id)))) {
+      for (const id of r.shuffle(pool.filter(id => !deja.has(id) && (ATK[id].cat !== 'balles' || r.chance(.4))))) {
         const c = ATK[id].cat, pd = poids(id);
         if ((parCat[c] || 0) >= 2 || (pd >= 3 && lourds >= 1) || (c === 'terrain' && parCat[c])) continue;
         l.push(id); parCat[c] = (parCat[c] || 0) + 1; if (pd >= 3) lourds++;
@@ -88,6 +88,7 @@ function genBoss(salle, seed, mega, eviter) {
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
   const invoc = !esp.pasInvoc && salle >= 3 && (r.chance(.42) || (mega && r.chance(.6))) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle', 'totem', 'poseur']) : null;
+  if (df.cran) src.forEach(ph => { const z = pool.filter(id => !ph.cycle.includes(id) && (ATK[id].cat === 'zone' || ATK[id].cat === 'rayon')); if (z.length) ph.cycle.splice(r.int(1, ph.cycle.length), 0, r.pick(z)); });
   let carte = 'normale';
   const phases = src.map((ph, i) => {
     if (ph.carte) carte = ph.carte;
@@ -155,7 +156,7 @@ function lancerAttaque(b, a, fond) {
   const def = ATK[a.id];
   const run = { g: def.gen(b, a.p), w: 0, id: a.id };
   if (fond) { b.fond = run; return; }
-  b.main = run; b.last = a.id; b.moveMul = .45;
+  b.main = run; b.last = a.id; b.moveMul = .45; statPlus('atkLancees');
   b.atkNom = def.nom; b.atkNomT = 2.2;
   const cx = Save.d.codex.att; cx[a.id] = (cx[a.id] || 0) + 1;
 }
@@ -215,7 +216,8 @@ function majBoss(b, dt) {
     else { b.specT -= dtE; if (b.specT <= 0) { b.spectral = 2.6; b.specT = 8 + R() * 4; } }
   }
   if (tr.includes('carapace') && b.armure <= 0) { b.armureCd -= dtE; if (b.armureCd <= 0) { b.armure = b.armureMax; G.annonce('La carapace repousse', '#bbb', 1.2); } }
-  if (tr.includes('regen') && fatigueBoss() === 1) { b.regenT += dtE; if (b.regenT > 2) { const lim = b.phase > 0 ? seuilPhase(b, b.phase - 1) : b.hpMax; b.hp = Math.min(lim, b.hp + b.hpMax * .012 * dtE); } }
+  // régénération : lente (0,4 %/s après 3 s sans être touché) et au plus 6 % de sa vie par phase
+  if (tr.includes('regen') && fatigueBoss() === 1) { b.regenT += dtE; if (b.regenPh !== b.phase) { b.regenPh = b.phase; b.regenTot = 0; } if (b.regenT > 3 && b.regenTot < b.hpMax * .06) { const lim = b.phase > 0 ? seuilPhase(b, b.phase - 1) : b.hpMax, s = Math.min(b.hpMax * .004 * dtE, lim - b.hp); if (s > 0) { b.hp += s; b.regenTot += s; } } }
   if (tr.includes('cristaux') && !G.minions.some(m => m.type === 'cristal')) { b.cristT -= dtE; if (b.cristT <= 0) poserCristaux(b); }
   if (b.main) { if (!pasRunner(b.main)) { b.main = null; b.ctl = false; b.moveMul = 1; } }
   if (b.fond) { if (!pasRunner(b.fond)) b.fond = null; }

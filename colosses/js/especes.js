@@ -27,7 +27,7 @@ espece('metronome', {
   },
   phases: [
     { cycle: ['me_salve', 'me_croix', 'me_salve', 'me_pluie'] },
-    { cycle: ['me_aiguilles', 'me_salve', 'satellites', 'me_pluie', 'me_salve', 'me_croix'], carte: 'cercle' }
+    { cycle: ['me_aiguilles', 'me_salve', 'satellites', 'me_pluie', 'pilonnage', 'me_croix'], carte: 'cercle' }
   ]
 });
 defEsp('me_salve', {
@@ -103,7 +103,7 @@ espece('sentinelle', {
     c.restore();
   },
   phases: [
-    { cycle: ['rafale', 'rochers', 'se_charge', 'eventail', 'se_charge'] },
+    { cycle: ['frappeChaine', 'rochers', 'se_charge', 'eventail', 'se_charge'] },
     { cycle: ['balayage', 'se_charge', 'rochers', 'murEpines', 'se_charge'], carte: 'piliers' }
   ]
 });
@@ -155,7 +155,7 @@ espece('hydre', {
   },
   bouclier(b) { return G.minions.some(m => m.type === 'tete'); },
   phases: [
-    { cycle: ['hy_souffles', 'spirale', 'hy_morsure', 'feuxFollets', 'hy_souffles'] },
+    { cycle: ['hy_souffles', 'pilonnage', 'hy_morsure', 'feuxFollets', 'hy_souffles'] },
     { cycle: ['hy_souffles', 'ronces', 'anneaux', 'hy_morsure', 'chercheurs'] }
   ]
 });
@@ -202,7 +202,7 @@ espece('tisseuse', {
     if (n > 0) b.s.avait = true;
   },
   phases: [
-    { cycle: ['ti_toile', 'ronces', 'rafale', 'bond', 'rafale'] },
+    { cycle: ['ti_toile', 'ronces', 'artillerie', 'bond', 'rafale'] },
     { cycle: ['ti_toile', 'tourellesLaser', 'ti_toile', 'bond', 'petales'] }
   ]
 });
@@ -244,7 +244,7 @@ espece('spectre', {
   },
   phases: [
     { cycle: ['sp_saut', 'lunes', 'sp_saut', 'echos'] },
-    { cycle: ['sp_saut', 'givre', 'chercheurs', 'sp_saut', 'petales', 'sp_saut', 'eclats'] }
+    { cycle: ['sp_saut', 'givre', 'croixFeu', 'sp_saut', 'petales', 'sp_saut', 'frappeChaine'] }
   ]
 });
 defEsp('sp_saut', {
@@ -273,7 +273,7 @@ espece('forgeron', {
     for (let i = 0; i < 3; i++) { c.fillStyle = i < b.s.ch ? '#ff7a1a' : 'rgba(255,255,255,.15)'; c.fillRect(b.x - 24 + i * 17, b.y + b.r + 12, 14, 6); }
   },
   phases: [
-    { cycle: ['fo_frappe', 'failles', 'fo_frappe', 'rafale', 'fo_frappe'] },
+    { cycle: ['fo_frappe', 'failles', 'fo_frappe', 'poingCeleste', 'fo_frappe'] },
     { cycle: ['fo_frappe', 'geysers', 'fo_frappe', 'meteoreGeant', 'fo_frappe'], carte: 'lave' }
   ]
 });
@@ -319,7 +319,7 @@ espece('reine', {
   meca: 'Elle est protégée tant qu\'au moins 3 drones vivent. Ils sortent en formation : les armes de zone les balaient vite. Tue l\'essaim, puis frappe la Reine.',
   bouclier(b) { return G.minions.filter(m => m.type !== 'cristal' && m.spawn <= 0).length >= 3; },
   phases: [
-    { cycle: ['re_essaim', 'feuxFollets', 'pluie', 're_essaim', 'rafale'] },
+    { cycle: ['re_essaim', 'feuxFollets', 'artillerie', 're_essaim', 'rafale'] },
     { cycle: ['re_essaim', 'pics', 'vortex', 're_kamikazes', 'pluie'] }
   ]
 });
@@ -354,7 +354,7 @@ espece('juge', {
   meca: 'Il montre une suite de cases numérotées, puis les fait exploser très vite dans le même ordre. Retiens l\'ordre et file sur une case déjà passée. Après chaque sentence il s\'agenouille (×2).',
   phases: [
     { cycle: ['ju_sentence', 'lanceGeante', 'ju_sentence', 'croix'] },
-    { cycle: ['ju_sentence', 'effondrement', 'echos', 'ju_sentence', 'grille', 'sniper'] }
+    { cycle: ['ju_sentence', 'effondrement', 'echos', 'ju_sentence', 'grille', 'fractures'] }
   ]
 });
 defEsp('ju_sentence', {
@@ -388,7 +388,7 @@ espece('horloger', {
   forme: { style: 'anneau', cotes: 12, pics: 12, picL: .12, yeux: 1, sats: 0, anneaux: 2, rot: .05, creux: .5 },
   meca: 'Ses aiguilles tournent toujours dans le même sens et à vitesse fixe : tourne avec elles. Quand elles se superposent (« midi »), il est ouvert (×2,5).',
   phases: [
-    { cycle: ['ho_aiguilles', 'pendule', 'ho_engrenages', 'salve'] },
+    { cycle: ['ho_aiguilles', 'pendule', 'ho_engrenages', 'cadran'] },
     { cycle: ['ho_aiguilles', 'ho_engrenages', 'pics', 'anneaux', 'ho_aiguilles', 'eclats'] }
   ]
 });
@@ -472,7 +472,7 @@ espece('serpent', {
   },
   phases: [
     { cycle: ['sn_ruee', 'sn_salve', 'pics', 'sn_enroule'] },
-    { cycle: ['sn_ruee', 'sn_salve', 'sn_enroule', 'sn_ruee', 'tsunami'], carte: 'cercle' }
+    { cycle: ['sn_ruee', 'fractures', 'sn_enroule', 'sn_ruee', 'tsunami'], carte: 'cercle' }
   ]
 });
 defEsp('sn_ruee', {
@@ -531,7 +531,7 @@ espece('nebuleuse', {
   meca: 'Elle t\'attire en permanence. Quand elle inspire (elle gonfle et aspire fort), son cœur est à nu (×2,5) : tire en courant à contre-sens, puis éloigne-toi avant qu\'elle expire.',
   maj(b) { if (!b.s.inspire) G.aspiration = { x: b.x, y: b.y, f: (b.phase ? 70 : 45) * b.D.S, t: .1 }; },
   phases: [
-    { cycle: ['orbites', 'petales', 'ne_inspire', 'spirale'] },
+    { cycle: ['orbites', 'anneauxFeu', 'ne_inspire', 'spirale'] },
     { cycle: ['orbites', 'ne_inspire', 'cercleVide', 'petales', 'poles', 'ne_inspire'], carte: 'tenebres' }
   ]
 });
@@ -558,7 +558,7 @@ espece('bourreau', {
   meca: 'Toujours le même combo : des ruées annoncées puis un tourbillon (3 coups, 5 en phase 2). Après le tourbillon, il reprend son souffle (×2). La parade y est reine.',
   phases: [
     { cycle: ['bo_combo', 'pics', 'bo_lames', 'bo_combo', 'bond'] },
-    { cycle: ['bo_combo', 'failles', 'bo_combo', 'bo_lames', 'rebondsTerre'] }
+    { cycle: ['bo_combo', 'failles', 'bo_combo', 'croixFeu', 'rebondsTerre'] }
   ]
 });
 defEsp('bo_combo', {
@@ -641,7 +641,7 @@ espece('phenix', {
     return true;
   },
   phases: [
-    { cycle: ['px_plongeon', 'px_plumes', 'grele', 'px_plumes'] },
+    { cycle: ['px_plongeon', 'px_plumes', 'grele', 'poingCeleste'] },
     { cycle: ['px_plongeon', 'failles', 'px_plumes', 'eclairsChaine', 'geysers'] }
   ]
 });
