@@ -32,7 +32,7 @@ const EMOJI_ICO = {
   '🎲': 'ui:affinites', '⚒': 'ui:forge', '🏆': 'ui:trophee', '🌌': 'ui:abysses', '🎯': 'ui:chasse', '▶': 'ui:jouer', '↻': 'ui:recommencer',
   '⏭': 'ui:passer', '🏠': 'ui:maison', '★': 'ui:etoile', '☆': 'ui:etoile', '✦': 'ui:legende', '🔫': 'ui:arme', '💥': 'ui:special', '💨': 'ui:talent',
   '⏸': 'ui:pause', '🔊': 'ui:son', '⛶': 'ui:plein', '🎮': 'ui:jeu', '⌨': 'ui:touches', '🖼': 'ui:image', '✔': 'ui:ok', '✕': 'ui:non', '💡': 'ui:idee',
-  '⏳': 'ui:sablier', '♥': 'ui:vie', '⚡': 'ui:energie', '❔': 'ui:aide', '🔴': 'ui:vie', '🧠': 'ui:codex', '📈': 'ui:stats', '⬆': 'ui:retour', '⬇': 'ui:retour', '⬅': 'ui:retour', '➡': 'ui:retour'
+  '⏳': 'ui:sablier', '⏻': 'ui:non', '♥': 'ui:vie', '⚡': 'ui:energie', '❔': 'ui:aide', '🔴': 'ui:vie', '🧠': 'ui:codex', '📈': 'ui:stats', '⬆': 'ui:retour', '⬇': 'ui:retour', '⬅': 'ui:retour', '➡': 'ui:retour'
 };
 const RE_ICO = new RegExp('⟦([^⟧]+)⟧|(' + Object.keys(EMOJI_ICO).map(e => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')️?', 'gu');
 function iconiser(racine) {

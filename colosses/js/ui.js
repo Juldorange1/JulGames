@@ -41,7 +41,7 @@ const UI = {
         else if (prix && F.eclats >= prix) { F.eclats -= prix; S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write(); Son.play('ramasse'); }
         this.garderobe(s.slot); break;
       }
-      case 'fragHasard': { const F = forgeSave(); let t = ''; if (F.eclats >= 3) { F.eclats -= 3; t = donnerFragment(null, btn.dataset.o); Son.play('ramasse'); } this.garderobe(btn.dataset.o); if (t) { const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.grille-skins').before(p); } break; }
+      case 'fragHasard': { const F = forgeSave(); let t = ''; if (F.eclats >= PRIX_HASARD) { F.eclats -= PRIX_HASARD; t = donnerFragment(null, btn.dataset.o); Son.play('ramasse'); } this.garderobe(btn.dataset.o); if (t) { const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.grille-skins').before(p); } break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
       case 'stats': this.stats(); break;
       case 'succes': this.succes(); break;
@@ -56,6 +56,7 @@ const UI = {
       case 'passer': this.cacher(); G.passerBoss(); break;
       case 'quitter': G.mode = 'normal'; this.menu(); break;
       case 'touchesDef': Save.d.opts.touches = Save.defaut().opts.touches; Save.write(); this.options(this.ongletOptDepuis || 'menu', 'commandes'); break;
+      case 'quitterJeu': Save.write(); window.close(); break;
       case 'plein': if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => { }); break;
       case 'effacer':
         if (confirm('Effacer TOUTE ta progression (difficultés, défis, succès, améliorations, codex) ?')) { localStorage.removeItem(SAVE_KEY); Save.load(); G.opts = Save.d.opts; calcStats(); majAlerte(); this.menu(); }
@@ -90,7 +91,7 @@ const UI = {
       <div class="accueil">
         <h1 class="titre">COLOSSES</h1>
         <div class="pills">${pills}</div>
-        <button class="jouer" data-a="jouer" data-def>▶ JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
+        <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
         <div class="defis2">${defi('jour')}${defi('semaine')}
           <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
           ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des fragments d'apparence."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
@@ -101,6 +102,7 @@ const UI = {
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
           ${tuile('options', '⚙', 'Paramètres')}
+          ${/Electron/.test(navigator.userAgent) ? tuile('quitterJeu', '⏻', 'Quitter') : ''}
         </div>
       </div>`, 'fond');
   },
@@ -242,7 +244,7 @@ const UI = {
       const prix = PRIX_FRAG[s.rar], cristaux = forgeSave().eclats;
       return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}" ${!ok && (!prix || cristaux < prix) ? 'title="' + (prix ? 'Pas assez de cristaux' : 'Seulement sur un boss légendaire') + '"' : ''}>${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span><span class="achat ${prix && cristaux >= prix ? 'ok' : ''}">${prix ? '🛒 1 fragment · ' + prix + ' 💎' : '★ boss légendaire'}</span>`}</button>`;
     }).join('');
-    this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang"><button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= 3 ? '' : 'disabled'}>🎁 Fragment au hasard (${SLOTS[slot]}) · 3 💎</button></div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
+    this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang"><button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= PRIX_HASARD ? '' : 'disabled'}>🎁 Fragment au hasard (${SLOTS[slot]}) · ${PRIX_HASARD} 💎</button></div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
   },
 
   // ---------- Codex ----------
