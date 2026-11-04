@@ -717,7 +717,7 @@ function dessinerHUD(c) {
   if (b) {
     const bw = 640, bx = W / 2 - bw / 2, by = 40;
     c.textAlign = 'center';
-    texteOmbre(c, (def.legendaire ? '✦ LÉGENDAIRE · ' : def.mega ? '★ ' : '') + def.nom + (def.mega ? ' ★' : ''), W / 2, 15, def.legendaire ? '#ffb43d' : def.mega ? '#ffd86b' : def.col, `800 19px ${POLICE}`, 4);
+    texteOmbre(c, (def.legendaire ? '✦ LÉGENDAIRE · ' : def.mega ? '★ ' : '') + def.nom + (def.mega ? ' ★' : ''), W / 2, 15, def.legendaire ? '#ffb43d' : def.mega ? '#ffd86b' : def.col, `700 21px ${POLICE_ER}`, 4);
     c.font = `italic 12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(def.titre, W / 2, 31);
     barre(c, bx, by, bw, 14, Math.max(0, b.hp) / b.hpMax, def.mega ? '#ffb43d' : def.col);
     if (b.ouvert > 0) { c.strokeStyle = '#ffd24d'; c.lineWidth = 2; c.strokeRect(bx - 2, by - 2, bw + 4, 18); }
@@ -813,16 +813,6 @@ function dessinerHUD(c) {
     texteOmbre(c, bn.txt, W / 2, 150, bn.col, `900 34px ${POLICE}`, 7);
     c.globalAlpha = 1;
   }
-  // présentation du boss
-  if (b && b.intro > 0) {
-    const k = Math.min(1, (2.1 - b.intro) * 3, b.intro * 2.5);
-    c.globalAlpha = k; c.textAlign = 'center';
-    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, H / 2 - 70, W, 140);
-    if (def.mega) texteOmbre(c, '★ MÉGA BOSS ★', W / 2, H / 2 - 48, '#ffd86b', `900 16px ${POLICE}`, 4);
-    texteOmbre(c, def.nom, W / 2, H / 2 - 8, def.col, `900 58px ${POLICE}`, 8);
-    texteOmbre(c, def.titre, W / 2, H / 2 + 40, '#e8e2f5', `italic 600 20px ${POLICE}`, 4);
-    c.globalAlpha = 1;
-  }
 }
 
 function dessinerEcranDefi(c) {
@@ -852,7 +842,7 @@ function dessinerEcranMort(c) {
   c.fillStyle = vg; c.fillRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
   const nomSrc = s => ATK[s] ? ATK[s].nom : ({ contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges' }[s] || s);
-  texteOmbre(c, 'MORT', W / 2, 150, '#ff4d6a', `900 58px ${POLICE}`, 8);
+  bandeauER(c, 150, 120, 1); texteGrave(c, 'MORT', W / 2, 150, 72, '#c8323f', 1, 'rgba(255,40,60,.6)');
   c.font = `600 17px ${POLICE}`; c.fillStyle = '#cfc6e0';
   c.fillText('Dernier coup : ' + nomSrc(G.tueur || 'contact'), W / 2, 200);
   // barre de vie du boss avec les phases

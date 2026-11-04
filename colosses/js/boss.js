@@ -309,7 +309,7 @@ function passerPhase(b) {
   Save.d.codex.cartes[ph.carte] = 1;
   if (b.esp.phaseInit) b.esp.phaseInit(b, b.phase);
   if (b.def.traits.includes('cristaux')) { G.minions = G.minions.filter(m => m.type !== 'cristal'); poserCristaux(b); }
-  G.annonce('PHASE ' + (b.phase + 1) + ' — ' + ph.nom + (ph.carte !== 'normale' ? ' · ' + CARTES[ph.carte].nom : ''), b.col, 2.4);
+  if (ph.carte !== 'normale') G.annonce(CARTES[ph.carte].nom, b.col, 2.4);
   G.secoue(16); G.gel = .12; G.flash = .35; Son.play('phase');
   G.fx.push({ kind: 'anneau', x: b.x, y: b.y, r0: b.r, r1: 900, t: 0, dur: .8, col: b.col });
   G.musiquePhase();

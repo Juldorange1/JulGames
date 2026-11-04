@@ -209,3 +209,33 @@ kbd { background: #2a2240; border: 1px solid rgba(255,255,255,.25); border-botto
 .aff-l button { padding: 5px 10px; font-size: 12px; }
 .mini.gain { color: #ffd86b; }
 .tuiles { grid-template-columns: repeat(5, 1fr); }
+
+/* titre gravé, or vieilli */
+h1.titre, .accueil .titre { font-family: Cinzel, 'Trajan Pro', Georgia, serif; font-weight: 900; letter-spacing: .14em;
+  background: linear-gradient(180deg, #fff3cf 0%, #e3c27a 45%, #a07a3a 70%, #f2d999 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,.8)) drop-shadow(0 0 24px rgba(255, 190, 90, .25)); }
+
+/* ===== Habillage « dark fantasy » : pierre sombre, filets d'or vieilli, lettres gravées ===== */
+:root { --or: #c9a865; --or-clair: #ecd9a4; --or-sombre: #6f5a32; --pierre: rgba(14, 12, 10, .9); }
+h1.titre, .accueil .titre { font-size: clamp(44px, 6.4vw, 82px); letter-spacing: .1em; }
+h2, h3, .barre-titre h2 { font-family: Cinzel, Georgia, serif; font-weight: 700; color: var(--or-clair); letter-spacing: .04em; }
+h4 { color: var(--or); font-family: Cinzel, Georgia, serif; }
+.panneau { background: linear-gradient(180deg, rgba(22, 19, 15, .95), rgba(10, 9, 8, .95)); border: 1px solid var(--or-sombre); box-shadow: 0 0 0 1px rgba(0,0,0,.6), inset 0 0 60px rgba(0,0,0,.6), 0 20px 60px rgba(0,0,0,.6); }
+button { background: linear-gradient(180deg, rgba(40, 35, 28, .85), rgba(18, 16, 13, .9)); border: 1px solid rgba(201, 168, 101, .35); color: #e8e0cc; border-radius: 6px; }
+button:hover { background: linear-gradient(180deg, rgba(60, 50, 36, .9), rgba(26, 22, 16, .92)); border-color: var(--or); box-shadow: 0 0 18px -6px rgba(236, 200, 120, .6); }
+button.gros, .jouer { background: linear-gradient(180deg, #3a2f1f, #1a140c); border: 1px solid var(--or); color: var(--or-clair); box-shadow: inset 0 1px 0 rgba(255,230,170,.2), 0 10px 30px -10px rgba(0,0,0,.8), 0 0 30px -12px rgba(236,200,120,.5); }
+.jouer { font-family: Cinzel, Georgia, serif; border-radius: 6px; letter-spacing: .14em; }
+.jouer:hover { filter: none; border-color: var(--or-clair); box-shadow: inset 0 1px 0 rgba(255,230,170,.3), 0 0 40px -8px rgba(236,200,120,.7); }
+.jouer small { font-family: system-ui, sans-serif; color: #cbbd99; letter-spacing: .02em; }
+.pill { border-radius: 4px; font-family: Cinzel, Georgia, serif; }
+.pill.actif { background: rgba(201, 168, 101, .16); border-color: var(--or); box-shadow: 0 0 18px -6px rgba(236, 200, 120, .6); color: var(--or-clair); }
+.defi2, .tuile, .bloc, .skin, .evo, .aff-l { border-radius: 6px; }
+.defi2 { background: linear-gradient(90deg, rgba(30, 26, 20, .92), rgba(14, 12, 10, .9)); border: 1px solid rgba(201,168,101,.22); border-left: 3px solid var(--fc); }
+.defi2 .dtx b { font-family: Cinzel, Georgia, serif; letter-spacing: .03em; }
+.tuile { background: linear-gradient(180deg, rgba(30, 26, 20, .9), rgba(12, 11, 9, .92)); font-family: Cinzel, Georgia, serif; }
+.tuile small { color: var(--or); }
+.onglets button.actif, .puce.actif { background: rgba(201, 168, 101, .2); border-color: var(--or); color: var(--or-clair); }
+.bloc { background: rgba(255, 240, 210, .03); border: 1px solid rgba(201,168,101,.18); }
+.stat b { color: var(--or-clair); font-family: Cinzel, Georgia, serif; }
+.accueil { margin-left: max(24px, 5vw) !important; margin-right: auto !important; max-width: min(560px, 46vw) !important; }
+#ecran.fond { justify-content: flex-start; }

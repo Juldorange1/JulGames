@@ -297,8 +297,8 @@ fondMenu = function () {
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   // nom du colosse
   ctx.textAlign = 'center'; ctx.globalAlpha = .75;
-  texteOmbre(ctx, (def.legendaire ? '✦ ' : '') + def.nom, cx, H * .86, hsl(h, 90, 72), `900 30px ${POLICE}`, 5);
-  ctx.font = `italic 15px ${POLICE}`; ctx.fillStyle = '#cfc6e0'; ctx.fillText(def.titre + (def.mega ? ' — méga boss' : ''), cx, H * .89);
+  texteOmbre(ctx, (def.legendaire ? '✦ ' : '') + def.nom, cx, H * .86, hsl(h, 90, 72), `700 34px ${POLICE_ER}`, 5);
+  ctx.font = `600 16px ${POLICE_ER}`; ctx.fillStyle = "#bfae8a"; ctx.fillText(def.titre + (def.mega ? ' — méga boss' : ''), cx, H * .89);
   ctx.globalAlpha = 1;
 };
 

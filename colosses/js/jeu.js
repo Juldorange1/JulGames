@@ -231,6 +231,7 @@ const G = {
 
   // ---------- Dégâts subis ----------
   blesser(dmg, src) {
+    dmg /= 1.3; // le héros encaisse 30 % de mieux
     const p = this.p;
     if (this.etat !== 'combat' || !p || p.hp <= 0) return false;
     if (p.fantome > 0 || p.iframe > 0) return false;
@@ -418,7 +419,6 @@ const G = {
     this.etat = 'interlude'; this.interT = 0;
     Musique.baisser(.55);
     this.p.hp = this.p.hpMax; this.texte(this.p.x, this.p.y - 34, 'Vie restaurée', '#46e39b', 18);
-    this.annonce(this.def.mega ? 'MÉGA BOSS VAINCU !' : 'VAINCU !', '#ffe14d', 2.4);
     const d = Save.d;
     if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
     // récompenses : éclats de forge et fragments d'apparence, jamais de puissance
@@ -1109,6 +1109,7 @@ let erreursBoucle = 0;
 function boucle(now) {
   // la boucle continue même si une image plante (sinon l'écran restait figé)
   try { pasBoucle(now); } catch (e) { if (erreursBoucle++ < 20) console.error(e); }
+  if (typeof PostFX !== 'undefined') try { PostFX.rendre(); } catch (e) { PostFX.ok = false; }
   Input.endFrame();
   requestAnimationFrame(boucle);
 }
