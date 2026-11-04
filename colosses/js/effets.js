@@ -147,3 +147,44 @@ HZ.onde.draw = function (h, c) {
   }
   c.restore();
 };
+
+// ---------- Effets réduits : on garde les dangers, on coupe le décor animé et la fumée des boss ----------
+const _ambianceFx = Decor.dessinerAmbiance.bind(Decor);
+Decor.dessinerAmbiance = function (c) { if (G.opts.effetsReduits) return; _ambianceFx(c); };
+
+// ---------- Touché : d'où vient le coup ----------
+const _blesserFx = G.blesser;
+G.blesser = function (dmg, src) {
+  const r = _blesserFx.call(this, dmg, src);
+  if (r && this.p) {
+    const p = this.p; let sx = null, sy = null, best = 70 * 70;
+    for (const e of this.eb) { const q = d2(e.x, e.y, p.x, p.y); if (q < best) { best = q; sx = e.x - e.vx * .05; sy = e.y - e.vy * .05; } }
+    if (sx === null) for (const h of this.hz) if (h.x !== undefined && h.src === src) { sx = h.x; sy = h.y; break; }
+    if (sx === null && this.boss) { sx = this.boss.x; sy = this.boss.y; }
+    if (sx !== null) this.coupInfo = { a: ang(p.x, p.y, sx, sy), t: 0 };
+  }
+  return r;
+};
+const _hudCoup = dessinerHUD;
+dessinerHUD = function (c) {
+  const ci = G.coupInfo, p = G.p;
+  if (ci && p) {
+    ci.t += 1 / 60;
+    const k = Math.max(0, 1 - ci.t / .8);
+    if (k <= 0) G.coupInfo = null;
+    else {
+      // arc rouge autour du héros, tourné vers ce qui l'a touché
+      c.save(); c.lineCap = 'round';
+      c.strokeStyle = `rgba(0,0,0,${.6 * k})`; c.lineWidth = 9; c.beginPath(); c.arc(p.x, p.y, 44, ci.a - .55, ci.a + .55); c.stroke();
+      c.strokeStyle = `rgba(255,60,80,${k})`; c.lineWidth = 5; c.beginPath(); c.arc(p.x, p.y, 44, ci.a - .55, ci.a + .55); c.stroke();
+      const ex = p.x + Math.cos(ci.a) * 58, ey = p.y + Math.sin(ci.a) * 58;
+      c.fillStyle = `rgba(255,80,100,${k})`; c.beginPath(); c.moveTo(ex + Math.cos(ci.a) * 10, ey + Math.sin(ci.a) * 10); c.lineTo(ex + Math.cos(ci.a + 2.4) * 8, ey + Math.sin(ci.a + 2.4) * 8); c.lineTo(ex + Math.cos(ci.a - 2.4) * 8, ey + Math.sin(ci.a - 2.4) * 8); c.closePath(); c.fill();
+      // bord de l'écran qui rougit du côté du coup
+      const bx = W / 2 + Math.cos(ci.a) * W * .55, by = H / 2 + Math.sin(ci.a) * H * .55, g = c.createRadialGradient(bx, by, 0, bx, by, 520);
+      g.addColorStop(0, `rgba(255,30,50,${.35 * k})`); g.addColorStop(1, 'rgba(255,30,50,0)');
+      c.fillStyle = g; c.fillRect(0, 0, W, H);
+      c.restore();
+    }
+  }
+  _hudCoup(c);
+};

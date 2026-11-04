@@ -76,7 +76,7 @@ const _dessinerBossBase = dessinerBoss;
 dessinerBoss = function (c, b) {
   if (!b || b.mort || !b.def) return _dessinerBossBase(c, b);
   const h = b.def.hue, t = G.t || 0, r = b.r, menu = !G.p || G.etat === 'menu';
-  if (!(b.spectral > 0) && b.alpha > .3) {
+  if (!(b.spectral > 0) && b.alpha > .3 && !G.opts.effetsReduits) {
     c.save(); c.translate(b.x, b.y);
     // lueur au sol et cercle runique qui tourne lentement
     c.globalCompositeOperation = 'lighter';
@@ -96,7 +96,7 @@ dessinerBoss = function (c, b) {
   }
   _dessinerBossBase(c, b);
   // braises et cendres qui montent de lui
-  if (!menu && G.parts.length < 700 && Math.random() < .5 * QUAL()) {
+  if (!menu && !G.opts.effetsReduits && G.parts.length < 700 && Math.random() < .5 * QUAL()) {
     const a = Math.random() * TAU, d = r * (.4 + Math.random() * .8);
     G.parts.push({ x: b.x + Math.cos(a) * d, y: b.y + Math.sin(a) * d, vx: (Math.random() - .5) * 20, vy: -30 - Math.random() * 50, life: 1.4, max: 1.4, col: Math.random() < .5 ? '#ffb347' : hsl(h, 100, 70), r: 1.2 + Math.random() * 1.6, add: true });
   }

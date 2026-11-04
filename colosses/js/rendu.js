@@ -955,14 +955,15 @@ function rendu() {
     c.fillStyle = g; c.fillRect(AR.x - 40, AR.y - 40, AR.w + 80, AR.h + 80);
   }
   if (G.boss && !G.boss.mort) dessinerBoss(c, G.boss);
+  // effets de tes armes d'abord, puis le héros, puis les dangers par-dessus : une balle du boss n'est jamais cachée
+  dessinerFx(c);
+  dessinerJoueur(c);
   c.save(); cheminArene(c); c.clip();
   for (const h of G.hz) if (!SOL_HZ.has(h.kind)) HZ[h.kind].draw(h, c);
   c.restore();
   dessinerTirsEnnemis(c);
-  dessinerJoueur(c);
-  dessinerFx(c);
   c.restore();
-  if (G.opts.lumiere) { bloom(); base(); } else base();
+  if (G.opts.lumiere && !G.opts.effetsReduits) { bloom(); base(); } else base();
   // voiles d'ambiance
   const p = G.p;
   if (p && p.hp > 0 && p.hp < p.hpMax * .3) {

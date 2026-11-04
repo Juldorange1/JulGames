@@ -313,7 +313,7 @@ const UI = {
     let corps = '';
     if (onglet === 'son') corps = curseur('o-master', 'Général', op.master, 0, 1, .05) + curseur('o-vol', 'Bruitages', op.vol, 0, 1, .05) + curseur('o-mus', 'Musique', op.musique, 0, 1, .05) +
       `<div class="rang"><button id="o-test">🔊 Tester le son</button></div><p class="mini">Rien n'est audible ? Vérifie la sortie audio de Windows (ton casque doit être la sortie par défaut).</p>`;
-    else if (onglet === 'image') corps = coche('o-fx', 'Effets cinématiques (shaders)', op.postfx !== false) + curseur('o-fxf', 'Force des effets', op.postfxForce || 1, .3, 1.3, .05) + coche('o-lum', 'Halos lumineux', op.lumiere) + coche('o-decor', 'Brume et poussière', op.decorAnime) +
+    else if (onglet === 'image') corps = coche('o-reduits', 'Effets réduits (plus lisible : moins de fumée, de particules et de halos)', op.effetsReduits) + coche('o-fx', 'Effets cinématiques (shaders)', op.postfx !== false) + curseur('o-fxf', 'Force des effets', op.postfxForce || 1, .3, 1.3, .05) + coche('o-lum', 'Halos lumineux', op.lumiere) + coche('o-decor', 'Brume et poussière', op.decorAnime) +
       choix('o-part', 'Particules', op.particules, [['faible', 'Peu'], ['normale', 'Normales'], ['elevee', 'Beaucoup']]) +
       curseur('o-tremble', 'Tremblements', +op.tremble, 0, 1, .1) + curseur('o-lumi', 'Luminosité', op.luminosite, .7, 1.4, .05) +
       choix('o-alerte', 'Zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta'], ['jaune', 'Jaune']]) +
@@ -345,7 +345,7 @@ const UI = {
     lier('o-tremble', t => { op.tremble = +t.value; pct('o-tremble', op.tremble); }, 'input');
     lier('o-lumi', t => { op.luminosite = +t.value; pct('o-lumi', op.luminosite); appliquerAffichage(); }, 'input');
     lier('o-zoom', t => { op.zoomMenu = +t.value; pct('o-zoom', op.zoomMenu); this.el.style.setProperty('--zoom', op.zoomMenu); }, 'input');
-    lier('o-fx', t => op.postfx = t.checked); lier('o-fxf', t => { op.postfxForce = +t.value; pct('o-fxf', op.postfxForce); }, 'input');
+    lier('o-reduits', t => op.effetsReduits = t.checked); lier('o-fx', t => op.postfx = t.checked); lier('o-fxf', t => { op.postfxForce = +t.value; pct('o-fxf', op.postfxForce); }, 'input');
     lier('o-lum', t => op.lumiere = t.checked); lier('o-decor', t => op.decorAnime = t.checked);
     lier('o-part', t => op.particules = t.value); lier('o-alerte', t => { op.alerte = t.value; majAlerte(); });
     lier('o-contour', t => op.contour = t.checked); lier('o-viseur', t => op.viseur = t.value); lier('o-vcol', t => op.viseurCol = t.value, 'input');
