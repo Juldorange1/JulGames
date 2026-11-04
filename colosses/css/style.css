@@ -1,3 +1,4 @@
+@font-face { font-family: 'Cinzel'; src: url(../fonts/cinzel-latin.woff2) format('woff2'); font-weight: 400 900; font-display: swap; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #05040a; color: #eee; font-family: 'Segoe UI', system-ui, sans-serif; }
 /* aucun texte sélectionnable (les champs de saisie restent utilisables) */
@@ -244,3 +245,6 @@ button.gros, .jouer { background: linear-gradient(180deg, #3a2f1f, #1a140c); bor
 .accueil { margin-left: max(24px, 13vw) !important; }
 html, body, button, #ecran, #jeu, label, select { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%23e8cf8e' stroke='%23140e06' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M5 6 L5 17 L8 14.5' fill='none' stroke='%23fff6d8' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E") 3 2, auto; }
 input[type=range], input[type=color] { cursor: inherit; }
+
+.skin .achat { font-size: 11px; color: #8d8574; }
+.skin .achat.ok { color: #bfefff; }

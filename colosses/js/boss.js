@@ -384,6 +384,34 @@ function cheminCorps(c, L, r, t) {
   }
   c.closePath();
 }
+// la silhouette du boss (corps + armes) est dessinée sur un calque à part, puis posée avec un contour sombre net :
+// on lit tout de suite sa forme, sans halo autour
+let calqueCorps = null, calqueSil = null, corpsInfo = null;
+function corpsDebut(cm, r) {
+  if (typeof document === 'undefined' || !cm.getTransform) return cm;
+  const T = cm.getTransform(), k = Math.max(Math.abs(T.a), Math.abs(T.d)), S = Math.ceil(2 * 2.4 * r * k) + 16;
+  if (!calqueCorps) { calqueCorps = document.createElement('canvas'); calqueSil = document.createElement('canvas'); }
+  if (calqueCorps.width < S) { calqueCorps.width = calqueCorps.height = calqueSil.width = calqueSil.height = S; }
+  const x = calqueCorps.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, S, S);
+  x.setTransform(T.a, T.b, T.c, T.d, S / 2, S / 2);
+  corpsInfo = { T, S, k, al: cm.globalAlpha };
+  return x;
+}
+function corpsFin(cm, b, h) {
+  if (!corpsInfo || cm === calqueCorps.getContext('2d') || typeof document === 'undefined') return cm;
+  const { T, S, k, al } = corpsInfo; corpsInfo = null;
+  const sx = calqueSil.getContext('2d');
+  sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalCompositeOperation = 'source-over'; sx.clearRect(0, 0, S, S);
+  sx.drawImage(calqueCorps, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#050307'; sx.fillRect(0, 0, S, S);
+  const ep = Math.max(2, 1.7 * k);
+  cm.save(); cm.setTransform(1, 0, 0, 1, 0, 0); cm.globalAlpha = al;
+  const x0 = T.e - S / 2, y0 = T.f - S / 2;
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cm.drawImage(calqueSil, 0, 0, S, S, x0 + Math.cos(a) * ep, y0 + Math.sin(a) * ep, S, S); }
+  cm.drawImage(calqueCorps, 0, 0, S, S, x0, y0, S, S);
+  cm.restore();
+  return cm;
+}
 function dessinerBoss(c, b) {
   const L = b.def.look, t = G.t, h = b.def.hue, ph = b.phase;
   // ombre portée
@@ -400,18 +428,17 @@ function dessinerBoss(c, b) {
   c.globalCompositeOperation = 'lighter';
   c.drawImage(glow(hsl(h, 100, 50, .4), r * 2.6), -r * 2.6, -r * 2.6);
   c.globalCompositeOperation = 'source-over';
-  sprite(c, 'magic_03', hsl(h, 100, 60), 0, 0, r * 3.4, t * .3, .28, true);
+  sprite(c, 'magic_03', hsl(h, 100, 60), 0, 0, r * 3.4, t * .3, .12, true);
   if (b.intro > 0) sprite(c, 'circle7', hsl(h, 100, 65), 0, 0, r * 4, -t, .6, true);
   if (b.def.legendaire) { sprite(c, 'circle6', '#ffb43d', 0, 0, r * 3.6, t * .4, .55, true); if (R() < .3) G.parts.push({ x: b.x + R.range(-r, r), y: b.y + R.range(-r, r), vx: 0, vy: -40, life: .8, max: .8, col: '#ffd86b', r: 2, add: true }); }
-  if (b.def.mega) { c.strokeStyle = '#ffd86b'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.globalAlpha = al * (.5 - i * .12); c.beginPath(); c.arc(0, 0, r * (1.35 + i * .15) + Math.sin(t * 2 + i) * 4, 0, TAU); c.stroke(); } c.globalAlpha = al; }
+  if (false) { c.strokeStyle = '#ffd86b'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.globalAlpha = al * (.5 - i * .12); c.beginPath(); c.arc(0, 0, r * (1.35 + i * .15) + Math.sin(t * 2 + i) * 4, 0, TAU); c.stroke(); } c.globalAlpha = al; }
   if (b.wind > 0) { const k = 1 - b.wind / b.windMax; c.strokeStyle = hsl(h, 100, 78, .95); c.lineWidth = 3 + 3 * k; c.beginPath(); c.arc(0, 0, r * (1.9 - .8 * k), 0, TAU); c.stroke(); }
+  const cM = c; c = corpsDebut(cM, r);
   armement(c, b, r, t, h, ph, 'dessous');
   const forme = FORMES[L.style];
   if (forme) {
     forme(c, b, r, t, h, ph, b.eyesA);
-    if (b.esp.id !== 'spectre' && b.def.look.style !== 'nautile' && b.def.look.style !== 'fantome' && typeof matiereBoss === 'function') matiereBoss(c, r);
     if (b.flash > 0) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = al * b.flash * .5; c.drawImage(glow('#ffffff', r * 1.2), -r * 1.2, -r * 1.2); c.globalAlpha = al; c.globalCompositeOperation = 'source-over'; }
-    if (b.ouvert > 0) lueur(c, 'rgba(255,220,90,.7)', r * .9);
   }
   if (!forme && L.pics) {
     const pl = L.picL * (1 + .3 * ph);
@@ -454,6 +481,8 @@ function dessinerBoss(c, b) {
   }
   }
   armement(c, b, r, t, h, ph, 'dessus');
+  c = corpsFin(cM, b, h);
+  if (b.ouvert > 0) lueur(c, 'rgba(255,220,90,.7)', r * .9);
   for (let i = 0; i < L.sats; i++) {
     const a = t * (1 + i * .2) + i * TAU / L.sats, rr = r * (1.45 + .1 * Math.sin(t + i));
     c.globalCompositeOperation = 'lighter'; c.drawImage(glow(hsl(h, 100, 65, .8), 10 + ph * 2), Math.cos(a) * rr - 10 - ph * 2, Math.sin(a) * rr - 10 - ph * 2); c.globalCompositeOperation = 'source-over';
@@ -469,12 +498,26 @@ function dessinerBoss(c, b) {
     c.beginPath(); c.arc(Math.cos(a) * b.r * .9, Math.sin(a) * b.r * .9, 9, 0, TAU); c.fill();
     c.globalAlpha = 1; c.strokeStyle = '#ccc'; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, b.r * 1.08, b.facing - 1.2, b.facing + 1.2); c.stroke();
   }
-  if (tr.includes('carapace') && b.armure > 0) { c.strokeStyle = '#c9c9d6'; c.lineWidth = 3 + 5 * b.armure / b.armureMax; c.setLineDash([16, 6]); c.beginPath(); c.arc(0, 0, b.r * 1.12, 0, TAU); c.stroke(); c.setLineDash([]); }
+  // carapace : de vraies plaques de métal autour de lui (elles tombent à mesure qu'elle s'use)
+  if (tr.includes('carapace') && b.armure > 0) {
+    const n = Math.ceil(8 * b.armure / b.armureMax), R1 = b.r * 1.06, R2 = b.r * 1.26;
+    for (let i = 0; i < n; i++) {
+      const a0 = b.facing + i * TAU / 8 + .06, a1 = a0 + TAU / 8 - .12;
+      c.beginPath(); c.arc(0, 0, R2, a0, a1); c.arc(0, 0, R1, a1, a0, true); c.closePath();
+      const g = c.createRadialGradient(0, 0, R1, 0, 0, R2); g.addColorStop(0, '#3a3c44'); g.addColorStop(.5, '#a9adb8'); g.addColorStop(1, '#4a4c56');
+      c.fillStyle = g; c.fill(); c.strokeStyle = '#121218'; c.lineWidth = 2; c.stroke();
+      const am = (a0 + a1) / 2; c.fillStyle = '#e6e8ee'; c.beginPath(); c.arc(Math.cos(am) * (R1 + R2) / 2, Math.sin(am) * (R1 + R2) / 2, 2.2, 0, TAU); c.fill();
+    }
+  }
   if (b.miroir > 0) { c.strokeStyle = `rgba(255,255,255,${.6 + .4 * Math.sin(t * 25)})`; c.lineWidth = 5; c.beginPath(); c.arc(0, 0, b.r * 1.2, 0, TAU); c.stroke(); }
   if (tr.includes('souffle') && bossVulnerableSouffle(b)) { c.strokeStyle = '#ffd24d'; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, b.r * 1.15, 0, TAU); c.stroke(); }
   if (bouclierBoss(b)) {
-    c.strokeStyle = 'rgba(127,216,255,.8)'; c.lineWidth = 2; c.fillStyle = 'rgba(127,216,255,.1)';
-    c.beginPath(); c.arc(0, 0, b.r * 1.35 + Math.sin(t * 3) * 2, 0, TAU); c.fill(); c.stroke();
+    // champ de force : bulle à alvéoles hexagonales (on voit que c'est un bouclier, pas une partie du corps)
+    const RB = b.r * 1.38 + Math.sin(t * 3) * 2;
+    c.fillStyle = 'rgba(127,216,255,.08)'; c.beginPath(); c.arc(0, 0, RB, 0, TAU); c.fill();
+    c.save(); c.beginPath(); c.arc(0, 0, RB, 0, TAU); c.clip(); c.strokeStyle = 'rgba(160,230,255,.35)'; c.lineWidth = 1.2;
+    const hx = 16; for (let yy = -RB; yy < RB + hx; yy += hx * 1.5) for (let xx = -RB; xx < RB + hx; xx += hx * 1.732) { const ox = xx + ((yy / (hx * 1.5)) % 2 ? hx * .866 : 0); c.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + Math.PI / 6; c.lineTo(ox + Math.cos(a) * hx * .9, yy + Math.sin(a) * hx * .9); } c.closePath(); c.stroke(); }
+    c.restore(); c.strokeStyle = 'rgba(160,230,255,.9)'; c.lineWidth = 2.5; c.beginPath(); c.arc(0, 0, RB, 0, TAU); c.stroke();
   }
   if (b.stun > 0) { c.fillStyle = '#ffe14d'; for (let i = 0; i < 3; i++) { const a = t * 4 + i * TAU / 3; c.beginPath(); c.arc(Math.cos(a) * b.r * .6, -b.r - 12 + Math.sin(a) * 6, 4, 0, TAU); c.fill(); } }
   c.restore();

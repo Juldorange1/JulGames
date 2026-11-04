@@ -435,7 +435,11 @@ const G = {
     if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
     // récompenses : des cristaux (affinités et apparences seulement) et des fragments d'apparence, jamais de puissance
     const gains = [];
-    const ecl = this.def.mega ? 3 : 1; gagnerEclats(ecl); this.gainCristaux = { n: ecl, t: 0, x: b.x, y: b.y };
+    // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
+    const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
+    F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
+    const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; if (ecl) gagnerEclats(ecl); else Save.write();
+    this.gainCristaux = { n: ecl, demi: !ecl, t: 0, x: b.x, y: b.y };
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
     else if (this.def.mega) { gains.push(donnerFragment('rare')); gains.push(donnerFragment('rare')); }
     else if (R() < .3) gains.push(donnerFragment());

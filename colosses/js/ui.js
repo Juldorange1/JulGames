@@ -35,7 +35,13 @@ const UI = {
       case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
       case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.eclats').after(p); } break; }
       case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
-      case 'skin': { const S = skinsSave(), s = skin(btn.dataset.k); if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); } this.garderobe(s.slot); break; }
+      case 'skin': {
+        const S = skinsSave(), s = skin(btn.dataset.k), F = forgeSave(), prix = PRIX_FRAG[s.rar];
+        if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); }
+        else if (prix && F.eclats >= prix) { F.eclats -= prix; S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write(); Son.play('ramasse'); }
+        this.garderobe(s.slot); break;
+      }
+      case 'fragHasard': { const F = forgeSave(); let t = ''; if (F.eclats >= 3) { F.eclats -= 3; t = donnerFragment(); Son.play('ramasse'); } this.garderobe(btn.dataset.o); if (t) { const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = '🎁 ' + t; this.el.querySelector('.grille-skins').before(p); } break; }
       case 'codex': this.codex(btn.dataset.o || 'especes'); break;
       case 'stats': this.stats(); break;
       case 'succes': this.succes(); break;
@@ -86,11 +92,11 @@ const UI = {
         <div class="pills">${pills}</div>
         <button class="jouer" data-a="jouer" data-def>▶ JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
         <div class="defis2">${defi('jour')}${defi('semaine')}
-          <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">sans fin · une vie</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
+          <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
           ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des fragments d'apparence."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
         </div>
         <div class="tuiles">
-          ${tuile('forge', '💎', 'Cristaux', forgeSave().eclats + ' cristaux')}
+          ${tuile('forge', '🎲', 'Affinités', forgeSave().eclats + ' 💎')}
           ${tuile('garderobe', '👕', 'Garde-robe')}
           ${tuile('codex', '📖', 'Codex')}
           ${tuile('stats', '📊', 'Statistiques')}
@@ -215,15 +221,15 @@ const UI = {
         const btnA = n >= 3 ? '<button disabled>Max</button>' : `<button data-a="affNiv" data-c="${c}" data-v="${v}" ${plein || F2.eclats < AFF_PRIX[n] ? 'disabled' : ''} title="${plein ? '2 affinités au plus par type' : 'Passe à ' + pct(ch.apres)}">${n ? '+' : 'Acheter'} · ${AFF_PRIX[n]} 💎</button>`;
         return `<div class="aff-l ${n ? 'actif' : ''}"><b>${nom}</b><div>${etat}</div>${btnA}${n ? `<button class="petit" data-a="affOff" data-c="${c}" data-v="${v}" title="Retirer (les éclats ne sont pas rendus)">✕</button>` : ''}</div>`;
       };
-      corps = `<p class="mini">Les cristaux se gagnent en battant des boss (1, ou 3 pour un méga boss). Ils servent seulement ici : rendre un type d'arme plus fréquent, ou acheter une apparence au hasard. Paie des cristaux pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
+      corps = `<p class="mini">Les cristaux se gagnent en battant des boss (1, ou 3 pour un méga boss). Ils servent seulement ici (rendre un type d'arme plus fréquent) et dans la garde-robe (apparences). Paie des cristaux pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
         <div class="eclats">💎 ${F2.eclats} cristaux</div>
-        <div class="rang"><button data-a="fragAch" ${F2.eclats >= 4 ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · 4 💎</button></div>
+
         <h4>🔫 Arme principale — familles</h4>${Object.entries(FAMILLES).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
         <h4>🔫 Arme principale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom)).join('')}
         <h4>💥 Attaque spéciale — éléments</h4>${Object.entries(ELEMENTS).map(([k, v]) => ligne('s', k, v.ico + ' ' + v.nom)).join('')}
         <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
     }
-    this.ecran('💎 Cristaux', corps);
+    this.ecran('🎲 Affinités', corps);
   },
 
   // ---------- Garde-robe ----------
@@ -234,9 +240,10 @@ const UI = {
     const cartes = SKINS.filter(s => s.slot === slot).map(s => {
       const R0 = RARETES[s.rar], ok = possede(s.id), n = S.frag[s.id] || 0, eq = S.equip[slot] === s.id;
       const apercu = s.c ? `<span class="pastille" style="background:linear-gradient(135deg,${s.c.join(',')})"></span>` : `<span class="pastille" style="background:${s.col || '#333'}"></span>`;
-      return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}">${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span>`}</button>`;
+      const prix = PRIX_FRAG[s.rar], cristaux = forgeSave().eclats;
+      return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}" ${!ok && (!prix || cristaux < prix) ? 'title="' + (prix ? 'Pas assez de cristaux' : 'Seulement sur un boss légendaire') + '"' : ''}>${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span><span class="achat ${prix && cristaux >= prix ? 'ok' : ''}">${prix ? '🛒 1 fragment · ' + prix + ' 💎' : '★ boss légendaire'}</span>`}</button>`;
     }).join('');
-    this.ecran('👕 Garde-robe', onglets + `<p class="mini">Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
+    this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang"><button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= 3 ? '' : 'disabled'}>🎁 Fragment au hasard · 3 💎</button></div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments tombent des boss (30 %), des méga boss, des défis réussis et de la chasse. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
   },
 
   // ---------- Codex ----------

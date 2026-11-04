@@ -898,7 +898,7 @@ function bloom() { if (!cv.width || !cv.height) return;
   bloomCtx.drawImage(cv, 0, 0, w, h);
   bloomCtx.filter = 'none';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .5;
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .2;
   ctx.drawImage(bloomCv, 0, 0, cv.width, cv.height);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
 }

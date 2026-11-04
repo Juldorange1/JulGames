@@ -25,11 +25,6 @@ const PostFX = {
           vec2 d = uv - .5; float r2 = dot(d, d);
           // image nette : un seul échantillon, pixel pour pixel
           vec3 col = texture2D(img, uv).rgb;
-          // halo : on récupère les parties claires autour (deux anneaux de 8 échantillons)
-          vec3 bl = vec3(0.); vec2 px = 1. / res;
-          for (int i = 0; i < 8; i++) { float a = float(i) * .7854; vec2 o = vec2(cos(a), sin(a));
-            bl += max(texture2D(img, uv + o * px * 5.).rgb - .55, 0.) + max(texture2D(img, uv + o * px * 13.).rgb - .5, 0.) * .8; }
-          col += bl * .11 * force;
           // étalonnage : un peu désaturé, ombres froides, lumières dorées, contraste
           float l = dot(col, vec3(.299, .587, .114));
           col = mix(lum3(col), col, mix(1., .82, force));
@@ -43,7 +38,6 @@ const PostFX = {
           float v = smoothstep(.85, .2, length(d * vec2(1., .9)));
           col *= mix(1., mix(.42, 1., v), force);
           // grain de pellicule
-          col += (h(floor(uv * res * .5) + floor(t * 24.)) - .5) * .018 * force;
           gl_FragColor = vec4(clamp(col, 0., 1.), 1.);
         }`;
       const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
@@ -87,7 +81,7 @@ dessinerBoss = function (c, b) {
     // lueur au sol et cercle runique qui tourne lentement
     c.globalCompositeOperation = 'lighter';
     c.drawImage(glow(hsl(h, 90, 45, .22), r * 3.2), -r * 3.2, -r * 3.2);
-    sprite(c, 'circle4', hsl(h, 100, 60), 0, 0, r * 4.4, t * .15, b.def.mega ? .45 : .28, true);
+    sprite(c, 'circle4', hsl(h, 100, 60), 0, 0, r * 4.4, t * .15, b.def.mega ? .25 : .14, true);
     c.globalCompositeOperation = 'source-over';
     // fumée noire qui s'enroule autour de lui (une silhouette qui écrase la lumière)
     for (let i = 0; i < 5; i++) {
@@ -229,7 +223,7 @@ dessinerHUD = function (c) {
       const x = lerp(gc.x, cx, e), y = lerp(gc.y, cy, e) - Math.sin(e * Math.PI) * 120;
       c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(140,220,255,.8)', 26), x - 26, y - 26); c.restore();
       c.textAlign = 'center'; c.font = `22px Segoe UI Emoji, ${POLICE}`; c.fillText('💎', x, y);
-      texteGrave(c, '+' + gc.n + ' cristal' + (gc.n > 1 ? 'x' : ''), gc.x, gc.y - 70 - gc.t * 20, 24, '#bfefff', Math.min(1, gc.t * 3) * Math.max(0, 1.6 - gc.t), 'rgba(120,210,255,.8)');
+      texteGrave(c, gc.demi ? '+½ cristal' : '+' + gc.n + ' cristal' + (gc.n > 1 ? 'x' : ''), gc.x, gc.y - 70 - gc.t * 20, 24, '#bfefff', Math.min(1, gc.t * 3) * Math.max(0, 1.6 - gc.t), 'rgba(120,210,255,.8)');
     } else if (gc.t < 2.2) puls = 1 - (gc.t - 1.6) / .6;
     else G.gainCristaux = null;
   }
