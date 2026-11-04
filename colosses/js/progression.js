@@ -95,7 +95,8 @@ function statPlus(cle, sous, n) {
 }
 
 // ---------- Apparences : fragments à collectionner (aucun bonus de puissance) ----------
-const RARETES = { commun: { nom: 'Commun', col: '#b8c4d0', frags: 3, poids: 60 }, rare: { nom: 'Rare', col: '#5aa8ff', frags: 5, poids: 30 }, epique: { nom: 'Épique', col: '#c06bff', frags: 8, poids: 10 }, legendaire: { nom: 'Légendaire', col: '#ffb43d', frags: 1, poids: 0 } };
+// moins de fragments pour les apparences courantes ; les mythiques en demandent beaucoup (objectif de longue haleine)
+const RARETES = { commun: { nom: 'Commun', col: '#b8c4d0', frags: 2, poids: 60 }, rare: { nom: 'Rare', col: '#5aa8ff', frags: 3, poids: 30 }, epique: { nom: 'Épique', col: '#c06bff', frags: 5, poids: 10 }, mythique: { nom: 'Mythique', col: '#ff4dd2', frags: 25, poids: 6 }, legendaire: { nom: 'Légendaire', col: '#ffb43d', frags: 1, poids: 0 } };
 const SLOTS = { armure: 'Armure', cape: 'Cape', visiere: 'Visière', trainee: 'Traînée', aura: 'Aura' };
 const SKINS = [
   { id: 'a_acier', slot: 'armure', nom: 'Acier', rar: 'commun', c: ['#e6eef8', '#7d8fa3', '#232b36'], base: true },
@@ -167,13 +168,23 @@ SKINS.push(
   { id: 'r_sang', slot: 'aura', nom: 'Sang', rar: 'epique', col: 'rgba(255,40,60,.4)' },
   { id: 'r_divine', slot: 'aura', nom: 'Divine', rar: 'legendaire', col: 'rgba(255,245,200,.5)', couronne: true }
 );
+// apparences mythiques : 25 fragments chacune
+SKINS.push(
+  { id: 'a_eclipse', slot: 'armure', nom: 'Éclipse', rar: 'mythique', c: ['#fff8e0', '#ff4dd2', '#14001a'] },
+  { id: 'a_obsidienne_doree', slot: 'armure', nom: 'Obsidienne dorée', rar: 'mythique', c: ['#fff1b0', '#c9a865', '#050403'] },
+  { id: 'c_voile', slot: 'cape', nom: 'Voile céleste', rar: 'mythique', c: ['#7fd8ff', '#2a0a5a'], motif: 'etoiles' },
+  { id: 'c_brasier', slot: 'cape', nom: 'Brasier éternel', rar: 'mythique', c: ['#fff06a', '#ff2a00'], motif: 'flammes' },
+  { id: 'v_prisme', slot: 'visiere', nom: 'Prisme', rar: 'mythique', col: '#ff9cf0' },
+  { id: 't_comete', slot: 'trainee', nom: 'Comète', rar: 'mythique', col: '#9ff0ff', add: true, gros: true },
+  { id: 'r_astral', slot: 'aura', nom: 'Astrale', rar: 'mythique', col: 'rgba(255,120,230,.45)' }
+);
 function skin(id) { return SKINS.find(s => s.id === id); }
 function skinsSave() { const s = Save.d.skins = Save.d.skins || { frag: {}, equip: {} }; for (const k in SLOTS) if (!s.equip[k]) s.equip[k] = SKINS.find(x => x.slot === k && x.base).id; return s; }
 function possede(id) { const s = skin(id); return s.base || (skinsSave().frag[id] || 0) >= RARETES[s.rar].frags; }
 function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => x.slot === slot && x.base); }
 // donne un fragment d'une apparence de la rareté tirée (ou au-dessus) ; renvoie le texte affiché
 function donnerFragment(rarMin, slot) {
-  const ordre = ['commun', 'rare', 'epique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
+  const ordre = ['commun', 'rare', 'epique', 'mythique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
   const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire' && (!slot || s.slot === slot));
   if (!dispo.length) { gagnerEclats(2); return '+2 cristaux'; }
   const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
@@ -282,4 +293,4 @@ function chanceAff(cat, cible, niv) {
 }
 
 // prix d'un fragment d'apparence dans la garde-robe (les légendaires ne s'achètent pas)
-const PRIX_FRAG = { commun: 3, rare: 4, epique: 6 }, PRIX_HASARD = 4;
+const PRIX_FRAG = { commun: 3, rare: 4, epique: 6, mythique: 5 }, PRIX_HASARD = 4;
