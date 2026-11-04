@@ -132,7 +132,7 @@ dessinerHUD = function (c) {
   }
   // titre du boss à son entrée
   if (b && def && b.intro > 0) {
-    const k = b.intro > 1.6 ? (2.1 - b.intro) / .5 : b.intro < .4 ? b.intro / .4 : 1, y = H * .62;
+    const k = clamp(b.intro > 1.6 ? (2.1 - b.intro) / .5 : b.intro < .4 ? b.intro / .4 : 1, 0, 1), y = H * .62;
     bandeauER(c, y, 150, k);
     texteGrave(c, def.nom.toUpperCase(), W / 2, y - 12, 58, def.legendaire ? '#ffcf6b' : '#e9dcc0', k, def.mega || def.legendaire ? 'rgba(255,190,80,.7)' : hsl(def.hue, 90, 50, .6));
     texteGrave(c, (def.mega ? 'Seigneur du palier — ' : '') + def.titre, W / 2, y + 34, 20, '#bfae8a', k * .9);

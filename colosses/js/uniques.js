@@ -52,7 +52,7 @@ dessinerHUD = function (c) {
   const b = G.boss, def = G.def;
   if (b && def && b.intro > 0 && G.etat === 'combat') {
     const ph = phraseDe(def); if (!ph) return;
-    const k = b.intro > 1.6 ? (2.1 - b.intro) / .5 : b.intro < .4 ? b.intro / .4 : 1;
+    const k = clamp(b.intro > 1.6 ? (2.1 - b.intro) / .5 : b.intro < .4 ? b.intro / .4 : 1, 0, 1); if (k <= 0) return;
     c.save(); c.globalAlpha = Math.max(0, k) * .95; c.textAlign = 'center'; c.textBaseline = 'middle';
     texteOmbre(c, '« ' + ph + ' »', W / 2, H * .62 + 66, '#d9c9a6', `italic 600 17px ${POLICE_ER}`, 4);
     c.restore();
