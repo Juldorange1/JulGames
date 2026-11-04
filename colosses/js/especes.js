@@ -329,7 +329,7 @@ defEsp('re_essaim', {
   params: P0,
   *gen(b, p) {
     yield* prep(b, .5);
-    const a = vise(b), n = Math.min(5, 12 - G.minions.length);
+    const a = vise(b), n = Math.min(4, 8 - G.minions.length); // essaim plafonné : la Reine était bien plus dangereuse que les autres
     for (let i = 0; i < n; i++) {
       const k = i - (n - 1) / 2, d = 30 + Math.abs(k) * 34, pa = a + Math.PI + Math.sign(k) * 1.1;
       const pt = G.arene.clampPt(b.x + Math.cos(a) * 40 + Math.cos(pa) * d, b.y + Math.sin(a) * 40 + Math.sin(pa) * d, 14);

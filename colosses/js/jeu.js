@@ -391,7 +391,7 @@ const G = {
     Arene.appliquer(this.def.phases[0].carte);
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
-    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.1 : 1) * DF().dmg;
+    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.1 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
     this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
     const cx = d.codex;
@@ -765,7 +765,7 @@ function majTirsJoueur(dt) {
     for (const tg of cibles) {
       const vrai = tg.proxy || tg;
       if (b.hits.has(vrai) || vrai.dead) continue;
-      if (d2(b.x, b.y, tg.x, tg.y) < (b.r + tg.r) ** 2) {
+      if (vrai === bo && !tg.proxy ? d2(b.x, b.y, tg.x, tg.y) < (b.r + tg.r * 2.3) ** 2 && toucheSilhouette(bo, b.x, b.y, b.r) : d2(b.x, b.y, tg.x, tg.y) < (b.r + tg.r) ** 2) {
         if (vrai === bo && bouclierBoss(bo)) { b.hits.add(vrai); G.etincelle(b.x, b.y, '#7fd8ff', 2); if (G.protegeT <= 0) { G.texte(bo.x, bo.y - bo.r - 14, 'Protégé', '#7fd8ff', 14); G.protegeT = .6; } continue; }
         if (vrai === bo && bo.miroir > 0 && !b.spec) {
           b.dead = true;
@@ -1062,7 +1062,6 @@ function majCombat(dt) {
   }
   if (enCombat && p.hp > 0 && p.saut <= 0) for (const m of G.minions) if (!m.dead && m.spawn <= 0 && m.type === 'larve' && d2(m.x, m.y, p.x, p.y) < (m.r + p.hr) ** 2) G.blesser(DMG(.7), 'invocation');
   // vie basse : battement de cœur
-  if (enCombat && p.hp > 0 && p.hp < p.hpMax * .3) { G.coeurT -= dt; if (G.coeurT <= 0) { G.coeurT = .85; Son.play('coeur'); } }
   // butin et portail
   if (G.etat === 'interlude') {
     G.interT += dt;

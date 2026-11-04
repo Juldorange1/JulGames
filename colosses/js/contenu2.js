@@ -256,3 +256,12 @@ TAL.push(
   { id: 'pasCote', nom: 'Pas de côté', ico: '↔', rech: .75, desc: 'Un tout petit saut sur le côté, très rapide à recharger.',
     use(p) { const d = G.dirMouv(p), L = 120 * ST.tPort; p.dash = { t: 0, dur: .12, vx: d.x * L / .12, vy: d.y * L / .12 }; p.iframe = Math.max(p.iframe, .14 + ST.tIntan); Son.play('dash'); } }
 );
+
+// ---------- Équilibrage des espèces, mesuré au robot (9 combats chacune) ----------
+// [vie, dégâts] : chaque espèce dure à peu près autant (~1 min 45 au robot) et fait à peu près aussi mal que les autres
+const EQUILIBRE = {
+  bourreau: [1, 1.14], metronome: [1.15, .89], sentinelle: [.9, 1.25], forgeron: [1.13, .84], hydre: [.95, 1.06], spectre: [.69, .88],
+  juge: [1.07, 1.14], tisseuse: [.65, .95], horloger: [.91, .93], serpent: [1.3, .87], reine: [.81, .6], nebuleuse: [1, .81],
+  mante: [1.15, 1.04], titan: [1.14, 1.25], chimere: [1.07, .82]
+};
+for (const [e, [pv, dg]] of Object.entries(EQUILIBRE)) if (ESPECES[e]) { ESPECES[e].pv = (ESPECES[e].pv || 1) * pv; ESPECES[e].degats = dg; }

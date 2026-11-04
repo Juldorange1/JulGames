@@ -4,7 +4,28 @@
 
 function ICO(k) { return '⟦' + k + '⟧'; }
 function icoCle(v) { const m = /^⟦([^⟧]+)⟧$/.exec(v || ''); return m ? m[1] : v; }
-function icoSVG(k, cls) { const n = ICO_CLE[k]; return n ? `<svg class="ico-svg ${cls || ''}" viewBox="0 0 512 512" aria-hidden="true"><path d="${ICO_PATH[n]}"/></svg>` : ''; }
+// chaque icône a sa couleur (élément de l'arme, rôle du bouton…) pour qu'on les distingue au premier coup d'œil
+const COUL_ELEM = { feu: '#ff8a3c', glace: '#8fe0ff', foudre: '#ffe14d', nature: '#7ddc6a', ombre: '#b48cff', lumiere: '#fff0a8', arcane: '#e07bff', acier: '#cfd6e0' };
+const COUL_UI = { cristal: '#7fe8ff', vie: '#ff5a6e', energie: '#6ab8ff', etoile: '#ffd24d', legende: '#ffb43d', cadeau: '#ff9a5c', abysses: '#9b7bff', chasse: '#7dffb0',
+  apprenti: '#7fd0ff', guerrier: '#ffcf6b', cauchemar: '#ff5a6e', options: '#c8ccd6', codex: '#e8c27a', stats: '#7ab8ff', garderobe: '#ff8fd8', affinites: '#b48cff',
+  jouer: '#ffd27a', sablier: '#ffcf6b', non: '#ff6a6a', ok: '#7dffb0', son: '#c8ccd6', plein: '#c8ccd6', jeu: '#c8ccd6', touches: '#c8ccd6', image: '#c8ccd6',
+  trophee: '#ffd24d', panier: '#7fe8ff', recommencer: '#ffcf6b', passer: '#ffcf6b', maison: '#e8c27a', idee: '#fff0a8', arme: '#ff9a5c', special: '#7ab8ff', talent: '#7dffb0', pause: '#c8ccd6', forge: '#ff9a5c' };
+function icoCouleur(k) {
+  const [cat, id] = String(k).split(':');
+  if (cat === 'p' || cat === 's' || cat === 't') { const e = typeof ELEM_ARME !== 'undefined' && ELEM_ARME[id]; return COUL_ELEM[e] || { p: '#ffb46a', s: '#7ab8ff', t: '#7dffb0' }[cat]; }
+  if (cat === 'tr') return '#ff7a7a';
+  if (cat === 'm') return '#c39bff';
+  if (cat === 'fmt') return '#ffd86b';
+  if (cat === 'f') return '#ffcf6b';
+  return COUL_UI[id] || '#ecdcb4';
+}
+function nuance(hex, k) { const v = parseInt(hex.slice(1), 16), r = v >> 16, g = (v >> 8) & 255, b = v & 255, f = c => Math.round(k > 0 ? c + (255 - c) * k : c * (1 + k)); return `rgb(${f(r)},${f(g)},${f(b)})`; }
+let icoN = 0;
+function icoSVG(k, cls) {
+  const n = ICO_CLE[k]; if (!n) return '';
+  const c = icoCouleur(k), id = 'gi' + (++icoN);
+  return `<svg class="ico-svg ${cls || ''}" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${nuance(c, .55)}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${nuance(c, -.45)}"/></linearGradient></defs><path d="${ICO_PATH[n]}" fill="url(#${id})" stroke="rgba(10,6,4,.85)" stroke-width="22" paint-order="stroke"/></svg>`;
+}
 const _icoP2D = {};
 function icoDessin(c, v, x, y, taille, col, ombre) {
   const n = ICO_CLE[icoCle(v)];
@@ -12,7 +33,10 @@ function icoDessin(c, v, x, y, taille, col, ombre) {
   const P = _icoP2D[n] || (_icoP2D[n] = new Path2D(ICO_PATH[n]));
   c.save(); c.translate(x - taille / 2, y - taille / 2); c.scale(taille / 512, taille / 512);
   if (ombre !== false) { c.shadowColor = 'rgba(0,0,0,.85)'; c.shadowBlur = 8; }
-  c.fillStyle = col || '#ecdcb4'; c.fill(P); c.restore();
+  const base = col || icoCouleur(icoCle(v)), g = c.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, nuance(base.startsWith('#') ? base : '#ecdcb4', .55)); g.addColorStop(.55, base); g.addColorStop(1, nuance(base.startsWith('#') ? base : '#ecdcb4', -.45));
+  c.lineWidth = 26; c.strokeStyle = 'rgba(8,5,3,.9)'; c.stroke(P);
+  c.shadowBlur = 0; c.fillStyle = g; c.fill(P); c.restore();
   return true;
 }
 // texte d'un objet sans son code d'icône (pour les infobulles et les listes déroulantes)

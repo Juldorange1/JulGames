@@ -23,7 +23,7 @@ const TRAITS = {
   spectral: { nom: 'Spectral', ico: '👻', desc: 'De temps en temps il devient transparent : tes tirs le traversent. Profites-en pour te replacer.' }
 };
 const INVOC = {
-  larve: { nom: 'Larves', desc: 'Petites créatures qui te foncent dessus.', hp: 110, r: 12, vit: 150 },
+  larve: { nom: 'Larves', desc: 'Petites créatures qui te foncent dessus.', hp: 110, r: 12, vit: 120 },
   tireur: { nom: 'Tireurs', desc: 'Restent à distance et tirent des rafales.', hp: 160, r: 14, vit: 85 },
   kamikaze: { nom: 'Kamikazes', desc: 'Foncent sur toi et explosent après un court signal.', hp: 80, r: 11, vit: 215 },
   tourelle: { nom: 'Tourelles', desc: 'Immobiles, elles crachent des balles en tournant.', hp: 230, r: 16, vit: 0 },
@@ -143,11 +143,14 @@ function genBoss(salle, seed, mega, eviter) {
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
   // vie mesurée par un robot qui joue parfaitement : 1 à 2 min par combat, méga boss compris (ils ont plus d'attaques,
   // pas plus de vie) ; les PV sont les mêmes dans toutes les difficultés, la difficulté change le rythme et les dégâts
-  const hpMax = Math.round(12200 * (1 + .003 * Math.min(salle, 60)) * (mega ? 1.15 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1));
+  const hpMax = Math.round(12200 * (1 + .003 * Math.min(salle, 60)) * (mega ? 1.15 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1) * traits.reduce((m, t) => m * ({ carapace: .88, cristaux: .88, regen: .95, souffle: .92, dos: .92, miroir: .95, spectral: .92 }[t] || 1), 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
     cotes: r.int(3, 9), style: formePourAttaques((() => { const k = {}; for (const q of phases) for (const a of q.cycle) { const cc = ATK[a.id].cat; k[cc] = (k[cc] || 0) + 1; } return k; })(), r), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
   };
+  // une espèce peut prendre une autre apparence (même mécanique) : plus de boss différents à l'écran
+  const rv = RNG(hashNum(seed * 31 + 7));
+  if (!esp.chimere && typeof VARIANTES !== 'undefined' && VARIANTES[espId] && rv() < .45) look.style = rv.pick(VARIANTES[espId]);
   return {
     elem: ELEM_ESPECE[espId] || r.pick(Object.keys(ELEMENTS)),
     seed, salle, mega, esp: espId, nom, titre: esp.chimere ? 'la Chimère' : esp.nom, hue, col: hsl(hue, 100, 66), D, traits, invoc, phases, hpMax,
@@ -402,7 +405,7 @@ function corpsDebut(cm, r) {
   const T = cm.getTransform(), k = Math.max(Math.abs(T.a), Math.abs(T.d)), S = Math.ceil(2 * 2.4 * r * k) + 16;
   if (!calqueCorps) { calqueCorps = document.createElement('canvas'); calqueSil = document.createElement('canvas'); }
   if (calqueCorps.width < S) { calqueCorps.width = calqueCorps.height = calqueSil.width = calqueSil.height = S; }
-  const x = calqueCorps.getContext('2d');
+  const x = calqueCorps.getContext('2d', { willReadFrequently: true });
   x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, S, S);
   x.setTransform(T.a, T.b, T.c, T.d, S / 2, S / 2);
   corpsInfo = { T, S, k, al: cm.globalAlpha };
@@ -420,7 +423,23 @@ function corpsFin(cm, b, h) {
   for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; cm.drawImage(calqueSil, 0, 0, S, S, x0 + Math.cos(a) * ep, y0 + Math.sin(a) * ep, S, S); }
   cm.drawImage(calqueCorps, 0, 0, S, S, x0, y0, S, S);
   cm.restore();
+  // la silhouette dessinée sert aussi de zone touchable : un tir ne touche que là où le boss est vraiment
+  if (b && b.def && (G.etat === 'combat' || G.etat === 'interlude')) {
+    try { b.masque = { a: calqueCorps.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, S, S).data, S, k: k / (1 + (b.haut || 0) / 300), cx: b.x, cy: b.y - (b.haut || 0), t: G.t }; } catch (e) { b.masque = null; }
+  }
   return cm;
+}
+// le point (x, y) touche-t-il la silhouette du boss ? (sans silhouette récente : on garde le cercle)
+function toucheSilhouette(b, x, y, r) {
+  const m = b.masque;
+  if (!m || G.t - m.t > .2) return d2(x, y, b.x, b.y) < (b.r + r) ** 2;
+  const k = m.k, pr = Math.max(1, r * k * .8);
+  for (const [ox, oy] of [[0, 0], [pr, 0], [-pr, 0], [0, pr], [0, -pr]]) {
+    const px = Math.round(m.S / 2 + (x - m.cx) * k + ox), py = Math.round(m.S / 2 + (y - m.cy) * k + oy);
+    if (px < 0 || py < 0 || px >= m.S || py >= m.S) continue;
+    if (m.a[(py * m.S + px) * 4 + 3] > 70) return true;
+  }
+  return false;
 }
 function dessinerBoss(c, b) {
   const L = b.def.look, t = G.t, h = b.def.hue, ph = b.phase;

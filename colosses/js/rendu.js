@@ -744,7 +744,7 @@ function dessinerHUD(c) {
     if (b.armureMax) barre(c, bx, by + 17, bw, 4, b.armure / b.armureMax, '#c9c9d6');
     c.textAlign = 'left'; c.font = `14px Segoe UI Emoji, ${POLICE}`;
     let tx = bx + bw + 80;
-    for (const t of def.traits) { icoDessin(c, TRAITS[t].ico, tx + 8, by + 7, 18, '#e8dcc0'); tx += 22; }
+    for (const t of def.traits) { icoDessin(c, TRAITS[t].ico, tx + 8, by + 7, 18); tx += 22; }
     if (b.atkNomT > 0 && !b.mort && b.last) {
       c.globalAlpha = Math.min(1, b.atkNomT); c.textAlign = 'center';
       texteOmbre(c, ATK[b.main ? b.main.id : b.last].nom, W / 2, by + 32, '#fff', `700 13px ${POLICE}`, 3); c.globalAlpha = 1;
@@ -755,11 +755,11 @@ function dessinerHUD(c) {
   c.font = `12px ${POLICE}`; c.fillStyle = '#9a94ad';
   const reste = 5 - ((G.salle - 1) % 5) - 1;
   c.fillText(G.mega ? 'MÉGA BOSS du palier ' + (G.salle / 5) : 'Méga boss dans ' + reste + ' salle' + (reste > 1 ? 's' : ''), 16, 37);
-  if (G.mode === 'normal') { icoDessin(c, DF().ico, 23, 54, 14, '#cfc6e0'); c.fillText(DF().nom + ' · palier ' + PR().palier, 34, 54); }
+  if (G.mode === 'normal') { icoDessin(c, DF().ico, 23, 54, 14); c.fillText(DF().nom + ' · palier ' + PR().palier, 34, 54); }
   else if (G.mode === 'entrainement') { c.fillStyle = '#7dffb0'; c.fillText('Entraînement', 16, 54); }
   else {
     const df = G.defi, F = FORMATS[df.format];
-    let info = F.nom; icoDessin(c, F.ico, 23, 54, 14, '#ffd86b');
+    let info = F.nom; icoDessin(c, F.ico, 23, 54, 14);
     if (df.format === 'abysses') info += ' · profondeur ' + df.i;
     else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
     else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
@@ -783,9 +783,9 @@ function dessinerHUD(c) {
   if (p) {
     const y0 = 736;
     c.textAlign = 'left'; c.font = `800 12px ${POLICE}`; c.fillStyle = '#fff';
-    icoDessin(c, 'ui:vie', 34, y0 + 7, 16, '#ff6a7d'); c.fillText(String(Math.ceil(p.hp)), 46, y0 + 7);
+    icoDessin(c, 'ui:vie', 34, y0 + 7, 16); c.fillText(String(Math.ceil(p.hp)), 46, y0 + 7);
     barre(c, 90, y0, 260, 14, p.hp / p.hpMax, p.hp < p.hpMax * .3 ? '#ff4d6a' : '#46e39b');
-    c.fillStyle = '#9cf'; c.font = `800 12px ${POLICE}`; icoDessin(c, 'ui:energie', 40, y0 + 30, 15, '#9cf');
+    c.fillStyle = '#9cf'; c.font = `800 12px ${POLICE}`; icoDessin(c, 'ui:energie', 40, y0 + 30, 15);
     barre(c, 90, y0 + 24, 260, 11, p.energie / ST.eMax, '#5aa8ff');
     const spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t), cout = spec.cout * ST.sCout;
     c.fillStyle = '#fff'; c.fillRect(90 + 260 * Math.min(1, cout / ST.eMax) - 1, y0 + 22, 2, 15);
@@ -802,7 +802,7 @@ function dessinerHUD(c) {
       c.strokeStyle = tk > 0 ? s.col : 'rgba(255,255,255,.18)'; c.lineWidth = tk > 0 ? 2 : 1; c.strokeRect(sx + .5, y0 - 5.5, w - 1, 51);
       if (s.cd > 0) { c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(sx, y0 - 6, w * clamp(s.cd, 0, 1), 52); }
       c.font = `24px Segoe UI Emoji, ${POLICE}`; c.textAlign = 'center'; c.fillStyle = s.manque || s.cd > 0 ? '#666' : '#fff';
-      icoDessin(c, s.a.ico, sx + 26, y0 + 20, 32, s.manque || s.cd > 0 ? '#6e675c' : '#f1e3bf');
+      icoDessin(c, s.a.ico, sx + 26, y0 + 20, 32, s.manque || s.cd > 0 ? '#6e675c' : null);
       c.textAlign = 'left'; c.font = `800 13px ${POLICE}`; c.fillStyle = s.manque || s.cd > 0 ? '#888' : '#fff';
       c.fillText(s.a.nom, sx + 50, y0 + 10);
       c.font = `11px ${POLICE}`; c.fillStyle = s.col; c.fillText(s.k, sx + 50, y0 + 29);
@@ -831,7 +831,7 @@ function dessinerEcranDefi(c) {
   c.textAlign = 'center'; c.textBaseline = 'middle';
   const titre = df.type === 'abysses' ? 'LES ABYSSES' : (df.type === 'jour' ? 'DÉFI DU JOUR' : 'DÉFI DE LA SEMAINE') + ' — ' + df.cle;
   texteOmbre(c, titre, W / 2, 140, '#b8b0cc', `800 18px ${POLICE}`, 4);
-  icoDessin(c, F.ico, W / 2, 140, 40, '#e8d39a'); texteOmbre(c, F.nom, W / 2, 180, '#e8e2f5', `800 24px ${POLICE}`, 4);
+  icoDessin(c, F.ico, W / 2, 140, 40); texteOmbre(c, F.nom, W / 2, 180, '#e8e2f5', `800 24px ${POLICE}`, 4);
   const ok = f.score !== null;
   texteOmbre(c, ok ? F.fmt(f.score) : 'Défi raté', W / 2, 250, ok ? '#ffe14d' : '#ff4d6a', `900 58px ${POLICE}`, 8);
   if (f.record && ok) texteOmbre(c, 'NOUVEAU RECORD', W / 2, 315, '#ffe14d', `900 26px ${POLICE}`, 5);

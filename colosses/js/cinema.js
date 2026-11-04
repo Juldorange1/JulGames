@@ -222,13 +222,13 @@ dessinerHUD = function (c) {
     if (gc.t < 1.6) {
       const x = lerp(gc.x, cx, e), y = lerp(gc.y, cy, e) - Math.sin(e * Math.PI) * 120;
       c.save(); c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(140,220,255,.8)', 26), x - 26, y - 26); c.restore();
-      icoDessin(c, 'ui:cristal', x, y, 26, '#bfefff');
+      icoDessin(c, 'ui:cristal', x, y, 26);
       texteGrave(c, gc.demi ? '+½ cristal' : '+' + gc.n + ' cristal' + (gc.n > 1 ? 'x' : ''), gc.x, gc.y - 70 - gc.t * 20, 24, '#bfefff', Math.min(1, gc.t * 3) * Math.max(0, 1.6 - gc.t), 'rgba(120,210,255,.8)');
     } else if (gc.t < 2.2) puls = 1 - (gc.t - 1.6) / .6;
     else G.gainCristaux = null;
   }
   c.save(); c.textAlign = 'left'; c.textBaseline = 'middle';
-  icoDessin(c, 'ui:cristal', cx, cy, 18 + puls * 6, '#9fe4ff');
+  icoDessin(c, 'ui:cristal', cx, cy, 18 + puls * 6);
   texteOmbre(c, String(forgeSave().eclats), cx + 16, cy + 1, puls > 0 ? '#ffffff' : '#bfefff', `700 ${15 + puls * 4}px ${POLICE_ER}`, 3);
   c.restore();
 };

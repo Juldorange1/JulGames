@@ -119,7 +119,7 @@ const UI = {
         <div class="rang col"><button class="gros" data-a="reprendre" data-def>▶ Reprendre</button>
         <button data-a="options" data-o="pause">⚙ Paramètres</button>
         <button data-a="relancer">↻ Recommencer le combat</button>
-        ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss)</button>` : ''}
+        ${G.passeDispo() === 0 ? '<button data-a="passer">⏭ Passer ce boss</button>' : G.passeDispo() > 0 ? `<button disabled>⏭ Passer ce boss (encore ${G.passeDispo()} boss en ${DF().nom})</button>` : ''}
         <button data-a="quitter">🏠 Menu principal</button></div>
         <p class="mini centre">Échap : reprendre${G.mode === 'normal' ? ' · ta partie est gardée' : ''}</p>
       </div>`);
@@ -337,6 +337,8 @@ const UI = {
     const q = id => document.getElementById(id);
     const lier = (id, fn, ev) => { const e = q(id); if (e) e.addEventListener(ev || 'change', x => { fn(x.target); Save.write(); }); };
     const pct = (id, v) => { const e = q(id + '-v'); if (e) e.textContent = Math.round(v * 100) + ' %'; };
+    const remplir = r => r.style.setProperty('--rempli', ((r.value - r.min) / (r.max - r.min) * 100) + '%');
+    this.el.querySelectorAll('input[type=range]').forEach(r => { remplir(r); r.addEventListener('input', () => remplir(r)); });
     lier('o-master', t => { op.master = +t.value; pct('o-master', op.master); Son.init(); Son.setVol(); }, 'input');
     lier('o-vol', t => { op.vol = +t.value; pct('o-vol', op.vol); Son.init(); Son.setVol(); }, 'input');
     lier('o-mus', t => { op.musique = +t.value; pct('o-mus', op.musique); }, 'input');
