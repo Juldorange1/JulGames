@@ -333,11 +333,22 @@ function dessinerVaisseau(c, x, y, a, r, col, al, p) {
     const gp = c.createRadialGradient(-1 * k, s * 10 * k - 1.5 * k, 1, 0, s * 10 * k, 5.5 * k);
     gp.addColorStop(0, '#ffffff'); gp.addColorStop(.5, AC[1]); gp.addColorStop(1, AC[2]);
     c.fillStyle = gp; c.beginPath(); c.arc(0, s * 10 * k, 5 * k, 0, TAU); c.fill();
+    // liseré doré et rivet sur chaque épaulière
+    c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 1; c.beginPath(); c.arc(0, s * 10 * k, 5 * k, 0, TAU); c.stroke();
+    c.strokeStyle = 'rgba(255,214,140,.9)'; c.lineWidth = 1.1 * k; c.beginPath(); c.arc(0, s * 10 * k, 3.9 * k, s > 0 ? .2 : -2.9, s > 0 ? 2.9 : -.2); c.stroke();
   }
   if (p) dessinerArmeMain(c, k, VIS_ARME[G.ars.p] || 'fusil');
   const gh = c.createRadialGradient(-1 * k, -2 * k, 1, 1 * k, 0, 7 * k);
   gh.addColorStop(0, AC[0]); gh.addColorStop(.5, AC[1]); gh.addColorStop(1, AC[2]);
+  // plumet qui flotte derrière le casque
+  const pl = Math.sin(G.t * 7 + x * .02) * 1.6 * k;
+  c.strokeStyle = '#2a0508'; c.lineWidth = 3.6 * k; c.lineCap = 'round'; c.beginPath(); c.moveTo(-3 * k, 0); c.quadraticCurveTo(-9 * k, pl, -14 * k, pl * 2); c.stroke();
+  c.strokeStyle = '#c0283a'; c.lineWidth = 2.2 * k; c.beginPath(); c.moveTo(-3 * k, 0); c.quadraticCurveTo(-9 * k, pl, -14 * k, pl * 2); c.stroke(); c.lineCap = 'butt';
   c.fillStyle = gh; c.beginPath(); c.arc(1 * k, 0, 6.2 * k, 0, TAU); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.65)'; c.lineWidth = 1; c.stroke();
+  // crête du casque
+  c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 2.2 * k; c.beginPath(); c.moveTo(-4.5 * k, 0); c.lineTo(5 * k, 0); c.stroke();
+  c.strokeStyle = 'rgba(255,230,180,.75)'; c.lineWidth = 1 * k; c.beginPath(); c.moveTo(-4.5 * k, -.6 * k); c.lineTo(5 * k, -.6 * k); c.stroke();
   const vcol = SK && col !== '#ff6b7d' ? SK.v.col : col;
   c.strokeStyle = vcol; c.lineWidth = 2.2 * k; c.lineCap = 'round';
   c.beginPath(); c.arc(1 * k, 0, 4.6 * k, -.7, .7); c.stroke(); c.lineCap = 'butt';
@@ -550,9 +561,10 @@ function dessinerJoueur(c) {
   if (tr.col && Math.hypot(p.vx, p.vy) > 40 && R() < (tr.gros ? .9 : .5)) G.parts.push({ x: p.x + R.range(-6, 6), y: p.y + R.range(-6, 6), vx: -p.vx * .1 + R.range(-15, 15), vy: -p.vy * .1 + R.range(-15, 15), life: tr.gros ? .8 : .5, max: tr.gros ? .8 : .5, col: tr.col, r: tr.gros ? 3 : 2, add: tr.add });
   c.globalCompositeOperation = 'source-over';
   // le héros est dessiné plus grand que sa zone de collision (seul le point rouge compte pour les coups)
-  dessinerVaisseau(c, p.x, p.y - haut, p.aim, p.r * sc * 1.4, p.rouge > 0 ? '#ff6b7d' : '#34d6ff', al, p);
+  dessinerVaisseau(c, p.x, p.y - haut, p.aim, p.r * sc * 1.6, p.rouge > 0 ? '#ff6b7d' : '#34d6ff', al, p);
   c.globalAlpha = al;
-  c.fillStyle = '#ff2d55'; c.beginPath(); c.arc(p.x, p.y - haut, p.hr, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
+  // vraie zone de coup : un peu transparente pour laisser voir le casque, contour net
+  c.fillStyle = 'rgba(255,45,85,.72)'; c.beginPath(); c.arc(p.x, p.y - haut, p.hr, 0, TAU); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
   c.globalAlpha = 1;
   if (p.bouclier > 0) { c.strokeStyle = 'rgba(140,200,255,.9)'; c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, p.r + 10, 0, TAU); c.stroke(); }
   if (p.miroir > 0) { c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); for (let i = 0; i < 6; i++) { const a = i * TAU / 6 + G.t * 2; c.lineTo(p.x + Math.cos(a) * (p.r + 13), p.y + Math.sin(a) * (p.r + 13)); } c.closePath(); c.stroke(); }
