@@ -48,7 +48,7 @@ G.entrerSalle = function () { Ralenti.vider(); return _entrerRalenti.apply(this,
 const _ecranMortRalenti = dessinerEcranMort;
 dessinerEcranMort = function (c) {
   _ecranMortRalenti(c);
-  if (Ralenti.n >= 5) { c.save(); c.textAlign = 'center'; texteOmbre(c, 'V (ou Y à la manette) : revoir la fin au ralenti', W / 2, 596, '#ffd8a0', `700 15px ${POLICE}`, 4); c.restore(); }
+  if (Ralenti.n >= 5) { c.save(); c.textAlign = 'center'; texteOmbre(c, 'V (ou Y à la manette) : revoir la fin au ralenti', W / 2, 676, '#ffd8a0', `700 15px ${POLICE}`, 4); c.restore(); }
 };
 // manette : Y sur l'écran de mort lance le ralenti
 const _menusRalenti = Manette.menus.bind(Manette);
