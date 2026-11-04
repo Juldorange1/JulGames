@@ -300,3 +300,40 @@ select { background: #15120e; color: #e8e0cc; border: 1px solid rgba(201,168,101
 .avant-c b { display: block; margin: 8px 2px 4px; font-family: Cinzel, Georgia, serif; color: #ffe0a0; font-size: 15px; }
 .avant-c p { margin: 0 2px; font-size: 13px; color: #d8ccb4; line-height: 1.4; }
 .jouer-petit { font-family: Cinzel, Georgia, serif; font-size: 18px; padding: 10px 28px; background: linear-gradient(180deg, #d9b46a, #9a7a3a); color: #1a1206; border: 1px solid #ffe3a0; border-radius: 6px; font-weight: 700; }
+/* ---------- Codex illustré ---------- */
+.panneau.large { max-width: 1180px; }
+.cx-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
+.cx-grille.petite { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.cx-carte { --h: 40; display: flex; gap: 12px; align-items: flex-start; padding: 10px; border-radius: 8px; border: 1px solid hsla(var(--h), 70%, 55%, .45);
+  background: radial-gradient(circle at 15% 30%, hsla(var(--h), 80%, 40%, .35), transparent 60%), linear-gradient(180deg, rgba(30,24,20,.92), rgba(12,10,9,.94)); }
+.cx-carte.inconnu { --h: 260; opacity: .7; filter: saturate(.3); }
+.cx-carte.trait { --h: 0; }
+.cx-carte.legende { --h: 40; border-color: #ffb43d; box-shadow: 0 0 14px rgba(255,180,60,.25); }
+.cx-carte.region { flex-direction: column; --h: 30; }
+.cx-portrait { width: 116px; height: 116px; object-fit: contain; flex: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,.7)); }
+.cx-portrait.vide, .cx-sol.vide { display: flex; align-items: center; justify-content: center; font: 700 36px Cinzel, serif; color: #555; background: rgba(0,0,0,.3); border-radius: 6px; }
+.cx-sol { width: 100%; height: 130px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(0,0,0,.6); }
+.cx-txt { flex: 1; min-width: 0; position: relative; }
+.cx-txt b { font-family: Cinzel, Georgia, serif; font-size: 16px; display: block; }
+.cx-txt p { margin: 5px 0 0; font-size: 13px; color: #d8ccb4; line-height: 1.4; }
+.cx-et { position: absolute; top: 0; right: 0; color: #ffd86b; font-size: 13px; }
+.cx-phrase { display: block; color: #c9b98a; font-size: 12.5px; margin-top: 3px; }
+.cx-cpt { display: block; margin-top: 6px; font-size: 11px; color: #9a94ad; }
+.cx-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.chip { --c: #ccc; display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--c); border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+h4.cx-cat { --c: #ccc; color: var(--c); border-left: 4px solid var(--c); padding-left: 8px; margin: 16px 0 8px; font-family: Cinzel, Georgia, serif; }
+h4.cx-cat small { color: #9a94ad; font-family: system-ui, sans-serif; font-weight: 400; margin-left: 6px; }
+.cx-att { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 7px; }
+.cx-a { --c: #ccc; position: relative; padding: 8px 10px 8px 14px; border-radius: 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 16%, transparent), rgba(16,13,11,.9) 45%); border: 1px solid rgba(255,255,255,.07); border-left: 3px solid var(--c); }
+.cx-a b { color: var(--c); font-size: 14px; }
+.cx-a span { position: absolute; top: 8px; right: 10px; font-size: 11px; color: #9a94ad; }
+.cx-a p { margin: 4px 0 0; font-size: 12.5px; color: #cfc6b2; }
+.cx-a.inconnu { opacity: .45; border-left-color: #555; }
+.cx-arm { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.cx-w { --c: #ccc; display: flex; gap: 10px; align-items: flex-start; padding: 9px; border-radius: 8px; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 18%, transparent), rgba(14,12,10,.92) 55%); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
+.cx-w b { color: var(--c); font-family: Cinzel, Georgia, serif; margin-right: 6px; }
+.cx-w p { margin: 4px 0 0; font-size: 12.5px; color: #d8ccb4; }
+.cx-w.inconnu { opacity: .5; }
+.ico-grand { display: inline-flex; width: 52px; height: 52px; flex: none; }
+.ico-grand svg { width: 100%; height: 100%; }
+.ico-grand.eteint { filter: grayscale(1) brightness(.4); }
