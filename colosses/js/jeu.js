@@ -315,8 +315,9 @@ const G = {
     const esp = R.pick(ESP_TOUTES());
     // départ à la pression de son record moins 10 paliers (un palier = 10 s) ; le score compte depuis le palier 0
     const best = ((Save.d.defis.survie || {}).best || {}).score || 0, depart = Math.max(0, Math.floor(best / 10) - 10) * 10;
-    // armes identiques pour tout le monde : la chance du tirage ne change rien
-    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars: Object.assign({}, ARMES_SURVIE) }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0 };
+    // armes au hasard, mais le boss s'ajuste à leur aide pour survivre (forceSurvie) : un bon tirage ne rend pas la partie plus facile
+    const ars = { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') };
+    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
     if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
     Save.d.defis.survie.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
@@ -382,6 +383,7 @@ const G = {
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
       // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
+      if (df.format === 'survie' && df.ajust) { const k = df.ajust; def.D.S = Math.min(2.2, def.D.S * Math.pow(k, .3)); def.D.C *= Math.pow(k, .4); def.idle = Math.max(.12, def.idle / Math.pow(k, .5)); }
       if (df.format === 'survie') { def.traits = def.traits.filter(t => t === 'rage'); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
       if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
@@ -413,6 +415,7 @@ const G = {
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
     this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.12 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
+    if (this.format() === 'survie' && this.defi && this.defi.ajust) this.dmgE *= Math.pow(this.defi.ajust, .6); // Survie : coups ajustés aux armes
     if (this.format() === 'abysses' && this.defi) this.dmgE *= 1 + .9 * Math.pow(this.defi.i / 10, 2); // profondeur 10 : ×1,9 (2 coups suffisent), et ça continue // Abysses : les coups font de plus en plus mal
     this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
@@ -604,7 +607,19 @@ const G = {
   abandonner() { this.relancer(); }
 };
 
-const ARMES_SURVIE = { p: 'blaster', s: 'meteore', t: 'dash' };
+// ---------- Survie : ce que chaque arme apporte pour survivre (1 = moyen) ----------
+// le boss étant invincible, ce qui compte c'est se protéger : effacer les balles, figer le temps, se soigner, être invincible…
+const SURVIE_FORCE = {
+  p: { cryo: 1.1, pacte: .9 },
+  s: { meteore: .85, tourelle: .85, missiles: .85, barrage: .85, lamesCiel: .85, satellite: .85, supernova: .85, quatre: .85, tempeteElec: .85, ombres: .85, pluieMeteores: .85, volee: .85, mines: .85, lanceSoleil: .85, orage: .85, clones: .85,
+    javelot: 1.15, racines: .95, faille: 1.05, devast: 1.15, nova: 1.25, lames: 1.15, trou: 1.2, onde: 1.15, colonne: 1.05, repousse: 1.2, tornade: 1.15, aimantSpe: 1.15, renvoi: 1.2, blizzard: 1.1, murForce: 1.2, miroir: 1.2, lumiereSacree: 1.3, gel: 1.3, arret: 1.35, soin: 1.3 },
+  t: { blink: 1.05, parade: 1.05, roulade: 1.05, temps: 1.25, bouclier: 1.2, leurre: 1.25, fantome: 1.2, saut: 1.05, ancre: 1.15, echange: .95, sprint: .9, rembobine: 1.1, invisible: 1.2, trampoline: .95, contre: 1.1, dephasage: 1.1, bulle: 1.15, pasCote: 1.05, tourbillon: 1.15, zigzag: 1.05 }
+};
+// force du tirage par rapport à un tirage moyen (≈ 0,8 à 1,5) : le boss de Survie est durci ou adouci d'autant
+function forceSurvie(ars) {
+  const f = (c, id) => SURVIE_FORCE[c][id] || 1, moy = c => ARS[c].reduce((s, a) => s + f(c, a.id), 0) / ARS[c].length;
+  return ['p', 's', 't'].reduce((k, c) => k * f(c, ars[c]) / moy(c), 1);
+}
 // ---------- Défis du jour et de la semaine ----------
 const MUTATEURS = {
   verre: { nom: 'Corps de verre', ico: '🥚', desc: 'Tu n\'as que 60 points de vie.' },

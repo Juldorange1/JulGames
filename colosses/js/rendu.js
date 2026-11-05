@@ -789,7 +789,7 @@ function dessinerHUD(c) {
       if (df.format === 'abysses') info += ' · profondeur ' + df.i;
       else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
-      else if (df.format === 'survie') info += ' · ' + fmtTemps((df.temps || 0) + G.chrono) + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'survie') info += ' · ' + fmtTemps((df.temps || 0) + G.chrono) + (df.ajust ? ' · boss ×' + df.ajust.toFixed(2).replace('.', ',') : '') + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
       for (const m of df.mut) lignes.push({ ico: MUTATEURS[m].ico, txt: MUTATEURS[m].nom, col: '#d8b8ff', petit: true });
