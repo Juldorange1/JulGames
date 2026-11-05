@@ -558,7 +558,6 @@ function dessinerJoueur(c) {
   c.drawImage(glow(au.col || 'rgba(80,230,255,.45)', (au.col ? 48 : 34) * sc), p.x - (au.col ? 48 : 34) * sc, p.y - haut - (au.col ? 48 : 34) * sc);
   if (au.col && au.id === 'r_feu') sprite(c, 'flame_03', '#ff8a3c', p.x, p.y - haut - 6, 46, Math.sin(G.t * 6) * .1, .5, true);
   if (au.couronne) { c.fillStyle = '#ffd86b'; c.beginPath(); const cy = p.y - haut - 34; c.moveTo(p.x - 9, cy + 6); c.lineTo(p.x - 9, cy - 2); c.lineTo(p.x - 4, cy + 2); c.lineTo(p.x, cy - 5); c.lineTo(p.x + 4, cy + 2); c.lineTo(p.x + 9, cy - 2); c.lineTo(p.x + 9, cy + 6); c.fill(); }
-  if (tr.col && Math.hypot(p.vx, p.vy) > 40 && R() < (tr.gros ? .9 : .5)) G.parts.push({ x: p.x + R.range(-6, 6), y: p.y + R.range(-6, 6), vx: -p.vx * .1 + R.range(-15, 15), vy: -p.vy * .1 + R.range(-15, 15), life: tr.gros ? .8 : .5, max: tr.gros ? .8 : .5, col: tr.col, r: tr.gros ? 3 : 2, add: tr.add });
   c.globalCompositeOperation = 'source-over';
   // le héros est dessiné plus grand que sa zone de collision (seul le point rouge compte pour les coups)
   dessinerVaisseau(c, p.x, p.y - haut, p.aim, p.r * sc * 1.6, p.rouge > 0 ? '#ff6b7d' : '#34d6ff', al, p);
@@ -735,6 +734,18 @@ function lignes(c, txt, maxW) {
   if (l) out.push(l); return out;
 }
 
+// modes où la vie du boss ne compte pas : la barre du haut montre la durée (Survie : temps tenu face au record ;
+// Danse et Déluge : temps restant)
+function jaugeMode() {
+  const f = G.format ? G.format() : null; if (!f || !G.defi) return null;
+  if (f === 'survie') {
+    const t = (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, but = rec > 0 ? rec : 60;
+    return { k: Math.min(1, t / but), col: rec && t > rec ? '#ffd24d' : '#5fd8ff', txt: fmtTemps(t), droite: rec ? (t > rec ? 'Nouveau record !' : 'Record ' + fmtTemps(rec)) : 'Premier essai' };
+  }
+  const F = FORMATS[f];
+  if (F && F.duree) { const r = Math.max(0, F.duree - G.chrono); return { k: r / F.duree, col: '#ffd86b', txt: Math.ceil(r) + ' s', droite: 'Temps restant' }; }
+  return null;
+}
 function dessinerHUD(c) {
   const b = G.boss, p = G.p, def = G.def;
   c.textBaseline = 'middle';
@@ -743,16 +754,18 @@ function dessinerHUD(c) {
     c.textAlign = 'center';
     texteOmbre(c, (def.legendaire ? 'LÉGENDAIRE · ' : '') + def.nom, W / 2, 15, def.legendaire ? '#ffb43d' : def.mega ? '#ffd86b' : def.col, `700 21px ${POLICE_ER}`, 4);
     c.font = `italic 12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(def.titre, W / 2, 31);
-    barre(c, bx, by, bw, 14, Math.max(0, b.hp) / b.hpMax, def.mega ? '#ffb43d' : def.col);
+    const jm = jaugeMode();
+    if (jm) { barre(c, bx, by, bw, 14, jm.k, jm.col); if (jm.marque) { c.fillStyle = '#ffd24d'; c.fillRect(bx + bw * jm.marque - 1.5, by - 4, 3, 22); } }
+    else barre(c, bx, by, bw, 14, Math.max(0, b.hp) / b.hpMax, def.mega ? '#ffb43d' : def.col);
     if (b.ouvert > 0) { c.strokeStyle = '#ffd24d'; c.lineWidth = 2; c.strokeRect(bx - 2, by - 2, bw + 4, 18); }
     const n = def.phases.length;
     c.fillStyle = '#000';
-    for (let i = 1; i < n; i++) c.fillRect(bx + bw * (1 - i / n) - 1, by, 3, 14);
+    if (!jm) for (let i = 1; i < n; i++) c.fillRect(bx + bw * (1 - i / n) - 1, by, 3, 14);
     c.font = `600 11px ${POLICE}`; c.textAlign = 'left'; c.fillStyle = '#ddd';
-    c.fillText('Phase ' + (b.phase + 1) + '/' + n, bx + bw + 10, by + 7);
+    c.fillText(jm ? jm.droite : 'Phase ' + (b.phase + 1) + '/' + n, bx + bw + 10, by + 7);
     const fat = fatigueBoss();
     if (fat > 1 && !b.mort) { c.textAlign = 'right'; texteOmbre(c, 'épuisé ×' + fat.toFixed(1), bx + bw, by + 26, '#ffcf6b', `800 12px ${POLICE}`, 3); icoDessin(c, 'ui:sablier', bx + bw - c.measureText('épuisé ×' + fat.toFixed(1)).width - 12, by + 26, 15, '#ffcf6b'); c.textAlign = 'left'; }
-    c.textAlign = 'right'; c.fillText(Math.ceil(Math.max(0, b.hp)).toLocaleString('fr-FR'), bx - 10, by + 7);
+    c.textAlign = 'right'; c.fillText(jm ? jm.txt : Math.ceil(Math.max(0, b.hp)).toLocaleString('fr-FR'), bx - 10, by + 7);
     if (b.armureMax) barre(c, bx, by + 17, bw, 4, b.armure / b.armureMax, '#c9c9d6');
     c.textAlign = 'left'; c.font = `14px Segoe UI Emoji, ${POLICE}`;
     let tx = bx + bw + 80;
@@ -776,7 +789,7 @@ function dessinerHUD(c) {
       if (df.format === 'abysses') info += ' · profondeur ' + df.i;
       else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
-      else if (df.format === 'survie') info += ' · ' + fmtTemps(G.chrono) + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'survie') info += ' · ' + fmtTemps((df.temps || 0) + G.chrono) + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
       for (const m of df.mut) lignes.push({ ico: MUTATEURS[m].ico, txt: MUTATEURS[m].nom, col: '#d8b8ff', petit: true });
@@ -814,13 +827,15 @@ function dessinerHUD(c) {
     const y0 = 736;
     c.textAlign = 'left'; c.font = `800 12px ${POLICE}`; c.fillStyle = '#fff';
     icoDessin(c, 'ui:vie', 34, y0 + 7, 16); c.fillText(String(Math.ceil(p.hp)), 46, y0 + 7);
-    barre(c, 90, y0, 260, 14, p.hp / p.hpMax, p.hp < p.hpMax * .3 ? '#ff4d6a' : '#46e39b');
+    if (G.format() === 'unCoup') texteOmbre(c, '1 PV : le moindre coup est fatal', 90, y0 + 7, '#ff6a7d', `800 13px ${POLICE}`, 3); // Un seul coup
+    else barre(c, 90, y0, 260, 14, p.hp / p.hpMax, p.hp < p.hpMax * .3 ? '#ff4d6a' : '#46e39b');
     const spec = trouveArme('s', G.ars.s), tal = trouveArme('t', G.ars.t);
     const slots = [
       { a: trouveArme('p', G.ars.p), k: nomToucheCourt(TOUCHES().tir), col: '#ff8a5c' },
       { a: spec, k: nomToucheCourt(TOUCHES().spec) + ' / ' + nomToucheCourt(TOUCHES().spec2), col: '#5aa8ff', cd: p.spec.cd / (spec.rech * ST.sRech) },
       { a: tal, k: nomToucheCourt(TOUCHES().tal) + ' / ' + nomToucheCourt(TOUCHES().tal2), col: '#46e39b', cd: p.tal.charges > 0 ? 0 : p.tal.cd / (tal.rech * ST.tRech), ch: p.tal.charges }
     ];
+    if (G.format() === 'danse') slots[0].manque = slots[1].manque = true; // Danse : sans arme
     let sx = 420;
     const tst = G.toast, tk = tst ? Math.min(1, tst.t * 3, (tst.dur - tst.t) * 2) : 0;
     slots.forEach((s, i) => {

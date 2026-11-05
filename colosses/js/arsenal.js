@@ -56,7 +56,7 @@ function calcStats() {
 calcStats();
 
 // équilibrage mesuré (dégâts par seconde sur cible fixe) : les armes techniques gardent un léger avantage
-const PRIM_EQ = { iaido: .53, rattrape: .6, ricochets: .5, jumelles: .72, surchauffe: .75, laser: .7, meteorite: .8, shuriken: .67, echo: .83, sniper: .8, pompe: .88,
+const PRIM_EQ = { iaido: .53, rattrape: .6, ricochets: .5, jumelles: .72, surchauffe: .75, laser: .7, meteorite: 1.35, shuriken: .67, echo: .83, sniper: .8, pompe: .88,
   ronceLance: .52, foreuse: .73, lameSpectrale: .82, hachettes: .79, prisme: 1.26, harpon: 1.3, lucioles: 2.4, glaive: 2.2,
   boomerang: .83, croix: 1.05, grenades: 1.05, foudre: 1.05, faux: 1.35, pistolet: 1.3, roquettes: 1.25, orbes: 1.2, mitra: 1.25, railgun: 1.9, plasma: 2, gravite: 1.3, fouet: 1.15 };
 
@@ -614,14 +614,15 @@ PRIM.push(
     }
   },
   {
-    id: 'meteorite', nom: 'Météorite chargée', ico: '☄', manuel: true, desc: 'Maintiens pour grossir la météorite, relâche : elle tombe sur le viseur une demi-seconde plus tard. Pleine charge : énorme, et elle efface les projectiles.',
+    id: 'meteorite', nom: 'Météorite chargée', ico: '☄', manuel: true, desc: 'Maintiens pour grossir la météorite, relâche : elle tombe sur le viseur une demi-seconde plus tard. Pleine charge : énorme, et elle efface les projectiles. 0,6 s de recharge entre deux météorites.',
     tick(w, p, dt, held) {
-      w.ch = w.ch || 0;
-      if (held) { w.ch = Math.min(1, w.ch + dt * ST.pCad / 1.4); p.lent = Math.min(p.lent, .75); }
-      else if (w.ch > 0) {
+      w.ch = w.ch || 0; w.rc = Math.max(0, (w.rc || 0) - dt);
+      // 0,6 s de recharge après chaque météorite, et des dégâts proportionnels à la charge : charger à fond rapporte toujours plus que spammer
+      if (held && w.rc <= 0) { w.ch = Math.min(1, w.ch + dt * ST.pCad / 1.4); p.lent = Math.min(p.lent, .75); }
+      else if (!held && w.ch > 0) {
         const c = Math.max(.15, w.ch), pt = G.arene.clampPt(G.mx, G.my, 0);
-        G.allies.push({ kind: 'meteore', prim: true, efface: c >= 1, x: pt.x, y: pt.y, t: 0, dur: .5, r: 50 + 65 * c, dmg: (40 + 225 * c) * ST.pDmg });
-        w.ch = 0; Son.play('charge');
+        G.allies.push({ kind: 'meteore', prim: true, efface: w.ch >= 1, x: pt.x, y: pt.y, t: 0, dur: .5, r: 50 + 65 * c, dmg: 265 * w.ch * ST.pDmg });
+        w.ch = 0; w.rc = .6; Son.play('charge');
       }
     }
   },

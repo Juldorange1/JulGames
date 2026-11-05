@@ -141,7 +141,7 @@ dessinerHUD = function (c) {
     const bw = 640, bx = W / 2 - bw / 2, by = 40, k = Math.max(0, b.hp) / b.hpMax;
     b.retard = b.retard === undefined ? k : b.retard;
     if (b.retard > k) { b.retardT = (b.retardT || 0) + 1 / 60; if (b.retardT > .6) b.retard = Math.max(k, b.retard - .35 / 60); } else { b.retard = k; b.retardT = 0; }
-    if (b.retard > k + .001) { c.fillStyle = 'rgba(255,214,120,.85)'; c.fillRect(bx + bw * k, by, bw * (b.retard - k), 14); }
+    if (b.retard > k + .001 && !jaugeMode()) { c.fillStyle = 'rgba(255,214,120,.85)'; c.fillRect(bx + bw * k, by, bw * (b.retard - k), 14); }
     // filet doré autour de la barre
     c.strokeStyle = 'rgba(214,180,110,.75)'; c.lineWidth = 1; c.strokeRect(bx - 3.5, by - 3.5, bw + 7, 21);
     for (const s of [-1, 1]) { const x = W / 2 + s * (bw / 2 + 12); c.fillStyle = 'rgba(214,180,110,.9)'; c.beginPath(); c.moveTo(x, by + 7 - 5); c.lineTo(x + s * 6, by + 7); c.lineTo(x, by + 7 + 5); c.lineTo(x - s * 6, by + 7); c.closePath(); c.fill(); }

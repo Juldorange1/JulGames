@@ -313,7 +313,10 @@ const G = {
   lancerSurvie() {
     this.mode = 'survie'; this.finDefi = null;
     const esp = R.pick(ESP_TOUTES());
-    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    // départ à la pression de son record moins 10 paliers (un palier = 10 s) ; le score compte depuis le palier 0
+    const best = ((Save.d.defis.survie || {}).best || {}).score || 0, depart = Math.max(0, Math.floor(best / 10) - 10) * 10;
+    // armes identiques pour tout le monde : la chance du tirage ne change rien
+    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars: Object.assign({}, ARMES_SURVIE) }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0 };
     if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
     Save.d.defis.survie.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
@@ -378,6 +381,8 @@ const G = {
       if (df.format === 'abysses') { const k = df.i; const f = (k / 10) * (k / 10); /* courbe : douce au début, très raide ensuite (1 à la profondeur 10) */ def.D.S *= 1 + .32 * f; def.D.C *= 1 + .4 * f; def.D.T = Math.max(.6, def.D.T * Math.max(.7, 1 - .2 * f)); def.idle *= Math.max(.4, 1 - .4 * f); def.hpMax = Math.round(def.hpMax * (1 + .3 * f)); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
+      // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
+      if (df.format === 'survie') { def.traits = def.traits.filter(t => t === 'rage'); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
       if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
@@ -599,6 +604,7 @@ const G = {
   abandonner() { this.relancer(); }
 };
 
+const ARMES_SURVIE = { p: 'blaster', s: 'meteore', t: 'dash' };
 // ---------- Défis du jour et de la semaine ----------
 const MUTATEURS = {
   verre: { nom: 'Corps de verre', ico: '🥚', desc: 'Tu n\'as que 60 points de vie.' },
