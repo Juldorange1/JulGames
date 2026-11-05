@@ -94,6 +94,16 @@ for (const s of SKINS) {
   if (s.gen && s.slot === 'trainee' && STYLE_TRAINEE[s.style]) TRAINEES[s.id] = (c, P) => STYLE_TRAINEE[s.style](c, P, s);
   if (s.gen && s.slot === 'aura' && STYLE_AURA[s.style]) AURAS[s.id] = (c, x, y, t) => STYLE_AURA[s.style](c, x, y, t, s);
 }
+// 30 % d'apparences en moins : ces sets sont retirés (une pièce que le joueur possède, même en partie, est gardée)
+const SETS_RETIRES = ['ossuaire', 'rouille', 'lilas', 'fer', 'terre', 'nuit', 'pixel', 'poison', 'plume', 'rubis', 'fumee', 'imperial', 'orage', 'flammebleue', 'lumiere', 'jadedragon', 'spectre', 'obsdoree', 'melodie'];
+{
+  const S0 = (Save.d && Save.d.skins) || { frag: {}, equip: {} }, garde = id => (S0.frag && S0.frag[id] > 0) || Object.values(S0.equip || {}).includes(id) || (skin(id) || {}).base;
+  for (const sid of SETS_RETIRES) {
+    const st = SETS.find(x => x.id === sid); if (!st) continue;
+    for (const id of Object.values(st.pieces)) if (!garde(id)) { const k = SKINS.findIndex(x => x.id === id); if (k >= 0) SKINS.splice(k, 1); delete SET_DE[id]; }
+    SETS.splice(SETS.indexOf(st), 1);
+  }
+}
 function setDe(id) { return SETS.find(x => x.id === SET_DE[id]); }
 function nomSet(st) { const L = typeof Langue !== 'undefined' && Langue.en; return L && SETS_EN[st.id] ? SETS_EN[st.id] : st.nom; }
 function setVisible(st) { return !st.saison || saisonOk(st.saison) || Object.values(st.pieces).some(id => possede(id)); }
@@ -111,8 +121,6 @@ UI.garderobe = function (slot) {
       cartes.sort((a, b) => rang(a) - rang(b)).forEach(el => grille.appendChild(el));
       for (const el of cartes) { const st = setDe(el.dataset.k); if (st) { const t = document.createElement('span'); t.className = 'set-tag'; t.textContent = 'Set ' + nomSet(st); el.appendChild(t); } }
     }
-    const ong = this.el.querySelector('.onglets');
-    if (ong && !ong.querySelector('[data-o="sets"]')) { const b = document.createElement('button'); b.dataset.a = 'garderobe'; b.dataset.o = 'sets'; b.textContent = '★ Sets'; b.addEventListener('click', ev => { ev.stopPropagation(); Son.play('clic'); this.garderobe('sets'); }); ong.appendChild(b); }
   } catch (e) { console.warn('sets', e); }
   return r;
 };
