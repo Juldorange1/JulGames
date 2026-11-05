@@ -83,25 +83,18 @@ html, body {
   letter-spacing: 0.04em;
 }
 
-.diff-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.run-label {
   width: 100%;
-}
-.diff-section { display: flex; flex-direction: column; gap: 5px; }
-.diff-section-label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #7c8bb0;
   text-align: left;
-  padding-left: 2px;
 }
 .diff-picker {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   width: 100%;
 }
@@ -125,19 +118,14 @@ html, body {
   background: rgba(110,231,255,0.10);
   box-shadow: 0 0 18px rgba(110,231,255,0.15);
 }
-.diff-btn.drag-over {
-  border-color: var(--accent);
-  background: rgba(110,231,255,0.22);
-  box-shadow: 0 0 22px rgba(110,231,255,0.35);
-}
 .diff-num {
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1.5rem;
   color: var(--diff-color, var(--accent));
   text-shadow: 0 0 8px var(--diff-color, transparent);
 }
 .diff-desc {
-  font-size: 0.62rem; color: #92a0bd; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.72rem; color: #92a0bd; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; max-width: 100%;
 }
 
@@ -544,3 +532,70 @@ html, body {
 /* aucun texte sélectionnable (les champs de saisie restent utilisables) */
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
+
+/* ---- Parties générées et défis ------------------------------------------- */
+.seed-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  color: #dfe6f5;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+}
+.seed-input:focus { border-color: var(--accent); }
+.seed-input::placeholder { color: #7c8bb0; }
+.btn-challenges {
+  width: 100%;
+  padding: 12px;
+  background: rgba(243,217,138,0.1);
+  border: 1.5px solid rgba(243,217,138,0.5);
+  border-radius: 12px;
+  color: #f3d98a;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-challenges:hover { background: rgba(243,217,138,0.2); }
+.challenges-panel { max-width: 620px; }
+.challenge-group {
+  margin: 14px 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8bb0;
+}
+.challenge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 10px;
+}
+.challenge-name { flex: 1 1 auto; min-width: 0; font-size: 0.9rem; color: #dfe6f5; font-weight: 600; }
+.challenge-info { display: block; font-size: 0.72rem; font-weight: 400; color: #92a0bd; }
+.challenge-best { font-size: 0.8rem; font-weight: 700; color: var(--accent2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.challenge-play {
+  padding: 6px 14px;
+  background: rgba(110,231,255,0.12);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: #dff7ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.challenge-play:hover { background: rgba(110,231,255,0.25); }
+.pause-seed { margin: 4px 0 0; font-size: 0.78rem; color: #92a0bd; }
+
+.altitude { background: rgba(10,16,28,0.55); border-radius: 10px; padding: 6px 10px; }
+.altitude-total { color: #dfe6f5; }

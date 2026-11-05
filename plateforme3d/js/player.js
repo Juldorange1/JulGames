@@ -10,7 +10,7 @@
 // Mécaniques avancées :
 //  - Rebond parfait  : timing d'impact sur une surface compatible -> gros boost.
 //  - Glisse orbitale : capture tangentielle sur une structure -> virage en 3D.
-//  - Portes de phase : gérées dans main.js (téléportation + direction changée).
+//  - Portes de phase : gérées dans world.js (stepLevel).
 // (Impulsion, Point d'ancrage et Surcharge ont été retirées du jeu.)
 // ============================================================================
 window.AS = window.AS || {};
@@ -535,6 +535,7 @@ AS.Player.prototype._integrateAndCollide = function (dt) {
   } else {
     const c = this._ceilingRay(this.velocity.y * dt);
     if (c) {
+      if ((c.object.userData.surface || '') === 'spike') { this.dead = true; return; }
       this.position.y = c.point.y - this.height + 0.05;
       this.velocity.y = Math.min(this.velocity.y, 0);
     }
