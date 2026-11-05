@@ -394,7 +394,7 @@ espece('horloger', {
   ]
 });
 defEsp('ho_aiguilles', {
-  nom: 'Aiguilles', cat: 'rayon', conseil: 'La grande aiguille tourne vite, la petite lentement, toujours dans le même sens. Recule hors du cadran, ou suis la grande juste derrière elle ; à MIDI, fonce frapper.',
+  nom: 'Aiguilles de l\'horloge', cat: 'rayon', conseil: 'La grande aiguille tourne vite, la petite lentement, toujours dans le même sens. Recule hors du cadran, ou suis la grande juste derrière elle ; à MIDI, fonce frapper.',
   params: (r, D) => ({ s: D.S }),
   *gen(b, p) {
     b.ctl = true;

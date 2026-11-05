@@ -615,7 +615,7 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 // formats des défis : chacun a son objectif et son score (sens : +1 plus haut = mieux, −1 plus bas = mieux)
 const FORMATS = {
   chrono: { nom: 'Contre-la-montre', ico: '⏱', obj: 'Tue les boss le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
-  survie: { nom: 'Survie', ico: '🛡', obj: 'Le boss est invincible et accélère : tiens le plus longtemps possible', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
+  survie: { nom: 'Survie', ico: '🛡', obj: 'Le boss est invincible et la pression monte sans fin : tiens le plus longtemps possible', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
   unCoup: { nom: 'Un seul coup', ico: '💀', obj: '1 PV : tue un maximum de boss', sens: 1, score: r => r.tues, fmt: v => v + ' boss' },
   danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, esquive 60 s en te faisant toucher le moins possible', sens: -1, score: r => r.reussi ? r.coups : null, fmt: v => v + ' coup' + (v > 1 ? 's' : ''), un: true, duree: 60 },
   deluge: { nom: 'Déluge', ico: '💥', obj: '45 s contre un colosse indestructible : un maximum de dégâts', sens: 1, score: r => r.degats, fmt: v => Math.round(v / 100) / 10 + ' k dégâts', un: true, duree: 45 },

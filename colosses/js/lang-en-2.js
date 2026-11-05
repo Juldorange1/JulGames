@@ -58,7 +58,7 @@ LANG_EN.arme = {
     meteore: ['Meteor', 'Drops a meteor on the crosshair after 0.7 s. Huge area damage.'],
     tourelle: ['Turret', 'Places a turret that fires on its own for 9 s.'],
     devast: ['Devastating Beam', 'A huge beam for 1.5 s that follows your crosshair and erases projectiles. You are slowed.'],
-    nova: ['Nova', 'An explosion around you: damage, and it erases all nearby projectiles. A life saver.'],
+    nova: ['Purifying Burst', 'An explosion around you: damage, and it erases all nearby projectiles. A life saver.'],
     missiles: ['Missile Swarm', '8 homing missiles.'],
     lames: ['Whirling Blades', '3 blades circle around you for 6 s: they cut enemies and projectiles.'],
     javelot: ['Lightning Javelin', 'A javelin that pierces everything and paralyses the boss for 1 s (it stops its current attack).'],
@@ -84,7 +84,7 @@ LANG_EN.arme = {
     lumiereSacree: ['Holy Light', 'A burst of light: restores 12 HP, erases nearby bullets and hurts everything around you.'],
     ombres: ['Shadows', 'Three shadows rush at the nearest enemy and explode.'],
     aimantSpe: ['Magnet', 'Absorbs all nearby bullets: each one speeds up your special\'s cooldown. Beyond 10, you gain a shield.'],
-    pluieMeteores: ['Meteor Shower', 'Six meteors crash around the crosshair over one second.'],
+    pluieMeteores: ['Meteor Storm', 'Six meteors crash around the crosshair over one second.'],
     volee: ['Arrow Volley', 'A volley of 14 arrows falls on the targeted area within one second.'],
     repousse: ['Repelling Wave', 'A wave around you erases nearby bullets and hits whatever it touches.']
   },

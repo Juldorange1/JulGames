@@ -35,7 +35,7 @@ LANG_EN.mut = {
   jeune: ['Fasting', 'No healing between bosses.'], chaos: ['Chaos', 'Each boss has two extra mutations.'], vitesse: ['Giant Steps', 'You run 25% faster, and so do the bosses.']
 };
 LANG_EN.fmt = {
-  chrono: ['Time Trial', 'Kill the bosses as fast as possible'], survie: ['Survival', 'The boss is invincible and speeds up: hold out as long as possible'],
+  chrono: ['Time Trial', 'Kill the bosses as fast as possible'], survie: ['Survival', 'The boss is invincible and the pressure rises endlessly: hold out as long as possible'],
   unCoup: ['One Hit', '1 HP: kill as many bosses as you can'], danse: ['Dance', 'Without weapons, dodge for 60 s and get hit as little as possible'],
   deluge: ['Deluge', '45 s against an indestructible colossus: deal as much damage as possible'], etau: ['Vise', 'The arena keeps shrinking: kill the bosses as fast as possible'],
   arsenal: ['Crazy Arsenal', 'Your weapons change every 15 s: kill the bosses as fast as possible'], geant: ['Giant', 'A single 4-phase mega boss: as fast as possible'],

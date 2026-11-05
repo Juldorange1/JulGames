@@ -240,7 +240,7 @@ Object.assign(PRIM_EQ, { arbalete: 1, dagues: 1, sismique: 1, trident: 1 });
 
 // ---------- Attaques spéciales ----------
 SPEC.push(
-  { id: 'pluieMeteores', nom: 'Pluie de météores', ico: '☄', cout: 55, rech: 10, desc: 'Six météores s\'écrasent autour du viseur pendant une seconde.',
+  { id: 'pluieMeteores', nom: 'Déluge de météores', ico: '☄', cout: 55, rech: 10, desc: 'Six météores s\'écrasent autour du viseur pendant une seconde.',
     use(p) { for (let i = 0; i < 6; i++) { const a = R() * TAU, d = R.range(0, 120), pt = G.arene.clampPt(G.mx + Math.cos(a) * d, G.my + Math.sin(a) * d, 0); G.allies.push({ kind: 'meteore', x: pt.x, y: pt.y, t: -i * .16, dur: .45, r: 80 * Math.sqrt(ST.sAmp), dmg: 120 * ST.sDmg }); } } },
   { id: 'volee', nom: 'Volée de flèches', ico: '🎯', cout: 40, rech: 8, desc: 'Une volée de 14 flèches tombe sur la zone visée en une seconde.',
     use(p) { const cx = G.mx, cy = G.my; for (let i = 0; i < 14; i++) G.allies.push({ kind: 'retarde', t: -i * .07, dur: .01, f: () => { const a = R() * TAU, d = R.range(0, 90) * Math.sqrt(ST.sAmp), x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d; G.etincelle(x, y, '#e8d8b0', 3); for (const tg of G.cibles()) if (Math.sqrt(d2(x, y, tg.x, tg.y)) - tg.r < 26) G.frappe(tg, 34 * ST.sDmg, { spec: true, x, y }); } }); } },

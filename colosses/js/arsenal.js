@@ -271,7 +271,7 @@ const SPEC = [
     use(p) { G.allies.push({ kind: 'devast', t: 0, dur: 1.5 * ST.sAmp, a: p.aim, w: 30 * Math.sqrt(ST.sAmp), dps: 480 * ST.sDmg }); }
   },
   {
-    id: 'nova', nom: 'Nova', ico: '✺', cout: 35, rech: 5, desc: 'Explosion autour de toi : dégâts et efface tous les projectiles proches. Sauve des vies.',
+    id: 'nova', nom: 'Éclat purificateur', ico: '✺', cout: 35, rech: 5, desc: 'Explosion autour de toi : dégâts et efface tous les projectiles proches. Sauve des vies.',
     use(p) {
       const r = 175 * ST.sAmp;
       for (const tg of G.cibles()) if (Math.sqrt(d2(p.x, p.y, tg.x, tg.y)) - tg.r < r) G.frappe(tg, 380 * ST.sDmg, { spec: true, x: tg.x, y: tg.y });
