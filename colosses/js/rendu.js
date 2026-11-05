@@ -789,9 +789,10 @@ function dessinerHUD(c) {
       if (df.format === 'abysses') info += ' · profondeur ' + df.i;
       else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
-      else if (df.format === 'survie') info += ' · ' + fmtTemps((df.temps || 0) + G.chrono) + (df.ajust ? ' · boss ×' + df.ajust.toFixed(2).replace('.', ',') : '') + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'survie') info += (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
+      if (df.format === 'survie' && df.ajust) lignes.push({ txt: 'boss ×' + df.ajust.toFixed(2).replace('.', ',') + ' selon tes armes', col: '#d8b8ff', petit: true });
       for (const m of df.mut) lignes.push({ ico: MUTATEURS[m].ico, txt: MUTATEURS[m].nom, col: '#d8b8ff', petit: true });
     }
     if (G.mode === 'normal' || G.mode === 'entrainement') lignes.push(G.mega ? { txt: 'MÉGA BOSS du palier ' + (G.salle / 5), col: '#ffd86b', font: `800 14px ${POLICE}` } : { txt: 'Méga boss dans ' + reste + ' salle' + (reste > 1 ? 's' : ''), col: '#b8b0cc' });
@@ -805,7 +806,11 @@ function dessinerHUD(c) {
     for (const l of lignes) {
       let tx = x0 + 12;
       if (l.ico) { icoDessin(c, l.ico, tx + 8, y, l.petit ? 14 : 17); tx += l.petit ? 20 : 24; }
-      texteOmbre(c, l.txt, tx, y, l.col, l.font || `${l.petit ? 600 : 700} ${l.petit ? 12 : 14}px ${POLICE}`, 3);
+      // le texte ne dépasse jamais du cadre : on réduit la police si besoin
+      let pol = l.font || `${l.petit ? 600 : 700} ${l.petit ? 12 : 14}px ${POLICE}`; c.font = pol;
+      const dispo = x0 + larg - 10 - tx, lw = c.measureText(l.txt).width;
+      if (lw > dispo) { let n0 = +(/([\d.]+)px/.exec(pol) || [0, 14])[1]; for (let k = 0; k < 12 && c.measureText(l.txt).width > dispo && n0 > 7; k++) { n0 -= 1; pol = pol.replace(/([\d.]+)px/, n0 + 'px'); c.font = pol; } }
+      texteOmbre(c, l.txt, tx, y, l.col, pol, 3);
       y += l.petit ? 18 : 22;
     }
     c.restore();

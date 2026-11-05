@@ -7,6 +7,10 @@
    Le point rouge (zone de coup) n'est jamais recouvert. */
 
 const Trace = { pts: [], id: 0 };
+// plus c'est rare, plus c'est grand et lumineux
+const VIS_RAR = { commun: 1.3, rare: 1.65, epique: 1.95, mythique: 2.15, legendaire: 2.4, saison: 1.95 };
+const VIS_AURA = { commun: 1.2, rare: 1.4, epique: 1.6, mythique: 1.7, legendaire: 1.85, saison: 1.6 };
+let visK = 1, visT = 1;
 const DUREE_TRACE = { commun: .38, rare: .45, epique: .55, mythique: .65, legendaire: .75, saison: .55 };
 function alphaCol(col, a) {
   if (col.startsWith('#')) { const n = parseInt(col.length === 4 ? col.replace(/#(.)(.)(.)/, '$1$1$2$2$3$3') : col.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
@@ -19,7 +23,7 @@ function ruban(c, P, wTete, fill, onde) {
   for (let i = 0; i < P.length; i++) {
     const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
     let nx = -(b.y - a.y), ny = b.x - a.x; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-    const w = wTete * Math.pow(P[i].k, .8) * (onde ? 1 + onde * Math.sin(P[i].id * .7 + G.t * 9) : 1) / 2;
+    const w = wTete * visK * Math.pow(P[i].k, .8) * (onde ? 1 + onde * Math.sin(P[i].id * .7 + G.t * 9) : 1) / 2;
     g.push([P[i].x + nx * w, P[i].y + ny * w]); d.push([P[i].x - nx * w, P[i].y - ny * w]);
   }
   c.beginPath(); c.moveTo(g[0][0], g[0][1]);
@@ -33,13 +37,13 @@ function gradTrace(c, P, colQueue, colTete) {
   const g = c.createLinearGradient(a.x, a.y, b.x, b.y); g.addColorStop(0, colQueue); g.addColorStop(1, colTete); return g;
 }
 function etoileForme(c, x, y, r, n, rot, creux) {
-  c.beginPath();
+  r *= visT; c.beginPath();
   for (let i = 0; i < n * 2; i++) { const rr = i % 2 ? r * (creux || .45) : r, a = rot + i * Math.PI / n; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
   c.closePath();
 }
-function feuille(c, x, y, s, a, col) { c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = col; c.beginPath(); c.moveTo(-s, 0); c.quadraticCurveTo(0, -s * .7, s, 0); c.quadraticCurveTo(0, s * .7, -s, 0); c.fill(); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-s, 0); c.lineTo(s, 0); c.stroke(); c.restore(); }
-function flocon(c, x, y, s, a) { c.save(); c.translate(x, y); c.rotate(a); c.beginPath(); for (let i = 0; i < 6; i++) { const u = Math.cos(i * Math.PI / 3), v = Math.sin(i * Math.PI / 3); c.moveTo(0, 0); c.lineTo(u * s, v * s); const m = .55, b = .3; c.moveTo(u * s * m, v * s * m); c.lineTo(u * s * m + Math.cos(i * Math.PI / 3 + .8) * s * b, v * s * m + Math.sin(i * Math.PI / 3 + .8) * s * b); c.moveTo(u * s * m, v * s * m); c.lineTo(u * s * m + Math.cos(i * Math.PI / 3 - .8) * s * b, v * s * m + Math.sin(i * Math.PI / 3 - .8) * s * b); } c.stroke(); c.restore(); }
-function chauveSouris(c, x, y, s, bat) { c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x - s * .5, y - s * .6 * bat, x - s, y - s * .15 * bat); c.quadraticCurveTo(x - s * .6, y + s * .1, x - s * .3, y + s * .15); c.lineTo(x, y + s * .25); c.lineTo(x + s * .3, y + s * .15); c.quadraticCurveTo(x + s * .6, y + s * .1, x + s, y - s * .15 * bat); c.quadraticCurveTo(x + s * .5, y - s * .6 * bat, x, y); c.fill(); }
+function feuille(c, x, y, s, a, col) { s *= visT; c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = col; c.beginPath(); c.moveTo(-s, 0); c.quadraticCurveTo(0, -s * .7, s, 0); c.quadraticCurveTo(0, s * .7, -s, 0); c.fill(); c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-s, 0); c.lineTo(s, 0); c.stroke(); c.restore(); }
+function flocon(c, x, y, s, a) { s *= visT; c.save(); c.translate(x, y); c.rotate(a); c.beginPath(); for (let i = 0; i < 6; i++) { const u = Math.cos(i * Math.PI / 3), v = Math.sin(i * Math.PI / 3); c.moveTo(0, 0); c.lineTo(u * s, v * s); const m = .55, b = .3; c.moveTo(u * s * m, v * s * m); c.lineTo(u * s * m + Math.cos(i * Math.PI / 3 + .8) * s * b, v * s * m + Math.sin(i * Math.PI / 3 + .8) * s * b); c.moveTo(u * s * m, v * s * m); c.lineTo(u * s * m + Math.cos(i * Math.PI / 3 - .8) * s * b, v * s * m + Math.sin(i * Math.PI / 3 - .8) * s * b); } c.stroke(); c.restore(); }
+function chauveSouris(c, x, y, s, bat) { s *= visT; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x - s * .5, y - s * .6 * bat, x - s, y - s * .15 * bat); c.quadraticCurveTo(x - s * .6, y + s * .1, x - s * .3, y + s * .15); c.lineTo(x, y + s * .25); c.lineTo(x + s * .3, y + s * .15); c.quadraticCurveTo(x + s * .6, y + s * .1, x + s, y - s * .15 * bat); c.quadraticCurveTo(x + s * .5, y - s * .6 * bat, x, y); c.fill(); }
 function lueurPt(c, col, r, x, y) { c.drawImage(glow(col, r), x - r, y - r); }
 
 // ---------- traînées ----------
@@ -184,23 +188,25 @@ function auraDefaut(c, x, y, t, s) { const col = s.col; lueurPt(c, col, 46, x, y
 
 // ---------- armures et visières des raretés hautes ----------
 function effetArmure(c, p, s, t) {
-  if (!s || !s.c || !['epique', 'mythique', 'legendaire', 'saison'].includes(s.rar)) return;
+  if (!s || !s.c || !['rare', 'epique', 'mythique', 'legendaire', 'saison'].includes(s.rar)) return;
   const [c0, c1] = s.c;
-  if (s.rar === 'epique' || s.rar === 'saison') { const a = t * 2.5; c.strokeStyle = alphaCol(c0, .85); c.lineWidth = 2; c.beginPath(); c.arc(p.x, p.y, 19, a, a + .9); c.stroke(); }
-  if (s.rar === 'mythique') { for (const [sg, col] of [[1, c0], [-1, c1]]) { const a = sg * t * 2.2; c.strokeStyle = alphaCol(col, .9); c.lineWidth = 2.2; c.beginPath(); c.arc(p.x, p.y, 20, a, a + 1.4); c.stroke(); } lueurPt(c, alphaCol(c1, .3), 30, p.x, p.y); }
+  if (s.rar === 'rare') { const a = t * 2; c.strokeStyle = alphaCol(c1, .9); c.lineWidth = 2.5; c.beginPath(); c.arc(p.x, p.y, 19, a, a + .7); c.stroke(); c.beginPath(); c.arc(p.x, p.y, 19, a + Math.PI, a + Math.PI + .7); c.stroke(); return; }
+  if (s.rar === 'epique' || s.rar === 'saison') { lueurPt(c, alphaCol(c1, .35), 30, p.x, p.y); for (const d of [0, Math.PI]) { const a = t * 2.5 + d; c.strokeStyle = alphaCol(c0, .95); c.lineWidth = 3; c.beginPath(); c.arc(p.x, p.y, 20, a, a + 1.1); c.stroke(); } }
+  if (s.rar === 'mythique') { for (const [sg, col] of [[1, c0], [-1, c1]]) { const a = sg * t * 2.2; c.strokeStyle = alphaCol(col, .95); c.lineWidth = 3.2; c.beginPath(); c.arc(p.x, p.y, 21, a, a + 1.6); c.stroke(); c.beginPath(); c.arc(p.x, p.y, 25, -a, -a + 1); c.stroke(); } lueurPt(c, alphaCol(c1, .45), 38, p.x, p.y); }
   if (s.rar === 'legendaire') {
     c.globalAlpha = .75 + .25 * Math.sin(t * 4); lueurPt(c, alphaCol(c1, .45), 34, p.x, p.y); c.globalAlpha = 1;
-    for (let i = 0; i < 3; i++) { const a = t * 1.8 + i * TAU / 3, x = p.x + Math.cos(a) * 24, y = p.y + Math.sin(a) * 18; lueurPt(c, alphaCol(c0, .9), 8, x, y); c.fillStyle = '#fffbe6'; c.beginPath(); c.arc(x, y, 1.8, 0, TAU); c.fill(); }
+    for (let i = 0; i < 4; i++) { const a = t * 1.8 + i * TAU / 4, x = p.x + Math.cos(a) * 27, y = p.y + Math.sin(a) * 20; lueurPt(c, alphaCol(c0, .95), 12, x, y); c.fillStyle = '#fffbe6'; c.beginPath(); c.arc(x, y, 2.6, 0, TAU); c.fill(); }
+    c.strokeStyle = alphaCol(c0, .8); c.lineWidth = 2.5; c.beginPath(); c.arc(p.x, p.y, 21 + 2 * Math.sin(t * 5), 0, TAU); c.stroke();
   }
 }
 function effetVisiere(c, p, s, t) {
   if (!s || !s.col || p.ko) return;
   const hx = p.x + Math.cos(p.aim) * 9, hy = p.y + Math.sin(p.aim) * 9;
   const col = s.id === 'v_prisme' ? `hsl(${(t * 120) % 360},100%,72%)` : s.col;
-  c.globalAlpha = .6 + .3 * Math.sin(t * 6); lueurPt(c, s.id === 'v_prisme' ? 'rgba(255,160,240,.8)' : alphaCol(s.col, .8), 12, hx, hy); c.globalAlpha = 1;
+  c.globalAlpha = .7 + .3 * Math.sin(t * 6); lueurPt(c, s.id === 'v_prisme' ? 'rgba(255,160,240,.85)' : alphaCol(s.col, .85), { commun: 12, rare: 16, epique: 19, mythique: 21, legendaire: 24 }[s.rar] || 14, hx, hy); c.globalAlpha = 1;
   if (['epique', 'mythique', 'legendaire'].includes(s.rar)) {
-    const L = s.rar === 'epique' ? 9 : 14, a = p.aim + t * (s.rar === 'legendaire' ? .8 : 0);
-    c.strokeStyle = col; c.lineWidth = 1.3; c.globalAlpha = .8 + .2 * Math.sin(t * 8);
+    const L = s.rar === 'epique' ? 13 : 19, a = p.aim + t * (s.rar === 'legendaire' ? .8 : 0);
+    c.strokeStyle = col; c.lineWidth = 2; c.globalAlpha = .8 + .2 * Math.sin(t * 8);
     const n = s.rar === 'legendaire' ? 4 : 2;
     c.beginPath(); for (let i = 0; i < n; i++) { const b = a + i * Math.PI / n; c.moveTo(hx - Math.cos(b) * L, hy - Math.sin(b) * L); c.lineTo(hx + Math.cos(b) * L, hy + Math.sin(b) * L); } c.stroke();
     c.globalAlpha = 1;
@@ -216,15 +222,31 @@ dessinerJoueur = function (c) {
   const t = G.t;
   // traînée : un point par image, effacé selon sa durée
   if (tr && tr.col) {
-    const dur = DUREE_TRACE[tr.rar] || .45, last = Trace.pts[Trace.pts.length - 1];
+    visK = VIS_RAR[tr.rar] || 1.3; visT = Math.sqrt(visK);
+    const dur = (DUREE_TRACE[tr.rar] || .45) * (1 + (visK - 1) * .45), last = Trace.pts[Trace.pts.length - 1];
     if (!last || last.t !== t) Trace.pts.push({ x: p.x, y: p.y, t, id: Trace.id++ });
     while (Trace.pts.length && t - Trace.pts[0].t > dur) Trace.pts.shift();
     const P = Trace.pts.map(q => ({ x: q.x, y: q.y, id: q.id, k: 1 - (t - q.t) / dur }));
     const mobile = P.length > 2 && Math.hypot(P[P.length - 1].x - P[0].x, P[P.length - 1].y - P[0].y) > 6;
-    if (mobile) { c.save(); try { (TRAINEES[tr.id] || ((c2, P2) => traineeDefaut(c2, P2, tr)))(c, P, tr); } catch (e) { } c.restore(); }
+    if (mobile) {
+      c.save();
+      try {
+        if (visK > 1.5 && tr.col) { c.globalCompositeOperation = 'lighter'; ruban(c, P, 22, gradTrace(c, P, alphaCol(tr.col, 0), alphaCol(tr.col, .2 + .05 * (visK - 1.5)))); c.globalCompositeOperation = 'source-over'; }
+        (TRAINEES[tr.id] || ((c2, P2) => traineeDefaut(c2, P2, tr)))(c, P, tr);
+      } catch (e) { }
+      c.restore();
+    }
   } else Trace.pts.length = 0;
   // aura (sous le héros)
-  if (au && au.col) { c.save(); c.globalCompositeOperation = 'lighter'; try { (AURAS[au.id] || ((c2, x, y, t2) => auraDefaut(c2, x, y, t2, au)))(c, p.x, p.y, t, au); } catch (e) { } c.restore(); }
+  if (au && au.col) {
+    const m = VIS_AURA[au.rar] || 1.2; visT = 1;
+    c.save(); c.globalCompositeOperation = 'lighter'; c.translate(p.x, p.y); c.scale(m, m);
+    try {
+      (AURAS[au.id] || ((c2, x, y, t2) => auraDefaut(c2, x, y, t2, au)))(c, 0, 0, t, au);
+      if (au.rar !== 'commun') { c.strokeStyle = alphaCol(au.col, .75); c.lineWidth = 2; c.beginPath(); c.ellipse(0, 10, 30 + 3 * Math.sin(t * 2.5), 10, 0, 0, TAU); c.stroke(); }
+    } catch (e) { }
+    c.restore();
+  }
   _joueurSkins3(c);
   // par-dessus, loin du point rouge : armure et visière des raretés hautes
   c.save(); c.globalCompositeOperation = 'lighter';

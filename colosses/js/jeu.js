@@ -314,7 +314,7 @@ const G = {
     this.mode = 'survie'; this.finDefi = null;
     const esp = R.pick(ESP_TOUTES());
     // départ à la pression de son record moins 10 paliers (un palier = 10 s) ; le score compte depuis le palier 0
-    const best = ((Save.d.defis.survie || {}).best || {}).score || 0, depart = Math.max(0, Math.floor(best / 10) - 10) * 10;
+    const best = ((Save.d.defis.survie || {}).best || {}).score || 0, P = typeof PALIER_S !== 'undefined' ? PALIER_S : 10, depart = Math.max(0, Math.floor(best / P) - 10) * P;
     // armes au hasard, mais le boss s'ajuste à leur aide pour survivre (forceSurvie) : un bon tirage ne rend pas la partie plus facile
     const ars = { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') };
     this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
@@ -384,7 +384,7 @@ const G = {
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
       // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
       if (df.format === 'survie' && df.ajust) { const k = df.ajust; def.D.S = Math.min(2.2, def.D.S * Math.pow(k, .3)); def.D.C *= Math.pow(k, .4); def.idle = Math.max(.12, def.idle / Math.pow(k, .5)); }
-      if (df.format === 'survie') { def.traits = def.traits.filter(t => t === 'rage'); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
+      if (df.format === 'survie') { def.traits = []; def.phases.forEach(ph => { if (ph.carte === 'etau') ph.carte = 'normale'; }); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
       if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
