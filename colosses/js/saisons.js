@@ -26,7 +26,7 @@ function nomSaison(id) { const s = SAISONS.find(x => x.id === id); return s ? s.
 
 // apparences de saison : achetées d'un coup (1 « fragment »), seulement pendant leur saison
 RARETES.saison = { nom: 'Saison', col: '#ff9a3c', frags: 1, poids: 0 };
-PRIX_FRAG.saison = 25;
+PRIX_FRAG.saison = 33;
 SKINS.push(
   { id: 'a_citrouille', slot: 'armure', nom: 'Citrouille', rar: 'saison', saison: 'halloween', c: ['#ffe0a8', '#ff7a1a', '#2a0c00'] },
   { id: 'c_sorciere', slot: 'cape', nom: 'Cape de sorcière', rar: 'saison', saison: 'halloween', c: ['#6a1aa0', '#0c0018'], motif: 'etoiles' },

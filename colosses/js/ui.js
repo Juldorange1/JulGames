@@ -34,7 +34,7 @@ const UI = {
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
       case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
       case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
-      case 'fragAch': { const F = forgeSave(); if (F.eclats >= 4) { F.eclats -= 4; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.eclats').after(p); } break; }
+      case 'fragAch': { const F = forgeSave(); if (F.eclats >= PRIX_HASARD) { F.eclats -= PRIX_HASARD; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.eclats').after(p); } break; }
       case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
       case 'skin': {
         const S = skinsSave(), s = skin(btn.dataset.k), F = forgeSave(), prix = s.saison && !saisonOk(s.saison) ? 0 : PRIX_FRAG[s.rar];
@@ -212,7 +212,7 @@ const UI = {
     if (o === 'forge') {
       corps = `<p class="mini">Les éclats (un par boss, trois par méga boss) débloquent des <b>évolutions</b> pour une famille d'armes. Chacune change la façon de jouer sans rendre plus fort : on gagne d'un côté, on perd de l'autre. Une seule active par famille.</p>
         <div class="eclats">💎 ${F.eclats} éclats · ${COUT_FORGE} par évolution</div>
-        <div class="rang"><button data-a="fragAch" ${F.eclats >= 4 ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · 4 💎</button></div><div class="blocs forge">` +
+        <div class="rang"><button data-a="fragAch" ${F.eclats >= PRIX_HASARD ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · ${PRIX_HASARD} 💎</button></div><div class="blocs forge">` +
         Object.entries(FORGE).map(([fam, evos]) => `<div class="bloc"><h3>${FAMILLES[fam].ico} ${FAMILLES[fam].nom}</h3>${evos.map(e => {
           const k = fam + ':' + e.id, ok = F.debloque[k], actif = F.actif[fam] === e.id;
           return `<div class="evo ${actif ? 'actif' : ''}"><b>${e.nom}</b><em>${e.desc}</em>${ok ? `<button data-a="forgeEq" data-k="${k}">${actif ? '✔ Équipée' : 'Équiper'}</button>` : `<button data-a="forgeAch" data-k="${k}" ${F.eclats >= COUT_FORGE ? '' : 'disabled'}>Débloquer · ${COUT_FORGE} 💎</button>`}</div>`;

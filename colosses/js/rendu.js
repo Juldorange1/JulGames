@@ -739,8 +739,11 @@ function lignes(c, txt, maxW) {
 function jaugeMode() {
   const f = G.format ? G.format() : null; if (!f || !G.defi) return null;
   if (f === 'survie') {
-    const t = (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, but = rec > 0 ? rec : 60;
-    return { k: Math.min(1, t / but), col: rec && t > rec ? '#ffd24d' : '#5fd8ff', txt: fmtTemps(t), droite: rec ? (t > rec ? 'Nouveau record !' : 'Record ' + fmtTemps(rec)) : 'Premier essai' };
+    // la barre va du temps de départ jusqu'au record : les dernières secondes avant le record se voient bien
+    const t = (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, d0 = Math.min(G.defi.depart || 0, rec - 30);
+    if (!rec) return { k: Math.min(1, t / 60), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Premier essai' };
+    if (t < rec) return { k: clamp((t - d0) / Math.max(1, rec - d0), 0, 1), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Record dans ' + fmtTemps(Math.ceil(rec - t)) };
+    return { k: 1, col: '#ffd24d', txt: fmtTemps(t), droite: 'Nouveau record ! +' + fmtTemps(Math.floor(t - rec)) };
   }
   const F = FORMATS[f];
   if (F && F.duree) { const r = Math.max(0, F.duree - G.chrono); return { k: r / F.duree, col: '#ffd86b', txt: Math.ceil(r) + ' s', droite: 'Temps restant' }; }

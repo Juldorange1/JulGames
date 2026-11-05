@@ -296,4 +296,4 @@ function chanceAff(cat, cible, niv) {
 }
 
 // prix d'un fragment d'apparence dans la garde-robe (les légendaires ne s'achètent pas)
-const PRIX_FRAG = { commun: 3, rare: 4, epique: 6, mythique: 5 }, PRIX_HASARD = 4;
+const PRIX_FRAG = { commun: 4, rare: 5, epique: 8, mythique: 7 }, PRIX_HASARD = 5; // +30 % (arrondi)

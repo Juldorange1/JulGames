@@ -36,7 +36,7 @@ const T = {
       pluieCroisee: ['Crossed Starfall', 'Two starfalls at right angles, one after the other: slip between the lines of the first, then of the second.'],
       laserRafale: ['Laser Barrage', 'Five shots in a row: the line follows you then freezes (white). Sidestep each time the line turns white.']
     },
-    frag: [['Nouveau record !', 'New record!'], ['Premier essai', 'First attempt'], ['Temps restant', 'Time left'], [' selon tes armes', ' from your weapons'], [' · en cours : ', ' · in progress: '], [' (reprendre)', ' (resume)'], ['1 PV : le moindre coup est fatal', '1 HP: any hit is fatal'], ['Record ', 'Record ']]
+    frag: [['Nouveau record !', 'New record!'], ['Premier essai', 'First attempt'], ['Temps restant', 'Time left'], ['Record dans ', 'Record in '], [' selon tes armes', ' from your weapons'], [' · en cours : ', ' · in progress: '], [' (reprendre)', ' (resume)'], ['1 PV : le moindre coup est fatal', '1 HP: any hit is fatal'], ['Record ', 'Record ']]
   },
   es: {
     p: {
@@ -72,7 +72,7 @@ const T = {
       pluieCroisee: ['Lluvia de estrellas cruzada', 'Dos lluvias de estrellas en ángulo recto, una tras otra: deslízate entre las líneas de la primera y luego de la segunda.'],
       laserRafale: ['Ráfaga láser', 'Cinco disparos seguidos: la línea te sigue y se fija (blanca). Da un paso al lado cada vez que se vuelva blanca.']
     },
-    frag: [['Nouveau record !', '¡Nuevo récord!'], ['Premier essai', 'Primer intento'], ['Temps restant', 'Tiempo restante'], [' selon tes armes', ' según tus armas'], [' · en cours : ', ' · en curso: '], [' (reprendre)', ' (continuar)'], ['1 PV : le moindre coup est fatal', '1 PV: cualquier golpe es mortal'], ['Record ', 'Récord ']]
+    frag: [['Nouveau record !', '¡Nuevo récord!'], ['Premier essai', 'Primer intento'], ['Temps restant', 'Tiempo restante'], ['Record dans ', 'Récord en '], [' selon tes armes', ' según tus armas'], [' · en cours : ', ' · en curso: '], [' (reprendre)', ' (continuar)'], ['1 PV : le moindre coup est fatal', '1 PV: cualquier golpe es mortal'], ['Record ', 'Récord ']]
   },
   de: {
     p: {
@@ -108,7 +108,7 @@ const T = {
       pluieCroisee: ['Gekreuzter Sternenregen', 'Zwei Sternenregen im rechten Winkel nacheinander: schlüpf zwischen die Linien des ersten, dann des zweiten.'],
       laserRafale: ['Laserfeuer', 'Fünf Schüsse hintereinander: die Linie folgt dir und erstarrt (weiß). Mach jedes Mal einen Seitenschritt, wenn sie weiß wird.']
     },
-    frag: [['Nouveau record !', 'Neuer Rekord!'], ['Premier essai', 'Erster Versuch'], ['Temps restant', 'Verbleibende Zeit'], [' selon tes armes', ' je nach deinen Waffen'], [' · en cours : ', ' · läuft: '], [' (reprendre)', ' (fortsetzen)'], ['1 PV : le moindre coup est fatal', '1 LP: jeder Treffer ist tödlich'], ['Record ', 'Rekord ']]
+    frag: [['Nouveau record !', 'Neuer Rekord!'], ['Premier essai', 'Erster Versuch'], ['Temps restant', 'Verbleibende Zeit'], ['Record dans ', 'Rekord in '], [' selon tes armes', ' je nach deinen Waffen'], [' · en cours : ', ' · läuft: '], [' (reprendre)', ' (fortsetzen)'], ['1 PV : le moindre coup est fatal', '1 LP: jeder Treffer ist tödlich'], ['Record ', 'Rekord ']]
   }
 };
 for (const code of Object.keys(T)) {
@@ -118,5 +118,6 @@ for (const code of Object.keys(T)) {
   L.arme = L.arme || { p: {}, s: {}, t: {} };
   for (const k of ['p', 's', 't']) L.arme[k] = Object.assign({}, L.arme[k] || {}, T.en[k], x[k]);
   L.frag = (L.frag || []).concat(x.frag);
+  if (typeof SKINS_EN4 !== 'undefined') L.skins = Object.assign({}, L.skins || {}, SKINS_EN4); // noms des nouvelles apparences (en anglais pour toutes les langues, comme les autres)
 }
 })();

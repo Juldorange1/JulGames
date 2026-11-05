@@ -313,8 +313,8 @@ const G = {
   lancerSurvie() {
     this.mode = 'survie'; this.finDefi = null;
     const esp = R.pick(ESP_TOUTES());
-    // départ à la pression de son record moins 10 paliers (un palier = 10 s) ; le score compte depuis le palier 0
-    const best = ((Save.d.defis.survie || {}).best || {}).score || 0, P = typeof PALIER_S !== 'undefined' ? PALIER_S : 10, depart = Math.max(0, Math.floor(best / P) - 10) * P;
+    // départ à la pression de son record moins 13 paliers (un palier = 10 s) ; le score compte depuis le palier 0
+    const best = ((Save.d.defis.survie || {}).best || {}).score || 0, P = typeof PALIER_S !== 'undefined' ? PALIER_S : 10, depart = Math.max(0, Math.floor(best / P) - 13) * P;
     // armes au hasard, mais le boss s'ajuste à leur aide pour survivre (forceSurvie) : un bon tirage ne rend pas la partie plus facile
     const ars = { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') };
     this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
