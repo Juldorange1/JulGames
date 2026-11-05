@@ -120,7 +120,6 @@ function impactBoss(x, y, fort) {
   const def = G.def; if (!def) return;
   const mat = (typeof MATIERE_ESP !== 'undefined' && MATIERE_ESP[def.esp]) || 'chair', C = couleursMatiere(mat, def.hue || 0);
   const a = G.p ? ang(G.p.x, G.p.y, x, y) : R() * TAU, n = fort ? 5 : 2;
-  sonMatiere(mat, x, y, fort);
   for (let i = 0; i < n; i++) {
     const j = jet(x, y, a, 1, 60, 220);
     if (C.etin) Debris.ajout(Object.assign(j, { type: 'etincelle', col: C.etin, z: 6, vz: R.range(150, 320), taille: 1.5, vie: .5 }));
@@ -157,7 +156,7 @@ const _blesserReel = G.blesser;
 G.blesser = function () {
   const p = this.p, hp0 = p ? p.hp : 0;
   const r = _blesserReel.apply(this, arguments);
-  try { if (p && p.hp < hp0) { sonMatiere('metal', p.x, p.y, true); for (let i = 0; i < 8; i++) Debris.ajout(Object.assign(jet(p.x, p.y, R() * TAU, Math.PI, 80, 260), { type: 'etincelle', col: i % 2 ? '#ffe9b0' : '#ff8a5c', z: 10, vz: R.range(150, 300), taille: 1.5, vie: .5 })); } } catch (e) { }
+  try { if (p && p.hp < hp0) { for (let i = 0; i < 8; i++) Debris.ajout(Object.assign(jet(p.x, p.y, R() * TAU, Math.PI, 80, 260), { type: 'etincelle', col: i % 2 ? '#ffe9b0' : '#ff8a5c', z: 10, vz: R.range(150, 300), taille: 1.5, vie: .5 })); } } catch (e) { }
   return r;
 };
 const _mortReel = G.bossMort;

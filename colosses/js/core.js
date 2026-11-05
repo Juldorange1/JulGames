@@ -107,7 +107,7 @@ const SFX = {
   parade: 'parade.ogg', missile: 'missile.ogg', charge: 'charge.ogg', pouvoir: 'pouvoir.ogg'
 };
 // bruitages deux fois plus présents que la musique, pour bien passer au-dessus d'elle
-const GAIN_BRUITAGES = 1.4;
+const GAIN_BRUITAGES = 1.2;
 const Son = {
   c: null, master: null, sfx: null, rev: null, noiseBuf: null, last: {}, buf: {},
   init() {
@@ -123,7 +123,8 @@ const Son = {
       comp.threshold.value = -12; comp.ratio.value = 4; comp.knee.value = 10;
       const gainC = this.c.createGain(); gainC.gain.value = 1.6;
       const lim = this.c.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.ratio.value = 20; lim.attack.value = .002; lim.release.value = .12;
-      this.master.connect(comp); comp.connect(gainC); gainC.connect(lim); lim.connect(this.c.destination);
+      const doux = this.c.createBiquadFilter(); doux.type = 'lowpass'; doux.frequency.value = 9500; doux.Q.value = .5; // adoucit les aigus
+      this.master.connect(doux); doux.connect(comp); comp.connect(gainC); gainC.connect(lim); lim.connect(this.c.destination);
       this.sfx = this.master;
       const n = this.c.sampleRate;
       this.noiseBuf = this.c.createBuffer(1, n, n);

@@ -317,7 +317,7 @@ const G = {
     const best = ((Save.d.defis.survie || {}).best || {}).score || 0, P = typeof PALIER_S !== 'undefined' ? PALIER_S : 10, depart = Math.max(0, Math.floor(best / P) - 13) * P;
     // armes au hasard, mais le boss s'ajuste à leur aide pour survivre (forceSurvie) : un bon tirage ne rend pas la partie plus facile
     const ars = { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') };
-    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
+    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, st: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
     if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
     Save.d.defis.survie.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;

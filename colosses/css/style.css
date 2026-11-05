@@ -393,3 +393,10 @@ button[disabled] { cursor: not-allowed; }
 .cx-legende.verrou b { color: #9a94ad; } .cx-legende.verrou p { font-style: normal; color: #9a94ad; }
 .g-code { font-family: Consolas, monospace; letter-spacing: .1em; color: #9dffc4; font-size: 17px; }
 .d-survie { --fc: #5fd8ff; }
+.set-tag { display: block; font-size: 12px; color: #c9a865; margin-top: 2px; }
+.sets { display: flex; flex-direction: column; gap: 6px; }
+.set-l { display: grid; grid-template-columns: 1.4fr .8fr 1.6fr .5fr 1.4fr; align-items: center; gap: 10px; padding: 8px 12px; border-left: 4px solid var(--rc); background: rgba(20,14,10,.75); border-radius: 6px; }
+.set-l b { color: #f1e6c8; font-size: 16px; } .set-l .rar { color: var(--rc); font-size: 14px; font-weight: 700; }
+.set-ps { display: flex; gap: 6px; } .set-p { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); } .set-p.manque { opacity: .25; filter: grayscale(.7); border-style: dashed; }
+.set-n { color: #d8ccb4; font-size: 14px; }
+@media (max-width: 760px) { .set-l { grid-template-columns: 1fr 1fr; } }

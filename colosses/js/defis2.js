@@ -12,7 +12,7 @@ const PALIER_S = 8;
 const Pression = {
   niveau: 0, frappeT: 0, salveT: 0, n: {},
   raz() { this.niveau = 0; this.frappeT = 3; this.salveT = 4; this.n = {}; },
-  temps() { return ((G.defi && G.defi.temps) || 0) + G.chrono; },
+  temps() { const df = G.defi; return df ? (df.st !== undefined ? df.st : (df.temps || 0) + G.chrono) : 0; },
   monter() {
     this.niveau++;
     const e = PRESSION_ETAPES[(this.niveau - 1) % PRESSION_ETAPES.length], D = G.def.D;
@@ -89,7 +89,7 @@ const SurvieRun = {
   garder() {
     const df = G.defi; if (G.mode !== 'survie' || !df || G.finDefi || !G.p || G.p.hp <= 0) return;
     const b = df.boss[0];
-    Save.d.survieRun = { seed: b.seed, esp: b.esp, ars: Object.assign({}, b.ars), ajust: df.ajust, depart: df.depart, temps: (df.temps || 0) + (G.chrono || 0), pv: G.p.hp, coups: df.coups || 0 };
+    Save.d.survieRun = { seed: b.seed, esp: b.esp, ars: Object.assign({}, b.ars), ajust: df.ajust, depart: df.depart, temps: Pression.temps(), pv: G.p.hp, coups: df.coups || 0 };
     Save.write();
   },
   effacer() { if (Save.d.survieRun) { delete Save.d.survieRun; Save.write(); } }
@@ -99,7 +99,7 @@ G.lancerSurvie = function () {
   const r = Save.d.survieRun;
   if (!r || !r.ars) return _lancerSurvieRun.apply(this, arguments);
   this.mode = 'survie'; this.finDefi = null;
-  this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: r.seed, mega: false, esp: r.esp, ars: Object.assign({}, r.ars) }], i: 0, temps: r.temps, depart: r.depart, tues: 0, degats: 0, coups: r.coups || 0, ajust: r.ajust };
+  this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: r.seed, mega: false, esp: r.esp, ars: Object.assign({}, r.ars) }], i: 0, temps: r.temps, st: r.temps, depart: r.depart, tues: 0, degats: 0, coups: r.coups || 0, ajust: r.ajust };
   if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
   calcStats(); this.p = creerJoueur(DF().pv); this.p.hp = Math.min(this.p.hpMax, r.pv || this.p.hpMax); this.ars = null;
   this.entrerSalle();
@@ -109,7 +109,7 @@ G.lancerSurvie = function () {
 const _recSurvie = G.recommencer;
 G.recommencer = function () { if (this.mode === 'survie') SurvieRun.effacer(); return _recSurvie.apply(this, arguments); };
 const _finSurvie = G.terminerDefi;
-G.terminerDefi = function () { const s = this.defi && this.defi.type === 'survie'; const r = _finSurvie.apply(this, arguments); if (s) SurvieRun.effacer(); return r; };
+G.terminerDefi = function () { const s = this.defi && this.defi.type === 'survie'; if (s && !this.finDefi && this.defi.st !== undefined) this.defi.temps = this.defi.st; /* le score = exactement le temps affiché */ const r = _finSurvie.apply(this, arguments); if (s) SurvieRun.effacer(); return r; };
 const _actSurvie = UI.action;
 UI.action = function (a, btn) { if ((a === 'quitter' || a === 'quitterJeu') && G.mode === 'survie') SurvieRun.garder(); return _actSurvie.call(this, a, btn); };
 addEventListener('beforeunload', () => { try { if (G.mode === 'survie' && (G.etat === 'combat' || G.etat === 'pause' || G.etat === 'avant')) SurvieRun.garder(); } catch (e) { } });
@@ -117,3 +117,10 @@ addEventListener('beforeunload', () => { try { if (G.mode === 'survie' && (G.eta
 let _gardeSurvieT = 0;
 const _majSurvieRun = majCombat;
 majCombat = function (dt) { _majSurvieRun.apply(this, arguments); try { if (G.mode === 'survie' && G.etat === 'combat' && (_gardeSurvieT -= 1 / 60) <= 0) { _gardeSurvieT = 3; SurvieRun.garder(); } } catch (e) { } };
+// le compteur de la Survie avance avec le temps de jeu en combat, et rien d'autre ne le modifie
+const _majSurvieSt = majCombat;
+majCombat = function (dt) {
+  const t0 = G.t;
+  _majSurvieSt.apply(this, arguments);
+  try { const df = G.defi; if (G.mode === 'survie' && df && G.etat === 'combat' && !G.finDefi && G.p && G.p.hp > 0) { if (df.st === undefined) df.st = df.temps || 0; df.st += Math.max(0, Math.min(.1, G.t - t0)); } } catch (e) { }
+};

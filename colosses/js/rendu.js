@@ -556,7 +556,6 @@ function dessinerJoueur(c) {
   c.globalCompositeOperation = 'lighter';
   const au = equipe('aura'), tr = equipe('trainee');
   c.drawImage(glow(au.col || 'rgba(80,230,255,.45)', (au.col ? 48 : 34) * sc), p.x - (au.col ? 48 : 34) * sc, p.y - haut - (au.col ? 48 : 34) * sc);
-  if (au.col && au.id === 'r_feu') sprite(c, 'flame_03', '#ff8a3c', p.x, p.y - haut - 6, 46, Math.sin(G.t * 6) * .1, .5, true);
   if (au.couronne) { c.fillStyle = '#ffd86b'; c.beginPath(); const cy = p.y - haut - 34; c.moveTo(p.x - 9, cy + 6); c.lineTo(p.x - 9, cy - 2); c.lineTo(p.x - 4, cy + 2); c.lineTo(p.x, cy - 5); c.lineTo(p.x + 4, cy + 2); c.lineTo(p.x + 9, cy - 2); c.lineTo(p.x + 9, cy + 6); c.fill(); }
   c.globalCompositeOperation = 'source-over';
   // le héros est dessiné plus grand que sa zone de collision (seul le point rouge compte pour les coups)
@@ -740,7 +739,7 @@ function jaugeMode() {
   const f = G.format ? G.format() : null; if (!f || !G.defi) return null;
   if (f === 'survie') {
     // la barre va du temps de départ jusqu'au record : les dernières secondes avant le record se voient bien
-    const t = (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, d0 = Math.min(G.defi.depart || 0, rec - 30);
+    const t = typeof Pression !== 'undefined' ? Pression.temps() : (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, d0 = Math.min(G.defi.depart || 0, rec - 30);
     if (!rec) return { k: Math.min(1, t / 60), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Premier essai' };
     if (t < rec) return { k: clamp((t - d0) / Math.max(1, rec - d0), 0, 1), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Record dans ' + fmtTemps(Math.ceil(rec - t)) };
     return { k: 1, col: '#ffd24d', txt: fmtTemps(t), droite: 'Nouveau record ! +' + fmtTemps(Math.floor(t - rec)) };
