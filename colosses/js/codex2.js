@@ -71,6 +71,7 @@ UI.codex = function (o) {
         ${phr ? `<em class="cx-phrase">« ${phr} »</em>` : ''}
         <p>${e.meca}</p>
         <div class="cx-chips">${sig.map(id => `<span class="chip" style="--c:${(CAT_ATK[ATK[id].cat] || {}).col || '#ccc'}">${ATK[id].nom}</span>`).join('')}</div>
+        ${typeof blocLegende === 'function' ? blocLegende(i, v) : ''}
         <span class="cx-cpt">${v.tues} vaincu(s) · ${v.vus} rencontre(s)</span></div></div>`;
     }).join('') + '</div>';
   } else if (o === 'att') {

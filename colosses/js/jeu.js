@@ -500,7 +500,7 @@ const G = {
     const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
     res.ancien = ancien; res.record = mieux;
     if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
-    if (reussi && df.type !== 'abysses') { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, '+4 cristaux', '#bfefff', 15); }
+    if (reussi && (df.type === 'jour' || df.type === 'semaine')) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, '+4 cristaux', '#bfefff', 15); }
     if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });

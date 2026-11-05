@@ -16,7 +16,7 @@ const Roulette = {
     const gagne = SKINS.find(s => (S.frag[s.id] || 0) > (avant[s.id] || 0));
     if (!gagne) { UI.garderobe(slot); return; } // plus rien à gagner : des cristaux à la place
     // la bande : des apparences possibles de cet emplacement, mélangées, avec la gagnante à la bonne place
-    const pool = SKINS.filter(s => s.slot === slot && !s.base && s.rar !== 'legendaire');
+    const pool = SKINS.filter(s => s.slot === slot && !s.base && s.rar !== 'legendaire' && !s.saison);
     const bande = []; for (let i = 0; i < 34; i++) bande.push(pool[Math.floor(Math.random() * pool.length)]);
     const cible = 28; bande[cible] = gagne;
     const LARG = 120;

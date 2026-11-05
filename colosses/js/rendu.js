@@ -777,7 +777,7 @@ function dessinerHUD(c) {
       else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'survie') info += ' · ' + fmtTemps(G.chrono) + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
-      else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
+      else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length + (df.type === 'marathon' || df.type === 'graine' ? ' · ' + fmtTemps(df.temps + G.chrono) : '');
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
       for (const m of df.mut) lignes.push({ ico: MUTATEURS[m].ico, txt: MUTATEURS[m].nom, col: '#d8b8ff', petit: true });
     }
@@ -856,7 +856,7 @@ function dessinerEcranDefi(c) {
   const f = G.finDefi, df = G.defi, F = FORMATS[df.format];
   c.fillStyle = 'rgba(4,2,10,.84)'; c.fillRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  const titre = df.type === 'abysses' ? 'LES ABYSSES' : (df.type === 'jour' ? 'DÉFI DU JOUR' : 'DÉFI DE LA SEMAINE') + ' — ' + df.cle;
+  const titre = df.type === 'abysses' ? 'LES ABYSSES' : df.type === 'marathon' ? 'MARATHON DES COLOSSES' : df.type === 'graine' ? 'PARTIE À GRAINE — ' + df.cle : (df.type === 'jour' ? 'DÉFI DU JOUR' : 'DÉFI DE LA SEMAINE') + ' — ' + df.cle;
   texteOmbre(c, titre, W / 2, 140, '#b8b0cc', `800 18px ${POLICE}`, 4);
   icoDessin(c, F.ico, W / 2, 140, 40); texteOmbre(c, F.nom, W / 2, 180, '#e8e2f5', `800 24px ${POLICE}`, 4);
   const ok = f.score !== null;

@@ -49,13 +49,16 @@ function nomBoss(r) { let n = r.pick(SYL1) + r.pick(SYL2); if (r.chance(.3)) n +
 // ---------- Génération (définition pure, rejouable avec la même graine) ----------
 // attaques d'espèce qui marchent sur n'importe quel boss : elles rejoignent le tirage commun
 const ATK_PARTAGEES = ['se_charge', 're_kamikazes', 'ho_aiguilles', 'ho_engrenages', 'bo_combo', 'bo_lames', 'px_plongeon', 'px_plumes'];
+const ESP_DES = {}; // espèces ajoutées plus tard : salle à partir de laquelle elles apparaissent
+let ESP_FORCE = null; // espèce imposée (Marathon)
 function genBoss(salle, seed, mega, eviter) {
   const r = RNG(seed), df = DF();
-  const dispo = ESP_ORDRE.slice(0, Math.min(ESP_ORDRE.length, 4 + Math.floor((salle - 1) / 2)));
+  const dispo = ESP_ORDRE.filter((e, i) => ESP_DES[e] ? salle >= ESP_DES[e] : i < 4 + Math.floor((salle - 1) / 2));
   let espId;
   if (mega) espId = r.pick(dispo);
   else if (salle >= 3 && r.chance(.16)) espId = 'chimere';
   else { const l = dispo.filter(e => !(eviter || []).includes(e)); espId = r.pick(l.length ? l : dispo); }
+  if (ESP_FORCE && ESPECES[ESP_FORCE]) espId = ESP_FORCE;
   const esp = ESPECES[espId];
   const nom = nomBoss(r);
   let hue = esp.hue != null ? (esp.hue + r.int(-10, 10) + 360) % 360 : r.int(0, 359);
@@ -276,6 +279,11 @@ function bougerBoss(b, dt) {
     case 'ancre': tx = bb.x + bb.w / 2 + Math.sin(G.t * .4) * 120; ty = bb.y + bb.h * .35 + Math.cos(G.t * .3) * 50; v = 60; break;
     case 'centre': tx = bb.x + bb.w / 2; ty = bb.y + bb.h / 2; v = 90; break;
     case 'aucun': case 'serpent': return;
+    case 'miroir': { // toujours à l'opposé du joueur par rapport au centre de l'arène, sans jamais lui coller
+      const mx = bb.x + bb.w / 2, my = bb.y + bb.h / 2; let ex = 2 * mx - t.x, ey = 2 * my - t.y; const de = Math.hypot(ex - t.x, ey - t.y);
+      if (de < 280) { const a = de > 1 ? Math.atan2(ey - t.y, ex - t.x) : b.facing + Math.PI; ex = t.x + Math.cos(a) * 280; ey = t.y + Math.sin(a) * 280; }
+      tx = ex; ty = ey; v = 160; break;
+    }
     case 'traqueur': {
       const dd = Math.sqrt(d2(b.x, b.y, t.x, t.y)), a = ang(t.x, t.y, b.x, b.y);
       tx = t.x + Math.cos(a) * 260; ty = t.y + Math.sin(a) * 260; v = dd > 320 || dd < 190 ? 125 : 55; break;
