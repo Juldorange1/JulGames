@@ -323,7 +323,7 @@ const UI = {
       choix('o-dalto', 'Mode daltonien', op.dalto || 'non', [['non', 'Désactivé'], ['rv', 'Rouge-vert (protanopie, deutéranopie) : dangers en bleu'], ['bj', 'Bleu-jaune (tritanopie) : bleus en rose']]) +
       choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
       `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
-    else if (onglet === 'jeu') corps = choix('o-langue', 'Langue / Language', op.langue || 'fr', [['fr', 'Français'], ['en', 'English']]) + coche('o-conseils', 'Expliquer les nouveautés avant d\'entrer dans une salle (avec animations)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
+    else if (onglet === 'jeu') corps = choix('o-langue', 'Langue / Language', op.langue || 'fr', [['fr', 'Français'], ['en', 'English'], ['es', 'Español'], ['de', 'Deutsch']]) + coche('o-conseils', 'Expliquer les nouveautés avant d\'entrer dans une salle (avec animations)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
       coche('o-noms', 'Nom des attaques du boss', op.nomsAttaques) + coche('o-chrono', 'Chronomètre', op.chrono) + coche('o-pause', 'Pause quand la fenêtre est quittée', op.autoPause) +
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +

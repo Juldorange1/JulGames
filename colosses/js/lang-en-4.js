@@ -4,6 +4,9 @@
    when they are displayed (menus and canvas), with a cache. Paramètres → Jeu → Langue. */
 
 // textes entiers (un nœud de texte ou une chaîne entière, sans rien autour)
+LANG_EN.code = 'en';
+LANG_EN.catAtk = { zone: ['Telegraphed zones', 'A zone fills up, then strikes.'], balles: ['Projectiles', 'Bullets, volleys and swarms.'], rayon: ['Beams', 'A thin line announces the beam.'], corps: ['Melee', 'Charges, leaps and blows from the colossus itself.'], terrain: ['Terrain', 'The ground changes: lava, frost, brambles…'], invoc: ['Summons', 'Creatures join the fight.'] };
+LANG_EN.catNom = { p: 'Main weapons', s: 'Special attacks', t: 'Talents' };
 LANG_EN.exact = {
   'Son': 'Sound', 'Image': 'Graphics', 'Jeu': 'Game', 'Touches': 'Controls', 'Haut': 'Up', 'Bas': 'Down', 'Gauche': 'Left', 'Droite': 'Right', 'Arme': 'Weapon', 'Spéciale': 'Special', 'Talent': 'Talent',
   'Spéciale (2e)': 'Special (2nd)', 'Talent (2e)': 'Talent (2nd)', 'Pause': 'Pause', 'Codex': 'Codex', 'Retour': 'Back', 'Musique': 'Music', 'Général': 'Master', 'Bruitages': 'Sound effects',
@@ -109,11 +112,11 @@ LANG_EN.frag = [
 
 // ---------- moteur ----------
 const Langue = {
-  en: false, cache: new Map(), regles: [],
+  en: false, L: LANG_EN, cache: new Map(), regles: [],
   preparer() {
     const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // un morceau qui commence ou finit par une lettre ne remplace qu'un mot entier (« Apprenti » ne touche pas « Apprentice »)
-    this.regles = LANG_EN.frag.slice().sort((a, b) => b[0].length - a[0].length).map(([fr, en]) => {
+    this.regles = this.L.frag.slice().sort((a, b) => b[0].length - a[0].length).map(([fr, en]) => {
       let n = 0;
       let src = esc(fr).replace(/#/g, '(\\d+(?:[.,]\\d+)?)');
       if (/^\p{L}/u.test(fr)) src = '(?<!\\p{L})' + src;
@@ -127,7 +130,7 @@ const Langue = {
     const c = this.cache.get(s); if (c !== undefined) return c;
     const brut = s.trim();
     let r;
-    if (LANG_EN.exact[brut] !== undefined) r = s.replace(brut, LANG_EN.exact[brut]);
+    if (this.L.exact[brut] !== undefined) r = s.replace(brut, this.L.exact[brut]);
     else { r = s; for (const g of this.regles) r = r.replace(g.re, g.rep); }
     if (this.cache.size > 4000) this.cache.clear();
     this.cache.set(s, r); return r;
@@ -142,7 +145,7 @@ const Langue = {
   },
   // remplace les textes des données du jeu
   donnees() {
-    const L = LANG_EN, set = (o, k, v) => { if (o && v !== undefined) o[k] = v; };
+    const L = this.L, set = (o, k, v) => { if (o && v !== undefined) o[k] = v; };
     for (const [id, [n, c]] of Object.entries(L.atk)) if (ATK[id]) { ATK[id].nom = n; ATK[id].conseil = c; }
     for (const [cat, liste] of [['p', PRIM], ['s', SPEC], ['t', TAL]]) for (const a of liste) { const x = L.arme[cat][a.id]; if (x) { a.nom = x[0]; a.desc = x[1]; } }
     for (const [id, [n, m]] of Object.entries(L.esp)) if (ESPECES[id]) { ESPECES[id].nom = n; ESPECES[id].meca = m; }
@@ -152,7 +155,7 @@ const Langue = {
     for (const [id, [n, d]] of Object.entries(L.cartes)) if (CARTES[id]) { CARTES[id].nom = n; CARTES[id].desc = d; }
     for (const [id, [n, d]] of Object.entries(L.invoc)) if (INVOC[id]) { INVOC[id].nom = n; INVOC[id].desc = d; }
     for (const s of SKINS) set(s, 'nom', L.skins[s.id]);
-    for (const t of TITRES) { const x = L.titres[t.id]; if (x) { t.nom = x[0]; t.desc = x[1]; } else if (t.esp && ESPECES[t.esp]) { const nm = ESPECES[t.esp].nom; t.nom = 'Bane of ' + nm; t.desc = 'Complete the 5 mastery challenges of ' + nm + '.'; } }
+    for (const t of TITRES) { const x = L.titres[t.id]; if (x) { t.nom = x[0]; t.desc = x[1]; } else if (t.esp && ESPECES[t.esp]) { const nm = ESPECES[t.esp].nom; t.nom = (L.fleau || (n => 'Bane of ' + n))(nm); t.desc = (L.fleauDesc || (n => 'Complete the 5 mastery challenges of ' + n + '.'))(nm); } }
     REGIONS.forEach((r, i) => { const x = L.regions[i]; if (x) { r.nom = x[0]; r.pnom = x[1]; r.pdesc = x[2]; } });
     for (const [id, l] of Object.entries(L.phrases)) if (PHRASES_ESP[id]) PHRASES_ESP[id] = l;
     if (typeof NOMS_PHASES !== 'undefined') L.phases.forEach((n, i) => { NOMS_PHASES[i] = n; });
@@ -161,17 +164,16 @@ const Langue = {
     for (const [k, n] of Object.entries(L.fam)) if (FAMILLES[k]) FAMILLES[k].nom = n;
     for (const [k, [n, d]] of Object.entries(L.diffs)) if (DIFFS[k]) { DIFFS[k].nom = n; DIFFS[k].desc = d; }
     L.defisM.forEach(([n, d], i) => { if (DEFIS_M[i]) { DEFIS_M[i].nom = n; DEFIS_M[i].desc = d; } });
-    if (typeof CAT_ATK !== 'undefined') Object.assign(CAT_ATK.zone, { nom: 'Telegraphed zones', desc: 'A zone fills up, then strikes.' }), Object.assign(CAT_ATK.balles, { nom: 'Projectiles', desc: 'Bullets, volleys and swarms.' }),
-      Object.assign(CAT_ATK.rayon, { nom: 'Beams', desc: 'A thin line announces the beam.' }), Object.assign(CAT_ATK.corps, { nom: 'Melee', desc: 'Charges, leaps and blows from the colossus itself.' }),
-      Object.assign(CAT_ATK.terrain, { nom: 'Terrain', desc: 'The ground changes: lava, frost, brambles…' }), Object.assign(CAT_ATK.invoc, { nom: 'Summons', desc: 'Creatures join the fight.' });
-    if (typeof CAT_NOM !== 'undefined') { CAT_NOM.p = 'Main weapons'; CAT_NOM.s = 'Special attacks'; CAT_NOM.t = 'Talents'; }
-    if (typeof deNom === 'function') deNom = n => 'of ' + n;
-    document.documentElement.lang = 'en';
+    // (catégories d'attaques : voir L.catAtk)
+    if (typeof deNom === 'function') deNom = L.deNom || (n => 'of ' + n);
+    if (L.catAtk && typeof CAT_ATK !== 'undefined') for (const [k, v] of Object.entries(L.catAtk)) if (CAT_ATK[k]) Object.assign(CAT_ATK[k], { nom: v[0], desc: v[1] });
+    if (L.catNom && typeof CAT_NOM !== 'undefined') Object.assign(CAT_NOM, L.catNom);
+    document.documentElement.lang = L.code || 'en';
   }
 };
-// ---------- branchements ----------
-(function () {
-  try { Langue.en = Save.d.opts.langue === 'en'; } catch (e) { }
+// ---------- branchements (lancés par lang-go.js, une fois toutes les langues chargées) ----------
+Langue.demarrer = function () {
+  try { const code = Save.d.opts.langue; if (code && code !== 'fr' && LANGS[code]) { Langue.en = true; Langue.L = LANGS[code]; } } catch (e) { }
   if (!Langue.en) return;
   Langue.preparer();
   try { Langue.donnees(); } catch (e) { console.warn('langue', e); }
@@ -181,4 +183,4 @@ const Langue = {
   P.measureText = function (t) { return m.call(this, Langue.t(t)); };
   const mo = UI.montrer.bind(UI);
   UI.montrer = function (html, classe) { mo(html, classe); try { Langue.dom(this.el); } catch (e) { } };
-})();
+};

@@ -1,6 +1,7 @@
 'use strict';
 /* Colosses — English translation, part 1: boss attacks (name, tip). */
 const LANG_EN = {};
+const LANGS = { en: LANG_EN }; // les autres langues s'ajoutent ici (lang-es.js, lang-de.js…)
 LANG_EN.atk = {
   salve: ['Radial Volley', 'Stand between two bullets. Each wave is slightly offset: slide the same way it turns.'],
   spirale: ['Spiral', 'Circle the boss in the same direction as the spiral, at a safe distance: the arms will miss you.'],
