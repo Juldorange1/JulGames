@@ -263,7 +263,7 @@ function noterChasse(esp, temps) {
   CHASSE_PALIERS.forEach((lim, i) => {
     if (temps <= lim && !c.paliers.includes(i)) {
       c.paliers.push(i);
-      const txt = donnerFragment(i === 2 ? 'epique' : 'rare');
+      const n = i === 2 ? 5 : 3; gagnerEclats(n); const txt = '+' + n + ' cristaux'; // (plus de fragments gratuits : ils s'achètent)
       G.annonce('Chasse : palier ' + (i + 1) + ' réussi !', '#ffd86b', 2.2); G.texte(G.p.x, G.p.y - 70, txt, '#ffd86b', 14);
     }
   });

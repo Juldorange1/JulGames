@@ -398,7 +398,7 @@ const G = {
     Arene.appliquer(this.def.phases[0].carte);
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
-    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.1 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
+    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? .9 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
     if (this.format() === 'abysses' && this.defi) this.dmgE *= Math.min(2.6, 1 + .12 * this.defi.i); // Abysses : les coups font de plus en plus mal
     this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
@@ -445,8 +445,7 @@ const G = {
     const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; if (ecl) gagnerEclats(ecl); else Save.write();
     this.gainCristaux = { n: ecl, demi: !ecl, t: 0, x: b.x, y: b.y };
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
-    else if (this.def.mega) { gains.push(donnerFragment('rare')); gains.push(donnerFragment('rare')); }
-    else if (R() < .3) gains.push(donnerFragment());
+    else if (this.def.mega) { gagnerEclats(2); gains.push('+2 cristaux'); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
     if (this.mode === 'normal') noterChasse(this.def.esp, this.chrono);
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
@@ -501,7 +500,7 @@ const G = {
     const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
     res.ancien = ancien; res.record = mieux;
     if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
-    if (reussi && df.type !== 'abysses') { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, donnerFragment(), '#ffd86b', 15); }
+    if (reussi && df.type !== 'abysses') { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, '+4 cristaux', '#bfefff', 15); }
     if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });

@@ -26,7 +26,7 @@ const Roulette = {
     try { iconiser(ov); } catch (e) { } try { if (typeof Langue !== 'undefined') Langue.dom(ov); } catch (e) { }
     const bandeEl = ov.querySelector('.rl-bande'), fen = ov.querySelector('.rl-fenetre');
     const fin = cible * LARG - (fen.clientWidth / 2 - LARG / 2) + (Math.random() * 60 - 30);
-    const duree = 3800, t0 = performance.now(); let derniere = -1;
+    const duree = 1500, t0 = performance.now(); let derniere = -1;
     const pas = () => {
       const k = Math.min(1, (performance.now() - t0) / duree), e = 1 - Math.pow(1 - k, 4); // ralentit à la fin
       const x = fin * e; bandeEl.style.transform = `translateX(${-x}px)`;
