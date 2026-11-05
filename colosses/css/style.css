@@ -384,3 +384,5 @@ html, body { touch-action: manipulation; }
 #tactile.mort .tz, #tactile.mort .tb { display: none; }
 #tactile .tmort button { font: 700 20px Cinzel, Georgia, serif; padding: 14px 26px; border-radius: 8px; border: 1px solid #ffe3a0; background: linear-gradient(180deg, #d9b46a, #9a7a3a); color: #1a1206; }
 #tactile .tmort .tm-menu, #tactile .tmort .tm-ral { background: rgba(20,16,12,.85); color: #f1e6c8; border-color: rgba(201,168,101,.6); }
+.skin[disabled] { opacity: .45; filter: grayscale(.6); cursor: not-allowed; }
+button[disabled] { cursor: not-allowed; }
