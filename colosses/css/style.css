@@ -363,3 +363,24 @@ h4.cx-cat small { color: #9a94ad; font-family: system-ui, sans-serif; font-weigh
 @keyframes rlPulse { from { box-shadow: 0 0 14px var(--r), 0 0 30px var(--r); } to { box-shadow: 0 0 26px var(--r), 0 0 64px var(--r); } }
 .rl-repere { position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; margin-left: -1.5px; background: #ffd86b; box-shadow: 0 0 10px #ffd86b; }
 .rl-res { font-family: Cinzel, Georgia, serif; font-size: 20px; font-weight: 700; min-height: 28px; margin: 14px 0 6px; }
+/* ---------- Tablette : commandes tactiles ---------- */
+html, body { touch-action: manipulation; }
+#jeu { touch-action: none; }
+#tactile { position: fixed; inset: 0; z-index: 4; display: none; pointer-events: none; }
+#tactile .tz { position: absolute; top: 60px; bottom: 0; pointer-events: auto; touch-action: none; }
+#tactile .tz-g { left: 0; width: 50%; }
+#tactile .tz-d { right: 0; width: 50%; }
+#tactile .tjoy { position: absolute; display: none; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; border: 2px solid rgba(255,230,180,.45); background: rgba(0,0,0,.18); pointer-events: none; }
+#tactile .tjoy i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255,220,150,.45); border: 2px solid rgba(255,240,200,.8); }
+#tactile #tjoy-d { border-color: rgba(255,140,120,.5); }
+#tactile #tjoy-d i { background: rgba(255,120,100,.45); }
+#tactile .tb { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; font: 700 15px Cinzel, Georgia, serif; color: #fff; border: 2px solid rgba(255,255,255,.6); }
+#tactile .tb-spec { right: 34px; bottom: 150px; width: 92px; height: 92px; background: rgba(60,120,255,.45); }
+#tactile .tb-tal { right: 140px; bottom: 70px; width: 86px; height: 86px; background: rgba(60,200,120,.45); }
+#tactile .tb-pause { right: 14px; top: 14px; width: 52px; height: 52px; background: rgba(0,0,0,.5); font-size: 18px; }
+#tactile .tb.appui { filter: brightness(1.6); transform: scale(.94); }
+#tactile .tmort { display: none; position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); gap: 14px; pointer-events: auto; }
+#tactile.mort .tmort { display: flex; }
+#tactile.mort .tz, #tactile.mort .tb { display: none; }
+#tactile .tmort button { font: 700 20px Cinzel, Georgia, serif; padding: 14px 26px; border-radius: 8px; border: 1px solid #ffe3a0; background: linear-gradient(180deg, #d9b46a, #9a7a3a); color: #1a1206; }
+#tactile .tmort .tm-menu, #tactile .tmort .tm-ral { background: rgba(20,16,12,.85); color: #f1e6c8; border-color: rgba(201,168,101,.6); }

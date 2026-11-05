@@ -328,8 +328,9 @@ const UI = {
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +
       `<div class="rang"><button data-a="conseilsRaz">Revoir les explications</button><button data-a="plein">⛶ Plein écran</button></div>`;
+    else if (onglet === 'manette') corps = UI._corpsManette ? UI._corpsManette(op) : '';
     else corps = [['haut', '⬆ Haut'], ['bas', '⬇ Bas'], ['gauche', '⬅ Gauche'], ['droite', '➡ Droite'], ['tir', '🔫 Arme'], ['spec', '💥 Spéciale'], ['spec2', '💥 Spéciale (2e)'], ['tal', '💨 Talent'], ['tal2', '💨 Talent (2e)'], ['pause', '⏸ Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique sur une case puis appuie sur une touche <b>ou un bouton de la souris</b> (Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.</p><p class="mini"><b>Manette</b> : stick gauche = bouger, stick droit = viser, gâchette droite = tirer, RB ou gâchette gauche = spéciale, A ou LB = talent, Start = pause. Dans les menus : croix ou stick = choisir, A = valider, B = retour. En coop, le joueur 2 joue à la manette.</p><div class="rang"><button data-a="touchesDef">Touches par défaut</button></div>';
-    const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches']];
+    const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches'], ['manette', '🎮 Manette']];
     this.montrer(`
       <div class="panneau court">
         <div class="barre-titre"><button class="rond" data-a="retour" data-echap title="Retour">←</button><h2>⚙ Paramètres</h2></div>

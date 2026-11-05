@@ -30,14 +30,17 @@ const Manette = {
     if (enJeu) {
       this.tenir(K.gauche, lx < -.3 || B(14)); this.tenir(K.droite, lx > .3 || B(15));
       this.tenir(K.haut, ly < -.3 || B(12)); this.tenir(K.bas, ly > .3 || B(13));
-      this.tenir(K.tir, B(7));
-      this.tenir(K.spec, B(5) || B(6));
-      this.tenir(K.tal, B(0) || B(4));
-      if (nouveau(9)) this.frapper('Escape');
+      const C = MANETTE_CFG(), A = act => (C[act] || []).some(i => B(i));
+      this.tenir(K.tir, A('tir'));
+      this.tenir(K.spec, A('spec'));
+      this.tenir(K.tal, A('tal'));
+      if ((C.pause || []).some(i => nouveau(i))) this.frapper('Escape');
       // visée au stick droit : un point devant le héros, converti en position d'écran (comme la souris)
-      if (Math.hypot(rx, ry) > .35 && G.p) this.visee = Math.atan2(ry, rx);
+      // visée douce : le viseur tourne vers la direction du stick à une vitesse réglable, à une distance selon l'inclinaison
+      const inc = Math.hypot(rx, ry), sens = MANETTE_CFG().sens || .5;
+      if (inc > .35 && G.p) { const voulu = Math.atan2(ry, rx); if (this.visee === null) this.visee = voulu; else this.visee += clamp(angDiff(this.visee, voulu), -sens * 9 / 60, sens * 9 / 60); this.portee = 110 + 150 * Math.min(1, inc); }
       if (this.visee !== null && G.p && typeof scale !== 'undefined') {
-        const wx = G.p.x + Math.cos(this.visee) * 240, wy = G.p.y + Math.sin(this.visee) * 240;
+        const wx = G.p.x + Math.cos(this.visee) * (this.portee || 220), wy = G.p.y + Math.sin(this.visee) * (this.portee || 220);
         Input.sx = offX + wx * scale; Input.sy = offY + wy * scale;
       }
     } else {

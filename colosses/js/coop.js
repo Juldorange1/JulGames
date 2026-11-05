@@ -17,8 +17,9 @@ const Coop = {
     const lx = Math.abs(ax[0]) > .3 ? ax[0] : 0, ly = Math.abs(ax[1]) > .3 ? ax[1] : 0, rx = ax[2] || 0, ry = ax[3] || 0;
     const set = (c, v) => { if (!c) return; if (v && !this.k[c]) this.pp[c] = true; this.k[c] = v; };
     set(K.gauche, lx < -.3 || B(14)); set(K.droite, lx > .3 || B(15)); set(K.haut, ly < -.3 || B(12)); set(K.bas, ly > .3 || B(13));
-    set(K.tir, B(7)); set(K.spec, B(5) || B(6)); set(K.tal, B(0) || B(4));
-    this.visee = Math.hypot(rx, ry) > .35 ? Math.atan2(ry, rx) : null;
+    const C = MANETTE_CFG(), A = act => (C[act] || []).some(i => B(i));
+    set(K.tir, A('tir')); set(K.spec, A('spec')); set(K.tal, A('tal'));
+    if (Math.hypot(rx, ry) > .35) { const voulu = Math.atan2(ry, rx), sens = MANETTE_CFG().sens || .5; this.visee = this.visee === null ? voulu : this.visee + clamp(angDiff(this.visee, voulu), -sens * 9 / 60, sens * 9 / 60); } else this.visee = null;
   },
   creerJ2() {
     const p = creerJoueur(DF().pv); p.hp = p.hpMax; p.j2 = true; p.x = CX + 70; p.y = AR.y + AR.h * .82; p.iframe = 1.5;
