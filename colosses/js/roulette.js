@@ -21,19 +21,23 @@ const Roulette = {
     const cible = 28; bande[cible] = gagne;
     const LARG = 120;
     const ov = document.createElement('div'); ov.className = 'roulette';
-    ov.innerHTML = `<div class="rl-cadre"><h3>⟦ui:cadeau⟧ Fragment au hasard</h3><div class="rl-fenetre"><div class="rl-bande">${bande.map(s => `<div class="rl-case" style="--r:${RARETES[s.rar].col}">${apercuSkin(s)}<b>${s.nom}</b><small>${RARETES[s.rar].nom}</small></div>`).join('')}</div><div class="rl-repere"></div></div><p class="rl-res"></p><div class="rang"><button class="rl-ok" disabled>OK</button></div></div>`;
+    ov.innerHTML = `<div class="rl-cadre"><h3>⟦ui:cadeau⟧ Fragment au hasard</h3><div class="rl-fenetre"><div class="rl-bande">${bande.map(s => `<div class="rl-case" style="--r:${RARETES[s.rar].col}">${apercuSkin(s)}<b>${s.nom}</b><small>${RARETES[s.rar].nom}</small></div>`).join('')}</div><div class="rl-repere"></div></div><p class="rl-res"></p><p class="mini rl-passer">Clic ou Espace : passer l'animation</p><div class="rang"><button class="rl-ok" disabled>OK</button></div></div>`;
     UI.el.appendChild(ov);
     try { iconiser(ov); } catch (e) { } try { if (typeof Langue !== 'undefined') Langue.dom(ov); } catch (e) { }
     const bandeEl = ov.querySelector('.rl-bande'), fen = ov.querySelector('.rl-fenetre');
     const fin = cible * LARG - (fen.clientWidth / 2 - LARG / 2) + (Math.random() * 60 - 30);
-    const duree = 1500, t0 = performance.now(); let derniere = -1;
+    const duree = 1500, t0 = performance.now(); let derniere = -1, passe = false;
+    // passer l'animation : un clic n'importe où (ou Espace / Entrée) va directement au résultat
+    ov.addEventListener('click', ev => { if (!ev.target.classList.contains('rl-ok')) { ev.stopPropagation(); passe = true; } });
+    const touche = ev => { if (ev.code === 'Space' || ev.code === 'Enter' || ev.code === 'Escape') { passe = true; } }; addEventListener('keydown', touche);
     const pas = () => {
-      const k = Math.min(1, (performance.now() - t0) / duree), e = 1 - Math.pow(1 - k, 4); // ralentit à la fin
+      const k = passe ? 1 : Math.min(1, (performance.now() - t0) / duree), e = 1 - Math.pow(1 - k, 4); // ralentit à la fin
       const x = fin * e; bandeEl.style.transform = `translateX(${-x}px)`;
       const caseIdx = Math.floor((x + fen.clientWidth / 2) / LARG); if (caseIdx !== derniere) { derniere = caseIdx; Son.play('clic'); }
       if (k < 1) requestAnimationFrame(pas);
       else {
         bandeEl.style.transform = `translateX(${-(cible * LARG - (fen.clientWidth / 2 - LARG / 2))}px)`;
+        removeEventListener('keydown', touche);
         const c = bandeEl.children[cible]; c.classList.add('gagne'); Son.play('ramasse');
         const res = ov.querySelector('.rl-res'); res.textContent = texte; res.style.color = RARETES[gagne.rar].col;
         try { if (typeof Langue !== 'undefined') Langue.dom(ov); } catch (e) { }

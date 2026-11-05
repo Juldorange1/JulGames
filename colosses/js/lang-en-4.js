@@ -39,7 +39,7 @@ LANG_EN.frag = [
   ['Plus bas = le viseur tourne plus lentement et plus précisément. Déplacement : stick gauche ou croix (toujours).', 'Lower = the crosshair turns more slowly and precisely. Movement: left stick or D-pad (always).'],
   ['Sensibilité de la visée', 'Aim sensitivity'], ['Manette par défaut', 'Default controller'], ['… appuie sur un bouton', '… press a button'], ['Attaque spéciale', 'Special attack'], ['Tirer', 'Shoot'],
   ['A / Croix', 'A / Cross'], ['B / Rond', 'B / Circle'], ['X / Carré', 'X / Square'], ['Stick gauche (clic)', 'Left stick (click)'], ['Stick droit (clic)', 'Right stick (click)'], ['Croix ', 'D-pad '], ['Bouton central', 'Home button'],
-  ['Réessayer', 'Retry'], ['Ralenti', 'Slow-mo'], ['Débloqué : ', 'Unlocked: '], ['Fragment au hasard', 'Random fragment'],
+  ['Réessayer', 'Retry'], ['Clic ou Espace : passer l\'animation', 'Click or Space: skip the animation'], ['Ralenti', 'Slow-mo'], ['Débloqué : ', 'Unlocked: '], ['Fragment au hasard', 'Random fragment'],
   ['Clique sur une case puis appuie sur une touche', 'Click a box, then press a key'], ['ou un bouton de la souris', 'or a mouse button'],
   ['(Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.', '(Esc: cancel). The same keys are used everywhere: runs, challenges, Abyss, training.'],
   ['Le boss et toi repartez à pleine vie, avec les mêmes armes · Échap — menu', 'You and the boss start again at full health, with the same weapons · Esc — menu'],

@@ -306,7 +306,7 @@ const G = {
     const k = this.repriseAbysses();
     this.defi = { type: 'abysses', format: 'abysses', cle: '∞', mut: [], boss: [], i: k, temps: 0, tues: k, degats: 0, coups: 0, depart: k };
     // les mutations qu'on aurait déjà eues à cette profondeur (une tous les 2 boss)
-    for (let j = 2; j < k && this.defi.mut.length < 6; j += 2) { const m = R.pick(Object.keys(MUTATEURS).filter(x => !this.defi.mut.includes(x) && x !== 'verre' && x !== 'jeune')); if (m) this.defi.mut.push(m); }
+    for (let j = 4; j < k && this.defi.mut.length < 4; j += 4) { const m = R.pick(Object.keys(MUTATEURS).filter(x => !this.defi.mut.includes(x) && x !== 'verre' && x !== 'jeune')); if (m) this.defi.mut.push(m); }
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
   },
@@ -358,15 +358,15 @@ const G = {
     } else {
       const df = this.defi;
       if (df.format === 'abysses' && !df.boss[df.i]) {
-        if (df.i && df.i % 2 === 0 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
-        df.boss[df.i] = { salle: 3 + df.i * 2, seed: R.int(1, 2e9), mega: false, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
+        if (df.i && df.i % 4 === 0 && df.mut.length < 4) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
+        df.boss[df.i] = { salle: 2 + df.i, seed: R.int(1, 2e9), mega: false, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
       }
       const b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
       def = genBoss(b.salle, b.seed, b.mega, []); ars = b.ars;
-      if (df.format === 'abysses') { const r = RNG(b.seed + 3); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, Math.min(3, Math.floor(df.i / 2)))) def.traits.push(t); }
+      if (df.format === 'abysses') { const r = RNG(b.seed + 3); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, Math.min(2, Math.floor(df.i / 5)))) def.traits.push(t); }
       // Abysses : chaque boss attaque plus vite, plus dense, avec moins de répit (les annonces restent au minimum garanti)
-      if (df.format === 'abysses') { const k = df.i; def.D.S *= Math.min(1.45, 1 + .045 * k); def.D.C *= Math.min(1.55, 1 + .05 * k); def.D.T = Math.max(.6, def.D.T * Math.max(.72, 1 - .025 * k)); def.idle *= Math.max(.55, 1 - .04 * k); }
+      if (df.format === 'abysses') { const k = df.i; def.D.S *= Math.min(1.3, 1 + .02 * k); def.D.C *= Math.min(1.35, 1 + .022 * k); def.D.T = Math.max(.65, def.D.T * Math.max(.82, 1 - .012 * k)); def.idle *= Math.max(.7, 1 - .018 * k); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
       if (df.format === 'deluge') def.indestructible = true;
@@ -398,8 +398,8 @@ const G = {
     Arene.appliquer(this.def.phases[0].carte);
     this.boss = creerBoss(this.def);
     initBoss(this.boss);
-    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? .9 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
-    if (this.format() === 'abysses' && this.defi) this.dmgE *= Math.min(2.6, 1 + .12 * this.defi.i); // Abysses : les coups font de plus en plus mal
+    this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.12 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
+    if (this.format() === 'abysses' && this.defi) this.dmgE *= Math.min(1.8, 1 + .05 * this.defi.i); // Abysses : les coups font de plus en plus mal
     this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
     const cx = d.codex;

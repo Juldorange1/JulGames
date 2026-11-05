@@ -9,7 +9,7 @@ const _genSouv = genBoss;
 genBoss = function (salle, seed, mega, eviter) {
   const def = _genSouv.apply(this, arguments);
   // méga boss un peu moins durs : un peu plus lents, moins denses, plus de répit, annonces un peu plus longues
-  if (def && def.mega && def.D) { def.D.S *= .92; def.D.C *= .88; def.D.T = Math.min(1.1, def.D.T * 1.08); def.idle *= 1.18; }
+  if (def && def.mega && def.D && !estSouverain(salle)) { def.D.S = Math.min(1.75, def.D.S * 1.06); def.D.C *= 1.06; def.idle *= .95; } // un peu plus rapide et dense qu'un boss normal
   if (!estSouverain(salle) || !def || !def.phases) return def;
   try {
     const cycle = Math.floor(salle / 30), r = RNG(hashNum(seed * 7 + 99));

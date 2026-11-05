@@ -104,12 +104,12 @@ function genBoss(salle, seed, mega, eviter) {
   }
   // le combat change en route : à partir de la salle 6, souvent une 3e phase (nouvelle attaque + attaque de fond) ;
   // les méga boss ont toujours une phase de plus et une attaque inédite par phase
-  if (mega && salle >= 5) src.forEach(ph => { const extra = r.pick(pool.filter(id => !ph.cycle.includes(id) && ATK[id].cat !== 'terrain')); ph.cycle.splice(r.int(1, ph.cycle.length), 0, extra); });
-  if (mega || (salle >= 4 && r.chance(Math.min(.9, .55 + .015 * salle)))) {
+  // (les méga boss ont désormais les mêmes attaques qu'un boss normal : ils ne sont que 25 % plus durs)
+  if (salle >= 4 && r.chance(Math.min(.9, .55 + .015 * salle))) {
     const last = src[src.length - 1], extra = r.pick(pool.filter(id => !last.cycle.includes(id)));
     src.push({ cycle: last.cycle.concat([extra]), finale: true });
   }
-  const invoc = !esp.pasInvoc && salle >= 3 && (r.chance(.42) || (mega && r.chance(.6))) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle', 'totem', 'poseur']) : null;
+  const invoc = !esp.pasInvoc && salle >= 3 && r.chance(.42) ? r.pick(['larve', 'tireur', 'kamikaze', 'tourelle', 'totem', 'poseur']) : null;
   // plus d'attaques différentes dans chaque phase (2 de plus, tirées dans tout le catalogue, en respectant les limites)
   src.forEach(ph => {
     const parCat = {}; let lourds = 0;
@@ -125,9 +125,9 @@ function genBoss(salle, seed, mega, eviter) {
   const phases = src.map((ph, i) => {
     if (ph.carte) carte = ph.carte;
     else if (i === 0) carte = salle >= 6 && r.chance(.25) ? r.pick(['cercle', 'piliers', 'lave', 'glace']) : 'normale';
-    else if (mega || r.chance(.7)) carte = r.pick(Object.keys(CARTES).filter(k => k !== carte));
+    else if (r.chance(.7)) carte = r.pick(Object.keys(CARTES).filter(k => k !== carte));
     const cyc = ph.cycle.slice();
-    if (invoc && (i >= 1 || mega)) cyc.splice(1, 0, 'invocation');
+    if (invoc && i >= 1) cyc.splice(1, 0, 'invocation');
     const rr = esp.chimere ? r : rp;
     const fondId = ph.finale || i >= 1 ? r.pick(ATK_FOND) : null; // dès la 2e phase, une attaque de fond se superpose
     return {
@@ -139,11 +139,10 @@ function genBoss(salle, seed, mega, eviter) {
     };
   });
   let nTr = salle < 4 ? 0 : salle < 10 ? (r.chance(.45) ? 1 : 0) : 1 + (r.chance(.3) ? 1 : 0);
-  if (mega) nTr = salle >= 20 ? Math.min(2, nTr + 1) : Math.min(1, nTr);
   const traits = r.shuffle(Object.keys(TRAITS).filter(t => !(esp.sansTraits || []).includes(t))).slice(0, nTr);
   // vie mesurée par un robot qui joue parfaitement : 1 à 2 min par combat, méga boss compris (ils ont plus d'attaques,
   // pas plus de vie) ; les PV sont les mêmes dans toutes les difficultés, la difficulté change le rythme et les dégâts
-  const hpMax = Math.round(12200 * (1 + .003 * Math.min(salle, 60)) * (mega ? .9 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1) * traits.reduce((m, t) => m * ({ carapace: .88, cristaux: .88, regen: .95, souffle: .92, dos: .92, miroir: .95, spectral: .92 }[t] || 1), 1));
+  const hpMax = Math.round(12200 * (1 + .003 * Math.min(salle, 60)) * (mega ? 1.25 : 1) * (.95 + .05 * phases.length) * (esp.pv || 1) * traits.reduce((m, t) => m * ({ carapace: .88, cristaux: .88, regen: .95, souffle: .92, dos: .92, miroir: .95, spectral: .92 }[t] || 1), 1));
   const look = esp.forme ? Object.assign({}, esp.forme) : {
     cotes: r.int(3, 9), style: formePourAttaques((() => { const k = {}; for (const q of phases) for (const a of q.cycle) { const cc = ATK[a.id].cat; k[cc] = (k[cc] || 0) + 1; } return k; })(), r), pics: r.int(0, 12), picL: r.range(.15, .45),
     yeux: r.int(1, 4), sats: r.int(0, 5), anneaux: r.int(0, 2), rot: r.range(.15, .6) * r.sign(), creux: r.range(.35, .6)
@@ -154,7 +153,7 @@ function genBoss(salle, seed, mega, eviter) {
   return {
     elem: ELEM_ESPECE[espId] || r.pick(Object.keys(ELEMENTS)),
     seed, salle, mega, esp: espId, nom, titre: esp.chimere ? 'la Chimère' : esp.nom, hue, col: hsl(hue, 100, 66), D, traits, invoc, phases, hpMax,
-    r: Math.round((esp.r || r.int(46, 60)) * (mega ? 1.25 : 1)), mouv: esp.mouv || r.pick(['ancre', 'traqueur', 'errant', 'orbiteur', 'clignotant']),
+    r: Math.round((esp.r || r.int(46, 60)) * (mega ? 1.15 : 1)), mouv: esp.mouv || r.pick(['ancre', 'traqueur', 'errant', 'orbiteur', 'clignotant']),
     idle: r.range(.7, 1) * Math.max(.5, 1 - .01 * salle) * df.idle, look
   };
 }
