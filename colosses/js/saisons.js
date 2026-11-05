@@ -1,8 +1,7 @@
 'use strict';
-/* Colosses — événements de saison et légendes des colosses.
-   • Selon la date, une saison est active (Nuit des citrouilles, Fêtes du givre, Éveil des fleurs, Feux de l'été) :
-     décor animé dans l'arène et au menu, et 4 apparences de saison achetables avec des cristaux, seulement pendant
-     la saison (une fois achetées, elles restent pour toujours).
+/* Colosses — apparences de saison et légendes des colosses.
+   • Selon la date, quelques apparences de saison apparaissent dans la garde-robe pendant un temps (Halloween, hiver,
+     printemps, été) et s'achètent avec des cristaux. Une fois achetées, elles restent à toi.
    • Légendes : chaque espèce a une courte histoire, débloquée dans le Codex après 3 victoires contre elle. */
 
 // ---------- saisons ----------
@@ -47,123 +46,8 @@ SKINS.push(
   { id: 'r_canicule', slot: 'aura', nom: 'Canicule', rar: 'saison', saison: 'ete', col: 'rgba(255,200,60,.38)' }
 );
 
-// garde-robe : bandeau de la saison en cours
-const _gardeSaison = UI.garderobe;
-UI.garderobe = function (slot) {
-  const r = _gardeSaison.apply(this, arguments);
-  try {
-    const s = saisonActive(), ec = this.el.querySelector('.eclats');
-    if (ec) {
-      const d = document.createElement('div'); d.className = 'saison-ban'; d.style.setProperty('--sc', s ? s.col : '#9a94ad');
-      if (s) {
-        const l = SKINS.filter(k => k.saison === s.id), ok = l.filter(k => possede(k.id)).length;
-        d.innerHTML = `<b>${s.ico} Événement : ${s.nom}</b><span>${periodeSaison(s)} · ${l.length} apparences de saison, ${PRIX_FRAG.saison} 💎 chacune (${ok} / ${l.length} obtenues). Elles restent à toi pour toujours.</span>`;
-      } else {
-        const v = new Date(), suiv = SAISONS.map(x => { let y = v.getFullYear(); let dt = new Date(y, x.de[0] - 1, x.de[1]); if (dt < v) dt = new Date(y + 1, x.de[0] - 1, x.de[1]); return { x, dt }; }).sort((a, b) => a.dt - b.dt)[0];
-        d.innerHTML = `<b>📅 Pas d'événement en ce moment</b><span>Prochain : ${suiv.x.ico} ${suiv.x.nom} (${periodeSaison(suiv.x)}). Les apparences de saison ne s'achètent que pendant leur saison.</span>`;
-      }
-      ec.before(d);
-      if (typeof Langue !== 'undefined' && Langue.en) Langue.dom(d);
-    }
-  } catch (e) { console.warn('saison', e); }
-  return r;
-};
-// menu : petit bandeau de la saison sous le titre
-const _menuSaison = UI.menu;
-UI.menu = function () {
-  const r = _menuSaison.apply(this, arguments);
-  try {
-    const s = saisonActive(), j = this.el && this.el.querySelector('.accueil .jouer');
-    if (s && j) {
-      const b = document.createElement('button'); b.className = 'saison-menu'; b.dataset.a = 'garderobe'; b.style.setProperty('--sc', s.col);
-      b.innerHTML = `${s.ico} ${s.nom} : apparences de saison dans la garde-robe`;
-      b.addEventListener('click', ev => { ev.stopPropagation(); Son.play('clic'); this.action('garderobe', b); });
-      j.before(b);
-      if (typeof Langue !== 'undefined' && Langue.en) Langue.dom(b);
-    }
-  } catch (e) { }
-  return r;
-};
-
-// ---------- décor de saison (arène et menu) ----------
-const DecorSaison = {
-  parts: [], t0: 0, id: null,
-  maj() {
-    const s = saisonActive(); if (!s) { this.parts.length = 0; return null; }
-    const now = performance.now(), dt = this.t0 ? Math.min(.05, (now - this.t0) / 1000) : 0; this.t0 = now;
-    const n = G.opts && G.opts.effetsReduits ? 14 : (G.etat === 'menu' || !G.p ? 42 : 26); // moins dans l'arène : le combat reste lisible
-    if (this.id !== s.id) { this.parts.length = 0; this.id = s.id; }
-    if (this.parts.length > n) this.parts.length = n;
-    while (this.parts.length < n) this.parts.push(this.nouvelle(s, true));
-    for (const q of this.parts) {
-      q.ph += dt; q.x += (q.vx + Math.sin(q.ph * q.f) * q.amp) * dt; q.y += q.vy * dt; q.a += q.va * dt;
-      if (q.y > H + 30 || q.y < -60 || q.x < -60 || q.x > W + 60) Object.assign(q, this.nouvelle(s, false));
-    }
-    return s;
-  },
-  nouvelle(s, partout) {
-    const R0 = Math.random, p = s.part;
-    const q = { x: R0() * W, y: partout ? R0() * H : -20, ph: R0() * 10, f: .5 + R0(), amp: 20 + R0() * 30, a: R0() * TAU, va: R0() * 2 - 1, taille: 3 + R0() * 4, k: R0() };
-    if (p === 'neige') Object.assign(q, { vx: R0() * 20 - 10, vy: 30 + R0() * 40, taille: 1.5 + R0() * 2.5 });
-    else if (p === 'feuilles') Object.assign(q, { vx: 20 + R0() * 30, vy: 35 + R0() * 35, va: R0() * 4 - 2 });
-    else if (p === 'petales') Object.assign(q, { vx: 25 + R0() * 25, vy: 25 + R0() * 30, va: R0() * 3 - 1.5 });
-    else Object.assign(q, { x: R0() * W, y: partout ? R0() * H : H + 10, vx: R0() * 16 - 8, vy: -(6 + R0() * 14), amp: 30, taille: 2 + R0() * 2 });
-    return q;
-  },
-  dessiner(c, s, arene) {
-    c.save();
-    for (const q of this.parts) {
-      if (s.part === 'neige') { c.fillStyle = `rgba(255,255,255,${(arene ? .3 : .5) + .4 * q.k})`; c.beginPath(); c.arc(q.x, q.y, q.taille, 0, TAU); c.fill(); }
-      else if (s.part === 'feuilles') { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = arene ? .5 : .9; c.fillStyle = q.k < .5 ? 'rgb(230,120,30)' : q.k < .8 ? 'rgb(180,64,20)' : 'rgb(140,84,40)'; c.beginPath(); c.ellipse(0, 0, q.taille * 1.6, q.taille * .8, 0, 0, TAU); c.fill(); c.strokeStyle = 'rgba(60,20,0,.6)'; c.lineWidth = 1; c.beginPath(); c.moveTo(-q.taille * 1.6, 0); c.lineTo(q.taille * 1.6, 0); c.stroke(); c.restore(); }
-      else if (s.part === 'petales') { c.save(); c.translate(q.x, q.y); c.rotate(q.a); c.globalAlpha = arene ? .55 : .9; c.fillStyle = q.k < .6 ? 'rgb(255,170,215)' : 'rgb(255,225,240)'; c.beginPath(); c.ellipse(0, 0, q.taille * 1.3, q.taille * .7, 0, 0, TAU); c.fill(); c.restore(); }
-      else { const al = .4 + .6 * Math.max(0, Math.sin(q.ph * 2 + q.k * 6)); c.globalCompositeOperation = 'lighter'; c.drawImage(glow(`rgba(210,255,110,${.5 * al})`, 14), q.x - 14, q.y - 14); c.fillStyle = `rgba(240,255,170,${al})`; c.beginPath(); c.arc(q.x, q.y, q.taille * .7, 0, TAU); c.fill(); c.globalCompositeOperation = 'source-over'; }
-    }
-    // chauves-souris (Halloween) : deux qui traversent de temps en temps
-    if (s.id === 'halloween') {
-      const T = performance.now() / 1000;
-      for (let i = 0; i < 2; i++) {
-        const u = ((T * .07 + i * .5) % 1), x = -80 + u * (W + 160), y = 120 + i * 140 + Math.sin(T * 2 + i) * 30, bat = Math.sin(T * 18 + i) * .8;
-        c.save(); c.translate(x, y); c.fillStyle = 'rgba(20,6,24,.85)';
-        c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-12, -14 * bat, -26, -4 * bat); c.quadraticCurveTo(-16, 2, -8, 4); c.lineTo(0, 6); c.lineTo(8, 4); c.quadraticCurveTo(16, 2, 26, -4 * bat); c.quadraticCurveTo(12, -14 * bat, 0, 0); c.fill();
-        c.restore();
-      }
-      // citrouilles lumineuses aux coins de l'arène (ou au bas du menu)
-      const pts = arene ? [[AR.x + 46, AR.y + 46], [AR.x + AR.w - 46, AR.y + 46], [AR.x + 46, AR.y + AR.h - 40], [AR.x + AR.w - 46, AR.y + AR.h - 40]] : [[70, H - 60], [160, H - 44]];
-      for (const [x, y] of pts) citrouille(c, x, y, arene ? 22 : 30, T);
-    }
-    // voile de givre (hiver) ou chaleur (été) sur les bords
-    if (!arene && (s.id === 'hiver' || s.id === 'ete')) {
-      const g = c.createRadialGradient(W / 2, H / 2, 300, W / 2, H / 2, 820);
-      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, s.id === 'hiver' ? 'rgba(190,230,255,.18)' : 'rgba(255,180,60,.12)');
-      c.fillStyle = g; c.fillRect(0, 0, W, H);
-    }
-    c.restore();
-  }
-};
-function citrouille(c, x, y, r, T) {
-  c.save(); c.translate(x, y);
-  c.globalCompositeOperation = 'lighter'; c.drawImage(glow('rgba(255,140,30,.35)', r * 2.4), -r * 2.4, -r * 2.4); c.globalCompositeOperation = 'source-over';
-  c.fillStyle = '#d8661a'; c.strokeStyle = '#6a2a04'; c.lineWidth = 1.5;
-  for (const dx of [-.45, .45, 0]) { c.beginPath(); c.ellipse(dx * r, 0, r * .62, r * .78, 0, 0, TAU); c.fill(); c.stroke(); }
-  c.fillStyle = '#3a6a1a'; c.fillRect(-r * .08, -r * 1.02, r * .16, r * .3);
-  const fl = .75 + .25 * Math.sin(T * 9 + x);
-  c.fillStyle = `rgba(255,${200 + 40 * fl | 0},90,${fl})`;
-  for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * r * .42, -r * .2); c.lineTo(s * r * .18, -r * .2); c.lineTo(s * r * .3, -r * .42); c.closePath(); c.fill(); }
-  c.beginPath(); c.moveTo(-r * .45, r * .15); for (let i = 0; i <= 6; i++) c.lineTo(-r * .45 + i * r * .15, r * (i % 2 ? .28 : .42)); c.lineTo(r * .45, r * .15); c.quadraticCurveTo(0, r * .3, -r * .45, r * .15); c.fill();
-  c.restore();
-}
-const _ambSaison = Decor.dessinerAmbiance;
-Decor.dessinerAmbiance = function (c) {
-  const r = _ambSaison.apply(this, arguments);
-  try { if (G.opts.decorAnime !== false) { const s = DecorSaison.maj(); if (s) DecorSaison.dessiner(c, s, true); } } catch (e) { }
-  return r;
-};
-const _fondSaison = fondMenu;
-fondMenu = function () {
-  const r = _fondSaison.apply(this, arguments);
-  try { const s = DecorSaison.maj(); if (s) { const k = cv.width / W; ctx.setTransform(k, 0, 0, k, 0, (cv.height - H * k) / 2); DecorSaison.dessiner(ctx, s, false); } } catch (e) { }
-  return r;
-};
+// sur la carte de la garde-robe : jusqu'à quand on peut l'acheter
+function finSaison(id) { const x = SAISONS.find(k => k.id === id); return x ? "Saison · jusqu'au " + x.a[1] + ' ' + MOIS_C[x.a[0] - 1] : 'Saison'; }
 
 // ---------- légendes des colosses ----------
 const LEGENDES_VICT = 3;

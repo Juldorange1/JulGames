@@ -310,12 +310,21 @@ const G = {
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
   },
+  lancerSurvie() {
+    this.mode = 'survie'; this.finDefi = null;
+    const esp = R.pick(ESP_TOUTES());
+    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
+    Save.d.defis.survie.essais++; Save.write();
+    calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
+    this.entrerSalle();
+  },
   lancerDefi(type) {
     const df = defiCourant(type);
     this.mode = type; this.finDefi = null;
     this.defi = Object.assign(df, { i: 0, temps: 0, tues: 0, degats: 0, coups: 0 });
     const rec = Save.d.defis[type];
-    if (!rec || rec.cle !== df.cle) Save.d.defis[type] = { cle: df.cle, best: null, essais: 0 };
+    if (!rec || rec.cle !== df.cle || rec.format !== df.format) Save.d.defis[type] = { cle: df.cle, format: df.format, best: null, essais: 0 };
     Save.d.defis[type].essais++;
     Save.write();
     calcStats();
@@ -363,7 +372,7 @@ const G = {
       }
       const b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
-      def = genBoss(b.salle, b.seed, b.mega, []); ars = b.ars;
+      ESP_FORCE = b.esp || null; try { def = genBoss(b.salle, b.seed, b.mega, []); } finally { ESP_FORCE = null; } ars = b.ars;
       if (df.format === 'abysses') { const r = RNG(b.seed + 3); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, Math.min(4, Math.floor(df.i / 3)))) def.traits.push(t); }
       // Abysses : chaque boss attaque plus vite, plus dense, avec moins de répit (les annonces restent au minimum garanti)
       if (df.format === 'abysses') { const k = df.i; const f = (k / 10) * (k / 10); /* courbe : douce au début, très raide ensuite (1 à la profondeur 10) */ def.D.S *= 1 + .32 * f; def.D.C *= 1 + .4 * f; def.D.T = Math.max(.6, def.D.T * Math.max(.7, 1 - .2 * f)); def.idle *= Math.max(.4, 1 - .4 * f); def.hpMax = Math.round(def.hpMax * (1 + .3 * f)); }
@@ -442,10 +451,10 @@ const G = {
     // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
     const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
     F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
-    const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; if (ecl) gagnerEclats(ecl); else Save.write();
-    this.gainCristaux = { n: ecl, demi: !ecl, t: 0, x: b.x, y: b.y };
+    const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; const gk = ecl ? gagnerEclats(ecl) : 0; if (!ecl) Save.write();
+    this.gainCristaux = gk ? { n: gk, demi: false, t: 0, x: b.x, y: b.y } : null;
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
-    else if (this.def.mega) { gagnerEclats(2); gains.push('+2 cristaux'); } // les fragments d'apparence s'achètent seulement
+    else if (this.def.mega) { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
     if (this.mode === 'normal') noterChasse(this.def.esp, this.chrono);
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
@@ -500,7 +509,7 @@ const G = {
     const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
     res.ancien = ancien; res.record = mieux;
     if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
-    if (reussi && (df.type === 'jour' || df.type === 'semaine')) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); gagnerEclats(2); gagnerEclats(2); this.texte(this.p.x, this.p.y - 60, '+4 cristaux', '#bfefff', 15); }
+    if (reussi && (df.type === 'jour' || df.type === 'semaine')) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); this.texte(this.p.x, this.p.y - 60, txtCristaux(gagnerEclats(4)), '#bfefff', 15); }
     if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });
@@ -565,12 +574,13 @@ const G = {
   recommencer() {
     if (this.mode === 'normal' || this.mode === 'entrainement') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
     else if (this.mode === 'abysses') this.lancerAbysses();
+    else if (this.mode === 'survie') this.lancerSurvie();
     else this.lancerDefi(this.defi.type);
   },
   // relance le même combat, même boss, mêmes armes, tout le monde à pleine vie (sans compter de mort)
   relancer() {
     this.finDefi = null;
-    if (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses') return this.recommencer();
+    if (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses' || this.mode === 'survie') return this.recommencer();
     this.p = creerJoueur(DF().pv);
     this.entrerSalle();
   },
@@ -625,7 +635,7 @@ const FORMATS = {
 };
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
-  const format = type === 'jour' ? r.pick(['chrono', 'survie', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
+  const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
   const F = FORMATS[format];
   let salles = type === 'jour' ? [8, 14] : [8, 12, 16, 20, 24];
   if (F.un) salles = [type === 'jour' ? 10 : 18];

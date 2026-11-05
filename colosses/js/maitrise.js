@@ -29,10 +29,9 @@ noterMaitrise = function (esp) {
   if (m.minCoups === undefined || coups < m.minCoups) m.minCoups = coups;
   if (coups === 0) statPlus('parfaits');
   if (!s.plusRapide || t < s.plusRapide.t) s.plusRapide = { t: Math.round(t), nom: G.def.nom, esp, salle: G.salle };
-  const gain = nouveaux.reduce((n, D) => n + D.cristaux, 0);
-  if (gain) gagnerEclats(gain);
+  const gain0 = nouveaux.reduce((n, D) => n + D.cristaux, 0), gain = gain0 ? gagnerEclats(gain0) : 0;
   if (nouveaux.length) {
-    G.annonce('Maîtrise · ' + nomMaj(ESPECES[esp].nom) + ' : ' + nouveaux.map(D => D.nom).join(', ') + '  (+' + gain + ' cristaux)', '#ffd86b', 2.6);
+    G.annonce('Maîtrise · ' + nomMaj(ESPECES[esp].nom) + ' : ' + nouveaux.map(D => D.nom).join(', ') + (gain ? '  (' + txtCristaux(gain) + ')' : ''), '#ffd86b', 2.6);
     Son.play('ramasse');
   }
   Save.write();
@@ -93,7 +92,7 @@ UI.hautsFaits = function (o) {
       if (!v) return '<div class="entree inconnu"><b>???</b><p>Pas encore rencontrée.</p></div>';
       const n = etoiles(e);
       return `<div class="entree maitrise"><b style="color:${E.hue != null ? hsl(E.hue, 100, 66) : '#ddd'}">${nomMaj(E.nom)}</b><span class="cpt">${'★'.repeat(n)}${'☆'.repeat(4 - n)}${m.parfait ? ' <i class="or">✦</i>' : ''}</span>
-        <div class="defis-m">${DEFIS_M.map(D => `<span class="dm ${m[D.k] ? 'fait' : ''} ${D.or ? 'or' : ''}" title="${D.desc} · +${D.cristaux} cristaux">${m[D.k] ? '✔' : '·'} ${D.nom}</span>`).join('')}</div>
+        <div class="defis-m">${DEFIS_M.map(D => `<span class="dm ${m[D.k] ? 'fait' : ''} ${D.or ? 'or' : ''}" title="${D.desc} · ${txtCristaux(Math.max(1, Math.round(D.cristaux * TAUX_CRISTAUX)))}">${m[D.k] ? '✔' : '·'} ${D.nom}</span>`).join('')}</div>
         <div class="rec-m"><span>${m.tues || v.tues || 0} vaincu(s)</span><span>meilleur temps ${m.best ? fmtTemps(m.best) : '—'}</span><span>moins de coups ${m.minCoups !== undefined ? m.minCoups : '—'}</span></div></div>`;
     }).join('') + '</div>';
   } else if (o === 'titres') {

@@ -50,7 +50,7 @@ function nomBoss(r) { let n = r.pick(SYL1) + r.pick(SYL2); if (r.chance(.3)) n +
 // attaques d'espèce qui marchent sur n'importe quel boss : elles rejoignent le tirage commun
 const ATK_PARTAGEES = ['se_charge', 're_kamikazes', 'ho_aiguilles', 'ho_engrenages', 'bo_combo', 'bo_lames', 'px_plongeon', 'px_plumes'];
 const ESP_DES = {}; // espèces ajoutées plus tard : salle à partir de laquelle elles apparaissent
-let ESP_FORCE = null; // espèce imposée (Marathon)
+let ESP_FORCE = null; // espèce imposée (mode Survie : un boss au hasard parmi toutes les espèces)
 function genBoss(salle, seed, mega, eviter) {
   const r = RNG(seed), df = DF();
   const dispo = ESP_ORDRE.filter((e, i) => ESP_DES[e] ? salle >= ESP_DES[e] : i < 4 + Math.floor((salle - 1) / 2));

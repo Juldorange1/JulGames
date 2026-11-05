@@ -186,7 +186,7 @@ function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => 
 function donnerFragment(rarMin, slot) {
   const ordre = ['commun', 'rare', 'epique', 'mythique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
   const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire' && (!slot || s.slot === slot));
-  if (!dispo.length) { gagnerEclats(2); return '+2 cristaux'; }
+  if (!dispo.length) { forgeSave().eclats += 2; Save.write(); return '+2 cristaux'; } // remboursement (pas un gain)
   const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
   S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write();
   const n = S.frag[s.id], tot = RARETES[s.rar].frags;
@@ -194,7 +194,7 @@ function donnerFragment(rarMin, slot) {
 }
 function donnerLegendaire() {
   const dispo = SKINS.filter(s => s.rar === 'legendaire' && !possede(s.id));
-  if (!dispo.length) { gagnerEclats(5); return '+5 cristaux'; }
+  if (!dispo.length) { return txtCristaux(gagnerEclats(5)); }
   const s = R.pick(dispo); skinsSave().frag[s.id] = 1; Save.write();
   return SLOTS[s.slot] + ' légendaire : « ' + s.nom + ' »';
 }
@@ -239,7 +239,10 @@ const FORGE = {
 };
 const COUT_FORGE = 6;
 function forgeSave() { return Save.d.forge = Save.d.forge || { eclats: 0, debloque: {}, actif: {} }; }
-function gagnerEclats(n) { forgeSave().eclats += n; Save.write(); }
+// tous les gains de cristaux sont réduits de 25 % (les fractions s'accumulent d'un gain à l'autre) ; renvoie le nombre réellement gagné
+const TAUX_CRISTAUX = .75;
+function gagnerEclats(n) { const F = forgeSave(); F.fracG = (F.fracG || 0) + n * TAUX_CRISTAUX; const k = Math.floor(F.fracG + 1e-9); F.fracG -= k; F.eclats += k; Save.write(); return k; }
+const txtCristaux = k => '+' + k + (k > 1 ? ' cristaux' : ' cristal');
 function modForge() {
   return {}; // la forge n'existe plus : aucune arme ne se construit
   try {
@@ -263,7 +266,7 @@ function noterChasse(esp, temps) {
   CHASSE_PALIERS.forEach((lim, i) => {
     if (temps <= lim && !c.paliers.includes(i)) {
       c.paliers.push(i);
-      const n = i === 2 ? 5 : 3; gagnerEclats(n); const txt = '+' + n + ' cristaux'; // (plus de fragments gratuits : ils s'achètent)
+      const n = i === 2 ? 5 : 3, txt = txtCristaux(gagnerEclats(n)); // (plus de fragments gratuits : ils s'achètent)
       G.annonce('Chasse : palier ' + (i + 1) + ' réussi !', '#ffd86b', 2.2); G.texte(G.p.x, G.p.y - 70, txt, '#ffd86b', 14);
     }
   });

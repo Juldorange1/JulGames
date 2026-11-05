@@ -6,9 +6,9 @@
 const Amis = {
   liste() { return Save.d.amis || (Save.d.amis = []); },
   monScore() {
-    const d = Save.d, dj = defiCourant('jour'), ds = defiCourant('semaine');
+    const d = Save.d;
     const rec = t => { const x = d.defis[t], c = defiCourant(t); return x && x.cle === c.cle && x.best && x.best.score !== undefined ? { c: c.cle, s: x.best.score } : null; };
-    return { v: 1, n: (d.pseudo || 'Moi').slice(0, 16), t: d.titre || 'novice', r: ['apprenti', 'guerrier', 'cauchemar'].map(k => (d.prog[k] || {}).record || 0), a: (d.abysses || {}).best || 0, b: d.stats.boss || 0, dj: rec('jour'), ds: rec('semaine'), j: new Date().toISOString().slice(0, 10) };
+    return { v: 1, n: (d.pseudo || 'Moi').slice(0, 16), t: d.titre || 'novice', r: ['apprenti', 'guerrier', 'cauchemar'].map(k => (d.prog[k] || {}).record || 0), a: (d.abysses || {}).best || 0, b: d.stats.boss || 0, dj: rec('jour'), sv: ((d.defis.survie || {}).best || {}).score || 0, j: new Date().toISOString().slice(0, 10) };
   },
   somme(s) { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return (h % 65536).toString(16).padStart(4, '0'); },
   coder(o) { const b = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); return 'COLOSSES-' + b + '-' + this.somme(b); },
@@ -20,18 +20,18 @@ const Amis = {
       if (!o || o.v !== 1 || !Array.isArray(o.r)) return null;
       const num = x => Math.max(0, Math.min(1e7, +x || 0));
       const def = x => x && typeof x.c === 'string' ? { c: x.c.slice(0, 24), s: +x.s || 0 } : null;
-      return { v: 1, n: String(o.n || 'Ami').replace(/[<>&"']/g, '').slice(0, 16), t: String(o.t || '').replace(/[^a-z0-9_]/gi, '').slice(0, 30), r: o.r.slice(0, 3).map(num), a: num(o.a), b: num(o.b), dj: def(o.dj), ds: def(o.ds), j: String(o.j || '').slice(0, 10) };
+      return { v: 1, n: String(o.n || 'Ami').replace(/[<>&"']/g, '').slice(0, 16), t: String(o.t || '').replace(/[^a-z0-9_]/gi, '').slice(0, 30), r: o.r.slice(0, 3).map(num), a: num(o.a), b: num(o.b), dj: def(o.dj), sv: num(o.sv), j: String(o.j || '').slice(0, 10) };
     } catch (e) { return null; }
   },
   ecran(msg) {
     const moi = this.monScore(), amis = this.liste(), code = this.coder(moi);
     const lignes = [Object.assign({ moi: true }, moi)].concat(amis);
-    const dj = defiCourant('jour'), ds = defiCourant('semaine'), Fj = FORMATS[dj.format], Fs = FORMATS[ds.format];
+    const dj = defiCourant('jour'), Fj = FORMATS[dj.format];
     const cols = [
       ['Apprenti', l => l.r[0], 1, v => v ? 'salle ' + v : '—'], ['Guerrier', l => l.r[1], 1, v => v ? 'salle ' + v : '—'], ['Cauchemar', l => l.r[2], 1, v => v ? 'salle ' + v : '—'],
       ['Abysses', l => l.a, 1, v => v ? v + ' boss' : '—'], ['Boss vaincus', l => l.b, 1, v => v || '—'],
       ['Défi du jour', l => l.dj && l.dj.c === dj.cle ? l.dj.s : null, Fj.sens || 1, v => v === null ? '—' : Fj.fmt(v)],
-      ['Défi de la semaine', l => l.ds && l.ds.c === ds.cle ? l.ds.s : null, Fs.sens || 1, v => v === null ? '—' : Fs.fmt(v)]
+      ['Survie', l => l.sv || null, 1, v => v === null ? '—' : fmtTemps(v)]
     ];
     const meilleur = cols.map(([, f, sens]) => { const v = lignes.map(f).filter(x => x !== null && x > 0); return v.length ? (sens > 0 ? Math.max(...v) : Math.min(...v)) : null; });
     const titreNom = id => { const t = TITRES.find(x => x.id === id); return t ? '« ' + t.nom + ' »' : ''; };

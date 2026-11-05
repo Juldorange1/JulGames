@@ -29,6 +29,7 @@ const UI = {
       case 'ameliorations': case 'forge': this.forge(btn.dataset.o); break;
       case 'garderobe': this.garderobe(btn.dataset.o); break;
       case 'abysses': this.cacher(); G.lancerAbysses(); break;
+      case 'survie': this.cacher(); G.lancerSurvie(); break;
       case 'forgeAch': { const F = forgeSave(), k = btn.dataset.k; if (F.eclats >= COUT_FORGE) { F.eclats -= COUT_FORGE; F.debloque[k] = 1; Save.write(); Son.play('ramasse'); } this.forge('forge'); break; }
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
       case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
@@ -81,7 +82,7 @@ const UI = {
     Musique.jouer(MUS.menu);
     const pills = Object.entries(DIFFS).map(([k, v], i) => `<button class="pill ${k === d.diff ? 'actif' : ''} d-${k}" data-a="diff" data-d="${k}" data-n="${i + 1}" title="${v.desc}">${v.ico} ${v.nom}</button>`).join('');
     const defi = type => {
-      const x = defiCourant(type), F = FORMATS[x.format], rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.best && rec.best.score !== undefined ? rec.best : null;
+      const x = defiCourant(type), F = FORMATS[x.format], rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.format === x.format && rec.best && rec.best.score !== undefined ? rec.best : null;
       return `<button class="defi2 d-${type}" data-a="defi" data-t="${type}" title="${F.obj}${x.mut.length ? '\n' + x.mut.map(m => MUTATEURS[m].nom + ' : ' + MUTATEURS[m].desc).join('\n') : ''}">
         <span class="di">${F.ico}</span>
         <span class="dtx"><b>${type === 'jour' ? 'Défi du jour' : 'Défi de la semaine'}</b><span class="dm">${F.nom}${x.mut.length ? ' · ' + x.mut.map(m => MUTATEURS[m].ico).join(' ') : ''}</span></span>
@@ -93,7 +94,8 @@ const UI = {
         <h1 class="titre">COLOSSES</h1>${typeof titrePorte === 'function' ? `<div class="titre-joueur" data-a="hauts" data-o="titres" title="Changer de titre">« ${titrePorte().nom} »</div>` : ''}
         <div class="pills">${pills}${typeof Coop !== 'undefined' ? Coop.boutonMenu() : ''}</div>
         <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
-        <div class="defis2">${defi('jour')}${defi('semaine')}
+        <div class="defis2">${defi('jour')}
+          <button class="defi2 d-survie" data-a="survie" title="${FORMATS.survie.obj}"><span class="di">🛡</span><span class="dtx"><b>Survie</b><span class="dm">un boss au hasard · tiens le plus longtemps possible</span></span><span class="dr">${(() => { const r = d.defis.survie; return r && r.cle === 'survie' && r.best && r.best.score !== undefined ? '🏆<small>' + fmtTemps(r.best.score) + '</small>' : '—'; })()}</span></button>
           <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${d.abyssesRun ? ' · en cours : profondeur ' + d.abyssesRun.i + ' (reprendre)' : G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
           ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
         </div>
@@ -240,11 +242,11 @@ const UI = {
     slot = slot || 'armure';
     const S = skinsSave();
     const onglets = '<div class="onglets">' + Object.entries(SLOTS).map(([k, n]) => `<button data-a="garderobe" data-o="${k}" class="${k === slot ? 'actif' : ''}">${n}</button>`).join('') + '</div>';
-    const cartes = SKINS.filter(s => s.slot === slot).map(s => {
+    const cartes = SKINS.filter(s => s.slot === slot && (!s.saison || saisonOk(s.saison) || possede(s.id))).map(s => {
       const R0 = RARETES[s.rar], ok = possede(s.id), n = S.frag[s.id] || 0, eq = S.equip[slot] === s.id;
       const apercu = s.c ? `<span class="pastille" style="background:linear-gradient(135deg,${s.c.join(',')})"></span>` : `<span class="pastille" style="background:${s.col || '#333'}"></span>`;
       const hors = s.saison && !saisonOk(s.saison), prix = hors ? 0 : PRIX_FRAG[s.rar], cristaux = forgeSave().eclats;
-      return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}" ${!ok && (!prix || cristaux < prix) ? 'disabled title="' + (prix ? 'Pas assez de cristaux' : hors ? 'Revient pendant : ' + nomSaison(s.saison) : 'Seulement sur un boss légendaire') + '"' : ''}>${apercu}<b>${s.nom}</b><span class="rar">${R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span><span class="achat ${prix && cristaux >= prix ? 'ok' : ''}">${prix ? (s.saison ? '🛒 Acheter · ' : '🛒 1 fragment · ') + prix + ' 💎' : hors ? '📅 ' + nomSaison(s.saison) : '★ boss légendaire'}</span>`}</button>`;
+      return `<button class="skin ${eq ? 'actif' : ''} ${ok ? '' : 'verrou'}" data-a="skin" data-k="${s.id}" style="--rc:${R0.col}" ${!ok && (!prix || cristaux < prix) ? 'disabled title="' + (prix ? 'Pas assez de cristaux' : hors ? 'Revient pendant : ' + nomSaison(s.saison) : 'Seulement sur un boss légendaire') + '"' : ''}>${apercu}<b>${s.nom}</b><span class="rar">${s.saison && !ok ? finSaison(s.saison) : R0.nom}</span>${ok ? (eq ? '<span>✔ porté</span>' : '<span>porter</span>') : `<span>${n} / ${R0.frags} fragments</span><span class="achat ${prix && cristaux >= prix ? 'ok' : ''}">${prix ? (s.saison ? '🛒 Acheter · ' : '🛒 1 fragment · ') + prix + ' 💎' : hors ? '📅 ' + nomSaison(s.saison) : '★ boss légendaire'}</span>`}</button>`;
     }).join('');
     this.ecran('👕 Garde-robe', onglets + `<div class="eclats">💎 ${forgeSave().eclats} cristaux</div><div class="rang">${(() => { const reste = SKINS.some(s => s.slot === slot && !s.base && s.rar !== 'legendaire' && !s.saison && !possede(s.id)); return reste ? `<button data-a="fragHasard" data-o="${slot}" ${forgeSave().eclats >= PRIX_HASARD ? '' : 'disabled title="Pas assez de cristaux"'}>🎁 Fragment au hasard (${SLOTS[slot]}) · ${PRIX_HASARD} 💎</button>` : `<button disabled>✔ Tout obtenu (${SLOTS[slot]})</button>`; })()}</div><p class="mini">Clique sur une apparence verrouillée pour acheter un de ses fragments. Les fragments s'achètent avec des cristaux (au hasard ou précis), que les boss et les défis rapportent. Les apparences légendaires viennent des boss légendaires.</p><div class="grille-skins">${cartes}</div>`);
   },

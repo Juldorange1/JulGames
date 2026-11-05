@@ -41,6 +41,8 @@ const T = {
       chimere: 'No one created her: she assembled herself from the pieces the other Colossi left behind. She does not know what she is, so she tries to be everything at once. But even chaos has its habits, and she always repeats her cycle.'
     },
     frag: [
+      ['Survie', 'Survival'],
+      ['SURVIE', 'SURVIVAL'], ['un boss au hasard · tiens le plus longtemps possible', 'a random boss · hold out as long as possible'], ["Saison · jusqu'au ", 'Seasonal · until '],
       ['le Reflet', 'the Reflection'], ['l\'Inverseur', 'the Inverter'], ['Commandes inversées dans ', 'Controls reversed in '], ['COMMANDES INVERSÉES', 'CONTROLS REVERSED'],
       ['Il encaisse ×1,5 : frappe !', 'It takes ×1.5: strike!'], ['Commandes normales', 'Controls back to normal'], ['Il copie ton arme !', 'It copies your weapon!'],
       ['MARATHON DES COLOSSES', 'COLOSSI MARATHON'], ['PARTIE À GRAINE — ', 'SEEDED RUN — '], ['Parties à graine', 'Seeded runs'], ['Partie à graine', 'Seeded run'],
@@ -99,6 +101,8 @@ const T = {
       chimere: 'Nadie la creó: se ensambló sola con los pedazos que los demás Colosos dejaban atrás. No sabe lo que es, así que intenta serlo todo a la vez. Pero hasta el caos tiene sus costumbres, y siempre repite su ciclo.'
     },
     frag: [
+      ['Survie', 'Supervivencia'],
+      ['SURVIE', 'SUPERVIVENCIA'], ['un boss au hasard · tiens le plus longtemps possible', 'un jefe al azar · aguanta lo más posible'], ["Saison · jusqu'au ", 'Temporada · hasta el '],
       ['le Reflet', 'el Reflejo'], ['l\'Inverseur', 'el Inversor'], ['Commandes inversées dans ', 'Controles invertidos en '], ['COMMANDES INVERSÉES', 'CONTROLES INVERTIDOS'],
       ['Il encaisse ×1,5 : frappe !', 'Recibe ×1,5: ¡golpea!'], ['Commandes normales', 'Controles normales'], ['Il copie ton arme !', '¡Copia tu arma!'],
       ['MARATHON DES COLOSSES', 'MARATÓN DE LOS COLOSOS'], ['PARTIE À GRAINE — ', 'PARTIDA CON SEMILLA — '], ['Parties à graine', 'Partidas con semilla'], ['Partie à graine', 'Partida con semilla'], ['Marathon', 'Maratón'],
@@ -157,6 +161,8 @@ const T = {
       chimere: 'Niemand hat sie erschaffen: Sie setzte sich selbst aus den Stücken zusammen, die die anderen Kolosse zurückließen. Sie weiß nicht, was sie ist, also versucht sie, alles zugleich zu sein. Doch selbst das Chaos hat seine Gewohnheiten, und sie wiederholt immer ihren Zyklus.'
     },
     frag: [
+      ['Survie', 'Überleben'],
+      ['SURVIE', 'ÜBERLEBEN'], ['un boss au hasard · tiens le plus longtemps possible', 'ein zufälliger Boss · halte so lange wie möglich durch'], ["Saison · jusqu'au ", 'Saison · bis '],
       ['le Reflet', 'das Spiegelbild'], ['l\'Inverseur', 'der Umkehrer'], ['Commandes inversées dans ', 'Steuerung umgekehrt in '], ['COMMANDES INVERSÉES', 'STEUERUNG UMGEKEHRT'],
       ['Il encaisse ×1,5 : frappe !', 'Er nimmt ×1,5: schlag zu!'], ['Commandes normales', 'Steuerung wieder normal'], ['Il copie ton arme !', 'Es kopiert deine Waffe!'],
       ['MARATHON DES COLOSSES', 'MARATHON DER KOLOSSE'], ['PARTIE À GRAINE — ', 'LAUF MIT CODE — '], ['Parties à graine', 'Läufe mit Code'], ['Partie à graine', 'Lauf mit Code'],

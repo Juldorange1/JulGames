@@ -54,7 +54,7 @@ G.terminerDefi = function (reussi) {
   if (reussi && df.type === 'semaine') n += 6;
   if (res.record) n += df.type === 'abysses' ? 3 : 2;
   if (df.type === 'abysses') n += Math.floor((res.tues || 0) / 3); // la profondeur paie
-  if (n > 0) { gagnerEclats(n); res.cristauxBonus = n; }
+  if (n > 0) { const k = gagnerEclats(n); if (k) res.cristauxBonus = k; }
   return r;
 };
 const _mortCristaux = dessinerEcranMort;
