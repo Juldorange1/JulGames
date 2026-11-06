@@ -233,14 +233,14 @@
   const state = {
     checkpointIndex: 0,
     lastCheckpointPos: new THREE.Vector3(),
-    zoneStart: 0,
+    // Temps de jeu écoulé : additionné image par image, donc sans les pauses.
+    elapsedMs: 0,
     finished: false,
     customLevel: false,
     customLevelName: '',
-    // Numéro (1-10) quand la partie en cours est le niveau assigné à cet
-    // emplacement principal (voir AS.Storage.getMainLevelFor) — null pour un
-    // niveau personnel joué/testé depuis l'éditeur ou le menu.
-    mainDifficulty: null,
+    // Partie générée en cours : { cfg, stream, section, queue, ... } — null
+    // pour un niveau personnel. Voir startRun.
+    run: null,
     // Vrai seulement si la partie en cours a été lancée par "Tester le
     // niveau" depuis l'éditeur (pas depuis l'écran titre) — détermine où
     // "Quitter" ramène (voir quitBtn/returnToEditorFromTest).
@@ -252,67 +252,29 @@
     testTrajectory: [],
   };
 
-  const hintByCheckpoint = [
-    'Avance, saute, garde ton élan.',
-    'Une surface turquoise offre un rebond parfait si tu sautes pile à l\'impact.',
-    'Un pad orange donne de la vitesse — file vers le grand saut !',
-    "Un couloir entre deux parois : le wall-jump permet d'y grimper vite.",
-    "Certaines plateformes fragiles s'effondrent après quelques secondes.",
-    'Les colonnes de vent peuvent te porter vers le haut.',
-    'Repère les pics au sol ou aux murs : un seul contact est mortel.',
-    'Le sommet est en vue.',
-  ];
-
   // ---------------------------------------------------------------------
   // Sélection de difficulté (écran titre)
   // ---------------------------------------------------------------------
   const saved = AS.Storage.load();
   AS.I18n.apply();
-  difficulty = saved.settings.difficulty || 'court-1';
+  difficulty = [1, 2, 3, 4].includes(+saved.settings.difficulty) ? +saved.settings.difficulty : 1;
   document.querySelectorAll('.diff-btn').forEach((btn) => {
-    btn.classList.toggle('selected', btn.dataset.diff === difficulty);
+    btn.classList.toggle('selected', +btn.dataset.diff === difficulty);
     btn.addEventListener('click', () => {
       document.querySelectorAll('.diff-btn').forEach((b) => b.classList.remove('selected'));
       btn.classList.add('selected');
-      difficulty = btn.dataset.diff;
+      difficulty = +btn.dataset.diff;
       AS.Storage.setDifficulty(difficulty);
-    });
-
-    // Glisser-déposer : attraper un niveau dans "Mes niveaux créés" (voir
-    // renderTitleLevels) et le lâcher ici l'assigne directement à cette
-    // difficulté — bien plus rapide que le menu déroulant de l'éditeur, qui
-    // reste disponible pour qui préfère cette méthode.
-    btn.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      btn.classList.add('drag-over');
-    });
-    btn.addEventListener('dragleave', () => btn.classList.remove('drag-over'));
-    btn.addEventListener('drop', (e) => {
-      e.preventDefault();
-      btn.classList.remove('drag-over');
-      const name = e.dataTransfer.getData('text/plain');
-      if (!name) return;
-      const diff = btn.dataset.diff;
-      AS.Storage.setLevelMainDifficulty(name, diff);
-      AS.Hud.toast('"' + name + '" assigné à ' + AS.DIFFS[diff].label);
-      renderTitleRecords();
     });
   });
 
-  // Le temps de chaque course (une par difficulté) s'affiche directement sur
-  // son bouton — plus visible qu'une ligne de résumé en bas de l'écran.
+  // La meilleure partie atteinte s'affiche directement sur chaque difficulté.
   function renderTitleRecords() {
-    const d = AS.Storage.load();
-    Object.keys(AS.DIFFS).forEach((k) => {
+    [1, 2, 3, 4].forEach((k) => {
       const el = document.querySelector('[data-diff-best="' + k + '"]');
       if (!el) return;
-      const t = d.zoneBest[k];
-      el.textContent = t != null ? AS.Hud.fmtTime(t) : '—';
-      const levelEl = document.querySelector('[data-diff-level="' + k + '"]');
-      if (levelEl) {
-        const mainLevel = AS.Storage.getMainLevelFor(k);
-        levelEl.textContent = mainLevel ? mainLevel.name : AS.I18n.t('diff.none');
-      }
+      const best = AS.Storage.getRunBest(k);
+      el.textContent = best ? AS.I18n.t('hud.part') + ' ' + best : '—';
     });
     renderTitleLevels();
   }
@@ -333,20 +295,9 @@
       const lvl = levels[name];
       const row = document.createElement('div');
       row.className = 'title-level-row';
-      // Glisse cette ligne sur une des 4 difficultés ci-dessus pour l'y
-      // assigner directement (voir le "drop" sur .diff-btn plus haut).
-      row.draggable = true;
-      row.title = 'Glisse ce niveau sur une difficulté pour l\'y assigner';
-      row.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', name);
-        e.dataTransfer.effectAllowed = 'link';
-      });
       const nameEl = document.createElement('span');
       nameEl.className = 'title-level-name';
       nameEl.textContent = name;
-      if (lvl.mainDifficulty && AS.DIFFS[lvl.mainDifficulty]) {
-        nameEl.textContent += ' ★ ' + AS.DIFFS[lvl.mainDifficulty].label;
-      }
       const bestEl = document.createElement('span');
       bestEl.className = 'title-level-best';
       bestEl.textContent = lvl.best != null ? AS.Hud.fmtTime(lvl.best) : '—';
@@ -540,7 +491,7 @@
     $('pauseScreen').hidden = true;
   });
   $('respawnBtn').addEventListener('click', () => {
-    player.respawn(state.lastCheckpointPos);
+    respawnPlayer();
     // Nouvel essai : la trajectoire affichée au retour dans l'éditeur ne
     // doit montrer que CELUI-CI, pas l'empiler avec les tentatives ratées
     // précédentes (voir updateGame/returnToEditorFromTest).
@@ -584,7 +535,7 @@
   $('finishReplayBtn').addEventListener('click', () => {
     $('finishScreen').hidden = true;
     if (state.customLevel) startCustomLevel(currentTestBlocks(), state.customLevelName, state.customLevelBackground, state.customLevelTheme, state.fromEditor);
-    else startGame(difficulty);
+    else startRun(state.run.cfg);
   });
   $('finishEditorBtn').addEventListener('click', () => returnToEditorFromTest());
   $('finishMenuBtn').addEventListener('click', () => {
@@ -594,6 +545,7 @@
 
   function backToMenu() {
     appState = 'menu';
+    leaveRun();
     $('hud').hidden = true;
     $('pauseScreen').hidden = true;
     $('finishScreen').hidden = true;
@@ -606,7 +558,69 @@
   // ---------------------------------------------------------------------
   // Démarrage d'une partie (Zone 1)
   // ---------------------------------------------------------------------
-  $('playBtn').addEventListener('click', () => startGame(difficulty));
+  $('playBtn').addEventListener('click', () => {
+    const typed = $('seedInput').value.trim();
+    startRun({ kind: 'run', difficulty, seed: typed || randomSeed() });
+  });
+  function randomSeed() {
+    return Math.floor(Math.random() * 2176782336).toString(36);
+  }
+
+  // ---------------------------------------------------------------------
+  // Écran des défis
+  // ---------------------------------------------------------------------
+  const CHALLENGE_GROUPS = ['day', 'week', 'month', 'year', 'eternal'];
+  function challengeName(ch) {
+    const label = AS.I18n.t('ch.' + ch.group);
+    return ch.group === 'day' || ch.group === 'week' ? label : label + ' ' + ch.index;
+  }
+  function renderChallenges() {
+    const list = $('challengesList');
+    list.innerHTML = '';
+    const all = AS.Gen.challenges();
+    CHALLENGE_GROUPS.forEach((group) => {
+      const head = document.createElement('div');
+      head.className = 'challenge-group';
+      head.textContent = AS.I18n.t('ch.group.' + group);
+      list.appendChild(head);
+      all.filter((ch) => ch.group === group).forEach((ch) => {
+        const row = document.createElement('div');
+        row.className = 'challenge-row';
+        const name = document.createElement('div');
+        name.className = 'challenge-name';
+        name.textContent = challengeName(ch);
+        const info = document.createElement('span');
+        info.className = 'challenge-info';
+        info.textContent = AS.I18n.t('ch.length').replace('{min}', Math.round(ch.seconds / 60))
+          .replace('{a}', Math.round(ch.t0 * 100)).replace('{b}', Math.round(ch.t1 * 100));
+        name.appendChild(info);
+        const best = document.createElement('div');
+        best.className = 'challenge-best';
+        const ms = AS.Storage.getChallengeBest(ch.id);
+        best.textContent = ms != null ? AS.Hud.fmtTime(ms) : '—';
+        const play = document.createElement('button');
+        play.className = 'challenge-play';
+        play.textContent = AS.I18n.t('ch.play');
+        play.addEventListener('click', () => {
+          $('challengesScreen').hidden = true;
+          startRun({ kind: 'challenge', challenge: ch, name: challengeName(ch) });
+        });
+        row.appendChild(name);
+        row.appendChild(best);
+        row.appendChild(play);
+        list.appendChild(row);
+      });
+    });
+  }
+  $('challengesBtn').addEventListener('click', () => {
+    renderChallenges();
+    $('titleScreen').hidden = true;
+    $('challengesScreen').hidden = false;
+  });
+  $('challengesBackBtn').addEventListener('click', () => {
+    $('challengesScreen').hidden = true;
+    $('titleScreen').hidden = false;
+  });
 
   // Le ciel/les montagnes peints à la main servent de repli immédiat pendant
   // le chargement (async) de la vraie photo de paysage ; une fois prête, les
@@ -624,41 +638,39 @@
     }, imagePath);
   }
 
-  // Il n'y a plus de niveaux principaux codés en dur : chaque difficulté
-  // lance le niveau créé dans l'éditeur qui lui a été assigné (voir
-  // AS.Storage.getMainLevelFor / setLevelMainDifficulty). Si aucun niveau
-  // n'est assigné, on prévient plutôt que de démarrer sur du vide.
-  // Chaque lancement repart du tout début du niveau (jamais d'un checkpoint
-  // repris d'une session précédente) : un temps mesuré depuis le milieu du
-  // niveau n'aurait de toute façon aucun sens à comparer à un record complet.
-  function startGame(diff) {
-    const mainLevel = AS.Storage.getMainLevelFor(diff);
-    if (!mainLevel) {
-      const label = AS.DIFFS[diff] ? AS.DIFFS[diff].label : diff;
-      AS.Hud.toast('Aucun niveau assigné à "' + label + '" — crée-en un dans l\'éditeur et assigne-le à cette difficulté.');
-      return;
-    }
-    difficulty = diff;
+  // ---------------------------------------------------------------------
+  // Partie générée : le niveau arrive partie par partie depuis AS.Gen, en
+  // tâche de fond, et les parties passées sont retirées : c'est sans fin.
+  // ---------------------------------------------------------------------
+  function startRun(cfg) {
+    // Un défi se court toujours avec les règles officielles, pour que les
+    // temps restent comparables.
+    if (cfg.kind === 'challenge') AS.World.applyRules(AS.Storage.RULE_DEFAULTS);
+    else AS.World.applyRules();
+    const options = cfg.kind === 'challenge' ? AS.Gen.challengeOptions(cfg.challenge) : AS.Gen.runOptions(cfg.difficulty, cfg.seed);
+    const stream = AS.Gen.createStream(options);
+    stream.pump(1e9, 2);
+
     scene = new THREE.Scene();
-    level = AS.World.buildCustom(scene, mainLevel.blocks, mainLevel.theme);
-    // Les raycasts de collision s'appuient sur matrixWorld ; sans ce calcul
-    // explicite, tout resterait à l'identité tant que render() n'a pas
-    // tourné au moins une fois (glitch de collision possible dès la 1re image).
-    scene.updateMatrixWorld(true);
-    const bgChoice = AS.BACKGROUND_CHOICES.find((b) => b.id === mainLevel.background);
-    activateRealSky(scene, level, bgChoice ? bgChoice.path : AS.BACKGROUND_CHOICES[0].path);
+    level = AS.World.createRunLevel(scene);
+    const seedHash = AS.Gen.hashSeed(String(options.seed));
+    const bg = AS.BACKGROUND_CHOICES[seedHash % AS.BACKGROUND_CHOICES.length];
+    activateRealSky(scene, level, bg.path);
 
-    // Tout est disponible dès le départ, rien à débloquer.
     abilities = { doubleJump: true, wallJump: true, dash: true };
+    state.run = { cfg, stream, section: 0, next: 0, queue: null, seen: {}, bot: null };
+    realizeRun(1e9);
+    realizeRun(1e9);
+    scene.updateMatrixWorld(true);
 
-    const startPos = level.spawn.clone();
+    const startPos = stream.spawn.clone();
     state.checkpointIndex = 0;
     state.lastCheckpointPos = startPos.clone();
     state.finished = false;
     state.customLevel = false;
-    state.customLevelName = mainLevel.name;
-    state.mainDifficulty = diff;
-    state.zoneStart = performance.now();
+    state.customLevelName = '';
+    state.fromEditor = false;
+    state.elapsedMs = 0;
     bursts = [];
 
     player = new AS.Player(level, startPos, abilities);
@@ -667,15 +679,97 @@
     scene.add(playerMesh);
     squash.set(1, 1, 1);
     wallPushTimer = 0;
+    renderPrev.copy(player.position);
+    stepAccumulator = 0;
 
-    AS.Hud.setObjective(hintByCheckpoint[0]);
-    setTimeout(() => AS.Hud.setObjective(null), 4500);
+    const seedEl = $('pauseSeed');
+    seedEl.hidden = cfg.kind !== 'run';
+    if (cfg.kind === 'run') seedEl.textContent = AS.I18n.t('run.seed') + ' : ' + cfg.seed;
+    showSectionHint(0);
 
     $('titleScreen').hidden = true;
     $('controlsScreen').hidden = true;
     $('editorScreen').hidden = true;
     $('hud').hidden = false;
+    document.querySelector('.altitude').hidden = false;
     appState = 'playing';
+  }
+
+  function leaveRun() {
+    // Les règles du joueur reviennent après un défi.
+    if (state.run && state.run.cfg.kind === 'challenge') AS.World.applyRules();
+    state.run = null;
+  }
+
+  const PIECES_PER_FRAME = 10;
+  // Pose dans le monde au plus `budget` pièces de la prochaine partie prête.
+  function realizeRun(budget) {
+    const run = state.run;
+    const wanted = run.section + 3;
+    if (!run.queue) {
+      if (run.next >= wanted || !run.stream.sections[run.next]) return;
+      const sec = run.stream.sections[run.next];
+      run.queue = { sec, i: 0 };
+    }
+    const { sec } = run.queue;
+    const end = Math.min(sec.pieces.length, run.queue.i + budget);
+    AS.World.addPieces(level, sec.pieces.slice(run.queue.i, end), sec.theme, sec.index);
+    run.queue.i = end;
+    if (end >= sec.pieces.length) {
+      run.queue = null;
+      run.next++;
+    }
+  }
+
+  // À chaque image : la génération avance un peu, jamais assez pour saccader.
+  function serviceRun() {
+    const run = state.run;
+    if (run.stream.sections.length < run.section + 4 && !run.stream.isFinished()) run.stream.pump(3, run.section + 4);
+    realizeRun(PIECES_PER_FRAME);
+  }
+
+  function enterSection(index) {
+    const run = state.run;
+    run.section = index;
+    showSectionHint(index);
+    if (run.cfg.kind === 'run') AS.Storage.recordRun(run.cfg.difficulty, index + 1);
+    // On garde la partie d'avant : le point de contrôle en cours s'y trouve.
+    for (const key of Object.keys(level.sections)) {
+      if (+key < index - 1) AS.World.removeSection(level, +key);
+    }
+  }
+
+  function showSectionHint(index) {
+    const sec = state.run.stream.sections[index];
+    if (!sec) return;
+    const fresh = sec.mods.find((m) => !state.run.seen[m] && AS.I18n.t('hint.' + m) !== 'hint.' + m);
+    sec.mods.forEach((m) => { state.run.seen[m] = true; });
+    if (!fresh) return;
+    AS.Hud.setObjective(AS.I18n.t('hint.' + fresh));
+    clearTimeout(showSectionHint._timer);
+    showSectionHint._timer = setTimeout(() => AS.Hud.setObjective(null), 5000);
+  }
+
+  function finishRun() {
+    const run = state.run;
+    state.finished = true;
+    const ms = state.elapsedMs;
+    $('finishTime').textContent = AS.Hud.fmtTime(ms);
+    $('finishTitle').textContent = run.cfg.name + ' — ' + AS.I18n.t('finish.done');
+    const improved = AS.Storage.recordChallenge(run.cfg.challenge.id, ms);
+    const bot = AS.Hud.fmtTime(run.stream.totalFrames() / 60 * 1000);
+    const best = AS.Hud.fmtTime(AS.Storage.getChallengeBest(run.cfg.challenge.id));
+    $('finishTeaser').textContent = AS.I18n.t('finish.best') + ' : ' + best + ' · ' + AS.I18n.t('finish.bot') + ' : ' + bot;
+    $('finishEditorBtn').hidden = true;
+    AS.Sound.play(improved ? 'victory' : 'finish');
+    $('finishScreen').hidden = false;
+    appState = 'finish';
+  }
+
+  function respawnPlayer() {
+    player.respawn(state.lastCheckpointPos);
+    renderPrev.copy(player.position);
+    if (state.run) AS.World.resetCrumbles(level);
   }
 
   // ---------------------------------------------------------------------
@@ -697,7 +791,6 @@
       $('editorNameInput').value = loadName;
       $('editorLevelSelect').value = loadName;
     }
-    syncMainSlotUI(loadName || AS.Editor.currentLevelName);
     refreshTestFromSelect();
     appState = 'editor';
   }
@@ -724,31 +817,6 @@
   }
   document.addEventListener('as:editor-changed', refreshTestFromSelect);
 
-  // Reflète dans le sélecteur la difficulté principale actuellement assignée
-  // au niveau `name` (ou aucune sélection si le niveau n'a jamais été
-  // sauvegardé, ou n'est assigné à rien).
-  function syncMainSlotUI(name) {
-    const sel = $('editorMainSlotSelect');
-    sel.value = '';
-    if (!name) return;
-    const levels = AS.Storage.loadLevels();
-    if (levels[name] && levels[name].mainDifficulty) sel.value = levels[name].mainDifficulty;
-  }
-
-  $('editorMainSlotSelect').addEventListener('change', () => {
-    const sel = $('editorMainSlotSelect');
-    const name = AS.Editor.currentLevelName;
-    if (!name) {
-      AS.Hud.toast('Sauvegarde ce niveau avant de l\'assigner à une difficulté.');
-      sel.value = '';
-      return;
-    }
-    const diff = sel.value || null;
-    AS.Storage.setLevelMainDifficulty(name, diff);
-    AS.Hud.toast(diff ? 'Niveau assigné à "' + AS.DIFFS[diff].label + '"' : 'Niveau retiré des difficultés principales');
-    renderTitleRecords();
-  });
-
   // window.confirm()/alert() sont peu fiables une fois le jeu embarqué dans
   // un contexte en bac à sable (ex. l'Artifact publié) — ils peuvent être
   // bloqués et renvoyer faux silencieusement, ce qui empêchait ces boutons
@@ -759,7 +827,6 @@
   AS.Util.holdToConfirm($('editorNewBtn'), 700, () => {
     AS.Editor.newLevel();
     $('editorNameInput').value = '';
-    syncMainSlotUI('');
   });
 
   $('editorSaveBtn').addEventListener('click', () => {
@@ -770,7 +837,6 @@
     AS.Storage.saveLevel(name, { blocks: AS.Editor.exportBlocks(), background: AS.Editor.currentBackground, theme: AS.Editor.currentTheme });
     AS.Editor.refreshLevelSelect($('editorLevelSelect'));
     $('editorLevelSelect').value = name;
-    syncMainSlotUI(name);
     AS.Hud.toast('Niveau sauvegardé');
   });
 
@@ -779,7 +845,6 @@
     if (!name) return;
     AS.Editor.loadIntoEditor(name);
     $('editorNameInput').value = name;
-    syncMainSlotUI(name);
   });
 
   $('editorDeleteBtn').classList.add('hold-confirm');
@@ -792,7 +857,6 @@
     if (AS.Editor.currentLevelName === name) {
       AS.Editor.currentLevelName = '';
       $('editorNameInput').value = '';
-      syncMainSlotUI('');
     }
     renderTitleRecords();
   });
@@ -853,6 +917,9 @@
 
   function startCustomLevel(blocks, name, background, theme, fromEditor, startCheckpointIndex) {
     AS.Editor.close();
+    leaveRun();
+    $('pauseSeed').hidden = true;
+    document.querySelector('.altitude').hidden = true;
     scene = new THREE.Scene();
     level = AS.World.buildCustom(scene, blocks, theme);
     scene.updateMatrixWorld(true);
@@ -887,10 +954,9 @@
     state.customLevelName = name;
     state.customLevelTheme = theme;
     state.customLevelBackground = background;
-    state.mainDifficulty = null;
     state.fromEditor = !!fromEditor;
     state.testTrajectory = [];
-    state.zoneStart = performance.now();
+    state.elapsedMs = 0;
     bursts = [];
 
     player = new AS.Player(level, startPos, abilities);
@@ -899,6 +965,8 @@
     scene.add(playerMesh);
     squash.set(1, 1, 1);
     wallPushTimer = 0;
+    renderPrev.copy(player.position);
+    stepAccumulator = 0;
 
     AS.Hud.setObjective(name ? ('Test : ' + name) : 'Test du niveau');
     setTimeout(() => AS.Hud.setObjective(null), 3000);
@@ -912,49 +980,38 @@
   // ---------------------------------------------------------------------
   // Déclencheurs (checkpoints, orbes, défis, secrets, arrivée)
   // ---------------------------------------------------------------------
-  function processTriggers(dt) {
+  function touchesBox(p, t) {
+    const half = t.half;
+    return !half || (
+      Math.abs(p.x - t.pos.x) <= half.x + player.radius &&
+      Math.abs(p.z - t.pos.z) <= half.z + player.radius &&
+      p.y <= t.pos.y + half.y + 0.02 && p.y + player.height >= t.pos.y - half.y
+    );
+  }
+
+  function processTriggers() {
     const p = player.position;
     for (const t of level.triggers) {
-      if (t.type === 'phaseGate' && t.cooldown > 0) t.cooldown = Math.max(0, t.cooldown - dt);
-    }
-    for (const t of level.triggers) {
+      if (t.type === 'phaseGate') continue; // gérées par AS.World.stepLevel
       const d = p.distanceTo(t.pos);
       if (d > t.radius) continue;
 
-      if (t.type === 'phaseGate' && t.cooldown <= 0) {
-        const spd = player.velocity.length();
-        player.position.copy(t.pairPos);
-        player.velocity.copy(t.dir).multiplyScalar(Math.max(spd, 6));
-        player.grounded = false;
-        player.jumpsUsed = 0;
-        t.cooldown = AS.CFG.phaseGateCooldown;
-        for (const other of level.triggers) {
-          if (other.type === 'phaseGate' && other.pos === t.pairPos) other.cooldown = AS.CFG.phaseGateCooldown;
-        }
-        AS.Hud.toast('Porte de phase');
-        squash.set(0.7, 1.4, 0.7);
-        AS.Sound.play('phaseGate');
-      } else if (t.type === 'checkpoint' && !t.activated) {
+      if (t.type === 'checkpoint' && !t.activated) {
+        if (!touchesBox(p, t)) continue;
         // Un checkpoint s'active dès le premier contact, quel que soit son
         // index — utile pour un ordre de passage non linéaire (raccourci,
         // niveau créé où les checkpoints ne sont pas posés dans l'ordre du
         // parcours) — contrairement à avant, où seul un index STRICTEMENT
         // supérieur au dernier activé comptait.
         t.activated = true;
-        state.checkpointIndex = t.index;
-        state.lastCheckpointPos = level.checkpoints[t.index].pos.clone();
-        const cp = level.checkpoints[t.index];
+        const cp = t.cp || level.checkpoints[t.index];
+        state.checkpointIndex = t.index != null ? t.index : cp.sectionIndex;
+        state.lastCheckpointPos = cp.pos.clone();
         cp.flagMat.color.setHex(0x3fa0ff);
         cp.flagMat.emissive.setHex(0x113355);
-        AS.Hud.toast('Checkpoint');
+        AS.Hud.toast(AS.I18n.t('run.checkpoint'));
         AS.Sound.play('checkpoint');
-        const hint = hintByCheckpoint[Math.min(t.index, hintByCheckpoint.length - 1)];
-        AS.Hud.setObjective(hint);
-        clearTimeout(processTriggers._hintTimer);
-        processTriggers._hintTimer = setTimeout(() => AS.Hud.setObjective(null), 4500);
-      } else if (t.type === 'secret' && !t.done) {
-        t.done = true;
-        AS.Hud.toast('🔍 Passage secret découvert !');
+        if (state.run) enterSection(cp.sectionIndex);
       } else if (t.type === 'finish' && !state.finished) {
         // Contact EXACT avec le pavé de la plateforme d'arrivée (pas une
         // simple proximité au rayon généreux utilisé ci-dessus pour le
@@ -962,24 +1019,13 @@
         // vertical (pieds/tête) avec son volume réel — la partie se
         // termine pile à l'instant où le joueur la touche, ni avant, ni
         // après.
-        const half = t.half;
-        const touching = !half || (
-          Math.abs(p.x - t.pos.x) <= half.x + player.radius &&
-          Math.abs(p.z - t.pos.z) <= half.z + player.radius &&
-          p.y <= t.pos.y + half.y && p.y + player.height >= t.pos.y - half.y
-        );
-        if (!touching) continue;
+        if (!touchesBox(p, t)) continue;
+        if (state.run) { finishRun(); continue; }
         state.finished = true;
-        const ms = performance.now() - state.zoneStart;
+        const ms = state.elapsedMs;
         $('finishTime').textContent = AS.Hud.fmtTime(ms);
         let improved = false;
-        if (state.mainDifficulty) {
-          const label = AS.DIFFS[state.mainDifficulty] ? AS.DIFFS[state.mainDifficulty].label : state.mainDifficulty;
-          $('finishTitle').textContent = (state.customLevelName || label) + ' terminé';
-          $('finishTeaser').textContent = 'Retourne à l\'éditeur pour l\'améliorer, ou rejoue pour battre ton temps.';
-          $('finishEditorBtn').hidden = false;
-          improved = AS.Storage.recordZone(state.mainDifficulty, ms);
-        } else if (state.customLevel) {
+        if (state.customLevel) {
           $('finishTitle').textContent = (state.customLevelName || 'Niveau') + ' terminé';
           $('finishTeaser').textContent = 'Retourne à l\'éditeur pour l\'améliorer, ou rejoue pour battre ton temps.';
           $('finishEditorBtn').hidden = false;
@@ -994,34 +1040,13 @@
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Plateformes fragiles (s'effondrent puis reviennent)
-  // ---------------------------------------------------------------------
-  function updateCrumbles(dt) {
+  // Tremblement d'une plateforme fragile : seul le relief bouge, jamais le bloc
+  // de collision, pour que le jeu reste identique à ce que le bot a joué.
+  function animateCrumbles() {
+    const shake = Math.sin(level.frame * 0.9) * 0.05;
     for (const c of level.crumbles) {
-      const st = c.userData.crumbleState || 'idle';
-      if (st === 'idle') {
-        if (player.grounded && player.groundObject === c) {
-          c.userData.crumbleState = 'shaking';
-          c.userData.crumbleT = 0;
-        }
-      } else if (st === 'shaking') {
-        c.userData.crumbleT += dt;
-        c.position.x += Math.sin(performance.now() * 0.09) * 0.004;
-        if (c.userData.crumbleT > (c.userData.crumbleTime != null ? c.userData.crumbleTime : 0.45)) {
-          c.userData.crumbleState = 'gone';
-          c.userData.crumbleT = 0;
-          c.userData.disabled = true;
-          c.visible = false;
-        }
-      } else if (st === 'gone') {
-        c.userData.crumbleT += dt;
-        if (c.userData.crumbleT > 3.2) {
-          c.userData.crumbleState = 'idle';
-          c.userData.disabled = false;
-          c.visible = true;
-        }
-      }
+      const on = c.userData.crumbleState === 'shaking';
+      for (const child of c.children) child.position.x = on ? shake : 0;
     }
   }
 
@@ -1060,8 +1085,31 @@
     };
   }
 
+  // La physique tourne à pas fixe, comme dans le générateur : le jeu se comporte
+  // à l'identique quel que soit l'écran, et ce que le bot a réussi reste
+  // faisable. L'image affichée est interpolée entre deux pas (voir tick).
+  const STEP = AS.Gen.DT;
+  const renderPrev = new THREE.Vector3();
+  const renderPos = new THREE.Vector3();
+  let stepAccumulator = 0;
+  const botInput = AS.Gen.makeInput();
+
+  // Rejeu des touches du fantôme sur le vrai niveau (tests uniquement).
+  function nextBotInput() {
+    const bot = state.run.bot;
+    const sec = state.run.stream.sections[bot.k];
+    if (!sec) return AS.Gen.decode(0, botInput);
+    const prevHeld = botInput.jumpHeld;
+    const code = sec.codes[bot.i++];
+    if (bot.i >= sec.codes.length) { bot.k++; bot.i = 0; }
+    AS.Gen.decode(code, botInput);
+    botInput.prevHeld = prevHeld;
+    return botInput;
+  }
+
   function updateGame(dt) {
-    const input = buildInput();
+    const input = state.run && state.run.bot ? nextBotInput() : buildInput();
+    renderPrev.copy(player.position);
     player.update(dt, input);
 
     // Trace de la hitbox réellement parcourue, pour l'afficher en rouge au
@@ -1071,8 +1119,14 @@
       state.testTrajectory.push(player.position.clone());
     }
 
-    for (const m of level.movers) m.update(dt);
-    updateCrumbles(dt);
+    if (AS.World.stepLevel(level, player, dt)) {
+      renderPrev.copy(player.position);
+      squash.set(0.7, 1.4, 0.7);
+      AS.Hud.toast(AS.I18n.t('run.phase'));
+      AS.Sound.play('phaseGate');
+    }
+    animateCrumbles();
+    state.elapsedMs += dt * 1000;
     for (const dcor of level.decorations) dcor.mesh.rotation.y += (dcor.spin || 0) * dt;
     for (const fx of level.fx) fx.update(dt, player.position);
 
@@ -1147,7 +1201,6 @@
     squash.x = AS.Util.damp(squash.x, 1, 9, dt);
     squash.y = AS.Util.damp(squash.y, 1, 9, dt);
     squash.z = AS.Util.damp(squash.z, 1, 9, dt);
-    playerMesh.position.copy(player.position);
     playerMesh.scale.copy(squash);
     if (wallPushTimer > 0) {
       // ---- Phase 2 : poussée — les mains repartent vivement du mur ---------
@@ -1185,26 +1238,41 @@
 
     bursts = bursts.filter((burst) => !burst.update(dt));
 
-    tpCam.update(dt, player.position);
-
-    processTriggers(dt);
+    processTriggers();
 
     if (player.dead) {
-      player.respawn(state.lastCheckpointPos);
+      respawnPlayer();
       if (state.customLevel) state.testTrajectory = [];
-      AS.Hud.toast('Retour au dernier checkpoint');
+      AS.Hud.toast(AS.I18n.t('run.respawn'));
     }
 
-    AS.Hud.setAltitude(Math.max(0, player.position.y), level.maxAltitude);
+    if (state.run) {
+      const sec = state.run.stream.sections[state.run.section];
+      AS.Hud.setRunProgress(state.run.section + 1, sec ? sec.t : 0, AS.I18n.t('hud.part').toUpperCase());
+    }
     AS.Hud.setSpeed(player.speed(), AS.CFG.maxSpeed);
-    AS.Hud.setZoneTimer(performance.now() - state.zoneStart);
+    AS.Hud.setZoneTimer(state.elapsedMs);
+  }
+
+  function renderPlayer(dt) {
+    renderPos.lerpVectors(renderPrev, player.position, stepAccumulator / STEP);
+    playerMesh.position.copy(renderPos);
+    tpCam.update(dt, renderPos);
   }
 
   const clock = new THREE.Clock();
   function tick() {
     requestAnimationFrame(tick);
     const dt = clock.getDelta();
-    if (appState === 'playing' && player) updateGame(dt);
+    if (appState === 'playing' && player) {
+      stepAccumulator += Math.min(dt, 0.1);
+      while (stepAccumulator >= STEP && appState === 'playing') {
+        stepAccumulator -= STEP;
+        updateGame(STEP);
+      }
+      renderPlayer(dt);
+    }
+    if (state.run && appState === 'playing') serviceRun();
     if (appState === 'editor') AS.Editor.tick(Math.min(dt, 0.05));
     else if (scene) renderer.render(scene, camera);
   }
@@ -1219,8 +1287,18 @@
     getPlayerMesh: () => playerMesh,
     getCam: () => tpCam,
     setKey: (code, down) => { if (down) keys.add(code); else keys.delete(code); },
+    getRun: () => state.run,
+    startBot: () => { state.run.bot = { k: 0, i: 0 }; },
+    // Avance de n pas fixes sans passer par l'affichage.
+    steps: (n) => {
+      for (let i = 0; i < n && appState === 'playing'; i++) {
+        updateGame(STEP);
+        if (state.run) serviceRun();
+      }
+      if (player) renderPlayer(STEP);
+    },
     step: (dt) => {
-      if (appState === 'playing' && player) updateGame(dt);
+      if (appState === 'playing' && player) { updateGame(STEP); stepAccumulator = 0; renderPlayer(dt); }
       if (appState === 'editor') AS.Editor.tick(dt);
       else if (scene) renderer.render(scene, camera);
     },

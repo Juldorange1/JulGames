@@ -70,11 +70,12 @@ AS.Storage = (function () {
 
   function defaultSave() {
     return {
-      settings: { difficulty: 'court-1', sfxVolume: 0.8, skin: 'bleu', language: 'fr' },
+      settings: { difficulty: 1, sfxVolume: 0.8, skin: 'bleu', language: 'fr' },
       keybinds: Object.assign({}, DEFAULT_KEYBINDS),
       editorKeybinds: Object.assign({}, DEFAULT_EDITOR_KEYBINDS),
       rules: Object.assign({}, RULE_DEFAULTS),
-      zoneBest: {},      // { [difficulty]: ms }  temps total du niveau
+      runBest: {},       // { [difficulté 1-4]: meilleure partie atteinte }
+      challengeBest: {}, // { [id du défi]: ms }
     };
   }
 
@@ -90,7 +91,6 @@ AS.Storage = (function () {
       data.keybinds = Object.assign({}, d.keybinds, data.keybinds);
       data.editorKeybinds = Object.assign({}, d.editorKeybinds, data.editorKeybinds);
       data.rules = Object.assign({}, d.rules, data.rules);
-      data.zoneBest = data.zoneBest || {};
     } catch (e) {
       data = defaultSave();
     }
@@ -101,16 +101,25 @@ AS.Storage = (function () {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
   }
 
-  function recordZone(difficulty, ms) {
+  // Meilleure partie atteinte dans une difficulté (les parties sont sans fin).
+  function recordRun(difficulty, section) {
     load();
-    const prev = data.zoneBest[difficulty];
-    if (prev == null || ms < prev) {
-      data.zoneBest[difficulty] = ms;
-      save();
-      return true;
-    }
-    return false;
+    if ((data.runBest[difficulty] || 0) >= section) return false;
+    data.runBest[difficulty] = section;
+    save();
+    return true;
   }
+  function getRunBest(difficulty) { load(); return data.runBest[difficulty] || 0; }
+
+  function recordChallenge(id, ms) {
+    load();
+    const prev = data.challengeBest[id];
+    if (prev != null && prev <= ms) return false;
+    data.challengeBest[id] = ms;
+    save();
+    return true;
+  }
+  function getChallengeBest(id) { load(); return data.challengeBest[id]; }
 
   function setDifficulty(d) { load(); data.settings.difficulty = d; save(); }
 
@@ -183,38 +192,8 @@ AS.Storage = (function () {
   function saveLevel(name, levelData) {
     const levels = loadLevels();
     const prevBest = levels[name] ? levels[name].best : null;
-    // Une ré-sauvegarde (édition d'un niveau existant) ne doit jamais effacer
-    // son assignation à une difficulté principale (voir setLevelMainDifficulty).
-    const prevMainDifficulty = levels[name] ? levels[name].mainDifficulty : null;
-    levels[name] = Object.assign({}, levelData, { savedAt: Date.now(), best: prevBest, mainDifficulty: prevMainDifficulty });
+    levels[name] = Object.assign({}, levelData, { savedAt: Date.now(), best: prevBest });
     try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levels)); } catch (e) { /* ignore */ }
-  }
-
-  // ---- Niveaux principaux ----------------------------------------------------
-  // Un niveau créé dans l'éditeur peut être assigné à une difficulté
-  // (easy/normal/hard/extreme) : c'est ce niveau qui se lance depuis l'écran
-  // titre pour cette difficulté. Une seule difficulté par niveau, et un seul
-  // niveau par difficulté (assigner en retire l'ancien titulaire du poste).
-  function setLevelMainDifficulty(name, diff) {
-    const levels = loadLevels();
-    if (!levels[name]) return;
-    if (diff) {
-      Object.keys(levels).forEach((n) => {
-        if (levels[n].mainDifficulty === diff) delete levels[n].mainDifficulty;
-      });
-      levels[name].mainDifficulty = diff;
-    } else {
-      delete levels[name].mainDifficulty;
-    }
-    try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levels)); } catch (e) { /* ignore */ }
-  }
-
-  function getMainLevelFor(diff) {
-    const levels = loadLevels();
-    for (const name of Object.keys(levels)) {
-      if (levels[name].mainDifficulty === diff) return Object.assign({ name }, levels[name]);
-    }
-    return null;
   }
 
   function deleteLevel(name) {
@@ -236,13 +215,12 @@ AS.Storage = (function () {
   }
 
   return {
-    load, save, recordZone,
+    load, save, recordRun, getRunBest, recordChallenge, getChallengeBest,
     setDifficulty, getSfxVolume, setSfxVolume, getSkin, setSkin, DEFAULT_KEYBINDS,
     getKeybinds, setKeybind, resetKeybinds,
     DEFAULT_EDITOR_KEYBINDS, getEditorKeybinds, setEditorKeybind, resetEditorKeybinds,
     LANGUAGES, getLanguage, setLanguage,
     RULE_DEFAULTS, getRules, setRule, resetRules,
     loadLevels, saveLevel, deleteLevel, recordLevelBest,
-    setLevelMainDifficulty, getMainLevelFor,
   };
 })();

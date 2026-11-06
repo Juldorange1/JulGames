@@ -1,6 +1,6 @@
 // ============================================================================
 // ASCENSION — hud.js
-// Petites fonctions d'affichage : altitude, vitesse, aptitudes, toasts,
+// Petites fonctions d'affichage : progression, vitesse, aptitudes, toasts,
 // objectif courant. Pas d'état de jeu ici, juste du DOM.
 // ============================================================================
 window.AS = window.AS || {};
@@ -10,14 +10,18 @@ AS.Hud = (function () {
 
   function fmtTime(ms) {
     const s = ms / 1000;
-    return s.toFixed(2) + 's';
+    if (s < 60) return s.toFixed(2) + 's';
+    const m = Math.floor(s / 60);
+    const r = s - m * 60;
+    return m + ':' + (r < 10 ? '0' : '') + r.toFixed(2);
   }
 
-  function setAltitude(now, max) {
-    $('altNow').textContent = Math.max(0, Math.round(now));
-    $('altMax').textContent = Math.round(max);
-    const pct = AS.Util.clamp((now / max) * 100, 0, 100);
-    $('altBarFill').style.width = pct + '%';
+  // Partie générée : numéro de la partie et difficulté à la place de l'altitude.
+  function setRunProgress(section, t, label) {
+    $('altNow').textContent = section;
+    $('altMax').textContent = Math.round(t * 100);
+    $('altLabel').textContent = label;
+    $('altBarFill').style.width = (t * 100) + '%';
   }
 
   function setSpeed(speed, maxSpeed) {
@@ -62,6 +66,6 @@ AS.Hud = (function () {
   }
 
   return {
-    fmtTime, setAltitude, setSpeed, setZoneTimer, setAbility, toast, setObjective, $,
+    fmtTime, setRunProgress, setSpeed, setZoneTimer, setAbility, toast, setObjective, $,
   };
 })();

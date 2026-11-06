@@ -1,16 +1,13 @@
 // ============================================================================
 // ASCENSION — world.js
-// Constantes de jeu (physique) + construction des niveaux créés dans
-// l'éditeur (AS.World.buildCustom). Il n'y a plus de "niveaux principaux"
-// codés en dur : les 4 difficultés (Facile/Normal/Difficile/Extrême) sont de
-// simples étiquettes que le joueur assigne lui-même à l'un de ses niveaux
-// créés dans l'éditeur (voir AS.Storage.setLevelMainDifficulty côté
-// storage.js, et le sélecteur dans l'écran Éditeur côté main.js/index.html).
+// Constantes de jeu (physique), construction des niveaux de l'éditeur
+// (AS.World.buildCustom) et des pièces libres du générateur (AS.World.addPieces,
+// voir gen.js), et pas de simulation commun au jeu et au générateur
+// (AS.World.stepLevel).
 //
 // Toute la géométrie "praticable" est faite de vrais meshes THREE.js ajoutés
-// à AS.World.collidables : le contrôleur du joueur (player.js) fait des
-// raycasts contre ces meshes pour le sol / les murs, donc les rampes et
-// plateformes inclinées fonctionnent "gratuitement" sans AABB séparées.
+// à level.collidables : le contrôleur du joueur (player.js) fait des raycasts
+// contre ces meshes pour le sol / les murs.
 // ============================================================================
 window.AS = window.AS || {};
 
@@ -76,23 +73,6 @@ AS.CFG = {
   phaseGateCooldown: 3.0,
 };
 
-
-// 15 emplacements de niveau principal : 3 catégories (Court/Normal/Long,
-// selon la longueur du niveau) x 5 niveaux de difficulté chacune — de
-// simples étiquettes affichées sur l'écran titre : la géométrie vient
-// toujours d'un niveau créé dans l'éditeur et assigné à cet emplacement
-// (voir AS.Storage.getMainLevelFor). Clé = "<catégorie>-<1-5>".
-AS.DIFF_CATEGORIES = [
-  { id: 'court', label: 'Court' },
-  { id: 'normal', label: 'Normal' },
-  { id: 'long', label: 'Long' },
-];
-AS.DIFFS = {};
-AS.DIFF_CATEGORIES.forEach((cat) => {
-  for (let i = 1; i <= 5; i++) {
-    AS.DIFFS[cat.id + '-' + i] = { label: cat.label + ' ' + i, category: cat.id, tier: i };
-  }
-});
 
 // Images d'arrière-plan proposées dans l'éditeur pour un niveau créé.
 AS.BACKGROUND_CHOICES = [
@@ -188,10 +168,6 @@ AS.World = (function () {
   //    selon un motif pseudo-aléatoire mais DÉTERMINISTE (dérivé de la
   //    position du bloc) — un même niveau garde toujours le même rendu
   //    d'une ouverture à l'autre.
-  const PANEL_TOP_GEO = new THREE.BoxGeometry(1, 0.07, 1);
-  const PANEL_SIDE_GEO = new THREE.BoxGeometry(1, 1, 0.07);
-  const RIM_BAR_Z_GEO = new THREE.BoxGeometry(AS.EDITOR_CELL.x * 0.96 - 0.14, 0.05, 0.14);
-  const RIM_BAR_X_GEO = new THREE.BoxGeometry(0.14, 0.05, AS.EDITOR_CELL.z * 0.96 - 0.14);
   const DETAIL_MAT_CACHE = {};
 
   // Hash entier -> [0,1) déterministe (xorshift), pour un "aléatoire" stable
@@ -221,21 +197,56 @@ AS.World = (function () {
     return mat;
   }
 
-  // Départ/Arrivée : un cadre surélevé (pas un pavage complet) pour garder
-  // la couleur du bloc bien lisible — c'est un signal de gameplay, pas une
-  // simple plateforme — tout en cassant l'aspect "boîte plate".
-  function attachRimDetail(mesh, type, theme, bw, bh, bd) {
-    const mat = detailMaterial(type, theme);
-    [1, -1].forEach((sign) => {
-      const bz = new THREE.Mesh(RIM_BAR_Z_GEO, mat);
-      bz.position.set(0, bh / 2 + 0.025, sign * (bd / 2 - 0.07));
-      bz.castShadow = true; bz.receiveShadow = true;
-      mesh.add(bz);
-      const bx = new THREE.Mesh(RIM_BAR_X_GEO, mat);
-      bx.position.set(sign * (bw / 2 - 0.07), bh / 2 + 0.025, 0);
-      bx.castShadow = true; bx.receiveShadow = true;
-      mesh.add(bx);
+  // Fusionne des géométries indexées en une seule : un bloc et tout son relief
+  // ne coûtent que 2 appels de rendu, ce qui compte quand le générateur garde
+  // plusieurs centaines de blocs en scène.
+  function mergeGeometries(list) {
+    let vCount = 0, iCount = 0;
+    list.forEach((g) => { vCount += g.attributes.position.count; iCount += g.index.count; });
+    const pos = new Float32Array(vCount * 3), nor = new Float32Array(vCount * 3), uv = new Float32Array(vCount * 2);
+    const idx = new Uint32Array(iCount);
+    let vo = 0, io = 0;
+    list.forEach((g) => {
+      pos.set(g.attributes.position.array, vo * 3);
+      nor.set(g.attributes.normal.array, vo * 3);
+      uv.set(g.attributes.uv.array, vo * 2);
+      const gi = g.index.array;
+      for (let i = 0; i < gi.length; i++) idx[io + i] = gi[i] + vo;
+      vo += g.attributes.position.count;
+      io += gi.length;
+      g.dispose();
     });
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    out.setIndex(new THREE.BufferAttribute(idx, 1));
+    return out;
+  }
+
+  function panelGeo(w, h, d, x, y, z, ry) {
+    const g = new THREE.BoxGeometry(w, h, d);
+    if (ry) g.rotateY(ry);
+    g.translate(x, y, z);
+    return g;
+  }
+
+  function addDetailMesh(mesh, type, theme, geos) {
+    if (!geos.length) return;
+    const detail = new THREE.Mesh(mergeGeometries(geos), detailMaterial(type, theme));
+    detail.castShadow = true; detail.receiveShadow = true;
+    mesh.add(detail);
+  }
+
+  // Départ/Arrivée : un cadre surélevé (pas un pavage complet) pour garder
+  // la couleur du bloc bien lisible — c'est un signal de gameplay.
+  function attachRimDetail(mesh, type, theme, bw, bh, bd) {
+    const geos = [];
+    [1, -1].forEach((sign) => {
+      geos.push(panelGeo(bw - 0.14, 0.05, 0.14, 0, bh / 2 + 0.025, sign * (bd / 2 - 0.07)));
+      geos.push(panelGeo(0.14, 0.05, bd - 0.14, sign * (bw / 2 - 0.07), bh / 2 + 0.025, 0));
+    });
+    addDetailMesh(mesh, type, theme, geos);
   }
 
   function attachBlockDetail(mesh, type, theme, gx, gy, gz, bw, bh, bd) {
@@ -243,95 +254,86 @@ AS.World = (function () {
       attachRimDetail(mesh, type, theme, bw, bh, bd);
       return;
     }
-    // La glace/neige garde un aspect anguleux (facettes de cristal) même en
-    // thème "organique" — seul le bloc fragile force toujours l'aspect
-    // irrégulier (cohérent avec son rôle : il est déjà "cassé" par nature).
+    // La glace garde un aspect anguleux même en thème "organique" ; le bloc
+    // fragile est toujours irrégulier : il est déjà "cassé" par nature.
     const organic = (theme === 'snow' && type !== 'ice') || type === 'crumble';
-    const mat = detailMaterial(type, theme);
-
+    const geos = [];
     function jitter(i, mag) {
       return (hash01(gx + i * 7, gy + i * 13, gz + i * 3) - 0.5) * mag;
     }
 
-    // ---- Dessus : grille 2x2 de panneaux surélevés (sauf pics : les cônes
-    // décoratifs occupent déjà le dessus, voir addSpikeCones) -------------
+    // Dessus : panneaux surélevés (sauf pics : les cônes occupent déjà le dessus).
     if (type !== 'spike') {
-      const cols = 2, rows = 2;
+      const cols = Math.max(1, Math.min(6, Math.round(bw / 1.44)));
+      const rows = Math.max(1, Math.min(6, Math.round(bd / 1.44)));
       const cw = bw / cols, cd = bd / rows;
       let i = 0;
       for (let cx = 0; cx < cols; cx++) {
         for (let cz = 0; cz < rows; cz++) {
           i++;
-          const panel = new THREE.Mesh(PANEL_TOP_GEO, mat);
-          const px = -bw / 2 + cw * (cx + 0.5);
-          const pz = -bd / 2 + cd * (cz + 0.5);
-          panel.scale.set(cw * 0.82, 1, cd * 0.82);
-          panel.position.set(
-            px + (organic ? jitter(i, cw * 0.18) : 0),
+          geos.push(panelGeo(cw * 0.82, 0.07, cd * 0.82,
+            -bw / 2 + cw * (cx + 0.5) + (organic ? jitter(i, cw * 0.18) : 0),
             bh / 2 + 0.03,
-            pz + (organic ? jitter(i + 10, cd * 0.18) : 0)
-          );
-          if (organic) panel.rotation.y = jitter(i + 20, 0.5);
-          panel.castShadow = true; panel.receiveShadow = true;
-          mesh.add(panel);
+            -bd / 2 + cd * (cz + 0.5) + (organic ? jitter(i + 10, cd * 0.18) : 0),
+            organic ? jitter(i + 20, 0.5) : 0));
         }
       }
     }
 
-    // ---- 4 faces latérales : 2 panneaux empilés par face -------------------
-    const sides = [
-      { axis: 'z', sign: 1 }, { axis: 'z', sign: -1 },
-      { axis: 'x', sign: 1 }, { axis: 'x', sign: -1 },
-    ];
-    sides.forEach((s, si) => {
+    // 4 faces latérales : 2 panneaux par face.
+    [{ axis: 'z', sign: 1 }, { axis: 'z', sign: -1 }, { axis: 'x', sign: 1 }, { axis: 'x', sign: -1 }].forEach((s, si) => {
+      const span = s.axis === 'z' ? bw : bd;
+      if (span < 0.9 || bh < 0.5) return;
       for (let row = 0; row < 2; row++) {
-        const panel = new THREE.Mesh(PANEL_SIDE_GEO, mat);
-        const spanAxisLen = s.axis === 'z' ? bw : bd;
-        const panelW = spanAxisLen * 0.42;
-        const panelH = bh * 0.42;
-        panel.scale.set(
-          s.axis === 'z' ? panelW : 0.07,
-          panelH,
-          s.axis === 'z' ? 0.07 : panelW
-        );
-        const alongBase = (row === 0 ? -1 : 1) * 0.24 * spanAxisLen;
-        const along = alongBase + (organic ? jitter(si * 4 + row, spanAxisLen * 0.06) : 0);
+        const panelW = span * 0.42, panelH = bh * 0.42;
+        const along = (row === 0 ? -1 : 1) * 0.24 * span + (organic ? jitter(si * 4 + row, span * 0.06) : 0);
         const y = -bh / 2 + bh * (row === 0 ? 0.3 : 0.7) + (organic ? jitter(si * 4 + row + 30, bh * 0.08) : 0);
-        const outward = (s.axis === 'z' ? bd : bw) / 2 + 0.03;
-        if (s.axis === 'z') panel.position.set(along, y, s.sign * outward);
-        else panel.position.set(s.sign * outward, y, along);
-        if (organic) panel.rotation.y = jitter(si * 4 + row + 40, 0.25);
-        panel.castShadow = false; panel.receiveShadow = true;
-        mesh.add(panel);
+        const out = (s.axis === 'z' ? bd : bw) / 2 + 0.03;
+        const ry = organic ? jitter(si * 4 + row + 40, 0.25) : 0;
+        if (s.axis === 'z') geos.push(panelGeo(panelW, panelH, 0.07, along, y, s.sign * out, ry));
+        else geos.push(panelGeo(0.07, panelH, panelW, s.sign * out, y, along, ry));
       }
     });
+    addDetailMesh(mesh, type, theme, geos);
   }
 
   // ---- Pics mortels : décor uniquement (le bloc plein en dessous porte la
   // collision réelle, voir userData.surface='spike' et player.js) — un
   // petit groupe de cônes plutôt qu'un seul, pour bien lire "danger" de loin.
   const SPIKE_MAT = new THREE.MeshStandardMaterial({ color: 0xc9463a, emissive: 0x3a0805, emissiveIntensity: 0.5, roughness: 0.4, metalness: 0.3 });
-  // `parent` (optionnel) : voir addBoostArrow — mêmes raisons (des pics
-  // mobiles doivent suivre leur bloc porteur sur son trajet).
+  // `parent` (optionnel) : voir addBoostArrow — des pics mobiles doivent
+  // suivre leur bloc porteur sur son trajet.
   function addSpikeCones(scene, x, topY, z, sx, sz, parent) {
-    const cols = 2, rows = 2;
-    const coneH = 0.32, coneR = Math.min(sx, sz) / (cols * 2.6);
-    const geo = new THREE.ConeGeometry(coneR, coneH, 6);
     const ox = parent ? -parent.position.x : 0;
     const oy = parent ? -parent.position.y : 0;
     const oz = parent ? -parent.position.z : 0;
+    const mesh = spikeConesMesh(sx, sz, 'top');
+    mesh.position.set(ox + x, oy + topY, oz + z);
+    (parent || scene).add(mesh);
+  }
+
+  // Cônes répartis sur une face de dimensions (a, b) — `face` : top, bottom,
+  // +x, -x, +z, -z ; pointent vers l'extérieur depuis l'origine du mesh.
+  function spikeConesMesh(a, b, face) {
+    const cols = Math.max(2, Math.min(10, Math.round(a / 0.7)));
+    const rows = Math.max(1, Math.min(10, Math.round(b / 0.7)));
+    const coneH = 0.34, coneR = Math.min(a / cols, b / rows) * 0.42;
+    const geos = [];
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
-        const cone = new THREE.Mesh(geo, SPIKE_MAT);
-        cone.position.set(
-          ox + x + (i + 0.5) / cols * sx - sx / 2,
-          oy + topY + coneH / 2,
-          oz + z + (j + 0.5) / rows * sz - sz / 2
-        );
-        cone.castShadow = true;
-        (parent || scene).add(cone);
+        const g = new THREE.ConeGeometry(coneR, coneH, 6);
+        g.translate((i + 0.5) / cols * a - a / 2, coneH / 2, (j + 0.5) / rows * b - b / 2);
+        if (face === 'bottom') g.rotateX(Math.PI);
+        else if (face === '+x') g.rotateZ(-Math.PI / 2);
+        else if (face === '-x') g.rotateZ(Math.PI / 2);
+        else if (face === '+z') g.rotateX(Math.PI / 2);
+        else if (face === '-z') g.rotateX(-Math.PI / 2);
+        geos.push(g);
       }
     }
+    const mesh = new THREE.Mesh(mergeGeometries(geos), SPIKE_MAT);
+    mesh.castShadow = true;
+    return mesh;
   }
 
   // ==========================================================================
@@ -394,53 +396,112 @@ AS.World = (function () {
   const MARKER_TYPES = ['checkpoint', 'wind', 'lowgrav', 'phase', 'orb'];
   const EDITOR_TYPES = SOLID_TYPES.concat(MARKER_TYPES);
 
-  // Construit le va-et-vient/la boucle d'une plateforme mobile : `points`
-  // est la liste ORDONNÉE de ses arrêts en coordonnées MONDE (le premier est
-  // toujours sa position posée dans l'éditeur), parcourue indéfiniment en
-  // boucle (dernier arrêt -> premier arrêt, pas de "retour" en marche
-  // arrière) — un seul point de passage donne donc un va-et-vient classique
-  // entre 2 positions, plusieurs donnent une vraie tournée.
-  function buildWaypointMover(mesh, points, speed) {
-    // `points` sont déjà des THREE.Vector3 en coordonnées MONDE (voir
-    // l'appelant dans buildCustom) — jamais recalculés ici à partir
-    // d'indices de grille, pour ne jamais avoir à supposer un pas de
-    // grille unique (un bloc rendu mobile peut être un quart de bloc).
-    // `speed` est une vitesse réelle en unités/seconde (réglable précisément
-    // dans l'éditeur, outil Sélection) : le temps de chaque trajet dépend de
-    // la distance RÉELLE entre ses deux arrêts, pas d'une durée fixe — un
-    // grand écart met donc proportionnellement plus longtemps qu'un petit,
-    // à vitesse égale.
+  // Plateforme mobile : `points` = arrêts en coordonnées MONDE, parcourus en
+  // boucle (dernier -> premier). `speed` en unités/seconde : le temps d'un trajet
+  // dépend de la distance réelle. La position est une FONCTION DU TEMPS du
+  // niveau (setTime) et non un compteur interne : le générateur peut ainsi
+  // calculer d'avance où sera la plateforme à une image donnée, et le jeu
+  // reproduit exactement ce que le bot a joué.
+  function moverTiming(points, speed, pause) {
     const spd = speed || 2.5;
-    const pause = 0.28;
     const n = points.length;
     const legTimes = points.map((p, i) => Math.max(p.distanceTo(points[(i + 1) % n]) / spd, 0.15));
     const legTotals = legTimes.map((t) => t + pause);
-    const totalCycle = legTotals.reduce((a, b) => a + b, 0);
-    let clock = 0;
+    return { legTimes, legTotals, cycle: legTotals.reduce((a, b) => a + b, 0) };
+  }
+
+  function makeMover(mesh, points, speed, pause, phase) {
+    const wait = pause == null ? 0.28 : pause;
+    const n = points.length;
+    const { legTimes, legTotals, cycle } = moverTiming(points, speed, wait);
     const prevPos = mesh.position.clone();
     const mover = {
       mesh,
       delta: new THREE.Vector3(),
-      update: (dt) => {
+      setTime: (time) => {
         prevPos.copy(mesh.position);
-        clock = (clock + dt) % totalCycle;
+        const clock = (((time + (phase || 0)) % cycle) + cycle) % cycle;
         let legIndex = 0, acc = 0;
         while (legIndex < n - 1 && acc + legTotals[legIndex] <= clock) { acc += legTotals[legIndex]; legIndex++; }
         const legClock = clock - acc;
         const legTime = legTimes[legIndex];
         const from = points[legIndex];
         const to = points[(legIndex + 1) % n];
-        if (legClock < legTime) {
-          mesh.position.lerpVectors(from, to, AS.Util.smoothstep(0, 1, legClock / legTime));
-        } else {
-          mesh.position.copy(to);
-        }
+        if (legClock < legTime) mesh.position.lerpVectors(from, to, AS.Util.smoothstep(0, 1, legClock / legTime));
+        else mesh.position.copy(to);
         mover.delta.copy(mesh.position).sub(prevPos);
+        mesh.updateMatrixWorld(true);
       },
     };
     mesh.userData.isMover = true;
     mesh.userData.moverRef = mover;
     return mover;
+  }
+
+  // Une image de simulation du niveau, commune au jeu et au générateur :
+  // plateformes mobiles, plateformes fragiles, portes de phase. Renvoie true
+  // si une porte de phase vient de téléporter le joueur.
+  function stepLevel(level, player, dt) {
+    level.frame = (level.frame || 0) + 1;
+    const time = level.frame * dt;
+    for (const m of level.movers) m.setTime(time);
+
+    for (const c of level.crumbles) {
+      const st = c.userData.crumbleState || 'idle';
+      if (st === 'idle') {
+        if (player.grounded && player.groundObject === c) {
+          c.userData.crumbleState = 'shaking';
+          c.userData.crumbleT = 0;
+        }
+      } else if (st === 'shaking') {
+        c.userData.crumbleT += dt;
+        if (c.userData.crumbleT > (c.userData.crumbleTime != null ? c.userData.crumbleTime : 0.45)) {
+          c.userData.crumbleState = 'gone';
+          c.userData.crumbleT = 0;
+          c.userData.disabled = true;
+          c.visible = false;
+        }
+      } else if (st === 'gone') {
+        c.userData.crumbleT += dt;
+        if (c.userData.crumbleT > 3.2) {
+          c.userData.crumbleState = 'idle';
+          c.userData.disabled = false;
+          c.visible = true;
+        }
+      }
+    }
+
+    let teleported = false;
+    for (const t of level.triggers) {
+      if (t.type !== 'phaseGate') continue;
+      if (t.cooldown > 0) { t.cooldown = Math.max(0, t.cooldown - dt); continue; }
+      if (teleported || player.position.distanceTo(t.pos) > t.radius) continue;
+      const spd = player.velocity.length();
+      player.position.copy(t.pairPos);
+      player.velocity.copy(t.dir).multiplyScalar(Math.max(spd, 6));
+      player.grounded = false;
+      player.jumpsUsed = 0;
+      t.cooldown = AS.CFG.phaseGateCooldown;
+      for (const other of level.triggers) {
+        if (other.type === 'phaseGate' && other.pos === t.pairPos) other.cooldown = AS.CFG.phaseGateCooldown;
+      }
+      teleported = true;
+    }
+    return teleported;
+  }
+
+  const SURFACE_BY_TYPE = { boost: 'boost', bounce: 'bounce', ice: 'ice', crumble: 'crumble', perfectBounce: 'perfectBounce', spike: 'spike' };
+
+  // Propriétés de jeu d'une pièce du générateur, posées à l'identique sur le
+  // mesh de simulation (gen.js) et sur le vrai mesh affiché (addPieces).
+  function applySolid(mesh, p) {
+    applySurface(mesh, p);
+  }
+  function applySurface(mesh, p) {
+    mesh.userData.surface = SURFACE_BY_TYPE[p.type] || 'normal';
+    if (p.type === 'boost') mesh.userData.boostDir = new THREE.Vector3(p.boostDir[0], 0, p.boostDir[1]);
+    if (p.type === 'bounce') mesh.userData.bounceForce = p.bounceForce != null ? p.bounceForce : 19;
+    if (p.type === 'crumble') mesh.userData.crumbleTime = p.crumbleTime != null ? p.crumbleTime : 0.45;
   }
 
   function buildCustom(scene, blocks, theme) {
@@ -471,8 +532,7 @@ AS.World = (function () {
       );
       mesh.position.set(wx, wy, wz);
       mesh.castShadow = true; mesh.receiveShadow = true;
-      const surfaceByType = { boost: 'boost', bounce: 'bounce', ice: 'ice', crumble: 'crumble', perfectBounce: 'perfectBounce', spike: 'spike' };
-      mesh.userData.surface = surfaceByType[b.type] || 'normal';
+      mesh.userData.surface = SURFACE_BY_TYPE[b.type] || 'normal';
       attachBlockDetail(mesh, b.type, theme, b.gx, b.gy, b.gz, step.x * 0.96, cell.y * 0.92, step.z * 0.96);
       const isMobile = !!(b.waypoints && b.waypoints.length);
       if (b.type === 'boost') {
@@ -486,7 +546,7 @@ AS.World = (function () {
       // d'origine inchangé).
       if (b.type === 'bounce') mesh.userData.bounceForce = b.bounceForce != null ? b.bounceForce : 19;
       // Idem pour le temps avant effondrement d'une plateforme fragile — lu
-      // par updateCrumbles (main.js) et stepCrumbles (analyzer.js), qui
+      // par stepLevel (ci-dessus) et stepCrumbles (analyzer.js), qui
       // doivent rester en accord sur cette valeur pour que le bot analyse
       // exactement le même comportement que le jeu réel.
       if (b.type === 'crumble') mesh.userData.crumbleTime = b.crumbleTime != null ? b.crumbleTime : 0.45;
@@ -502,13 +562,13 @@ AS.World = (function () {
       // premier arrêt vient DIRECTEMENT de mesh.position (déjà placé à la
       // bonne échelle ci-dessus, pleine ou quart) ; les points de passage,
       // eux, sont toujours posés avec l'outil Sélection à l'échelle pleine
-      // (voir editor.js) — buildWaypointMover ne mélange donc jamais deux
+      // (voir editor.js) — makeMover ne mélange donc jamais deux
       // pas de grille différents dans un même calcul.
       if (isMobile) {
         const points = [mesh.position.clone()].concat(
           b.waypoints.map((wp) => new THREE.Vector3(wp.gx * cell.x, wp.gy * cell.y, wp.gz * cell.z))
         );
-        movers.push(buildWaypointMover(mesh, points, b.speed));
+        movers.push(makeMover(mesh, points, b.speed));
         b.waypoints.forEach((wp) => {
           maxAltitude = Math.max(maxAltitude, wp.gy * cell.y + cell.y);
         });
@@ -623,6 +683,30 @@ AS.World = (function () {
       triggers.push({ type: 'phaseGate', pos: pa, dir: db, radius: 1.6, cooldown: 0, pairPos: pb });
       triggers.push({ type: 'phaseGate', pos: pb, dir: da, radius: 1.6, cooldown: 0, pairPos: pa });
     });
+    const env = buildEnvironment(scene);
+
+    return {
+      collidables,
+      crumbles: collidables.filter((m) => m.userData.surface === 'crumble'),
+      movers,
+      triggers,
+      windZones,
+      gravityZones,
+      checkpoints,
+      decorations,
+      orbitals: [],
+      bounceOrbs,
+      fx: env.fx,
+      sky: env.sky,
+      mountains: env.mountains,
+      sun: env.sun,
+      maxAltitude,
+      spawn: spawnPos,
+      frame: 0,
+    };
+  }
+
+  function buildEnvironment(scene) {
     const fx = [];
     const sky = AS.Fx.buildSky(scene);
     const mountains = AS.Fx.buildMountainRing(scene, 0, 0, 220, 42);
@@ -641,28 +725,251 @@ AS.World = (function () {
     sun.target = new THREE.Object3D();
     scene.add(sun, sun.target);
     scene.fog = new THREE.Fog(0x3a2a4a, 40, 200);
+    return { fx, sky, mountains, sun };
+  }
 
+  // ==========================================================================
+  // Niveau généré (voir gen.js) : le niveau arrive partie par partie, sous
+  // forme de "pièces" en coordonnées libres, et les parties déjà passées sont
+  // retirées de la scène — une partie peut donc durer à l'infini.
+  // ==========================================================================
+  const SIM_MAT = new THREE.MeshBasicMaterial();
+
+  // Pavé dont la texture garde la même échelle quelle que soit sa taille.
+  function worldBox(sx, sy, sz) {
+    const g = new THREE.BoxGeometry(sx, sy, sz);
+    const uv = g.attributes.uv;
+    const sizes = [[sz, sy], [sz, sy], [sx, sz], [sx, sz], [sx, sy], [sx, sy]];
+    for (let f = 0; f < 6; f++) {
+      for (let v = 0; v < 4; v++) {
+        const i = f * 4 + v;
+        uv.setXY(i, uv.getX(i) * sizes[f][0] / 2.88, uv.getY(i) * sizes[f][1] / 2.88);
+      }
+    }
+    return g;
+  }
+
+  function moverPoints(p) {
+    return p.mover.points.map((q) => new THREE.Vector3(q[0], q[1], q[2]));
+  }
+
+  // Version sans rendu d'une pièce pleine, utilisée par le fantôme du
+  // générateur : même collision et même comportement que la vraie.
+  function simSolid(p) {
+    // Vraie géométrie à la bonne taille (pas un cube mis à l'échelle) : les
+    // rayons donnent ainsi exactement les mêmes nombres qu'avec le mesh affiché.
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.sx, p.sy, p.sz), SIM_MAT);
+    mesh.position.set(p.x, p.y, p.z);
+    applySolid(mesh, p);
+    mesh.updateMatrixWorld(true);
+    const mover = p.mover ? makeMover(mesh, moverPoints(p), p.mover.speed, p.mover.pause, p.mover.phase) : null;
+    return { mesh, mover };
+  }
+
+  function addSolidPiece(level, group, p, theme, section) {
+    const mesh = new THREE.Mesh(worldBox(p.sx, p.sy, p.sz), customMaterial(p.type, theme));
+    mesh.position.set(p.x, p.y, p.z);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    applySolid(mesh, p);
+    const cgx = Math.round(p.x * 3), cgy = Math.round(p.y * 3), cgz = Math.round(p.z * 3);
+    if (p.type === 'spike') {
+      const face = p.spikeFace || 'top';
+      const a = face === '+x' || face === '-x' ? p.sz : p.sx;
+      const b = face === '+z' || face === '-z' ? p.sy : (face === 'top' || face === 'bottom' ? p.sz : p.sy);
+      const cones = spikeConesMesh(a * 0.96, b * 0.96, face);
+      const off = { top: [0, p.sy / 2, 0], bottom: [0, -p.sy / 2, 0], '+x': [p.sx / 2, 0, 0], '-x': [-p.sx / 2, 0, 0], '+z': [0, 0, p.sz / 2], '-z': [0, 0, -p.sz / 2] }[face];
+      cones.position.set(off[0], off[1], off[2]);
+      mesh.add(cones);
+    } else if (Math.max(p.sx, p.sz) < 40 && p.sy < 16) {
+      attachBlockDetail(mesh, p.type, theme, cgx, cgy, cgz, p.sx, p.sy, p.sz);
+    }
+    if (p.type === 'boost') {
+      const dir = mesh.userData.boostDir;
+      const n = Math.max(1, Math.min(6, Math.round(Math.max(p.sx, p.sz) / 3.5)));
+      const span = Math.abs(dir.x) * p.sx + Math.abs(dir.z) * p.sz;
+      for (let i = 0; i < n; i++) {
+        const k = ((i + 0.5) / n - 0.5) * span * 0.8;
+        addBoostArrow(null, p.x + dir.x * k, p.y + p.sy / 2 + 0.02, p.z + dir.z * k, dir, mesh);
+      }
+    }
+    group.add(mesh);
+    mesh.updateMatrixWorld(true);
+    level.collidables.push(mesh);
+    if (p.type === 'crumble') level.crumbles.push(mesh);
+    section.solids.push(mesh);
+    if (p.mover) {
+      const mover = makeMover(mesh, moverPoints(p), p.mover.speed, p.mover.pause, p.mover.phase);
+      mover.setTime((level.frame || 0) / 60);
+      level.movers.push(mover);
+      section.movers.push(mover);
+    }
+    if (p.finish) {
+      const t = {
+        type: 'finish', pos: mesh.position, radius: Math.hypot(p.sx, p.sz) / 2 + 3,
+        half: { x: p.sx / 2, y: p.sy / 2, z: p.sz / 2 },
+      };
+      level.triggers.push(t);
+      section.triggers.push(t);
+    }
+  }
+
+  function addCheckpointPiece(level, group, p, section) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 6), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+    pole.position.set(p.x - 1.2, p.y + 1.2, p.z);
+    const flagMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, emissive: 0x111111, side: THREE.DoubleSide });
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), flagMat);
+    flag.position.set(p.x - 0.7, p.y + 2, p.z);
+    group.add(pole, flag);
+    const cp = { pos: new THREE.Vector3(p.x, p.y + 0.1, p.z), flagMat, flag, pole, sectionIndex: p.sectionIndex };
+    const t = {
+      type: 'checkpoint', cp, pos: new THREE.Vector3(p.x, p.y, p.z), radius: Math.hypot(p.hx, p.hz) + 3,
+      half: { x: p.hx, y: 2.6, z: p.hz },
+    };
+    level.checkpoints.push(cp);
+    level.triggers.push(t);
+    section.checkpoints.push(cp);
+    section.triggers.push(t);
+  }
+
+  function addOrbPiece(level, group, p, section) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xff9ed6, emissive: 0x6b0a45, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.5,
+      transparent: true, opacity: 0.6,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(p.r, 18, 12), mat);
+    mesh.position.set(p.x, p.y, p.z);
+    group.add(mesh);
+    const deco = { mesh, spin: 0.5 };
+    const orb = { pos: mesh.position.clone(), radius: p.r, force: p.force };
+    level.decorations.push(deco);
+    level.bounceOrbs.push(orb);
+    section.decorations.push(deco);
+    section.orbs.push(orb);
+  }
+
+  function addZonePiece(level, group, p, section) {
+    const min = new THREE.Vector3(p.min[0], p.min[1], p.min[2]);
+    const max = new THREE.Vector3(p.max[0], p.max[1], p.max[2]);
+    const wind = p.k === 'wind';
+    const mat = new THREE.MeshBasicMaterial({
+      color: wind ? 0xbfe8ff : 0xd9c6ff, transparent: true, opacity: wind ? 0.1 : 0.08, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(max.x - min.x, max.y - min.y, max.z - min.z), mat);
+    mesh.position.addVectors(min, max).multiplyScalar(0.5);
+    group.add(mesh);
+    if (wind) {
+      const z = { min, max, force: new THREE.Vector3(p.force[0], p.force[1], p.force[2]) };
+      level.windZones.push(z);
+      section.winds.push(z);
+    } else {
+      const z = { min, max, scale: p.scale };
+      level.gravityZones.push(z);
+      section.gravs.push(z);
+    }
+  }
+
+  function phaseVisual(group, level, section, pos, dir, color) {
+    const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.5, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.14, 10, 24), mat);
+    ring.position.copy(pos);
+    ring.lookAt(pos.clone().add(dir));
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1.2, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+    disc.position.copy(pos);
+    disc.lookAt(pos.clone().add(dir));
+    group.add(ring, disc);
+    const deco = { mesh: ring, spin: 0.6 };
+    level.decorations.push(deco);
+    section.decorations.push(deco);
+  }
+
+  function addPhasePiece(level, group, p, section) {
+    const pa = new THREE.Vector3(p.a[0], p.a[1], p.a[2]);
+    const pb = new THREE.Vector3(p.b[0], p.b[1], p.b[2]);
+    const dir = new THREE.Vector3(p.dir[0], 0, p.dir[1]);
+    const color = [0x6ee7ff, 0xff6ea0, 0xffd166, 0x9dff6e, 0xc792ff, 0xff8a5c][(p.color || 0) % 6];
+    phaseVisual(group, level, section, pa, dir, color);
+    phaseVisual(group, level, section, pb, dir, color);
+    const ta = { type: 'phaseGate', pos: pa, dir, radius: p.radius, cooldown: 0, pairPos: pb };
+    const tb = { type: 'phaseGate', pos: pb, dir: dir.clone().negate(), radius: p.radius, cooldown: 0, pairPos: pa };
+    level.triggers.push(ta, tb);
+    section.triggers.push(ta, tb);
+  }
+
+  function createRunLevel(scene) {
+    const env = buildEnvironment(scene);
     return {
-      collidables,
-      crumbles: collidables.filter((m) => m.userData.surface === 'crumble'),
-      movers,
-      triggers,
-      windZones,
-      gravityZones,
-      checkpoints,
-      decorations,
-      orbitals: [],
-      bounceOrbs,
-      fx,
-      sky,
-      mountains,
-      sun,
-      maxAltitude,
-      spawn: spawnPos,
+      collidables: [], crumbles: [], movers: [], triggers: [], windZones: [], gravityZones: [],
+      checkpoints: [], decorations: [], orbitals: [], bounceOrbs: [],
+      fx: env.fx, sky: env.sky, mountains: env.mountains, sun: env.sun,
+      maxAltitude: 0, spawn: null, frame: 0, generated: true, sections: {}, scene,
     };
   }
 
-  return { buildCustom, EDITOR_TYPES };
+  function addPieces(level, pieces, theme, sectionId) {
+    // Une partie peut arriver en plusieurs morceaux, pour étaler le travail
+    // sur plusieurs images.
+    let section = level.sections[sectionId];
+    if (!section) {
+      const group = new THREE.Group();
+      section = {
+        group, solids: [], movers: [], triggers: [], checkpoints: [], decorations: [], orbs: [], winds: [], gravs: [],
+      };
+      level.sections[sectionId] = section;
+      level.scene.add(group);
+    }
+    const group = section.group;
+    for (const p of pieces) {
+      if (p.k === 'box') addSolidPiece(level, group, p, theme, section);
+      else if (p.k === 'checkpoint') addCheckpointPiece(level, group, p, section);
+      else if (p.k === 'orb') addOrbPiece(level, group, p, section);
+      else if (p.k === 'wind' || p.k === 'lowgrav') addZonePiece(level, group, p, section);
+      else if (p.k === 'phase') addPhasePiece(level, group, p, section);
+    }
+    group.updateMatrixWorld(true);
+  }
+
+  // Filtrage EN PLACE : le joueur et la caméra gardent une référence vers ces
+  // tableaux, ils ne doivent jamais être remplacés.
+  function dropFrom(list, removed) {
+    if (!removed.length) return;
+    const set = new Set(removed);
+    let w = 0;
+    for (let i = 0; i < list.length; i++) if (!set.has(list[i])) list[w++] = list[i];
+    list.length = w;
+  }
+
+  const SHARED_GEOS = new Set([BOOST_ARROW_GEO]);
+  function removeSection(level, sectionId) {
+    const s = level.sections[sectionId];
+    if (!s) return;
+    dropFrom(level.collidables, s.solids);
+    dropFrom(level.crumbles, s.solids);
+    dropFrom(level.movers, s.movers);
+    dropFrom(level.triggers, s.triggers);
+    dropFrom(level.checkpoints, s.checkpoints);
+    dropFrom(level.decorations, s.decorations);
+    dropFrom(level.bounceOrbs, s.orbs);
+    dropFrom(level.windZones, s.winds);
+    dropFrom(level.gravityZones, s.gravs);
+    level.scene.remove(s.group);
+    s.group.traverse((o) => { if (o.geometry && !SHARED_GEOS.has(o.geometry)) o.geometry.dispose(); });
+    delete level.sections[sectionId];
+  }
+
+  // Remet les plateformes fragiles d'aplomb (retour à un point de contrôle).
+  function resetCrumbles(level) {
+    for (const c of level.crumbles) {
+      c.userData.crumbleState = 'idle';
+      c.userData.disabled = false;
+      c.visible = true;
+      c.rotation.set(0, 0, 0);
+      c.updateMatrixWorld(true);
+    }
+  }
+
+  return {
+    buildCustom, EDITOR_TYPES, stepLevel, simSolid, applySurface, moverTiming, createRunLevel, addPieces, removeSection, resetCrumbles,
+  };
 })();
 
 // Recopie les règles utilisateur (AS.Storage.getRules(), voir l'écran
@@ -675,8 +982,8 @@ AS.World = (function () {
 // suivent maxSpeed/jumpVel plutôt que d'être des règles à part : ce sont
 // des seuils internes dérivés de la vitesse générale du jeu, pas des
 // réglages qu'un joueur penserait à ajuster séparément.
-AS.World.applyRules = function () {
-  const rules = AS.Storage.getRules();
+AS.World.applyRules = function (forced) {
+  const rules = forced || AS.Storage.getRules();
   Object.assign(AS.CFG, {
     maxSpeed: rules.maxSpeed, boostMaxSpeed: rules.boostMaxSpeed,
     jumpVel: rules.jumpVel, doubleJumpVel: rules.doubleJumpVel,

@@ -228,7 +228,7 @@ AS.Analyzer = (function () {
         nodes.push(node);
         stops.push({ id: node.id, pos });
       });
-      // Même formule que AS.World.buildWaypointMover (voir world.js) : le
+      // Même formule que la plateforme mobile de world.js (makeMover) (voir world.js) : le
       // temps de trajet dépend de la distance RÉELLE entre les deux arrêts
       // et de la vitesse (en unités/seconde) réglée précisément dans
       // l'éditeur (outil Sélection), plus la pause à chaque arrêt — sinon le
@@ -282,7 +282,7 @@ AS.Analyzer = (function () {
   }
 
   // ---- Plateformes fragiles : simule exactement le même automate que
-  // updateCrumbles (main.js), pour que le bot ne considère pas une
+  // AS.World.stepLevel, pour que le bot ne considère pas une
   // plateforme fragile comme éternellement solide pendant sa tentative.
   function resetCrumbles(level) {
     (level.crumbles || []).forEach((c) => {
