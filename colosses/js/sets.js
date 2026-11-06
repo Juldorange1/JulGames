@@ -94,15 +94,23 @@ for (const s of SKINS) {
   if (s.gen && s.slot === 'trainee' && STYLE_TRAINEE[s.style]) TRAINEES[s.id] = (c, P) => STYLE_TRAINEE[s.style](c, P, s);
   if (s.gen && s.slot === 'aura' && STYLE_AURA[s.style]) AURAS[s.id] = (c, x, y, t) => STYLE_AURA[s.style](c, x, y, t, s);
 }
-// 30 % d'apparences en moins : ces sets sont retirés (une pièce que le joueur possède, même en partie, est gardée)
-const SETS_RETIRES = ['ossuaire', 'rouille', 'lilas', 'fer', 'terre', 'nuit', 'pixel', 'poison', 'plume', 'rubis', 'fumee', 'imperial', 'orage', 'flammebleue', 'lumiere', 'jadedragon', 'spectre', 'obsdoree', 'melodie'];
+// 24 apparences par catégorie : on garde 24 sets (5 communs, 6 rares, 4 épiques, 2 mythiques, 3 légendaires, 4 de saison).
+// Ce que le joueur avait déjà sur une apparence retirée lui est rendu en cristaux.
+const SETS_GARDES = ['recrue', 'bronze', 'foret', 'cendre', 'marine', 'givre', 'sang', 'venin', 'braise', 'foudre', 'saphir', 'neant', 'volcan', 'lotus', 'astral', 'prisme', 'celeste', 'dragon', 'phenix', 'divin', 'halloween', 'hiver', 'printemps', 'ete'];
 {
-  const S0 = (Save.d && Save.d.skins) || { frag: {}, equip: {} }, garde = id => (S0.frag && S0.frag[id] > 0) || Object.values(S0.equip || {}).includes(id) || (skin(id) || {}).base;
-  for (const sid of SETS_RETIRES) {
-    const st = SETS.find(x => x.id === sid); if (!st) continue;
-    for (const id of Object.values(st.pieces)) if (!garde(id)) { const k = SKINS.findIndex(x => x.id === id); if (k >= 0) SKINS.splice(k, 1); delete SET_DE[id]; }
+  const S0 = Save.d && Save.d.skins; let rendu = 0;
+  for (const st of SETS.slice()) {
+    if (SETS_GARDES.includes(st.id)) continue;
+    for (const [slot, id] of Object.entries(st.pieces)) {
+      const k = SKINS.findIndex(x => x.id === id); if (k < 0) continue;
+      const sk = SKINS[k];
+      if (S0 && S0.frag && S0.frag[id] > 0) { rendu += Math.min(S0.frag[id], RARETES[sk.rar].frags) * (PRIX_FRAG[sk.rar] || 12); delete S0.frag[id]; }
+      if (S0 && S0.equip && S0.equip[slot] === id) delete S0.equip[slot];
+      SKINS.splice(k, 1); delete SET_DE[id];
+    }
     SETS.splice(SETS.indexOf(st), 1);
   }
+  if (rendu) { forgeSave().eclats += rendu; Save.d.cristauxRendus = (Save.d.cristauxRendus || 0) + rendu; Save.write(); }
 }
 function setDe(id) { return SETS.find(x => x.id === SET_DE[id]); }
 function nomSet(st) { const L = typeof Langue !== 'undefined' && Langue.en; return L && SETS_EN[st.id] ? SETS_EN[st.id] : st.nom; }

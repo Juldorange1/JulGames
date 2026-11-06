@@ -853,7 +853,7 @@ function dessinerHUD(c) {
       c.font = `24px Segoe UI Emoji, ${POLICE}`; c.textAlign = 'center'; c.fillStyle = s.manque || s.cd > 0 ? '#666' : '#fff';
       icoDessin(c, s.a.ico, sx + 26, y0 + 20, 32, s.manque || s.cd > 0 ? '#6e675c' : null);
       c.textAlign = 'left'; c.font = `800 13px ${POLICE}`; c.fillStyle = s.manque || s.cd > 0 ? '#888' : '#fff';
-      c.fillText(s.a.nom, sx + 50, y0 + 10);
+      c.fillText(s.a.nom, sx + 50, y0 + 10, w - 58);
       c.font = `11px ${POLICE}`; c.fillStyle = s.col; c.fillText(s.k, sx + 50, y0 + 29);
       if (s.ch !== undefined && ST.tCharges > 1) { c.textAlign = 'right'; c.fillStyle = '#ffe9a0'; c.font = `800 13px ${POLICE}`; c.fillText('×' + s.ch, sx + w - 8, y0 + 10); }
       if (s.cd > 0) { c.textAlign = 'right'; c.fillStyle = '#9cf'; c.font = `11px ${POLICE}`; c.fillText(Math.ceil(s.cd * (s === slots[1] ? spec.rech * ST.sRech : tal.rech * ST.tRech)) + ' s', sx + w - 8, y0 + 29); }

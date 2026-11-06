@@ -1182,7 +1182,7 @@ function pasBoucle(now) {
   rendu();
 }
 
-addEventListener('blur', () => { if (G.opts.autoPause && (G.etat === 'combat' || G.etat === 'interlude')) UI.pause(); });
+addEventListener('blur', () => { if (G.opts.autoPause && (G.etat === 'combat' || G.etat === 'interlude') && !(typeof Coop !== 'undefined' && Coop.inscrits.length)) UI.pause(); });
 window.addEventListener('load', () => {
   cv = document.getElementById('jeu'); ctx = cv.getContext('2d');
   majAlerte(); Decor.nouvelleSalle(); appliquerAffichage();

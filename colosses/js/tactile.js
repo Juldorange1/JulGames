@@ -48,9 +48,10 @@ const Tactile = {
   // à chaque image : déplacement, visée et tir
   maj() {
     if (!this.el) return;
-    const enJeu = G.etat === 'combat' || G.etat === 'interlude' || G.etat === 'avant';
+    const invite = G.etat === 'invite', enJeu = G.etat === 'combat' || G.etat === 'interlude' || G.etat === 'avant' || invite;
     const mort = G.etat === 'mort' && G.ecranMort;
-    this.el.style.display = this.actif && (G.etat === 'combat' || G.etat === 'interlude' || mort) ? 'block' : 'none';
+    this.el.style.display = this.actif && (G.etat === 'combat' || G.etat === 'interlude' || mort || invite) ? 'block' : 'none';
+    this.el.classList.toggle('invite', invite);
     this.el.classList.toggle('mort', !!mort);
     if (!enJeu || !this.actif) return;
     const K = TOUCHES(), g = this.gauche, dr = this.droite;
@@ -58,6 +59,11 @@ const Tactile = {
       const dx = g.x - g.x0, dy = g.y - g.y0, m = 16;
       this.tenir(K.gauche, dx < -m); this.tenir(K.droite, dx > m); this.tenir(K.haut, dy < -m); this.tenir(K.bas, dy > m);
     }
+    if (invite) { if (dr) { const dx = dr.x - dr.x0, dy = dr.y - dr.y0; Reseau.ang = Math.hypot(dx, dy) > 14 ? Math.atan2(dy, dx) : null; } else Reseau.ang = null; return; }
+    if (!dr && G.etat === 'combat' && G.ars && G.boss && !G.boss.mort) { // tir automatique sur le boss (sauf les armes à charger)
+      const prim = trouveArme('p', G.ars.p);
+      if (prim && !prim.manuel) { Input.sx = offX + G.boss.x * scale; Input.sy = offY + G.boss.y * scale; this.tenir(K.tir, true); this.autoTir = true; }
+    } else if (this.autoTir && !dr) { this.tenir(K.tir, false); this.autoTir = false; }
     if (dr && G.p) {
       const dx = dr.x - dr.x0, dy = dr.y - dr.y0;
       let wx, wy;

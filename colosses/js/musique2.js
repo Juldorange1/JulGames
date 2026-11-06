@@ -9,7 +9,7 @@ function brancherPiste(p) {
   try {
     const src = Son.c.createMediaElementSource(p.el), f = Son.c.createBiquadFilter(), g = Son.c.createGain();
     f.type = 'lowpass'; f.frequency.value = 20000; f.Q.value = .7; g.gain.value = p.el.volume;
-    src.connect(f); f.connect(g); g.connect(Son.c.destination);
+    src.connect(f); f.connect(g); g.connect(Son.c.destination); if (Son.fluxSortie) g.connect(Son.fluxSortie);
     p.chaine = { f, g };
   } catch (e) { p.chaine = { erreur: true }; }
 }

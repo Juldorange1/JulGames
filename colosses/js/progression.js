@@ -284,7 +284,10 @@ function affSave() {
   return A;
 }
 function correspond(a, cible) { return FAMILLE[a.id] === cible || a.id === cible; }
-function multAff(cat, a) { const A = affSave()[cat]; let m = 1; for (const k in A) if (A[k] > 0 && correspond(a, k)) m = Math.max(m, AFF_MULT[A[k]]); return m; }
+// réglage libre d'une affinité achetée : 0 = chance de base, 1 = tout ce qui a été acheté
+function reglageAff(c, k) { const R = Save.d.affReglage = Save.d.affReglage || {}; R[c] = R[c] || {}; return R[c][k] === undefined ? 1 : R[c][k]; }
+function multAff(cat, a) { const A = affSave()[cat]; let m = 1; for (const k in A) if (A[k] > 0 && correspond(a, k)) m = Math.max(m, 1 + (AFF_MULT[A[k]] - 1) * reglageAff(cat, k)); return m; }
+function chanceReglee(cat, cible) { let tot = 0, ok = 0; for (const a of ARS[cat]) { const m = multAff(cat, a); tot += m; if (correspond(a, cible)) ok += m; } return ok / tot; }
 // chance qu'une arme tirée corresponde à la cible : sans affinité, et avec le niveau donné
 function chanceAff(cat, cible, niv) {
   const l = ARS[cat]; let tot = 0, ok = 0, tot0 = 0, ok0 = 0;

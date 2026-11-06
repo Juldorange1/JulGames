@@ -223,7 +223,7 @@ const UI = {
         const n = A[c][v] || 0, plein = Object.keys(A[c]).filter(k => A[c][k] > 0).length >= 2 && !n;
         const ch = chanceAff(c, v, Math.min(3, n + 1)), ch0 = chanceAff(c, v, n);
         const pct = x => Math.round(x * 100) + ' %';
-        const etat = n ? `<span class="niv">${'◆'.repeat(n)}${'◇'.repeat(3 - n)}</span><em>${pct(ch0.apres)} de chance (au lieu de ${pct(ch0.avant)})</em>` : `<em>${pct(ch0.avant)} de chance</em>`;
+        const etat = n ? `<span class="niv">${'◆'.repeat(n)}${'◇'.repeat(3 - n)}</span><em class="aff-pct" data-c="${c}" data-v="${v}">${pct(chanceReglee(c, v))} de chance</em><label class="aff-r"><small>${pct(ch0.avant)}</small><input type="range" min="0" max="100" value="${Math.round(reglageAff(c, v) * 100)}" data-c="${c}" data-v="${v}"><small>${pct(ch0.apres)}</small></label>` : `<em>${pct(ch0.avant)} de chance</em>`;
         const btnA = n >= 3 ? '<button disabled>Max</button>' : `<button data-a="affNiv" data-c="${c}" data-v="${v}" ${plein || F2.eclats < AFF_PRIX[n] ? 'disabled' : ''} title="${plein ? '2 affinités au plus par type' : 'Passe à ' + pct(ch.apres)}">${n ? '+' : 'Acheter'} · ${AFF_PRIX[n]} 💎</button>`;
         return `<div class="aff-l ${n ? 'actif' : ''}"><b>${nom}</b><div>${etat}</div>${btnA}${n ? `<button class="petit" data-a="affOff" data-c="${c}" data-v="${v}" title="Retirer (les éclats ne sont pas rendus)">✕</button>` : ''}</div>`;
       };

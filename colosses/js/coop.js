@@ -1,65 +1,123 @@
 'use strict';
-/* Colosses — coop à deux sur le même PC. Le joueur 2 joue à la manette (le joueur 1 au clavier et à la souris, ou
-   avec une 2e manette). Il a le même équipement et sa propre vie. Le boss vise l'un puis l'autre et a 50 % de vie
-   en plus. Si un joueur tombe, l'autre continue ; la partie n'est perdue que si les deux tombent. Le joueur tombé
-   revient quand le boss meurt. Le moteur du joueur 1 est réutilisé tel quel pour le joueur 2 (on échange G.p). */
+/* Colosses — jouer à plusieurs, jusqu'à 3 joueurs : le joueur 1 sur cet appareil, et les autres avec une manette
+   branchée (touche Start pour rejoindre) ou en ligne depuis n'importe quel appareil (voir reseau.js).
+   Tout le monde partage l'arène et les armes, chacun a sa vie. Le moteur du joueur 1 est réutilisé pour les autres
+   (on échange G.p et les touches le temps de les faire jouer).
+   Équilibrage selon le nombre de joueurs : boss plus résistant, plus dense, un peu plus rapide, avec moins de répit ;
+   il frappe aussi les joueurs qu'il ne vise pas ; les spéciales se rechargent moins vite (elles s'additionnent) et
+   les soins profitent à toute l'équipe. Un joueur à terre se relève si un coéquipier reste à côté de lui. */
 
+const MAX_JOUEURS = 3;
+const COUL_J = ['#7dffb0', '#ffd86b'];
+const VIE_BOSS_N = [1, 1.85, 2.7]; // la vie du boss selon le nombre de joueurs (mesurée pour garder la même durée de combat)
 const Coop = {
-  p2: null, k: {}, pp: {}, avant: {}, cibleT: 0, cibleJ: 1, visee: null,
-  voulu() { return !!Save.d.opts.coop; },
-  manette() { const l = Manette.liste(); return l.length ? l[l.length - 1] : null; },
-  actif() { return this.voulu() && G.mode !== 'entrainement' && !!this.manette(); },
-  vivants() { const l = []; if (G.p && G.p.hp > 0) l.push(G.p); if (this.p2 && this.p2.hp > 0 && !this.p2.ko) l.push(this.p2); return l; },
-  // touches virtuelles du joueur 2, lues sur sa manette (mêmes codes que les touches réglées)
-  lire() {
-    const g = this.manette(); if (!g || !this.p2) return;
-    const K = TOUCHES(), ax = g.axes, B = i => Manette.bouton(g, i);
-    const lx = Math.abs(ax[0]) > .3 ? ax[0] : 0, ly = Math.abs(ax[1]) > .3 ? ax[1] : 0, rx = ax[2] || 0, ry = ax[3] || 0;
-    const set = (c, v) => { if (!c) return; if (v && !this.k[c]) this.pp[c] = true; this.k[c] = v; };
-    set(K.gauche, lx < -.3 || B(14)); set(K.droite, lx > .3 || B(15)); set(K.haut, ly < -.3 || B(12)); set(K.bas, ly > .3 || B(13));
-    const C = MANETTE_CFG(), A = act => (C[act] || []).some(i => B(i));
-    set(K.tir, A('tir')); set(K.spec, A('spec')); set(K.tal, A('tal'));
-    if (Math.hypot(rx, ry) > .35) { const voulu = Math.atan2(ry, rx), sens = MANETTE_CFG().sens || .5; this.visee = this.visee === null ? voulu : this.visee + clamp(angDiff(this.visee, voulu), -sens * 9 / 60, sens * 9 / 60); } else this.visee = null;
+  inscrits: [], cibleT: 0, cibleI: 0, renfortT: 5, hote: null, avantPad: {},
+  N() { return 1 + this.inscrits.length; },
+  actif() { return this.inscrits.length > 0 && G.mode !== 'entrainement'; },
+  equipiers() { return this.inscrits.filter(j => j.p); },
+  tous() { const l = this.equipiers().map(j => j.p); const h = this.hote || G.p; if (h) l.unshift(h); return l; },
+  vivants() { return this.tous().filter(p => p.hp > 0 && !p.ko); },
+  ajouter(o) {
+    if (this.N() >= MAX_JOUEURS) return null;
+    const j = Object.assign({ k: {}, pp: {}, visee: null, mx: null, my: null, p: null, entree: {} }, o);
+    this.inscrits.push(j); this.renumeroter();
+    if ((G.etat === 'combat' || G.etat === 'interlude') && G.p && G.boss) { this.creer(j); this.equilibrer(1); } // il arrive en plein combat
+    return j;
   },
-  creerJ2() {
-    const p = creerJoueur(DF().pv); p.hp = p.hpMax; p.j2 = true; p.x = CX + 70; p.y = AR.y + AR.h * .82; p.iframe = 1.5;
+  retirer(j) { const i = this.inscrits.indexOf(j); if (i >= 0) { this.inscrits.splice(i, 1); this.renumeroter(); } },
+  renumeroter() { this.inscrits.forEach((j, i) => { j.n = i + 2; j.col = COUL_J[i]; }); try { if (typeof Reseau !== 'undefined') Reseau.annoncer(); if (UI.multiOuvert) UI.multi(); } catch (e) { } },
+  basculerManette(g) {
+    const j = this.inscrits.find(x => x.pad === g.index);
+    if (j) this.retirer(j); else this.ajouter({ type: 'manette', pad: g.index, nom: 'Manette' });
+    if (G.etat === 'menu' && !UI.multiOuvert) UI.menu();
+    Son.play('clic');
+  },
+  // les manettes rejoignent et quittent avec Start, depuis les menus
+  ecouterManettes() {
+    if (G.etat !== 'menu') return;
+    for (const g of Manette.liste()) { const b = Manette.bouton(g, 9); if (b && !this.avantPad[g.index]) this.basculerManette(g); this.avantPad[g.index] = b; }
+  },
+  // les commandes d'un joueur : manette, ou ce qu'il envoie en ligne
+  lire(j) {
+    const K = TOUCHES(), set = (c, v) => { if (!c) return; if (v && !j.k[c]) j.pp[c] = true; j.k[c] = !!v; };
+    if (j.type === 'manette') {
+      const g = Manette.liste().find(x => x.index === j.pad); if (!g) return;
+      const ax = g.axes, B = i => Manette.bouton(g, i), lx = Math.abs(ax[0]) > .3 ? ax[0] : 0, ly = Math.abs(ax[1]) > .3 ? ax[1] : 0, rx = ax[2] || 0, ry = ax[3] || 0;
+      set(K.gauche, lx < -.3 || B(14)); set(K.droite, lx > .3 || B(15)); set(K.haut, ly < -.3 || B(12)); set(K.bas, ly > .3 || B(13));
+      const C = MANETTE_CFG(), A = act => (C[act] || []).some(i => B(i));
+      set(K.tir, A('tir')); set(K.spec, A('spec')); set(K.tal, A('tal'));
+      if (Math.hypot(rx, ry) > .35) { const voulu = Math.atan2(ry, rx), sens = C.sens || .5; j.visee = j.visee === null ? voulu : j.visee + clamp(angDiff(j.visee, voulu), -sens * 9 / 60, sens * 9 / 60); } else j.visee = null;
+    } else {
+      const e = j.entree;
+      set(K.haut, e.h); set(K.bas, e.b); set(K.gauche, e.g); set(K.droite, e.d); set(K.tir, e.f); set(K.spec, e.s); set(K.tal, e.t);
+      j.visee = typeof e.a === 'number' ? e.a : null; j.mx = typeof e.mx === 'number' ? e.mx : null; j.my = typeof e.my === 'number' ? e.my : null;
+    }
+  },
+  creer(j) {
+    const p = creerJoueur(DF().pv); p.hp = p.hpMax; p.iframe = 1.5; p.prec = .35;
+    p.x = CX + (j.n === 2 ? 90 : -90); p.y = AR.y + AR.h * .82;
     p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 };
-    this.p2 = p; this.k = {}; this.pp = {};
+    j.p = p; j.k = {}; j.pp = {};
   },
-  // joue un morceau de code « comme si » le joueur 2 était le joueur principal
-  enJ2(f) {
+  // joue un morceau de code « comme si » ce joueur était le joueur principal
+  enJoueur(j, f) {
     const s = { p: G.p, k: Input.k, pp: Input.p, mx: G.mx, my: G.my, lmb: Input.lmb };
-    G.p = this.p2; Input.k = this.k; Input.p = this.pp; Input.lmb = !!this.k[TOUCHES().tir];
-    const b = G.boss, p = this.p2;
-    if (this.visee !== null) { G.mx = p.x + Math.cos(this.visee) * 240; G.my = p.y + Math.sin(this.visee) * 240; }
-    else if (b && !b.mort) { G.mx = b.x; G.my = b.y; } // sans stick droit : il vise le boss tout seul
+    G.p = j.p; Input.k = j.k; Input.p = j.pp; Input.lmb = !!j.k[TOUCHES().tir];
+    const b = G.boss, p = j.p;
+    if (j.mx !== null) { G.mx = j.mx; G.my = j.my; }
+    else if (j.visee !== null) { G.mx = p.x + Math.cos(j.visee) * 240; G.my = p.y + Math.sin(j.visee) * 240; }
+    else if (b && !b.mort) { G.mx = b.x; G.my = b.y; } // sans visée : il vise le boss tout seul
     try { f(); } finally { G.p = s.p; Input.k = s.k; Input.p = s.pp; G.mx = s.mx; G.my = s.my; Input.lmb = s.lmb; }
   },
   maj(dt) {
-    const p2 = this.p2; if (!p2 || !this.actif()) return;
+    if (!this.actif()) return;
+    this.hote = G.p;
     const enCombat = G.etat === 'combat', b = G.boss;
-    this.enJ2(() => {
-      if ((enCombat || G.etat === 'interlude') && p2.hp > 0 && !p2.ko) majJoueur(dt);
-      if (!enCombat || p2.hp <= 0 || p2.ko || p2.saut > 0) return;
-      for (const e of G.eb) if (!e.dead && d2(e.x, e.y, p2.x, p2.y) < ((e.r || 5) * .85 + p2.hr) ** 2 && p2.iframe <= 0 && p2.fantome <= 0) { G.blesser(e.dmg, e.src); e.dead = true; }
-      for (const h of G.hz) if (h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p2)) { if (G.blesser(h.dmg, h.src) && !HZ[h.kind].continu) h.touche = true; }
-      if (b && !b.mort && !b.air && b.alpha > .5 && b.spectral <= 0 && b.trans <= 0 && b.intro <= 0 && d2(b.x, b.y, p2.x, p2.y) < (b.r * .85 + p2.hr) ** 2) {
-        if (G.blesser(DMG(1), 'contact')) { const a = ang(b.x, b.y, p2.x, p2.y); p2.vx += Math.cos(a) * 500; p2.vy += Math.sin(a) * 500; }
-      }
-    });
-    this.pp = {};
-    // le boss change de cible toutes les 3,5 s (toujours un joueur debout)
-    this.cibleT -= dt; if (this.cibleT <= 0) { this.cibleT = 3.5; this.cibleJ = this.cibleJ === 1 ? 2 : 1; }
+    for (const j of this.equipiers()) {
+      const p = j.p;
+      this.enJoueur(j, () => {
+        if ((enCombat || G.etat === 'interlude') && p.hp > 0 && !p.ko) majJoueur(dt);
+        if (!enCombat || p.hp <= 0 || p.ko || p.saut > 0) return;
+        for (const e of G.eb) if (!e.dead && d2(e.x, e.y, p.x, p.y) < ((e.r || 5) * .85 + p.hr) ** 2 && p.iframe <= 0 && p.fantome <= 0) { G.blesser(e.dmg, e.src); e.dead = true; }
+        for (const h of G.hz) if (h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p)) { if (G.blesser(h.dmg, h.src) && !HZ[h.kind].continu) h.touche = true; }
+        if (b && !b.mort && !b.air && b.alpha > .5 && b.spectral <= 0 && b.trans <= 0 && b.intro <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r * .85 + p.hr) ** 2) {
+          if (G.blesser(DMG(1), 'contact')) { const a = ang(b.x, b.y, p.x, p.y); p.vx += Math.cos(a) * 500; p.vy += Math.sin(a) * 500; }
+        }
+      });
+      j.pp = {};
+    }
+    if (!enCombat || !b || b.mort) return;
+    // le boss change de cible toutes les 3,5 s
+    this.cibleT -= dt; if (this.cibleT <= 0) { this.cibleT = 3.5; this.cibleI++; }
+    // il frappe aussi ceux qu'il ne vise pas : personne n'est tranquille
+    this.renfortT -= dt;
+    if (this.renfortT <= 0 && b.intro <= 0) {
+      this.renfortT = Math.max(3.5, 6 - this.N());
+      const vise = this.cible(), avant = G.atkCourante; G.atkCourante = 'Renfort';
+      for (const p of this.vivants()) if (p !== vise) zoneC(p.x, p.y, 70, Math.max(1, 1.2 * b.D.T), { dmg: DMG(.9) });
+      G.atkCourante = avant; Son.play('tele');
+    }
+    // relever un coéquipier : rester à côté de lui 2,5 s
+    const v = this.vivants();
+    for (const q of this.tous()) {
+      if (!(q.ko || q.hp <= 0)) { q.rev = 0; continue; }
+      const proche = v.some(p => d2(p.x, p.y, q.x, q.y) < 60 * 60);
+      q.rev = Math.max(0, (q.rev || 0) + (proche ? dt : -dt));
+      if (q.rev >= 2.5) { q.ko = false; q.hp = Math.round(q.hpMax * .4); q.rev = 0; q.iframe = 2; Son.play('soin'); G.texte(q.x, q.y - 30, 'Relevé !', '#7dffb0', 18); }
+    }
   },
-  cible() {
-    const v = this.vivants(); if (!v.length) return G.p;
-    if (v.length === 1) return v[0];
-    return this.cibleJ === 2 ? this.p2 : G.p;
+  cible() { const v = this.vivants(); if (!v.length) return G.p; return v[this.cibleI % v.length]; },
+  // boss adapté au nombre de joueurs (ajout = joueurs arrivés en plein combat)
+  equilibrer(ajout) {
+    const b = this.boss = G.boss, def = G.def; if (!b || !def) return;
+    const N = this.N(), n0 = ajout ? N - 1 : 1;
+    const k = VIE_BOSS_N[N - 1] / VIE_BOSS_N[n0 - 1], f = b.hp / b.hpMax;
+    b.hpMax = Math.round(b.hpMax * k); b.hp = Math.round(b.hpMax * f);
+    const D = def.D, d = N - n0;
+    D.C *= Math.pow(1.12, d); D.S = Math.min(2.2, D.S * Math.pow(1.05, d)); def.idle *= Math.pow(.9, d);
+    calcStats();
   },
-  boutonMenu() {
-    const on = this.voulu(), pad = Manette.liste().length;
-    return `<button class="pill coop ${on ? 'actif' : ''}" data-a="coop" title="Le joueur 2 joue à la manette (le joueur 1 au clavier et à la souris, ou avec une 2e manette)">👥 Coop à deux : ${on ? 'oui' : 'non'}${on && !pad ? ' · branche une manette' : ''}</button>`;
-  }
+  boutonMenu() { return `<button class="pill coop ${this.N() > 1 ? 'actif' : ''}" data-a="multi" title="Jouer à plusieurs : manettes ou en ligne, jusqu'à 3 joueurs">👥 Multijoueur · ${this.N()}/${MAX_JOUEURS}</button>`; }
 };
 
 // ---------- branchements ----------
@@ -67,14 +125,19 @@ const _entrerCoop = G.entrerSalle;
 G.entrerSalle = function () {
   const r = _entrerCoop.apply(this, arguments);
   try {
+    this.hoteKo = false;
     if (Coop.actif()) {
-      Coop.creerJ2();
-      if (this.boss) { this.boss.hpMax = Math.round(this.boss.hpMax * 1.5); this.boss.hp = this.boss.hpMax; } // deux joueurs : plus de vie
-      if (this.p) this.p.x = CX - 70;
-    } else Coop.p2 = null;
+      Coop.hote = this.p; this.p.ko = false; if (this.p.hp <= 0) this.p.hp = this.p.hpMax;
+      for (const j of Coop.inscrits) Coop.creer(j);
+      this.p.x = CX; Coop.renfortT = 5;
+      Coop.equilibrer(0);
+    } else for (const j of Coop.inscrits) j.p = null;
   } catch (e) { console.warn('coop', e); }
   return r;
 };
+// à plusieurs, les spéciales de tout le monde s'additionnent : recharge plus longue
+const _calcCoop = calcStats;
+calcStats = function () { const r = _calcCoop.apply(this, arguments); try { if (typeof Coop !== 'undefined' && Coop.actif()) ST.sRech *= 1 + .2 * (Coop.N() - 1); } catch (e) { } return r; };
 const _majCoop = majCombat;
 majCombat = function (dt) {
   const t0 = G.t;
@@ -82,58 +145,44 @@ majCombat = function (dt) {
   try { Coop.maj(Math.max(0, G.t - t0)); } catch (e) { console.warn('coop', e); }
 };
 const _pasCoop = pasBoucle;
-pasBoucle = function (now) { try { if (Coop.p2) Coop.lire(); } catch (e) { } return _pasCoop(now); };
-// le boss vise le joueur choisi (jamais un joueur tombé)
+pasBoucle = function (now) { try { Coop.ecouterManettes(); for (const j of Coop.inscrits) if (j.p) Coop.lire(j); } catch (e) { } return _pasCoop(now); };
 const _cibleCoop = cible;
-cible = function () { if (G.leurre) return G.leurre; if (Coop.p2 && Coop.actif()) return Coop.cible(); return _cibleCoop(); };
-// un joueur tombe : l'autre continue ; la partie s'arrête quand les deux sont tombés
+cible = function () { if (G.leurre) return G.leurre; if (Coop.actif() && Coop.equipiers().length) return Coop.cible(); return _cibleCoop(); };
+// un joueur tombe : les autres continuent ; la partie s'arrête quand tout le monde est à terre
 const _mortCoop = G.mortJoueur;
 G.mortJoueur = function () {
-  const p2 = Coop.p2;
-  if (p2 && Coop.actif()) {
-    if (this.p === p2) { p2.ko = true; p2.hp = 0; this.secoue(12); Son.play('mort'); if (!(G.p && G.p.hp > 0)) { } return; }
-    if (p2.hp > 0 && !p2.ko) { this.p.hp = 0; this.p.ko = true; this.secoue(12); Son.play('mort'); return; }
+  if (Coop.actif() && Coop.equipiers().length) {
+    const p = this.p; p.hp = 0; p.ko = true; p.rev = 0; this.secoue(12); Son.play('mort');
+    if (Coop.vivants().length) return;
+    if (Coop.hote) this.p = Coop.hote;
   }
   return _mortCoop.apply(this, arguments);
 };
-// quand le joueur 2 tombe en dernier, la partie est perdue (le joueur 1 est déjà à terre)
 const _blesserCoop = G.blesser;
-G.blesser = function (dmg, src) {
-  const r = _blesserCoop.call(this, dmg, src);
-  const p2 = Coop.p2;
-  if (p2 && Coop.actif() && this.p === p2 && p2.ko) {
-    const p1 = Coop.joueur1;
-    if (p1 && p1.hp <= 0) { G.p = p1; _mortCoop.call(G); }
-  }
-  return r;
-};
-// on garde une référence au joueur 1 pour le cas ci-dessus
-const _enJ2Coop = Coop.enJ2.bind(Coop);
-Coop.enJ2 = function (f) { Coop.joueur1 = G.p; return _enJ2Coop(f); };
-// fin du boss : les deux joueurs se relèvent
+G.blesser = function () { if (Coop.actif() && this.p && (this.p.ko || this.p.hp <= 0)) return false; return _blesserCoop.apply(this, arguments); };
+// fin du boss : tout le monde se relève
 const _bossMortCoop = G.bossMort;
 G.bossMort = function () {
   const r = _bossMortCoop.apply(this, arguments);
-  const p2 = Coop.p2;
-  if (p2 && this.boss && this.boss.mort) { p2.ko = false; p2.hp = p2.hpMax; if (this.p) { this.p.ko = false; this.p.hp = this.p.hpMax; } }
+  if (this.boss && this.boss.mort) for (const p of Coop.tous()) { p.ko = false; p.hp = p.hpMax; }
   return r;
 };
-// dessin : le joueur 2 avec un anneau vert, « J2 » et sa vie au-dessus de la tête
+// dessin : chaque joueur avec un anneau de sa couleur, son numéro et sa vie
 const _joueurCoop = dessinerJoueur;
 dessinerJoueur = function (c) {
   _joueurCoop(c);
-  const p2 = Coop.p2; if (!p2 || !Coop.actif()) return;
-  if (p2.hp > 0 && !p2.ko) {
-    c.save(); c.strokeStyle = 'rgba(120,255,170,.8)'; c.lineWidth = 2; c.beginPath(); c.ellipse(p2.x, p2.y + 8, 17, 7, 0, 0, TAU); c.stroke(); c.restore();
-    Coop.enJ2(() => _joueurCoop(c));
-    texteOmbre(c, 'J2', p2.x, p2.y - 40, '#9dffc4', `800 12px ${POLICE}`, 3);
-    c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(p2.x - 21, p2.y - 34, 42, 6); c.fillStyle = '#46e39b'; c.fillRect(p2.x - 20, p2.y - 33, 40 * Math.max(0, p2.hp / p2.hpMax), 4);
-  } else { c.save(); c.globalAlpha = .6; texteOmbre(c, 'J2 à terre', p2.x, p2.y - 10, '#ff9aa8', `800 12px ${POLICE}`, 3); c.restore(); }
-  const p1 = G.p;
-  if (p1 && p1.ko) { c.save(); c.globalAlpha = .6; texteOmbre(c, 'J1 à terre', p1.x, p1.y - 10, '#ff9aa8', `800 12px ${POLICE}`, 3); c.restore(); }
-};
-const _actionCoop = UI.action;
-UI.action = function (a, btn) {
-  if (a === 'coop') { Save.d.opts.coop = !Save.d.opts.coop; Save.write(); return this.menu(); }
-  return _actionCoop.call(this, a, btn);
+  if (!Coop.actif()) return;
+  const barre = (q, nom, col) => {
+    if (q.hp > 0 && !q.ko) {
+      c.save(); c.strokeStyle = col; c.lineWidth = 2; c.beginPath(); c.ellipse(q.x, q.y + 8, 17, 7, 0, 0, TAU); c.stroke(); c.restore();
+      c.textAlign = 'center'; texteOmbre(c, nom, q.x, q.y - 40, col, `800 12px ${POLICE}`, 3);
+      c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(q.x - 21, q.y - 34, 42, 6); c.fillStyle = '#46e39b'; c.fillRect(q.x - 20, q.y - 33, 40 * Math.max(0, q.hp / q.hpMax), 4);
+    } else {
+      c.save(); c.globalAlpha = .7; c.textAlign = 'center'; texteOmbre(c, nom + ' à terre', q.x, q.y - 12, '#ff9aa8', `800 12px ${POLICE}`, 3); c.restore();
+      c.strokeStyle = 'rgba(125,255,176,.35)'; c.lineWidth = 2; c.beginPath(); c.arc(q.x, q.y, 60, 0, TAU); c.stroke();
+      if (q.rev > 0) { c.strokeStyle = '#7dffb0'; c.lineWidth = 5; c.beginPath(); c.arc(q.x, q.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * q.rev / 2.5); c.stroke(); }
+    }
+  };
+  for (const j of Coop.equipiers()) { if (j.p.hp > 0 && !j.p.ko) Coop.enJoueur(j, () => _joueurCoop(c)); barre(j.p, 'J' + j.n, j.col); }
+  if (Coop.hote) barre(Coop.hote, 'J1', '#8ad8ff');
 };

@@ -9,7 +9,7 @@ const Manette = {
   avant: {}, tenues: new Set(), visee: null, focus: -1, repetT: 0, dernierAxe: 0, utilisee: false,
   // manettes branchées (la 1re sert au joueur 1, sauf en coop où la dernière sert au joueur 2)
   liste() { try { return [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(g => g && g.connected); } catch (e) { return []; } },
-  pourJ1() { const l = this.liste(); if (typeof Coop !== 'undefined' && Coop.actif() && l.length < 2) return null; return l[0] || null; },
+  pourJ1() { const l = this.liste().filter(g => !(typeof Coop !== 'undefined' && Coop.inscrits.some(j => j.pad === g.index))); return l[0] || null; },
   bouton(g, i) { const b = g.buttons[i]; return !!b && (b.pressed || b.value > .5); },
   // appuie ou relâche une touche réglée, comme si le joueur le faisait au clavier
   tenir(code, oui) {
