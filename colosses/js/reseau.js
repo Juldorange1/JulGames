@@ -74,7 +74,8 @@ const Reseau = {
     const prim = G.ars ? trouveArme('p', G.ars.p) : null;
     for (const j of Coop.inscrits) {
       if (j.type !== 'reseau' || !j.conn || !j.conn.open) continue;
-      try { j.conn.send({ t: 'info', n: j.n, N: Coop.N(), etat: G.etat, cw: cv.width, ch: cv.height, sc: scale * dpr, ox: offX * dpr, oy: offY * dpr, pv: j.p ? Math.ceil(j.p.hp) : 0, pvMax: j.p ? j.p.hpMax : 0, ko: !!(j.p && (j.p.ko || j.p.hp <= 0)), manuel: !!(prim && prim.manuel) }); } catch (e) { }
+      const pj = j.ars ? trouveArme('p', j.ars.p) : prim;
+      try { j.conn.send({ t: 'info', n: j.n, N: Coop.N(), etat: G.etat, cw: cv.width, ch: cv.height, sc: scale * dpr, ox: offX * dpr, oy: offY * dpr, pv: j.p ? Math.ceil(j.p.hp) : 0, pvMax: j.p ? j.p.hpMax : 0, ko: !!(j.p && (j.p.ko || j.p.hp <= 0)), manuel: !!(pj && pj.manuel), armes: j.ars ? [pj && pj.nom, (trouveArme('s', j.ars.s) || {}).nom, (trouveArme('t', j.ars.t) || {}).nom] : null }); } catch (e) { }
     }
   },
   // ---------- invité ----------
@@ -121,7 +122,7 @@ const Reseau = {
     const tr = t => (typeof Langue !== 'undefined' && Langue.en ? Langue.t(t) : t);
     const m = d.querySelector('.inv-msg');
     if (i.etat === 'menu') { m.style.display = 'block'; m.textContent = tr('Tu es le joueur ') + i.n + tr(' : ton ami va lancer la partie…'); } else if (i.etat === 'pause') { m.style.display = 'block'; m.textContent = tr('Pause'); } else m.style.display = 'none';
-    d.querySelector('.inv-pv').textContent = i.pvMax ? 'J' + i.n + ' · ' + (i.ko ? tr('à terre') : i.pv + ' / ' + i.pvMax) : 'J' + i.n;
+    d.querySelector('.inv-pv').textContent = (i.pvMax ? 'J' + i.n + ' · ' + (i.ko ? tr('à terre') : i.pv + ' / ' + i.pvMax) : 'J' + i.n) + (i.armes ? ' · ' + i.armes.join(' · ') : '');
   },
   // les commandes de l'invité : clavier et souris, manette, ou écran tactile
   entreeInvite() {
@@ -193,3 +194,19 @@ addEventListener('load', () => {
     UI.el.querySelector('#go-salle').addEventListener('click', () => { Son.init(); try { if (typeof pleinEcran === 'function') pleinEcran(); } catch (e) { } Reseau.rejoindre(code); });
   }, 300);
 });
+
+// chaque tir et chaque effet est traité avec les armes, la précision et la position de son propriétaire
+function parJoueur(nom, f) {
+  const eq = Coop.actif() ? Coop.equipiers() : []; if (!eq.length) return f();
+  const tout = G[nom];
+  G[nom] = tout.filter(b => !b.own || !eq.includes(b.own)); f(); let res = G[nom];
+  for (const j of eq) {
+    const l = tout.filter(b => b.own === j); if (!l.length) continue;
+    Coop.enJoueur(j, () => { G[nom] = l; f(); for (const b of G[nom]) b.own = j; res = res.concat(G[nom]); });
+  }
+  G[nom] = res;
+}
+const _tirsCoop = majTirsJoueur;
+majTirsJoueur = function (dt) { parJoueur('pb', () => _tirsCoop(dt)); };
+const _alliesCoop = majAllies;
+majAllies = function (dt) { parJoueur('allies', () => _alliesCoop(dt)); };

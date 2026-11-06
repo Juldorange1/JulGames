@@ -97,7 +97,7 @@ function statPlus(cle, sous, n) {
 // ---------- Apparences : fragments à collectionner (aucun bonus de puissance) ----------
 // moins de fragments pour les apparences courantes ; les mythiques en demandent beaucoup (objectif de longue haleine)
 const RARETES = { commun: { nom: 'Commun', col: '#b8c4d0', frags: 2, poids: 60 }, rare: { nom: 'Rare', col: '#5aa8ff', frags: 3, poids: 30 }, epique: { nom: 'Épique', col: '#c06bff', frags: 5, poids: 10 }, mythique: { nom: 'Mythique', col: '#ff4dd2', frags: 25, poids: 6 }, legendaire: { nom: 'Légendaire', col: '#ffb43d', frags: 1, poids: 0 } };
-const SLOTS = { armure: 'Armure', cape: 'Cape', visiere: 'Visière', trainee: 'Traînée', aura: 'Aura' };
+const SLOTS = { armure: 'Armure', cape: 'Cape', visiere: 'Curseur', trainee: 'Traînée', aura: 'Aura' };
 const SKINS = [
   { id: 'a_acier', slot: 'armure', nom: 'Acier', rar: 'commun', c: ['#e6eef8', '#7d8fa3', '#232b36'], base: true },
   { id: 'a_bronze', slot: 'armure', nom: 'Bronze', rar: 'commun', c: ['#ffe2b8', '#b07a3c', '#3a2414'] },
@@ -185,7 +185,7 @@ function equipe(slot) { return skin(skinsSave().equip[slot]) || SKINS.find(x => 
 // donne un fragment d'une apparence de la rareté tirée (ou au-dessus) ; renvoie le texte affiché
 function donnerFragment(rarMin, slot) {
   const ordre = ['commun', 'rare', 'epique', 'mythique', 'legendaire'], min = ordre.indexOf(rarMin || 'commun');
-  const dispo = SKINS.filter(s => !s.base && !possede(s.id) && ordre.indexOf(s.rar) >= min && s.rar !== 'legendaire' && (!slot || s.slot === slot));
+  const dispo = SKINS.filter(s => !s.base && !possede(s.id) && (ordre.indexOf(s.rar) >= min || (s.saison && saisonOk(s.saison))) && s.rar !== 'legendaire' && (!slot || s.slot === slot));
   if (!dispo.length) { forgeSave().eclats += 2; Save.write(); return '+2 cristaux'; } // remboursement (pas un gain)
   const s = R.weighted(dispo, x => RARETES[x.rar].poids || 1), S = skinsSave();
   S.frag[s.id] = (S.frag[s.id] || 0) + 1; Save.write();

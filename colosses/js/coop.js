@@ -1,7 +1,7 @@
 'use strict';
 /* Colosses — jouer à plusieurs, jusqu'à 3 joueurs : le joueur 1 sur cet appareil, et les autres avec une manette
    branchée (touche Start pour rejoindre) ou en ligne depuis n'importe quel appareil (voir reseau.js).
-   Tout le monde partage l'arène et les armes, chacun a sa vie. Le moteur du joueur 1 est réutilisé pour les autres
+   Tout le monde partage l'arène ; chacun a sa vie et ses propres armes, différentes de celles des autres. Le moteur du joueur 1 est réutilisé pour les autres
    (on échange G.p et les touches le temps de les faire jouer).
    Équilibrage selon le nombre de joueurs : boss plus résistant, plus dense, un peu plus rapide, avec moins de répit ;
    il frappe aussi les joueurs qu'il ne vise pas ; les spéciales se rechargent moins vite (elles s'additionnent) et
@@ -58,16 +58,20 @@ const Coop = {
     p.x = CX + (j.n === 2 ? 90 : -90); p.y = AR.y + AR.h * .82;
     p.prim = { cd: 0 }; p.spec = { cd: 0 }; p.tal = { charges: ST.tCharges, cd: 0 };
     j.p = p; j.k = {}; j.pp = {};
+    // ses propres armes, toutes différentes de celles des autres joueurs
+    const pris = [G.ars].concat(this.inscrits.filter(x => x !== j && x.ars).map(x => x.ars)).filter(Boolean), a = {};
+    for (const c of ['p', 's', 't']) { const l = ARS[c].filter(w => !pris.some(x => x[c] === w.id)); a[c] = R.pick(l.length ? l : ARS[c]).id; Save.d.codex.arm[c + ':' + a[c]] = 1; }
+    j.ars = a;
   },
   // joue un morceau de code « comme si » ce joueur était le joueur principal
   enJoueur(j, f) {
-    const s = { p: G.p, k: Input.k, pp: Input.p, mx: G.mx, my: G.my, lmb: Input.lmb };
-    G.p = j.p; Input.k = j.k; Input.p = j.pp; Input.lmb = !!j.k[TOUCHES().tir];
+    const s = { p: G.p, k: Input.k, pp: Input.p, mx: G.mx, my: G.my, lmb: Input.lmb, ars: G.ars };
+    G.p = j.p; if (j.ars) G.ars = j.ars; Input.k = j.k; Input.p = j.pp; Input.lmb = !!j.k[TOUCHES().tir];
     const b = G.boss, p = j.p;
     if (j.mx !== null) { G.mx = j.mx; G.my = j.my; }
     else if (j.visee !== null) { G.mx = p.x + Math.cos(j.visee) * 240; G.my = p.y + Math.sin(j.visee) * 240; }
     else if (b && !b.mort) { G.mx = b.x; G.my = b.y; } // sans visée : il vise le boss tout seul
-    try { f(); } finally { G.p = s.p; Input.k = s.k; Input.p = s.pp; G.mx = s.mx; G.my = s.my; Input.lmb = s.lmb; }
+    try { f(); } finally { G.p = s.p; G.ars = s.ars; Input.k = s.k; Input.p = s.pp; G.mx = s.mx; G.my = s.my; Input.lmb = s.lmb; }
   },
   maj(dt) {
     if (!this.actif()) return;
@@ -76,7 +80,10 @@ const Coop = {
     for (const j of this.equipiers()) {
       const p = j.p;
       this.enJoueur(j, () => {
+        const n0 = G.pb.length, a0 = G.allies.length;
         if ((enCombat || G.etat === 'interlude') && p.hp > 0 && !p.ko) majJoueur(dt);
+        for (let i = n0; i < G.pb.length; i++) G.pb[i].own = j; // ses tirs comptent avec SES armes
+        for (let i = a0; i < G.allies.length; i++) G.allies[i].own = j;
         if (!enCombat || p.hp <= 0 || p.ko || p.saut > 0) return;
         for (const e of G.eb) if (!e.dead && d2(e.x, e.y, p.x, p.y) < ((e.r || 5) * .85 + p.hr) ** 2 && p.iframe <= 0 && p.fantome <= 0) { G.blesser(e.dmg, e.src); e.dead = true; }
         for (const h of G.hz) if (h.kind !== 'flaque' && h.kind !== 'lave' && HZ[h.kind].hit(h, p)) { if (G.blesser(h.dmg, h.src) && !HZ[h.kind].continu) h.touche = true; }
@@ -183,6 +190,6 @@ dessinerJoueur = function (c) {
       if (q.rev > 0) { c.strokeStyle = '#7dffb0'; c.lineWidth = 5; c.beginPath(); c.arc(q.x, q.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * q.rev / 2.5); c.stroke(); }
     }
   };
-  for (const j of Coop.equipiers()) { if (j.p.hp > 0 && !j.p.ko) Coop.enJoueur(j, () => _joueurCoop(c)); barre(j.p, 'J' + j.n, j.col); }
+  for (const j of Coop.equipiers()) { if (j.p.hp > 0 && !j.p.ko) { Coop.enJoueur(j, () => _joueurCoop(c)); const w = j.ars && trouveArme('p', j.ars.p); if (w) icoDessin(c, w.ico, j.p.x + 24, j.p.y - 40, 16); } barre(j.p, 'J' + j.n, j.col); }
   if (Coop.hote) barre(Coop.hote, 'J1', '#8ad8ff');
 };

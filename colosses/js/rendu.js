@@ -306,7 +306,7 @@ function dessinerVaisseau(c, x, y, a, r, col, al, p) {
   const per = a + Math.PI / 2, sx = Math.cos(per) * 9 * k, sy = Math.sin(per) * 9 * k;
   const L = (bouge ? 26 : 18) * k, ex = Math.cos(ca) * L, ey = Math.sin(ca) * L;
   const gc = c.createLinearGradient(0, 0, ex, ey);
-  const SK = p ? { a: equipe('armure'), c: equipe('cape'), v: equipe('visiere') } : null;
+  const SK = p ? { a: equipe('armure'), c: equipe('cape'), v: skin('v_cyan') } : null; // (les apparences de visière sont devenues des curseurs)
   gc.addColorStop(0, p ? SK.c.c[0] : col); gc.addColorStop(1, p ? SK.c.c[1] : 'rgba(0,0,0,0)');
   c.fillStyle = gc; c.beginPath(); c.moveTo(sx, sy);
   c.quadraticCurveTo(ex * .6 + sx + Math.cos(per) * fl, ey * .6 + sy + Math.sin(per) * fl, ex + Math.cos(per) * 6 * k, ey + Math.sin(per) * 6 * k);
@@ -1034,8 +1034,10 @@ function rendu() {
   if (G.fondu > 0) { c.fillStyle = `rgba(3,2,8,${Math.min(1, G.fondu)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'passage') { const k = G.passage.t / G.passage.dur; c.fillStyle = `rgba(230,220,255,${Math.min(1, k * 1.4)})`; c.fillRect(0, 0, W, H); }
   if (G.etat === 'mort' && G.ecranMort) dessinerEcranMort(c);
-  cv.style.cursor = G.opts.viseur && G.opts.viseur !== 'systeme' && (G.etat === 'combat' || G.etat === 'interlude') ? 'none' : '';
-  const vs = G.opts.viseur;
+  const curS = typeof curseurEquipe === 'function' ? curseurEquipe() : null, enJeuC = G.etat === 'combat' || G.etat === 'interlude';
+  cv.style.cursor = (curS || (G.opts.viseur && G.opts.viseur !== 'systeme')) && enJeuC ? 'none' : '';
+  const vs = curS ? null : G.opts.viseur;
+  if (curS && enJeuC) { const tir = Input.down(TOUCHES().tir) ? 1 : 0; G.viseurK = (G.viseurK || 0) + (tir - (G.viseurK || 0)) * .25; dessinerCurseurSkin(c, G.mx, G.my, curS, G.t, 1 - .2 * G.viseurK); }
   if (vs === 'colosses' && (G.etat === 'combat' || G.etat === 'interlude')) {
     // viseur du jeu : anneau doré à quatre crans, qui se resserre quand on tire
     const x = G.mx, y = G.my, tir = Input.down(TOUCHES().tir) ? 1 : 0; G.viseurK = (G.viseurK || 0) + (tir - (G.viseurK || 0)) * .25;

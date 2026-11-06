@@ -458,7 +458,9 @@ const G = {
     const gains = [];
     // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
     const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
-    F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
+    // défi du jour : les boss ne paient qu'une fois dans la journée, même si on le rejoue
+    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = !rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= this.defi.boss.length;
+    if (paye) F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
     const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; const gk = ecl ? gagnerEclats(ecl) : 0; if (!ecl) Save.write();
     this.gainCristaux = gk ? { n: gk, demi: false, t: 0, x: b.x, y: b.y } : null;
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
@@ -517,7 +519,7 @@ const G = {
     const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
     res.ancien = ancien; res.record = mieux;
     if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
-    if (reussi && (df.type === 'jour' || df.type === 'semaine')) { succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); this.texte(this.p.x, this.p.y - 60, txtCristaux(gagnerEclats(4)), '#bfefff', 15); }
+    if (reussi && (df.type === 'jour' || df.type === 'semaine') && !rec.paye) { rec.paye = 1; /* une seule fois par défi */ succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); this.texte(this.p.x, this.p.y - 60, txtCristaux(gagnerEclats(4)), '#bfefff', 15); }
     if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });

@@ -167,6 +167,9 @@ G.entrerSalle = function () {
   try { if (Reprise.appliquer() && G.etat === 'combat') UI.pause(); } catch (e) { console.warn('reprise', e); }
   return r;
 };
+// une partie terminée (Déluge, Danse : fin au temps) ne se reprend pas
+const _finReprise = G.terminerDefi;
+G.terminerDefi = function () { const r = _finReprise.apply(this, arguments); Reprise.effacer(); return r; };
 const _lancerDefiRep = G.lancerDefi;
 G.lancerDefi = function (type) { const r = Reprise.R().jour; this._repDefi = r && r.defi && r.defi.type === type ? r.defi : null; return _lancerDefiRep.apply(this, arguments); };
 // la reprise ne vaut que pour le combat en cours : boss vaincu, mort, recommencer ou passer → effacée

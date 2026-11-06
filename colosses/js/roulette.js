@@ -12,11 +12,11 @@ const Roulette = {
     const F = forgeSave(); if (F.eclats < PRIX_HASARD) return;
     const S = skinsSave(), avant = Object.assign({}, S.frag);
     F.eclats -= PRIX_HASARD;
-    const texte = donnerFragment(null, slot);
+    const texte = donnerFragment(null, null); // toutes catégories : on ne choisit pas ce qu'on obtient
     const gagne = SKINS.find(s => (S.frag[s.id] || 0) > (avant[s.id] || 0));
     if (!gagne) { UI.garderobe(slot); return; } // plus rien à gagner : des cristaux à la place
     // la bande : des apparences possibles de cet emplacement, mélangées, avec la gagnante à la bonne place
-    const pool = SKINS.filter(s => s.slot === slot && !s.base && s.rar !== 'legendaire' && !s.saison);
+    const pool = SKINS.filter(s => !s.base && s.rar !== 'legendaire' && (!s.saison || saisonOk(s.saison)));
     const bande = []; for (let i = 0; i < 34; i++) bande.push(pool[Math.floor(Math.random() * pool.length)]);
     const cible = 28; bande[cible] = gagne;
     const LARG = 120;
@@ -42,7 +42,7 @@ const Roulette = {
         const res = ov.querySelector('.rl-res'); res.textContent = texte; res.style.color = RARETES[gagne.rar].col;
         try { if (typeof Langue !== 'undefined') Langue.dom(ov); } catch (e) { }
         const ok = ov.querySelector('.rl-ok'); ok.disabled = false; ok.setAttribute('data-def', '');
-        ok.addEventListener('click', ev => { ev.stopPropagation(); Son.play('clic'); ov.remove(); UI.garderobe(slot); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = texte; const g = UI.el.querySelector('.grille-skins'); if (g) { g.before(p); try { if (typeof Langue !== 'undefined') Langue.dom(p); } catch (e) { } } });
+        ok.addEventListener('click', ev => { ev.stopPropagation(); Son.play('clic'); ov.remove(); UI.garderobe(gagne.slot); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = texte; const g = UI.el.querySelector('.grille-skins'); if (g) { g.before(p); try { if (typeof Langue !== 'undefined') Langue.dom(p); } catch (e) { } } });
       }
     };
     requestAnimationFrame(pas);

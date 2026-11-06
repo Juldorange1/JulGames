@@ -73,7 +73,9 @@ G.terminerDefi = function (reussi) {
   if (reussi && df.type === 'jour') n += 2; // en plus des 2 déjà donnés
   if (reussi && df.type === 'semaine') n += 6;
   if (res.record) n += df.type === 'abysses' ? 3 : 2;
-  if (df.type === 'abysses') n += Math.floor((res.tues || 0) / 3); // la profondeur paie
+  if (df.type === 'abysses') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 3); // seule la profondeur vraiment gagnée paie
+  // défi du jour : rejouer ne rapporte que ce qui dépasse ce qui a déjà été gagné aujourd'hui
+  if (df.type === 'jour') { const rj = Save.d.defis.jour, tot = n; n = Math.max(0, tot - (rj.payeN || 0)); rj.payeN = Math.max(rj.payeN || 0, tot); }
   if (n > 0) { const k = gagnerEclats(n); if (k) res.cristauxBonus = k; }
   return r;
 };
