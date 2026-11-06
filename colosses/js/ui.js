@@ -30,6 +30,7 @@ const UI = {
       case 'garderobe': this.garderobe(btn.dataset.o); break;
       case 'abysses': this.cacher(); G.lancerAbysses(); break;
       case 'survie': this.cacher(); G.lancerSurvie(); break;
+      case 'chasse': this.cacher(); G.lancerChasse(); break;
       case 'forgeAch': { const F = forgeSave(), k = btn.dataset.k; if (F.eclats >= COUT_FORGE) { F.eclats -= COUT_FORGE; F.debloque[k] = 1; Save.write(); Son.play('ramasse'); } this.forge('forge'); break; }
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
       case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
@@ -96,7 +97,7 @@ const UI = {
         <div class="defis2">${defi('jour')}
           <button class="defi2 d-survie" data-a="survie" title="${FORMATS.survie.obj}"><span class="di">🛡</span><span class="dtx"><b>Survie</b><span class="dm">un boss au hasard · il s'adapte à tes armes${d.survieRun ? ' · en cours : ' + fmtTemps(d.survieRun.temps) + ' (reprendre)' : ''}</span></span><span class="dr">${(() => { const r = d.defis.survie; return r && r.cle === 'survie' && r.best && r.best.score !== undefined ? '🏆<small>' + fmtTemps(r.best.score) + '</small>' : '—'; })()}</span></button>
           <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${d.abyssesRun ? ' · en cours : profondeur ' + d.abyssesRun.i + ' (reprendre)' : G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
-          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
+          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<button class="defi2 d-chasse" data-a="chasse" title="Bats ce colosse en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux. Clique pour le combattre."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></button>`; })()}
         </div>
         <div class="tuiles">
           ${tuile('forge', '🎲', 'Affinités', forgeSave().eclats + ' 💎')}

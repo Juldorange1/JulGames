@@ -259,12 +259,15 @@ const G = {
     }
     if (this.rel('epines')) dmg *= 1.2;
     if (p.hp - dmg <= 0 && this.rel('second') && !this.sal.second) { this.sal.second = true; dmg = p.hp - 1; p.iframe = 1.6; this.annonce('Second souffle !', '#ff8fb0', 1.4); }
+    // la vie se compte en entiers : un coup de 99,6 faisait afficher -100 et laissait en vie avec 0,4 PV
+    dmg = Math.round(dmg); dmg = this.boss && this.boss.finale ? Math.min(dmg, Math.max(0, Math.ceil(p.hp) - 1)) : Math.max(1, dmg);
+    p.hp = Math.ceil(p.hp); const perdu = Math.min(dmg, p.hp);
     p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
     if (this.coupsSrc) this.coupsSrc[src || 'contact'] = (this.coupsSrc[src || 'contact'] || 0) + dmg;
     if (this.boss && this.boss.main && src === this.boss.main.id && !this.boss.main.touche) { this.boss.main.touche = true; statPlus('atkTouche'); }
     if (this.rel('epines') && this.boss && !this.boss.mort) this.frappe(this.boss, 200, { x: this.boss.x, y: this.boss.y });
     this.secoue(12); this.gel = .07; this.flash = Math.max(this.flash, .15); Son.play('blesse');
-    this.texte(p.x, p.y - 24, '-' + Math.round(dmg), '#ff5a6e', 19);
+    this.texte(p.x, p.y - 24, '-' + perdu, '#ff5a6e', 19);
     for (let i = 0; i < 10; i++) { const a = R() * TAU, s = R.range(60, 240); this.parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .4, max: .4, col: '#ff4d6a', r: 2, trait: true, add: true }); }
     if (p.hp <= 0) { p.hp = 0; this.tueur = src; this.mortJoueur(); }
     return true;
@@ -307,6 +310,18 @@ const G = {
     this.defi = { type: 'abysses', format: 'abysses', cle: '∞', mut: [], boss: [], i: k, temps: 0, tues: k, degats: 0, coups: 0, depart: k };
     // les mutations qu'on aurait déjà eues à cette profondeur (une tous les 2 boss)
     for (let j = 3; j < k && this.defi.mut.length < 6; j += 2) { const m = R.pick(Object.keys(MUTATEURS).filter(x => !this.defi.mut.includes(x) && x !== 'verre' && x !== 'jeune')); if (m) this.defi.mut.push(m); }
+    calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
+    this.entrerSalle();
+  },
+  // Chasse de la semaine : un combat contre le colosse de la semaine, le plus vite possible (paliers 3:00, 2:00, 1:30)
+  lancerChasse() {
+    const c = chasseCourante(), pr = PR(), salle = clamp(pr.palier * 5 + 1, 8, 30);
+    this.mode = 'chasse'; this.finDefi = null;
+    if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle) Save.d.defis.chasse = { cle: c.cle, best: null, essais: 0 };
+    const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars; // combat quitté : mêmes armes pour le reprendre
+    const ars = enCours ? rec.ars : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars;
+    this.defi = { type: 'chasse', format: 'chasse', cle: c.cle, mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    rec.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
   },
@@ -459,14 +474,14 @@ const G = {
     // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
     const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
     // défi du jour : les boss ne paient qu'une fois dans la journée, même si on le rejoue
-    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = !rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= this.defi.boss.length;
+    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = this.mode !== 'chasse' && (!rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= this.defi.boss.length); // la Chasse paie par ses paliers
     if (paye) F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
     const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; const gk = ecl ? gagnerEclats(ecl) : 0; if (!ecl) Save.write();
     this.gainCristaux = gk ? { n: gk, demi: false, t: 0, x: b.x, y: b.y } : null;
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
     else if (this.def.mega) { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
-    if (this.mode === 'normal') noterChasse(this.def.esp, this.chrono);
+    if (this.mode === 'normal' || this.mode === 'chasse') noterChasse(this.def.esp, this.chrono);
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
     d.stats.serie = (d.stats.serie || 0) + 1; d.stats.serieMax = Math.max(d.stats.serieMax || 0, d.stats.serie);
     if (this.mode === 'normal' && !((d.essais || {})[d.diff + ':' + this.salle])) statPlus('premierEssai');
@@ -585,12 +600,13 @@ const G = {
     if (this.mode === 'normal' || this.mode === 'entrainement') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
     else if (this.mode === 'abysses') this.lancerAbysses();
     else if (this.mode === 'survie') this.lancerSurvie();
+    else if (this.mode === 'chasse') this.lancerChasse();
     else this.lancerDefi(this.defi.type);
   },
   // relance le même combat, même boss, mêmes armes, tout le monde à pleine vie (sans compter de mort)
   relancer() {
     this.finDefi = null;
-    if (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses' || this.mode === 'survie') return this.recommencer();
+    if (this.mode === 'jour' || this.mode === 'semaine' || this.mode === 'abysses' || this.mode === 'survie' || this.mode === 'chasse') return this.recommencer();
     this.p = creerJoueur(DF().pv);
     this.entrerSalle();
   },
@@ -656,6 +672,7 @@ const FORMATS = {
   geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
   abysses: { nom: 'Abysses', ico: '🌌', obj: 'Sans fin : chaque boss est plus fou, une seule vie', sens: 1, score: r => r.tues, fmt: v => 'profondeur ' + v }
 };
+FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Bats ce colosse le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) };
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
   const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);

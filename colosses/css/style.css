@@ -432,3 +432,4 @@ html, body { overscroll-behavior: none; }
 }
 #invite .inv-pv { left: auto; right: 60px; top: 6px; }
 #invite .inv-quit { left: auto; right: 10px; top: 4px; bottom: auto; }
+.d-chasse { cursor: inherit; }

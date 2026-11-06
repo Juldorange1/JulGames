@@ -112,6 +112,21 @@ const SETS_GARDES = ['recrue', 'bronze', 'foret', 'cendre', 'marine', 'givre', '
   }
   if (rendu) { forgeSave().eclats += rendu; Save.d.cristauxRendus = (Save.d.cristauxRendus || 0) + rendu; Save.write(); }
 }
+// plus d'apparences de visière ni de curseur : la catégorie disparaît, les fragments sont remboursés
+RARETES.saison.frags = 6; RARETES.saison.poids = 8;
+{
+  const S0 = Save.d && Save.d.skins; let rendu = 0;
+  try { if (S0 && S0.frag && !Save.d.migSaison) { for (const s of SKINS) if (s.saison && S0.frag[s.id] >= 1) S0.frag[s.id] = 6; Save.d.migSaison = 1; } } catch (e) { }
+  for (const sk of SKINS.filter(x => x.slot === 'visiere' && !x.base)) {
+    if (S0 && S0.frag && S0.frag[sk.id] > 0) { rendu += Math.min(S0.frag[sk.id], RARETES[sk.rar].frags) * PRIX_HASARD; delete S0.frag[sk.id]; }
+    SKINS.splice(SKINS.indexOf(sk), 1); delete SET_DE[sk.id];
+  }
+  if (S0 && S0.equip) delete S0.equip.visiere;
+  delete SLOTS.visiere;
+  for (const st of SETS) delete st.pieces.visiere;
+  if (rendu) forgeSave().eclats += rendu;
+  if (S0) Save.write();
+}
 function setDe(id) { return SETS.find(x => x.id === SET_DE[id]); }
 function nomSet(st) { const L = typeof Langue !== 'undefined' && Langue.en; return L && SETS_EN[st.id] ? SETS_EN[st.id] : st.nom; }
 function setVisible(st) { return !st.saison || saisonOk(st.saison) || Object.values(st.pieces).some(id => possede(id)); }

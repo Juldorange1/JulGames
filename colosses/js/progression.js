@@ -274,7 +274,7 @@ function noterChasse(esp, temps) {
 }
 
 // ---------- Affinités : on paie des éclats pour qu'un type d'arme tombe plus souvent (même puissance) ----------
-const AFF_PRIX = [3, 6, 10], AFF_MULT = [1, 1.6, 2.2, 2.8];
+const AFF_PRIX = [3, 6, 10], AFF_MULT = [1, 1.33, 1.66, 2]; // au plus ×2 : jamais plus de 2 fois plus de chance que l'arme la moins probable
 function affSave() {
   let A = Save.d.affinites;
   if (!A || Array.isArray(A.p)) { const v = A || {}; A = Save.d.affinites = { p: {}, s: {}, t: {} }; for (const c of ['p', 's', 't']) for (const k of (v[c] || [])) A[c][k] = 1; }

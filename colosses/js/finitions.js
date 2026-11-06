@@ -118,6 +118,7 @@ const Reprise = {
       const b = df.boss[df.i]; if (!b) return null;
       if (G.mode === 'abysses') return 'a:' + df.i + ':' + b.seed;
       if (G.mode === 'survie') return 's:' + b.seed;
+      if (G.mode === 'chasse') return 'c:' + b.seed;
       if (G.mode === 'jour') return 'j:' + df.cle + ':' + df.i + ':' + b.seed;
     } catch (e) { }
     return null;
