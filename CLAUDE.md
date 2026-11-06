@@ -21,4 +21,5 @@ Voir [README.md](README.md) pour la liste des jeux et l'arborescence complète.
 - **Aucun texte sélectionnable** dans les jeux : `body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }`
   (garder `user-select: text` sur les `input`/`textarea` s'il y en a). À mettre dans tout nouveau jeu.
 - `index.html` à la racine est une simple page d'accueil qui liste les jeux ; ce n'est pas
-  un jeu en soi.
+  un jeu en soi. `games/index.html` est une seconde page d'accueil (« Games ») limitée à six jeux,
+  pas un jeu non plus.
