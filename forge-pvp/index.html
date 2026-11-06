@@ -300,7 +300,8 @@ input, textarea, select, [contenteditable] { -webkit-user-select: text; user-sel
     <div class="hright">
       <span id="sensinfo"></span>
       <button class="btn" id="btnSettings">⚙️ Réglages</button>
-      <a class="back" href="../index.html">← JulGame</a>
+      <a class="back" id="retour" href="../index.html">← JulGame</a>
+      <script>/* ouvert depuis la page Games : le retour y ramène */(function(){if(!/[?&]games(&|$)/.test(location.search))return;var a=document.getElementById('retour');a.href='../games/index.html';a.textContent='← Games';})();</script>
     </div>
   </div>
   <div id="menu-body"></div>

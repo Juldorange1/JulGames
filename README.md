@@ -18,6 +18,12 @@ entre les jeux, sauf mention contraire).
 | [`forge-pvp/`](forge-pvp/) | **Forge PvP** | Entraînement PvP Minecraft en 3D (three.js vendorisé, licence MIT, voir `forge-pvp/vendor/`) : déplacements, sauts, sprint, accroupi, effet Vitesse, flèches et combat calqués sur Minecraft. 7 exercices entièrement configurables (durée libre ou infinie, difficulté 0–100 %, sets enregistrables) : boxing & ciblage, réflexes, arc (option : les cibles ripostent et il faut esquiver), construction rapide (échafaudage autorisé autour de la parcelle), bridge, parkour (chaque saut validé par le planificateur `js/plan.js` sur la vraie physique, trajectoires protégées : toujours finissable), test de CPS. **Mode regarder** dans chaque exercice : l'ordinateur joue parfaitement à ta place sans connaître l'avenir (`js/ia.js`). Interface sans défilement |
 | [`forge-serveur/`](forge-serveur/) | **Forge PvP — serveur Minecraft** | Version **serveur Minecraft Java 26.3** de Forge PvP (Fabric, mod côté serveur seulement : on se connecte avec un Minecraft normal). Hub avec une plaque par exercice, menus en coffre, 15 exercices avec bots (vrais joueurs simulés par le serveur) et mode « regarder le bot ». Lancement : `serveur/Lancer le serveur.bat` ; mise en ligne avec playit.gg (voir son README). Pas un jeu web : pas de lien sur la page d'accueil |
 
+## Page « Games »
+
+[`games/`](games/) est une seconde page d'accueil, plus courte, qui ne liste que six jeux : Hex Défense, Ascension,
+Fracas, Panthéa, Colosses et Forge PvP. Elle ouvre les mêmes jeux que JulGame (aucune copie). En ligne :
+https://juldorange1.github.io/JulGames/games/
+
 ## Outils (pas des jeux)
 
 | Dossier | Outil | Description |
@@ -48,6 +54,7 @@ chaque jeu — ce n'est pas un jeu en soi.
 ```
 ruine/                  (dépôt = "JulGame")
 ├── index.html          Page d'accueil (liste des jeux)
+├── games/              Autre page d'accueil, « Games » : Hex Défense, Ascension, Fracas, Panthéa, Colosses, Forge PvP
 ├── README.md           Ce fichier
 ├── CLAUDE.md           Instructions générales du dépôt
 ├── hexdefense/         Jeu "Hex Défense"

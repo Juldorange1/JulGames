@@ -375,7 +375,7 @@ const G = {
       this.salle = run.salle;
       this.mega = this.salle % 5 === 0;
       this.preparerBoss();
-      def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg;
+      def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg; def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE);
     } else if (this.mode === 'entrainement') {
       const cfg = this.entr; this.salle = cfg.salle; this.mega = false;
       def = genBoss(cfg.salle, cfg.seed, false, []);
@@ -397,6 +397,7 @@ const G = {
       if (df.format === 'abysses') { const k = df.i; const f = (k / 10) * (k / 10); /* courbe : douce au début, très raide ensuite (1 à la profondeur 10) */ def.D.S *= 1 + .32 * f; def.D.C *= 1 + .4 * f; def.D.T = Math.max(.6, def.D.T * Math.max(.7, 1 - .2 * f)); def.idle *= Math.max(.4, 1 - .4 * f); def.hpMax = Math.round(def.hpMax * (1 + .3 * f)); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
+      if (df.format === 'chasse') def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE);
       // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
       if (df.format === 'survie' && df.ajust) { const k = df.ajust; def.D.S = Math.min(2.2, def.D.S * Math.pow(k, .3)); def.D.C *= Math.pow(k, .4); def.idle = Math.max(.12, def.idle / Math.pow(k, .5)); }
       if (df.format === 'survie') { def.traits = []; def.phases.forEach(ph => { if (ph.carte === 'etau') ph.carte = 'normale'; }); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }

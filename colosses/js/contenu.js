@@ -28,14 +28,11 @@ const FAMILLE = {
 };
 const FAMILLES = { fusil: { nom: 'Fusils', ico: '🔫' }, lame: { nom: 'Lames', ico: '🗡' }, trait: { nom: 'Lancers', ico: '🏹' }, explosif: { nom: 'Explosifs', ico: '💣' }, magie: { nom: 'Magies', ico: '🔮' } };
 function elemArme(id) { return ELEM_ARME[id] || 'arcane'; }
-// pondère le tirage : armes de la faiblesse du boss plus fréquentes, et affinités choisies par le joueur
+// tire une arme selon les chances réglées dans les Affinités (jamais deux fois de suite la même, sauf si c'est la seule possible)
 function tirerArme(cat, avant, def) {
-  const liste = ARS[cat].filter(a => a.id !== avant);
-  return R.weighted(liste, a => {
-    let w = 1;
-    w *= multAff(cat, a);
-    return w;
-  }).id;
+  const possibles = ARS[cat].filter(a => multAff(cat, a) > 0);
+  const liste = possibles.filter(a => a.id !== avant);
+  return R.weighted(liste.length ? liste : possibles, a => multAff(cat, a)).id;
 }
 
 // ---------- Armes principales supplémentaires ----------

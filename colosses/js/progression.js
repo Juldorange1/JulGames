@@ -260,6 +260,7 @@ function chasseCourante() {
   return c;
 }
 function noterChasse(esp, temps) {
+  if (!modeOuvert('chasse')) return;
   const c = chasseCourante();
   if (c.esp !== esp) return;
   if (!c.best || temps < c.best) c.best = Math.round(temps);
@@ -273,8 +274,11 @@ function noterChasse(esp, temps) {
   Save.write();
 }
 
-// ---------- Affinités : on paie des éclats pour qu'un type d'arme tombe plus souvent (même puissance) ----------
-const AFF_PRIX = [3, 6, 10], AFF_MULT = [1, 1.33, 1.66, 2]; // au plus ×2 : jamais plus de 2 fois plus de chance que l'arme la moins probable
+// ---------- Affinités : une toile de probabilités (l'écran est dans affinites.js) ----------
+// Chaque type d'arme a une chance d'être tiré et le total fait toujours 100 %. Chaque niveau acheté élargit le minimum et le
+// maximum qu'on peut régler. Bouger une chance déplace les autres. Jamais de puissance.
+// Règle d'or : l'arme la plus probable n'a jamais plus de 2 fois plus de chance que la moins probable.
+const AFF_PRIX = [3, 6, 10, 16, 24, 36], AFF_MAX = AFF_PRIX.length, AFF_PAS = Math.pow(2, 1 / 6), AFF_ECART = 2;
 function affSave() {
   let A = Save.d.affinites;
   if (!A || Array.isArray(A.p)) { const v = A || {}; A = Save.d.affinites = { p: {}, s: {}, t: {} }; for (const c of ['p', 's', 't']) for (const k of (v[c] || [])) A[c][k] = 1; }
@@ -283,19 +287,73 @@ function affSave() {
   for (const c of ['p', 's', 't']) for (const k of Object.keys(A[c])) if (ELEMENTS[k]) { let n = 0; for (let i = 0; i < A[c][k]; i++) n += AFF_PRIX[i]; forgeSave().eclats += n; delete A[c][k]; }
   return A;
 }
-function correspond(a, cible) { return FAMILLE[a.id] === cible || a.id === cible; }
-// réglage libre d'une affinité achetée : 0 = chance de base, 1 = tout ce qui a été acheté
-function reglageAff(c, k) { const R = Save.d.affReglage = Save.d.affReglage || {}; R[c] = R[c] || {}; return R[c][k] === undefined ? 1 : R[c][k]; }
-function multAff(cat, a) { const A = affSave()[cat]; let m = 1; for (const k in A) if (A[k] > 0 && correspond(a, k)) m = Math.max(m, 1 + (AFF_MULT[A[k]] - 1) * reglageAff(cat, k)); return m; }
-function chanceReglee(cat, cible) { let tot = 0, ok = 0; for (const a of ARS[cat]) { const m = multAff(cat, a); tot += m; if (correspond(a, cible)) ok += m; } return ok / tot; }
-// chance qu'une arme tirée corresponde à la cible : sans affinité, et avec le niveau donné
-function chanceAff(cat, cible, niv) {
-  const l = ARS[cat]; let tot = 0, ok = 0, tot0 = 0, ok0 = 0;
-  for (const a of l) {
-    const m = correspond(a, cible) ? AFF_MULT[niv] : multAff(cat, a), c = correspond(a, cible);
-    tot += m; if (c) ok += m; tot0 += 1; if (c) ok0 += 1;
+function affCle(cat, a) { return cat === 'p' ? FAMILLE[a.id] || 'fusil' : a.id; }
+function affCibles(cat) { return [...new Set(ARS[cat].map(a => affCle(cat, a)))]; }
+function affTaille(cat, k) { return ARS[cat].filter(a => affCle(cat, a) === k).length; }
+function affBase(cat, k) { return affTaille(cat, k) / ARS[cat].length; }
+// première ouverture : on repart des anciennes affinités (multiplicateurs de tirage)
+function affDepart(cat) {
+  const A = affSave()[cat], Rg = (Save.d.affReglage || {})[cat] || {}, ANC = [1, 1.6, 2.2, 2.8], P = {};
+  for (const a of ARS[cat]) { const k = affCle(cat, a), n = Math.min(3, A[k] || 0); P[k] = (P[k] || 0) + (n ? 1 + (ANC[n] - 1) * (Rg[k] === undefined ? 1 : Rg[k]) : 1); }
+  return P;
+}
+function affProbas(cat) {
+  const T = Save.d.affP = Save.d.affP || {}, P = T[cat] = T[cat] || affDepart(cat), l = affCibles(cat);
+  for (const k of Object.keys(P)) if (!l.includes(k)) delete P[k];
+  let s = 0;
+  for (const k of l) { if (!(P[k] >= 0)) P[k] = affBase(cat, k); s += P[k]; }
+  if (Math.abs(s - 1) > 1e-9) for (const k of l) P[k] = s > 0 ? P[k] / s : affBase(cat, k);
+  affLimiter(cat, P, l);
+  return P;
+}
+// garde les chances de chaque arme dans un écart de 1 à 2 : on cherche le plancher L tel que, chaque arme étant ramenée
+// entre L et 2L, le total fasse toujours 100 %
+function affLimiter(cat, P, l) {
+  const w = k => P[k] / affTaille(cat, k), ws = l.map(w), bas = Math.min(...ws), haut = Math.max(...ws);
+  if (haut <= bas * AFF_ECART * (1 + 1e-9)) return;
+  const somme = L => l.reduce((t, k) => t + clamp(w(k), L, L * AFF_ECART) * affTaille(cat, k), 0);
+  let a = 0, b = 1;
+  for (let i = 0; i < 50; i++) { const L = (a + b) / 2; if (somme(L) < 1) a = L; else b = L; }
+  const L = (a + b) / 2, N = {};
+  for (const k of l) N[k] = clamp(w(k), L, L * AFF_ECART) * affTaille(cat, k);
+  Object.assign(P, N);
+}
+// minimum et maximum achetés : chaque niveau élargit la cote dans les deux sens, jusqu'à ×2 et ÷2 au dernier niveau
+function affBornes(cat, k) {
+  const n = affSave()[cat][k] || 0, b = affBase(cat, k);
+  const o = b / (1 - b), m = Math.pow(AFF_PAS, n);
+  return [o / m / (1 + o / m), o * m / (1 + o * m)];
+}
+// règle une chance dans ses limites ; les autres se partagent le reste en gardant leurs proportions. Une chance achetée ne
+// sort jamais de ses limites : si les autres sont bloquées, celle qu'on bouge s'arrête là. Une chance non achetée suit le mouvement.
+function affFixer(cat, k, v) {
+  const P = affProbas(cat), A = affSave()[cat], [lo, hi] = affBornes(cat, k), N = {};
+  const bornes = x => A[x] > 0 ? affBornes(cat, x) : [0, 1];
+  let libres = affCibles(cat).filter(x => x !== k), reste = 1 - clamp(v, lo, hi);
+  while (libres.length) {
+    const tot = libres.reduce((s, x) => s + P[x], 0), base = libres.reduce((s, x) => s + affBase(cat, x), 0);
+    const part = x => tot > 1e-9 ? P[x] * reste / tot : affBase(cat, x) * reste / base;
+    const bas = libres.filter(x => part(x) < bornes(x)[0] - 1e-12), haut = libres.filter(x => part(x) > bornes(x)[1] + 1e-12);
+    if (!bas.length && !haut.length) { for (const x of libres) N[x] = part(x); libres = []; break; }
+    const bloquees = bas.length ? bas : haut;
+    for (const x of bloquees) { N[x] = bornes(x)[bas.length ? 0 : 1]; reste -= N[x]; }
+    libres = libres.filter(x => !bloquees.includes(x));
   }
-  return { avant: ok0 / tot0, apres: ok / tot };
+  Object.assign(P, N);
+  P[k] = Math.max(0, 1 - Object.values(N).reduce((s, x) => s + x, 0));
+  affLimiter(cat, P, affCibles(cat));
+  return P[k];
+}
+function multAff(cat, a) { const k = affCle(cat, a); return affProbas(cat)[k] / affTaille(cat, k); }
+
+// ---------- Modes à débloquer avec des cristaux ----------
+const PRIX_MODE = { chasse: 10, abysses: 25 };
+function modeOuvert(m) { return !!(Save.d.debloques || {})[m]; }
+function debloquerMode(m) {
+  const F = forgeSave();
+  if (modeOuvert(m) || F.eclats < PRIX_MODE[m]) return false;
+  F.eclats -= PRIX_MODE[m]; (Save.d.debloques = Save.d.debloques || {})[m] = 1; Save.write();
+  return true;
 }
 
 // prix d'un fragment d'apparence dans la garde-robe (les légendaires ne s'achètent pas)
