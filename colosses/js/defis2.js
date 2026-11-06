@@ -67,13 +67,13 @@ G.terminerDefi = function (reussi) {
   const r = _finCristaux.apply(this, arguments);
   if (deja || !df || !this.finDefi) return r;
   const res = this.finDefi; let n = 0;
-  if (df.format === 'survie') n += Math.floor(Math.max(0, (res.temps || 0) - (df.depart || 0)) / 25); // 1 cristal par 30 s vraiment tenues
-  if (df.format === 'deluge') n += Math.floor((res.degats || 0) / 15000);
-  if (df.format === 'danse' && reussi) n += Math.max(0, 6 - (res.coups || 0));
-  if (reussi && df.type === 'jour') n += 2; // en plus des 2 déjà donnés
+  if (df.format === 'survie') n += Math.floor(Math.max(0, (res.temps || 0) - (df.depart || 0)) / 90); // même rythme qu'une partie normale
+  if (df.format === 'deluge') n += Math.floor((res.degats || 0) / 6000);
+  if (df.format === 'danse' && reussi) n += Math.max(0, 3 - Math.floor((res.coups || 0) / 2));
+  if (reussi && df.type === 'jour') n += 1; // en plus des 2 déjà donnés
   if (reussi && df.type === 'semaine') n += 6;
-  if (res.record) n += df.type === 'abysses' ? 3 : 2;
-  if (df.type === 'abysses') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 3); // seule la profondeur vraiment gagnée paie
+  if (res.record && df.type !== 'chasse') n += 2;
+  if (df.type === 'abysses') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 4); // seule la profondeur vraiment gagnée paie
   // défi du jour : rejouer ne rapporte que ce qui dépasse ce qui a déjà été gagné aujourd'hui
   if (df.type === 'jour') { const rj = Save.d.defis.jour, tot = n; n = Math.max(0, tot - (rj.payeN || 0)); rj.payeN = Math.max(rj.payeN || 0, tot); }
   if (n > 0) { const k = gagnerEclats(n); if (k) res.cristauxBonus = k; }
@@ -125,4 +125,13 @@ majCombat = function (dt) {
   const t0 = G.t;
   _majSurvieSt.apply(this, arguments);
   try { const df = G.defi; if (G.mode === 'survie' && df && G.etat === 'combat' && !G.finDefi && G.p && G.p.hp > 0) { if (df.st === undefined) df.st = df.temps || 0; df.st += Math.max(0, Math.min(.1, G.t - t0)); } } catch (e) { }
+};
+// Chasse : le temps réalisé à côté du temps parfait, sur l'écran de fin
+const _ecranChasse = dessinerEcranDefi;
+dessinerEcranDefi = function (c) {
+  _ecranChasse(c);
+  const df = G.defi, f = G.finDefi; if (!df || !f || df.type !== 'chasse' || f.score === null) return;
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+  texteOmbre(c, 'Ton temps ' + fmtTemps(f.temps) + ' · temps parfait ' + fmtTemps(df.parfait), W / 2, 440, '#e8e2f5', `800 22px ${POLICE}`, 4);
+  c.restore();
 };

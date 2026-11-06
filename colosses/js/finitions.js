@@ -20,7 +20,7 @@ UI.action = function (a, btn) {
 // ---------- aucun texte ne dépasse de son cadre : la police se réduit juste ce qu'il faut ----------
 function ajusterTextes() {
   const e = UI.el; if (!e || !e.classList.contains('ouvert')) return;
-  for (const el of e.querySelectorAll('.tuile, .pill, .jouer, .defi2 b, .defi2 .dm, .skin b, .skin span, .onglets button, .rang button')) {
+  for (const el of e.querySelectorAll('.tuile, .pill, .diff-t b, .diff-t small, .defi2 b, .defi2 .dm, .skin b, .skin span, .onglets button, .rang button')) {
     if (!el.offsetParent) continue;
     el.style.fontSize = '';
     let fs = parseFloat(getComputedStyle(el).fontSize), n = 0;
@@ -95,6 +95,7 @@ function copieEtat(o, exclus) {
 }
 const Reprise = {
   R() { return Save.d.reprises = Save.d.reprises || {}; },
+  fente() { return G.mode === 'normal' ? 'normal:' + Save.d.diff : G.mode; },
   cle() {
     try {
       if (typeof Coop !== 'undefined' && Coop.inscrits.length) return null; // à plusieurs : pas de reprise
@@ -111,9 +112,9 @@ const Reprise = {
   garder() {
     const b = G.boss, k = this.cle(), p = G.p;
     if (!k || !b || b.mort || !p || p.hp <= 0 || G.finDefi || !(G.etat === 'combat' || G.etat === 'pause')) return;
-    if (b.intro > 0 && !this.R()[G.mode]) return;
+    if (b.intro > 0 && !this.R()[this.fente()]) return;
     const df = G.defi;
-    this.R()[G.mode] = {
+    this.R()[this.fente()] = {
       k, chrono: G.chrono || 0, inset: Arene.inset || 0,
       boss: copieEtat(b, EXCLUS_BOSS), bs: (() => { try { const j = JSON.stringify(b.s); return j && j.length < 6000 ? JSON.parse(j) : null; } catch (e) { return null; } })(),
       p: copieEtat(p, EXCLUS_JOUEUR), prim: copieEtat(p.prim, ['vol', 'o']), spec: copieEtat(p.spec), tal: copieEtat(p.tal),
@@ -124,9 +125,9 @@ const Reprise = {
     };
     Save.write();
   },
-  effacer() { if (this.R()[G.mode]) { delete this.R()[G.mode]; Save.write(); } },
+  effacer() { if (this.R()[this.fente()]) { delete this.R()[this.fente()]; Save.write(); } },
   appliquer() {
-    const r = this.R()[G.mode], b = G.boss, p = G.p;
+    const r = this.R()[this.fente()], b = G.boss, p = G.p;
     if (!r || !b || !p || !r.boss || r.k !== this.cle()) return false;
     const n = b.def.phases.length;
     while (b.phase < Math.min(r.boss.phase || 0, n - 1)) passerPhase(b);

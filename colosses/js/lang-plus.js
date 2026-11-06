@@ -16,7 +16,7 @@ const T = {
       inverseur: ['the Inverter', 'It shows a countdown, then your movement controls are reversed for 5 s (up ↔ down, left ↔ right). During the reversal it only fires slow rings and takes ×1.5.']
     },
     phrases: { reflet: ['I am you, but better.', 'Every blow you strike, I return.'], inverseur: ['Your left is my right.', 'Everything you think you know is reversed.'] },
-    fmt: { chasse: ['Hunt', 'Beat this colossus as fast as possible'], marathon: ['Marathon', 'Every colossus in a row, one life: as fast as possible'], graine: ['Seeded run', 'A fixed run of 6 bosses, the same for everyone with the code: as fast as possible'] },
+    fmt: { chasse: ['Hunt', 'Get close to the perfect time: 100% = impossible to be faster'], marathon: ['Marathon', 'Every colossus in a row, one life: as fast as possible'], graine: ['Seeded run', 'A fixed run of 6 bosses, the same for everyone with the code: as fast as possible'] },
     titres: { conteur: ['Storyteller', 'Discover 10 legends in the Codex.'] },
     rar: { saison: 'Seasonal' },
     skins: { a_citrouille: 'Pumpkin', c_sorciere: 'Witch\'s Cape', t_chauvesouris: 'Bat Swarm', r_lanterne: 'Haunted Lantern', a_givrefete: 'Festive Frost', c_flocons: 'Snowflake Cape', t_neige: 'Snow', r_boreale: 'Northern Lights', a_sakura: 'Cherry Blossom', c_floraison: 'Blossoming', t_pollen: 'Pollen', r_eclosion: 'Bloom', a_soleilete: 'Summer Sun', c_lagon: 'Lagoon', t_lucioles: 'Fireflies', r_canicule: 'Heatwave' },
@@ -76,7 +76,7 @@ const T = {
       inverseur: ['el Inversor', 'Muestra una cuenta atrás y luego tus controles de movimiento se invierten 5 s (arriba ↔ abajo, izquierda ↔ derecha). Durante la inversión solo dispara anillos lentos y recibe ×1,5.']
     },
     phrases: { reflet: ['Soy tú, pero mejor.', 'Cada golpe que das, te lo devuelvo.'], inverseur: ['Tu izquierda es mi derecha.', 'Todo lo que crees saber se invierte.'] },
-    fmt: { chasse: ['Caza', 'Vence a este coloso lo más rápido posible'], marathon: ['Maratón', 'Todos los colosos seguidos, una sola vida: lo más rápido posible'], graine: ['Partida con semilla', 'Una partida fija de 6 jefes, la misma para todos los que tienen el código: lo más rápido posible'] },
+    fmt: { chasse: ['Caza', 'Acércate al tiempo perfecto: 100 % = imposible ir más rápido'], marathon: ['Maratón', 'Todos los colosos seguidos, una sola vida: lo más rápido posible'], graine: ['Partida con semilla', 'Una partida fija de 6 jefes, la misma para todos los que tienen el código: lo más rápido posible'] },
     titres: { conteur: ['Cuentacuentos', 'Descubrir 10 leyendas en el Códice.'] },
     rar: { saison: 'De temporada' },
     skins: { a_citrouille: 'Calabaza', c_sorciere: 'Capa de bruja', t_chauvesouris: 'Enjambre de murciélagos', r_lanterne: 'Farol embrujado', a_givrefete: 'Escarcha festiva', c_flocons: 'Capa de copos', t_neige: 'Nieve', r_boreale: 'Aurora boreal', a_sakura: 'Cerezo', c_floraison: 'Floración', t_pollen: 'Polen', r_eclosion: 'Eclosión', a_soleilete: 'Sol de verano', c_lagon: 'Laguna', t_lucioles: 'Luciérnagas', r_canicule: 'Canícula' },
@@ -136,7 +136,7 @@ const T = {
       inverseur: ['der Umkehrer', 'Er zeigt einen Countdown, dann sind deine Bewegungstasten 5 s lang umgekehrt (oben ↔ unten, links ↔ rechts). Während der Umkehrung schießt er nur langsame Ringe und nimmt ×1,5.']
     },
     phrases: { reflet: ['Ich bin du, nur besser.', 'Jeden Schlag, den du austeilst, gebe ich zurück.'], inverseur: ['Dein Links ist mein Rechts.', 'Alles, was du zu wissen glaubst, kehrt sich um.'] },
-    fmt: { chasse: ['Jagd', 'Besiege diesen Koloss so schnell wie möglich'], marathon: ['Marathon', 'Alle Kolosse hintereinander, ein Leben: so schnell wie möglich'], graine: ['Lauf mit Code', 'Ein fester Lauf aus 6 Bossen, gleich für alle mit dem Code: so schnell wie möglich'] },
+    fmt: { chasse: ['Jagd', 'Komm der perfekten Zeit nahe: 100 % = schneller geht es nicht'], marathon: ['Marathon', 'Alle Kolosse hintereinander, ein Leben: so schnell wie möglich'], graine: ['Lauf mit Code', 'Ein fester Lauf aus 6 Bossen, gleich für alle mit dem Code: so schnell wie möglich'] },
     titres: { conteur: ['Erzähler', 'Entdecke 10 Legenden im Kodex.'] },
     rar: { saison: 'Saison' },
     skins: { a_citrouille: 'Kürbis', c_sorciere: 'Hexenumhang', t_chauvesouris: 'Fledermausschwarm', r_lanterne: 'Spukende Laterne', a_givrefete: 'Festlicher Frost', c_flocons: 'Schneeflockenumhang', t_neige: 'Schnee', r_boreale: 'Polarlicht', a_sakura: 'Kirschblüte', c_floraison: 'Blütezeit', t_pollen: 'Pollen', r_eclosion: 'Erblühen', a_soleilete: 'Sommersonne', c_lagon: 'Lagune', t_lucioles: 'Glühwürmchen', r_canicule: 'Hitzewelle' },

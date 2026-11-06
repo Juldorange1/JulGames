@@ -467,3 +467,8 @@ html, body { overscroll-behavior: none; }
   .aff-grille { grid-template-columns: minmax(0, 1fr); }
   .aff-toile { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
 }
+.diffs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.diff-t { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 14px 8px; border-radius: 8px; font-family: Cinzel, Georgia, serif; background: linear-gradient(180deg, rgba(58,44,24,.92), rgba(20,16,10,.94)); border: 1px solid rgba(201,168,101,.4); overflow: hidden; }
+.diff-t .di { font-size: 30px; } .diff-t b { font-size: 21px; color: #f1e6c8; } .diff-t small { font: 600 14px 'Segoe UI', sans-serif; color: #c9bfa8; }
+.diff-t.actif { border-color: #e8cf8e; } .diff-t:hover { filter: brightness(1.2); }
+.diff-t.d-cauchemar b { color: #ff8a9a; } .diff-t.d-apprenti b { color: #9fd8ff; }

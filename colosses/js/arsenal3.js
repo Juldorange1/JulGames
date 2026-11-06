@@ -179,3 +179,16 @@ dessinerTirsJoueur = function (c) {
   }
   c.restore();
 };
+
+// armes à charger (Iaido, arc, canon…) : 0,4 s avant de pouvoir recharger, cliquer très vite ne sert plus à rien
+for (const a of PRIM) {
+  const tick = a.tick;
+  a.tick = function (w, p, dt, held) {
+    G.salveTir = 1;
+    w.verrou = Math.max(0, (w.verrou || 0) - dt);
+    const ch0 = w.ch || 0, r = tick.call(this, w, p, dt, held && w.verrou <= 0);
+    if (ch0 > 0 && !(w.ch > 0)) w.verrou = PAUSE_MIN;
+    G.salveTir = 1;
+    return r;
+  };
+}

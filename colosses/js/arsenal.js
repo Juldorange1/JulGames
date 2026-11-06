@@ -62,6 +62,7 @@ const PRIM_EQ = { iaido: .53, rattrape: .6, ricochets: .5, jumelles: .72, surcha
 
 // ---------- Tirs du joueur ----------
 function pShot(x, y, a, spd, o) {
+  if (G.salveTir > 1 && o.kind !== 'flamme') a += R.range(-.05, .05); // les balles d'une salve s'écartent un peu
   const b = {
     x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, a,
     r: o.r || 4, dmg: (o.dmg || 10) * ST.pDmg, life: (o.life || 1) * (o.noVel ? 1 : ST.pVel), t: 0,
@@ -73,13 +74,17 @@ function pShot(x, y, a, spd, o) {
   G.pb.push(b);
   return b;
 }
+const PAUSE_MIN = .4; // aucune arme n'attaque plus d'une fois toutes les 0,4 s
 function cadence(w, dt, held, iv) {
   const mf = modForge(); iv /= (mf.cad || 1);
+  // une arme rapide tire d'un coup une salve équivalente : mêmes dégâts par seconde, mais une attaque toutes les 0,4 s
+  let salve = 1; if (iv < PAUSE_MIN) { salve = Math.ceil(PAUSE_MIN / iv); iv *= salve; }
+  G.salveTir = salve;
   w.cd -= dt;
   let n = 0;
   if (held) { while (w.cd <= 0 && n < 4) { w.cd += iv; n++; if (mf.echo && R() < mf.echo) n++; } }
   else if (w.cd < 0) w.cd = 0;
-  return n;
+  return n * salve;
 }
 function bout(p, d) { return { x: p.x + Math.cos(p.aim) * d, y: p.y + Math.sin(p.aim) * d }; }
 
@@ -565,7 +570,7 @@ PRIM.push(
       w.ga += 1.8 * dt * w.sens;
       w.gx = p.x + Math.cos(w.ga) * 95; w.gy = p.y + Math.sin(w.ga) * 95;
       w.cd = (w.cd || 0) - dt;
-      if (w.cd <= 0) { w.cd = .14 / ST.pCad; pShot(w.gx, w.gy, ang(w.gx, w.gy, G.mx, G.my), 850 * ST.pVel, { dmg: 14, r: 4, life: 1.1, col: '#ffd23d' }); Son.play('tir'); }
+      if (w.cd <= 0) { w.cd = .42 / ST.pCad; pShot(w.gx, w.gy, ang(w.gx, w.gy, G.mx, G.my), 850 * ST.pVel, { dmg: 42, r: 5, life: 1.1, col: '#ffd23d' }); Son.play('tir'); }
       if (Input.hit(TOUCHES().tir)) {
         const ox = p.x, oy = p.y, pt = G.arene.clampPt(w.gx, w.gy, p.r);
         p.x = pt.x; p.y = pt.y; w.ga += Math.PI; w.sens = -w.sens; p.iframe = Math.max(p.iframe, .12);

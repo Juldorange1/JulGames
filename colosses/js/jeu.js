@@ -317,10 +317,10 @@ const G = {
   lancerChasse() {
     const c = chasseCourante(), pr = PR(), salle = clamp(pr.palier * 5 + 1, 8, 30);
     this.mode = 'chasse'; this.finDefi = null;
-    if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle) Save.d.defis.chasse = { cle: c.cle, best: null, essais: 0 };
+    if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle + '%') Save.d.defis.chasse = { cle: c.cle + '%', best: null, essais: 0 };
     const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars; // combat quitté : mêmes armes pour le reprendre
     const ars = enCours ? rec.ars : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars;
-    this.defi = { type: 'chasse', format: 'chasse', cle: c.cle, mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    this.defi = { type: 'chasse', format: 'chasse', cle: c.cle + '%', mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
     rec.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
@@ -397,7 +397,7 @@ const G = {
       if (df.format === 'abysses') { const k = df.i; const f = (k / 10) * (k / 10); /* courbe : douce au début, très raide ensuite (1 à la profondeur 10) */ def.D.S *= 1 + .32 * f; def.D.C *= 1 + .4 * f; def.D.T = Math.max(.6, def.D.T * Math.max(.7, 1 - .2 * f)); def.idle *= Math.max(.4, 1 - .4 * f); def.hpMax = Math.round(def.hpMax * (1 + .3 * f)); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
-      if (df.format === 'chasse') def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE);
+      if (df.format === 'chasse') { def.traits = []; def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE); df.parfait = tempsParfait(def, b.ars); } // pas de mutation : le temps parfait reste juste
       // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
       if (df.format === 'survie' && df.ajust) { const k = df.ajust; def.D.S = Math.min(2.2, def.D.S * Math.pow(k, .3)); def.D.C *= Math.pow(k, .4); def.idle = Math.max(.12, def.idle / Math.pow(k, .5)); }
       if (df.format === 'survie') { def.traits = []; def.phases.forEach(ph => { if (ph.carte === 'etau') ph.carte = 'normale'; }); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
@@ -482,7 +482,7 @@ const G = {
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
     else if (this.def.mega) { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
-    if (this.mode === 'normal' || this.mode === 'chasse') noterChasse(this.def.esp, this.chrono);
+    if (this.mode === 'chasse' && this.defi.parfait) noterChasse(this.def.esp, Math.min(100, Math.round(100 * this.defi.parfait / Math.max(.1, this.chrono))));
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
     d.stats.serie = (d.stats.serie || 0) + 1; d.stats.serieMax = Math.max(d.stats.serieMax || 0, d.stats.serie);
     if (this.mode === 'normal' && !((d.essais || {})[d.diff + ':' + this.salle])) statPlus('premierEssai');
@@ -535,7 +535,7 @@ const G = {
     const mieux = res.score !== null && (!ancien || ancien.score === undefined || (F.sens > 0 ? res.score > ancien.score : res.score < ancien.score));
     res.ancien = ancien; res.record = mieux;
     if (mieux) { if (df.type === 'abysses') rec.best = res.score; else rec.best = { score: res.score, tues: res.tues, temps: Math.round(res.temps * 10) / 10 }; }
-    if (reussi && (df.type === 'jour' || df.type === 'semaine') && !rec.paye) { rec.paye = 1; /* une seule fois par défi */ succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); this.texte(this.p.x, this.p.y - 60, txtCristaux(gagnerEclats(4)), '#bfefff', 15); }
+    if (reussi && (df.type === 'jour' || df.type === 'semaine') && !rec.paye) { rec.paye = 1; /* une seule fois par défi */ succes(df.type === 'jour' ? 'defiJour' : 'defiSemaine'); statPlus('defisReussis'); this.texte(this.p.x, this.p.y - 60, txtCristaux(gagnerEclats(2)), '#bfefff', 15); }
     if (df.type === 'abysses' && res.score >= 10) succes('abysses10');
     Save.d.defisHist = Save.d.defisHist || [];
     Save.d.defisHist.unshift({ type: df.type, cle: df.cle, tues: res.tues, total: res.total, temps: Math.round(res.temps) });
@@ -641,7 +641,6 @@ function forceSurvie(ars) {
 }
 // ---------- Défis du jour et de la semaine ----------
 const MUTATEURS = {
-  verre: { nom: 'Corps de verre', ico: '🥚', desc: 'Tu n\'as que 60 points de vie.' },
   frenesie: { nom: 'Frénésie', ico: '⚡', desc: 'Les boss attaquent 20 % plus vite.' },
   nuit: { nom: 'Nuit noire', ico: '🌑', desc: 'Toutes les arènes sont plongées dans les ténèbres.' },
   patinoire: { nom: 'Patinoire', ico: '❄', desc: 'Toutes les arènes sont gelées.' },
@@ -673,7 +672,7 @@ const FORMATS = {
   geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
   abysses: { nom: 'Abysses', ico: '🌌', obj: 'Sans fin : chaque boss est plus fou, une seule vie', sens: 1, score: r => r.tues, fmt: v => 'profondeur ' + v }
 };
-FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Bats ce colosse le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) };
+FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Approche-toi du temps parfait : 100 % = impossible de faire plus vite', sens: 1, score: r => r.reussi && G.defi && G.defi.parfait ? Math.min(100, Math.round(100 * G.defi.parfait / Math.max(.1, r.temps))) : null, fmt: v => v + ' %' };
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
   const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);

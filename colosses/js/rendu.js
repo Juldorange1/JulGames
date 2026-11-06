@@ -792,6 +792,7 @@ function dessinerHUD(c) {
       else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'survie') info += (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'chasse') info += ' · parfait ' + fmtTemps(df.parfait || 0);
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
       if (df.format === 'survie' && df.ajust) lignes.push({ txt: 'boss ×' + df.ajust.toFixed(2).replace('.', ',') + ' selon tes armes', col: '#d8b8ff', petit: true });

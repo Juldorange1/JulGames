@@ -81,9 +81,9 @@ PRIM.push(
       if (held && w.cd <= 0) {
         const i = w.l.findIndex(v => v <= 0);
         if (i >= 0) {
-          w.cd = .18 / ST.pCad; w.l[i] = 1.2;
+          w.cd = .4 / ST.pCad; w.l[i] = 1.2;
           const a = G.t * 3 + i * TAU / 5, x = p.x + Math.cos(a) * 34, y = p.y + Math.sin(a) * 34;
-          const b = pShot(x, y, ang(x, y, G.mx, G.my), 700, { dmg: 10, r: 5, life: .9, col: '#c8ff7a', noVel: true }); b.hom = 6; b.boom = { r: 55, dmg: 18 * ST.pDmg, finVie: true };
+          const b = pShot(x, y, ang(x, y, G.mx, G.my), 700, { dmg: 17, r: 5, life: .9, col: '#c8ff7a', noVel: true }); b.hom = 6; b.boom = { r: 55, dmg: 30 * ST.pDmg, finVie: true };
         }
       }
       w.dispo = w.l.map(v => v <= 0);

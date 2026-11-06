@@ -23,6 +23,7 @@ const UI = {
   action(a, btn) {
     switch (a) {
       case 'jouer': this.cacher(); G.nouvellePartie(); break;
+      case 'jouerDiff': Save.d.diff = btn.dataset.d; Save.write(); calcStats(); this.cacher(); G.nouvellePartie(); break;
       case 'defi': this.cacher(); G.lancerDefi(btn.dataset.t); break;
       case 'diff': Save.d.diff = btn.dataset.d; Save.write(); calcStats(); this.menu(); break;
       case 'menu': G.mode = 'normal'; this.menu(); break;
@@ -78,7 +79,10 @@ const UI = {
     const nbS = Object.keys(d.succes || {}).length, totS = Object.keys(SUCCES).length;
     this.retour = () => this.menu();
     Musique.jouer(MUS.menu);
-    const pills = Object.entries(DIFFS).map(([k, v], i) => `<button class="pill ${k === d.diff ? 'actif' : ''} d-${k}" data-a="diff" data-d="${k}" data-n="${i + 1}" title="${v.desc}">${v.ico} ${v.nom}</button>`).join('');
+    const pills = Object.entries(DIFFS).map(([k, v], i) => {
+      const q = d.prog[k] || {}, sal = q.run ? q.run.salle : (q.palier || 0) * 5 + 1, rep = (d.reprises || {})['normal:' + k];
+      return `<button class="diff-t d-${k} ${k === d.diff ? 'actif' : ''}" data-a="jouerDiff" data-d="${k}" data-n="${i + 1}" ${k === d.diff ? 'data-def' : ''} title="${v.desc}"><span class="di">${v.ico}</span><b>${v.nom}</b><small>Salle ${sal}${sal % 5 === 0 ? ' · méga boss' : ''}${rep ? ' · reprendre' : ''}</small></button>`;
+    }).join('');
     const defi = type => {
       const x = defiCourant(type), F = FORMATS[x.format], rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.format === x.format && rec.best && rec.best.score !== undefined ? rec.best : null;
       return `<button class="defi2 d-${type}" data-a="defi" data-t="${type}" title="${F.obj}${x.mut.length ? '\n' + x.mut.map(m => MUTATEURS[m].nom + ' : ' + MUTATEURS[m].desc).join('\n') : ''}">
@@ -91,12 +95,12 @@ const UI = {
     this.montrer(`
       <div class="accueil">
         <h1 class="titre">COLOSSES</h1>${typeof titrePorte === 'function' ? `<div class="titre-joueur" data-a="hauts" data-o="titres" title="Changer de titre">« ${titrePorte().nom} »</div>` : ''}
-        <div class="pills">${pills}${typeof Coop !== 'undefined' ? Coop.boutonMenu() : ''}</div>
-        <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
+        <div class="diffs">${pills}</div>
+        <div class="pills">${typeof Coop !== 'undefined' ? Coop.boutonMenu() : ''}</div>
         <div class="defis2">${defi('jour')}
           <button class="defi2 d-survie" data-a="survie" title="${FORMATS.survie.obj}"><span class="di">🛡</span><span class="dtx"><b>Survie</b><span class="dm">un boss au hasard · il s'adapte à tes armes${d.survieRun ? ' · en cours : ' + fmtTemps(d.survieRun.temps) + ' (reprendre)' : ''}</span></span><span class="dr">${(() => { const r = d.defis.survie; return r && r.cle === 'survie' && r.best && r.best.score !== undefined ? '🏆<small>' + fmtTemps(r.best.score) + '</small>' : '—'; })()}</span></button>
           ${modeOuvert('abysses') ? `<button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${d.abyssesRun ? ' · en cours : profondeur ' + d.abyssesRun.i + ' (reprendre)' : G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>` : verrou('abysses', '🌌', 'Abysses', 'boss sans fin, toujours plus fous · 1 vie')}
-          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; if (!modeOuvert('chasse')) return verrou('chasse', '🎯', 'Chasse : ' + e.nom, 'un boss par semaine, de plus en plus vite'); return `<button class="defi2 d-chasse" data-a="chasse" title="Bats ce colosse en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux. Clique pour le combattre."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></button>`; })()}
+          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; if (!modeOuvert('chasse')) return verrou('chasse', '🎯', 'Chasse : ' + e.nom, 'un boss par semaine, de plus en plus vite'); return `<button class="defi2 d-chasse" data-a="chasse" title="Approche-toi du temps parfait : 100 % = impossible de faire plus vite. Clique pour le combattre."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + l + ' %').join(' ')}</span></span><span class="dr">${c.bestP ? '🏆<small>' + c.bestP + ' %</small>' : '—'}</span></button>`; })()}
         </div>
         <div class="tuiles">
           ${tuile('forge', '🎲', 'Affinités', forgeSave().eclats + ' 💎')}

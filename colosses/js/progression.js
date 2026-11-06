@@ -253,21 +253,26 @@ function modForge() {
 }
 
 // ---------- Chasse de la semaine : une espèce à battre de plus en plus vite ----------
-const CHASSE_PALIERS = [180, 120, 90];
+const CHASSE_PALIERS = [60, 80, 95]; // en % du temps parfait
 function chasseCourante() {
   const cle = cleSemaine(), r = RNG(hashStr('chasse-' + cle));
   const c = Save.d.chasseH = Save.d.chasseH && Save.d.chasseH.cle === cle ? Save.d.chasseH : { cle, esp: r.pick(ESP_ORDRE), best: 0, paliers: [] };
   return c;
 }
-function noterChasse(esp, temps) {
+// temps parfait : mesuré avec un robot qui ne rate rien (voir chasse-temps.js) ; on ne peut pas faire mieux avec ces armes
+function tempsParfait(def, ars) {
+  const T = typeof CHASSE_T !== 'undefined' ? CHASSE_T : { p: {}, s: {}, e: {} };
+  return (T.e[def.esp] === undefined ? 8 : T.e[def.esp]) + (T.q[def.esp] || 1) * def.hpMax / Math.max(60, (T.p[ars.p] || 160) + (T.s[ars.s] || 0));
+}
+function noterChasse(esp, pct) {
   if (!modeOuvert('chasse')) return;
   const c = chasseCourante();
   if (c.esp !== esp) return;
-  if (!c.best || temps < c.best) c.best = Math.round(temps);
+  if (!c.bestP || pct > c.bestP) c.bestP = pct;
   CHASSE_PALIERS.forEach((lim, i) => {
-    if (temps <= lim && !c.paliers.includes(i)) {
+    if (pct >= lim && !c.paliers.includes(i)) {
       c.paliers.push(i);
-      const n = i === 2 ? 5 : 3, txt = txtCristaux(gagnerEclats(n)); // (plus de fragments gratuits : ils s'achètent)
+      const n = i === 2 ? 5 : 3, txt = txtCristaux(gagnerEclats(n));
       G.annonce('Chasse : palier ' + (i + 1) + ' réussi !', '#ffd86b', 2.2); G.texte(G.p.x, G.p.y - 70, txt, '#ffd86b', 14);
     }
   });
