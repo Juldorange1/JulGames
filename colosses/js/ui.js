@@ -28,14 +28,12 @@ const UI = {
       case 'menu': G.mode = 'normal'; this.menu(); break;
       case 'ameliorations': case 'forge': this.forge(btn.dataset.o); break;
       case 'garderobe': this.garderobe(btn.dataset.o); break;
-      case 'abysses': this.cacher(); G.lancerAbysses(); break;
+      case 'abysses': if (modeOuvert('abysses')) { this.cacher(); G.lancerAbysses(); } break;
+      case 'debloquer': if (debloquerMode(btn.dataset.m)) Son.play('ramasse'); this.menu(); break;
       case 'survie': this.cacher(); G.lancerSurvie(); break;
       case 'forgeAch': { const F = forgeSave(), k = btn.dataset.k; if (F.eclats >= COUT_FORGE) { F.eclats -= COUT_FORGE; F.debloque[k] = 1; Save.write(); Son.play('ramasse'); } this.forge('forge'); break; }
       case 'forgeEq': { const F = forgeSave(), [fam, id] = btn.dataset.k.split(':'); F.actif[fam] = F.actif[fam] === id ? null : id; Save.write(); this.forge('forge'); break; }
-      case 'affNiv': { const A = affSave(), c = btn.dataset.c, v = btn.dataset.v, F = forgeSave(), n = A[c][v] || 0, prix = AFF_PRIX[n]; if (n < 3 && F.eclats >= prix && (n > 0 || Object.keys(A[c]).filter(k => A[c][k] > 0).length < 2)) { F.eclats -= prix; A[c][v] = n + 1; Save.write(); Son.play('ramasse'); } this.forge('affinites'); break; }
-      case 'affOff': { const A = affSave(); delete A[btn.dataset.c][btn.dataset.v]; Save.write(); this.forge('affinites'); break; }
       case 'fragAch': { const F = forgeSave(); if (F.eclats >= PRIX_HASARD) { F.eclats -= PRIX_HASARD; const t = donnerFragment(); Son.play('ramasse'); this.forge('affinites'); const p = document.createElement('p'); p.className = 'mini gain'; p.textContent = t; this.el.querySelector('.eclats').after(p); } break; }
-      case 'aff': { const A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] }, c = btn.dataset.c, v = btn.dataset.v, l = A[c]; const i = l.indexOf(v); if (i >= 0) l.splice(i, 1); else { l.push(v); if (l.length > 2) l.shift(); } Save.write(); this.forge('affinites'); break; }
       case 'skin': {
         const S = skinsSave(), s = skin(btn.dataset.k), F = forgeSave(), prix = s.saison && !saisonOk(s.saison) ? 0 : PRIX_FRAG[s.rar];
         if (possede(s.id)) { S.equip[s.slot] = s.id; Save.write(); Son.play('clic'); }
@@ -88,6 +86,7 @@ const UI = {
         <span class="dr">${bon ? '🏆<small>' + F.fmt(bon.score) + '</small>' : '—'}</span></button>`;
     };
     const tuile = (a, ico, nom, extra) => `<button class="tuile" data-a="${a}"><span>${ico}</span>${nom}${extra ? `<small>${extra}</small>` : ''}</button>`;
+    const verrou = (m, ico, nom, txt) => `<button class="defi2 d-${m} verrou" data-a="debloquer" data-m="${m}" ${forgeSave().eclats >= PRIX_MODE[m] ? '' : 'disabled'}><span class="di">${ico}</span><span class="dtx"><b>${nom}</b><span class="dm">${txt}</span></span><span class="dr">Débloquer<small>${PRIX_MODE[m]} 💎</small></span></button>`;
     this.montrer(`
       <div class="accueil">
         <h1 class="titre">COLOSSES</h1>${typeof titrePorte === 'function' ? `<div class="titre-joueur" data-a="hauts" data-o="titres" title="Changer de titre">« ${titrePorte().nom} »</div>` : ''}
@@ -95,8 +94,8 @@ const UI = {
         <button class="jouer" data-a="jouer" data-def>JOUER<small>${df.ico} Salle ${salle}${salle % 5 === 0 ? ' · méga boss' : ''}${revanche && essais ? ' · revanche ×' + essais : ''} · palier ${pr.palier}</small></button>
         <div class="defis2">${defi('jour')}
           <button class="defi2 d-survie" data-a="survie" title="${FORMATS.survie.obj}"><span class="di">🛡</span><span class="dtx"><b>Survie</b><span class="dm">un boss au hasard · il s'adapte à tes armes${d.survieRun ? ' · en cours : ' + fmtTemps(d.survieRun.temps) + ' (reprendre)' : ''}</span></span><span class="dr">${(() => { const r = d.defis.survie; return r && r.cle === 'survie' && r.best && r.best.score !== undefined ? '🏆<small>' + fmtTemps(r.best.score) + '</small>' : '—'; })()}</span></button>
-          <button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${d.abyssesRun ? ' · en cours : profondeur ' + d.abyssesRun.i + ' (reprendre)' : G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>
-          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
+          ${modeOuvert('abysses') ? `<button class="defi2 d-abysses" data-a="abysses" title="${FORMATS.abysses.obj}"><span class="di">🌌</span><span class="dtx"><b>Abysses</b><span class="dm">boss sans fin, toujours plus fous · 1 vie${d.abyssesRun ? ' · en cours : profondeur ' + d.abyssesRun.i + ' (reprendre)' : G.repriseAbysses() ? ' · reprise : ' + G.repriseAbysses() + ' boss vaincus' : ''}</span></span><span class="dr">${(d.abysses || {}).best ? '🏆<small>prof. ' + d.abysses.best + '</small>' : '—'}</span></button>` : verrou('abysses', '🌌', 'Abysses', 'boss sans fin, toujours plus fous · 1 vie')}
+          ${(() => { const c = chasseCourante(), e = ESPECES[c.esp]; if (!modeOuvert('chasse')) return verrou('chasse', '🎯', 'Chasse : ' + e.nom, 'un boss par semaine, de plus en plus vite'); return `<div class="defi2 d-chasse" title="Bats cette espèce en mode normal en moins de 3:00, 2:00 puis 1:30 pour gagner des cristaux."><span class="di">🎯</span><span class="dtx"><b>Chasse : ${e.nom}</b><span class="dm">${CHASSE_PALIERS.map((l, i) => (c.paliers.includes(i) ? '★' : '☆') + fmtTemps(l)).join(' ')}</span></span><span class="dr">${c.best ? '<small>' + fmtTemps(c.best) + '</small>' : '—'}</span></div>`; })()}
         </div>
         <div class="tuiles">
           ${tuile('forge', '🎲', 'Affinités', forgeSave().eclats + ' 💎')}
@@ -202,39 +201,8 @@ const UI = {
     }).join('')}</div>`);
   },
 
-  // ---------- Forge et affinités ----------
-  forge(o) {
-    o = 'affinites';
-    const F = forgeSave(), A = Save.d.affinites = Save.d.affinites || { p: [], s: [], t: [] };
-    const onglets = `<div class="onglets"><button data-a="forge" data-o="forge" class="${o === 'forge' ? 'actif' : ''}">⚒ Forge</button><button data-a="forge" data-o="affinites" class="${o === 'affinites' ? 'actif' : ''}">🎲 Affinités</button></div>`;
-    let corps = '';
-    if (o === 'forge') {
-      corps = `<p class="mini">Les éclats (un par boss, trois par méga boss) débloquent des <b>évolutions</b> pour une famille d'armes. Chacune change la façon de jouer sans rendre plus fort : on gagne d'un côté, on perd de l'autre. Une seule active par famille.</p>
-        <div class="eclats">💎 ${F.eclats} éclats · ${COUT_FORGE} par évolution</div>
-        <div class="rang"><button data-a="fragAch" ${F.eclats >= PRIX_HASARD ? '' : 'disabled'}>🎁 Fragment d'apparence au hasard · ${PRIX_HASARD} 💎</button></div><div class="blocs forge">` +
-        Object.entries(FORGE).map(([fam, evos]) => `<div class="bloc"><h3>${FAMILLES[fam].ico} ${FAMILLES[fam].nom}</h3>${evos.map(e => {
-          const k = fam + ':' + e.id, ok = F.debloque[k], actif = F.actif[fam] === e.id;
-          return `<div class="evo ${actif ? 'actif' : ''}"><b>${e.nom}</b><em>${e.desc}</em>${ok ? `<button data-a="forgeEq" data-k="${k}">${actif ? '✔ Équipée' : 'Équiper'}</button>` : `<button data-a="forgeAch" data-k="${k}" ${F.eclats >= COUT_FORGE ? '' : 'disabled'}>Débloquer · ${COUT_FORGE} 💎</button>`}</div>`;
-        }).join('')}</div>`).join('') + '</div>';
-    } else {
-      const A = affSave(), F2 = forgeSave();
-      const ligne = (c, v, nom) => {
-        const n = A[c][v] || 0, plein = Object.keys(A[c]).filter(k => A[c][k] > 0).length >= 2 && !n;
-        const ch = chanceAff(c, v, Math.min(3, n + 1)), ch0 = chanceAff(c, v, n);
-        const pct = x => Math.round(x * 100) + ' %';
-        const etat = n ? `<span class="niv">${'◆'.repeat(n)}${'◇'.repeat(3 - n)}</span><em class="aff-pct" data-c="${c}" data-v="${v}">${pct(chanceReglee(c, v))} de chance</em><label class="aff-r"><small>${pct(ch0.avant)}</small><input type="range" min="0" max="100" value="${Math.round(reglageAff(c, v) * 100)}" data-c="${c}" data-v="${v}"><small>${pct(ch0.apres)}</small></label>` : `<em>${pct(ch0.avant)} de chance</em>`;
-        const btnA = n >= 3 ? '<button disabled>Max</button>' : `<button data-a="affNiv" data-c="${c}" data-v="${v}" ${plein || F2.eclats < AFF_PRIX[n] ? 'disabled' : ''} title="${plein ? '2 affinités au plus par type' : 'Passe à ' + pct(ch.apres)}">${n ? '+' : 'Acheter'} · ${AFF_PRIX[n]} 💎</button>`;
-        return `<div class="aff-l ${n ? 'actif' : ''}"><b>${nom}</b><div>${etat}</div>${btnA}${n ? `<button class="petit" data-a="affOff" data-c="${c}" data-v="${v}" title="Retirer (les éclats ne sont pas rendus)">✕</button>` : ''}</div>`;
-      };
-      corps = `<p class="mini">Les cristaux se gagnent en battant des boss (1, ou 3 pour un méga boss). Ils servent seulement ici (rendre un type d'arme plus fréquent) et dans la garde-robe (apparences). Paie des cristaux pour qu'un type d'arme tombe plus souvent (3 niveaux, 2 affinités au plus par catégorie). La chance affichée est celle qu'une arme tirée soit de ce type. Ça ne change jamais leur puissance.</p>
-        <div class="eclats">💎 ${F2.eclats} cristaux</div>
-
-        <h4>🔫 Arme principale — familles</h4>${(() => { const vues = k => PRIM.filter(a => FAMILLE[a.id] === k && Save.d.codex.arm['p:' + a.id]); const l = Object.entries(FAMILLES).filter(([k]) => vues(k).length); return l.map(([k, v]) => ligne('p', k, v.ico + ' ' + v.nom + '<small class="vues">' + vues(k).map(a => a.nom).join(' · ') + '</small>')).join('') || '<p class="mini">Découvre des armes en jouant : une famille apparaît ici dès que tu as croisé une de ses armes.</p>'; })()}
-        <h4>💥 Attaques spéciales</h4>${SPEC.filter(a => Save.d.codex.arm['s:' + a.id]).map(a => ligne('s', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des attaques spéciales en jouant.</p>'}
-        <h4>💨 Talents</h4>${TAL.filter(a => Save.d.codex.arm['t:' + a.id]).map(a => ligne('t', a.id, a.ico + ' ' + a.nom)).join('') || '<p class="mini">Découvre des talents en jouant.</p>'}`;
-    }
-    this.ecran('🎲 Affinités', corps);
-  },
+  // ---------- Affinités (affinites.js) ----------
+  forge() { Affinites.ecran(); },
 
   // ---------- Garde-robe ----------
   garderobe(slot) {

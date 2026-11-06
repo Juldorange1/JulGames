@@ -283,6 +283,7 @@ const DIFFS = {
   guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
   cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Trois ou quatre coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.45, hp: 1, vit: 1.18, tele: .82, idle: .66, dens: 1.2, soin: 15, cran: 1 }
 };
+const VIE_CLASSIQUE = .75; // parties classiques (Apprenti, Guerrier, Cauchemar) : boss 25 % plus rapides à tuer
 function progVide() { return { palier: 0, record: 0, up: { p: {}, s: {}, t: {} }, run: null, megaTemps: {} }; }
 const Save = {
   d: null,

@@ -432,3 +432,37 @@ html, body { overscroll-behavior: none; }
 }
 #invite .inv-pv { left: auto; right: 60px; top: 6px; }
 #invite .inv-quit { left: auto; right: 10px; top: 4px; bottom: auto; }
+
+/* ---------- Affinités : toile de probabilités ---------- */
+.panneau.aff-panneau { max-width: 1060px; width: 100%; }
+.aff-haut { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.aff-haut .eclats { margin: 6px 0; }
+.aff-grille { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.aff-grille.sans-toile { grid-template-columns: minmax(0, 1fr); }
+.aff-toile { position: sticky; top: 8px; }
+#aff-cv { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
+.aff-info { min-height: 22px; text-align: center; font-size: 15px; font-weight: 700; color: var(--or-clair); }
+.aff-l2 { padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; background: rgba(255,255,255,.03); border: 1px solid rgba(201,168,101,.14); transition: border-color .15s, background .15s; }
+.aff-l2.actif { background: rgba(201,168,101,.09); border-color: rgba(201,168,101,.34); }
+.aff-l2.vise, .aff-l2[data-k]:hover { border-color: var(--or-clair); }
+.aff-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.aff-tete em { font-style: normal; font-size: 19px; font-weight: 800; color: var(--or-clair); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aff-l2 small.vues { display: block; font-size: 13px; color: #a59fb8; margin-top: 2px; }
+.aff-ctl { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.aff-ctl input { flex: 1; min-width: 60px; accent-color: var(--or); }
+.aff-ctl input:disabled { opacity: .35; }
+.aff-ctl button { width: 30px; height: 30px; padding: 0; line-height: 1; flex: none; }
+.aff-pied { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 14px; color: #b8b0cc; }
+.aff-pied small { font-size: 13px; font-variant-numeric: tabular-nums; }
+.aff-pied .niv { color: var(--or); letter-spacing: 1px; margin-left: auto; white-space: nowrap; }
+.aff-pied button { padding: 5px 10px; font-size: 14px; white-space: nowrap; }
+.aff-cachee { opacity: .7; }
+.defi2.verrou { opacity: .95; }
+.defi2.verrou .dtx b, .defi2.verrou .di { filter: saturate(.55); }
+.defi2.verrou .dr { color: var(--or-clair); font-size: 13px; }
+.defi2.verrou .dr small { color: #9fe4ff; }
+.defi2.verrou:disabled { opacity: .62; }
+@media (max-width: 820px) {
+  .aff-grille { grid-template-columns: minmax(0, 1fr); }
+  .aff-toile { position: static; max-width: 420px; margin: 0 auto; width: 100%; }
+}

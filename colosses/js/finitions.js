@@ -2,7 +2,6 @@
 /* Colosses — finitions :
    • plus de « Point faible dorsal » ;
    • acheter dans un menu ne fait plus remonter l'écran, et aucun texte ne dépasse de son bouton ;
-   • affinités : curseur gratuit entre la chance de base et le maximum acheté ;
    • quitter puis revenir, c'est comme une pause : le combat est remis exactement dans son état (boss, balles, zones,
      invocations, ta position, tes recharges, le temps) et le jeu t'attend sur l'écran de pause ;
    • Précision : chaque tir raté et chaque coup reçu la font chuter (dégâts de ×0,8 à ×1,3). */
@@ -32,20 +31,6 @@ const _montrerAjuste = UI.montrer;
 UI.montrer = function () { const r = _montrerAjuste.apply(this, arguments); setTimeout(ajusterTextes, 0); return r; };
 addEventListener('resize', () => setTimeout(ajusterTextes, 50));
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setTimeout(ajusterTextes, 0));
-
-// ---------- affinités : curseurs ----------
-const _forgeCurseurs = UI.forge;
-UI.forge = function () {
-  const r = _forgeCurseurs.apply(this, arguments);
-  try {
-    const tr = t => (typeof Langue !== 'undefined' && Langue.en ? Langue.t(t) : t);
-    for (const inp of this.el.querySelectorAll('.aff-r input')) inp.addEventListener('input', () => {
-      const R = Save.d.affReglage = Save.d.affReglage || {}; (R[inp.dataset.c] = R[inp.dataset.c] || {})[inp.dataset.v] = +inp.value / 100; Save.write();
-      for (const em of this.el.querySelectorAll('.aff-pct')) em.textContent = tr(Math.round(chanceReglee(em.dataset.c, em.dataset.v) * 100) + ' % de chance');
-    });
-  } catch (e) { }
-  return r;
-};
 
 // ---------- Précision (chaque joueur a la sienne) ----------
 const Precision = {

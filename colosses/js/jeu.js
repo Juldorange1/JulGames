@@ -360,7 +360,7 @@ const G = {
       this.salle = run.salle;
       this.mega = this.salle % 5 === 0;
       this.preparerBoss();
-      def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg;
+      def = genBoss(this.salle, run.boss.seed, this.mega, run.boss.eviter); ars = run.boss.ars; def.legendaire = run.boss.leg; def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE);
     } else if (this.mode === 'entrainement') {
       const cfg = this.entr; this.salle = cfg.salle; this.mega = false;
       def = genBoss(cfg.salle, cfg.seed, false, []);
