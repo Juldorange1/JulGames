@@ -275,7 +275,7 @@ Reseau.majInvite = function () {
     if (A.fin.classe && moi && !P.vus[A.fin.id]) { P.vus[A.fin.id] = 1; P.pts = Math.max(0, P.pts + (moi.delta || 0)); if (A.fin.cl[0] === moi) P.v++; else P.dft++; Save.write(); }
     if (box.dataset.id !== A.fin.id) {
       box.dataset.id = A.fin.id;
-      box.innerHTML = `<b>${T2('Résultat')}</b>` + A.fin.cl.map((x, k) => `<div>${k + 1}. <span style="color:${String(x.col).replace(/[^#a-z0-9]/gi, '')}">${propre(x.nom)}</span> · ${+x.score || 0} ${A.fin.classe ? `· <b class="${x.delta >= 0 ? 'plus' : 'moins'}">${x.delta >= 0 ? '+' : ''}${+x.delta || 0} pts</b>` : ''} ${x.idJ && x.idJ !== Save.d.idJ && !amisJ().some(a => a.idJ === x.idJ) ? `<button data-ami="${propre(x.idJ)}" data-nom="${propre(x.nom)}">＋ ${T2('Ami')}</button>` : ''}</div>`).join('') + `<div class="mini">🏅 ${T2('Ton classement')} : ${P.pts} pts</div>`;
+      box.innerHTML = `<b>${T2('Résultat')}</b>` + A.fin.cl.map((x, k) => `<div>${k + 1}. <span style="color:${String(x.col).replace(/[^#a-z0-9]/gi, '')}">${propre(x.nom)}</span> · ${+x.score || 0} ${A.fin.classe ? `· <b class="${x.delta >= 0 ? 'plus' : 'moins'}">${x.delta >= 0 ? '+' : ''}${+x.delta || 0} pts</b>` : ''} ${x.idJ && x.idJ !== Save.d.idJ && !amisJ().some(a => a.idJ === x.idJ) ? `<button data-ami="${propre(x.idJ)}" data-nom="${propre(x.nom)}">＋ ${T2('Ami')}</button>` : ''}</div>`).join('') + `<div class="mini">${htmlRang(P.pts)} · ${P.pts} pts</div>`;
       box.querySelectorAll('[data-ami]').forEach(b => b.addEventListener('click', () => { Boite.ajouterAmi({ idJ: b.dataset.ami, nom: b.dataset.nom }); b.remove(); }));
     }
     box.style.display = 'block';
@@ -337,7 +337,7 @@ UI.salleAff = function (msg) {
   this.retour = () => { Salon.fermer(); UI.salleOuverte = false; UI.menu(); };
   this.montrer(`<div class="panneau court salle-aff"><div class="barre-titre"><button class="rond" data-a="salleQuitter" data-echap title="Retour">←</button><h2>⚔ ${T2('Affrontement')}</h2></div>
     <div class="af-haut"><div class="af-nb">${[2, 3].map(n => `<button data-a="salleN" data-n="${n}" class="${P.n === n ? 'actif' : ''}">${n} ${T2('joueurs')}</button>`).join('')}</div>
-      <div class="af-rang">🏅 ${P.pts} pts <small>${P.v} V · ${P.dft} D</small></div></div>
+      <div class="af-rang">${htmlRang(P.pts)} <small>${P.pts} pts · ${P.v} V · ${P.dft} D · ${saisonAff().nom}</small></div></div>
     <div id="af-etat" class="af-etat"></div>
     <ul id="af-joueurs" class="joueurs"></ul>
     <div class="bloc"><h3>${T2('Tes amis')}</h3><div id="af-amis"></div>
@@ -436,7 +436,7 @@ dessinerEcranDefi = function (c) {
   });
   c.textAlign = 'center';
   const y = 250 + f.classement.length * 62 + 20;
-  if (f.classe) texteOmbre(c, '🏅 ' + T2('Ton classement') + ' : ' + profilAff().pts + ' pts', W / 2, y, '#ffe7a6', `800 20px ${POLICE}`, 4);
+  if (f.classe) texteOmbre(c, T2('Ton classement') + ' : ' + profilAff().pts + ' pts', W / 2, y, '#ffe7a6', `800 18px ${POLICE}`, 4);
   const k = .6 + .4 * Math.sin(G.t * 4);
   c.globalAlpha = k; texteOmbre(c, Coop.N() >= 2 ? T2('ESPACE — revanche') : T2('ESPACE — chercher une partie'), W / 2, 640, '#fff', `800 24px ${POLICE}`, 5); c.globalAlpha = 1;
   c.font = `14px ${POLICE}`; c.fillStyle = '#9a94ad'; c.fillText(T2('Échap — menu'), W / 2, 678);
@@ -468,7 +468,7 @@ UI.menu = function () {
     if (g && !g.querySelector('[data-a=affront]')) {
       const P = profilAff(), b = document.createElement('button');
       b.className = 'defi2 d-affront'; b.dataset.a = 'affront'; b.title = FORMATS.affront.obj;
-      b.innerHTML = `<span class="di">⚔</span><span class="dtx"><b>${T2('Affrontement')}</b><span class="dm">${T2('en ligne, contre de vrais joueurs')}</span><span class="af-nb-t">${[2, 3].map(n => `<span class="af-n ${P.n === n ? 'actif' : ''}" data-n="${n}">${n} ${T2('joueurs')}</span>`).join('')}</span></span><span class="dr">🏅<small>${P.pts} pts</small></span>`;
+      b.innerHTML = `<span class="di">⚔</span><span class="dtx"><b>${T2('Affrontement')}</b><span class="dm">${T2('en ligne, contre de vrais joueurs')}</span><span class="af-nb-t">${[2, 3].map(n => `<span class="af-n ${P.n === n ? 'actif' : ''}" data-n="${n}">${n} ${T2('joueurs')}</span>`).join('')}</span></span><span class="dr">${htmlRang(P.pts)}<small>${P.pts} pts</small></span>`;
       b.addEventListener('click', ev => {
         ev.stopPropagation(); Son.init(); Son.play('clic');
         const n = ev.target.closest && ev.target.closest('.af-n');

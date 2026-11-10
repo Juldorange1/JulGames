@@ -89,7 +89,7 @@ function texteSel(k) {
     if ((d.abysses || {}).best) rec = '🏆 ' + T2('Ton record') + ' : ' + T2('profondeur') + ' ' + d.abysses.best;
   } else if (k === 'affront') {
     const n = Affront.prochain(), P = profilAff(); titre = '⚔ ' + T2('Affrontement') + ' · ' + P.n + ' ' + T2('joueurs'); regles.push(FORMATS.affront.obj, T2('En ligne, contre de vrais joueurs de ton niveau (ou tes amis). Mourir te fait perdre 15 % de tes dégâts, tu reviens 4 s plus tard. 3 minutes au plus.'), ligneArmes(n.ars));
-    rec = '🏅 ' + T2('Ton classement') + ' : ' + P.pts + ' pts · ' + P.v + ' V · ' + P.dft + ' D';
+    rec = htmlRang(P.pts) + ' · ' + P.pts + ' pts · ' + P.v + ' V · ' + P.dft + ' D<br><small>' + saisonAff().nom + ' · ' + T2('fin le') + ' ' + saisonAff().fin.toLocaleDateString('fr-FR') + '</small>';
   } else if (k === 'chasse') {
     const c = chasseCourante(); titre = '🎯 ' + T2('Chasse'); regles.push(FORMATS.chasse.obj, T2('Le boss se téléporte, fait surgir des obstacles et se met en garde.'));
     if (c.bestP) rec = '🏆 ' + T2('Ton meilleur') + ' : ' + fmtPct(c.bestP);
