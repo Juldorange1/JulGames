@@ -406,21 +406,21 @@ function cheminCorps(c, L, r, t) {
 }
 // la silhouette du boss (corps + armes) est dessinée sur un calque à part, puis posée avec un contour sombre net :
 // on lit tout de suite sa forme, sans halo autour
-let calqueCorps = null, calqueSil = null, corpsInfo = null;
+let calqueCorps = null, calqueSil = null, calqueMasque = null, corpsInfo = null;
 function corpsDebut(cm, r) {
   if (typeof document === 'undefined' || !cm.getTransform) return cm;
   const T = cm.getTransform(), k = Math.max(Math.abs(T.a), Math.abs(T.d)), S = Math.ceil(2 * 2.4 * r * k) + 16;
   if (!calqueCorps) { calqueCorps = document.createElement('canvas'); calqueSil = document.createElement('canvas'); }
-  if (calqueCorps.width < S) { calqueCorps.width = calqueCorps.height = calqueSil.width = calqueSil.height = S; }
-  const x = calqueCorps.getContext('2d', { willReadFrequently: true });
+  if (calqueCorps.width < S || calqueCorps.width > S * 1.6) { calqueCorps.width = calqueCorps.height = calqueSil.width = calqueSil.height = S; }
+  const x = calqueCorps.getContext('2d'); // calque dessiné par la carte graphique (la lecture se fait sur un petit calque à part)
   x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, S, S);
   x.setTransform(T.a, T.b, T.c, T.d, S / 2, S / 2);
-  corpsInfo = { T, S, k, al: cm.globalAlpha };
+  corpsInfo = { T, S, k, r, al: cm.globalAlpha };
   return x;
 }
 function corpsFin(cm, b, h) {
   if (!corpsInfo || cm === calqueCorps.getContext('2d') || typeof document === 'undefined') return cm;
-  const { T, S, k, al } = corpsInfo; corpsInfo = null;
+  const { T, S, k, r, al } = corpsInfo; corpsInfo = null;
   const sx = calqueSil.getContext('2d');
   sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalCompositeOperation = 'source-over'; sx.clearRect(0, 0, S, S);
   sx.drawImage(calqueCorps, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#050307'; sx.fillRect(0, 0, S, S);
@@ -432,9 +432,35 @@ function corpsFin(cm, b, h) {
   cm.restore();
   // la silhouette dessinée sert aussi de zone touchable : un tir ne touche que là où le boss est vraiment
   if (b && b.def && (G.etat === 'combat' || G.etat === 'interlude')) {
-    try { b.masque = { a: calqueCorps.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, S, S).data, S, k: k / ((1 + (b.haut || 0) / 300) * (b._as || 1)), cx: b.x + (b._adx || 0), cy: b.y + (b._ady || 0) - (b.haut || 0) * (b._as || 1), t: G.t }; } catch (e) { b.masque = null; }
+    // la forme est relue toutes les 3 images, à résolution réduite (lire tout le calque à chaque image coûtait 12 ms) ;
+    // la position, elle, suit le boss à chaque image
+    try {
+      const pos = { k: k / ((1 + (b.haut || 0) / 300) * (b._as || 1)), cx: b.x + (b._adx || 0), cy: b.y + (b._ady || 0) - (b.haut || 0) * (b._as || 1), t: G.t };
+      const m = b.masque;
+      if (!m || Math.abs(m.S0 - S) > S * .15 || !(m.n > 0) || G.t - m.tf > .1) {
+        const S2 = Math.max(8, Math.min(S, 220)), f = S2 / S;
+        if (!calqueMasque) calqueMasque = document.createElement('canvas');
+        if (calqueMasque.width !== S2) calqueMasque.width = calqueMasque.height = S2;
+        const mx = calqueMasque.getContext('2d', { willReadFrequently: true });
+        masqueCorps(mx, b, T, r, S2, f); // la silhouette est redessinée en petit : rien n'est relu sur la carte graphique (pas d'à-coup)
+        b.masque = Object.assign({ a: mx.getImageData(0, 0, S2, S2).data, S: S2, S0: S, f, n: 3, tf: G.t }, pos, { k: pos.k * f });
+      } else { m.n--; Object.assign(m, pos, { k: pos.k * m.f }); }
+    } catch (e) { b.masque = null; }
   }
   return cm;
+}
+// silhouette seule (corps et armes), pour la zone touchable
+function masqueCorps(mx, b, T, r, S2, f) {
+  // les lueurs (images) ne comptent pas dans la forme, et les copier depuis la carte graphique bloquerait l'image
+  if (!mx._sansImages) { mx._sansImages = true; mx.drawImage = function () { }; }
+  mx.setTransform(1, 0, 0, 1, 0, 0); mx.globalAlpha = 1; mx.globalCompositeOperation = 'source-over'; mx.clearRect(0, 0, S2, S2);
+  mx.setTransform(T.a * f, T.b * f, T.c * f, T.d * f, S2 / 2, S2 / 2);
+  const L = b.def.look, t = G.t, h = b.def.hue, ph = b.phase, forme = FORMES[L.style];
+  armement(mx, b, r, t, h, ph, 'dessous');
+  if (forme) forme(mx, b, r, t, h, ph, b.eyesA);
+  else { cheminCorps(mx, L, r, t); mx.fillStyle = '#fff'; mx.fill(); }
+  armement(mx, b, r, t, h, ph, 'dessus');
+  mx.setTransform(1, 0, 0, 1, 0, 0); mx.globalAlpha = 1; mx.globalCompositeOperation = 'source-over';
 }
 // le point (x, y) touche-t-il la silhouette du boss ? (sans silhouette récente : on garde le cercle)
 function toucheSilhouette(b, x, y, r) {

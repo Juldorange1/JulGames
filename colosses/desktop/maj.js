@@ -40,6 +40,8 @@ function creer(userData, bundle) {
     dossierActif() {
       const b = lireManifeste(bundle), c = lireManifeste(CACHE);
       if (c && fs.existsSync(path.join(CACHE, 'index.html')) && (!b || c.date > b.date)) return CACHE;
+      // copie plus ancienne que le programme installé : elle ne servira plus, on libère la place
+      if (c && b && c.date <= b.date) { try { fs.rmSync(CACHE, { recursive: true, force: true }); } catch (e) { } }
       return bundle;
     },
     versionActive() { const m = lireManifeste(this.dossierActif()); return m ? m.date : null; },
@@ -58,7 +60,8 @@ function creer(userData, bundle) {
           const cible = sur(NOUVEAU, rel); if (!cible || !/^[0-9a-f]{40}$/.test(h)) throw new Error('chemin refusé ' + rel);
           fs.mkdirSync(path.dirname(cible), { recursive: true });
           const src = sur(actif, rel);
-          if (src && loc && loc.fichiers[rel] === h && fs.existsSync(src)) { fs.copyFileSync(src, cible); continue; }
+          // fichier inchangé : un lien vers celui qu'on a déjà (aucune place en plus), sinon une copie
+          if (src && loc && loc.fichiers[rel] === h && fs.existsSync(src)) { try { fs.linkSync(src, cible); } catch (e) { fs.copyFileSync(src, cible); } continue; }
           const buf = await telecharger(site + rel.split('/').map(encodeURIComponent).join('/') + '?v=' + h.slice(0, 10), 60000);
           if (sha1(buf) !== h) throw new Error('empreinte fausse ' + rel);
           fs.writeFileSync(cible, buf); n++; octets += buf.length;

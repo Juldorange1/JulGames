@@ -327,12 +327,13 @@ const G = {
   },
   lancerSurvie() {
     this.mode = 'survie'; this.finDefi = null;
-    const esp = R.pick(ESP_TOUTES());
+    const nx = Save.d.survieProchain; delete Save.d.survieProchain; // le boss montré au menu
+    const esp = nx && ESPECES[nx.esp] ? nx.esp : R.pick(ESP_TOUTES());
     // départ à la pression de son record moins 13 paliers (un palier = 10 s) ; le score compte depuis le palier 0
     const best = ((Save.d.defis.survie || {}).best || {}).score || 0, P = typeof PALIER_S !== 'undefined' ? PALIER_S : 10, depart = Math.max(0, Math.floor(best / P) - 13) * P;
     // armes au hasard, mais le boss s'ajuste à leur aide pour survivre (forceSurvie) : un bon tirage ne rend pas la partie plus facile
     const ars = { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') };
-    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, st: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
+    this.defi = { type: 'survie', format: 'survie', cle: 'survie', mut: [], boss: [{ salle: 10, seed: nx ? nx.seed : R.int(1, 2e9), mega: false, esp, ars }], i: 0, temps: depart, st: depart, depart, tues: 0, degats: 0, coups: 0, ajust: forceSurvie(ars) };
     if (!Save.d.defis.survie || Save.d.defis.survie.cle !== 'survie') Save.d.defis.survie = { cle: 'survie', best: null, essais: 0 };
     Save.d.defis.survie.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
@@ -389,8 +390,9 @@ const G = {
         const rj = df.type === 'jour' ? RNG(hashStr(df.cle + ':' + df.i)) : null; // défi du jour : la même suite de boss pour tout le monde
         if (df.format === 'abysses' && rj) for (let j = (df.mutJ || 1) + 2; j <= df.i && df.mut.length < 6; j += 2) { df.mutJ = j; const m = RNG(hashStr(df.cle + ':m' + j)).pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); if (j === df.i) this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
         if (df.format === 'abysses' && !rj && df.i >= 3 && df.i % 2 === 1 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
-        df.boss[df.i] = { salle: 2 + df.i + Math.floor(df.i * df.i / 5), seed: (rj || R).int(1, 2e9), mega: false, ars: rj ? { p: rj.pick(PRIM).id, s: rj.pick(SPEC).id, t: rj.pick(TAL).id } : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
+        df.boss[df.i] = { salle: 2 + df.i + Math.floor(df.i * df.i / 5), seed: rj ? rj.int(1, 2e9) : (df.type === 'abysses' && df.i === df.depart && Save.d.abyssesProchain ? Save.d.abyssesProchain.seed : R.int(1, 2e9)), mega: false, ars: rj ? { p: rj.pick(PRIM).id, s: rj.pick(SPEC).id, t: rj.pick(TAL).id } : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
       }
+      if (df.type === 'abysses') delete Save.d.abyssesProchain;
       const b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
       ESP_FORCE = b.esp || null; try { def = genBoss(b.salle, b.seed, b.mega, []); } finally { ESP_FORCE = null; } ars = b.ars;

@@ -280,6 +280,7 @@ const UI = {
 
   // ---------- Paramètres ----------
   options(o, onglet) {
+    const qualiteOpt = op => op.qualite || (op.postfx === false ? 'basse' : op.decorAnime === false ? 'moyenne' : 'haute');
     const op = Save.d.opts, depuis = o === 'pause' ? 'pause' : 'menu';
     onglet = onglet || this.ongletOpt || 'son'; this.ongletOpt = onglet; this.ongletOptDepuis = depuis;
     this.retour = depuis === 'pause' ? () => this.pause() : () => this.menu();
@@ -288,25 +289,23 @@ const UI = {
     const choix = (id, nom, val, liste) => `<label class="opt">${nom}<select id="${id}">${liste.map(([k, n]) => `<option value="${k}" ${String(k) === String(val) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
     let corps = '';
     if (onglet === 'son') corps = curseur('o-master', 'Général', op.master, 0, 1, .05) + curseur('o-vol', 'Bruitages', op.vol, 0, 1, .05) + curseur('o-mus', 'Musique', op.musique, 0, 1, .05) +
-      `<div class="rang"><button id="o-test">🔊 Tester le son</button></div><p class="mini">Rien n'est audible ? Vérifie la sortie audio de Windows (ton casque doit être la sortie par défaut).</p>`;
-    else if (onglet === 'image') corps = coche('o-reduits', 'Effets réduits (plus lisible : moins de fumée, de particules et de halos)', op.effetsReduits) + coche('o-fx', 'Effets cinématiques (shaders)', op.postfx !== false) + curseur('o-fxf', 'Force des effets', op.postfxForce || 1, .3, 1.3, .05) + coche('o-lum', 'Halos lumineux', op.lumiere) + coche('o-decor', 'Brume et poussière', op.decorAnime) +
-      choix('o-part', 'Particules', op.particules, [['faible', 'Peu'], ['normale', 'Normales'], ['elevee', 'Beaucoup']]) +
-      curseur('o-tremble', 'Tremblements', +op.tremble, 0, 1, .1) + curseur('o-lumi', 'Luminosité', op.luminosite, .7, 1.4, .05) +
-      choix('o-alerte', 'Zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta'], ['jaune', 'Jaune']]) +
-      coche('o-contour', 'Contour noir autour des balles ennemies', op.contour) +
-      choix('o-dalto', 'Mode daltonien', op.dalto || 'non', [['non', 'Désactivé'], ['rv', 'Rouge-vert (protanopie, deutéranopie) : dangers en bleu'], ['bj', 'Bleu-jaune (tritanopie) : bleus en rose']]) +
-      choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]) +
-      `<label class="opt">Couleur du viseur<input type="color" id="o-vcol" value="${op.viseurCol}"></label>` + coche('o-fps', 'Images par seconde', op.fps);
-    else if (onglet === 'jeu') corps = choix('o-langue', 'Langue / Language', op.langue || 'fr', [['fr', 'Français'], ['en', 'English'], ['es', 'Español'], ['de', 'Deutsch']]) + coche('o-conseils', 'Expliquer les nouveautés avant d\'entrer dans une salle (avec animations)', op.conseils !== false) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
-      coche('o-noms', 'Nom des attaques du boss', op.nomsAttaques) + coche('o-chrono', 'Chronomètre', op.chrono) + coche('o-pause', 'Pause quand la fenêtre est quittée', op.autoPause) +
+      `<div class="rang"><button id="o-test">🔊 Tester le son</button></div><p class="mini">Pas de son ? Choisis ton casque comme sortie audio de Windows.</p>`;
+    else if (onglet === 'image') corps = choix('o-qual', 'Qualité des effets', qualiteOpt(op), [['haute', 'Haute (le plus beau)'], ['moyenne', 'Moyenne'], ['basse', 'Basse (le plus fluide et le plus lisible)']]) +
+      curseur('o-lumi', 'Luminosité', op.luminosite, .7, 1.4, .05) + curseur('o-tremble', 'Tremblements', +op.tremble, 0, 1, .1) +
+      choix('o-alerte', 'Couleur des zones dangereuses', op.alerte, [['rouge', 'Rouge'], ['magenta', 'Magenta'], ['jaune', 'Jaune']]) +
+      choix('o-dalto', 'Mode daltonien', op.dalto || 'non', [['non', 'Désactivé'], ['rv', 'Rouge-vert'], ['bj', 'Bleu-jaune']]) +
+      choix('o-viseur', 'Viseur', op.viseur, [['colosses', 'Viseur du jeu'], ['systeme', 'Curseur du système'], ['croix', 'Croix'], ['cercle', 'Cercle'], ['point', 'Point']]);
+    else if (onglet === 'jeu') corps = choix('o-langue', 'Langue / Language', op.langue || 'fr', [['fr', 'Français'], ['en', 'English'], ['es', 'Español'], ['de', 'Deutsch']]) + coche('o-auto', 'Tir automatique', op.auto) + coche('o-chiffres', 'Chiffres de dégâts', op.chiffres) +
+      coche('o-conseils', 'Expliquer les nouveautés avant un combat', op.conseils !== false) +
       choix('o-vit', 'Vitesse du jeu', op.vitesse, [[1, '100 %'], [.85, '85 %'], [.7, '70 % (plus facile)']]) +
       curseur('o-zoom', 'Taille des menus', op.zoomMenu, .8, 1.4, .05) +
-      `<div class="rang"><button data-a="conseilsRaz">Revoir les explications</button><button data-a="plein">⛶ Plein écran</button></div>`;
+      `<div class="rang"><button data-a="plein">⛶ Plein écran</button></div>`;
     else if (onglet === 'manette') corps = UI._corpsManette ? UI._corpsManette(op) : '';
     else corps = [['haut', '⬆ Haut'], ['bas', '⬇ Bas'], ['gauche', '⬅ Gauche'], ['droite', '➡ Droite'], ['tir', '🔫 Arme'], ['spec', '💥 Spéciale'], ['spec2', '💥 Spéciale (2e)'], ['tal', '💨 Talent'], ['tal2', '💨 Talent (2e)'], ['pause', '⏸ Pause']].map(([k, n]) => `<div class="ligne touche-l"><span>${n}</span><button class="tch" data-k="${k}">${this.capture === k ? '… appuie' : nomTouche(op.touches[k])}</button></div>`).join('') + '<p class="mini">Clique sur une case puis appuie sur une touche <b>ou un bouton de la souris</b> (Échap : annuler). Les mêmes touches servent partout : parties, défis, Abysses, entraînement.</p><p class="mini"><b>Manette</b> : stick gauche = bouger, stick droit = viser, gâchette droite = tirer, RB ou gâchette gauche = spéciale, A ou LB = talent, Start = pause. Dans les menus : croix ou stick = choisir, A = valider, B = retour. En coop, le joueur 2 joue à la manette.</p><div class="rang"><button data-a="touchesDef">Touches par défaut</button></div>';
-    const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches'], ['manette', '🎮 Manette']];
+    const manette = onglet === 'manette' || (navigator.getGamepads && Array.from(navigator.getGamepads() || []).some(Boolean)); // l'onglet Manette n'apparaît qu'avec une manette branchée
+    const onglets = [['son', '🔊 Son'], ['image', '🖼 Image'], ['jeu', '🎮 Jeu'], ['commandes', '⌨ Touches']].concat(manette ? [['manette', '🎮 Manette']] : []);
     this.montrer(`
-      <div class="panneau court">
+      <div class="panneau court params">
         <div class="barre-titre"><button class="rond" data-a="retour" data-echap title="Retour">←</button><h2>⚙ Paramètres</h2></div>
         <div class="onglets">${onglets.map(([k, n]) => `<button data-a="options" data-o="${depuis}" data-onglet="${k}" class="${k === onglet ? 'actif' : ''}">${n}</button>`).join('')}</div>
         <div class="opts">${corps}</div>
@@ -329,6 +328,7 @@ const UI = {
     lier('o-fps', t => op.fps = t.checked); lier('o-auto', t => op.auto = t.checked); lier('o-chiffres', t => op.chiffres = t.checked);
     lier('o-conseils', t => op.conseils = t.checked); lier('o-noms', t => op.nomsAttaques = t.checked); lier('o-pause', t => op.autoPause = t.checked); lier('o-chrono', t => op.chrono = t.checked);
     lier('o-vit', t => op.vitesse = +t.value);
+    lier('o-qual', t => { op.qualite = t.value; Object.assign(op, QUALITES[t.value] || {}); });
     const test = q('o-test');
     if (test) test.addEventListener('click', () => { Son.init(); Son.play('explo'); setTimeout(() => Son.play('parade'), 350); Musique.sting(MUS.victoire); });
     this.el.querySelectorAll('.tch').forEach(b => b.addEventListener('click', ev => {
@@ -356,3 +356,9 @@ const UI = {
   }
 };
 function appliquerAffichage() { const c = document.getElementById('jeu'); if (c) c.style.filter = Save.d.opts.luminosite && Save.d.opts.luminosite !== 1 ? `brightness(${Save.d.opts.luminosite})` : ''; }
+// un seul réglage de qualité à la place de six cases
+const QUALITES = {
+  haute: { postfx: true, postfxForce: 1, lumiere: true, decorAnime: true, particules: 'elevee', effetsReduits: false },
+  moyenne: { postfx: true, postfxForce: 1, lumiere: true, decorAnime: false, particules: 'normale', effetsReduits: false },
+  basse: { postfx: false, lumiere: false, decorAnime: false, particules: 'faible', effetsReduits: true }
+};

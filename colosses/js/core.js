@@ -107,7 +107,7 @@ const SFX = {
   parade: 'parade.ogg', missile: 'missile.ogg', charge: 'charge.ogg', pouvoir: 'pouvoir.ogg'
 };
 // bruitages deux fois plus présents que la musique, pour bien passer au-dessus d'elle
-const GAIN_BRUITAGES = 1.2;
+const GAIN_BRUITAGES = 1.5; // +25 %
 const Son = {
   c: null, master: null, sfx: null, rev: null, noiseBuf: null, last: {}, buf: {},
   init() {
@@ -237,7 +237,7 @@ const MUS = {
 };
 const Musique = {
   pistes: [], courant: null, derniers: [], duck: 1, duckCible: 1,
-  volume() { return Math.min(1, Save.d.opts.musique * Save.d.opts.master * .7); },
+  volume() { return Math.min(1, Save.d.opts.musique * Save.d.opts.master * .875); }, // +25 %
   jouer(fichier, fondu) {
     fondu = fondu || 3;
     if (this.courant && this.courant.src === fichier) { this.courant.cible = 1; this.courant.vitesse = 1 / fondu; return; }
