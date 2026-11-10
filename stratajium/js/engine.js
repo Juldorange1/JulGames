@@ -500,7 +500,7 @@ function StratEngine() {
       goal: ev === 'objectif' ? (o.goal || GOALS[rnd(GOALS.length)].id) : null, hold: [0, 0],
       boss: null,
       fac: o.fac ? o.fac.slice() : null, // armée de chaque joueur (0 = la Lumière, 1 = les Ombres, 2 = mélange : recrute les deux)
-      frz: null, curse: null, shroud: null, tieTo: o.tieTo === 0 || o.tieTo === 1 ? o.tieTo : -1, // en cas d'égalité parfaite (partie trop longue) : le bot gagne // persos enchaînés, cases maudites, linceul (armée des Ombres)
+      frz: null, curse: null, shroud: null, tieTo: o.tieTo === 0 || o.tieTo === 1 ? o.tieTo : -1, // en cas d'égalité parfaite (partie trop longue) : le joueur gagne, jamais le bot // persos enchaînés, cases maudites, linceul (armée des Ombres)
       invN: o.invN || 0, // persos à faire entrer pour gagner par invasion (0 = 3)
     };
     if (o.mana) s.mana = o.mana.slice();
@@ -1214,7 +1214,7 @@ function StratEngine() {
       s.long = 1; // gagné au temps (les records des défis ne comptent que les vraies victoires)
       if (a0 !== a1) { s.winner = a0 > a1 ? 0 : 1; s.why = 'Partie trop longue : le plus de persos vivants gagne.'; }
       else if (m0 !== m1) { s.winner = m0 > m1 ? 0 : 1; s.why = 'Partie trop longue, autant de persos vivants : le plus de mana gagne.'; }
-      else { s.winner = s.tieTo === 0 || s.tieTo === 1 ? s.tieTo : 2; s.why = s.winner === 2 ? 'Partie trop longue, égalité parfaite : match nul.' : 'Partie trop longue, égalité parfaite : le bot gagne.'; }
+      else { s.winner = s.tieTo === 0 || s.tieTo === 1 ? s.tieTo : 2; s.why = s.winner === 2 ? 'Partie trop longue, égalité parfaite : match nul.' : 'Partie trop longue, égalité parfaite : tu gagnes.'; }
     }
     const q = s.turn;
     if (s.bl) s.bl[q] = -1; // la bénédiction dure jusqu'au tour suivant de celui qui l'a lancée
@@ -1506,7 +1506,7 @@ function StratEngine() {
     const L = 1 - s.winner;
     s.why = (s.ev === 'illimite')
       ? (s.lost[L][0] >= 2 ? '2 dieux tués.' : '6 gardes tués.')
-      : (s.lost[L][1] >= gNeed(s, L) ? (['', '', '', '3 gardes tués.', '4 gardes tués.', '5 gardes tués.'][gNeed(s, L)]) : 'Tous les dieux adverses sont morts.');
+      : (s.lost[L][1] >= gNeed(s, L) ? (['', '', '', '3 gardes tués.', '4 gardes tués.', '5 gardes tués.', '6 gardes tués.', '7 gardes tués.'][gNeed(s, L)]) : 'Tous les dieux adverses sont morts.');
   }
   function checkBet(s) {
     if (s.ev !== 'pari' || s.betDone || !s.bet) return;

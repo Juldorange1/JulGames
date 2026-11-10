@@ -1290,6 +1290,14 @@
     "nouvelle case spéciale : {x}": "new special square: {x}",
     "2 cases spéciales des hauts Cercles par combat": "2 high-Circle special squares per battle",
   });
+  Object.assign(D.ui, {
+    "Il faut tuer {n} de tes gardes pour te battre (au lieu de 4)": "{n} of your guards must be killed to beat you (instead of 4)",
+    "Le bot joue toujours au mieux. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage : c’est toi qui en as.": "The bot always plays its best. When you have unlocked everything (100%), you go up to the next Circle: everything starts again, with a little less help, up to Circle 10. The bot never has any advantage: you are the one who has them.",
+    "Quand tout est débloqué (100 %), tu montes au Cercle suivant : ta réserve repart du début, et tu as un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage.": "When everything is unlocked (100%), you go up to the next Circle: your reserve starts over, and you get a little less help, up to Circle 10. The bot never has any advantage.",
+    "Précisions : celui qui commence est tiré au sort, l’autre recrute un perso de plus à son premier tour. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 sans aucune mort) : le plus de persos vivants gagne, puis le plus de mana, sinon toi.": "Details: who starts is drawn at random; the other recruits one extra character on their first turn. Holes in the map cannot be crossed; a character pushed into one dies. Game too long (200 moves, or 150 without any death): the side with the most living characters wins, then the most mana, otherwise you.",
+    "Partie trop longue, égalité parfaite : tu gagnes.": "Game too long, perfect tie: you win.",
+    "7 gardes tués.": "7 guards killed.",
+  });
 })();
 // équilibrage du 2026-10-24
 I18N.DICT.en.T.g3[1] = "Shoots diagonally: kills the first enemy on the diagonal without moving. Or takes 1 step in any direction.";

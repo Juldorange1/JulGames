@@ -270,14 +270,12 @@ const isSh = id => !!T[E.TI[id]].fac;
   // un bonus au hasard, jamais deux fois de suite le même
   const rollEasy = r => [pick(EASY.filter(x => !r.easy || x !== r.easy[0]))];
   const hardName = id => ({
-    mana: L('Tu commences avec 40 mana de moins'), riche: L('L’adversaire commence avec 100 mana de plus'),
-    avance: L('L’adversaire a déjà un garde posé'), premier: L('L’adversaire joue en premier'),
-    sauvage: L('Carte plus sauvage d’un niveau'), evenement: L('Un événement à coup sûr'), dieupris: L('L’adversaire a déjà recruté un dieu'),
-    soldats: L('L’adversaire commence avec 2 soldats déjà posés'), pauvre: L('La réserve commune n’a qu’un garde de chaque sorte'),
+    mana: L('Tu commences avec 40 mana de moins'), premier: L('L’adversaire joue en premier'),
+    sauvage: L('Carte plus sauvage d’un niveau'), evenement: L('Un événement à coup sûr'), pauvre: L('La réserve commune n’a qu’un garde de chaque sorte'),
     silence: L('Tu ne peux pas activer de perso pendant tes 3 premiers tours'), geole: L('Tu ne peux pas placer de perso pendant tes 3 premiers tours'),
-    ronces: L('Des ronces poussent dans ta moitié de carte'), gardespris: L('L’adversaire a déjà recruté 2 gardes'),
+    ronces: L('Des ronces poussent dans ta moitié de carte'),
     blesse: L('Tu commences avec un garde déjà perdu'),
-    aube: L('L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu'), paladins: L('L’adversaire a déjà 2 gardes posés'),
+    aube: L('L’aube arrive : gagne en 80 de tes tours, sinon c’est perdu'),
     invasion4: L('L’invasion te demande 5 persos au lieu de 4'), sansombre: L('Pas de soldats des Ombres dans la réserve'),
     veilleurs: L('2 lumières sacrées brillent dans ta moitié de carte'),
   })[id];
@@ -334,38 +332,33 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   const BOSS_ORDER = E.BOSSES; // chaque partie les rencontre dans un ordre tiré au hasard (r.bossSeq)
   // ---------- Cercles : la difficulté monte jusqu'au Cercle 10, puis reste au maximum ----------
-  // Cercle 0 : à armes égales (51 % bot contre bot). Chaque Cercle ajoute un fardeau, jusqu'au Cercle 10 : extrême, mais toujours gagnable
-  // (mesuré : Cercle 5 : 37 %, Cercle 9 : 36 %, Cercle 10 : 27 % ; les boss, même avec 3 PV de plus : 55 %)
-  // Quand tout est débloqué, on peut monter au Cercle suivant : la réserve repart du début (débloquer à l'infini).
-  const FARDEAUX = ['soldat', 'pv', 'recrue', 'carte', 'elite', 'pv2', 'event', 'dieu', 'boss7', 'extreme'];
+  // Le bot n'a JAMAIS aucun avantage (ni perso posé, ni recrue, ni garde maître, ni PV de boss en plus) : c'est toi qui en as, à chaque Cercle.
+  // Les fardeaux ne changent que la carte, les événements et les boss. Quand tout est débloqué, on monte au Cercle suivant (débloquer à l'infini).
+  const FARDEAUX = { 4: 'carte', 7: 'event', 9: 'boss7' }, CERCLE_MAX = 10; // aucun ne donne quoi que ce soit au bot
   const cercleBot = () => 'impossible'; // dans une partie, le bot joue toujours au mieux (pas de failles faciles à exploiter)
-  const fardeaux = c => FARDEAUX.slice(0, Math.min(c || 0, FARDEAUX.length));
-  // aide des premiers Cercles (le bot, lui, joue toujours au mieux) : il te faut moins de gardes tués ou moins de persos chez lui pour gagner
-  // mesuré avec le vrai bot stratège des deux côtés (156 parties chacun) : à armes égales, le camp du joueur ne gagne que 40 %
-  // (les parties trop longues vont au bot) ; 3 gardes à tuer : 63 % ; invasion à 3 : 49 % ; les deux, + un fardeau : 60 %
-  const AIDE = [{ g: 3, i: 3 }, { g: 3, i: 3 }, { g: 3, i: 4 }, { g: 4, i: 3 }]; // Cercles 0 à 3
-  const aideOf = c => AIDE[c] || null;
-  const aideText = a => [a.g < 4 ? L('Tu gagnes en tuant {n} gardes adverses (au lieu de 4)', { n: a.g }) : '', a.i < 4 ? L('Invasion : {n} de tes persos dans la zone adverse suffisent (au lieu de 4)', { n: a.i }) : ''].filter(Boolean);
+  const fardeaux = c => Object.keys(FARDEAUX).filter(k => k <= (c || 0)).map(k => FARDEAUX[k]);
+  // aide du Cercle : g = gardes à lui tuer, i = persos dans sa zone pour l'invasion, k = gardes qu'il doit te tuer
+  // mesuré avec le vrai bot stratège des deux côtés (96 à 144 parties, ±8 à ±10) : sans aide 53 % ; k5 57 % ; k6 67 % ; g3 67 % ; g3 k5 77 % ;
+  // g3 i3 k5 72 % ; i3 k5 avec carte 2, événement et cases des hauts Cercles 56-65 % ; contre un boss, sans PV en plus : 78 %
+  const AIDE = [{ g: 3, i: 3, k: 5 }, { g: 3, i: 4, k: 5 }, { g: 3, i: 3, k: 4 }, { g: 3, i: 4, k: 4 }, { g: 4, i: 3, k: 6 }, { g: 4, i: 4, k: 6 },
+    { g: 4, i: 3, k: 5 }, { g: 4, i: 3, k: 5 }, { g: 4, i: 4, k: 5 }]; // Cercles 0 à 8, puis toujours le dernier
+  const aideOf = c => AIDE[Math.min(c || 0, AIDE.length - 1)];
+  const aideText = a => [a.g < 4 ? L('Tu gagnes en tuant {n} gardes adverses (au lieu de 4)', { n: a.g }) : '', a.i < 4 ? L('Invasion : {n} de tes persos dans la zone adverse suffisent (au lieu de 4)', { n: a.i }) : '', a.k > 4 ? L('Il faut tuer {n} de tes gardes pour te battre (au lieu de 4)', { n: a.k }) : ''].filter(Boolean);
   const hasF = (r, f) => fardeaux(r.cercle).includes(f);
-  const bossHpBonus = c => (c >= 2 ? 1 : 0) + (c >= 6 ? 1 : 0) + (c >= 10 ? 1 : 0); // 3 au plus : mesuré, le boss reste battable
-  const fardeauText = (f, c) => ({
-    soldat: L('L’adversaire commence avec un soldat déjà posé'), pv: L('Les boss ont {n} point(s) de vie en plus', { n: 1 }), recrue: L('L’adversaire a déjà recruté un garde'),
-    carte: L('Les cartes sont au moins de niveau 2'), elite: L('Une sorte de garde adverse est maître : sa mort ne compte pas pour la défaite'),
-    pv2: L('Les boss ont {n} point(s) de vie en plus', { n: 2 }), event: L('Un événement à chaque affrontement'), dieu: L('L’adversaire a déjà recruté un dieu'),
-    boss7: L('Un boss tous les 7 affrontements au lieu de 10'), extreme: L('Extrême : un deuxième soldat adverse posé, une deuxième sorte de garde adverse maître, et les boss ont 3 points de vie en plus'),
+  const fardeauText = f => ({
+    carte: L('Les cartes sont au moins de niveau 2'), event: L('Un événement à chaque affrontement'), boss7: L('Un boss tous les 7 affrontements au lieu de 10'),
   })[f];
   const cercleLabel = c => L('Cercle {n}', { n: c });
   const cercleMax = () => lsGet('cercleMax', 0);
   // ce qui change en montant au Cercle c
-  const cercleNew = c => (c <= FARDEAUX.length ? fardeauText(FARDEAUX[c - 1], c) : L('une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)'))
-    + (c <= AIDE.length && JSON.stringify(aideOf(c)) !== JSON.stringify(aideOf(c - 1)) ? ' ; ' + (aideOf(c) ? L('un peu moins d’aide') : L('fin de l’aide : à armes égales')) : '')
-    + E.DEEP_SPECS.filter(([k]) => k === c).map(([, k]) => ' ; ' + L('nouvelle case spéciale : {x}', { x: I18N.specName(k) })).join('')
-    + (c === 9 ? ' ; ' + L('2 cases spéciales des hauts Cercles par combat') : '');
+  const cercleNew = c => [FARDEAUX[c] ? fardeauText(FARDEAUX[c]) : '', JSON.stringify(aideOf(c)) !== JSON.stringify(aideOf(c - 1)) ? L('un peu moins d’aide') : '',
+    ...E.DEEP_SPECS.filter(([k]) => k === c).map(([, k]) => L('nouvelle case spéciale : {x}', { x: I18N.specName(k) })),
+    c === 9 ? L('2 cases spéciales des hauts Cercles par combat') : ''].filter(Boolean).join(' ; ') || L('une nouvelle réserve tirée au hasard (les fardeaux sont déjà au maximum)');
   const bossEvery = r => hasF(r, 'boss7') ? 7 : 10;
   const isBossBattle = r => r.n % bossEvery(r) === 0;
   const bossOf = r => { const seq = r.bossSeq && r.bossSeq.length ? r.bossSeq : BOSS_ORDER; return seq[(Math.floor(r.n / bossEvery(r)) - 1) % seq.length]; };
   // poids de chaque handicap du « Défi choisi » (plus c'est dur, plus la victoire rapporte)
-  const HARD_W = { mana: 2, riche: 1, avance: 2, premier: 1, sauvage: 1, evenement: 1, dieupris: 1, soldats: 2, pauvre: 1, silence: 1, geole: 1, ronces: 1, gardespris: 2, blesse: 4, aube: 2, paladins: 2, invasion4: 1, sansombre: 2, veilleurs: 1 };
+  const HARD_W = { mana: 2, premier: 1, sauvage: 1, evenement: 1, pauvre: 1, silence: 1, geole: 1, ronces: 1, blesse: 4, aube: 2, invasion4: 1, sansombre: 2, veilleurs: 1 };
   // avancement du Cercle (0 à 100 %) : les points de réserve gagnés et les pas de terrain faits (carte, événements) depuis le début du Cercle
   const resLeft = r => Math.max(0, lockGard(r).length * need('gard') + lockGod(r).length * need('god') - (lockGard(r).length ? r.t.gard : 0) - (lockGod(r).length ? r.t.god : 0));
   const terrLeft = r => (4 - r.mapLv) * 2 + Math.ceil((100 - r.evChance) / 10); // en pas : demi-niveaux de carte, 10 % d'événements
@@ -479,7 +472,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     $('levels').className = 'newc';
     const facSeg = dlcOn('ombres') ? `<div class="seg" id="facSeg"><button data-f="0" class="${newFac ? '' : 'sel'}">☀️ ${L('Armée de la Lumière')}</button><button data-f="1" class="${newFac ? 'sel' : ''}">🌑 ${L('Armée des Ombres')}</button></div>` : '';
     const facInfo = dlcOn('ombres') ? `<p class="facinfo">${newFac ? '🌑 ' + L('Une armée aux pouvoirs que la Lumière n’a pas.') : '☀️ ' + L('L’armée de base, sans pouvoir caché.')}</p>` : '';
-    $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Le bot joue toujours au mieux, à pleine force. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un fardeau de plus à chaque Cercle, jusqu’au Cercle 10.')}</p>
+    $('levels').innerHTML = facSeg + facInfo + `<p class="muted center">${L('Le bot joue toujours au mieux. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage : c’est toi qui en as.')}</p>
       <button class="big" data-c="0">${L('Commencer au Cercle 0')} <small>(${L('conseillé')})</small></button>
       <p class="muted center">${L('Ou commencer plus haut :')}</p><div class="seg">${cs.join('')}</div>`;
     $('levels').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { RUNS[newSlot] = newRun(+b.dataset.c, dlcOn('ombres') ? newFac : 0); saveRuns(); openRun(newSlot); });
@@ -519,7 +512,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <h4>${L('Gardes dans la réserve')} (${L('2 de chaque')})</h4><div class="row">${chips(r.gards, runG(r))}</div>
         ${(r.mast || []).length ? `<h4>🎖️ ${L('Persos maîtres')}</h4><div class="row">${chips(r.mast, r.mast)}</div>` : ''}
         ${aideOf(r.cercle) ? `<h4>🤝 ${L('Aide du Cercle')}</h4><ul class="fards">${aideText(aideOf(r.cercle)).map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
-        ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).slice(-2).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>${fardeaux(r.cercle).length > 2 ? `<button class="ghost sm morebtn" id="btnFards">▸ ${L('Voir les {n} fardeaux', { n: fardeaux(r.cercle).length })}</button>` : ''}` : ''}
+        ${fardeaux(r.cercle).length ? `<h4>${L('Fardeaux')}</h4><ul class="fards">${fardeaux(r.cercle).slice(-2).map(f => `<li>${fardeauText(f)}</li>`).join('')}</ul>${fardeaux(r.cercle).length > 2 ? `<button class="ghost sm morebtn" id="btnFards">▸ ${L('Voir les {n} fardeaux', { n: fardeaux(r.cercle).length })}</button>` : ''}` : ''}
       </div><div class="runcol">
         ${fameBlock(r)}
         <h4>${L('Progression')}</h4><p class="muted trkhint">${L('Après chaque victoire, tu choisis ce qui avance : un garde ou un dieu, puis la carte ou les événements.')}</p>
@@ -659,7 +652,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     defi: L('Choisis toi-même tes handicaps avant de jouer : plus ils sont durs, plus ta victoire rapporte.'),
   })[id];
   // handicaps qu'on peut se choisir dans un « Défi choisi » (+ ceux des Ombres si tu joues l'armée des Ombres)
-  const pickableHard = p => ['mana', 'riche', 'avance', 'dieupris', 'soldats', 'gardespris', 'pauvre', 'silence', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'paladins', 'invasion4'] : []);
+  const pickableHard = p => ['mana', 'pauvre', 'silence', 'blesse'].concat(p.fac && p.fac[0] === 1 ? ['aube', 'invasion4'] : []);
   // la mesure du record et les points qu'elle rapporte
   // points de défi : 5 fois moins qu'avant (2 à 40 par défi)
   function recInfo(G, goal) { const r = recRaw(G, goal); r.score = Math.round(r.score / 5); return r; }
@@ -939,29 +932,18 @@ const isSh = id => !!T[E.TI[id]].fac;
   function beginMatch() {
     stopStoryScene();
     const hs = pre.hard || [];
-    const of1 = pre.fac ? pre.fac[1] : 0, oGods = of1 === 1 ? pre.shM : of1 === 2 ? (pre.gods || []).concat(pre.shM || []) : pre.gods, oGards = of1 === 1 ? pre.shG : of1 === 2 ? (pre.gards || []).concat(pre.shG || []) : pre.gards; // persos de l'adversaire
+    const of1 = pre.fac ? pre.fac[1] : 0, oGards = of1 === 1 ? pre.shG : of1 === 2 ? (pre.gards || []).concat(pre.shG || []) : pre.gards; // persos de l'adversaire
     const botSide = (pre.ctl || ['me', 'bot']).indexOf('bot');
     const squad = pre.squad ? pre.squad.gods.concat(pre.squad.gards, Array(SQUAD.soldiers).fill(pre.fac && pre.fac[0] === 1 ? 'os' : 's')) : null;
     const mast = ['normal', 'easy', 'boss'].includes(pre.mode) && cur >= 0 && run() ? run().mast : null;
-    const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide, squad, mast });
+    const s = E.newGame({ event: pre.event || pre.ev, first: pre.first, map: pre.map, gods: pre.gods, gards: pre.gards, goal: pre.goal, boss: pre.boss, fac: pre.fac, shM: pre.shM, shG: pre.shG, tieTo: botSide < 0 ? -1 : 1 - botSide, squad, mast });
     if (pre.ev === 'pari') s.bet = pre.bet.slice();
     if (hs.includes('mana')) s.mana[0] -= 40;
-    if (hs.includes('riche')) s.mana[1] += 100;
-    if (hs.includes('avance')) { const z = shuffle(s.g.zl[1].filter(q => s.b[q] === 0)); if (z.length) s.b[z[0]] = E.enc(E.TI[pick(oGards)], 1); }
-    if (hs.includes('dieupris')) { const av = oGods.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
-    if (hs.includes('soldats')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[of1 === 1 ? 'os' : 's'], 1);
     if (hs.includes('pauvre')) for (const id of oGards) { const i = E.TI[id]; if (s.pool[i] > 1) s.pool[i] = 1; }
     if (hs.includes('silence')) s.noAct[0] = 3;
     if (hs.includes('geole')) s.noPlace[0] = 3;
     if (hs.includes('ronces')) { const g = s.g, half = q => ((q / g.W) | 0) >= g.H / 2; for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, 3)) s.b[q] = -1; }
-    if (hs.includes('gardespris')) for (let k = 0; k < 2; k++) { const av = oGards.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } }
     if (hs.includes('blesse')) s.lost[0][1] = 1;
-    // l'adversaire (camp 1) : recrues, persos déjà posés, gardes maîtres
-    const SOLD1 = of1 === 1 ? 'os' : 's';
-    const oppRec = (ids, n) => { for (let k = 0; k < n; k++) { const av = (ids || []).filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[1][i]++; } } };
-    const oppPose = (f, n) => { for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, n)) s.b[q] = E.enc(E.TI[f()], 1); };
-    const oppElite = n => { // jamais plus de la moitié des sortes de gardes (sinon, avec peu de gardes, l'adversaire ne pourrait plus perdre par les gardes)
-      const have = s.mast ? s.mast[1] : [], cap = Math.ceil((oGards || []).length / 2), add = shuffle((oGards || []).map(id => E.TI[id]).filter(i => !have.includes(i))).slice(0, Math.max(0, Math.min(n, cap - have.length))); s.mast = [s.mast ? s.mast[0] : [], have.concat(add)]; };
     // bonus de l'affrontement facile (pour toi, camp 0)
     const es = pre.mode === 'easy' ? pre.easy || [] : [], SOLD0 = pre.fac && pre.fac[0] === 1 ? 'os' : 's', myG = of1 === 1 ? pre.shG || [] : pre.gards || [], myM = of1 === 1 ? pre.shM || [] : pre.gods || [];
     const myRec = (ids, n) => { for (let k = 0; k < n; k++) { const av = ids.filter(id => s.pool[E.TI[id]] > 0); if (av.length) { const i = E.TI[pick(av)]; s.pool[i]--; s.res[0][i]++; } } };
@@ -982,7 +964,6 @@ const isSh = id => !!T[E.TI[id]].fac;
     if (es.includes('tenace')) s.mana[0] += 40;
     if (es.includes('pillage')) { s.mana[0] += 80; s.mana[1] = Math.max(0, s.mana[1] - 80); }
     if (hs.includes('aube')) s.dawn = 80; // 60 tours : 34 % de victoires seulement (mesuré), 80 : 41 %
-    if (hs.includes('paladins')) for (const q of shuffle(s.g.zl[1].filter(q => s.b[q] === 0)).slice(0, 2)) s.b[q] = E.enc(E.TI[pick(oGards)], 1);
     if (hs.includes('invasion4')) s.invN = 5;
     if (hs.includes('sansombre')) s.pool[E.TI.os] = 0;
     if (hs.includes('veilleurs')) {
@@ -990,18 +971,9 @@ const isSh = id => !!T[E.TI[id]].fac;
       for (const q of shuffle([...Array(g.N).keys()].filter(q => g.ex[q] && !g.spec[q] && s.b[q] === 0 && half(q) && !g.zone[0][q] && !g.zone[1][q])).slice(0, Math.max(0, 2 - have))) g.spec[q] = 5;
       delete g._sl; // la liste des cases spéciales du moteur est à refaire
     }
-    // fardeaux du Cercle
-    if (pre.cercle >= 1) {
-      const fs = fardeaux(pre.cercle), ext = fs.includes('extreme') ? 1 : 0;
-      if (fs.includes('soldat')) oppPose(() => SOLD1, 1 + ext);
-      if (fs.includes('recrue')) oppRec(oGards, 1);
-      if (fs.includes('dieu')) oppRec(oGods, 1);
-      if (fs.includes('elite') && !s.boss) oppElite(1 + ext);
-      if (s.boss) { const x = bossHpBonus(pre.cercle); s.boss.hp += x; s.boss.max += x; }
-    }
-    // aide des premiers Cercles (pas contre un boss : il faut le tuer)
+    // aide du Cercle (pas contre un boss : il faut le tuer)
     const aid = ['normal', 'easy'].includes(pre.mode) ? aideOf(pre.cercle) : null;
-    if (aid && !s.boss) { s.gN = [E.gNeed(s, 0), aid.g]; s.inv = [aid.i, 4]; }
+    if (aid && !s.boss) { s.gN = [aid.k, aid.g]; s.inv = [aid.i, 4]; }
     if (es.includes('tenace') && !s.boss) // il faut te tuer 2 gardes de plus
       s.gN = [E.gNeed(s, 0) + 2, E.gNeed(s, 1)];
     if (pre.mode === 'normal' || pre.mode === 'easy' || pre.mode === 'boss') { s.mana[0] = Math.max(60, s.mana[0]); } // jamais moins de 60 mana au départ
@@ -1061,7 +1033,7 @@ const isSh = id => !!T[E.TI[id]].fac;
     for (const h of G.easy || []) out.push(`🍀 ${easyLine(h)}`);
     if (s.mast && s.mast[0].length) out.push(`🎖️ <b>${L('Persos maîtres')}</b> : ${s.mast[0].map(i => tn(i)).join(', ')}`); // lesquels, pour les reconnaître
     const cer = cur >= 0 && run() && ['normal', 'easy', 'boss'].includes(G.mode) ? run().cercle : 0;
-    for (const f of fardeaux(cer)) if (s.boss || !['pv', 'pv2', 'boss7'].includes(f)) out.push(`⚖️ ${fardeauText(f, cer)}`); // seulement ce qui compte dans cet affrontement
+    for (const f of fardeaux(cer)) if (s.boss || f !== 'boss7') out.push(`⚖️ ${fardeauText(f)}`); // seulement ce qui compte dans cet affrontement
     const aid = cur >= 0 && run() && ['normal', 'easy'].includes(G.mode) && !s.boss ? aideOf(run().cercle) : null;
     if (aid) for (const x of aideText(aid)) out.push(`🤝 ${x}`);
     if (!s.boss && !s.goal && !(aid && aid.i < 4)) out.push(`🏁 ${L('Invasion : avoir 4 persos dans la zone de placement adverse = victoire.')}`);
@@ -1996,7 +1968,7 @@ const isSh = id => !!T[E.TI[id]].fac;
   document.addEventListener('click', e => {
     if (!e.target.closest || !e.target.closest('#btnFards') || cur < 0 || !run()) return;
     const r = run();
-    openPop(`<h3>⚖️ ${L('Fardeaux')} · ${cercleLabel(r.cercle)}</h3><ul class="rules">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f, r.cercle)}</li>`).join('')}</ul>`);
+    openPop(`<h3>⚖️ ${L('Fardeaux')} · ${cercleLabel(r.cercle)}</h3><ul class="rules">${fardeaux(r.cercle).map(f => `<li>${fardeauText(f)}</li>`).join('')}</ul>`);
   });
   function drawLastArrow() {
     const old = $('lastArrow'); if (old) old.remove();
@@ -2458,13 +2430,13 @@ const isSh = id => !!T[E.TI[id]].fac;
   }
   // seulement les Cercles déjà atteints et le suivant : le reste se découvre en jouant
   function cercleBlock() {
-    const top = Math.min(FARDEAUX.length, cercleMax() + 1);
+    const top = Math.min(CERCLE_MAX, cercleMax() + 1);
     const items = Array.from({ length: top + 1 }, (_, c) => {
-      const a = aideOf(c), f = c ? FARDEAUX[c - 1] : null;
-      return `<li><b>${cercleLabel(c)}</b> : ${[a ? '🤝 ' + aideText(a).join(' ; ') : '', f ? '➕ ' + fardeauText(f, c) : ''].filter(x => x).join(' · ')}</li>`;
+      const f = FARDEAUX[c], dk = E.DEEP_SPECS.filter(([k]) => k === c).map(([, k]) => '➕ ' + L('nouvelle case spéciale : {x}', { x: I18N.specName(k) }));
+      return `<li><b>${cercleLabel(c)}</b> : ${['🤝 ' + aideText(aideOf(c)).join(' ; '), f ? '➕ ' + fardeauText(f) : '', ...dk].filter(x => x).join(' · ')}</li>`;
     });
-    return listBlocks(`<h3>🔁 ${L('Cercles')}</h3>`, items, 3, `<p>${L('Quand tout est débloqué (100 %), tu montes au Cercle suivant : ta réserve repart du début, et l’adversaire a un avantage de plus, jusqu’au Cercle 10.')}</p>`,
-      `<p class="muted">${top < FARDEAUX.length ? L('Les Cercles suivants restent à découvrir.') + ' ' : ''}${L('Plus haut Cercle atteint : {n}', { n: cercleMax() })}</p>`);
+    return listBlocks(`<h3>🔁 ${L('Cercles')}</h3>`, items, 3, `<p>${L('Quand tout est débloqué (100 %), tu montes au Cercle suivant : ta réserve repart du début, et tu as un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage.')}</p>`,
+      `<p class="muted">${top < CERCLE_MAX ? L('Les Cercles suivants restent à découvrir.') + ' ' : ''}${L('Plus haut Cercle atteint : {n}', { n: cercleMax() })}</p>`);
   }
   function rulesBlocks() {
     return [
@@ -2485,7 +2457,7 @@ const isSh = id => !!T[E.TI[id]].fac;
         <p class="muted">${L('On prend un ennemi en arrivant sur sa case. Touche un perso pour voir ce qu’il fait.')}</p>`),
       textBlock(`<h3>🤖 ${L('Le bot')}</h3><p>${L('Dans tes parties, il joue toujours au mieux, sans aucun avantage caché. Son nom est son caractère : il change sa façon de jouer, pas sa force.')}</p>
         <ul>${Object.keys(E.PERSOS).filter(id => SEEN.has('perso:' + id)).map(id => `<li><b>${I18N.persoName(id)}</b> : ${I18N.persoDesc(id)}</li>`).join('')}</ul>`),
-      textBlock(`<p class="interp">${L('Précisions : celui qui commence est tiré au sort, l’autre recrute un perso de plus à son premier tour. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 sans aucune mort) : le plus de persos vivants gagne, puis le plus de mana, sinon le bot.')}</p>`),
+      textBlock(`<p class="interp">${L('Précisions : celui qui commence est tiré au sort, l’autre recrute un perso de plus à son premier tour. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 sans aucune mort) : le plus de persos vivants gagne, puis le plus de mana, sinon toi.')}</p>`),
       ...(dlcOn('ombres') ? [textBlock(`<h3>🌑 ${L('Le Clan des Ombres')}</h3><p>${L('Une 2e armée, à choisir à la place de la Lumière. Dans une partie des Ombres, l’adversaire joue aussi les Ombres. Tous ses persos ont des pouvoirs à eux.')}</p><p>${L('Face à la Lumière, l’armée des Ombres ne perd qu’après 5 gardes tués (au lieu de 4).')}</p>`)] : [])
     ];
   }
