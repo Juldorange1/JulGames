@@ -58,7 +58,7 @@ const _majPression = majCombat;
 majCombat = function (dt) {
   const t0 = G.t;
   _majPression.apply(this, arguments);
-  try { if (G.format() === 'survie') { G.survieT = -1e9; Pression.maj(Math.max(0, G.t - t0)); } } catch (e) { }
+  try { if (G.format() === 'survie' || G.format() === 'danse') { G.survieT = -1e9; Pression.maj(Math.max(0, G.t - t0)); } } catch (e) { }
 };
 // cristaux à la fin d'un défi ou des Abysses (en plus du cristal gagné par boss vaincu)
 const _finCristaux = G.terminerDefi;
@@ -69,13 +69,15 @@ G.terminerDefi = function (reussi) {
   const res = this.finDefi; let n = 0;
   if (df.format === 'survie') n += Math.floor(Math.max(0, (res.temps || 0) - (df.depart || 0)) / 90); // même rythme qu'une partie normale
   if (df.format === 'deluge') n += Math.floor((res.degats || 0) / 6000);
-  if (df.format === 'danse' && reussi) n += Math.max(0, 3 - Math.floor((res.coups || 0) / 2));
+  if (df.format === 'danse') n += Math.floor((res.temps || 0) / 90);
   if (reussi && df.type === 'jour') n += 1; // en plus des 2 déjà donnés
   if (reussi && df.type === 'semaine') n += 6;
   if (res.record && df.type !== 'chasse') n += 2;
-  if (df.type === 'abysses') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 4); // seule la profondeur vraiment gagnée paie
+  if (df.format === 'abysses' || df.format === 'unCoup') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 4); // seule la profondeur vraiment gagnée paie
   // défi du jour : rejouer ne rapporte que ce qui dépasse ce qui a déjà été gagné aujourd'hui
   if (df.type === 'jour') { const rj = Save.d.defis.jour, tot = n; n = Math.max(0, tot - (rj.payeN || 0)); rj.payeN = Math.max(rj.payeN || 0, tot); }
+  // Record du Colosse : un score presque impossible, propre au défi du jour (+3 cristaux la première fois)
+  if (df.type === 'jour' && res.score !== null) { const o = objectifJour(df), rj = Save.d.defis.jour, F = FORMATS[df.format]; res.objectif = o; if (o !== null && (F.sens > 0 ? res.score >= o : res.score <= o)) { res.couronne = true; if (!rj.couronne) { rj.couronne = 1; n += 3; } } }
   if (n > 0) { const k = gagnerEclats(n); if (k) res.cristauxBonus = k; }
   return r;
 };
@@ -132,6 +134,44 @@ dessinerEcranDefi = function (c) {
   _ecranChasse(c);
   const df = G.defi, f = G.finDefi; if (!df || !f || df.type !== 'chasse' || f.score === null) return;
   c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
-  texteOmbre(c, 'Ton temps ' + fmtTemps(f.temps) + ' · temps parfait ' + fmtTemps(df.parfait), W / 2, 440, '#e8e2f5', `800 22px ${POLICE}`, 4);
+  texteOmbre(c, 'Ton temps ' + fmtPrecis(f.temps) + ' · temps parfait ' + fmtPrecis(df.parfait), W / 2, 440, '#e8e2f5', `800 22px ${POLICE}`, 4);
+  c.restore();
+};
+
+// ---------- Défi du jour : le Record du Colosse, presque impossible à battre ----------
+// temps : la somme des temps parfaits des boss (comme un 100 % de Chasse) ; formats sans fin : une marque à peine humaine
+const _objJour = {};
+function objectifJour(df) {
+  if (!df || df.type !== 'jour') return null;
+  const k = df.cle + ':' + df.format + ':' + (Save.d.diff || '');
+  if (_objJour[k] !== undefined) return _objJour[k];
+  let v = null;
+  try {
+    const f = df.format, T = typeof CHASSE_T !== 'undefined' ? CHASSE_T : { p: {}, s: {} };
+    if (f === 'survie') v = 600;
+    else if (f === 'danse') v = 300;
+    else if (f === 'abysses') v = 15;
+    else if (f === 'unCoup') v = 20;
+    else if (f === 'deluge') { const a = df.boss[0].ars; v = Math.round(FORMATS.deluge.duree * ((T.p[a.p] || 160) + (T.s[a.s] || 0)) * 1.05 / 100) * 100; }
+    else {
+      let s = 0;
+      for (const b of df.boss) {
+        let def; ESP_FORCE = b.esp || null; try { def = genBoss(b.salle, b.seed, b.mega, []); } finally { ESP_FORCE = null; }
+        let hp = def.hpMax; if (df.mut.includes('colosses')) hp *= 1.4 / 1.25; hp *= .6;
+        s += tempsParfait({ esp: def.esp, hpMax: hp }, b.ars);
+      }
+      v = Math.round(s * .8 * 10) / 10;
+    }
+  } catch (e) { v = null; }
+  return (_objJour[k] = v);
+}
+const _ecranJour = dessinerEcranDefi;
+dessinerEcranDefi = function (c) {
+  _ecranJour(c);
+  const df = G.defi, f = G.finDefi; if (!df || !f || df.type !== 'jour' || f.objectif === undefined || f.objectif === null) return;
+  const F = FORMATS[df.format];
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (f.couronne) texteOmbre(c, '👑 Record du Colosse battu !', W / 2, 440, '#ffd24d', `900 24px ${POLICE}`, 5);
+  else texteOmbre(c, '👑 Record du Colosse : ' + F.fmt(f.objectif) + ' (presque impossible)', W / 2, 440, '#e8c47a', `800 19px ${POLICE}`, 4);
   c.restore();
 };

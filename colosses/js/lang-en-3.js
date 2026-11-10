@@ -36,7 +36,7 @@ LANG_EN.mut = {
 };
 LANG_EN.fmt = {
   chrono: ['Time Trial', 'Kill the bosses as fast as possible'], survie: ['Survival', 'The boss is invincible and the pressure rises endlessly: hold out as long as possible'],
-  unCoup: ['One Hit', '1 HP: kill as many bosses as you can'], danse: ['Dance', 'Without weapons, dodge for 60 s and get hit as little as possible'],
+  unCoup: ['One Hit', '1 HP: the bosses keep coming endlessly, kill as many as you can'], danse: ['Dance', 'Without weapons, last as long as you can: the pressure rises and 3 hits end the dance'],
   deluge: ['Deluge', '45 s against an indestructible colossus: deal as much damage as possible'], etau: ['Vise', 'The arena keeps shrinking: kill the bosses as fast as possible'],
   arsenal: ['Crazy Arsenal', 'Your weapons change every 15 s: kill the bosses as fast as possible'], geant: ['Giant', 'A single 4-phase mega boss: as fast as possible'],
   abysses: ['Abyss', 'Endless: each boss is crazier, a single life']

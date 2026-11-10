@@ -257,13 +257,20 @@ const CHASSE_PALIERS = [60, 80, 95]; // en % du temps parfait
 function chasseCourante() {
   const cle = cleSemaine(), r = RNG(hashStr('chasse-' + cle));
   const c = Save.d.chasseH = Save.d.chasseH && Save.d.chasseH.cle === cle ? Save.d.chasseH : { cle, esp: r.pick(ESP_ORDRE), best: 0, paliers: [] };
+  if (c.v !== 2) { c.v = 2; c.bestP = 0; } // nouveau barème : l'ancien meilleur score ne compte plus
   return c;
 }
 // temps parfait : mesuré avec un robot qui ne rate rien (voir chasse-temps.js) ; on ne peut pas faire mieux avec ces armes
 function tempsParfait(def, ars) {
-  const T = typeof CHASSE_T !== 'undefined' ? CHASSE_T : { p: {}, s: {}, e: {} };
+  const T = typeof CHASSE_T !== 'undefined' ? CHASSE_T : { p: {}, s: {}, e: {}, q: {} };
   return (T.e[def.esp] === undefined ? 8 : T.e[def.esp]) + (T.q[def.esp] || 1) * def.hpMax / Math.max(60, (T.p[ars.p] || 160) + (T.s[ars.s] || 0));
 }
+// temps de référence de la Chasse : ce qu'une exécution sans le moindre défaut peut viser (la garde du boss est comptée)
+function tempsChasse(def, ars) { const g = 1 - (GARDE_DUREE / GARDE_TOUS) * (1 - GARDE_DEGATS); return tempsParfait(def, ars) * .8 / g; }
+// barème sévère : 100 % seulement au temps parfait, chaque seconde perdue coûte très cher (arrondi vers le bas)
+function scoreChasse(parfait, temps) { return Math.floor(1000 * Math.pow(Math.min(1, parfait / Math.max(.01, temps)), 3)) / 10; }
+const fmtPct = v => (+v || 0).toFixed(1).replace('.', ',') + ' %';
+const fmtPrecis = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m + ':' + r.toFixed(2).padStart(5, '0').replace('.', ','); };
 function noterChasse(esp, pct) {
   if (!modeOuvert('chasse')) return;
   const c = chasseCourante();

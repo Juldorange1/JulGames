@@ -16,7 +16,7 @@ const T = {
       inverseur: ['the Inverter', 'It shows a countdown, then your movement controls are reversed for 5 s (up ↔ down, left ↔ right). During the reversal it only fires slow rings and takes ×1.5.']
     },
     phrases: { reflet: ['I am you, but better.', 'Every blow you strike, I return.'], inverseur: ['Your left is my right.', 'Everything you think you know is reversed.'] },
-    fmt: { chasse: ['Hunt', 'Get close to the perfect time: 100% = impossible to be faster'], marathon: ['Marathon', 'Every colossus in a row, one life: as fast as possible'], graine: ['Seeded run', 'A fixed run of 6 bosses, the same for everyone with the code: as fast as possible'] },
+    fmt: { chasse: ['Hunt', 'Komm der perfekten Zeit nahe: jede verlorene Sekunde kostet viel, 100 % = exakt die Minimalzeit'], marathon: ['Marathon', 'Every colossus in a row, one life: as fast as possible'], graine: ['Seeded run', 'A fixed run of 6 bosses, the same for everyone with the code: as fast as possible'] },
     titres: { conteur: ['Storyteller', 'Discover 10 legends in the Codex.'] },
     rar: { saison: 'Seasonal' },
     skins: { a_citrouille: 'Pumpkin', c_sorciere: 'Witch\'s Cape', t_chauvesouris: 'Bat Swarm', r_lanterne: 'Haunted Lantern', a_givrefete: 'Festive Frost', c_flocons: 'Snowflake Cape', t_neige: 'Snow', r_boreale: 'Northern Lights', a_sakura: 'Cherry Blossom', c_floraison: 'Blossoming', t_pollen: 'Pollen', r_eclosion: 'Bloom', a_soleilete: 'Summer Sun', c_lagon: 'Lagoon', t_lucioles: 'Fireflies', r_canicule: 'Heatwave' },

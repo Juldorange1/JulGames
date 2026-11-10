@@ -737,9 +737,9 @@ function lignes(c, txt, maxW) {
 // Danse et Déluge : temps restant)
 function jaugeMode() {
   const f = G.format ? G.format() : null; if (!f || !G.defi) return null;
-  if (f === 'survie') {
+  if (f === 'survie' || f === 'danse') {
     // la barre va du temps de départ jusqu'au record : les dernières secondes avant le record se voient bien
-    const t = typeof Pression !== 'undefined' ? Pression.temps() : (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis.survie || {}).best || {}).score || 0, d0 = Math.min(G.defi.depart || 0, rec - 30);
+    const t = typeof Pression !== 'undefined' ? Pression.temps() : (G.defi.temps || 0) + G.chrono, rec = ((Save.d.defis[G.defi.type] || {}).best || {}).score || 0, d0 = Math.min(G.defi.depart || 0, rec - 30);
     if (!rec) return { k: Math.min(1, t / 60), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Premier essai' };
     if (t < rec) return { k: clamp((t - d0) / Math.max(1, rec - d0), 0, 1), col: '#5fd8ff', txt: fmtTemps(t), droite: 'Record dans ' + fmtTemps(Math.ceil(rec - t)) };
     return { k: 1, col: '#ffd24d', txt: fmtTemps(t), droite: 'Nouveau record ! +' + fmtTemps(Math.floor(t - rec)) };
@@ -789,10 +789,11 @@ function dessinerHUD(c) {
       const df = G.defi, F = FORMATS[df.format];
       let info = F.nom;
       if (df.format === 'abysses') info += ' · profondeur ' + df.i;
-      else if (df.format === 'danse') info += ' · ' + df.coups + ' coup(s) · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
+      else if (df.format === 'danse') info += ' · touché ' + df.coups + '/3' + (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'unCoup') info += ' · boss ' + (df.i + 1);
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'survie') info += (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
-      else if (df.format === 'chasse') info += ' · parfait ' + fmtTemps(df.parfait || 0);
+      else if (df.format === 'chasse') info += ' · parfait ' + fmtPrecis(df.parfait || 0);
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
       if (df.format === 'survie' && df.ajust) lignes.push({ txt: 'boss ×' + df.ajust.toFixed(2).replace('.', ',') + ' selon tes armes', col: '#d8b8ff', petit: true });

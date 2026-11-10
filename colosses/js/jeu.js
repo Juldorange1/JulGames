@@ -231,7 +231,7 @@ const G = {
     const p = this.p;
     if (this.etat !== 'combat' || !p || p.hp <= 0) return false;
     if (p.fantome > 0 || p.iframe > 0) return false;
-    if (this.format() === 'danse') { this.defi.coups++; p.iframe = .9; p.rouge = .35; this.secoue(8); Son.play('blesse'); this.texte(p.x, p.y - 24, 'touché', '#ff5a6e', 16); return true; }
+    if (this.format() === 'danse') { this.defi.coups++; p.iframe = .9; p.rouge = .35; this.secoue(8); Son.play('blesse'); this.texte(p.x, p.y - 24, 'touché', '#ff5a6e', 16); if (this.defi.coups >= 3) { p.hp = 0; this.tueur = src; this.mortJoueur(); } return true; }
     if (p.contre > 0 && this.boss && !this.boss.mort) {
       const b = this.boss; p.contre = 0; p.iframe = .9; this.gel = .06;
       G.fx.push({ kind: 'fantome', x: p.x, y: p.y, t: 0, dur: .3 });
@@ -317,10 +317,10 @@ const G = {
   lancerChasse() {
     const c = chasseCourante(), pr = PR(), salle = clamp(pr.palier * 5 + 1, 8, 30);
     this.mode = 'chasse'; this.finDefi = null;
-    if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle + '%') Save.d.defis.chasse = { cle: c.cle + '%', best: null, essais: 0 };
+    if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle + '%2') { Save.d.defis.chasse = { cle: c.cle + '%2', best: null, essais: 0 }; if (Save.d.reprises) delete Save.d.reprises.chasse; }
     const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars; // combat quitté : mêmes armes pour le reprendre
-    const ars = enCours ? rec.ars : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars;
-    this.defi = { type: 'chasse', format: 'chasse', cle: c.cle + '%', mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+    const ars = enCours ? rec.ars : { p: armeChasse(), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars; // la Chasse ne donne que des armes techniques
+    this.defi = { type: 'chasse', format: 'chasse', cle: c.cle + '%2', mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
     rec.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
     this.entrerSalle();
@@ -385,9 +385,11 @@ const G = {
       ars = { p: cfg.p || tire(PRIM), s: cfg.s || tire(SPEC), t: cfg.t || tire(TAL) };
     } else {
       const df = this.defi;
-      if (df.format === 'abysses' && !df.boss[df.i]) {
-        if (df.i >= 3 && df.i % 2 === 1 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
-        df.boss[df.i] = { salle: 2 + df.i + Math.floor(df.i * df.i / 5), seed: R.int(1, 2e9), mega: false, ars: { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
+      if ((df.format === 'abysses' || df.format === 'unCoup') && !df.boss[df.i]) {
+        const rj = df.type === 'jour' ? RNG(hashStr(df.cle + ':' + df.i)) : null; // défi du jour : la même suite de boss pour tout le monde
+        if (df.format === 'abysses' && rj) for (let j = (df.mutJ || 1) + 2; j <= df.i && df.mut.length < 6; j += 2) { df.mutJ = j; const m = RNG(hashStr(df.cle + ':m' + j)).pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); if (j === df.i) this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
+        if (df.format === 'abysses' && !rj && df.i >= 3 && df.i % 2 === 1 && df.mut.length < 6) { const m = R.pick(Object.keys(MUTATEURS).filter(k => !df.mut.includes(k) && k !== 'verre' && k !== 'jeune')); if (m) { df.mut.push(m); this.annonce('Abysses : ' + MUTATEURS[m].nom, '#c06bff', 2.4); } }
+        df.boss[df.i] = { salle: 2 + df.i + Math.floor(df.i * df.i / 5), seed: (rj || R).int(1, 2e9), mega: false, ars: rj ? { p: rj.pick(PRIM).id, s: rj.pick(SPEC).id, t: rj.pick(TAL).id } : { p: tirerArme('p'), s: tirerArme('s'), t: tirerArme('t') } };
       }
       const b = df.boss[df.i];
       this.salle = b.salle; this.mega = b.mega;
@@ -397,17 +399,17 @@ const G = {
       if (df.format === 'abysses') { const k = df.i; const f = (k / 10) * (k / 10); /* courbe : douce au début, très raide ensuite (1 à la profondeur 10) */ def.D.S *= 1 + .32 * f; def.D.C *= 1 + .4 * f; def.D.T = Math.max(.6, def.D.T * Math.max(.7, 1 - .2 * f)); def.idle *= Math.max(.4, 1 - .4 * f); def.hpMax = Math.round(def.hpMax * (1 + .3 * f)); }
       if (df.format === 'geant') { const last = def.phases[def.phases.length - 1]; while (def.phases.length < 4) def.phases.push(Object.assign({}, last, { nom: 'Dernier souffle', tempo: last.tempo * 1.08 })); def.hpMax = Math.round(def.hpMax * 1.25); }
       if (df.format === 'survie' || df.format === 'danse') def.invincible = true;
-      if (df.format === 'chasse') { def.traits = []; def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE); df.parfait = tempsParfait(def, b.ars); } // pas de mutation : le temps parfait reste juste
+      if (df.format === 'chasse') { def.traits = []; def.hpMax = Math.round(def.hpMax * VIE_CLASSIQUE * 1.3); df.parfait = tempsChasse(def, b.ars); } // pas de mutation : le temps parfait reste juste
       // Survie : le boss est invincible, il n'a donc aucune défense (traits défensifs, invocations)
       if (df.format === 'survie' && df.ajust) { const k = df.ajust; def.D.S = Math.min(2.2, def.D.S * Math.pow(k, .3)); def.D.C *= Math.pow(k, .4); def.idle = Math.max(.12, def.idle / Math.pow(k, .5)); }
-      if (df.format === 'survie') { def.traits = []; def.phases.forEach(ph => { if (ph.carte === 'etau') ph.carte = 'normale'; }); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
+      if (df.format === 'survie' || df.format === 'danse') { def.traits = []; def.phases.forEach(ph => { if (ph.carte === 'etau') ph.carte = 'normale'; }); for (const ph of def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } def.invoc = null; }
       if (df.format === 'deluge') def.indestructible = true;
       if (this.mut('frenesie')) { def.D.S *= 1.2; def.idle *= .85; }
       if (this.mut('vitesse')) def.D.S *= 1.12;
       if (df.format === 'abysses') def.D.S = Math.min(1.9, def.D.S); // toujours esquivable (annonces garanties)
       if (this.mut('colosses')) def.hpMax = Math.round(def.hpMax * 1.4);
-      if (this.mode === 'jour') def.hpMax = Math.round(def.hpMax * .6); // défi du jour : court
-      else if (this.mode === 'semaine' || this.mode === 'abysses') def.hpMax = Math.round(def.hpMax * .75);
+      if (this.mode === 'jour' && df.format !== 'abysses') def.hpMax = Math.round(def.hpMax * .6); // défi du jour : court
+      else if (this.mode === 'semaine' || df.format === 'abysses') def.hpMax = Math.round(def.hpMax * .75);
       if (this.mut('nuit')) def.phases.forEach(ph => ph.carte = 'tenebres');
       if (this.mut('patinoire')) def.phases.forEach(ph => ph.carte = 'glace');
       if (this.mut('chaos')) { const r = RNG(b.seed); for (const t of r.shuffle(Object.keys(TRAITS).filter(t => !def.traits.includes(t))).slice(0, 2)) def.traits.push(t); }
@@ -475,14 +477,14 @@ const G = {
     // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
     const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
     // défi du jour : les boss ne paient qu'une fois dans la journée, même si on le rejoue
-    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = this.mode !== 'chasse' && (!rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= this.defi.boss.length); // la Chasse paie par ses paliers
+    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = this.mode !== 'chasse' && (!rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= Math.min(6, this.defi.boss.length)); // la Chasse paie par ses paliers
     if (paye) F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
     const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; const gk = ecl ? gagnerEclats(ecl) : 0; if (!ecl) Save.write();
     this.gainCristaux = gk ? { n: gk, demi: false, t: 0, x: b.x, y: b.y } : null;
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
     else if (this.def.mega) { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
-    if (this.mode === 'chasse' && this.defi.parfait) noterChasse(this.def.esp, Math.min(100, Math.round(100 * this.defi.parfait / Math.max(.1, this.chrono))));
+    if (this.mode === 'chasse' && this.defi.parfait) noterChasse(this.def.esp, scoreChasse(this.defi.parfait, this.chrono));
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);
     d.stats.serie = (d.stats.serie || 0) + 1; d.stats.serieMax = Math.max(d.stats.serieMax || 0, d.stats.serie);
     if (this.mode === 'normal' && !((d.essais || {})[d.diff + ':' + this.salle])) statPlus('premierEssai');
@@ -518,7 +520,7 @@ const G = {
     } else {
       const df = this.defi;
       df.tues++; df.temps += this.chrono; df.i++;
-      if (df.format !== 'abysses' && df.i >= df.boss.length) this.terminerDefi(true);
+      if (df.format !== 'abysses' && df.format !== 'unCoup' && df.i >= df.boss.length) this.terminerDefi(true);
     }
     verifierSucces();
     Save.write();
@@ -593,7 +595,7 @@ const G = {
       // on rejoue le même boss, avec les mêmes armes, tout le monde à pleine vie
       const pr = PR(); pr.run.pv = DF().pv;
       const e = d.essais = d.essais || {}; const k = Save.d.diff + ':' + this.salle; e[k] = (e[k] || 0) + 1;
-    } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(['survie', 'deluge'].includes(this.defi.format)); }
+    } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(defiTenu(this.defi)); }
     Save.write();
     Musique.baisser(.25);
   },
@@ -659,31 +661,42 @@ function cleSemaine(d) {
   const w = 1 + Math.round(((u - a) / 864e5 - 3 + ((a.getUTCDay() + 6) % 7)) / 7);
   return u.getUTCFullYear() + '-S' + String(w).padStart(2, '0');
 }
+// formats sans fin : la mort est leur fin normale ; au défi du jour, il faut un vrai effort pour qu'il compte comme réussi
+function defiTenu(df) {
+  const f = df.format, jour = df.type === 'jour';
+  if (f === 'deluge') return true;
+  if (f === 'survie' || f === 'danse') return !jour || (df.temps || 0) >= 60;
+  if (f === 'abysses' || f === 'unCoup') return jour && df.tues >= 2;
+  return false;
+}
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 // formats des défis : chacun a son objectif et son score (sens : +1 plus haut = mieux, −1 plus bas = mieux)
 const FORMATS = {
   chrono: { nom: 'Contre-la-montre', ico: '⏱', obj: 'Tue les boss le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   survie: { nom: 'Survie', ico: '🛡', obj: 'Le boss est invincible et la pression monte sans fin : tiens le plus longtemps possible', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
-  unCoup: { nom: 'Un seul coup', ico: '💀', obj: '1 PV : tue un maximum de boss', sens: 1, score: r => r.tues, fmt: v => v + ' boss' },
-  danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, esquive 60 s en te faisant toucher le moins possible', sens: -1, score: r => r.reussi ? r.coups : null, fmt: v => v + ' coup' + (v > 1 ? 's' : ''), un: true, duree: 60 },
+  unCoup: { nom: 'Un seul coup', ico: '💀', obj: '1 PV : les boss s\'enchaînent sans fin, tue-en un maximum', sens: 1, score: r => r.tues, fmt: v => v + ' boss' },
+  danse: { nom: 'Danse', ico: '💃', obj: 'Sans arme, tiens le plus longtemps possible : la pression monte et 3 touches mettent fin à la danse', sens: 1, score: r => Math.round(r.temps * 10) / 10, fmt: v => fmtTemps(v), un: true },
   deluge: { nom: 'Déluge', ico: '💥', obj: '45 s contre un colosse indestructible : un maximum de dégâts', sens: 1, score: r => r.degats, fmt: v => Math.round(v / 100) / 10 + ' k dégâts', un: true, duree: 45 },
   etau: { nom: 'Étau', ico: '🧱', obj: 'L\'arène se resserre sans arrêt : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   arsenal: { nom: 'Arsenal fou', ico: '🎲', obj: 'Tes armes changent toutes les 15 s : tue les boss au plus vite', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v) },
   geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
   abysses: { nom: 'Abysses', ico: '🌌', obj: 'Sans fin : chaque boss est plus fou, une seule vie', sens: 1, score: r => r.tues, fmt: v => 'profondeur ' + v }
 };
-FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Approche-toi du temps parfait : 100 % = impossible de faire plus vite', sens: 1, score: r => r.reussi && G.defi && G.defi.parfait ? Math.min(100, Math.round(100 * G.defi.parfait / Math.max(.1, r.temps))) : null, fmt: v => v + ' %' };
+FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Approche-toi du temps parfait : chaque seconde perdue coûte très cher, 100 % = le temps minimal exact', sens: 1, score: r => r.reussi && G.defi && G.defi.parfait ? scoreChasse(G.defi.parfait, r.temps) : null, fmt: v => fmtPct(v) };
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
-  const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
+  const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal', 'survie', 'abysses']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);
   const F = FORMATS[format];
   let salles = type === 'jour' ? [8, 14] : [8, 12, 16, 20, 24];
   if (F.un) salles = [type === 'jour' ? 10 : 18];
   if (format === 'geant') salles = [type === 'jour' ? 15 : 25];
   if (format === 'unCoup') salles = Array.from({ length: type === 'jour' ? 6 : 12 }, (_, i) => 4 + i * 2);
-  const mut = r.shuffle(Object.keys(MUTATEURS).filter(m => !(format === 'unCoup' && m === 'verre'))).slice(0, type === 'jour' ? 1 : 2);
+  if (format === 'abysses') salles = [];
+  const mut = r.shuffle(Object.keys(MUTATEURS).filter(m => !(format === 'unCoup' && m === 'verre') && !(format === 'abysses' && m === 'jeune') && !((format === 'survie' || format === 'danse') && ['jeune', 'colosses', 'chaos'].includes(m)))).slice(0, type === 'jour' ? 1 : 2);
   const boss = salles.map(s => ({ salle: s, seed: r.int(1, 2000000000), mega: format === 'geant' || (s % 5 === 0 && !F.un), ars: { p: r.pick(PRIM).id, s: r.pick(SPEC).id, t: r.pick(TAL).id } }));
-  return { type, cle, mut, boss, format };
+  const x = { type, cle, mut, boss, format };
+  if (format === 'survie' && boss[0]) x.ajust = forceSurvie(boss[0].ars); // le boss s'ajuste aux armes tirées
+  return x;
 }
 
 function creerJoueur(pv) {
