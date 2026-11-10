@@ -75,7 +75,7 @@ const Reseau = {
     for (const j of Coop.inscrits) {
       if (j.type !== 'reseau' || !j.conn || !j.conn.open) continue;
       const pj = j.ars ? trouveArme('p', j.ars.p) : prim;
-      try { j.conn.send({ t: 'info', n: j.n, N: Coop.N(), etat: G.etat, cw: cv.width, ch: cv.height, sc: scale * dpr, ox: offX * dpr, oy: offY * dpr, pv: j.p ? Math.ceil(j.p.hp) : 0, pvMax: j.p ? j.p.hpMax : 0, ko: !!(j.p && (j.p.ko || j.p.hp <= 0)), manuel: !!(pj && pj.manuel), armes: j.ars ? [pj && pj.nom, (trouveArme('s', j.ars.s) || {}).nom, (trouveArme('t', j.ars.t) || {}).nom] : null }); } catch (e) { }
+      try { j.conn.send({ t: 'info', aff: typeof Salon !== 'undefined' && (Salon.etat === 'hote' || G.mode === 'affront') ? Salon.pourInvite() : null, n: j.n, N: Coop.N(), etat: G.etat, cw: cv.width, ch: cv.height, sc: scale * dpr, ox: offX * dpr, oy: offY * dpr, pv: j.p ? Math.ceil(j.p.hp) : 0, pvMax: j.p ? j.p.hpMax : 0, ko: !!(j.p && (j.p.ko || j.p.hp <= 0)), manuel: !!(pj && pj.manuel), armes: j.ars ? [pj && pj.nom, (trouveArme('s', j.ars.s) || {}).nom, (trouveArme('t', j.ars.t) || {}).nom] : null }); } catch (e) { }
     }
   },
   // ---------- invité ----------

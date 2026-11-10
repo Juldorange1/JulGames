@@ -516,3 +516,25 @@ html, body { overscroll-behavior: none; }
 .accueil { margin-left: max(24px, 11vw) !important; }
 .apercu-mode { right: 1.5vw; width: min(440px, 31vw); }
 .d-affront { --fc: #ff7a5c; }
+#ecran.fond { overflow: hidden !important; scrollbar-width: none; }
+#ecran.fond::-webkit-scrollbar { display: none; }
+.accueil { margin-top: 12px !important; margin-bottom: 12px !important; }
+.apercu-mode { max-height: none !important; overflow: visible !important; }
+/* ---------- Affrontement en ligne ---------- */
+.d-affront .af-nb-t { display: flex; gap: 6px; margin-top: 5px; }
+.d-affront .af-n { padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(255,122,92,.55); font: 700 12px 'Segoe UI', sans-serif; color: #ffcdbf; cursor: pointer; }
+.d-affront .af-n.actif { background: #ff7a5c; color: #2a0e06; border-color: #ff7a5c; }
+.panneau.salle-aff { max-width: 680px; }
+.salle-aff .af-haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.salle-aff .af-nb { display: flex; gap: 8px; } .salle-aff .af-nb button { font-size: 17px; padding: 9px 18px; } .salle-aff .af-nb button.actif { background: rgba(255,122,92,.3); border-color: #ff7a5c; color: #fff; }
+.salle-aff .af-rang { font: 800 20px Cinzel, Georgia, serif; color: #ffe7a6; } .salle-aff .af-rang small { font: 600 13px 'Segoe UI', sans-serif; color: #b8b0cc; margin-left: 6px; }
+.salle-aff .af-etat { padding: 10px 14px; border-radius: 8px; background: rgba(255,216,107,.1); border: 1px solid rgba(255,216,107,.3); color: #ffe7a6; font-weight: 700; margin-bottom: 10px; min-height: 22px; }
+.salle-aff .af-ami { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+.salle-aff .af-ami span { flex: 1; font-weight: 700; } .salle-aff .af-ami small { color: #9a94ad; } .salle-aff .af-ami small.en { color: #7dffb0; }
+.salle-aff .af-ajout input, .salle-aff #af-pseudo { user-select: text; -webkit-user-select: text; background: #1a1428; color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.salle-aff .af-moncode { font-family: monospace; font-size: 16px; color: #fff; letter-spacing: .05em; }
+.avis-aff { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9998; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: linear-gradient(180deg, rgba(40,28,58,.97), rgba(16,12,26,.97)); border: 1px solid #ffd86b; color: #f2ead8; font: 600 15px 'Segoe UI', sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.avis-aff.fin { bottom: 132px; }
+.avis-aff button { padding: 6px 12px; }
+#invite .inv-aff { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); display: none; min-width: 320px; padding: 12px 16px; border-radius: 10px; background: rgba(16,12,26,.92); border: 1px solid #ffd86b; color: #f2ead8; font: 15px 'Segoe UI', sans-serif; }
+#invite .inv-aff div { margin: 4px 0; } #invite .inv-aff .plus { color: #7dffb0; } #invite .inv-aff .moins { color: #ff8a9a; } #invite .inv-aff button { margin-left: 8px; padding: 3px 10px; }

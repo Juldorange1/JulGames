@@ -88,8 +88,8 @@ function texteSel(k) {
     if (d.abyssesRun) regles.push(T2('Descente en cours : profondeur') + ' ' + d.abyssesRun.i); else if (G.repriseAbysses()) regles.push(T2('Tu repars avec') + ' ' + G.repriseAbysses() + ' ' + T2('boss vaincus'));
     if ((d.abysses || {}).best) rec = '🏆 ' + T2('Ton record') + ' : ' + T2('profondeur') + ' ' + d.abysses.best;
   } else if (k === 'affront') {
-    const n = Affront.prochain(); titre = '⚔ ' + T2('Affrontement'); regles.push(FORMATS.affront.obj, T2('Toi contre deux rivaux (ou tes amis en multijoueur). Mourir te fait perdre 15 % de tes dégâts, tu reviens 4 s plus tard. 3 minutes au plus.'), ligneArmes(n.ars));
-    if (d.affrontVictoires) rec = '🏆 ' + d.affrontVictoires + ' ' + T2(d.affrontVictoires > 1 ? 'victoires' : 'victoire');
+    const n = Affront.prochain(), P = profilAff(); titre = '⚔ ' + T2('Affrontement') + ' · ' + P.n + ' ' + T2('joueurs'); regles.push(FORMATS.affront.obj, T2('En ligne, contre de vrais joueurs de ton niveau (ou tes amis). Mourir te fait perdre 15 % de tes dégâts, tu reviens 4 s plus tard. 3 minutes au plus.'), ligneArmes(n.ars));
+    rec = '🏅 ' + T2('Ton classement') + ' : ' + P.pts + ' pts · ' + P.v + ' V · ' + P.dft + ' D';
   } else if (k === 'chasse') {
     const c = chasseCourante(); titre = '🎯 ' + T2('Chasse'); regles.push(FORMATS.chasse.obj, T2('Le boss se téléporte, fait surgir des obstacles et se met en garde.'));
     if (c.bestP) rec = '🏆 ' + T2('Ton meilleur') + ' : ' + fmtPct(c.bestP);
@@ -116,8 +116,16 @@ function majSelection() {
   try { if (typeof iconiser === 'function') iconiser(p); } catch (e) { }
   try { if (typeof Langue !== 'undefined' && Langue.dom) Langue.dom(p); } catch (e) { }
 }
+function ajusterAccueil() {
+  const acc = UI.el && UI.el.querySelector('.accueil'); if (!acc || G.etat !== 'menu') return;
+  const z = +Save.d.opts.zoomMenu || 1; acc.style.zoom = z;
+  // on réduit jusqu'à ce que le bas de l'accueil tienne dans la fenêtre (le haut se décale quand la taille change)
+  let k = z;
+  for (let i = 0; i < 5; i++) { const r = acc.getBoundingClientRect(), trop = r.bottom - (innerHeight - 10); if (trop <= 1) break; k *= Math.max(.3, (r.height - trop) / r.height); acc.style.zoom = k; }
+}
+addEventListener('resize', () => { try { ajusterAccueil(); } catch (e) { } });
 const _menuSel = UI.menu;
-UI.menu = function () { const r = _menuSel.apply(this, arguments); try { majSelection(); } catch (e) { console.warn('menu', e); } return r; };
+UI.menu = function () { const r = _menuSel.apply(this, arguments); try { majSelection(); ajusterAccueil(); setTimeout(ajusterAccueil, 0); setTimeout(ajusterAccueil, 300); } catch (e) { console.warn('menu', e); } return r; };
 
 // ---------- le décor : un vrai paysage peint (ciel, soleil, nuages en volume, montagnes éclairées, forêt, lac) ----------
 // tout est peint une seule fois dans un calque (selon le ciel et la taille de l'écran) : il ne coûte rien à afficher
@@ -141,95 +149,6 @@ function vRgb(a) {
 const vMix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 const vCol = (c, al) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${al === undefined ? 1 : al})`;
 const BLANC = [255, 255, 255];
-// une crête de montagnes (déplacement du point milieu) avec quelques grands sommets
-function crete(r, n, base, amp, rough, pics) {
-  const y = new Float32Array(n + 1); y[0] = base - r() * amp * .4; y[n] = base - r() * amp * .4;
-  let a = amp, step = n;
-  while (step > 1) { const h = step >> 1; for (let i = h; i < n; i += step) y[i] = (y[i - h] + y[i + h]) / 2 + (r() - .5) * a; a *= rough; step = h; }
-  for (const [u, A, L] of pics) for (let i = 0; i <= n; i++) { const d = (i / n - u) / L; y[i] -= A * Math.exp(-d * d) * (.85 + .15 * Math.cos(d * 9)); }
-  return y;
-}
-// peint une chaîne : grands versants à l'ombre (le soleil est à droite), neige, ravines, arêtes éclairées, forêt, brume
-function chaineReelle(c, r, o) {
-  const n = 512, y = crete(r, n, o.base, o.amp, o.rough, o.pics || []), dx = (W + 40) / n, X = i => -20 + i * dx;
-  const ys = new Float32Array(n + 1); for (let i = 0; i <= n; i++) { let s = 0, m = 0; for (let k = -6; k <= 6; k++) { const j = i + k; if (j >= 0 && j <= n) { s += y[j]; m++; } } ys[i] = s / m; }
-  const bruit = i => Math.sin(i * .37) * .5 + Math.sin(i * 1.13 + 2) * .3 + Math.sin(i * 2.9 + 5) * .2;
-  c.save();
-  c.beginPath(); c.moveTo(-20, H + 10); for (let i = 0; i <= n; i++) c.lineTo(X(i), y[i]); c.lineTo(W + 20, H + 10); c.closePath();
-  let top = H; for (let i = 0; i <= n; i++) top = Math.min(top, y[i]);
-  const g = c.createLinearGradient(0, top, 0, o.base + 90); g.addColorStop(0, vCol(vMix(o.col, o.lum, .12))); g.addColorStop(1, vCol(vMix(o.col, o.brume, .55)));
-  c.fillStyle = g; c.fill(); c.clip();
-  // neige : plaques irrégulières sous les sommets
-  if (o.neige !== undefined) {
-    let i = 0;
-    while (i <= n) {
-      if (y[i] >= o.neige) { i++; continue; }
-      let j = i; while (j <= n && y[j] < o.neige) j++;
-      c.beginPath(); c.moveTo(X(i), y[i]);
-      for (let k = i; k < j; k++) c.lineTo(X(k), y[k] - 1);
-      for (let k = j - 1; k >= i; k--) { const L = (o.neige - y[k]) * (.55 + .4 * bruit(k)) + 3 + 6 * Math.abs(Math.sin(k * 3.1)); c.lineTo(X(k), y[k] + L); }
-      c.closePath();
-      const gs = c.createLinearGradient(0, top, 0, o.neige + 30); gs.addColorStop(0, 'rgba(255,253,248,.97)'); gs.addColorStop(1, 'rgba(240,244,252,.8)');
-      c.fillStyle = gs; c.fill();
-      i = j;
-    }
-  }
-  // sommets et vallées du profil lissé
-  const pics = [], creux = [0];
-  for (let i = 8; i <= n - 8; i++) {
-    let haut = true, bas = true;
-    for (let k = 1; k <= 8; k++) { if (ys[i] > ys[i - k] || ys[i] > ys[i + k]) haut = false; if (ys[i] < ys[i - k] || ys[i] < ys[i + k]) bas = false; }
-    if (haut && (!pics.length || i - pics[pics.length - 1] > 8)) pics.push(i);
-    if (bas && i - creux[creux.length - 1] > 8) creux.push(i);
-  }
-  creux.push(n);
-  // le versant gauche de chaque sommet est à l'ombre : une grande facette qui descend jusqu'au pied
-  for (const p of pics) {
-    const vl = creux.filter(v => v < p).pop() || 0, haut = o.base - y[p];
-    if (haut < 12) continue;
-    const pied = Math.min(H + 10, y[p] + haut * 1.5 + 30), sx = X(p) - (X(p) - X(vl)) * (.12 + r() * .22);
-    c.beginPath(); c.moveTo(X(vl), y[vl]);
-    for (let k = vl; k <= p; k++) c.lineTo(X(k), y[k]);
-    const pas = 9; for (let s = 1; s <= pas; s++) { const u = s / pas; c.lineTo(X(p) + (sx - X(p)) * u + (r() - .5) * 10 * u, y[p] + (pied - y[p]) * u); }
-    c.lineTo(X(vl) - 30, pied); c.closePath();
-    const go = c.createLinearGradient(0, y[p], 0, pied); go.addColorStop(0, vCol(o.omb, .62)); go.addColorStop(.6, vCol(o.omb, .38)); go.addColorStop(1, vCol(o.omb, .12));
-    c.fillStyle = go; c.fill();
-    // une arête secondaire dans le versant au soleil
-    if (r() < .7) {
-      const vr = creux.find(v => v > p) || n, ex = X(p) + (X(vr) - X(p)) * (.3 + r() * .3);
-      c.strokeStyle = vCol(o.omb, .3); c.lineWidth = 1.2; c.beginPath(); c.moveTo(X(p), y[p] + 2);
-      for (let s = 1; s <= 8; s++) { const u = s / 8; c.lineTo(X(p) + (ex - X(p)) * u + (r() - .5) * 6, y[p] + (pied - y[p]) * u * .8); }
-      c.stroke();
-    }
-  }
-  // ravines
-  if (o.ravines) for (let k = 0; k < o.ravines; k++) {
-    const i = 2 + Math.floor(r() * (n - 4)); if (y[i] > o.base - o.amp * .2) continue;
-    let px = X(i), py = y[i] + 3; const dir = r() < .5 ? -1 : 1, L = 15 + r() * o.amp * .6;
-    c.strokeStyle = vCol(o.omb, .18 + r() * .2); c.lineWidth = .6 + r() * .8; c.beginPath(); c.moveTo(px, py);
-    for (let s = 0; s < L; s += 5) { px += dir * (.5 + r() * 2); py += 5; c.lineTo(px, py); }
-    c.stroke();
-  }
-  // arêtes éclairées par le soleil
-  c.lineWidth = 1.4; c.strokeStyle = vCol(o.lum, .55); c.beginPath();
-  for (let i = 1; i <= n; i++) { if (ys[i] > ys[i - 1]) { c.moveTo(X(i - 1), y[i - 1] + .8); c.lineTo(X(i), y[i] + .8); } }
-  c.stroke();
-  // forêt de sapins le long de la crête
-  if (o.foret) {
-    const F = o.foret;
-    for (let i = 0; i <= n; i++) {
-      if (r() > F.dens) continue;
-      const tx = X(i) + (r() - .5) * dx, ty = y[i] + 2 + r() * F.prof, h = F.h * (.6 + r() * .7);
-      const cc = vMix(F.col, o.brume, (ty - y[i]) / (F.prof * 2.5));
-      sapin(c, tx, ty, h, cc, vMix(cc, o.lum, .35));
-    }
-  }
-  c.restore();
-  // brume au pied de la chaîne
-  const bg = c.createLinearGradient(0, o.base - 60, 0, o.base + 70); bg.addColorStop(0, vCol(o.brume, 0)); bg.addColorStop(.55, vCol(o.brume, o.brumeA || .45)); bg.addColorStop(1, vCol(o.brume, 0));
-  c.fillStyle = bg; c.fillRect(-20, o.base - 60, W + 40, 130);
-  return y;
-}
 function sapin(c, x, y, h, col, lum) {
   const w = h * .42;
   c.fillStyle = vCol(col);
@@ -258,6 +177,95 @@ function nuageReel(seed, w, h, P) {
   c.fillStyle = gb; c.fillRect(0, base - h * .05, w, h);
   return cv2;
 }
+// ---------- relief réel : une carte de hauteur fractale, éclairée par le soleil, vue en perspective ----------
+// (rendu « voxel » colonne par colonne : montagnes enneigées au loin, collines boisées, lac au premier plan)
+const TERRAIN = { N: 512, WL: 16, HMAX: 175, h: null, col: null };
+function carteTerrain() {
+  if (TERRAIN.h) return TERRAIN;
+  const N = TERRAIN.N, r = RNG(424242), H0 = new Float32Array(N * N), F0 = new Float32Array(N * N);
+  // bruit de valeur sur plusieurs octaves
+  const grilles = [];
+  for (let o = 0; o < 8; o++) { const L = 3 << o, g = new Float32Array((L + 1) * (L + 1)); for (let i = 0; i < g.length; i++) g[i] = r(); grilles.push({ L, g }); }
+  const lisse = t => t * t * (3 - 2 * t);
+  const val = (o, x, y) => { const { L, g } = grilles[o], fx = x * L, fy = y * L, ix = Math.min(L - 1, fx | 0), iy = Math.min(L - 1, fy | 0), tx = lisse(fx - ix), ty = lisse(fy - iy), w = L + 1;
+    const a = g[iy * w + ix], b = g[iy * w + ix + 1], c = g[(iy + 1) * w + ix], d = g[(iy + 1) * w + ix + 1]; return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty; };
+  const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const u = x / N, v = y / N;
+    // crêtes acérées (multifractale « ridged »)
+    let s = 0, amp = .55, poids = 1;
+    for (let o = 0; o < 8; o++) { let n = 1 - Math.abs(val(o, u, v) * 2 - 1); n *= n; n *= poids; poids = clamp(n * 2.2, 0, 1); s += n * amp; amp *= .5; }
+    let f = 0, a2 = .5; for (let o = 1; o < 7; o++) { f += val(o, (u + .37) % 1, (v + .71) % 1) * a2; a2 *= .5; }
+    const d = N - 1 - y, lat = Math.abs(x - N / 2);
+    // le lac devant, des collines ensuite, les grandes montagnes au fond ; des berges sur les côtés
+    const m = ss(40, 190, d) * .38 + ss(190, 440, d) * .9;
+    const berge = ss(70, 230, lat) * (1 - ss(80, 280, d)) * .55;
+    H0[y * N + x] = (s * (m + berge) + f * .16 * ss(20, 140, d)) * TERRAIN.HMAX;
+    F0[y * N + x] = f;
+  }
+  // couleurs : roche, neige, prairie, forêt, sable, éclairées par le soleil (devant à droite, assez bas)
+  const C = new Uint8ClampedArray(N * N * 3), L = [.55, -.5, .5], ln = Math.hypot(...L); L[0] /= ln; L[1] /= ln; L[2] /= ln;
+  const HM = TERRAIN.HMAX, WL = TERRAIN.WL;
+  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+    const i = y * N + x, h = H0[i], dx = (H0[i + 1] - H0[i - 1]) / 2, dy = (H0[i + N] - H0[i - N]) / 2, pente = Math.hypot(dx, dy);
+    const nl = Math.hypot(dx, dy, 1), lamb = Math.max(0, (-dx * L[0] - dy * L[1] + L[2]) / nl), f = F0[i];
+    let c;
+    const neige = HM * .5 + (f - .5) * 30;
+    if (h < WL + 1.5) c = [168, 152, 112];
+    else if (h > neige && pente < 1.6) c = [244, 247, 255];
+    else if (pente > 1.05 || h > HM * .42) { const k = clamp((f - .3) * 1.5, 0, 1); c = [104 + 30 * k, 96 + 24 * k, 90 + 18 * k]; }
+    else if (h < HM * .26) c = f > .52 ? [30, 58, 34] : [78, 116, 52];
+    else { const k = clamp((h - HM * .26) / (HM * .16), 0, 1); c = [42 + 62 * k, 70 + 26 * k, 40 + 50 * k]; }
+    const lum = .34 + .82 * lamb;
+    C[i * 3] = c[0] * lum; C[i * 3 + 1] = c[1] * lum; C[i * 3 + 2] = c[2] * lum;
+  }
+  TERRAIN.h = H0; TERRAIN.col = C; return TERRAIN;
+}
+// rendu du relief pour un ciel donné : renvoie un calque (le ciel reste transparent)
+function rendreTerrain(P, TW, TH) {
+  const T = carteTerrain(), N = T.N, Hm = T.h, Cm = T.col, WL = T.WL;
+  const cv2 = document.createElement('canvas'); cv2.width = TW; cv2.height = TH; const c = cv2.getContext('2d');
+  const img = c.createImageData(TW, TH), px = new Uint32Array(img.data.buffer);
+  const hor = vMix(vRgb(P.o), vRgb(P.m), .35), milieu = vRgb(P.m), haut = vRgb(P.t), eau = vRgb(P.eau), soleil = vMix(vRgb(P.o), BLANC, .45);
+  const yh = TH * .6, f = TH * .95, camH = WL + 24, cx = N / 2, cy = N - 2, fov = .62, sunX = (SC_CX + 40) / W * TW;
+  const pack = (r, g, b) => (255 << 24) | ((b & 255) << 16) | ((g & 255) << 8) | (r & 255);
+  for (let x = 0; x < TW; x++) {
+    const a = (x / TW - .5) * 2 * fov, dxr = Math.sin(a), dyr = -Math.cos(a);
+    let ybuf = TH, z = 1, dz = .2;
+    const reflet = Math.max(0, 1 - Math.abs(x - sunX) / (TW * .05));
+    while (z < 560 && ybuf > 0) {
+      const mx = cx + dxr * z, my = cy + dyr * z;
+      if (mx < 1 || my < 1 || mx >= N - 2 || my >= N - 2) break;
+      const ix = mx | 0, iy = my | 0, tx = mx - ix, ty = my - iy, i = iy * N + ix;
+      let hg = Hm[i] * (1 - tx) * (1 - ty) + Hm[i + 1] * tx * (1 - ty) + Hm[i + N] * (1 - tx) * ty + Hm[i + N + 1] * tx * ty;
+      const dansEau = hg < WL; if (dansEau) hg = WL;
+      const sy = yh + (camH - hg) * f / z;
+      if (sy < ybuf) {
+        let r, g, b;
+        if (dansEau) {
+          // l'eau reflète le ciel : plus clair au loin, le soleil y laisse une traînée
+          const k = clamp(z / 260, 0, 1), vague = .92 + .08 * Math.sin(mx * .9 + my * 2.3) * Math.sin(my * 1.7);
+          let col = vMix(vMix(haut, eau, .55), vMix(hor, BLANC, .15), k);
+          col = vMix(col, soleil, reflet * (.35 + .45 * k) * (vague > .97 ? 1.6 : 1));
+          r = col[0] * vague; g = col[1] * vague; b = col[2] * vague;
+        } else { const j = i * 3, j1 = j + 3, j2 = j + N * 3, j3 = j2 + 3, w0 = (1 - tx) * (1 - ty), w1 = tx * (1 - ty), w2 = (1 - tx) * ty, w3 = tx * ty; // couleurs lissées : pas d'escaliers au premier plan
+          r = Cm[j] * w0 + Cm[j1] * w1 + Cm[j2] * w2 + Cm[j3] * w3; g = Cm[j + 1] * w0 + Cm[j1 + 1] * w1 + Cm[j2 + 1] * w2 + Cm[j3 + 1] * w3; b = Cm[j + 2] * w0 + Cm[j1 + 2] * w1 + Cm[j2 + 2] * w2 + Cm[j3 + 2] * w3; }
+        // brume : les lointains se fondent dans la couleur de l'horizon
+        const fg = (1 - Math.exp(-z / 230)) * .88;
+        r += (hor[0] - r) * fg; g += (hor[1] - g) * fg; b += (hor[2] - b) * fg;
+        const p = pack(r, g, b);
+        for (let y = Math.max(0, Math.ceil(sy)); y < ybuf; y++) px[y * TW + x] = p;
+        ybuf = Math.max(0, Math.ceil(sy));
+      }
+      z += dz; dz = .2 + z * .006;
+    }
+  }
+  c.putImageData(img, 0, 0);
+  // une fine bande de brume lumineuse sur l'horizon
+  const bg = c.createLinearGradient(0, yh - TH * .12, 0, yh + TH * .03); bg.addColorStop(0, vCol(hor, 0)); bg.addColorStop(.7, vCol(vMix(hor, BLANC, .2), .35)); bg.addColorStop(1, vCol(hor, 0));
+  c.globalCompositeOperation = 'source-atop'; c.fillStyle = bg; c.fillRect(0, yh - TH * .12, TW, TH * .15); c.globalCompositeOperation = 'source-over';
+  return cv2;
+}
 function fondScene(def, k) {
   const P = ciel(def), ch = P.m[0], w = Math.ceil(W * k), h = Math.ceil(H * k), cle = ch + ':' + w + ':' + h;
   if (SCENE2.fond && SCENE2.fondCle === cle) return SCENE2.fond;
@@ -280,19 +288,10 @@ function fondScene(def, k) {
   // banc de nuages lointains, dorés par le soleil
   for (let i = 0; i < 7; i++) { const nw = 260 + r() * 260, nh = nw * .32, img = nuageReel(hashNum(ch + i * 71), Math.ceil(nw), Math.ceil(nh), P); c.globalAlpha = .55 + r() * .25; c.drawImage(img, r() * W - nw * .3, H * (.4 + r() * .1) - nh * .7); }
   c.globalAlpha = 1;
-  // montagnes : de la plus lointaine (dans la brume) à la plus proche
+  // le relief : montagnes, collines, lac (calculé à la résolution de l'écran, au plus 1280 px de large)
   const brume = vMix(hor, milieu, .35), lumS = vMix(hor, BLANC, .35);
-  chaineReelle(c, r, { base: H * .6, amp: 230, rough: .56, col: vMix(vMix(milieu, bas, .35), brume, .45), lum: lumS, omb: vMix(bas, milieu, .3), brume, brumeA: .5, neige: H * .6 - 130, ravines: 50, pics: [[.62, 150, .05], [.84, 110, .04], [.3, 90, .05]] });
-  chaineReelle(c, r, { base: H * .68, amp: 170, rough: .58, col: vMix(bas, brume, .25), lum: vMix(lumS, bas, .25), omb: vMix(bas, [10, 10, 30], .35), brume, brumeA: .55, neige: H * .68 - 120, ravines: 80, pics: [[.72, 110, .035], [.95, 80, .04]] });
-  chaineReelle(c, r, { base: H * .79, amp: 90, rough: .5, col: vMix(vMix(bas, [30, 60, 40], .4), brume, .1), lum: vMix(lumS, [120, 160, 90], .5), omb: vMix(bas, [5, 10, 15], .5), brume, brumeA: .35, foret: { dens: .9, prof: 30, h: 22, col: vMix([18, 46, 34], bas, .3) } });
-  // lac : il reflète le ciel et le soleil
-  const ly = H * .84, eau = vRgb(P.eau);
-  const ge = c.createLinearGradient(0, ly, 0, H); ge.addColorStop(0, vCol(vMix(hor, eau, .45))); ge.addColorStop(.35, vCol(vMix(milieu, eau, .55))); ge.addColorStop(1, vCol(vMix(haut, eau, .6)));
-  c.fillStyle = ge; c.fillRect(0, ly, W, H - ly);
-  const rs = c.createLinearGradient(0, ly, 0, H); rs.addColorStop(0, 'rgba(255,250,225,.85)'); rs.addColorStop(1, 'rgba(255,250,225,0)');
-  c.fillStyle = rs; c.beginPath(); c.moveTo(sx - 22, ly); c.lineTo(sx + 22, ly); c.lineTo(sx + 90, H); c.lineTo(sx - 90, H); c.closePath(); c.fill();
-  for (let i = 0; i < 160; i++) { const y = ly + Math.pow(r(), 1.6) * (H - ly), x = r() * W, L = 6 + (y - ly) * .5 * r(); c.fillStyle = Math.abs(x - sx) < 120 ? 'rgba(255,245,210,.5)' : vCol(vMix(BLANC, hor, .4), .18); c.fillRect(x, y, L, 1); }
-  const bord = c.createLinearGradient(0, ly - 3, 0, ly + 6); bord.addColorStop(0, vCol(brume, .7)); bord.addColorStop(1, vCol(brume, 0)); c.fillStyle = bord; c.fillRect(0, ly - 3, W, 9);
+  const TW = Math.min(1280, Math.ceil(w * .8)), TH = Math.ceil(TW * H / W);
+  c.imageSmoothingQuality = 'high'; c.drawImage(rendreTerrain(P, TW, TH), 0, 0, W, H);
   // rives au premier plan, avec quelques sapins sombres
   const rive = (x0, x1, yb, amp) => {
     c.fillStyle = vCol(vMix(bas, [10, 20, 16], .55)); c.beginPath(); c.moveTo(x0, H + 5);
@@ -300,7 +299,7 @@ function fondScene(def, k) {
     c.lineTo(x1, H + 5); c.closePath(); c.fill();
     for (let x = x0 + 10; x < x1 - 10; x += 9 + r() * 14) sapin(c, x, yb - amp * Math.sin((x - x0) / (x1 - x0) * Math.PI) + 4, 30 + r() * 36, vMix([10, 26, 20], bas, .2), vMix(lumS, [90, 130, 70], .5));
   };
-  rive(W * .52, W * .74, H * .97, 46); rive(W * .9, W + 40, H * .95, 70);
+  rive(W * .9, W + 40, H * .97, 60);
   SCENE2.fond = cv2; SCENE2.fondCle = cle; return cv2;
 }
 function spriteRayons() {
