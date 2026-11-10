@@ -546,3 +546,11 @@ html, body { overscroll-behavior: none; }
 .mt-ico { font-size: 24px; text-align: center; } .mt-nom { display: flex; flex-direction: column; } .mt-nom small { color: #9a94ad; }
 .mt-niv { font-weight: 800; color: hsl(calc(40 + var(--n) * 25), 80%, 70%); }
 .mt-barre { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; } .mt-barre i { display: block; height: 100%; background: linear-gradient(90deg, #e9b44c, #ffe9a0); }
+/* ---------- classement mondial ---------- */
+.panneau.mondial { max-width: 760px; }
+.mo-sous { color: #ffe7a6 !important; }
+.mo-liste { list-style: none; margin: 8px 0; padding: 0; max-height: 52vh; overflow-y: auto; }
+.mo-liste li { display: grid; grid-template-columns: 54px 1fr auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; margin: 3px 0; background: rgba(255,255,255,.04); font-size: 17px; }
+.mo-liste li.moi { background: rgba(255,216,107,.16); border: 1px solid rgba(255,216,107,.55); }
+.mo-n { font-weight: 800; text-align: center; color: #e6d6ad; } .mo-s { font-weight: 800; color: #fff; }
+.mo-moi { text-align: center; font-size: 17px; color: #ffe7a6; }
