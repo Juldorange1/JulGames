@@ -510,3 +510,9 @@ html, body { overscroll-behavior: none; }
 .accueil { margin-left: max(24px, 4vw) !important; }
 .apercu-mode { right: 2vw; width: min(470px, 35vw); }
 .accueil .diff-t { overflow: visible; }
+/* le rappel « clique encore » reste petit et immobile ; tuiles plus au centre */
+.apercu-mode .am-go { animation: none !important; transform: none !important; font-size: 13px; font-weight: 600; color: #d9cfb8; opacity: .85; margin-top: 8px; }
+.accueil .lancer { animation: none !important; }
+.accueil { margin-left: max(24px, 11vw) !important; }
+.apercu-mode { right: 1.5vw; width: min(440px, 31vw); }
+.d-affront { --fc: #ff7a5c; }

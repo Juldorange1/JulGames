@@ -479,12 +479,12 @@ const G = {
     // cristaux : Apprenti ×0,5, Guerrier ×1, Cauchemar ×2 (les demis s'accumulent)
     const F = forgeSave(), mult = { apprenti: .5, guerrier: 1, cauchemar: 2 }[d.diff] || 1;
     // défi du jour : les boss ne paient qu'une fois dans la journée, même si on le rejoue
-    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = this.mode !== 'chasse' && (!rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= Math.min(6, this.defi.boss.length)); // la Chasse paie par ses paliers
+    const rj = this.mode === 'jour' ? d.defis.jour : null, paye = this.mode !== 'chasse' && this.mode !== 'affront' && (!rj || (rj.gainsBoss = (rj.gainsBoss || 0) + 1) <= Math.min(6, this.defi.boss.length)); // la Chasse paie par ses paliers
     if (paye) F.frac = (F.frac || 0) + (this.def.mega ? 3 : 1) * (this.mode === 'normal' ? mult : 1);
     const ecl = Math.floor(F.frac + 1e-9); F.frac -= ecl; const gk = ecl ? gagnerEclats(ecl) : 0; if (!ecl) Save.write();
     this.gainCristaux = gk ? { n: gk, demi: false, t: 0, x: b.x, y: b.y } : null;
     if (this.def.legendaire) { gains.push(donnerLegendaire()); gagnerEclats(5); (d.legendaires = d.legendaires || {})[this.def.esp] = 1; succes('legende'); }
-    else if (this.def.mega) { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
+    else if (this.def.mega && this.mode !== 'affront') { const g = gagnerEclats(2); if (g) gains.push(txtCristaux(g)); } // les fragments d'apparence s'achètent seulement
     gains.forEach((g, i) => setTimeout(() => this.texte(this.p.x, this.p.y - 60 - i * 20, g, '#ffd86b', 15), 700 + i * 350));
     if (this.mode === 'chasse' && this.defi.parfait) noterChasse(this.def.esp, scoreChasse(this.defi.parfait, this.chrono));
     statPlus('tuesArme', this.ars.p); statPlus('tempsVictoires', undefined, this.chrono);

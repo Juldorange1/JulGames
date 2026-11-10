@@ -793,6 +793,7 @@ function dessinerHUD(c) {
       else if (df.format === 'unCoup') info += ' · boss ' + (df.i + 1);
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'survie') info += (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
+      else if (df.format === 'affront') info += '';
       else if (df.format === 'chasse') info += ' · parfait ' + fmtPrecis(df.parfait || 0);
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });

@@ -72,7 +72,7 @@ G.terminerDefi = function (reussi) {
   if (df.format === 'danse') n += Math.floor((res.temps || 0) / 90);
   if (reussi && df.type === 'jour') n += 1; // en plus des 2 déjà donnés
   if (reussi && df.type === 'semaine') n += 6;
-  if (res.record && df.type !== 'chasse') n += 2;
+  if (res.record && df.type !== 'chasse' && df.type !== 'affront') n += 2; // l'Affrontement paie selon le classement (affront.js)
   if (df.format === 'abysses' || df.format === 'unCoup') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 4); // seule la profondeur vraiment gagnée paie
   // défi du jour : rejouer ne rapporte que ce qui dépasse ce qui a déjà été gagné aujourd'hui
   if (df.type === 'jour') { const rj = Save.d.defis.jour, tot = n; n = Math.max(0, tot - (rj.payeN || 0)); rj.payeN = Math.max(rj.payeN || 0, tot); }

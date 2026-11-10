@@ -185,11 +185,12 @@ dessinerJoueur = function (c) {
       c.textAlign = 'center'; texteOmbre(c, nom, q.x, q.y - 40, col, `800 12px ${POLICE}`, 3);
       c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(q.x - 21, q.y - 34, 42, 6); c.fillStyle = '#46e39b'; c.fillRect(q.x - 20, q.y - 33, 40 * Math.max(0, q.hp / q.hpMax), 4);
     } else {
-      c.save(); c.globalAlpha = .7; c.textAlign = 'center'; texteOmbre(c, nom + ' à terre', q.x, q.y - 12, '#ff9aa8', `800 12px ${POLICE}`, 3); c.restore();
+      c.save(); c.globalAlpha = .7; c.textAlign = 'center'; texteOmbre(c, q.resp !== undefined ? nom + ' · ' + Math.ceil(q.resp) + ' s' : nom + ' à terre', q.x, q.y - 12, '#ff9aa8', `800 12px ${POLICE}`, 3); c.restore();
+      if (q.resp !== undefined) return; // en Affrontement on revient tout seul
       c.strokeStyle = 'rgba(125,255,176,.35)'; c.lineWidth = 2; c.beginPath(); c.arc(q.x, q.y, 60, 0, TAU); c.stroke();
       if (q.rev > 0) { c.strokeStyle = '#7dffb0'; c.lineWidth = 5; c.beginPath(); c.arc(q.x, q.y, 24, -Math.PI / 2, -Math.PI / 2 + TAU * q.rev / 2.5); c.stroke(); }
     }
   };
-  for (const j of Coop.equipiers()) { if (j.p.hp > 0 && !j.p.ko) { Coop.enJoueur(j, () => _joueurCoop(c)); const w = j.ars && trouveArme('p', j.ars.p); if (w) icoDessin(c, w.ico, j.p.x + 24, j.p.y - 40, 16); } barre(j.p, 'J' + j.n, j.col); }
-  if (Coop.hote) barre(Coop.hote, 'J1', '#8ad8ff');
+  for (const j of Coop.equipiers()) { if (j.p.hp > 0 && !j.p.ko) { Coop.enJoueur(j, () => _joueurCoop(c)); const w = j.ars && trouveArme('p', j.ars.p); if (w) icoDessin(c, w.ico, j.p.x + 24, j.p.y - 40, 16); } barre(j.p, j.nomAff || 'J' + j.n, j.col); }
+  if (Coop.hote) barre(Coop.hote, G.mode === 'affront' ? (Save.d.pseudo || 'Toi') : 'J1', '#8ad8ff');
 };
