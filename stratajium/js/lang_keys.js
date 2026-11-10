@@ -1227,4 +1227,11 @@ I18N.KEYS = [
   // cases des hauts Cercles, annonces (2026-11-02)
   "nouvelle case spéciale : {x}",
   "2 cases spéciales des hauts Cercles par combat",
+  // le bot n’a jamais d’avantage (2026-11-05)
+  "Il faut tuer {n} de tes gardes pour te battre (au lieu de 4)",
+  "Le bot joue toujours au mieux. Quand tu as tout débloqué (100 %), tu montes au Cercle suivant : tout recommence, avec un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage : c’est toi qui en as.",
+  "Quand tout est débloqué (100 %), tu montes au Cercle suivant : ta réserve repart du début, et tu as un peu moins d’aide, jusqu’au Cercle 10. Le bot n’a jamais aucun avantage.",
+  "Précisions : celui qui commence est tiré au sort, l’autre recrute un perso de plus à son premier tour. Les trous de la carte sont infranchissables ; un perso poussé dedans meurt. Partie trop longue (200 coups, ou 150 sans aucune mort) : le plus de persos vivants gagne, puis le plus de mana, sinon toi.",
+  "Partie trop longue, égalité parfaite : tu gagnes.",
+  "7 gardes tués.",
 ];
