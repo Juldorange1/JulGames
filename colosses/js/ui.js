@@ -118,7 +118,7 @@ const UI = {
   pause() {
     if (G.etat !== 'pause') G.etatAvantPause = G.etat;
     G.etat = 'pause';
-    Musique.baisser(.3);
+    Musique.baisser(.85); // en pause, la musique reste bien audible
     this.retour = () => this.pause();
     this.montrer(`
       <div class="panneau court pause">

@@ -5,16 +5,31 @@
    • En Chasse, on ne reçoit que des armes techniques, et le boss se téléporte, fait surgir des obstacles et se met en garde. */
 
 PRIM.push(
-  { id: 'tambour', nom: 'Tambour de guerre', ico: '🥁', manuel: true, desc: 'Un anneau se resserre sur le viseur à chaque temps : clique pile quand il touche le centre (×5). Trop tôt ou trop tard : presque rien.',
+  { id: 'tambour', nom: 'Tambour de guerre', ico: '🥁', manuel: true, desc: 'Frappe en rythme : clique quand l\'anneau touche le centre. Dans le temps : ×4, presque : ×2, et chaque temps réussi d\'affilée ajoute +10 % (jusqu\'à +50 %). Un clic de trop ou à contretemps ne fait rien et casse la série : marteler ne sert à rien.',
+    // un temps toutes les 0,8 s ; un seul clic compte par temps, les autres cassent la série
     tick(w, p, dt, held) {
-      w.ph = ((w.ph || 0) + dt / .8 * ST.pCad) % 1; w.cd = (w.cd || 0) - dt;
-      if (held && !w.avant && w.cd <= 0) {
-        w.cd = PAUSE_MIN;
-        const ecart = Math.min(w.ph, 1 - w.ph) * .8, parfait = ecart < .06, pt = G.arene.clampPt(G.mx, G.my, 0); let touche = false;
-        for (const tg of G.cibles()) if (Math.sqrt(d2(pt.x, pt.y, tg.x, tg.y)) - tg.r < 46) { G.frappe(tg, (parfait ? 150 : 30) * ST.pDmg, { prim: true, x: pt.x, y: pt.y }); touche = true; }
-        G.fx.push({ kind: 'anneau', x: pt.x, y: pt.y, r0: 8, r1: parfait ? 70 : 40, t: 0, dur: .25, col: parfait ? '#ffe14d' : '#c9b6a0' });
-        if (parfait) { G.texte(pt.x, pt.y - 30, 'PARFAIT', '#ffe14d', 17); G.secoue(3); Son.play('choc'); } else Son.play('tir2');
-        if (!touche && typeof Precision !== 'undefined') Precision.rate();
+      const per = .8 / ST.pCad;
+      w.n = w.n || 0; w.ph = (w.ph || 0) + dt / per;
+      if (w.ph >= 1) { w.ph -= 1; w.n++; w.vu = false; }
+      // le temps qui vient de passer sans clic : la série est perdue
+      if (w.ph >= .5 && !w.vu) { w.vu = true; if (w.pris !== w.n && w.serie) { w.serie = 0; } }
+      if (held && !w.avant) {
+        const ecart = Math.min(w.ph, 1 - w.ph) * per, temps = w.n + (w.ph >= .5 ? 1 : 0), pt = G.arene.clampPt(G.mx, G.my, 0);
+        let note = ecart < .1 ? 2 : ecart < .2 ? 1 : 0;
+        if (w.pris === temps) note = -1; // deuxième clic sur le même temps
+        if (note > 0) {
+          w.pris = temps; const k = 1 + .1 * Math.min(5, w.serie || 0); w.serie = Math.min(5, (w.serie || 0) + 1);
+          let touche = false;
+          for (const tg of G.cibles()) if (Math.sqrt(d2(pt.x, pt.y, tg.x, tg.y)) - tg.r < 46) { G.frappe(tg, (note === 2 ? 110 : 55) * k * ST.pDmg, { prim: true, x: pt.x, y: pt.y }); touche = true; }
+          G.fx.push({ kind: 'anneau', x: pt.x, y: pt.y, r0: 8, r1: note === 2 ? 72 : 48, t: 0, dur: .25, col: note === 2 ? '#ffe14d' : '#9fe4ff' });
+          G.texte(pt.x, pt.y - 30, (note === 2 ? 'PARFAIT' : 'BIEN') + (w.serie > 1 ? ' ×' + (1 + .1 * w.serie).toFixed(1).replace('.', ',') : ''), note === 2 ? '#ffe14d' : '#9fe4ff', 16);
+          if (note === 2) { G.secoue(2); Son.play('choc'); } else Son.play('tir2');
+          if (!touche && typeof Precision !== 'undefined') Precision.rate();
+        } else {
+          if (note === 0) w.pris = temps;
+          w.serie = 0; G.texte(pt.x, pt.y - 26, note < 0 ? 'trop de clics' : 'contretemps', '#ff9aa8', 13);
+          if (typeof Precision !== 'undefined') Precision.rate();
+        }
       }
       w.avant = held;
     } },
@@ -47,7 +62,6 @@ Object.assign(FAMILLE, { tambour: 'magie', portee: 'trait', dosLame: 'lame' });
 if (typeof ICO_CLE !== 'undefined') Object.assign(ICO_CLE, { 'p:tambour': 'speaker', 'p:portee': 'thrown-spear', 'p:dosLame': 'backstab' });
 for (const id of ['tambour', 'portee', 'dosLame']) { const a = trouveArme('p', id); if (a) a.ico = '⟦p:' + id + '⟧'; }
 // dégâts par seconde d'un jeu parfait, précision au maximum
-Object.assign(CHASSE_T.p, { tambour: 244, portee: 265, dosLame: 260 });
 // spéciales que le robot ne savait pas utiliser : leur vraie part de dégâts
 Object.assign(CHASSE_T.s, { lames: 45, supernova: 45, lumiereSacree: 11 });
 if (typeof ARMES_COMPLEXES !== 'undefined') for (const id of ['tambour', 'portee', 'dosLame']) ARMES_COMPLEXES.add('p:' + id);
@@ -59,9 +73,12 @@ dessinerAllies = function (c) {
     const p = G.p, id = G.ars && G.ars.p; if (!p || p.hp <= 0) return;
     c.save();
     if (id === 'tambour') {
-      const ph = (p.prim.ph || 0), k = 1 - ph, juste = Math.min(ph, 1 - ph) * .8 < .06;
-      c.strokeStyle = juste ? '#ffe14d' : 'rgba(230,220,200,.8)'; c.lineWidth = juste ? 4 : 2; c.beginPath(); c.arc(G.mx, G.my, 16 + 70 * k, 0, TAU); c.stroke();
-      c.strokeStyle = 'rgba(255,225,77,.7)'; c.lineWidth = 2; c.beginPath(); c.arc(G.mx, G.my, 16, 0, TAU); c.stroke();
+      // l'anneau se resserre jusqu'au centre à chaque temps ; il devient bleu puis doré quand c'est le moment
+      const w = p.prim, per = .8 / ST.pCad, ph = w.ph || 0, ec = Math.min(ph, 1 - ph) * per, k = 1 - ph, note = ec < .1 ? 2 : ec < .2 ? 1 : 0;
+      c.strokeStyle = 'rgba(255,225,77,.25)'; c.lineWidth = 10; c.beginPath(); c.arc(G.mx, G.my, 22, 0, TAU); c.stroke();
+      c.strokeStyle = note === 2 ? '#ffe14d' : note === 1 ? '#9fe4ff' : 'rgba(230,220,200,.75)'; c.lineWidth = note ? 4 : 2; c.beginPath(); c.arc(G.mx, G.my, 18 + 80 * k, 0, TAU); c.stroke();
+      c.strokeStyle = 'rgba(255,225,77,.85)'; c.lineWidth = 2; c.beginPath(); c.arc(G.mx, G.my, 18, 0, TAU); c.stroke();
+      if (w.serie > 0) { c.fillStyle = '#ffe14d'; for (let i = 0; i < w.serie; i++) { c.beginPath(); c.arc(G.mx - 20 + i * 10, G.my + 34, 3, 0, TAU); c.fill(); } }
     } else if (id === 'portee' && G.boss) {
       const d = Math.sqrt(d2(p.x, p.y, G.boss.x, G.boss.y)) - G.boss.r, juste = Math.abs(d - PORTEE_LANCE) < 22;
       c.strokeStyle = juste ? 'rgba(125,255,176,.9)' : 'rgba(230,220,200,.35)'; c.lineWidth = juste ? 3 : 1.5; c.setLineDash([10, 8]); c.beginPath(); c.arc(p.x, p.y, PORTEE_LANCE, 0, TAU); c.stroke(); c.setLineDash([]);

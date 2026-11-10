@@ -237,7 +237,8 @@ const MUS = {
 };
 const Musique = {
   pistes: [], courant: null, derniers: [], duck: 1, duckCible: 1,
-  volume() { return Math.min(1, Save.d.opts.musique * Save.d.opts.master * .875); }, // +25 %
+  // +25 % ; et encore +40 % dans les menus, en pause et sur les écrans de fin (la musique n'y couvre aucun bruitage)
+  volume() { const k = typeof G !== 'undefined' && G.etat !== 'combat' && G.etat !== 'interlude' && G.etat !== 'passage' ? 1.4 : 1; return Math.min(1, Save.d.opts.musique * Save.d.opts.master * .875 * k); },
   jouer(fichier, fondu) {
     fondu = fondu || 3;
     if (this.courant && this.courant.src === fichier) { this.courant.cible = 1; this.courant.vitesse = 1 / fondu; return; }

@@ -98,7 +98,7 @@ majCombat = function (dt) {
     }
     // tout le monde est parti : la partie s'arrête (les absents ont perdu)
     const fini = G.chrono >= AFFRONT_DUREE || (Coop.N() < 2 && G.chrono > 1);
-    if (G.etat === 'combat' && !G.finDefi && fini) { G.defi.temps = G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
+    if (G.etat === 'combat' && !G.finDefi && fini) { G.defi.temps = G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.8); }
   } catch (e) { console.warn('affront', e); }
 };
 // fin : classement, points (sauf entre amis), résultats envoyés aux autres joueurs

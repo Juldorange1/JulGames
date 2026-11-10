@@ -470,7 +470,7 @@ const G = {
     this.ralentir(.25, 1.3); this.secoue(22); this.gel = .2; this.flash = .6; Son.play('mortBoss');
     this.lumiere(b.x, b.y, 600, b.col, 1.2); this.marque(b.x, b.y, b.r * 2.2);
     this.etat = 'interlude'; this.interT = 0;
-    Musique.baisser(.55);
+    Musique.baisser(.85);
     this.p.hp = this.p.hpMax; this.texte(this.p.x, this.p.y - 34, 'Vie restaurée', '#46e39b', 18);
     const d = Save.d;
     if (this.mode === 'entrainement') { d.stats.temps += this.chrono; Save.write(); return; }
@@ -599,7 +599,7 @@ const G = {
       const e = d.essais = d.essais || {}; const k = Save.d.diff + ':' + this.salle; e[k] = (e[k] || 0) + 1;
     } else if (this.mode !== 'entrainement') { this.defi.temps += this.chrono; this.terminerDefi(defiTenu(this.defi)); }
     Save.write();
-    Musique.baisser(.25);
+    Musique.baisser(.8);
   },
   recommencer() {
     if (this.mode === 'normal' || this.mode === 'entrainement') { this.p = creerJoueur(DF().pv); this.entrerSalle(); }
@@ -1141,7 +1141,7 @@ function majCombat(dt) {
       const po = G.portail; po.t += dt;
       if (po.t > .6 && d2(p.x, p.y, po.x, po.y) < 44 * 44) G.traverserPortail();
     }
-    if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
+    if (G.finDefi && G.interT > 2.8) { G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.8); }
   } else G.butinPose = false;
   // effets
   for (const f of G.fx) f.t += dt;
@@ -1167,7 +1167,7 @@ function majCombat(dt) {
   const fmt = G.format();
   if (fmt && enCombat && G.boss && G.boss.intro <= 0) {
     const F = FORMATS[fmt];
-    if (F.duree && G.chrono >= F.duree) { G.defi.temps += G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.3); }
+    if (F.duree && G.chrono >= F.duree) { G.defi.temps += G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.8); }
     if (fmt === 'survie') { G.survieT = (G.survieT || 0) + dt; if (G.survieT > 15) { G.survieT = 0; G.def.D.S = Math.min(2, G.def.D.S * 1.07); G.def.idle *= .92; G.annonce('Le boss accélère !', '#ff8a5c', 1.2); } }
     if (fmt === 'arsenal') { G.arsT = (G.arsT || 0) + dt; if (G.arsT > 15) { G.arsT = 0; G.ars = { p: tirerArme('p', G.ars.p, G.def), s: tirerArme('s', G.ars.s, G.def), t: tirerArme('t', G.ars.t, G.def) }; p.prim = { cd: 0 }; G.toast = { t: 0, dur: 2.5, nouveaux: [false, false, false] }; Son.play('pouvoir'); calcStats(); } }
     if (fmt === 'etau') Arene.insetMax = 230;
