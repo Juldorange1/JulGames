@@ -280,8 +280,8 @@ const Musique = {
 // ---------- Sauvegarde ----------
 const SAVE_KEY = 'colosses_v1';
 const DIFFS = {
-  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 100, dmg: .37, hp: 1, vit: .9, tele: 1.2, idle: 1.25, dens: .85, soin: 40 }, // plus résistant : plus de vie et des coups qui font moins mal
-  guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: 1.05, tele: .95, idle: .85, dens: 1.1, soin: 25 },
+  apprenti: { nom: 'Apprenti', ico: '🛡', desc: 'Pour apprendre les boss sans trop souffrir.', pv: 100, dmg: .37, hp: 1, vit: .78, tele: 1.45, idle: 1.4, dens: .72, soin: 40 }, // plus résistant : plus de vie et des coups qui font moins mal
+  guerrier: { nom: 'Guerrier', ico: '⚔', desc: 'Le vrai combat : rapide, dense, impitoyable.', pv: 100, dmg: 1.1, hp: 1, vit: .96, tele: 1.08, idle: .95, dens: 1, soin: 25 },
   cauchemar: { nom: 'Cauchemar', ico: '☠', desc: 'Trois ou quatre coups et c\'est fini. Pour qui connaît les boss par cœur.', pv: 100, dmg: 1.45, hp: 1, vit: 1.18, tele: .82, idle: .66, dens: 1.2, soin: 15, cran: 1 }
 };
 const VIE_CLASSIQUE = .75; // parties classiques (Apprenti, Guerrier, Cauchemar) : boss 25 % plus rapides à tuer

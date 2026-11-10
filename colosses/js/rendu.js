@@ -924,7 +924,7 @@ function dessinerEcranMort(c) {
     c.font = `12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(sous, x, 378);
   };
   carte(W / 2 - 280, 'Durée', fmtTemps(r.temps), 'combat parfait : 1 à 2 min');
-  carte(W / 2, 'Tes dégâts', Math.round(r.dps) + ' /s', r.pct > 0 && r.dps > 0 ? 'encore ' + fmtTemps((1 - r.pct) * r.def.hpMax / r.dps) + ' à ce rythme' : '—');
+  carte(W / 2, 'Tes dégâts', Math.round(r.dps) + ' /s', G.effFin !== null && G.effFin !== undefined ? 'efficacité ' + G.effFin + ' % (100 % = parfait)' : '—');
   carte(W / 2 + 280, 'Essai', '#' + r.essai, r.essai > 1 ? 'tu progresses à chaque essai' : 'premier essai');
   // ce qui t'a fait le plus mal
   if (r.coups.length) {

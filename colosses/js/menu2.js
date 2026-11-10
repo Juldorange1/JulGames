@@ -94,6 +94,7 @@ function texteSel(k) {
     const c = chasseCourante(); titre = '🎯 ' + T2('Chasse'); regles.push(FORMATS.chasse.obj, T2('Le boss se téléporte, fait surgir des obstacles et se met en garde.'));
     if (c.bestP) rec = '🏆 ' + T2('Ton meilleur') + ' : ' + fmtPct(c.bestP);
   }
+  try { const md = k.startsWith('diff:') ? 'normal' : k === 'defi:jour' ? 'jour' : k, av = typeof areneVivanteDe === 'function' ? areneVivanteDe(def, md) : null; if (av) regles.push('<b>' + AV_TYPES[av].ico + ' ' + T2('Arène vivante') + ' : ' + T2(AV_TYPES[av].nom) + '</b> — ' + T2(AV_TYPES[av].desc)); } catch (e) { }
   return `<div class="am-mode">${titre}</div>
     <div class="am-boss" style="--h:${def.hue}"><b>${def.nom}</b><span>${def.titre}${def.mega ? ' — ' + T2('méga boss') : ''} · ${T2('salle')} ${D.salle}</span></div>
     <div class="am-regles">${regles.filter(Boolean).map(t => t.startsWith('<p') ? t : '<p>' + t + '</p>').join('')}</div>
@@ -397,7 +398,7 @@ fondMenu = function () {
   ctx.restore();
   for (const o of iles) if (o.z >= 0) ile(o);
   // étincelles dorées et pétales qui montent
-  if (S.parts.length < 80) S.parts.push({ x: W * .42 + Math.random() * W * .6, y: H + 10, v: 25 + Math.random() * 55, r: 1 + Math.random() * 2.2, p: Math.random() * 6, pet: Math.random() < .35, col: ['#ffe58a', '#ffc4dc', '#fff6d8', hsl(h, 100, 78)][Math.random() * 4 | 0] });
+  if (S.parts.length < 80) S.parts.push({ x: W * .42 + Math.random() * W * .6, y: H + 10, v: 25 + Math.random() * 55, r: 1 + Math.random() * 2.2, p: Math.random() * 6, pet: false, col: ['#ffe58a', '#ffc4dc', '#fff6d8', hsl(h, 100, 78)][Math.random() * 4 | 0] });
   ctx.globalCompositeOperation = 'lighter';
   for (const q of S.parts) {
     q.y -= q.v / 60; q.x += Math.sin(t * 1.2 + q.p) * .6; const a = Math.min(1, (q.y / H) * 1.6) * .85; ctx.globalAlpha = a;

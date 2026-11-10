@@ -5,10 +5,12 @@
 
 const MAITRISE_PALIERS = [3, 8, 15, 30, 50, 80, 120, 180, 270, 400]; // minutes de combat cumulées
 const MAITRISE_NOMS = ['Novice', 'Initié', 'Habitué', 'Adroit', 'Expert', 'Vétéran', 'Maître', 'Grand maître', 'Légende', 'Mythe'];
-function maitriseSave() { return Save.d.maitriseArmes = Save.d.maitriseArmes || { t: {}, vus: {} }; } // (Save.d.maitrise sert déjà aux hauts faits)
+function maitriseArmesSave() { return Save.d.maitriseArmes = Save.d.maitriseArmes || { t: {}, vus: {} }; } // (Save.d.maitrise sert déjà aux défis des colosses)
+// réparation : la version précédente rangeait par erreur les défis des colosses ici ; on les remet à leur place
+try { const A = Save.d.maitriseArmes; if (A) for (const k of Object.keys(A)) if (!['t', 'vus', 'nouveaux'].includes(k)) { const M = Save.d.maitrise = Save.d.maitrise || {}; M[k] = Object.assign(M[k] || {}, A[k]); delete A[k]; } } catch (e) { }
 function niveauMaitrise(sec) { const m = (sec || 0) / 60; let n = 0; while (n < MAITRISE_PALIERS.length && m >= MAITRISE_PALIERS[n]) n++; return n; }
 function infoMaitrise(cle) {
-  const sec = maitriseSave().t[cle] || 0, n = niveauMaitrise(sec), lo = n ? MAITRISE_PALIERS[n - 1] * 60 : 0, hi = n < MAITRISE_PALIERS.length ? MAITRISE_PALIERS[n] * 60 : null;
+  const sec = maitriseArmesSave().t[cle] || 0, n = niveauMaitrise(sec), lo = n ? MAITRISE_PALIERS[n - 1] * 60 : 0, hi = n < MAITRISE_PALIERS.length ? MAITRISE_PALIERS[n] * 60 : null;
   return { sec, n, nom: n ? T2(MAITRISE_NOMS[n - 1]) : '—', k: hi ? (sec - lo) / (hi - lo) : 1, reste: hi ? hi - sec : 0 };
 }
 // le temps de combat s'ajoute aux trois armes équipées (seulement quand on joue vraiment : en combat, vivant)
@@ -19,7 +21,7 @@ majCombat = function (dt) {
   _majMaitrise.apply(this, arguments);
   try {
     if (G.etat !== 'combat' || !G.p || G.p.hp <= 0 || !G.ars || !G.boss || G.boss.intro > 0) return;
-    const d = Math.min(.1, Math.max(0, G.t - t0)), M = maitriseSave();
+    const d = Math.min(.1, Math.max(0, G.t - t0)), M = maitriseArmesSave();
     for (const c of ['p', 's', 't']) {
       if (G.format && G.format() === 'danse' && c !== 't') continue; // sans arme en Danse
       const k = c + ':' + G.ars[c], n0 = niveauMaitrise(M.t[k]); M.t[k] = (M.t[k] || 0) + d;
@@ -33,7 +35,7 @@ const _menuMaitrise = UI.menu;
 UI.menu = function () {
   const r = _menuMaitrise.apply(this, arguments);
   try {
-    const M = maitriseSave();
+    const M = maitriseArmesSave();
     if (M.nouveaux && M.nouveaux.length) {
       const l = M.nouveaux; M.nouveaux = [];
       let n = 0; for (const x of l) n += x.n >= 7 ? 3 : x.n >= 4 ? 2 : 1;

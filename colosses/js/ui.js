@@ -81,7 +81,7 @@ const UI = {
     Musique.jouer(MUS.menu);
     const pills = Object.entries(DIFFS).map(([k, v], i) => {
       const q = d.prog[k] || {}, sal = q.run ? q.run.salle : (q.palier || 0) * 5 + 1, rep = (d.reprises || {})['normal:' + k];
-      return `<button class="diff-t d-${k} ${k === d.diff ? 'actif' : ''}" data-a="jouerDiff" data-d="${k}" data-n="${i + 1}" ${k === d.diff ? 'data-def' : ''} title="${v.desc}"><span class="di">${v.ico}</span><b>${v.nom}</b><small>Salle ${sal}${sal % 5 === 0 ? ' · méga boss' : ''}${rep ? ' · reprendre' : ''}</small></button>`;
+      return `<button class="diff-t d-${k} ${k === d.diff ? 'actif' : ''}" data-a="jouerDiff" data-d="${k}" data-n="${i + 1}" ${k === d.diff ? 'data-def' : ''} title="${v.desc}"><span class="di">${v.ico}</span><b>${v.nom}</b><small>${((d.stats || {}).victDiff || {})[k] || 0} ${(((d.stats || {}).victDiff || {})[k] || 0) > 1 ? 'boss vaincus' : 'boss vaincu'}${rep ? ' · reprendre' : ''}</small></button>`;
     }).join('');
     const defi = type => {
       const x = defiCourant(type), F = FORMATS[x.format], rec = d.defis[type], bon = rec && rec.cle === x.cle && rec.format === x.format && rec.best && rec.best.score !== undefined ? rec.best : null;

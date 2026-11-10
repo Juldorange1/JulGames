@@ -554,3 +554,13 @@ html, body { overscroll-behavior: none; }
 .mo-liste li.moi { background: rgba(255,216,107,.16); border: 1px solid rgba(255,216,107,.55); }
 .mo-n { font-weight: 800; text-align: center; color: #e6d6ad; } .mo-s { font-weight: 800; color: #fff; }
 .mo-moi { text-align: center; font-size: 17px; color: #ffe7a6; }
+/* survol sans déplacement : un bouton qui bougeait sous le curseur clignotait quand on était pile sur son bord */
+.accueil .diff-t:hover, .accueil .defi2:hover, .accueil .tuile:hover { transform: none !important; filter: brightness(1.15); }
+/* ---------- salle des trophées ---------- */
+.panneau.musee-p { max-width: 1240px; }
+.musee { display: block; width: 100%; height: min(58vh, 560px); border-radius: 10px; border: 1px solid rgba(201,168,101,.35); cursor: grab; touch-action: none; background: #120c16; }
+.musee:active { cursor: grabbing; }
+.musee-nav { margin-bottom: 10px; }
+.musee-detail { min-height: 70px; margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: rgba(255,255,255,.05); }
+.musee-detail b { font: 800 19px Cinzel, Georgia, serif; color: #ffe7a6; } .musee-detail small { color: #9a94ad; margin-left: 8px; }
+.musee-detail p { margin: 6px 0; }

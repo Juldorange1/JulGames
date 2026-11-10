@@ -264,10 +264,11 @@ const G = {
     p.hp = Math.ceil(p.hp); const perdu = Math.min(dmg, p.hp);
     p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
     if (this.coupsSrc) this.coupsSrc[src || 'contact'] = (this.coupsSrc[src || 'contact'] || 0) + dmg;
+    if (this.journalCoups && (typeof Coop === 'undefined' || !Coop.hote || p === Coop.hote)) this.journalCoups.push({ t: this.chrono, src: src || 'contact', dmg, hp: Math.max(0, Math.ceil(p.hp - dmg)) });
     if (this.boss && this.boss.main && src === this.boss.main.id && !this.boss.main.touche) { this.boss.main.touche = true; statPlus('atkTouche'); }
     if (this.rel('epines') && this.boss && !this.boss.mort) this.frappe(this.boss, 200, { x: this.boss.x, y: this.boss.y });
     this.secoue(12); this.gel = .07; this.flash = Math.max(this.flash, .15); Son.play('blesse');
-    this.texte(p.x, p.y - 24, '-' + perdu, '#ff5a6e', 19);
+    this.texte(p.x, p.y - 24, '-' + dmg, '#ff5a6e', 19); // les dégâts du coup, même s'il reste moins de vie
     for (let i = 0; i < 10; i++) { const a = R() * TAU, s = R.range(60, 240); this.parts.push({ x: p.x, y: p.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .4, max: .4, col: '#ff4d6a', r: 2, trait: true, add: true }); }
     if (p.hp <= 0) { p.hp = 0; this.tueur = src; this.mortJoueur(); }
     return true;
@@ -437,7 +438,7 @@ const G = {
     this.dmgE = clamp(20 + .45 * this.salle, 20, 34) * (this.mega ? 1.12 : 1) * DF().dmg * ((ESPECES[this.def.esp] || {}).degats || 1);
     if (this.format() === 'survie' && this.defi && this.defi.ajust) this.dmgE *= Math.pow(this.defi.ajust, .6); // Survie : coups ajustés aux armes
     if (this.format() === 'abysses' && this.defi) this.dmgE *= 1 + .9 * Math.pow(this.defi.i / 10, 2); // profondeur 10 : ×1,9 (2 coups suffisent), et ça continue // Abysses : les coups font de plus en plus mal
-    this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.degatsCombat = 0;
+    this.etat = 'combat'; this.chrono = 0; this.coupsPris = 0; this.fondu = 1; this.ecranMort = false; this.coupsSrc = {}; this.journalCoups = []; this.degatsCombat = 0;
     this.toast = { t: 0, dur: 3.4, nouveaux };
     const cx = d.codex;
     cx.arm['p:' + this.ars.p] = 1; cx.arm['s:' + this.ars.s] = 1; cx.arm['t:' + this.ars.t] = 1;

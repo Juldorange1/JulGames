@@ -72,7 +72,14 @@ G.terminerDefi = function (reussi) {
   if (df.format === 'danse') n += Math.floor((res.temps || 0) / 90);
   if (reussi && df.type === 'jour') n += 1; // en plus des 2 déjà donnés
   if (reussi && df.type === 'semaine') n += 6;
-  if (res.record && df.type !== 'chasse' && df.type !== 'affront') n += 2; // l'Affrontement paie selon le classement (affront.js)
+  // pas besoin de battre son record : une bonne partie (au moins 80 % du record) rapporte aussi, et une vraie partie au moins 1 cristal
+  if (df.type !== 'chasse' && df.type !== 'affront') {
+    const F0 = FORMATS[df.format] || {}, an = res.ancien && res.ancien.score !== undefined ? res.ancien.score : null;
+    if (res.record) n += 1;
+    if (res.score !== null && an !== null && !res.record && (F0.sens > 0 ? res.score >= .8 * an : res.score <= 1.25 * an)) n += 1;
+    const CJ = Save.d.cristauxJour && Save.d.cristauxJour.cle === cleJour() ? Save.d.cristauxJour : (Save.d.cristauxJour = { cle: cleJour(), n: 0 });
+    if (n === 0 && (res.temps || 0) >= 45 && CJ.n < 8) { n = 1; CJ.n++; }
+  }
   if (df.format === 'abysses' || df.format === 'unCoup') n += Math.floor(Math.max(0, (res.tues || 0) - (df.depart || 0)) / 4); // seule la profondeur vraiment gagnée paie
   // défi du jour : rejouer ne rapporte que ce qui dépasse ce qui a déjà été gagné aujourd'hui
   if (df.type === 'jour') { const rj = Save.d.defis.jour, tot = n; n = Math.max(0, tot - (rj.payeN || 0)); rj.payeN = Math.max(rj.payeN || 0, tot); }

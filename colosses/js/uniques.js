@@ -70,27 +70,29 @@ dessinerHUD = function (c) {
 // ---------- attaque finale ----------
 function scriptFinale(b) {
   const r = RNG(Math.floor(Math.random() * 2e9)), s = []; // tiré au sort à chaque fois, jamais deux fois pareil
+  // plus dur selon la difficulté : plus de figures, des annonces plus courtes, plus de cercles
+  const dk = { apprenti: 0, guerrier: 1, cauchemar: 2 }[Save.d.diff] ?? 1, wm = [1.15, .95, .8][dk], nPluie = 5 + 3 * dk;
   // anneaux qui partent du boss : rentre vers lui dès que l'anneau intérieur a frappé (0,7 s pour 160 px)
-  const anneaux = t0 => { const pas = 160; for (let i = 0; i < 5; i++) s.push([t0 + i * .85, () => couronne(b.x, b.y, i * pas, (i + 1) * pas, 1.1, { dmg: DMG(1.1) })]); return t0 + 4 * .85 + 1.4; };
+  const anneaux = t0 => { const pas = 160; for (let i = 0; i < 5; i++) s.push([t0 + i * .85, () => couronne(b.x, b.y, i * pas, (i + 1) * pas, 1.1 * wm, { dmg: DMG(1.1) })]); return t0 + 4 * .85 + 1.4; };
   const ondes = t0 => { for (let i = 0; i < 2; i++) s.push([t0 + i * .8, () => onde(b.x, b.y, 250, { gaps: [[0, 1]], dmg: DMG(1.1) })]); return t0 + .8 + 1.6; };
   const etoile = t0 => {
     const dec = r() * TAU, n = 6, l = TAU / n;
-    s.push([t0, () => { for (let i = 0; i < n; i += 2) secteur(b.x, b.y, dec + i * l, dec + (i + 1) * l, 1400, 1.05, { dmg: DMG(1.1) }); }]);
-    s.push([t0 + 1.15, () => { for (let i = 1; i < n; i += 2) secteur(b.x, b.y, dec + i * l, dec + (i + 1) * l, 1400, 1.05, { dmg: DMG(1.1) }); }]);
+    s.push([t0, () => { for (let i = 0; i < n; i += 2) secteur(b.x, b.y, dec + i * l, dec + (i + 1) * l, 1400, 1.05 * wm, { dmg: DMG(1.1) }); }]);
+    s.push([t0 + 1.15 * wm, () => { for (let i = 1; i < n; i += 2) secteur(b.x, b.y, dec + i * l, dec + (i + 1) * l, 1400, 1.05 * wm, { dmg: DMG(1.1) }); }]);
     return t0 + 2.6;
   };
   // pluie : des cercles tombent un peu partout par vagues, dont un toujours sous toi
   const pluie = t0 => {
-    for (let v = 0; v < 3; v++) s.push([t0 + v * .7, () => { const p = G.p; if (p) zoneC(p.x, p.y, 55, 1.0, { dmg: DMG(1.1) }); for (let i = 0; i < 5; i++) { const pt = Arene.pointAuHasard(60); zoneC(pt.x, pt.y, 55, 1.0, { dmg: DMG(1.1) }); } }]);
+    for (let v = 0; v < 3; v++) s.push([t0 + v * .7, () => { const p = G.p; if (p) zoneC(p.x, p.y, 55, wm, { dmg: DMG(1.1) }); for (let i = 0; i < nPluie; i++) { const pt = Arene.pointAuHasard(60); zoneC(pt.x, pt.y, 55, wm, { dmg: DMG(1.1) }); } }]);
     return t0 + 2 * .7 + 1.5;
   };
   // croix : quatre rayons depuis le boss, puis quatre autres en diagonale
   const croix = t0 => {
     const dec = r() * TAU;
-    for (let v = 0; v < 2; v++) s.push([t0 + v * 1.3, () => { for (let i = 0; i < 4; i++) rayon(b.x, b.y, dec + v * Math.PI / 4 + i * Math.PI / 2, 1500, 42, 1.0, .45, { dmg: DMG(1.1) }); }]);
+    for (let v = 0; v < 2; v++) s.push([t0 + v * 1.3, () => { for (let i = 0; i < 4; i++) rayon(b.x, b.y, dec + v * Math.PI / 4 + i * Math.PI / 2, 1500, 42, wm, .45, { dmg: DMG(1.1) }); }]);
     return t0 + 1.3 + 1.7;
   };
-  const blocs = r.shuffle([anneaux, ondes, etoile, pluie, croix]).slice(0, 2); // deux des cinq figures, au hasard
+  const blocs = r.shuffle([anneaux, ondes, etoile, pluie, croix]).slice(0, 2 + dk); // 2, 3 ou 4 des cinq figures selon la difficulté
   let t = .9;
   for (const f of blocs) t = f(t);
   s.push([t + .2, 'fin']);
@@ -100,7 +102,7 @@ const _bossMortUniques = G.bossMort;
 G.bossMort = function () {
   const b = this.boss;
   // plus rare : environ un boss sur deux (tiré une seule fois par combat)
-  if (b && !b.finaleFaite && b.finaleTiree === undefined) b.finaleTiree = Math.random() < .5;
+  if (b && !b.finaleFaite && b.finaleTiree === undefined) b.finaleTiree = Math.random() < ({ apprenti: .4, guerrier: .55, cauchemar: .75 }[Save.d.diff] || .5);
   const peut = b && b.finaleTiree && !b.mort && !b.finaleFaite && this.etat === 'combat' && this.mode !== 'entrainement' && this.p && this.p.hp > 0 && !(this.def.invincible || this.def.indestructible);
   if (!peut) return _bossMortUniques.apply(this, arguments);
   b.finaleFaite = true; b.hp = 1; b.trans = 999; b.main = null; b.fond = null; b.wind = 0; b.alpha = 1; b.spectral = 0; b.air = false; b.haut = 0;
