@@ -573,3 +573,24 @@ html, body { overscroll-behavior: none; }
 #revoir video { flex: 1; min-width: 0; max-height: 100%; background: #000; object-fit: contain; }
 #revoir .rv-coups { width: 300px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid rgba(255,255,255,.1); }
 #revoir .rv-coups button { text-align: left; display: flex; gap: 8px; align-items: baseline; } #revoir .rv-coups small { color: #b8b0cc; }
+/* ---------- tutoriel et manette ---------- */
+.tuto-accueil { position: fixed; inset: 0; z-index: 9995; display: flex; align-items: center; justify-content: center; background: rgba(4,2,10,.55); }
+.tuto-accueil .panneau { text-align: center; max-width: 560px; }
+.tuto-accueil p { font-size: 17px; }
+.focus-manette { outline: 3px solid #ffd86b !important; outline-offset: 2px; box-shadow: 0 0 18px rgba(255,216,107,.6) !important; }
+/* ---------- téléphone à l'horizontale (peu de hauteur) : un accueil compact et lisible ---------- */
+@media (max-height: 560px) {
+  .accueil { max-width: 62vw !important; margin-left: 2vw !important; gap: 6px !important; }
+  .accueil .titre { font-size: 30px !important; margin: 0 !important; }
+  .accueil .titre-joueur { display: none; }
+  .accueil .diffs { gap: 6px; } .accueil .diff-t { padding: 6px 4px !important; } .accueil .diff-t .di { font-size: 18px; } .accueil .diff-t b { font-size: 15px !important; } .accueil .diff-t small { font-size: 11px !important; }
+  .accueil .defis2 { grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; }
+  .accueil .defi2 { padding: 6px 8px !important; gap: 6px !important; } .accueil .defi2 .di { font-size: 18px; } .accueil .defi2 .dtx b { font-size: 12px !important; } .accueil .defi2 .dm { font-size: 11px !important; } .accueil .defi2 .dr { font-size: 11px; }
+  .accueil .tuiles { grid-template-columns: repeat(6, 1fr) !important; gap: 5px !important; } .accueil .tuile { padding: 6px 2px !important; font-size: 11px !important; } .accueil .tuile span { font-size: 17px !important; }
+  .accueil .pills, .accueil .quitter-jeu { transform: scale(.85); transform-origin: left center; }
+  .apercu-mode { position: fixed !important; right: 1vw !important; bottom: 2vh !important; width: 34vw !important; padding: 8px 10px !important; font-size: 11px !important; }
+  .apercu-mode .am-boss b { font-size: 17px !important; } .apercu-mode .am-regles p { margin: 2px 0; }
+  .panneau { padding: 12px 14px !important; } .panneau h2 { font-size: 20px !important; }
+  #revoir .rv-coups { width: 200px; } #revoir .rv-haut { padding: 6px 8px; gap: 6px; }
+  .musee { height: 52vh !important; }
+}

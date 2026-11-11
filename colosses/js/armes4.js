@@ -90,10 +90,10 @@ dessinerAllies = function (c) {
 // ---------- la Chasse : armes techniques et boss plus retors ----------
 // armes de la Chasse : seulement celles où un joueur peut viser le temps parfait à armes égales
 // (l'arc était bien trop dur à viser sur un point faible qui bouge ; le sabre et la lame de l'ombre bien trop faciles)
-const ARMES_CHASSE = ['railgun', 'surchauffe', 'jumelles', 'focale', 'meteorite', 'tambour', 'portee', 'rattrape'];
+const ARMES_CHASSE = ['railgun', 'surchauffe', 'jumelles', 'focale', 'tambour', 'portee', 'rattrape']; // aucune arme de zone
 function armeChasse() { return R.pick(ARMES_CHASSE); }
 // spéciales de la Chasse : des tirs qui se visent, pas d'explosion géante (la Supernova enlevait plus d'un tiers de la vie d'un coup)
-const SPEC_CHASSE = ['javelot', 'missiles', 'tourelle', 'clones', 'lamesCiel', 'barrage', 'volee', 'ombres', 'lanceSoleil', 'orage'].filter(id => SPEC.some(s => s.id === id));
+const SPEC_CHASSE = ['javelot', 'missiles', 'tourelle', 'clones', 'lamesCiel'].filter(id => SPEC.some(s => s.id === id));
 function specChasse() { return R.pick(SPEC_CHASSE); }
 const GARDE_DEGATS = .15, GARDE_DUREE = 2, GARDE_TOUS = 9;
 const ChasseBoss = {

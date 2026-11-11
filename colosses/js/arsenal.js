@@ -579,14 +579,16 @@ PRIM.push(
     }
   },
   {
-    id: 'rattrape', nom: 'Boomerang à rattraper', ico: '↺', manuel: true, desc: 'Gros boomerang : il faut le RATTRAPER au retour. Chaque prise d\'affilée ajoute +20 % de dégâts (jusqu\'à ×2). Raté : il tombe et il faut aller le chercher.',
+    id: 'rattrape', nom: 'Boomerang à rattraper', ico: '↺', manuel: true, desc: 'Gros boomerang : il faut le RATTRAPER au retour. Chaque prise d\'affilée ajoute +20 % de dégâts (jusqu\'à ×2). Raté : la série repart de zéro, mais il revient tout seul dans ta main.',
     tick(w, p, dt, held) {
       w.etat = w.etat || 'main'; w.combo = w.combo || 0;
-      if (w.etat === 'sol' && d2(p.x, p.y, w.sx, w.sy) < 34 * 34) { w.etat = 'main'; Son.play('ramasse'); }
+      if (w.etat === 'sol') w.etat = 'main'; // (ancienne règle : il tombait au sol)
+      // sécurité : s'il a disparu (pilier, mur, boss…) ou vole depuis trop longtemps, il revient dans la main
+      if (w.etat === 'vol') { w.tVol = (w.tVol || 0) + dt; if (!w.b || w.b.dead || w.tVol > 3.5) { w.etat = 'main'; if (w.b && !w.b.pris) w.combo = 0; w.b = null; } }
       if (w.etat === 'main' && held) {
         const o = bout(p, 18);
         const b = pShot(o.x, o.y, p.aim, 720 * ST.pVel, { dmg: 55 * (1 + .2 * w.combo), r: 14, life: 30, pierce: 99, kind: 'boom', col: w.combo ? '#ffe14d' : '#9fffb0', noVel: true, cassable: false });
-        b.dist = 0; b.portee = 380 * ST.pVel; b.retour = false; b.tr = 0;
+        b.dist = 0; b.portee = 380 * ST.pVel; b.retour = false; b.tr = 0; w.b = b; w.tVol = 0;
         b.up = (b, dt) => {
           const sp = Math.hypot(b.vx, b.vy);
           b.rot = (b.rot || 0) + dt * 20;
@@ -595,11 +597,11 @@ PRIM.push(
           const a = ang(b.x, b.y, G.p.x, G.p.y), s = Math.min(950, sp + 1500 * dt);
           b.vx = Math.cos(a) * s; b.vy = Math.sin(a) * s;
           if (d2(b.x, b.y, G.p.x, G.p.y) < 30 * 30) {
-            b.dead = true; w.etat = 'main'; w.combo = Math.min(5, w.combo + 1);
+            b.dead = true; b.pris = true; w.etat = 'main'; w.combo = Math.min(5, w.combo + 1);
             G.texte(G.p.x, G.p.y - 26, 'Prise ×' + (1 + .2 * w.combo).toFixed(1), '#ffe14d', 15); Son.play('ramasse');
           } else if (b.tr > 1.25) {
-            b.dead = true; w.etat = 'sol'; w.sx = b.x; w.sy = b.y; w.combo = 0;
-            G.texte(b.x, b.y - 20, 'Raté', '#888', 14); Son.play('vide');
+            b.dead = true; w.etat = 'main'; w.combo = 0;
+            G.texte(G.p.x, G.p.y - 26, 'Raté : il revient', '#aaa', 14); Son.play('vide');
           }
         };
         w.etat = 'vol'; Son.play('epee');

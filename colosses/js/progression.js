@@ -257,7 +257,7 @@ const CHASSE_PALIERS = [60, 80, 95]; // en % du temps parfait
 function chasseCourante() {
   const cle = cleSemaine(), r = RNG(hashStr('chasse-' + cle));
   const c = Save.d.chasseH = Save.d.chasseH && Save.d.chasseH.cle === cle ? Save.d.chasseH : { cle, esp: r.pick(ESP_ORDRE), best: 0, paliers: [] };
-  if (c.v !== 5) { c.v = 5; c.bestP = 0; } // nouveau barème : l'ancien meilleur score ne compte plus
+  if (c.v !== 6) { c.v = 6; c.bestP = 0; } // nouveau barème : l'ancien meilleur score ne compte plus
   return c;
 }
 // temps parfait : mesuré avec un robot qui ne rate rien (voir chasse-temps.js) ; on ne peut pas faire mieux avec ces armes
