@@ -319,8 +319,8 @@ const G = {
     const c = chasseCourante(), pr = PR(), salle = clamp(pr.palier * 5 + 1, 8, 30);
     this.mode = 'chasse'; this.finDefi = null;
     if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle + '%2') { Save.d.defis.chasse = { cle: c.cle + '%2', best: null, essais: 0 }; if (Save.d.reprises) delete Save.d.reprises.chasse; }
-    const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars && ARMES_CHASSE.includes(rec.ars.p); // combat quitté : mêmes armes pour le reprendre
-    const ars = enCours ? rec.ars : { p: armeChasse(), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars; // la Chasse ne donne que des armes techniques
+    const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars && ARMES_CHASSE.includes(rec.ars.p) && SPEC_CHASSE.includes(rec.ars.s); // combat quitté : mêmes armes pour le reprendre
+    const ars = enCours ? rec.ars : { p: armeChasse(), s: specChasse(), t: tirerArme('t') }; rec.ars = ars; // la Chasse ne donne que des armes techniques
     this.defi = { type: 'chasse', format: 'chasse', cle: c.cle + '%2', mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
     rec.essais++; Save.write();
     calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
@@ -685,7 +685,7 @@ const FORMATS = {
   geant: { nom: 'Géant', ico: '🗿', obj: 'Un seul méga boss à 4 phases : le plus vite possible', sens: -1, score: r => r.reussi ? Math.round(r.temps * 10) / 10 : null, fmt: v => fmtTemps(v), un: true },
   abysses: { nom: 'Abysses', ico: '🌌', obj: 'Sans fin : chaque boss est plus fou, une seule vie', sens: 1, score: r => r.tues, fmt: v => 'profondeur ' + v }
 };
-FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Approche-toi du temps parfait : chaque seconde perdue coûte très cher, 100 % = le temps minimal exact', sens: 1, score: r => r.reussi && G.defi && G.defi.parfait ? scoreChasse(G.defi.parfait, r.temps) : null, fmt: v => fmtPct(v) };
+FORMATS.chasse = { nom: 'Chasse', ico: '🎯', obj: 'Approche-toi du temps parfait : 100 % = impossible d\'aller plus vite, 50 % = un combat deux fois plus long', sens: 1, score: r => r.reussi && G.defi && G.defi.parfait ? scoreChasse(G.defi.parfait, r.temps) : null, fmt: v => fmtPct(v) };
 function defiCourant(type) {
   const cle = type === 'jour' ? cleJour() : cleSemaine(), r = RNG(hashStr('colosses-' + type + '-' + cle));
   const format = type === 'jour' ? r.pick(['chrono', 'unCoup', 'danse', 'deluge', 'etau', 'arsenal', 'survie', 'abysses']) : r.pick(['chrono', 'unCoup', 'geant', 'survie', 'etau', 'arsenal']);

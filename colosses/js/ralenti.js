@@ -11,12 +11,14 @@ const Video = {
     this.lancerMorceau();
   },
   lancerMorceau() {
-    if (!window.MediaRecorder || !cv || !cv.captureStream) return;
+    // on filme l'image finale, celle des effets cinéma quand ils sont actifs (sinon la vidéo était terne)
+    const src = typeof PostFX !== 'undefined' && PostFX.ok && PostFX.cv && PostFX.cv.isConnected ? PostFX.cv : cv;
+    if (!window.MediaRecorder || !src || !src.captureStream) return;
     try {
-      const st = cv.captureStream(30);
+      const st = src.captureStream(60);
       const types = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       this.type = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
-      const r = this.rec = new MediaRecorder(st, this.type ? { mimeType: this.type, videoBitsPerSecond: 1600000 } : { videoBitsPerSecond: 1600000 });
+      const r = this.rec = new MediaRecorder(st, this.type ? { mimeType: this.type, videoBitsPerSecond: 16000000 } : { videoBitsPerSecond: 16000000 });
       const morceaux = []; r.ondataavailable = e => { if (e.data && e.data.size) morceaux.push(e.data); };
       r.onstop = () => { try { st.getTracks().forEach(t => t.stop()); } catch (e) { } if (r._jeter) return; this.parts.push({ url: URL.createObjectURL(new Blob(morceaux, { type: this.type || 'video/webm' })), t0: r._t0 }); if (this.parts.length > 2) { const x = this.parts.shift(); URL.revokeObjectURL(x.url); } };
       r._t0 = performance.now(); this.partT0 = r._t0; if (!this.t0 || !this.parts.length) this.t0 = r._t0;
@@ -24,7 +26,7 @@ const Video = {
     } catch (e) { this.rec = null; }
   },
   // pendant le combat : on coupe en morceaux de 2 min 30 pour ne garder que la fin
-  tic() { if (this.rec && performance.now() - this.partT0 > 150000) { const r = this.rec; this.rec = null; try { r.stop(); } catch (e) { } this.lancerMorceau(); } },
+  tic() { if (this.rec && performance.now() - this.partT0 > 120000) { const r = this.rec; this.rec = null; try { r.stop(); } catch (e) { } this.lancerMorceau(); } },
   arreter(jeter) { const r = this.rec; this.rec = null; if (!r) return; r._jeter = !!jeter; try { r.stop(); } catch (e) { } },
   liberer() { for (const p of this.parts) URL.revokeObjectURL(p.url); this.parts = []; },
   noterCoup(c) { if (this.rec) this.coups.push(Object.assign({ w: performance.now() }, c)); },
@@ -55,16 +57,20 @@ const _majVideo = majCombat;
 majCombat = function () { const r = _majVideo.apply(this, arguments); try { Video.tic(); } catch (e) { } return r; };
 
 // ---------- le bilan du combat (victoire ou mort) ----------
-function efficaciteCombat() {
+// efficacité : 100 % = impossible d'aller plus vite, 50 % = un combat deux fois plus long (le même calcul que la Chasse)
+function efficaciteCombat(victoire) {
   try {
     if (!G.def || !G.ars || !(G.chrono > 3) || typeof tempsParfait !== 'function') return null;
-    const ref = G.def.hpMax / Math.max(1, tempsParfait(G.def, G.ars)), reel = (G.degatsCombat || 0) / G.chrono;
-    return Math.max(0, Math.min(100, Math.round(100 * reel / Math.max(1, ref))));
+    const ref = G.mode === 'chasse' && G.defi && G.defi.parfait ? G.defi.parfait : tempsParfait(G.def, G.ars);
+    if (victoire) return scoreChasse(ref, G.chrono);
+    // mort avant la fin : le temps qu'il aurait fallu à ce rythme
+    const reel = (G.degatsCombat || 0) / G.chrono, besoin = G.def.hpMax / Math.max(1e-6, reel);
+    return reel > 0 ? scoreChasse(ref, besoin) : 0;
   } catch (e) { return null; }
 }
 function bilanCombat(victoire) {
   const j = G.journalCoups || [];
-  G.effFin = efficaciteCombat();
+  G.effFin = efficaciteCombat(victoire);
   return { victoire, duree: G.chrono || 0, dps: Math.round((G.degatsCombat || 0) / Math.max(1, G.chrono || 1)), eff: G.effFin, recus: j.reduce((a, b) => a + b.dmg, 0), coups: j.length, pire: j.reduce((m, x) => x.dmg > (m ? m.dmg : 0) ? x : m, null) };
 }
 const nomSourceCoup = s => ATK[s] ? ATK[s].nom : ({ contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges', Pression: 'Pression', Renfort: 'Frappe de renfort', 'Dernier souffle': 'Dernier souffle', Effondrement: 'Effondrement', 'Lave montante': 'Lave montante' }[s] || s);
@@ -73,7 +79,7 @@ function dessinerBilan(c, x, y) {
   const S = G.statsFin; if (!S) return;
   c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
   const w = 760, h = 92; c.fillStyle = 'rgba(8,6,16,.78)'; c.fillRect(x - w / 2, y, w, h); c.strokeStyle = 'rgba(255,216,107,.4)'; c.strokeRect(x - w / 2 + .5, y + .5, w - 1, h - 1);
-  const cases = [[fmtTemps(S.duree), 'durée'], [S.dps + ' /s', 'dégâts par seconde'], [S.eff === null ? '—' : S.eff + ' %', 'efficacité (100 % = parfait)'], [S.recus, 'dégâts reçus'], [S.coups, 'coups reçus']];
+  const cases = [[fmtTemps(S.duree), 'durée'], [S.dps + ' /s', 'dégâts par seconde'], [S.eff === null ? '—' : fmtPct(S.eff), 'efficacité (100 % = parfait)'], [S.recus, 'dégâts reçus'], [S.coups, 'coups reçus']];
   cases.forEach(([v, l], i) => { const cx = x - w / 2 + w * (i + .5) / cases.length; texteOmbre(c, String(v), cx, y + 30, i === 2 ? (S.eff >= 80 ? '#7dffb0' : S.eff >= 50 ? '#ffe7a6' : '#ffb3c0') : '#fff', `900 22px ${POLICE}`, 4); c.font = `600 12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(l, cx, y + 56); });
   if (Video.dispo() || Video.rec) { c.font = `700 14px ${POLICE}`; c.fillStyle = '#ffd8a0'; c.fillText('V (ou Y à la manette) : revoir le combat en vidéo, au ralenti, coup par coup', x, y + 80); }
   c.restore();
