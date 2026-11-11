@@ -1,114 +1,60 @@
 'use strict';
-/* Colosses — revoir la fin : le jeu garde les 3 dernières secondes en images nettes (pleine taille, compressées en
-   JPEG pour tenir en mémoire) et une image de chaque coup reçu. Sur l'écran de mort, V (ou Y à la manette) :
-   le ralenti de la fin, puis ← → pour passer en revue TOUS les coups reçus pendant le combat (attaque, dégâts, vie). */
+/* Colosses — revoir le combat : chaque combat est filmé (une vraie vidéo, sans le son). À la fin de chaque boss,
+   victoire ou mort, dans tous les modes : un bilan (durée, dégâts par seconde, efficacité, dégâts reçus) et
+   V (ou Y à la manette) pour revoir le combat — au ralenti si on veut, et en sautant directement à chaque coup reçu.
+   Pour la mémoire, on garde au plus les 5 dernières minutes d'un combat (en deux morceaux). */
 
-const Ralenti = {
-  N: 60, images: [], tete: 0, n: 0, compte: 0, lecture: null, enCours: 0, coups: [], prise: false, tampon: null,
-  // une image du jeu, compressée sans attendre (le navigateur l'encode à côté)
-  photo(cb, prioritaire) {
-    if (this.enCours > (prioritaire ? 8 : 2)) return;
-    const w = Math.min(cv.width, 1600), h = Math.round(cv.height * w / cv.width);
-    const t = this.tampon || (this.tampon = document.createElement('canvas'));
-    if (t.width !== w || t.height !== h) { t.width = w; t.height = h; }
-    try { t.getContext('2d').drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, w, h); } catch (e) { return; }
-    this.enCours++;
-    t.toBlob(b => { this.enCours--; if (b) cb(b); }, 'image/jpeg', .86);
+const Video = {
+  rec: null, morceaux: [], parts: [], t0: 0, type: '', coups: [], partT0: 0,
+  demarrer() {
+    this.arreter(true); this.liberer(); this.parts = []; this.coups = [];
+    this.lancerMorceau();
   },
-  enregistrer() {
-    if (!cv || !(G.etat === 'combat' || (G.etat === 'mort' && !G.ecranMort))) return;
-    if (this.prise) { this.prise = false; const c = this.coupEnAttente; this.photo(b => { if (this.coups.length < 40) this.coups.push({ b, c }); }, true); }
-    if (++this.compte % 3) return;
-    const i = this.tete; this.tete = (this.tete + 1) % this.N; this.n = Math.min(this.N, this.n + 1);
-    this.photo(b => { this.images[i] = b; });
-  },
-  vider() { this.n = 0; this.tete = 0; this.images = []; this.coups = []; this.liberer(); this.lecture = null; },
-  liberer() { const L = this.lecture; if (L) for (const x of (L.fin || []).concat(L.imgCoups || [])) try { x && x.close && x.close(); } catch (e) { } },
-  async lancer() {
-    if (this.n < 5) return;
-    const ordre = Array.from({ length: this.n }, (_, i) => this.images[(this.tete - this.n + i + this.N) % this.N]).filter(Boolean);
-    const L = this.lecture = { t: 0, mode: 'fin', i: 0, pret: false, fin: [], imgCoups: [] };
-    Son.play('clic');
+  lancerMorceau() {
+    if (!window.MediaRecorder || !cv || !cv.captureStream) return;
     try {
-      L.fin = await Promise.all(ordre.map(b => createImageBitmap(b)));
-      L.imgCoups = await Promise.all(this.coups.map(x => createImageBitmap(x.b)));
-    } catch (e) { }
-    L.pret = true;
+      const st = cv.captureStream(30);
+      const types = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+      this.type = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+      const r = this.rec = new MediaRecorder(st, this.type ? { mimeType: this.type, videoBitsPerSecond: 1600000 } : { videoBitsPerSecond: 1600000 });
+      const morceaux = []; r.ondataavailable = e => { if (e.data && e.data.size) morceaux.push(e.data); };
+      r.onstop = () => { try { st.getTracks().forEach(t => t.stop()); } catch (e) { } if (r._jeter) return; this.parts.push({ url: URL.createObjectURL(new Blob(morceaux, { type: this.type || 'video/webm' })), t0: r._t0 }); if (this.parts.length > 2) { const x = this.parts.shift(); URL.revokeObjectURL(x.url); } };
+      r._t0 = performance.now(); this.partT0 = r._t0; if (!this.t0 || !this.parts.length) this.t0 = r._t0;
+      r.start(1000);
+    } catch (e) { this.rec = null; }
   },
-  nomSrc(s) { return ATK[s] ? ATK[s].nom : ({ contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges', Pression: 'Pression', Renfort: 'Frappe de renfort', 'Dernier souffle': 'Dernier souffle', Effondrement: 'Effondrement', 'Lave montante': 'Lave montante' }[s] || s); },
-  dessiner() {
-    const L = this.lecture; if (!L) return;
-    const c = ctx; c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
-    c.fillStyle = '#000'; c.fillRect(0, 0, cv.width, cv.height);
-    const s = cv.width / 1280, j = G.journalCoups || [];
-    const image = im => { if (!im) return; const k = Math.min(cv.width / im.width, (cv.height - 70 * s) / im.height), w = im.width * k, h = im.height * k; c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(im, (cv.width - w) / 2, (cv.height - 70 * s - h) / 2, w, h); };
-    let titre = '', barre = 0;
-    if (!L.pret) titre = 'Préparation du ralenti…';
-    else if (L.mode === 'fin') {
-      L.t += 1 / 60; const vitesse = .35, i = Math.min(L.fin.length - 1, Math.floor(L.t * 20 * vitesse));
-      image(L.fin[i]); barre = (i + 1) / Math.max(1, L.fin.length);
-      titre = 'RALENTI ×0,35 — les 3 dernières secondes';
-      if (i >= L.fin.length - 1 && L.t * 20 * vitesse > L.fin.length + 8) L.t = 0;
-    } else {
-      const k = clamp(L.i, 0, Math.max(0, this.coups.length - 1)), x = this.coups[k];
-      image(L.imgCoups[k]); barre = (k + 1) / Math.max(1, this.coups.length);
-      titre = !x && j.length ? `${j.length} coup(s) reçu(s) : la liste est à droite` : x ? `Coup ${k + 1} / ${this.coups.length} · ${fmtTemps(x.c.t)} · ${this.nomSrc(x.c.src)} · −${x.c.dmg} · vie restante ${x.c.hp}` : 'Aucun coup reçu';
-    }
-    // liste de tous les coups du combat, à droite
-    if (L.pret && j.length) {
-      const x0 = cv.width - 300 * s, lh = 19 * s; c.fillStyle = 'rgba(0,0,0,.62)'; c.fillRect(x0 - 10 * s, 10 * s, 300 * s, Math.min(cv.height - 90 * s, (j.length + 2) * lh + 10 * s));
-      c.font = `700 ${14 * s}px ${POLICE}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = '#ffd8a0';
-      const tot = j.reduce((a, b) => a + b.dmg, 0); c.fillText(`Tous les coups reçus : ${j.length} (${tot} dégâts)`, x0, 10 * s + lh);
-      const max = Math.floor((cv.height - 120 * s) / lh) - 1, deb = Math.max(0, j.length - max);
-      j.slice(deb).forEach((e, n) => { const idx = deb + n, sel = L.mode === 'coups' && idx === L.i; c.fillStyle = sel ? '#ffe14d' : '#e6dcc8'; c.font = `${sel ? 800 : 500} ${13 * s}px ${POLICE}`; c.fillText(`${fmtTemps(e.t)}  −${e.dmg}  ${this.nomSrc(e.src)}`.slice(0, 40), x0, 10 * s + lh * (n + 2)); });
-    }
-    c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(0, cv.height - 70 * s, cv.width, 70 * s);
-    c.font = `700 ${18 * s}px ${POLICE_ER}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = '#ffd8a0'; c.fillText(titre, 24 * s, cv.height - 40 * s);
-    c.textAlign = 'right'; c.fillStyle = '#d8ccb4'; c.font = `600 ${14 * s}px ${POLICE}`;
-    c.fillText((this.coups.length ? '← → : passer les coups reçus · ' : '') + 'V : arrêter · Espace : recommencer', cv.width - 24 * s, cv.height - 40 * s);
-    c.fillStyle = '#c9a865'; c.fillRect(0, cv.height - 4 * s, cv.width * barre, 4 * s);
-    c.restore();
-  }
+  // pendant le combat : on coupe en morceaux de 2 min 30 pour ne garder que la fin
+  tic() { if (this.rec && performance.now() - this.partT0 > 150000) { const r = this.rec; this.rec = null; try { r.stop(); } catch (e) { } this.lancerMorceau(); } },
+  arreter(jeter) { const r = this.rec; this.rec = null; if (!r) return; r._jeter = !!jeter; try { r.stop(); } catch (e) { } },
+  liberer() { for (const p of this.parts) URL.revokeObjectURL(p.url); this.parts = []; },
+  noterCoup(c) { if (this.rec) this.coups.push(Object.assign({ w: performance.now() }, c)); },
+  dispo() { return this.parts.length > 0; }
 };
-const _renduRalenti = rendu;
-rendu = function () {
-  _renduRalenti.apply(this, arguments);
-  try { if (Ralenti.lecture && G.etat === 'mort') Ralenti.dessiner(); else { if (Ralenti.lecture) { Ralenti.liberer(); Ralenti.lecture = null; } Ralenti.enregistrer(); } } catch (e) { }
-};
-// chaque coup reçu : une photo à l'image suivante (on voit ce qui a touché)
-const _blesserRalenti = G.blesser;
-G.blesser = function () {
-  const r = _blesserRalenti.apply(this, arguments);
-  try { if (r && this.journalCoups && this.journalCoups.length && (typeof Coop === 'undefined' || !Coop.hote || this.p === Coop.hote)) { Ralenti.prise = true; Ralenti.coupEnAttente = this.journalCoups[this.journalCoups.length - 1]; } } catch (e) { }
+// on filme à chaque nouveau combat, et on coupe un peu après la fin (pour voir l'explosion ou la chute)
+const _entrerVideo = G.entrerSalle;
+G.entrerSalle = function () { const r = _entrerVideo.apply(this, arguments); try { Video.demarrer(); fermerRevoir(); } catch (e) { } return r; };
+const _bossVideo = G.bossMort;
+G.bossMort = function () {
+  const vivant = this.boss && !this.boss.mort, r = _bossVideo.apply(this, arguments);
+  try { if (vivant && this.boss && this.boss.mort) { this.statsFin = bilanCombat(true); setTimeout(() => Video.arreter(), 1500); } } catch (e) { }
   return r;
 };
-const _pasRalenti = pasBoucle;
-pasBoucle = function (now) {
-  if (G.etat === 'mort' && G.ecranMort) {
-    const L = Ralenti.lecture;
-    if (Input.hit('KeyV')) { if (L) { Ralenti.liberer(); Ralenti.lecture = null; } else Ralenti.lancer(); }
-    else if (L && L.pret && Ralenti.coups.length) {
-      if (Input.hit('ArrowRight') || Input.hit('KeyD')) { if (L.mode === 'fin') { L.mode = 'coups'; L.i = 0; } else L.i = Math.min(Ralenti.coups.length - 1, L.i + 1); }
-      if (Input.hit('ArrowLeft') || Input.hit('KeyA') || Input.hit('KeyQ')) { if (L.mode === 'coups') { if (L.i > 0) L.i--; else { L.mode = 'fin'; L.t = 0; } } }
-    }
-  }
-  return _pasRalenti(now);
+const _mortVideo = G.mortJoueur;
+G.mortJoueur = function () {
+  const r = _mortVideo.apply(this, arguments);
+  try { if (this.etat === 'mort') { this.statsFin = bilanCombat(false); setTimeout(() => Video.arreter(), 1800); } } catch (e) { }
+  return r;
 };
-const _entrerRalenti = G.entrerSalle;
-G.entrerSalle = function () { Ralenti.vider(); return _entrerRalenti.apply(this, arguments); };
-const _ecranMortRalenti = dessinerEcranMort;
-dessinerEcranMort = function (c) {
-  _ecranMortRalenti(c);
-  if (Ralenti.n >= 5 && !G.finDefi) { c.save(); c.textAlign = 'center'; texteOmbre(c, 'V (ou Y à la manette) : revoir la fin au ralenti et tous les coups reçus', W / 2, 676, '#ffd8a0', `700 15px ${POLICE}`, 4); c.restore(); }
+const _blesserVideo = G.blesser;
+G.blesser = function () {
+  const r = _blesserVideo.apply(this, arguments);
+  try { if (r && this.journalCoups && this.journalCoups.length && (typeof Coop === 'undefined' || !Coop.hote || this.p === Coop.hote)) Video.noterCoup(this.journalCoups[this.journalCoups.length - 1]); } catch (e) { }
+  return r;
 };
-// manette : Y sur l'écran de mort lance le ralenti, la croix passe les coups
-const _menusRalenti = Manette.menus.bind(Manette);
-Manette.menus = function (g, nouveau, ly, lx) {
-  if (G.etat === 'mort' && G.ecranMort) { if (nouveau(3)) Input.p['KeyV'] = true; if (nouveau(15)) Input.p['ArrowRight'] = true; if (nouveau(14)) Input.p['ArrowLeft'] = true; }
-  return _menusRalenti(g, nouveau, ly, lx);
-};
+const _majVideo = majCombat;
+majCombat = function () { const r = _majVideo.apply(this, arguments); try { Video.tic(); } catch (e) { } return r; };
 
-// ---------- à la fin de chaque combat : ton efficacité (100 % = dégâts par seconde d'un jeu parfait avec tes armes) ----------
+// ---------- le bilan du combat (victoire ou mort) ----------
 function efficaciteCombat() {
   try {
     if (!G.def || !G.ars || !(G.chrono > 3) || typeof tempsParfait !== 'function') return null;
@@ -116,17 +62,82 @@ function efficaciteCombat() {
     return Math.max(0, Math.min(100, Math.round(100 * reel / Math.max(1, ref))));
   } catch (e) { return null; }
 }
-const _mortEff = G.mortJoueur;
-G.mortJoueur = function () { this.effFin = efficaciteCombat(); return _mortEff.apply(this, arguments); };
-const _bossEff = G.bossMort;
-G.bossMort = function () { if (this.boss && !this.boss.finale) this.effFin = efficaciteCombat(); return _bossEff.apply(this, arguments); };
-const _hudEff = dessinerHUD;
+function bilanCombat(victoire) {
+  const j = G.journalCoups || [];
+  G.effFin = efficaciteCombat();
+  return { victoire, duree: G.chrono || 0, dps: Math.round((G.degatsCombat || 0) / Math.max(1, G.chrono || 1)), eff: G.effFin, recus: j.reduce((a, b) => a + b.dmg, 0), coups: j.length, pire: j.reduce((m, x) => x.dmg > (m ? m.dmg : 0) ? x : m, null) };
+}
+const nomSourceCoup = s => ATK[s] ? ATK[s].nom : ({ contact: 'Contact du boss', lave: 'Lave', invocation: 'Invocations', pieges: 'Pièges', Pression: 'Pression', Renfort: 'Frappe de renfort', 'Dernier souffle': 'Dernier souffle', Effondrement: 'Effondrement', 'Lave montante': 'Lave montante' }[s] || s);
+// un panneau de bilan, dessiné sur l'écran de victoire, de mort et de fin de défi
+function dessinerBilan(c, x, y) {
+  const S = G.statsFin; if (!S) return;
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+  const w = 760, h = 92; c.fillStyle = 'rgba(8,6,16,.78)'; c.fillRect(x - w / 2, y, w, h); c.strokeStyle = 'rgba(255,216,107,.4)'; c.strokeRect(x - w / 2 + .5, y + .5, w - 1, h - 1);
+  const cases = [[fmtTemps(S.duree), 'durée'], [S.dps + ' /s', 'dégâts par seconde'], [S.eff === null ? '—' : S.eff + ' %', 'efficacité (100 % = parfait)'], [S.recus, 'dégâts reçus'], [S.coups, 'coups reçus']];
+  cases.forEach(([v, l], i) => { const cx = x - w / 2 + w * (i + .5) / cases.length; texteOmbre(c, String(v), cx, y + 30, i === 2 ? (S.eff >= 80 ? '#7dffb0' : S.eff >= 50 ? '#ffe7a6' : '#ffb3c0') : '#fff', `900 22px ${POLICE}`, 4); c.font = `600 12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(l, cx, y + 56); });
+  if (Video.dispo() || Video.rec) { c.font = `700 14px ${POLICE}`; c.fillStyle = '#ffd8a0'; c.fillText('V (ou Y à la manette) : revoir le combat en vidéo, au ralenti, coup par coup', x, y + 80); }
+  c.restore();
+}
+const _hudBilan = dessinerHUD;
 dessinerHUD = function (c) {
-  _hudEff.apply(this, arguments);
-  if (G.etat === 'interlude' && G.effFin !== null && G.effFin !== undefined && G.boss && G.boss.mort) {
-    c.save(); c.textAlign = 'center'; texteOmbre(c, 'Efficacité : ' + G.effFin + ' % · ' + Math.round((G.degatsCombat || 0) / Math.max(1, G.chrono)) + ' dégâts/s', W / 2, H * .62, G.effFin >= 80 ? '#7dffb0' : '#ffe7a6', `800 20px ${POLICE}`, 5); c.restore();
-  }
+  _hudBilan.apply(this, arguments);
+  try { if (G.etat === 'interlude' && G.boss && G.boss.mort && G.statsFin && G.statsFin.victoire) dessinerBilan(c, W / 2, H * .64); } catch (e) { }
 };
+const _mortBilan = dessinerEcranMort;
+dessinerEcranMort = function (c) {
+  _mortBilan(c);
+  try { if (G.statsFin) dessinerBilan(c, W / 2, G.finDefi ? 616 : 652); } catch (e) { }
+};
+
+// ---------- le lecteur ----------
+function fermerRevoir() { const d = document.getElementById('revoir'); if (d) { const v = d.querySelector('video'); try { v.pause(); } catch (e) { } d.remove(); Input.clear && Input.clear(); } G.revoirOuvert = false; }
+function ouvrirRevoir() {
+  if (!Video.dispo()) return;
+  fermerRevoir(); G.revoirOuvert = true;
+  const parts = Video.parts, coups = Video.coups;
+  const d = document.createElement('div'); d.id = 'revoir';
+  d.innerHTML = `<div class="rv-haut"><b>🎬 ${T2('Revoir le combat')}</b>
+      <span class="rv-vit">${[.25, .5, 1].map(v => `<button data-v="${v}" class="${v === .5 ? 'actif' : ''}">×${String(v).replace('.', ',')}</button>`).join('')}</span>
+      ${parts.length > 1 ? `<span class="rv-parts">${parts.map((p, i) => `<button data-p="${i}" class="${i === parts.length - 1 ? 'actif' : ''}">${T2('Partie')} ${i + 1}</button>`).join('')}</span>` : ''}
+      <button class="rv-fin">⏪ ${T2('La fin au ralenti')}</button><button class="rv-x">✕</button></div>
+    <div class="rv-corps"><video playsinline muted controls></video>
+      <div class="rv-coups"><b>${T2('Tous les coups reçus')} (${coups.length})</b>${coups.length ? coups.map((x, i) => `<button data-c="${i}"><span>${fmtTemps(x.t)}</span> −${x.dmg} <small>${nomSourceCoup(x.src)}</small></button>`).join('') : `<p class="mini">${T2('Aucun coup reçu : bravo !')}</p>`}</div></div>`;
+  document.body.appendChild(d);
+  const v = d.querySelector('video'); let part = parts.length - 1, vitesse = .5;
+  const charger = (i, ensuite) => {
+    part = i; v.src = parts[i].url; v.playbackRate = vitesse;
+    d.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('actif', +b.dataset.p === i));
+    v.onloadedmetadata = () => {
+      // les vidéos du navigateur n'ont parfois pas de durée : on va au bout pour qu'il la calcule, puis on revient
+      if (!Number.isFinite(v.duration)) { v.currentTime = 1e9; v.ondurationchange = () => { v.ondurationchange = null; v.currentTime = 0; if (ensuite) ensuite(); else v.play().catch(() => { }); }; }
+      else if (ensuite) ensuite(); else v.play().catch(() => { });
+    };
+  };
+  const finRalenti = () => { vitesse = .35; v.playbackRate = .35; v.currentTime = Math.max(0, (v.duration || 0) - 4); v.play().catch(() => { }); };
+  d.querySelector('.rv-x').addEventListener('click', fermerRevoir);
+  d.querySelector('.rv-fin').addEventListener('click', () => { if (part !== parts.length - 1) charger(parts.length - 1, finRalenti); else finRalenti(); });
+  d.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { vitesse = +b.dataset.v; v.playbackRate = vitesse; d.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('actif', x === b)); }));
+  d.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => charger(+b.dataset.p)));
+  d.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => {
+    const x = coups[+b.dataset.c]; let i = parts.length - 1; while (i > 0 && parts[i].t0 > x.w) i--;
+    const aller = () => { v.currentTime = Math.max(0, (x.w - parts[i].t0) / 1000 - 1.5); v.playbackRate = vitesse = .35; v.play().catch(() => { }); };
+    d.querySelectorAll('[data-c]').forEach(y => y.classList.toggle('actif', y === b));
+    if (i !== part) charger(i, aller); else aller();
+  }));
+  charger(part, G.etat === 'mort' && !G.statsFin?.victoire ? finRalenti : null);
+}
+// V ouvre et ferme le lecteur ; pendant qu'il est ouvert, le jeu attend
+const _pasRevoir = pasBoucle;
+pasBoucle = function (now) {
+  const fin = (G.etat === 'mort' && G.ecranMort) || (G.etat === 'interlude' && G.boss && G.boss.mort);
+  if (G.revoirOuvert) { if (Input.hit('KeyV') || Input.hit('Escape')) fermerRevoir(); else { rendu(); return; } }
+  else if (fin && Input.hit('KeyV')) { ouvrirRevoir(); if (G.revoirOuvert) return; }
+  return _pasRevoir(now);
+};
+const _menuRevoir = UI.menu;
+UI.menu = function () { fermerRevoir(); return _menuRevoir.apply(this, arguments); };
+const _menusRevoir = Manette.menus.bind(Manette);
+Manette.menus = function (g, nouveau, ly, lx) { if ((G.etat === 'mort' && G.ecranMort) || G.etat === 'interlude' || G.revoirOuvert) { if (nouveau(3)) Input.p['KeyV'] = true; } return _menusRevoir(g, nouveau, ly, lx); };
 
 // ---------- les petites arènes rondes : moins d'attaques en même temps (il y a moins de place pour esquiver) ----------
 const _appliquerRond = Arene.appliquer.bind(Arene);

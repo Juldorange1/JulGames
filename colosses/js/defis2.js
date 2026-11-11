@@ -58,7 +58,7 @@ const _majPression = majCombat;
 majCombat = function (dt) {
   const t0 = G.t;
   _majPression.apply(this, arguments);
-  try { if (G.format() === 'survie' || G.format() === 'danse') { G.survieT = -1e9; Pression.maj(Math.max(0, G.t - t0)); } } catch (e) { }
+  try { if (G.format() === 'survie' || G.format() === 'danse' || (G.format() === 'affront' && G.defi.affMode === 'survie')) { G.survieT = -1e9; Pression.maj(Math.max(0, G.t - t0)); } } catch (e) { }
 };
 // cristaux à la fin d'un défi ou des Abysses (en plus du cristal gagné par boss vaincu)
 const _finCristaux = G.terminerDefi;

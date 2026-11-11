@@ -257,13 +257,19 @@ const CHASSE_PALIERS = [60, 80, 95]; // en % du temps parfait
 function chasseCourante() {
   const cle = cleSemaine(), r = RNG(hashStr('chasse-' + cle));
   const c = Save.d.chasseH = Save.d.chasseH && Save.d.chasseH.cle === cle ? Save.d.chasseH : { cle, esp: r.pick(ESP_ORDRE), best: 0, paliers: [] };
-  if (c.v !== 3) { c.v = 3; c.bestP = 0; } // nouveau barème : l'ancien meilleur score ne compte plus
+  if (c.v !== 4) { c.v = 4; c.bestP = 0; } // nouveau barème : l'ancien meilleur score ne compte plus
   return c;
 }
 // temps parfait : mesuré avec un robot qui ne rate rien (voir chasse-temps.js) ; on ne peut pas faire mieux avec ces armes
 function tempsParfait(def, ars) {
   const T = typeof CHASSE_T !== 'undefined' ? CHASSE_T : { p: {}, s: {}, e: {}, q: {} };
-  return (T.e[def.esp] === undefined ? 8 : T.e[def.esp]) + (T.q[def.esp] || 1) * def.hpMax / Math.max(60, (T.p[ars.p] || 160) + (T.s[ars.s] || 0));
+  const p = Math.max(60, T.p[ars.p] || 160);
+  let dps = p / (T.q[def.esp] || 1);
+  // mesure de cette arme contre ce colosse précis : on garde la plus exigeante des deux estimations
+  const P2 = typeof CHASSE_PAIRES !== 'undefined' && CHASSE_PAIRES[def.esp] && CHASSE_PAIRES[def.esp][ars.p];
+  if (P2) dps = Math.max(dps, P2);
+  dps *= 1 + (T.s[ars.s] || 0) / p;
+  return (T.e[def.esp] === undefined ? 8 : T.e[def.esp]) + def.hpMax / dps;
 }
 // temps de référence de la Chasse : ce qu'une exécution sans le moindre défaut peut viser (la garde du boss est comptée)
 function tempsChasse(def, ars) { const g = 1 - (GARDE_DUREE / GARDE_TOUS) * (1 - GARDE_DEGATS); return tempsParfait(def, ars) * .8 / g; }

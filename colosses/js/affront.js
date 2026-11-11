@@ -27,7 +27,8 @@ const Affront = {
   actif() { return G.mode === 'affront'; },
   raz() { this.sc = new Map(); },
   ajout(p, d) { if (p) this.sc.set(p, (this.sc.get(p) || 0) + d); },
-  score(p) { return this.sc.get(p) || 0; },
+  score(p) { if (G.defi && G.defi.affMode === 'survie') return Math.round(((p.mortT !== undefined ? p.mortT : (G.chrono || 0) + .1) || 0) * 10) / 10; // le survivant passe devant celui qui vient de tomber return this.sc.get(p) || 0; },
+  survie() { return !!(G.defi && G.defi.affMode === 'survie'); },
   classement() {
     const l = [], P = profilAff(), h = Coop.hote || G.p;
     if (h) l.push({ p: h, nom: nomJoueur(), col: '#8ad8ff', moi: true, idJ: Save.d.idJ, pts: P.pts });
@@ -51,15 +52,24 @@ G.lancerAffront = function () {
   if (Coop.N() < 2) return UI.salleAff();
   const n = Affront.prochain(); delete Save.d.affrontProchain;
   this.mode = 'affront'; this.finDefi = null;
-  this.defi = { type: 'affront', format: 'affront', cle: 'affront', mut: [], boss: [{ salle: Affront.salle(), seed: n.seed, mega: true, ars: n.ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
+  this.defi = { type: 'affront', format: 'affront', affMode: Salon.mode || 'degats', cle: 'affront', mut: [], boss: [{ salle: Affront.salle(), seed: n.seed, mega: true, ars: n.ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
   if (!Save.d.defis.affront || Save.d.defis.affront.cle !== 'affront') Save.d.defis.affront = { cle: 'affront', best: null, essais: 0 };
   Save.d.defis.affront.essais++; Save.write();
   Affront.raz(); Salon.resultat = null; Salon.depart = 0; Salon.partis = [];
   UI.salleOuverte = false; UI.cacher(); calcStats(); this.p = creerJoueur(DF().pv); this.ars = null;
   this.entrerSalle();
 };
-FORMATS.affront = { nom: 'Affrontement', ico: '⚔', obj: 'Mêmes armes pour tous, un colosse géant : celui qui lui inflige le plus de dégâts gagne', sens: 1, score: r => Math.round(Affront.score(Coop.hote || G.p)), fmt: v => (Math.round(v / 100) / 10).toString().replace('.', ',') + ' k' };
+FORMATS.affront = { nom: 'Affrontement', ico: '⚔', obj: 'Mêmes armes pour tous, un colosse géant : celui qui lui inflige le plus de dégâts gagne', sens: 1, score: r => Math.round(Affront.score(Coop.hote || G.p)), fmt: v => Affront.survie() ? fmtTemps(v) : (Math.round(v / 100) / 10).toString().replace('.', ',') + ' k' };
+const MODES_AFF = [['degats', 'Dégâts'], ['survie', 'Survie']];
+const nomModeAff = m => T2(m === 'survie' ? 'Survie' : 'Dégâts');
+const regleAff = m => m === 'survie' ? T2('Un colosse invincible de plus en plus dur, mêmes armes pour tous : le dernier en vie gagne. Une seule vie.') : FORMATS.affront.obj;
 
+const _entrerAffS = G.entrerSalle;
+G.entrerSalle = function () {
+  const r = _entrerAffS.apply(this, arguments);
+  try { if (Affront.actif() && Affront.survie() && this.def) { this.def.invincible = true; this.def.traits = []; for (const ph of this.def.phases) { const cy = ph.cycle.filter(a => a.id !== 'invocation'); if (cy.length) ph.cycle = cy; } this.def.invoc = null; } } catch (e) { }
+  return r;
+};
 const _creerAff = Coop.creer.bind(Coop);
 Coop.creer = function (j) { _creerAff(j); if (Affront.actif() && G.ars) j.ars = Object.assign({}, G.ars); };
 const _frappeAff = G.frappe;
@@ -73,7 +83,7 @@ G.frappe = function (tg, dmg, o) {
 const _mortAff = G.mortJoueur;
 G.mortJoueur = function () {
   if (!Affront.actif()) return _mortAff.apply(this, arguments);
-  const p = this.p; p.hp = 0; p.ko = true; this.secoue(10); Son.play('mort');
+  const p = this.p; p.hp = 0; p.ko = true; if (Affront.survie() && p.mortT === undefined) p.mortT = this.chrono; this.secoue(10); Son.play('mort');
 };
 const _bossMortAff = G.bossMort;
 G.bossMort = function () { if (Affront.actif() && this.boss && !this.boss.mort) this.defi.temps = this.chrono; return _bossMortAff.apply(this, arguments); };
@@ -88,6 +98,7 @@ majCombat = function (dt) {
       const p = x.p;
       if (!(p.ko || p.hp <= 0)) continue;
       p.rev = 0; // personne ne relève personne : ce sont des adversaires
+      if (Affront.survie()) { if (p.mortT === undefined) p.mortT = G.chrono; continue; } // en Survie, on est éliminé
       if (p.resp === undefined) { p.resp = AFFRONT_RETOUR; const perte = Affront.score(p) * AFFRONT_PERTE; Affront.sc.set(p, Affront.score(p) - perte); if (perte > 0) G.texte(p.x, p.y - 30, '-' + Math.round(perte) + ' (−15 %)', '#ff8a9a', 15); }
       p.resp -= d;
       if (p.resp <= 0) {
@@ -97,7 +108,8 @@ majCombat = function (dt) {
       }
     }
     // tout le monde est parti : la partie s'arrête (les absents ont perdu)
-    const fini = G.chrono >= AFFRONT_DUREE || (Coop.N() < 2 && G.chrono > 1);
+    const vivants = Affront.classement().filter(x => !(x.p.ko || x.p.hp <= 0)).length;
+    const fini = Affront.survie() ? (vivants <= 1 && G.chrono > 1) : (G.chrono >= AFFRONT_DUREE || (Coop.N() < 2 && G.chrono > 1));
     if (G.etat === 'combat' && !G.finDefi && fini) { G.defi.temps = G.chrono; G.terminerDefi(true); G.etat = 'mort'; G.ecranMort = true; Musique.baisser(.8); }
   } catch (e) { console.warn('affront', e); }
 };
@@ -125,9 +137,10 @@ G.relancer = function () { if (Affront.actif()) { this.finDefi = null; return th
 // ---------- la salle d'attente ----------
 const Salon = {
   etat: null, prive: false, n: 2, b: 0, sonde: null, t0: 0, depart: 0, msg: '', partis: [], resultat: null, flux: null,
-  idSalle(n, b, k) { return PREF_AFF + 'n' + n + '-b' + b + '-' + k; },
+  // toujours 3 joueurs ; deux modes qui ne se mélangent pas : dégâts ou survie
+  idSalle(n, b, k) { return PREF_AFF + 'n3-' + (this.mode || 'degats') + '-b' + b + '-' + k; },
   tranche() { return Math.floor(profilAff().pts / PAS_CLASSEMENT); },
-  meta() { const P = profilAff(); return { nom: nomJoueur(), pts: P.pts, idJ: Save.d.idJ, aff: this.n }; },
+  meta() { const P = profilAff(); return { nom: nomJoueur(), pts: P.pts, idJ: Save.d.idJ, aff: this.mode || 'degats' }; },
   async peer(id) {
     await Reseau.charger();
     return new Promise(ok => {
@@ -181,7 +194,7 @@ const Salon = {
   },
   // recherche : d'abord des joueurs de ta tranche de classement, puis les tranches voisines
   async chercher() {
-    this.fermer(); this.n = profilAff().n || 2; this.prive = false; this.etat = 'recherche'; this.t0 = Date.now(); this.msg = ''; this.partis = [];
+    this.fermer(); this.n = 3; this.mode = profilAff().mode || 'degats'; this.prive = false; this.etat = 'recherche'; this.t0 = Date.now(); this.msg = ''; this.partis = [];
     const b0 = this.b = this.tranche(), jeton = this.jeton = {};
     if (!(await this.nouvelleSonde())) { this.msg = T2('Connexion impossible : vérifie Internet.'); this.etat = null; return; }
     for (let tour = 0; this.etat === 'recherche' && this.jeton === jeton && tour < 40; tour++) {
@@ -210,7 +223,7 @@ const Salon = {
   // salle privée : seuls tes amis invités entrent, et la partie ne compte pas pour le classement
   async creerPrivee() {
     if (this.etat === 'hote' && this.prive) return true;
-    this.fermer(); this.prive = true; this.n = profilAff().n || 2; this.etat = 'prive-cree'; this.t0 = Date.now(); this.partis = [];
+    this.fermer(); this.prive = true; this.n = 3; this.mode = profilAff().mode || 'degats'; this.etat = 'prive-cree'; this.t0 = Date.now(); this.partis = [];
     const ok = await this.heberger(PREF_PRIVE + Save.d.idJ);
     if (!ok) { this.etat = null; this.msg = T2('Impossible de créer la salle privée pour le moment.'); }
     return ok;
@@ -229,7 +242,7 @@ const Salon = {
   // ce que voient les invités pendant l'attente et après la partie
   pourInvite() {
     const l = [{ nom: nomJoueur(), pts: profilAff().pts, idJ: Save.d.idJ }].concat(Coop.inscrits.map(j => ({ nom: j.nomAff || 'J' + j.n, pts: j.pts, idJ: j.idJ })));
-    return { n: this.n, prive: this.prive, joueurs: l, depart: this.depart ? Math.max(0, Math.ceil((this.depart - Date.now()) / 1000)) : 0, fin: G.mode === 'affront' && G.finDefi ? this.resultat : null };
+    return { n: this.n, mode: this.mode || 'degats', prive: this.prive, joueurs: l, depart: this.depart ? Math.max(0, Math.ceil((this.depart - Date.now()) / 1000)) : 0, fin: G.mode === 'affront' && G.finDefi ? this.resultat : null };
   },
   // côté hôte, toutes les 0,5 s : lancer quand la salle est pleine
   tic() {
@@ -248,7 +261,7 @@ const _arriveeAff = Reseau.arrivee.bind(Reseau);
 Reseau.arrivee = function (conn) {
   const m = conn.metadata || {};
   if (Salon.etat === 'hote' || m.aff) {
-    const refuse = Salon.etat !== 'hote' || Salon.refus || G.etat !== 'menu' || Coop.N() >= Salon.n || (m.aff && m.aff !== Salon.n);
+    const refuse = Salon.etat !== 'hote' || Salon.refus || G.etat !== 'menu' || Coop.N() >= Salon.n || (m.aff && m.aff !== (Salon.mode || 'degats'));
     if (refuse) { conn.on('open', () => { try { conn.send({ t: 'plein' }); } catch (e) { } setTimeout(() => conn.close(), 400); }); return; }
   }
   _arriveeAff(conn);
@@ -268,7 +281,7 @@ Reseau.majInvite = function () {
   let box = d.querySelector('.inv-aff'); if (!box) { box = document.createElement('div'); box.className = 'inv-aff'; d.appendChild(box); }
   if (i.etat === 'menu') {
     m.style.display = 'block';
-    m.textContent = (A.depart ? T2('La partie commence dans') + ' ' + A.depart + ' s' : T2('Salle d\'attente') + ' : ' + A.joueurs.length + ' / ' + A.n + ' ' + T2('joueurs')) + ' — ' + A.joueurs.map(x => propre(x.nom) + (x.pts !== undefined && !A.prive ? ' (' + x.pts + ')' : '')).join(' · ');
+    m.textContent = (A.depart ? T2('La partie commence dans') + ' ' + A.depart + ' s' : T2('Salle d\'attente') + ' : ' + A.joueurs.length + ' / ' + A.n + ' ' + T2('joueurs') + ' · ' + nomModeAff(A.mode)) + ' — ' + A.joueurs.map(x => propre(x.nom) + (x.pts !== undefined && !A.prive ? ' (' + x.pts + ')' : '')).join(' · ');
   }
   if (A.fin && A.fin.id) {
     const P = profilAff(), moi = A.fin.cl.find(x => x.idJ === Save.d.idJ);
@@ -336,7 +349,7 @@ UI.salleAff = function (msg) {
   if (msg) Salon.msg = msg;
   this.retour = () => { Salon.fermer(); UI.salleOuverte = false; UI.menu(); };
   this.montrer(`<div class="panneau court salle-aff"><div class="barre-titre"><button class="rond" data-a="salleQuitter" data-echap title="Retour">←</button><h2>⚔ ${T2('Affrontement')}</h2></div>
-    <div class="af-haut"><div class="af-nb">${[2, 3].map(n => `<button data-a="salleN" data-n="${n}" class="${P.n === n ? 'actif' : ''}">${n} ${T2('joueurs')}</button>`).join('')}</div>
+    <div class="af-haut"><div class="af-nb">${MODES_AFF.map(([m, nom]) => `<button data-a="salleN" data-m="${m}" class="${(P.mode || 'degats') === m ? 'actif' : ''}">${T2(nom)}</button>`).join('')}</div>
       <div class="af-rang">${htmlRang(P.pts)} <small>${P.pts} pts · ${P.v} V · ${P.dft} D · ${saisonAff().nom}</small></div></div>
     <div id="af-etat" class="af-etat"></div>
     <ul id="af-joueurs" class="joueurs"></ul>
@@ -372,7 +385,7 @@ UI.action = function (a, btn) {
   switch (a) {
     case 'affront': if (G.etat === 'menu' && selMenu() === 'affront') { this.salleAff(); return; } break;
     case 'salleQuitter': Salon.fermer(); this.salleOuverte = false; return this.menu();
-    case 'salleN': { const P = profilAff(); P.n = +btn.dataset.n; Save.write(); Salon.n = P.n; if (!(Salon.prive && Salon.etat === 'hote')) { Salon.fermer(); Salon.msg = ''; } this.salleAff(); return; }
+    case 'salleN': { const P = profilAff(); P.mode = btn.dataset.m; Save.write(); Salon.mode = P.mode; if (!(Salon.prive && Salon.etat === 'hote')) { Salon.fermer(); Salon.msg = ''; } this.salleAff(); return; }
     case 'salleChercher': Salon.fermer(); Salon.msg = ''; this.salleAff(); return;
     case 'salleCopier': { try { navigator.clipboard.writeText(Save.d.idJ); } catch (e) { } btn.textContent = '✔'; return; }
     case 'salleAjout': { const i = this.el.querySelector('#af-code'), c = String(i && i.value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''); if (c.length < 6 || c === Save.d.idJ) { Salon.msg = T2('Ce code joueur n\'est pas valide.'); return this.majSalle(); } Boite.ajouterAmi({ idJ: c, nom: T2('Ami') + ' ' + c.slice(0, 4) }).then(ok => { Salon.msg = ok ? T2('Ami ajouté : il te voit aussi dans sa liste.') : T2('Ami ajouté. Il te verra quand son jeu sera ouvert.'); this.majSalle(); }); return; }
@@ -402,15 +415,15 @@ dessinerHUD = function (c) {
     c.fillStyle = 'rgba(10,8,18,.72)'; c.strokeStyle = 'rgba(255,216,107,.35)'; c.lineWidth = 1;
     c.beginPath(); c.roundRect ? c.roundRect(x0, y0, 248, 30 + cl.length * 34, 8) : c.rect(x0, y0, 248, 30 + cl.length * 34); c.fill(); c.stroke();
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    const reste = Math.max(0, AFFRONT_DUREE - G.chrono);
-    texteOmbre(c, '⚔ ' + T2('Affrontement'), x0 + 12, y0 + 15, '#ffd86b', `800 14px ${POLICE}`, 3);
+    const reste = Affront.survie() ? G.chrono : Math.max(0, AFFRONT_DUREE - G.chrono);
+    texteOmbre(c, '⚔ ' + T2('Affrontement') + ' · ' + nomModeAff(G.defi.affMode), x0 + 12, y0 + 15, '#ffd86b', `800 14px ${POLICE}`, 3);
     c.textAlign = 'right'; texteOmbre(c, fmtTemps(reste), x0 + 236, y0 + 15, reste < 20 ? '#ff8a9a' : '#e6e0f0', `800 14px ${POLICE}`, 3);
     cl.forEach((x, i) => {
       const y = y0 + 34 + i * 34;
       c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(x0 + 12, y + 12, 224, 6);
       c.fillStyle = x.col; c.fillRect(x0 + 12, y + 12, 224 * x.score / max, 6);
       c.textAlign = 'left'; texteOmbre(c, (i + 1) + '. ' + x.nom + (x.p.ko ? ' ✖' : ''), x0 + 12, y + 2, x.moi ? '#fff' : x.col, `${x.moi ? 800 : 600} 14px ${POLICE}`, 3);
-      c.textAlign = 'right'; texteOmbre(c, (Math.round(x.score / 100) / 10).toString().replace('.', ',') + ' k', x0 + 236, y + 2, '#e6e0f0', `700 13px ${POLICE}`, 3);
+      c.textAlign = 'right'; texteOmbre(c, Affront.survie() ? fmtTemps(x.score) : (Math.round(x.score / 100) / 10).toString().replace('.', ',') + ' k', x0 + 236, y + 2, '#e6e0f0', `700 13px ${POLICE}`, 3);
     });
     c.restore();
   } catch (e) { }
@@ -421,7 +434,7 @@ dessinerEcranDefi = function (c) {
   if (!df || df.type !== 'affront' || !f || !f.classement) return _ecranAff.apply(this, arguments);
   c.fillStyle = 'rgba(4,2,10,.84)'; c.fillRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  texteOmbre(c, T2('AFFRONTEMENT') + (f.classe ? '' : ' · ' + T2('entre amis')), W / 2, 92, '#b8b0cc', `800 18px ${POLICE}`, 4);
+  texteOmbre(c, T2('AFFRONTEMENT') + ' · ' + nomModeAff(df.affMode) + (f.classe ? '' : ' · ' + T2('entre amis')), W / 2, 92, '#b8b0cc', `800 18px ${POLICE}`, 4);
   const titres = ['', T2('VICTOIRE !'), T2('2e place'), T2('3e place')];
   texteOmbre(c, titres[f.place] || '', W / 2, 160, f.place === 1 ? '#ffe14d' : '#e8e2f5', `900 ${f.place === 1 ? 62 : 48}px ${POLICE}`, 8);
   const coupes = ['🥇', '🥈', '🥉'];
@@ -431,7 +444,7 @@ dessinerEcranDefi = function (c) {
     c.strokeStyle = x.moi ? 'rgba(255,216,107,.6)' : 'rgba(255,255,255,.12)'; c.strokeRect(W / 2 - l / 2 + .5, y - 23.5, l - 1, 47);
     c.textAlign = 'left'; c.font = `26px ${POLICE}`; c.fillStyle = '#fff'; c.fillText(coupes[i] || '', W / 2 - l / 2 + 14, y + 1);
     texteOmbre(c, x.nom + (x.parti ? ' (' + T2('parti') + ')' : ''), W / 2 - l / 2 + 58, y, x.col, `800 22px ${POLICE}`, 4);
-    c.textAlign = 'right'; texteOmbre(c, x.score.toLocaleString('fr-FR') + ' ' + T2('dégâts'), W / 2 + l / 2 - (f.classe ? 110 : 16), y, '#e8e2f5', `700 19px ${POLICE}`, 4);
+    c.textAlign = 'right'; texteOmbre(c, G.defi.affMode === 'survie' ? fmtTemps(x.score) + ' ' + T2('tenues') : x.score.toLocaleString('fr-FR') + ' ' + T2('dégâts'), W / 2 + l / 2 - (f.classe ? 110 : 16), y, '#e8e2f5', `700 19px ${POLICE}`, 4);
     if (f.classe && x.delta !== undefined) texteOmbre(c, (x.delta >= 0 ? '+' : '') + x.delta + ' pts', W / 2 + l / 2 - 16, y, x.delta >= 0 ? '#7dffb0' : '#ff8a9a', `800 19px ${POLICE}`, 4);
   });
   c.textAlign = 'center';
@@ -468,11 +481,11 @@ UI.menu = function () {
     if (g && !g.querySelector('[data-a=affront]')) {
       const P = profilAff(), b = document.createElement('button');
       b.className = 'defi2 d-affront'; b.dataset.a = 'affront'; b.title = FORMATS.affront.obj;
-      b.innerHTML = `<span class="di">⚔</span><span class="dtx"><b>${T2('Affrontement')}</b><span class="dm">${T2('en ligne, contre de vrais joueurs')}</span><span class="af-nb-t">${[2, 3].map(n => `<span class="af-n ${P.n === n ? 'actif' : ''}" data-n="${n}">${n} ${T2('joueurs')}</span>`).join('')}</span></span><span class="dr">${htmlRang(P.pts)}<small>${P.pts} pts</small></span>`;
+      b.innerHTML = `<span class="di">⚔</span><span class="dtx"><b>${T2('Affrontement')}</b><span class="dm">${T2('3 joueurs en ligne')}</span><span class="af-nb-t">${MODES_AFF.map(([m, nom]) => `<span class="af-n ${(P.mode || 'degats') === m ? 'actif' : ''}" data-m="${m}">${T2(nom)}</span>`).join('')}</span></span><span class="dr">${htmlRang(P.pts)}<small>${P.pts} pts</small></span>`;
       b.addEventListener('click', ev => {
         ev.stopPropagation(); Son.init(); Son.play('clic');
         const n = ev.target.closest && ev.target.closest('.af-n');
-        if (n) { P.n = +n.dataset.n; Save.write(); b.querySelectorAll('.af-n').forEach(x => x.classList.toggle('actif', x === n)); Save.d.menuSel = 'affront'; Save.write(); majSelection(); return; }
+        if (n) { P.mode = n.dataset.m; Save.write(); b.querySelectorAll('.af-n').forEach(x => x.classList.toggle('actif', x === n)); Save.d.menuSel = 'affront'; Save.write(); majSelection(); return; }
         UI.action('affront', b);
       });
       const surv = g.querySelector('[data-a=survie]'); if (surv) surv.after(b); else g.appendChild(b);

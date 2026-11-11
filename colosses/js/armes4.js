@@ -88,7 +88,9 @@ dessinerAllies = function (c) {
 };
 
 // ---------- la Chasse : armes techniques et boss plus retors ----------
-const ARMES_CHASSE = ['arc', 'iaido', 'railgun', 'surchauffe', 'jumelles', 'rattrape', 'focale', 'meteorite', 'tambour', 'portee', 'dosLame'];
+// armes de la Chasse : seulement celles où un joueur peut viser le temps parfait à armes égales
+// (l'arc était bien trop dur à viser sur un point faible qui bouge ; le sabre et la lame de l'ombre bien trop faciles)
+const ARMES_CHASSE = ['railgun', 'surchauffe', 'jumelles', 'focale', 'meteorite', 'tambour', 'portee', 'rattrape'];
 function armeChasse() { return R.pick(ARMES_CHASSE); }
 const GARDE_DEGATS = .15, GARDE_DUREE = 2, GARDE_TOUS = 9;
 const ChasseBoss = {

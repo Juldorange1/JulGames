@@ -319,7 +319,7 @@ const G = {
     const c = chasseCourante(), pr = PR(), salle = clamp(pr.palier * 5 + 1, 8, 30);
     this.mode = 'chasse'; this.finDefi = null;
     if (!Save.d.defis.chasse || Save.d.defis.chasse.cle !== c.cle + '%2') { Save.d.defis.chasse = { cle: c.cle + '%2', best: null, essais: 0 }; if (Save.d.reprises) delete Save.d.reprises.chasse; }
-    const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars; // combat quitté : mêmes armes pour le reprendre
+    const rec = Save.d.defis.chasse, enCours = (Save.d.reprises || {}).chasse && rec.ars && ARMES_CHASSE.includes(rec.ars.p); // combat quitté : mêmes armes pour le reprendre
     const ars = enCours ? rec.ars : { p: armeChasse(), s: tirerArme('s'), t: tirerArme('t') }; rec.ars = ars; // la Chasse ne donne que des armes techniques
     this.defi = { type: 'chasse', format: 'chasse', cle: c.cle + '%2', mut: [], boss: [{ salle, seed: hashStr('chasse-boss-' + c.cle), mega: false, esp: c.esp, ars }], i: 0, temps: 0, tues: 0, degats: 0, coups: 0 };
     rec.essais++; Save.write();
