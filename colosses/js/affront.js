@@ -27,7 +27,7 @@ const Affront = {
   actif() { return G.mode === 'affront'; },
   raz() { this.sc = new Map(); },
   ajout(p, d) { if (p) this.sc.set(p, (this.sc.get(p) || 0) + d); },
-  score(p) { if (G.defi && G.defi.affMode === 'survie') return Math.round(((p.mortT !== undefined ? p.mortT : (G.chrono || 0) + .1) || 0) * 10) / 10; // le survivant passe devant celui qui vient de tomber return this.sc.get(p) || 0; },
+  score(p) { if (G.defi && G.defi.affMode === 'survie') return Math.round(((p.mortT !== undefined ? p.mortT : (G.chrono || 0) + .1) || 0) * 10) / 10; /* le survivant passe devant celui qui vient de tomber */ return this.sc.get(p) || 0; },
   survie() { return !!(G.defi && G.defi.affMode === 'survie'); },
   classement() {
     const l = [], P = profilAff(), h = Coop.hote || G.p;
