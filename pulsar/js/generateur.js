@@ -659,7 +659,7 @@ function genNiveau(opts) {
   var cibleTemps0 = cibleTemps / spbS;                        // en temps (beats)
   while ((G.step / G.spb) < cibleTemps0 - 6) {
     var mes = P.mesures();
-    ajouterSection(G, mes);
+    ajouterSection(G, mes, G.nSec === 0 && P.D < 3 ? 'cube' : null);
   }
   terminerNiveau(G, 1);
   L.duree = L.nPas * DT;

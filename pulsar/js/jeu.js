@@ -57,6 +57,12 @@ var Jeu = {
       var g = gp[i]; if (!g) continue;
       var a = (g.buttons[0] && g.buttons[0].pressed) || (g.buttons[7] && g.buttons[7].pressed) || (g.buttons[12] && g.buttons[12].pressed);
       if (a !== !!this.gpA) { this.gpA = a; if (this.etat === 'jeu') this.file.push({ t: performance.now(), d: a }); else if (a && Menus.manette) Menus.manette('a'); }
+      if (this.etat !== 'jeu') {
+        var dirs = [[12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']];
+        this.gpDir = this.gpDir || {};
+        for (var di = 0; di < 4; di++) { var bd = g.buttons[dirs[di][0]] && g.buttons[dirs[di][0]].pressed; if (bd && !this.gpDir[di]) Menus.navigation({ code: dirs[di][1], preventDefault: function () { } }); this.gpDir[di] = bd; }
+        var bb = g.buttons[1] && g.buttons[1].pressed; if (bb && !this.gpB) { if (this.etat === 'pause') this.reprendre(); else if (Menus.retour) Menus.retour(); } this.gpB = bb;
+      }
       var st = g.buttons[9] && g.buttons[9].pressed;
       if (st && !this.gpStart) { if (this.etat === 'jeu') this.pause(); else if (this.etat === 'pause') this.reprendre(); }
       this.gpStart = st;
@@ -138,7 +144,9 @@ var Jeu = {
     this.nouvelEssai(true);
     var et = etiquetteD(J.D);
     var titre = cfg.type === 'parcours' ? 'Niveau ' + cfg.n : cfg.type === 'jour' ? 'Défi du jour' : cfg.type === 'semaine' ? 'Défi de la semaine' : cfg.type === 'infini' ? 'Infini' : 'Atelier · ' + NOMS_MODE[cfg.mode];
-    this.message(titre + ' · ' + et.nom, J.nomBoss || '', et.c, 2.6);
+    var sous = J.nomBoss || '';
+    if (!d.vus.mode_cube) { d.vus.mode_cube = 1; Sauve.ecrire(); sous = 'Appuie pour sauter : Espace, flèche haut, clic ou toucher'; }
+    this.message(titre + ' · ' + et.nom, sous, et.c, sous === J.nomBoss ? 2.6 : 4);
   },
   etendreInfini: function (J) {
     var G = J.G, L = G.L;
@@ -262,13 +270,17 @@ var Jeu = {
         var ev = this.file.shift();
         if (ev.d) { this.tenu = true; this.appuiAttente = true; } else this.tenu = false;
       }
-      var sautsAvant = p.sauts;
+      var solAvant = p.sol;
       pas(p, Jeu.auto ? !!L.ghost[p.step] : (this.tenu || this.appuiAttente), L, !J.sansBoss);
       this.appuiAttente = false;
       if (p.orbeFlash) { p.orbeFlash = 0; Son.sfx('orbe'); for (var o = 0; o < 10; o++) particule(p.x, p.y, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 0.4, '#ffe14d', 0.12); }
       if (p.eclatFlash) {
         p.eclatFlash = 0; Son.sfx('eclat'); J.coupBoss = 1;
         for (var e2 = 0; e2 < 14; e2++) particule(p.x, p.y, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, 0.5, '#bff8ff', 0.1);
+      }
+      if (p.sol && !solAvant && (p.mode === 'cube' || p.mode === 'boule')) {
+        var ic = COULEURS[Sauve.d.icone.c1];
+        for (var pp = 0; pp < 6; pp++) particule(p.x + (Math.random() - 0.5) * 0.8, p.y - 0.45 * p.g, (Math.random() - 0.5) * 3, p.g * Math.random() * 1.5, 0.3, ic, 0.09);
       }
       if (p.mort || p.fini) break;
       if (J.pratique && (p.step * DT) - J.dernierPoint > 2.6 && this.pointSur(J)) { J.temps = p.step * DT; this.poserPoint(false); }
@@ -338,6 +350,7 @@ var Jeu = {
     Son.couper(0.6); Son.sfx('victoire'); Rendu.flash = 0.6; Rendu.secousse = 2;
     d.stats.sauts += p.sauts; p.sauts = 0; d.stats.temps += J.temps;
     var res = { nouveau: false, eclats: p.eclats, eclatsTotal: L.eclats.length, essais: J.essai, pratique: J.pratique };
+    var avantDeb = etatDeblocages();
     if (!J.pratique) {
       d.stats.finis++; d.stats.eclats += p.eclats;
       var rec = c.type === 'parcours' ? d.parcours.niv[c.n] : c.type === 'jour' ? d.defis.jour[dateJour()] : d.defis.semaine[numSemaine()];
@@ -364,6 +377,8 @@ var Jeu = {
     }
     J.resultat = res;
     Sauve.ecrire();
+    var nouveauxObjets = etatDeblocages() - avantDeb;
+    if (nouveauxObjets > 0) setTimeout(function () { Menus.toast('Collection', nouveauxObjets + ' nouvel' + (nouveauxObjets > 1 ? 's objets débloqués' : ' objet débloqué') + ' : va voir dans Collection !'); Son.sfx('succes'); }, 2800);
     verifierSucces();
   },
 
@@ -431,6 +446,16 @@ function dDefi(type) {
   var D = type === 'jour' ? clamp(Math.round(maitrise() * 2) / 2, 2, 40) : clamp(Math.round((maitrise() + 1.5) * 2) / 2, 3, 45);
   tab[cle] = tab[cle] || { essais: 0, best: 0 }; tab[cle].D = D; Sauve.ecrire();
   return D;
+}
+
+/* nombre d'objets de collection débloqués */
+function etatDeblocages() {
+  var d = Sauve.d, n = 0, i;
+  for (i = 0; i < NB_CUBES; i++) if (condCube(i).ok(d)) n++;
+  for (i = 0; i < COULEURS.length; i++) if (condCouleur(i).ok(d)) n++;
+  for (i = 0; i < TRAINEES.length; i++) if (condTrainee(i).ok(d)) n++;
+  for (i = 0; i < EXPLOSIONS.length; i++) if (condExplosion(i).ok(d)) n++;
+  return n;
 }
 
 /* ---------- Maîtrise ---------- */
