@@ -1,5 +1,5 @@
 'use strict';
-/* PULSAR — musique électro générée (calée sur le niveau : chaque niveau a sa musique) et bruitages, en Web Audio */
+/* COMÈTE — musique électro générée (chaque colosse a la sienne, calée sur son tempo) et bruitages, en Web Audio */
 
 var Son = {
   ctx: null, maitre: null, busM: null, busS: null, bruit: null, delai: null, reverb: null,
@@ -37,7 +37,7 @@ var Son = {
   t: function () { return this.ctx ? this.ctx.currentTime : 0; },
 
   /* ---------- Musique ---------- */
-  // cfg : { graine, spb, intensite(tSec)->0..3, appuis: [t...] (frappes), boucle }
+  // cfg : { graine, b (durée d'un temps en s), intensite(tSec)->0..3 }
   jouer: function (cfg, tDepart) {
     if (!this.ctx) return;
     var R = rngGraine(cfg.graine * 13 + 7);
@@ -45,8 +45,8 @@ var Son = {
     var prog = R.choix([[0, 5, 3, 4], [0, 3, 5, 4], [0, 5, 6, 4], [0, 6, 5, 3], [0, 2, 5, 4], [5, 3, 0, 4], [0, 4, 5, 3]]);
     var p = {
       cfg: cfg, racine: 33 + R.ent(0, 9), gamme: R.choix(gammes), prog: prog,
-      dt16: cfg.spb / 4 * DT, motifs: [], basse: R.choix([[0, 0, 12, 0, 0, 12, 0, 7], [0, 0, 0, 0, 12, 12, 0, 0], [0, 12, 0, 12, 0, 12, 7, 12], [0, 0, 7, 0, 0, 0, 10, 12]]),
-      arp: R.choix([[0, 1, 2, 1], [0, 1, 2, 3], [2, 1, 0, 1], [0, 2, 1, 3]]), timbre: R.ent(0, 2), appuiIdx: 0,
+      dt16: cfg.b / 4, motifs: [], basse: R.choix([[0, 0, 12, 0, 0, 12, 0, 7], [0, 0, 0, 0, 12, 12, 0, 0], [0, 12, 0, 12, 0, 12, 7, 12], [0, 0, 7, 0, 0, 0, 10, 12]]),
+      arp: R.choix([[0, 1, 2, 1], [0, 1, 2, 3], [2, 1, 0, 1], [0, 2, 1, 3]]), timbre: R.ent(0, 2),
       // rythmique : 0 = carré, 1 = cassé, 2 = demi-temps, 3 = galop
       style: R.choix([0, 0, 1, 2, 3]),
       kicks: [[0, 4, 8, 12], [0, 6, 10], [0, 10], [0, 3, 8, 11]],
@@ -65,7 +65,6 @@ var Son = {
   recaler: function (t) {
     if (!this.piste) return;
     this.prochain = Math.ceil(t / this.piste.dt16 - 0.001);
-    if (this.piste.cfg.appuis) { var a = this.piste.cfg.appuis, i = 0; while (i < a.length && a[i] < t) i++; this.piste.appuiIdx = i; }
     if (this.ctx) { var now = this.ctx.currentTime; this.mixM.gain.cancelScheduledValues(now); this.mixM.gain.setValueAtTime(1, now); }
   },
   couper: function (fondu) {
@@ -85,14 +84,6 @@ var Son = {
       if (tn < tJeu - 0.03) continue;
       var at = now + (tn - tJeu) + 0.02;
       this.pas16(p, n, at, p.cfg.intensite ? p.cfg.intensite(tn) : 2);
-    }
-    // frappes : un petit coup à chaque appui du fantôme
-    var ap = p.cfg.appuis;
-    if (ap && Sauve.d.reglages.frappes) {
-      while (p.appuiIdx < ap.length && ap[p.appuiIdx] < horizon) {
-        var ta = ap[p.appuiIdx++]; if (ta < tJeu - 0.03) continue;
-        this.tom(now + (ta - tJeu) + 0.02, 0.16);
-      }
     }
   },
   note: function (p, deg, oct) {
@@ -183,7 +174,7 @@ var Son = {
   },
 
   /* ---------- Bruitages ---------- */
-  sfx: function (nom) {
+  sfx: function (nom, arg) {
     if (!this.ctx) return;
     var c = this.ctx, at = c.currentTime + 0.005, bus = this.busS;
     var osc = function (type, f0, f1, d, v, dest) {
@@ -197,17 +188,36 @@ var Son = {
       var g = c.createGain(); g.gain.setValueAtTime(v, at); g.gain.exponentialRampToValueAtTime(0.0001, at + d);
       b.connect(fl); fl.connect(g); g.connect(bus); b.start(at, Math.random()); b.stop(at + d + 0.05);
     };
+    var p = this.piste;
+    var noteHz = function (deg, oct) { if (!p) return 523.25 * Math.pow(2, [0, 2, 4, 7, 9][deg % 5] / 12 + Math.floor(deg / 5)); return Son.hz(Son.note(p, deg, oct)); };
     switch (nom) {
-      case 'mort': bruit(5000, 0.6, 0.9); osc('sawtooth', 220, 40, 0.5, 0.35); osc('sine', 90, 30, 0.6, 0.5); break;
-      case 'orbe': osc('sine', 660, 1320, 0.12, 0.25); osc('triangle', 990, 1980, 0.1, 0.12); break;
-      case 'tampon': osc('sine', 300, 900, 0.18, 0.3); break;
-      case 'portail': bruit(800, 0.4, 0.3, 'bandpass'); osc('sine', 300, 1200, 0.3, 0.12); break;
-      case 'eclat': osc('sine', 1568, 0, 0.18, 0.18); osc('sine', 2093, 0, 0.25, 0.1); break;
+      case 'boucle': // une note qui monte avec le combo, toujours dans la gamme de la musique
+        var deg = Math.min(arg || 0, 14), f0 = noteHz(deg, 3);
+        osc('triangle', f0, 0, 0.35, 0.22); osc('sine', f0 * 2, 0, 0.25, 0.08); osc('sine', f0 * 1.5, 0, 0.3, 0.05);
+        break;
+      case 'boucleVide': osc('sine', noteHz(0, 2), 0, 0.12, 0.06); break;
+      case 'pile': osc('square', noteHz(7, 4), 0, 0.12, 0.05); osc('sine', noteHz(9, 4), 0, 0.2, 0.06); break;
+      case 'degat': osc('square', 180, 90, 0.08, 0.12); bruit(3000, 0.08, 0.15, 'bandpass'); break;
+      case 'balles': osc('sine', 1400, 2400, 0.1, 0.06); break;
+      case 'bouclier': osc('square', 1800, 1500, 0.06, 0.06); osc('sine', 2600, 0, 0.12, 0.05); break;
+      case 'noyau': bruit(4000, 0.7, 0.6); osc('sawtooth', 300, 60, 0.6, 0.25); osc('sine', noteHz(0, 2), 0, 0.8, 0.25); break;
+      case 'coeurSort': bruit(1500, 1.4, 0.5, 'bandpass'); osc('sawtooth', 60, 220, 1.3, 0.25); break;
+      case 'touche': bruit(5000, 0.5, 0.8); osc('sawtooth', 240, 50, 0.45, 0.35); osc('sine', 100, 35, 0.5, 0.5); break;
+      case 'egide': osc('sine', 900, 400, 0.3, 0.25); bruit(6000, 0.3, 0.2, 'highpass'); break;
+      case 'elan': bruit(2500, 0.18, 0.25, 'bandpass'); osc('sine', 300, 900, 0.12, 0.08); break;
+      case 'coupe': osc('sawtooth', 700, 200, 0.12, 0.08); break;
+      case 'novaPrete': [0, 4, 7, 12].forEach(function (s2, i2) { var o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = 659.25 * Math.pow(2, s2 / 12); var t0 = at + i2 * 0.05; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4); o.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + 0.45); }); break;
+      case 'nova': bruit(8000, 1.2, 0.7, 'highpass'); osc('sawtooth', 80, 30, 1.0, 0.4); osc('sine', noteHz(0, 3), noteHz(0, 1), 1.0, 0.25); break;
+      case 'mine': bruit(1800, 0.3, 0.35); break;
+      case 'desamorce': osc('sine', 500, 1500, 0.12, 0.12); break;
+      case 'annonce': osc('sine', 1200, 1000, 0.05, 0.03); break;
+      case 'laser': bruit(9000, 0.35, 0.18, 'highpass'); osc('sawtooth', 110, 90, 0.3, 0.1); break;
+      case 'onde': osc('sine', 200, 70, 0.4, 0.25); break;
+      case 'meteore': bruit(900, 0.5, 0.6); osc('sine', 80, 30, 0.4, 0.4); break;
       case 'clic': osc('triangle', 900, 600, 0.05, 0.15); break;
       case 'survol': osc('sine', 1200, 0, 0.03, 0.04); break;
-      case 'point': osc('sine', 880, 1760, 0.15, 0.2); break;
-      case 'coup': osc('sine', 120, 50, 0.25, 0.5); bruit(2500, 0.2, 0.4); break;
-      case 'phase': bruit(3000, 1.2, 0.5, 'bandpass'); osc('sawtooth', 80, 40, 1.0, 0.3); break;
+      case 'choix': osc('triangle', 660, 1320, 0.15, 0.15); osc('sine', 990, 0, 0.3, 0.08); break;
+      case 'defaite': bruit(3000, 1.2, 0.5); osc('sawtooth', 200, 40, 1.2, 0.3); break;
       case 'victoire':
         [0, 4, 7, 12, 16, 19, 24].forEach(function (s, i) { var o = c.createOscillator(), g = c.createGain(); o.type = 'square'; o.frequency.value = 523.25 * Math.pow(2, s / 12); var t0 = at + i * 0.07; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5); o.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + 0.55); });
         bruit(6000, 1.5, 0.3, 'highpass'); break;
