@@ -9,8 +9,8 @@
    Les dangers brillent toujours (ce qui est vif n'est jamais assombri), la lisibilité du combat ne baisse pas. */
 
 const AMBIANCE_LUM = {
-  temple: 'rgb(108,100,92)', volcan: 'rgb(110,90,80)', glace: 'rgb(96,106,122)',
-  neant: 'rgb(92,86,114)', ruines: 'rgb(98,106,94)', metal: 'rgb(100,104,112)'
+  temple: 'rgb(118,112,104)', volcan: 'rgb(118,104,96)', glace: 'rgb(110,118,130)',
+  neant: 'rgb(106,100,124)', ruines: 'rgb(110,118,106)', metal: 'rgb(112,116,124)'
 };
 
 const Eclairage = {
@@ -56,37 +56,37 @@ const Eclairage = {
     };
     const p = G.p, b = G.boss;
     // toi : une lumière chaude qui te suit, et celle de tes alliés
-    if (p && p.hp > 0) L('rgba(255,228,190,.62)', p.x, p.y, 330, 1);
+    if (p && p.hp > 0) L('rgba(255,232,200,.34)', p.x, p.y, 300, 1);
     for (const a of G.allies || []) if (a && a.x !== undefined) L('rgba(200,230,255,.4)', a.x, a.y, 220, 1);
     // le colosse : sa couleur, plus forte quand il est ouvert
     if (b && !b.mort && b.def) {
       const ouv = b.ouvert > 0;
-      L(ouv ? 'rgba(255,214,110,.75)' : hsl(b.def.hue, 85, 58, .42), b.x, b.y, (b.r || 40) * 3.2 + 140, (b.alpha === undefined ? 1 : b.alpha) * (b.spectral > 0 ? .5 : 1));
+      L(ouv ? 'rgba(255,214,110,.42)' : hsl(b.def.hue, 70, 55, .26), b.x, b.y, (b.r || 40) * 3.2 + 140, (b.alpha === undefined ? 1 : b.alpha) * (b.spectral > 0 ? .5 : 1));
     }
     // explosions, impacts, éclairs
-    for (const l of G.lumieres) L(l.col, l.x, l.y, l.r * 1.5, (1 - l.t / l.dur) * 1.2);
+    for (const l of G.lumieres) L(l.col, l.x, l.y, l.r * 1.3, (1 - l.t / l.dur) * .55);
     // lave et braseros
-    for (const l of Arene.lave || []) L('rgba(255,120,40,.95)', l.x, l.y, l.r * 2.4, .85 + .15 * Math.sin(t * 2.3 + l.x));
+    for (const l of Arene.lave || []) L('rgba(255,120,40,.6)', l.x, l.y, l.r * 2, .8 + .1 * Math.sin(t * 2.3 + l.x));
     const T = THEMES[th];
     if (T && T.feu) {
       const pos = Arene.kind === 'cercle'
         ? [0, 1, 2, 3, 4, 5].map(i => { const a = i * TAU / 6 + Math.PI / 6; return [CX + Math.cos(a) * (AR.h / 2 + 12), CY + Math.sin(a) * (AR.h / 2 + 12)]; })
         : [[AR.x - 10, AR.y - 10], [AR.x + AR.w + 10, AR.y - 10], [AR.x - 10, AR.y + AR.h + 10], [AR.x + AR.w + 10, AR.y + AR.h + 10], [CX, AR.y - 10]];
-      for (const [bx, by] of pos) L('rgba(255,150,60,.85)', bx, by, 230, .7 + .18 * Math.sin(t * 11 + bx) + .1 * Math.sin(t * 23 + by));
+      for (const [bx, by] of pos) L('rgba(255,150,70,.55)', bx, by, 200, .75 + .1 * Math.sin(t * 11 + bx) + .06 * Math.sin(t * 23 + by));
     }
-    if (G.portail) L('rgba(170,130,255,.9)', G.portail.x, G.portail.y, 320, 1);
+    if (G.portail) L('rgba(170,130,255,.5)', G.portail.x, G.portail.y, 280, 1);
     // zones de danger : elles s'éclairent elles-mêmes (on les voit toujours)
     let n = 0;
     for (const z of G.hz) {
       if (n++ > 60) break;
       if (z.x === undefined || z.y === undefined) continue;
-      const r = z.r || z.w || 60; L(z.col && /^#|^rgb|^hsl/.test(z.col) ? z.col : 'rgba(255,70,50,.7)', z.x, z.y, Math.min(400, r * 1.4), .38);
+      const r = z.r || z.w || 60; L(z.col && /^#|^rgb|^hsl/.test(z.col) ? z.col : 'rgba(255,70,50,.7)', z.x, z.y, Math.min(400, r * 1.3), .22);
     }
     // balles du colosse et tirs : chaque balle est une petite lumière
     n = 0;
-    for (const e of G.eb) { if (n++ > 180) break; L(e.col || '#ff6a5a', e.x, e.y, Math.max(26, (e.r || 6) * 5), .5); }
+    for (const e of G.eb) { if (n++ > 180) break; L(e.col || '#ff6a5a', e.x, e.y, Math.max(24, (e.r || 6) * 4), .26); }
     n = 0;
-    for (const s of G.pb) { if (n++ > 90) break; if (s.delai > 0) continue; L('rgba(255,244,226,.9)', s.x, s.y, Math.max(30, (s.r || 5) * 6), .16); }
+    for (const s of G.pb) { if (n++ > 90) break; if (s.delai > 0) continue; L('rgba(255,244,226,.9)', s.x, s.y, Math.max(26, (s.r || 5) * 5), .1); }
     x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   }
 };
@@ -121,11 +121,11 @@ const Eclairage = {
           float gy = lumi(texture2D(lum, q + vec2(0., lp.y)).rgb) - lumi(texture2D(lum, q - vec2(0., lp.y)).rgb);
           vec3 ld = normalize(vec3(clamp(vec2(gx, gy) * 9., -1.2, 1.2) + vec2(-.35, .45), .6));
           float ndl = max(dot(n, ld), 0.);
-          float spec = pow(max(dot(n, normalize(ld + vec3(0., 0., 1.))), 0.), 30.);
+          float spec = pow(max(dot(n, normalize(ld + vec3(0., 0., 1.))), 0.), 34.);
           float m = max(c0.r, max(c0.g, c0.b));
           emis = smoothstep(.62, .96, m);
-          fac = L * max(.25, 1. + 1.5 * (ndl - ld.z));
-          vec3 lit = c0 * fac + spec * L * .16 * (1. - emis);
+          fac = L * max(.55, 1. + .7 * (ndl - ld.z));
+          vec3 lit = c0 * fac + spec * L * .06 * (1. - emis);
           return mix(lit, max(lit, c0 * 1.06), emis);
         }`;
       // passe lumineuse : le monde éclairé, réduit au quart, on ne garde que ce qui brille
@@ -136,7 +136,7 @@ const Eclairage = {
           c += eclairer(monde, lum, uv + px * vec2(-1., -1.), px, relief, e, fa); c += eclairer(monde, lum, uv + px * vec2(1., -1.), px, relief, e, fa);
           c += eclairer(monde, lum, uv + px * vec2(-1., 1.), px, relief, e, fa); c += eclairer(monde, lum, uv + px * vec2(1., 1.), px, relief, e, fa);
           c *= .25;
-          gl_FragColor = vec4(max(c - .5, 0.) * 1.7, 1.);
+          gl_FragColor = vec4(max(c - .68, 0.) * 1.25, 1.);
         }`, ['monde', 'lum', 'px', 'relief']);
       // flou gaussien séparé (9 points en 5 lectures)
       this.pFlou = prog(`
@@ -157,10 +157,10 @@ const Eclairage = {
           vec2 px = 1. / res, d = uv - .5; float r2 = dot(d, d);
           vec2 q = uv;
           // l'air qui ondule près de la lave
-          if (chaleur > 0.) q += vec2(sin(uv.y * 85. + t * 3.1) + sin(uv.y * 31. - t * 1.7), cos(uv.x * 70. + t * 2.3)) * px * 1.3 * chaleur;
+          if (chaleur > 0.) q += vec2(sin(uv.y * 85. + t * 3.1) + sin(uv.y * 31. - t * 1.7), cos(uv.x * 70. + t * 2.3)) * px * .7 * chaleur;
           float e; vec3 fac; vec3 col = eclairer(monde, lum, q, px, relief, e, fac);
           // aberration chromatique : très légère sur les bords, plus forte quand tu es touché
-          float ab = (max(r2 - .12, 0.) * .8 + choc) * force;
+          float ab = choc * force;
           if (ab > .02) { vec2 off = d * px * 9. * ab; float rr = texture2D(monde, q + off).r, bb = texture2D(monde, q - off).b; col.r = mix(rr * fac.r, max(rr * fac.r, rr * 1.06), e); col.b = mix(bb * fac.b, max(bb * fac.b, bb * 1.06), e); }
           // étalonnage : un peu désaturé, ombres froides, lumières dorées, contraste, courbe filmique
           float l = lumi(col);
@@ -173,8 +173,8 @@ const Eclairage = {
           col += texture2D(flou, uv).rgb * bloomF;
           // vignette et grain très fin
           float v = smoothstep(.85, .2, length(d * vec2(1., .9)));
-          col *= mix(1., mix(.5, 1., v), force);
-          col += (h1(uv * res + fract(t) * 91.) - .5) * .018 * force;
+          col *= mix(1., mix(.66, 1., v), force);
+          col += (h1(uv * res + fract(t) * 91.) - .5) * .008 * force;
           // l'interface, nette, par-dessus
           vec4 hud = texture2D(img, uv);
           col = mix(clamp(col, 0., 1.), hud.rgb, hud.a);
@@ -232,7 +232,7 @@ const Eclairage = {
     if (c.width !== cv.width || c.height !== cv.height) { c.width = cv.width; c.height = cv.height; }
     c.style.display = 'block'; cv.style.opacity = '0';
     const force = G.opts.postfx === false ? 0 : (G.opts.postfxForce || 1), dalto = { rv: 1, bj: 2 }[G.opts.dalto] || 0;
-    const menu = Eclairage.menu, relief = menu ? 0 : 3.8 / Math.max(1, dpr), th = Decor.themeActif();
+    const menu = Eclairage.menu, relief = menu ? 0 : 1.8 / Math.max(1, dpr), th = Decor.themeActif();
     // l'interface (dessinée après la coupe) part dans l'unité 0
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
@@ -254,9 +254,9 @@ const Eclairage = {
     gl.uniform1i(u.img, 0); gl.uniform1i(u.monde, 1); gl.uniform1i(u.lum, 2); gl.uniform1i(u.flou, 3);
     gl.uniform2f(u.res, c.width, c.height); gl.uniform1f(u.t, G.t || performance.now() / 1000);
     gl.uniform1f(u.force, force); gl.uniform1f(u.dalto, dalto); gl.uniform1f(u.relief, relief);
-    gl.uniform1f(u.chaleur, menu ? 0 : (Arene.lave && Arene.lave.length ? 1 : th === 'volcan' ? .45 : 0) * force);
-    gl.uniform1f(u.choc, menu ? 0 : Math.min(1, ((G.p && G.p.rouge) || 0) * 2.2 + Math.min(.35, (G.shake || 0) * .02)));
-    gl.uniform1f(u.bloomF, (menu ? .3 : .75) * force);
+    gl.uniform1f(u.chaleur, menu ? 0 : (Arene.lave && Arene.lave.length ? .8 : 0) * force);
+    gl.uniform1f(u.choc, menu ? 0 : Math.min(.5, ((G.p && G.p.rouge) || 0) * 1.2));
+    gl.uniform1f(u.bloomF, (menu ? .22 : .4) * force);
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   };

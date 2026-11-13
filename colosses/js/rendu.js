@@ -156,7 +156,7 @@ function brasero(c, x, y) {
   c.strokeStyle = '#6a5a48'; c.lineWidth = 3; c.stroke();
   const t = G.t;
   c.globalCompositeOperation = 'lighter';
-  c.drawImage(glow('rgba(255,140,40,.35)', 120), x - 120, y - 120);
+  c.drawImage(glow('rgba(255,140,40,.2)', 110), x - 110, y - 110);
   for (let i = 0; i < 4; i++) {
     const k = (t * 2.2 + i / 4) % 1, fy = y - k * 26, fx = x + Math.sin(t * 7 + i * 2) * 4 * (1 - k);
     c.globalAlpha = 1 - k; c.drawImage(glow(i % 2 ? '#ffd27a' : '#ff6a1a', 10 * (1 - k * .5)), fx - 10, fy - 10);
@@ -166,9 +166,9 @@ function brasero(c, x, y) {
 
 function dessinerArene(c) {
   const hue = G.def ? G.def.hue : 260, th = THEMES[Decor.themeActif()];
-  c.drawImage(texteFond(), 0, 0);
+  { const tf = texteFond(), m = tf.monde || { x: 0, y: 0, w: W, h: H }; c.drawImage(tf, m.x, m.y, m.w, m.h); }
   c.save(); cheminArene(c); c.clip();
-  c.drawImage(texteSol(), 0, 0);
+  { const ts = texteSol(), m = ts.monde || { x: 0, y: 0, w: W, h: H }; c.drawImage(ts, m.x, m.y, m.w, m.h); }
   if (Decor.decal) c.drawImage(Decor.decal, 0, 0);
   for (const l of Arene.lave) {
     c.beginPath();
@@ -669,7 +669,12 @@ function dessinerFx(c) {
     if (q.add) c.globalCompositeOperation = 'lighter';
     c.fillStyle = q.col; c.strokeStyle = q.col;
     if (q.trait) { c.lineWidth = q.r; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x - q.vx * .035, q.y - q.vy * .035); c.stroke(); }
-    else c.fillRect(q.x - q.r, q.y - q.r, q.r * 2, q.r * 2);
+    else {
+      // étincelles : une traînée arrondie quand elles filent, un point rond qui rétrécit sinon
+      const v2 = q.vx * q.vx + q.vy * q.vy, rr = q.r * (.45 + .55 * a);
+      if (v2 > 3600) { c.lineCap = 'round'; c.lineWidth = rr * 1.5; c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(q.x - q.vx * .028, q.y - q.vy * .028); c.stroke(); c.lineCap = 'butt'; }
+      else { c.beginPath(); c.arc(q.x, q.y, rr, 0, TAU); c.fill(); }
+    }
     c.globalCompositeOperation = 'source-over';
   }
   c.globalAlpha = 1;

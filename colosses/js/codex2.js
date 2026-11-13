@@ -43,7 +43,7 @@ function apercuRegion(rg) {
   try {
     Decor.theme = rg.theme; Arene.carte = 'normale'; Arene.version++; G.def = G.def || { hue: 40 };
     const cv = document.createElement('canvas'); cv.width = 320; cv.height = 200;
-    const x = cv.getContext('2d'); x.drawImage(texteSol(), AR.x + 200, AR.y + 120, 640, 400, 0, 0, 320, 200);
+    const x = cv.getContext('2d'); const ts = texteSol(), q = ts.width / W; x.drawImage(ts, (AR.x + 200) * q, (AR.y + 120) * q, 640 * q, 400 * q, 0, 0, 320, 200);
     url = cv.toDataURL('image/jpeg', .8);
   } catch (e) { url = null; }
   Decor.theme = sv.theme; Arene.carte = sv.carte; Arene.version++; G.def = sv.def;

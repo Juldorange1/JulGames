@@ -54,7 +54,7 @@ function peindreCalque(cv, S, R, matiere, intensite) {
   x.globalCompositeOperation = 'source-atop';
   // matière
   const tuile = motifMatiere(matiere);
-  if (tuile) { const pat = x.createPattern(tuile, 'repeat'); if (pat) { x.globalAlpha = .75 * k; x.fillStyle = pat; x.fillRect(0, 0, S, S); } }
+  if (tuile) { const pat = x.createPattern(tuile, 'repeat'); if (pat) { x.globalAlpha = (matiere === 'metal' || matiere === 'chitine' ? .28 : .6) * k; x.fillStyle = pat; x.fillRect(0, 0, S, S); } }
   // volume : lumière en haut à gauche, ombre en bas à droite
   x.globalAlpha = 1;
   const g = x.createRadialGradient(cx - R * .45, cy - R * .55, R * .05, cx - R * .1, cy - R * .1, R * 1.55);
