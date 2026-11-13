@@ -987,7 +987,7 @@ function fondMenu() {
 function rendu() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#030208'; ctx.fillRect(0, 0, cv.width, cv.height);
-  if (G.etat === 'menu' || !G.p) { fondMenu(); return; }
+  if (G.etat === 'menu' || !G.p) { fondMenu(); if (typeof Eclairage !== 'undefined') Eclairage.separer(true); return; }
   const sh = G.shake, sx = sh ? R.range(-sh, sh) * .6 : 0, sy = sh ? R.range(-sh, sh) * .6 : 0;
   const base = () => ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offX, dpr * offY);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (offX + sx * scale), dpr * (offY + sy * scale));
@@ -1018,7 +1018,9 @@ function rendu() {
   c.restore();
   dessinerTirsEnnemis(c);
   c.restore();
-  if (G.opts.lumiere && !G.opts.effetsReduits) { bloom(); base(); } else base();
+  // éclairage par la carte graphique : le monde part dans le shader, l'interface est dessinée à part par-dessus
+  if (typeof Eclairage !== 'undefined' && Eclairage.separer()) base();
+  else if (G.opts.lumiere && !G.opts.effetsReduits) { bloom(); base(); } else base();
   // voiles d'ambiance
   const p = G.p;
   if (p && p.hp > 0 && p.hp < p.hpMax * .3) {

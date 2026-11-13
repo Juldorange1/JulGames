@@ -39,7 +39,7 @@ const Reseau = {
   // l'image du jeu (et son son) à envoyer
   fluxJeu() {
     if (this.flux) return this.flux;
-    const st = cv.captureStream(30);
+    const st = (typeof PostFX !== 'undefined' && PostFX.ok && PostFX.cv && G.opts.postfx !== false ? PostFX.cv : cv).captureStream(30); // l'image finale (monde éclairé + interface)
     try { const v = st.getVideoTracks()[0]; if (v && 'contentHint' in v) v.contentHint = 'motion'; } catch (e) { }
     try {
       Son.init();
