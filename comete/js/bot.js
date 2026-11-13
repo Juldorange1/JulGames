@@ -154,7 +154,7 @@ function botEntree(C, B) {
     var cx = cands[k][0], cy = cands[k][1], dg = 0;
     // la comète accélère : on part de sa vitesse actuelle
     for (var q = 0; q < TAUS.length; q++) {
-      var tau = TAUS[q], m = Math.min(1, tau * ACCEL / C.vmax / 2);
+      var tau = TAUS[q], m = Math.min(1, tau * (C.accel || ACCEL) / C.vmax / 2);
       var mvx = j.vx * (1 - m) + cx * C.vmax * m, mvy = j.vy * (1 - m) + cy * C.vmax * m;
       var x = clamp(j.x + mvx * tau, 0.15, C.W - 0.15), y = clamp(j.y + mvy * tau, 0.15, C.H - 0.15);
       dg += dangerPoint(C, x, y, tau, memo) * (1.25 - tau);
@@ -168,6 +168,16 @@ function botEntree(C, B) {
   if (j.dashCd <= 0 && !elan) {
     for (var o = 0; o < C.ondes.length && !elan; o++) { var on = C.ondes[o], dO = Math.sqrt(dist2(j.x, j.y, on.x, on.y)) - on.r; if (dO > 0 && dO < on.v * 0.07 + 0.12 && dansOnde({ x: on.x, y: on.y, r: on.r + dO, w: on.w, gap: on.gap, larg: on.larg }, j.x, j.y, R_J)) elan = true; }
     for (var mm = 0; mm < C.murs.length && !elan; mm++) { var mu = C.murs[mm]; if (dansMur(C, { cote: mu.cote, pos: mu.pos + mu.v * 0.07, trou: mu.trou, tr: mu.tr, ep: mu.ep }, j.x, j.y, R_J + 0.05)) elan = true; }
+  }
+  // forme Lame : l'élan traverse la cible pour la frapper
+  if (C.forme === 'lame' && !elan && j.dashCd <= 0 && cible && bdanger < 40) {
+    var lx = cible.x - j.x, ly = cible.y - j.y, ld = Math.sqrt(lx * lx + ly * ly);
+    if (ld > 0.4 && ld < C.dashDist * 0.8) {
+      var fx = j.x + lx / ld * C.dashDist, fy = j.y + ly / ld * C.dashDist;
+      if (fx > 0.3 && fy > 0.3 && fx < C.W - 0.3 && fy < C.H - 0.3 && dangerPoint(C, fx, fy, 0.1, memo) < 5 && dangerPoint(C, (j.x + fx) / 2, (j.y + fy) / 2, 0.05, memo) < 5) {
+        B.dec = null; return { dx: lx / ld, dy: ly / ld, elan: true, c: comp };
+      }
+    }
   }
   B.dec = { dx: best[0], dy: best[1] };
   return { dx: best[0], dy: best[1], elan: elan, c: comp };

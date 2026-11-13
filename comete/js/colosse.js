@@ -21,13 +21,13 @@ var ESPECES = {
 };
 /* les sortes de cristaux (noyaux) */
 var TYPES_NOYAU = {
-  normal:   { dMin: 1, nom: 'Cristal', desc: 'Encercle-le pour le frapper.' },
-  sens:     { dMin: 4, nom: 'Cristal tournant', desc: 'Ne se brise que si tu tournes dans le sens de sa flèche.' },
-  blinde:   { dMin: 6, nom: 'Cristal blindé', desc: 'Seules les boucles serrées le frappent.' },
-  lie:      { dMin: 8, nom: 'Cristaux liés', desc: 'Deux cristaux enchaînés : il faut les entourer ensemble.' },
-  vivace:   { dMin: 10, nom: 'Cristal vivace', desc: 'Il se répare très vite si tu le laisses tranquille.' },
-  eclatant: { dMin: 12, nom: 'Cristal éclatant', desc: 'Brisé, il éclate en deux petits cristaux rapides.' },
-  fantome:  { dMin: 14, nom: 'Cristal fantôme', desc: 'Il devient intouchable deux temps sur quatre.' }
+  normal:   { dMin: 1, ico: '◆', nom: 'Cristal', court: 'entoure-le', desc: 'Encercle-le pour le frapper.' },
+  sens:     { dMin: 4, ico: '↻', nom: 'Cristal tournant', court: 'suis la flèche', desc: 'Ne se brise que si tu tournes dans le sens de sa flèche jaune.' },
+  blinde:   { dMin: 6, ico: '⛨', nom: 'Cristal blindé', court: 'petite boucle', desc: 'Seules les petites boucles serrées le frappent.' },
+  lie:      { dMin: 8, ico: '⛓', nom: 'Cristaux liés', court: 'les deux ensemble', desc: 'Deux cristaux enchaînés : entoure-les ensemble.' },
+  vivace:   { dMin: 10, ico: '🌱', nom: 'Cristal vivace', court: 'se répare vite', desc: 'Il se répare très vite si tu le laisses tranquille.' },
+  eclatant: { dMin: 12, ico: '✸', nom: 'Cristal éclatant', court: 'éclate en deux', desc: 'Brisé, il éclate en deux petits cristaux rapides.' },
+  fantome:  { dMin: 14, ico: '👻', nom: 'Cristal fantôme', court: 'parfois intouchable', desc: 'Il devient transparent et intouchable deux temps sur quatre.' }
 };
 
 /* catalogue des attaques : niveau d'apparition, poids, durée d'annonce (en temps) */
@@ -199,6 +199,21 @@ function genColosse(opts) {
   }
   def.vB = Math.min(6.4 + Math.max(0, d - 45) * 0.02, 3.0 + d * 0.1, 7.8);
   if (d <= 1) def.vB = 2.7;
+
+  // traits : ce qui rend ce colosse différent des autres (il faut s'adapter)
+  var tDispo = [];
+  for (var tk in TRAITS) if (TRAITS[tk].dMin <= d) tDispo.push(tk);
+  if (def.espece === 'forteresse') tDispo = tDispo.filter(function (x) { return x !== 'aimant'; });
+  R.melange(tDispo);
+  var nbT = d < 2.5 ? 0 : d < 14 ? 1 : 2;
+  if (titan && d >= 2.5) nbT = Math.min(2, nbT + 1);
+  // certains traits ensemble seraient injustes
+  var exclus = { coriace: 'gardien', gardien: 'coriace', glace: 'aimant', aimant: 'glace' };
+  def.traits = [];
+  for (var ti = 0; ti < tDispo.length && def.traits.length < nbT; ti++) if (def.traits.indexOf(exclus[tDispo[ti]]) < 0) def.traits.push(tDispo[ti]);
+  if (def.traits.indexOf('agile') >= 0) def.noyaux.forEach(function (x) { x.w *= 1.8; if (x.om) x.om *= 1.4; });
+  if (def.espece === 'hydre' && def.traits.indexOf('agile') >= 0) def.corps.vit *= 1.25;
+  def.coeur.saut = d >= 5 && R() < 0.45;
   return def;
 }
 

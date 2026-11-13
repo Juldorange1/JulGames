@@ -181,7 +181,9 @@ var Jeu = {
     var R = rngGraine((Date.now() / 1000) | 0);
     var def = genColosse({ n: R.ent(3, 14), graine: R.ent(1, 1e6) });
     var a = this.arene();
-    this.J = { demo: true, cfg: { mode: 'demo' }, C: creerCombat(def, { W: a.W, H: a.H, invincible: true, comp: { slots: ['lasso', null, 'supernova'], niv: {} } }), bot: creerBot(1), acc: 0, vitesse: 1, ralenti: 1 };
+    var formes = Object.keys(FORMES);
+    this.J = { demo: true, cfg: { mode: 'demo' }, C: creerCombat(def, { W: a.W, H: a.H, invincible: true, forme: formes[R.ent(0, formes.length - 1)], comp: { slots: ['lasso', null, 'supernova'], niv: {} } }), bot: creerBot(1), acc: 0, vitesse: 1, ralenti: 1 };
+    this.J.C.demo = true;
     Rendu.cadrer(this.J.C); Rendu.viderFx();
     if (this.etat !== 'pause') this.etat = 'menu';
   },
@@ -189,7 +191,8 @@ var Jeu = {
     var p = PR();
     var niv = {}; for (var k in p.comp.niv) niv[k] = p.comp.niv[k];
     var slots = p.comp.slots.map(function (s) { return s && Jeu.compDebloquee(s) ? s : null; });
-    return { diff: Sauve.d.diff, comp: { slots: slots, niv: niv }, ameli: p.ameli };
+    var forme = FORMES[p.forme] && Jeu.formeDebloquee(p.forme) ? p.forme : 'comete';
+    return { diff: Sauve.d.diff, comp: { slots: slots, niv: niv }, ameli: p.ameli, forme: forme };
   },
   lancer: function (cfg) {
     Son.init();
@@ -205,7 +208,7 @@ var Jeu = {
       case 'entrainement':
         def = colosseAscension(cfg.n);
         cfg.etiquette = 'Entraînement · ' + cfg.n;
-        opts.invincible = !!cfg.invincible;
+        opts.invincible = true;
         break;
       case 'odyssee':
         var run = cfg.run, dd = 1 + (run.k - 1) * 1.5;
@@ -238,6 +241,10 @@ var Jeu = {
     for (var i = 0; i < def.noyaux.length; i++) { var ty = def.noyaux[i].type; if (ty !== 'normal' && !vus['t_' + ty]) { vus['t_' + ty] = 1; nouveaux.push(ty); } }
     if (!vus['e_' + def.espece] && def.espece !== 'sentinelle') { vus['e_' + def.espece] = 1; Menus.toast('Nouvelle espèce : ' + ESPECES[def.espece].nom, ESPECES[def.espece].desc); }
     nouveaux.forEach(function (t) { Menus.toast('Nouveau : ' + TYPES_NOYAU[t].nom, TYPES_NOYAU[t].desc); });
+    (def.traits || []).forEach(function (t) { if (!vus['r_' + t]) { vus['r_' + t] = 1; Menus.toast('Nouveau trait : ' + TRAITS[t].ico + ' ' + TRAITS[t].nom, TRAITS[t].desc); } });
+    // boutons tactiles : les icônes des compétences équipées
+    var bt = document.querySelectorAll('#tactile button');
+    for (var s = 0; s < 3; s++) { var id = C.slots[s]; bt[s].textContent = id ? COMPETENCES[id].ico : '·'; bt[s].style.visibility = id ? '' : 'hidden'; }
     Sauve.ecrire();
   },
   recommencer: function () { if (this.J && !this.J.demo) { if (this.J.cfg.mode === 'odyssee' && !this.J.C.fini) return; this.compterFin(true); this.lancer(this.J.cfg); } },
@@ -289,6 +296,8 @@ var Jeu = {
         if (J.demo && C.fini) { this.lancerDemo(); return; }
       }
       if (n >= 12) J.acc = 0;
+      // petites étincelles derrière la comète
+      if (n > 0 && !C.fini) { var vj = C.j.vx * C.j.vx + C.j.vy * C.j.vy; if (vj > 9 && Math.random() < 0.7) Rendu.fx.part.push({ x: C.j.x, y: C.j.y, vx: -C.j.vx * 0.08 + (Math.random() - 0.5), vy: -C.j.vy * 0.08 + (Math.random() - 0.5), vie: 0.35, max: 0.35, col: Rendu.couleurJoueur(this.tReel), t: 0.045 }); }
       if (J.ralenti < 1) J.ralenti = Math.min(1, J.ralenti + dt * (J.ralentiV || 1.2));
       if (J.demo && C.t > 75) { this.lancerDemo(); return; }
       if (!J.demo) this.tutoriel(J, C);
@@ -303,6 +312,7 @@ var Jeu = {
     if (J.message) J.message.vie -= dt;
     J.flashRouge = Math.max(0, (J.flashRouge || 0) - dt);
     Rendu.majFx(dt * (J.ralenti || 1));
+    if (this.etat === 'menu') Rendu.apercuImage(dt);
     Rendu.dessiner(C, J, this.tReel);
     if (J.flashRouge > 0) { var g = Rendu.g; g.fillStyle = 'rgba(255,40,70,' + (J.flashRouge * 0.9) + ')'; g.fillRect(0, 0, Rendu.w, Rendu.h); }
   },
@@ -335,13 +345,16 @@ var Jeu = {
         case 'boucle':
           var cfl = e.fracture ? 'rgba(255,120,60,A)' : e.cibles ? (e.echo || e.fantome ? 'rgba(200,200,255,A)' : this.rgbaJoueur(col)) : e.balles ? 'rgba(255,210,80,A)' : 'rgba(255,255,255,A)';
           Rendu.fx.flashs.push({ poly: e.poly, vie: e.cibles || e.balles ? 0.45 : 0.25, max: e.cibles || e.balles ? 0.45 : 0.25, col: cfl });
+          if (e.cibles && !e.echo) { var px = 0, py = 0, np = e.poly.length / 2; for (var pq = 0; pq < e.poly.length; pq += 2) { px += e.poly[pq]; py += e.poly[pq + 1]; } Rendu.anneau(px / np, py / np, 0.2, 5, cfl.replace('A', '1'), 0.35, 0.05); }
           if (son) { if (e.cibles && !e.echo) Son.sfx('boucle', e.combo); else if (e.balles) Son.sfx('balles'); else if (!e.echo) Son.sfx('boucleVide'); }
           if (!demo && e.pile) { Rendu.texte(C.j.x, C.j.y - 0.5, 'PILE !', '#ffd34d', 0.42, 0.7); if (son) Son.sfx('pile'); }
           else if (!demo && e.serre) Rendu.texte(C.j.x, C.j.y - 0.5, 'SERRÉ', '#7dffb0', 0.3, 0.55);
           if (e.fracture) { Rendu.secouer(0.7); this.message('FRACTURE !', 'Le colosse est étourdi', 1, '#ff9a6b', 36); }
           break;
         case 'refus':
+          if (!demo && e.discret && this.tReel - (J.tRefus || 0) < 0.5) break;
           if (!demo) {
+            J.tRefus = this.tReel;
             var txt = { bouclier: 'Protégé', intouchable: 'Intouchable', sens: 'Mauvais sens !', large: 'Trop large !', lie: 'Entoure les deux !' }[e.motif];
             Rendu.texte(e.x, e.y - 0.6, txt, '#9fdcff', 0.3, 0.7); if (son) Son.sfx('bouclier');
           }
@@ -397,6 +410,10 @@ var Jeu = {
         case 'tir': if (son) { if (e.a === 'laser' || e.a === 'croix' || e.a === 'balayage' || e.a === 'eclair') Son.sfx('laser'); else if (e.a === 'onde') Son.sfx('onde'); } break;
         case 'meteore': Rendu.secouer(0.4); if (son) Son.sfx('meteore'); break;
         case 'annonce': if (son) Son.sfx('annonce'); break;
+        case 'toile': Rendu.fx.flashs.push({ poly: e.poly, vie: 0.25, max: 0.25, col: 'rgba(220,200,255,A)' }); if (son) Son.sfx('balles'); break;
+        case 'lame': Rendu.anneau(e.x, e.y, 0.2, 5, 'rgba(255,255,255,1)', 0.25, 0.08); Rendu.secouer(0.25); break;
+        case 'vorace': if (!demo) { Rendu.texte(e.x, e.y - 0.6, '+ vie', '#7dffb0', 0.26, 0.6); Rendu.particules(e.x, e.y, 6, '#7dffb0', 1.5, 0.5); } break;
+        case 'coeurSaut': Rendu.particules(e.x0, e.y0, 20, 'hsl(' + C.def.teinte + ',100%,75%)', 4, 0.5); Rendu.anneau(e.x1, e.y1, 1.2, -2, 'hsla(' + C.def.teinte + ',100%,80%,1)', 0.4, 0.08); break;
       }
     }
     evs.length = 0;
@@ -455,7 +472,9 @@ var Jeu = {
     P.poussiere += x.poussiere; P.poussiereTotale += x.poussiere;
     // nouvelles compétences débloquées
     for (var id in COMPETENCES) { var cd = COMPETENCES[id].debloque; if (cd > debAvant && cd <= P.ascension.debloque) x.comps.push(id); }
-    x.comps.forEach(function (id) { if (!P.comp.niv[id]) P.comp.niv[id] = 1; Menus.toast('Nouvelle compétence : ' + COMPETENCES[id].nom, 'À équiper dans « Compétences ».'); });
+    x.comps.forEach(function (id) { if (!P.comp.niv[id]) P.comp.niv[id] = 1; });
+    x.formes = [];
+    for (var fo in FORMES) { var fd = FORMES[fo].debloque; if (fd > debAvant && fd <= P.ascension.debloque) x.formes.push(fo); }
     this.verifierSucces(x);
     Sauve.ecrire();
     J.resultat = x;
@@ -487,6 +506,7 @@ var Jeu = {
   nbEtoiles: function (min, P) { var n = 0, r = (P || PR()).ascension.rec; for (var k in r) if (r[k].etoiles >= min) n++; return n; },
   totalEtoiles: function (P) { var n = 0, r = (P || PR()).ascension.rec; for (var k in r) n += r[k].etoiles || 0; return n; },
   compDebloquee: function (id, P) { return (P || PR()).ascension.debloque >= COMPETENCES[id].debloque; },
+  formeDebloquee: function (id, P) { return (P || PR()).ascension.debloque >= FORMES[id].debloque; },
   RANGS: [[0, 'Poussière d’étoile'], [40, 'Météore'], [120, 'Comète'], [280, 'Étoile filante'], [550, 'Astre'], [950, 'Supernova'], [1600, 'Nébuleuse'], [2600, 'Galaxie'], [4200, 'Amas stellaire'], [7000, 'Univers']],
   // points de talent : uniquement ce qui demande du savoir-faire (colosses vaincus, étoiles, meilleure Odyssée), selon la difficulté
   talent: function () {

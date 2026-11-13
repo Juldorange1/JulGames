@@ -1,8 +1,9 @@
 'use strict';
-/* COMÈTE — menus (HTML par-dessus le canvas ; la souris sert seulement ici, jamais pour jouer) */
+/* COMÈTE — menus (HTML par-dessus le canvas ; la souris sert seulement ici, jamais pour jouer)
+   Écrans : Préparation (accueil) · Arsenal (forme, compétences, améliorations) · Profil · Comment jouer · Réglages */
 
 var Menus = {
-  el: null, retour: null, ent: { n: 1, invincible: true, lent: false },
+  el: null, retour: null, mode: 'ascension', vue: null, onglet: 'comp', slot: 0, ongletP: 'stats',
   init: function () { this.el = document.getElementById('ecran'); },
   montrer: function (html, cls, retour, garderDefil) {
     var e = this.el, defil = e.scrollTop, p0 = e.querySelector('.panneau'), defilP = p0 ? p0.scrollTop : 0;
@@ -18,12 +19,16 @@ var Menus = {
       r.addEventListener('input', function () { Sauve.d.reglages[r.name] = +r.value / 100; Sauve.ecrire(); Son.volumes(); });
     });
     var p = e.querySelector('.principal'); if (p && !garderDefil) setTimeout(function () { try { p.focus({ preventScroll: true }); } catch (er) { } }, 30);
+    var ap = e.querySelector('canvas.apercu');
+    Rendu.apercu(ap, ap ? this.defApercu : null);
   },
-  cacher: function () { this.el.className = ''; this.el.innerHTML = ''; this.retour = null; },
+  cacher: function () { this.el.className = ''; this.el.innerHTML = ''; this.retour = null; Rendu.apercu(null); },
   touche: function (e) {
     if (e.code === 'Escape') { e.preventDefault(); if (Jeu.etat === 'pause') { Jeu.reprendre(); return; } if (this.retour) this.retour(); return; }
     if (Jeu.etat === 'pause' && e.code === 'KeyR') { this.action('recommencer'); return; }
     if (Jeu.etat === 'fin' && e.code === 'KeyR') { var r = this.el.querySelector('[data-a=rejouer]'); if (r) { e.preventDefault(); r.click(); return; } }
+    // sur la préparation, Q/D (ou A/D) changent de colosse
+    if (Jeu.etat === 'menu' && this.el.querySelector('.prep') && this.mode === 'ascension' && (e.code === 'KeyA' || e.code === 'KeyD' || e.code === 'KeyQ')) { this.action('vue', { getAttribute: function () { return e.code === 'KeyD' ? '1' : '-1'; } }); return; }
     if ((e.code === 'Space' || e.code === 'Enter') && (document.activeElement === document.body || !document.activeElement || !this.el.contains(document.activeElement))) {
       var p = this.el.querySelector('.principal'); if (p) { e.preventDefault(); p.click(); }
     }
@@ -48,239 +53,241 @@ var Menus = {
     z.appendChild(d); setTimeout(function () { d.classList.add('part'); }, 3800); setTimeout(function () { d.remove(); }, 4400);
   },
   etoiles: function (n, max) { var s = ''; for (var i = 0; i < (max || 3); i++) s += '<em class="' + (i < n ? 'on' : '') + '">★</em>'; return '<span class="etoiles">' + s + '</span>'; },
+  pips: function (n, max) { var s = ''; for (var i = 0; i < max; i++) s += '<em class="' + (i < n ? 'on' : '') + '"></em>'; return '<span class="pips">' + s + '</span>'; },
+  touchesNoms: function () { return Jeu.entree.mode === 'manette' ? ['X', 'Y', 'B'] : ['J', 'K', 'L']; },
 
   action: function (a, b) {
-    var d = Sauve.d, v = b ? b.getAttribute('data-v') : null;
+    var d = Sauve.d, v = b ? b.getAttribute('data-v') : null, P = PR();
     switch (a) {
       case 'accueil': this.accueil(); break;
-      case 'diff': d.diff = v; Sauve.ecrire(); this.accueil(); break;
-      case 'jouer': Jeu.lancer({ mode: 'ascension', n: this.maxAsc() }); break;
-      case 'asc': this.ascension(v != null ? +v : null); break;
-      case 'colosse': Jeu.lancer({ mode: 'ascension', n: +v }); break;
-      case 'odyssee': this.odyssee(); break;
+      case 'diff': d.diff = v; Sauve.ecrire(); this.vue = null; this.accueil(); break;
+      case 'mode': this.mode = v; this.accueil(); break;
+      case 'vue': this.vue = clamp((this.vue || 1) + (+v), 1, this.maxAsc()); Son.sfx('survol'); this.accueil(true); break;
+      case 'jouer': Jeu.lancer({ mode: 'ascension', n: this.vue || this.maxAsc() }); break;
+      case 'entrainer': Jeu.lancer({ mode: 'entrainement', n: this.vue || this.maxAsc() }); break;
       case 'goOdyssee': Jeu.nouvelleOdyssee(); break;
-      case 'jour': this.jour(); break;
       case 'goJour': Jeu.lancer({ mode: 'jour' }); break;
-      case 'entrainement': this.entrainement(); break;
-      case 'entN': this.ent.n = clamp(this.ent.n + (+v), 1, this.maxAsc()); this.entrainement(); break;
-      case 'entB': this.ent[v] = !this.ent[v]; this.entrainement(); break;
-      case 'goEnt': Jeu.lancer({ mode: 'entrainement', n: this.ent.n, invincible: this.ent.invincible, lent: this.ent.lent }); break;
-      case 'comp': this.competences(); break;
-      case 'equiper': var pr = v.split(':'); Jeu.equiper(pr[0], +pr[1]); Son.sfx('choix'); this.competences(true); break;
-      case 'monter': if (Jeu.monterComp(v)) Son.sfx('choix'); this.competences(true); break;
-      case 'ameli': if (Jeu.acheterAmeli(v)) Son.sfx('choix'); this.competences(true); break;
+      case 'arsenal':
+        if (v && v.indexOf('comp:') === 0) { this.onglet = 'comp'; this.slot = +v.split(':')[1]; } else if (v) this.onglet = v;
+        this.arsenal(); break;
+      case 'ong': this.onglet = v; this.arsenal(); break;
+      case 'slot': this.slot = +v; this.arsenal(true); break;
+      case 'forme': if (Jeu.formeDebloquee(v)) { P.forme = v; Sauve.ecrire(); Son.sfx('choix'); } this.arsenal(true); break;
+      case 'equiper': Jeu.equiper(v, this.slot); Son.sfx('choix'); this.arsenal(true); break;
+      case 'monter': if (Jeu.monterComp(v)) Son.sfx('choix'); this.arsenal(true); break;
+      case 'ameli': if (Jeu.acheterAmeli(v)) Son.sfx('choix'); this.arsenal(true); break;
       case 'aide': this.aide(); break;
-      case 'collection': this.collection(); break;
-      case 'coul': if (b.classList.contains('verrou')) { this.toast('Verrouillé', b.getAttribute('title')); break; } d.cosmetique.couleur = +v; Sauve.ecrire(); this.collection(); break;
-      case 'trai': if (b.classList.contains('verrou')) { this.toast('Verrouillé', b.getAttribute('title')); break; } d.cosmetique.trainee = +v; Sauve.ecrire(); this.collection(); break;
-      case 'succes': this.succes(); break;
-      case 'stats': this.stats(); break;
+      case 'profil': if (v) this.ongletP = v; this.profil(); break;
+      case 'coul': if (b.classList.contains('verrou')) { this.toast('Verrouillé', b.getAttribute('title')); break; } d.cosmetique.couleur = +v; Sauve.ecrire(); this.profil(true); break;
+      case 'trai': if (b.classList.contains('verrou')) { this.toast('Verrouillé', b.getAttribute('title')); break; } d.cosmetique.trainee = +v; Sauve.ecrire(); this.profil(true); break;
       case 'reglages': this.reglages(); break;
       case 'basc': d.reglages[v] = d.reglages[v] ? 0 : 1; Sauve.ecrire(); if (Jeu.etat === 'pause') this.pause(); else this.reglages(); break;
-      case 'effacerPartie': if (confirm('Effacer la partie « ' + DIFFS[d.diff].nom + ' » ? Sa progression, sa poussière et ses compétences seront perdues.')) { d.parties[d.diff] = partieVide(); Sauve.ecrire(); this.accueil(); } break;
-      case 'effacer': if (confirm('Tout effacer ? Les 3 parties, les statistiques et la collection seront perdues.')) { try { localStorage.removeItem(Sauve.cle); } catch (e) { } Sauve.charger(); this.accueil(); } break;
+      case 'effacerPartie': if (confirm('Effacer la partie « ' + DIFFS[d.diff].nom + ' » ? Sa progression, sa poussière et ses compétences seront perdues.')) { d.parties[d.diff] = partieVide(); Sauve.ecrire(); this.vue = null; this.accueil(); } break;
+      case 'effacer': if (confirm('Tout effacer ? Les 3 parties, les statistiques et la collection seront perdues.')) { try { localStorage.removeItem(Sauve.cle); } catch (e) { } Sauve.charger(); this.vue = null; this.accueil(); } break;
       case 'reprendre': Jeu.reprendre(); break;
       case 'recommencer': Jeu.reprendre(); Jeu.recommencer(); break;
       case 'quitter': Jeu.quitter(); break;
       case 'suivant': Jeu.lancer({ mode: 'ascension', n: Jeu.J.cfg.n + 1 }); break;
       case 'rejouer': if (Jeu.J.cfg.mode === 'odyssee') Jeu.nouvelleOdyssee(); else Jeu.lancer(Jeu.J.cfg); break;
-      case 'versEnt': this.ent.n = Jeu.J.cfg.n; Jeu.quitter(); this.entrainement(); break;
-      case 'versComp': Jeu.quitter(); this.competences(); break;
+      case 'versEnt': Jeu.lancer({ mode: 'entrainement', n: Jeu.J.cfg.n }); break;
+      case 'preparer': if (Jeu.J.cfg.n) { this.vue = Jeu.J.cfg.n; this.mode = 'ascension'; } Jeu.quitter(); break;
+      case 'versArsenal': Jeu.quitter(); this.onglet = v || 'comp'; this.arsenal(); break;
       case 'glyphe': Son.sfx('choix'); Jeu.prendreGlyphe(Jeu.J.cfg.run, v); break;
     }
   },
   maxAsc: function () { return Math.max(1, PR().ascension.debloque); },
 
-  /* ---------- accueil ---------- */
-  accueil: function () {
-    var d = Sauve.d, P = PR(), n = P.ascension.debloque, def = colosseAscension(n), dj = Jeu.defiJour(), r = Jeu.rang();
-    var nbS = 0; for (var k in d.succes) if (k.indexOf('coul') !== 0) nbS++;
-    var jourFait = P.jour.date === dateJour() && P.jour.meilleur != null;
+  /* ---------- règles d'un colosse, en petites pastilles ---------- */
+  regles: function (def, mut) {
+    var h = '<div class="regles-col">';
+    h += '<div class="pastille-r espece"><i>◎</i><b>' + ESPECES[def.espece].nom + '</b><span>' + ESPECES[def.espece].desc + '</span></div>';
+    for (var i = 0; i < def.types.length; i++) { var t = TYPES_NOYAU[def.types[i]]; h += '<div class="pastille-r cristal"><i>' + t.ico + '</i><b>' + t.nom + '</b><span>' + t.desc + '</span></div>'; }
+    for (i = 0; i < (def.traits || []).length; i++) { var r = TRAITS[def.traits[i]]; h += '<div class="pastille-r trait"><i>' + r.ico + '</i><b>' + r.nom + '</b><span>' + r.desc + '</span></div>'; }
+    if (def.coeur.saut) h += '<div class="pastille-r coeur"><i>✦</i><b>Cœur sauteur</b><span>Une fois libéré, son cœur saute ailleurs toutes les 2 mesures : un cercle montre où.</span></div>';
+    if (mut) h += '<div class="pastille-r regle"><i>⚑</i><b>' + mut.nom + '</b><span>' + mut.desc + '</span></div>';
+    h += '</div>';
+    var conseil = def.traits && def.traits.length ? TRAITS[def.traits[0]].conseil : def.types.length ? 'Regarde bien ses cristaux : chacun a sa règle.' : null;
+    if (conseil) h += '<p class="conseil-col">💡 ' + conseil + '</p>';
+    return h;
+  },
+
+  /* ---------- accueil = préparation du combat ---------- */
+  accueil: function (garder) {
+    var d = Sauve.d, P = PR(), r = Jeu.rang(), max = P.ascension.debloque;
+    if (this.vue == null || this.vue > max) this.vue = max;
     var parties = '';
     for (var dk in DIFFS) {
       var Q = d.parties[dk], D = DIFFS[dk];
-      parties += '<button class="partie' + (dk === d.diff ? ' choisie' : '') + ' p-' + dk + '" data-a="diff" data-v="' + dk + '"><i>' + D.ico + '</i><b>' + D.nom + '</b><span>' + (Q.ascension.debloque > 1 ? 'Colosse ' + Q.ascension.debloque + ' · ' + Jeu.totalEtoiles(Q) + ' ★' : 'Nouvelle partie') + '</span><small>' + D.coeurs + ' cœurs · ✧ ' + Q.poussiere + '</small></button>';
+      parties += '<button class="partie' + (dk === d.diff ? ' choisie' : '') + ' p-' + dk + '" data-a="diff" data-v="' + dk + '" title="' + D.desc + '"><i>' + D.ico + '</i><b>' + D.nom + '</b><small>' + (Q.ascension.debloque > 1 ? 'Colosse ' + Q.ascension.debloque + ' · ' + Jeu.totalEtoiles(Q) + ' ★' : 'Nouvelle partie') + ' · ' + D.coeurs + ' ♥</small></button>';
     }
-    var nbComp = 0; for (var c in COMPETENCES) if (Jeu.compDebloquee(c)) nbComp++;
-    var html = '<div class="accueil">' +
-      '<div class="logo"><span>COMÈTE</span><small>Encercle les colosses</small></div>' +
-      '<div class="rang" title="Les points de talent viennent des colosses vaincus, des étoiles et de ta meilleure Odyssée (Trou noir compte plus qu\'Étincelle)."><b>' + r.nom + '</b><span>rang ' + r.niveau + ' · ' + r.points + ' points de talent</span><i><em style="width:' + Math.round(r.prog * 100) + '%"></em></i></div>' +
+    var dj = Jeu.defiJour(), jourFait = P.jour.date === dateJour() && P.jour.meilleur != null;
+    var modes = [['ascension', 'Ascension'], ['odyssee', 'Odyssée'], ['jour', 'Défi du jour']], mh = '';
+    for (var i = 0; i < 3; i++) mh += '<button class="onglet' + (this.mode === modes[i][0] ? ' actif' : '') + (modes[i][0] === 'jour' && !jourFait ? ' point' : '') + '" data-a="mode" data-v="' + modes[i][0] + '">' + modes[i][1] + '</button>';
+    var html = '<div class="prep">' +
+      '<div class="haut"><div class="logo-mini">COMÈTE</div>' +
+      '<div class="rang" title="Ton rang monte avec les colosses vaincus, les étoiles et ta meilleure Odyssée."><b>' + r.nom + '</b><i><em style="width:' + Math.round(r.prog * 100) + '%"></em></i><span>rang ' + r.niveau + ' · ' + r.points + ' pts</span></div>' +
+      '<div class="icones"><button data-a="profil" title="Profil : statistiques, succès, collection">🏆</button><button data-a="aide" title="Comment jouer">?</button><button data-a="reglages" title="Réglages">⚙</button></div></div>' +
       '<div class="parties">' + parties + '</div>' +
-      '<button class="gros principal" data-a="jouer"><b>' + (n === 1 && !P.tuto ? 'Commencer' : 'Jouer') + '</b><span>' + (def.titan ? 'TITAN ' : 'Colosse ') + n + ' · ' + def.nom + ', ' + def.epithete + '</span></button>' +
-      '<div class="ligne3">' +
-      '<button data-a="odyssee" class="mode-btn"><b>Odyssée</b><span>Record : ' + pluriel(P.odyssee.meilleur, 'colosse') + '</span></button>' +
-      '<button data-a="jour" class="mode-btn' + (jourFait ? '' : ' nouveau') + '"><b>Défi du jour</b><span>' + (dj.mut === 'geant' ? 'Titan géant' : MUTATEURS[dj.mut].nom) + (jourFait ? ' · ✓ ' + fmtTemps(P.jour.meilleur) : ' · à faire') + '</span></button>' +
-      '<button data-a="comp" class="mode-btn comp-btn"><b>Compétences</b><span>✧ ' + P.poussiere + ' poussière · ' + nbComp + '/' + Object.keys(COMPETENCES).length + '</span></button>' +
-      '</div>' +
-      '<div class="ligne3 petitsb">' +
-      '<button data-a="asc">Ascension</button><button data-a="entrainement">Entraînement</button><button data-a="aide">Comment jouer</button>' +
-      '<button data-a="collection">Collection</button><button data-a="succes">Succès ' + nbS + '/' + SUCCES.length + '</button><button data-a="stats">Statistiques</button>' +
-      '</div>' +
-      '<div class="ligne-bas"><button class="discret" data-a="reglages">Réglages</button><span class="petit">Clavier : flèches/ZQSD · Espace élan · J K L compétences · Échap pause — ou manette, ou tactile</span></div>' +
-      '</div>';
-    this.montrer(html, 'fond-leger');
+      '<div class="modes">' + mh + '</div>' +
+      '<div class="prep-corps">' + this.carteMode(P, max, dj) + '<div class="col-droite">' + (this.reglesHtml ? '<section class="carte-regles"><h3>Ce qu’il faut savoir</h3>' + this.reglesHtml + '</section>' : '') + this.carteEquipement(P) + '</div></div></div>';
+    this.montrer(html, 'fond-leger', null, garder);
+  },
+  carteMode: function (P, max, dj) {
+    var h;
+    if (this.mode === 'odyssee') {
+      this.defApercu = null; this.reglesHtml = null;
+      return '<section class="carte-col odyssee"><div class="titre-col seul"><small>Mode</small><b>Odyssée</b><span>Des colosses jamais vus, l’un après l’autre</span></div>' +
+        '<ul class="points"><li>♥ Tes cœurs ne reviennent pas entre deux colosses (un seul rendu par victoire).</li><li>✦ Après chaque victoire, choisis <b>un pouvoir</b> parmi trois.</li><li>👑 Un <b>Titan</b> tous les 5 colosses.</li><li>☄ Ta forme, tes compétences et tes améliorations comptent.</li></ul>' +
+        '<div class="stats mini"><div><b>' + P.odyssee.meilleur + '</b><span>record</span></div><div><b>' + P.odyssee.parties + '</b><span>parties</span></div></div>' +
+        '<div class="boutons-col"><button class="gros principal" data-a="goOdyssee"><b>Partir</b><span>Espace</span></button></div></section>';
+    }
+    if (this.mode === 'jour') {
+      var m = dj.mut === 'geant' ? { nom: 'Titan géant', desc: 'Le colosse du jour est un Titan.' } : MUTATEURS[dj.mut];
+      var def = genColosse({ n: dj.d, graine: dj.graine, titan: dj.mut === 'geant' }), auj = P.jour.date === dateJour();
+      this.defApercu = def; this.reglesHtml = this.regles(def, m);
+      return '<section class="carte-col" style="--h:' + def.teinte + ';--h2:' + def.teinte2 + '"><div class="titre-col seul"><small>Défi du jour · change à minuit</small><b>' + def.nom + '</b><span>' + def.epithete + ' · puissance ' + Math.round(dj.d) + '</span></div>' +
+        '<canvas class="apercu"></canvas>' +
+        '<div class="rec"><span>Aujourd’hui : <b>' + (auj && P.jour.meilleur != null ? fmtTemps(P.jour.meilleur) : '—') + '</b> · ' + pluriel(auj ? P.jour.essais : 0, 'essai') + ' · série ' + P.jour.serie + ' j</span><span class="or">+50 ✧ à la première réussite</span></div>' +
+        '<div class="boutons-col"><button class="gros principal" data-a="goJour"><b>Relever le défi</b><span>Espace</span></button></div></section>';
+    }
+    var n = this.vue, def2 = colosseAscension(n), rec = P.ascension.rec[n];
+    this.defApercu = def2; this.reglesHtml = this.regles(def2);
+    h = '<section class="carte-col' + (def2.titan ? ' titan' : '') + '" style="--h:' + def2.teinte + ';--h2:' + def2.teinte2 + '">' +
+      '<div class="nav-col"><button data-a="vue" data-v="-1" title="Colosse précédent (Q)"' + (n > 1 ? '' : ' disabled') + '>◀</button>' +
+      '<div class="titre-col"><small>' + (def2.titan ? '👑 TITAN ' : 'Colosse ') + n + (n === max ? ' · à vaincre' : ' · déjà vaincu') + '</small><b>' + def2.nom + '</b><span>' + def2.epithete + '</span></div>' +
+      '<button data-a="vue" data-v="1" title="Colosse suivant (D)"' + (n < max ? '' : ' disabled') + '>▶</button></div>' +
+      '<canvas class="apercu"></canvas>' +
+      '<div class="rec">' + this.etoiles(rec ? rec.etoiles : 0) + '<span>' + (rec ? (rec.victoires ? 'Meilleur temps ' + fmtTemps(rec.temps) : 'Record ' + Math.floor(rec.pct * 100) + ' %') + ' · ' + pluriel(rec.essais, 'essai') : 'Jamais affronté') + '</span></div>' +
+      '<div class="boutons-col"><button class="gros principal" data-a="jouer"><b>' + (n === 1 && !P.tuto ? 'Commencer' : 'Affronter') + '</b><span>Espace</span></button>' +
+      '<button class="secondaire" data-a="entrainer"><b>S’entraîner</b><small>sans perdre de cœur</small></button></div></section>';
+    return h;
+  },
+  carteEquipement: function (P) {
+    var f = FORMES[P.forme] && Jeu.formeDebloquee(P.forme) ? FORMES[P.forme] : FORMES.comete, tn = this.touchesNoms();
+    var nbF = 0; for (var k in FORMES) if (Jeu.formeDebloquee(k)) nbF++;
+    var h = '<section class="equip"><h3>Ton équipement</h3>' +
+      '<button class="forme-choisie" data-a="arsenal" data-v="forme"><i>' + f.ico + '</i><span><b>' + f.nom + '</b><small>' + f.court + (nbF > 1 ? ' · ' + nbF + ' formes' : '') + '</small></span><em>Changer</em></button><div class="slots-mini">';
+    for (var s = 0; s < 3; s++) {
+      var id = P.comp.slots[s], c = id && Jeu.compDebloquee(id) ? COMPETENCES[id] : null;
+      h += '<button class="slot-mini' + (s === 2 ? ' ult' : '') + '" data-a="arsenal" data-v="comp:' + s + '"><kbd>' + tn[s] + '</kbd><i>' + (c ? c.ico : '+') + '</i><span>' + (c ? c.nom : 'Vide') + '</span></button>';
+    }
+    h += '</div><button class="poussiere-btn" data-a="arsenal" data-v="ameli"><span>✧ ' + P.poussiere + '</span> Améliorer</button>' +
+      '<p class="petit">Change de forme et de compétences selon le colosse : chacun a ses faiblesses.</p></section>';
+    return h;
   },
 
+  /* ---------- arsenal : forme, compétences, améliorations ---------- */
+  arsenal: function (garder) {
+    var P = PR(), o = this.onglet, tn = this.touchesNoms();
+    var html = '<div class="panneau large arsenal"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Arsenal</h2><span class="poussiere">✧ ' + P.poussiere + ' poussière d’étoile</span><span class="petit">' + DIFFS[Sauve.d.diff].ico + ' ' + DIFFS[Sauve.d.diff].nom + '</span></div>' +
+      '<div class="onglets"><button class="onglet' + (o === 'forme' ? ' actif' : '') + '" data-a="ong" data-v="forme">☄ Forme</button><button class="onglet' + (o === 'comp' ? ' actif' : '') + '" data-a="ong" data-v="comp">⚡ Compétences</button><button class="onglet' + (o === 'ameli' ? ' actif' : '') + '" data-a="ong" data-v="ameli">✧ Améliorations</button></div>';
+    if (o === 'forme') {
+      html += '<p class="intro">Ta <b>forme</b> change ta façon de jouer. Choisis celle qui convient au colosse que tu affrontes.</p><div class="grille-formes">';
+      for (var k in FORMES) {
+        var F = FORMES[k], ok = Jeu.formeDebloquee(k), ch = (P.forme || 'comete') === k;
+        html += '<div class="carte-forme' + (ch ? ' choisie' : '') + (ok ? '' : ' verrou') + '"><i>' + F.ico + '</i><b>' + F.nom + '</b><small>' + F.court + '</small><p>' + F.desc + '</p>' +
+          '<ul>' + F.plus.map(function (x) { return '<li class="plus">' + x + '</li>'; }).join('') + F.moins.map(function (x) { return '<li class="moins">' + x + '</li>'; }).join('') + '</ul>' +
+          (ok ? '<button ' + (ch ? 'disabled' : '') + ' data-a="forme" data-v="' + k + '"' + (ch ? '' : ' class="principal-f"') + '>' + (ch ? '✓ Choisie' : 'Choisir') + '</button>' : '<p class="verrou-txt">🔒 Bats le colosse ' + (F.debloque - 1) + '</p>') + '</div>';
+      }
+      html += '</div>';
+    } else if (o === 'comp') {
+      var s = this.slot;
+      html += '<p class="intro">En combat, <kbd>' + tn[0] + '</kbd> <kbd>' + tn[1] + '</kbd> <kbd>' + tn[2] + '</kbd> lancent tes compétences. Elles coûtent de l’<b class="jaune">énergie</b> (la barre jaune en bas) : tu en gagnes en frappant et surtout en <b>entourant des balles</b>.</p><div class="slots-grands">';
+      var noms = ['Compétence', 'Compétence', 'Ultime (100 d’énergie)'];
+      for (var q = 0; q < 3; q++) {
+        var id = P.comp.slots[q], c = id && Jeu.compDebloquee(id) ? COMPETENCES[id] : null;
+        html += '<button class="slot-grand' + (q === s ? ' choisi' : '') + (q === 2 ? ' ult' : '') + '" data-a="slot" data-v="' + q + '"><kbd>' + tn[q] + '</kbd><i>' + (c ? c.ico : '+') + '</i><b>' + (c ? c.nom : 'Vide') + '</b><small>' + noms[q] + '</small></button>';
+      }
+      html += '</div><h3>Choisis ce que fait la touche <kbd>' + tn[s] + '</kbd></h3><div class="liste-comp">';
+      for (var cid in COMPETENCES) {
+        var cp = COMPETENCES[cid];
+        if ((s === 2) !== !!cp.ultime) continue;
+        var dispo = Jeu.compDebloquee(cid), niv = P.comp.niv[cid] || 1, eq = P.comp.slots.indexOf(cid);
+        html += '<div class="carte-comp' + (dispo ? '' : ' verrou') + (eq === s ? ' equipee' : '') + '"><div class="tete"><i>' + cp.ico + '</i><div><b>' + cp.nom + '</b><span class="role r-' + cp.role.charAt(0) + '">' + cp.role + '</span></div>' + (dispo ? this.pips(niv, 5) : '') + '</div>';
+        if (!dispo) { html += '<p class="verrou-txt">🔒 Bats le colosse ' + (cp.debloque - 1) + ' pour la débloquer.</p></div>'; continue; }
+        html += '<p class="effet">' + effetComp(cid, niv) + '</p><div class="chiffres"><span>⚡ ' + coutComp(cid, niv) + ' d’énergie</span><span>⏱ ' + virg(cp.rech) + ' s</span></div><div class="actions">';
+        if (eq === s) html += '<button disabled>✓ Sur ' + tn[s] + '</button>';
+        else html += '<button class="principal-c" data-a="equiper" data-v="' + cid + '">Mettre sur ' + tn[s] + (eq >= 0 ? ' (au lieu de ' + tn[eq] + ')' : '') + '</button>';
+        if (niv < 5) html += '<button class="achat" ' + (P.poussiere >= PRIX_COMP[niv + 1] ? '' : 'disabled') + ' data-a="monter" data-v="' + cid + '">Niveau ' + (niv + 1) + ' · ✧ ' + PRIX_COMP[niv + 1] + '</button>';
+        var e2 = effetComp(cid, niv + 1), memeEffet = e2 === effetComp(cid, niv);
+        html += '</div>' + (niv < 5 ? '<p class="suivant">Au niveau ' + (niv + 1) + ' : ' + (cp.ultime ? '' : coutComp(cid, niv + 1) + ' d’énergie' + (memeEffet ? '' : ', ')) + (memeEffet ? '' : e2.charAt(0).toLowerCase() + e2.slice(1)) + '</p>' : '<p class="suivant or">Niveau maximum</p>') + '</div>';
+      }
+      html += '</div>';
+    } else {
+      html += '<p class="intro">La <b class="or">poussière d’étoile</b> se gagne en battant des colosses (deux fois plus la première fois). Elle aide un peu ; ton talent fait le reste.</p><div class="liste-comp">';
+      for (var a in AMELIORATIONS) {
+        var am = AMELIORATIONS[a], n = P.ameli[a] || 0;
+        html += '<div class="carte-comp"><div class="tete"><i>' + am.ico + '</i><div><b>' + am.nom + '</b></div>' + this.pips(n, am.max) + '</div><p class="effet">' + am.desc + '</p><div class="actions">' +
+          (n < am.max ? '<button class="achat" ' + (P.poussiere >= am.prix[n] ? '' : 'disabled') + ' data-a="ameli" data-v="' + a + '">Acheter · ✧ ' + am.prix[n] + '</button>' : '<span class="petit or">Au maximum</span>') + '</div></div>';
+      }
+      html += '</div>';
+    }
+    html += '<button class="gros principal" data-a="accueil"><b>Prêt</b><span>retour à la préparation</span></button></div>';
+    this.montrer(html, '', function () { Menus.accueil(); }, garder);
+  },
+
+  /* ---------- comment jouer ---------- */
   aide: function () {
-    var types = '', esp = '';
-    for (var t in TYPES_NOYAU) if (t !== 'normal') types += '<div><b>' + TYPES_NOYAU[t].nom + '</b><span>' + TYPES_NOYAU[t].desc + ' (dès la puissance ' + TYPES_NOYAU[t].dMin + ')</span></div>';
-    for (var e in ESPECES) esp += '<div><b>' + ESPECES[e].nom + '</b><span>' + ESPECES[e].desc + '</span></div>';
     var html = '<div class="panneau large aide"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Comment jouer</h2></div>' +
-      '<p class="intro">Tu es une <b class="bleu">comète</b> qui laisse une traînée de lumière. Quand ta traînée se recroise, elle forme une <b>boucle</b> : tout ce qui est à l\'intérieur est frappé.</p>' +
-      '<div class="regles2">' +
-      '<div><b>🎮 Commandes</b><span><b>Flèches</b> ou <b>ZQSD</b> (WASD) pour bouger — tiens deux flèches pour tourner en rond. <b>Espace</b> : élan. <b>J, K, L</b> (ou 1, 2, 3) : tes compétences. Manette : stick, A élan, X Y B compétences. Tactile : glisse le doigt n\'importe où, boutons à droite.</span></div>' +
-      '<div><b>🎯 Frapper</b><span>Fais le tour d\'un <b>cristal</b> jusqu\'à recroiser ta traînée. Plus tu enchaînes, plus le <b>combo</b> monte (+5 % par boucle, jusqu\'à ×2,5). Un cristal qu\'on laisse tranquille <b>se répare</b> (sa vie devient verte).</span></div>' +
-      '<div><b>💥 Achever</b><span>Quand tous les cristaux sont brisés, le <b>cœur</b> s\'échappe et fuit : encercle-le. Il ralentit sur le premier temps de chaque mesure.</span></div>' +
-      '<div><b>🔴 Esquiver</b><span>Les attaques sont annoncées juste avant, en rythme. Les <b>blanches</b> (lasers, ondes, murs, éclairs, rempart) <b>coupent ta traînée</b>. Pendant l\'élan, rien ne te touche.</span></div>' +
-      '<div><b>⚡ Énergie et compétences</b><span>Entourer des balles, des mines, des traqueurs ou des trous noirs remplit ton énergie, frapper aussi. Elle paie tes 2 compétences et ton ultime (100). Choisis-les et améliore-les dans « Compétences ».</span></div>' +
-      '<div><b>🎵 Bonus</b><span><b>PILE !</b> : boucle fermée pile sur le temps (×1,5). <b>SERRÉ</b> : petite boucle (×1,3).</span></div>' +
-      '</div>' +
-      '<h3>Les sortes de cristaux</h3><div class="regles2">' + types + '</div>' +
-      '<h3>Les espèces de colosses</h3><div class="regles2">' + esp + '</div>' +
-      '<h3>Les modes</h3>' +
-      '<p><b>3 parties</b> : Étincelle, Comète et Trou noir, chacune avec sa propre progression, sa poussière d\'étoile et ses compétences.<br>' +
-      '<b>Ascension</b> : des colosses toujours plus forts, chacun toujours identique pour que tu puisses l\'apprendre. Un <b>Titan</b> tous les 10. ★ = vaincu, ★★ = touché une fois au plus, ★★★ = sans être touché. Les colosses vaincus débloquent de nouvelles compétences.<br>' +
-      '<b>Odyssée</b> : des colosses inconnus à la suite, avec les mêmes cœurs pour toute la partie, et un pouvoir à choisir après chaque victoire.<br>' +
-      '<b>Défi du jour</b> : un colosse et une règle spéciale qui changent chaque jour.<br>' +
-      '<b>Entraînement</b> : rejoue un colosse, sans perdre de cœur ou au ralenti (sans récompense).</p>' +
+      '<div class="etapes">' +
+      '<div class="etape"><i>1</i><b>Bouge</b><span>Flèches ou ZQSD. Ta comète laisse une <b class="bleu">traînée</b> de lumière.</span></div>' +
+      '<div class="etape"><i>2</i><b>Entoure</b><span>Fais le tour d’un <b>cristal</b> jusqu’à recroiser ta traînée : la boucle frappe tout ce qui est dedans.</span></div>' +
+      '<div class="etape"><i>3</i><b>Esquive</b><span>Les attaques sont annoncées juste avant. <b>Espace</b> = élan : rien ne te touche pendant l’élan.</span></div>' +
+      '<div class="etape"><i>4</i><b>Achève</b><span>Tous les cristaux brisés ? Le <b>cœur</b> s’échappe : entoure-le pour gagner.</span></div>' +
+      '</div><h3>Bon à savoir</h3><ul class="savoir">' +
+      '<li>Enchaîne les boucles : ton <b>combo</b> augmente tes dégâts.</li>' +
+      '<li>Un cristal que tu laisses tranquille <b>se répare</b> (son anneau devient vert).</li>' +
+      '<li>Entoure les <b class="rouge">balles</b> : elles disparaissent et remplissent ton <b class="jaune">énergie</b>, qui lance tes compétences (J, K, L).</li>' +
+      '<li>Les attaques <b>blanches</b> (lasers, ondes, murs) coupent ta traînée.</li>' +
+      '<li><b class="or">PILE !</b> : boucle fermée sur le temps de la musique (×1,5). <b class="vert">SERRÉ</b> : petite boucle (×1,3).</li>' +
+      '<li>Chaque colosse montre ses <b>règles spéciales</b> avant le combat : pas besoin de tout retenir à l’avance.</li></ul>' +
+      '<h3>Commandes</h3><div class="commandes"><div><b>⌨ Clavier</b><span>Flèches / ZQSD : bouger · Espace : élan · J K L : compétences · Échap : pause · R : recommencer</span></div>' +
+      '<div><b>🎮 Manette</b><span>Stick : bouger · A : élan · X Y B : compétences · Start : pause</span></div>' +
+      '<div><b>📱 Tactile</b><span>Glisse le doigt n’importe où pour bouger · boutons à droite</span></div></div>' +
+      '<h3>Les 3 parties</h3><p class="petit">' + DIFFS.etincelle.ico + ' <b>Étincelle</b> : ' + DIFFS.etincelle.desc + '<br>' + DIFFS.comete.ico + ' <b>Comète</b> : ' + DIFFS.comete.desc + '<br>' + DIFFS.trounoir.ico + ' <b>Trou noir</b> : ' + DIFFS.trounoir.desc + '<br>Chacune a sa propre progression. ★ = vaincu, ★★ = touché une fois au plus, ★★★ = sans être touché.</p>' +
       '<button class="principal" data-a="accueil">Compris !</button></div>';
     this.montrer(html, '', function () { Menus.accueil(); });
   },
 
-  /* ---------- compétences et améliorations ---------- */
-  competences: function (garder) {
-    var P = PR(), html = '<div class="panneau large"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Compétences</h2><span class="poussiere">✧ ' + P.poussiere + ' poussière d\'étoile</span><span class="petit">Partie ' + DIFFS[Sauve.d.diff].ico + ' ' + DIFFS[Sauve.d.diff].nom + '</span></div>';
-    var nomsSlots = ['Compétence 1 (J)', 'Compétence 2 (K)', 'Ultime (L)'];
-    html += '<div class="slots">';
-    for (var s = 0; s < 3; s++) { var id = P.comp.slots[s], cp = id && COMPETENCES[id]; html += '<div class="slot' + (s === 2 ? ' ult' : '') + '"><small>' + nomsSlots[s] + '</small>' + (cp ? '<i>' + cp.ico + '</i><b>' + cp.nom + '</b>' : '<i>·</i><b>Vide</b>') + '</div>'; }
-    html += '</div><p class="petit">Les compétences coûtent de l\'énergie (gagnée en entourant des balles et en frappant). Chaque niveau baisse le coût de 7 % et rend l\'effet 15 % plus fort. Les nouvelles se débloquent en battant les colosses de l\'Ascension.</p><div class="liste-comp">';
-    for (var k in COMPETENCES) {
-      var c = COMPETENCES[k], ok = Jeu.compDebloquee(k), niv = P.comp.niv[k] || 1, eq = P.comp.slots.indexOf(k);
-      html += '<div class="carte-comp' + (ok ? '' : ' verrou') + (c.ultime ? ' ult' : '') + '"><div class="tete"><i>' + c.ico + '</i><b>' + c.nom + '</b><span>' + (ok ? 'niv. ' + niv + '/5 · ' + coutComp(k, niv) + ' énergie' : '🔒 après le colosse ' + (c.debloque - 1)) + '</span></div><p>' + c.desc + '</p>';
-      if (ok) {
-        html += '<div class="actions">';
-        if (c.ultime) html += '<button ' + (eq === 2 ? 'disabled' : '') + ' data-a="equiper" data-v="' + k + ':2">' + (eq === 2 ? 'Équipée' : 'Équiper (L)') + '</button>';
-        else { html += '<button ' + (eq === 0 ? 'disabled' : '') + ' data-a="equiper" data-v="' + k + ':0">' + (eq === 0 ? 'En J' : 'Mettre en J') + '</button><button ' + (eq === 1 ? 'disabled' : '') + ' data-a="equiper" data-v="' + k + ':1">' + (eq === 1 ? 'En K' : 'Mettre en K') + '</button>'; }
-        if (niv < 5) html += '<button class="achat" ' + (P.poussiere >= PRIX_COMP[niv + 1] ? '' : 'disabled') + ' data-a="monter" data-v="' + k + '">Niveau ' + (niv + 1) + ' · ✧ ' + PRIX_COMP[niv + 1] + '</button>';
-        html += '</div>';
+  /* ---------- profil : statistiques, succès, collection ---------- */
+  profil: function (garder) {
+    var o = this.ongletP, d = Sauve.d, nbS = 0; for (var k in d.succes) if (k.indexOf('coul') !== 0) nbS++;
+    var html = '<div class="panneau large"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Profil</h2></div>' +
+      '<div class="onglets"><button class="onglet' + (o === 'stats' ? ' actif' : '') + '" data-a="profil" data-v="stats">📊 Statistiques</button><button class="onglet' + (o === 'succes' ? ' actif' : '') + '" data-a="profil" data-v="succes">🏆 Succès ' + nbS + '/' + SUCCES.length + '</button><button class="onglet' + (o === 'collection' ? ' actif' : '') + '" data-a="profil" data-v="collection">🎨 Collection</button></div>';
+    if (o === 'succes') {
+      html += '<div class="liste-succes">';
+      for (var i = 0; i < SUCCES.length; i++) { var s = SUCCES[i], ok = d.succes[s.id]; html += '<div class="succes' + (ok ? ' ok' : '') + '"><b>' + (ok ? '🏆 ' : '') + s.nom + '</b><span>' + s.desc + '</span></div>'; }
+      html += '</div>';
+    } else if (o === 'collection') {
+      var et = Jeu.etoilesCollection();
+      html += '<p class="petit">Juste de belles comètes, communes aux 3 parties. Les couleurs se gagnent avec les étoiles de ta meilleure partie (' + et + ' ★).</p><h3>Couleur de la comète</h3><div class="tuiles">';
+      for (i = 0; i < COULEURS_COMETE.length; i++) {
+        var c = COULEURS_COMETE[i], ok2 = et >= c.etoiles, fond = c.c === 'arc' ? 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' : c.c;
+        html += '<button class="tuile' + (d.cosmetique.couleur === i ? ' actif' : '') + (ok2 ? '' : ' verrou') + '" data-a="coul" data-v="' + i + '" title="' + (ok2 ? c.nom : c.nom + ' : ' + c.etoiles + ' étoiles') + '"><i style="background:' + fond + '"></i><span>' + (ok2 ? c.nom : c.etoiles + ' ★') + '</span></button>';
+      }
+      html += '</div><h3>Traînée</h3><div class="tuiles larges">';
+      for (i = 0; i < TRAINEES.length; i++) {
+        var t = TRAINEES[i], ok3 = !t.succes || d.succes[t.succes], sc = t.succes ? SUCCES.filter(function (x) { return x.id === t.succes; })[0] : null;
+        html += '<button class="tuile' + (d.cosmetique.trainee === i ? ' actif' : '') + (ok3 ? '' : ' verrou') + '" data-a="trai" data-v="' + i + '" title="' + (ok3 ? t.nom : 'Succès « ' + sc.nom + ' » : ' + sc.desc) + '"><span>' + t.nom + '</span>' + (ok3 ? '' : '<small>🔒 ' + sc.nom + '</small>') + '</button>';
       }
       html += '</div>';
-    }
-    html += '</div><h3>Améliorations de la comète</h3><div class="liste-comp">';
-    for (var a in AMELIORATIONS) {
-      var am = AMELIORATIONS[a], n = P.ameli[a] || 0;
-      html += '<div class="carte-comp"><div class="tete"><i>' + am.ico + '</i><b>' + am.nom + '</b><span>' + n + '/' + am.max + '</span></div><p>' + am.desc + '</p><div class="actions">' +
-        (n < am.max ? '<button class="achat" ' + (P.poussiere >= am.prix[n] ? '' : 'disabled') + ' data-a="ameli" data-v="' + a + '">Acheter · ✧ ' + am.prix[n] + '</button>' : '<span class="petit">Au maximum</span>') + '</div></div>';
-    }
-    html += '</div><p class="petit">La poussière d\'étoile se gagne en battant des colosses (deux fois plus la première fois, plus en Trou noir) et un peu même en perdant. Elle aide, mais seul ton talent bat les grands colosses.</p></div>';
-    this.montrer(html, '', function () { Menus.accueil(); }, garder);
-  },
-
-  /* ---------- Ascension ---------- */
-  ascension: function (page) {
-    var P = PR(), max = P.ascension.debloque, parPage = 20;
-    if (page == null) page = Math.floor((max - 1) / parPage);
-    page = Math.max(0, page);
-    var html = '<div class="panneau large"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Ascension</h2><span class="petit">' + DIFFS[Sauve.d.diff].ico + ' ' + DIFFS[Sauve.d.diff].nom + ' · ' + Jeu.totalEtoiles() + ' ★ · ' + pluriel(max - 1, 'colosse vaincu', 'colosses vaincus') + '</span></div><div class="grille-col">';
-    for (var n = page * parPage + 1; n <= (page + 1) * parPage; n++) {
-      var r = P.ascension.rec[n], ouvert = n <= max, def = colosseAscension(n);
-      var cls = 'col' + (def.titan ? ' titan' : '') + (n === max ? ' courant' : '') + (r && r.victoires ? ' fini' : '') + (ouvert ? '' : ' verrou');
-      html += '<button class="' + cls + '" ' + (ouvert ? 'data-a="colosse" data-v="' + n + '"' : 'disabled') + ' style="--h:' + def.teinte + ';--h2:' + def.teinte2 + '">' +
-        '<i class="pastille"></i><b>' + (def.titan ? 'TITAN ' : '') + n + '</b><span class="nom">' + (ouvert ? def.nom + ' · ' + ESPECES[def.espece].nom : '???') + '</span>' +
-        this.etoiles(r ? r.etoiles : 0) +
-        '<span class="pc">' + (r ? (r.victoires ? fmtTemps(r.temps) : Math.floor(r.pct * 100) + ' %') + ' · ' + pluriel(r.essais, 'essai') : (ouvert ? 'Nouveau' : '')) + '</span></button>';
-    }
-    html += '</div><div class="pages"><button data-a="asc" data-v="' + (page - 1) + '"' + (page ? '' : ' disabled') + '>← Précédents</button><span class="petit">' + (page * parPage + 1) + ' – ' + ((page + 1) * parPage) + '</span><button data-a="asc" data-v="' + (page + 1) + '"' + ((page + 1) * parPage < max ? '' : ' disabled') + '>Suivants →</button></div></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-    var c = this.el.querySelector('.courant'); if (c) c.classList.add('principal');
-  },
-
-  odyssee: function () {
-    var P = PR(), gl = '';
-    for (var k in GLYPHES) gl += '<span class="glyphe-mini" title="' + GLYPHES[k].desc + '">' + GLYPHES[k].ico + ' ' + GLYPHES[k].nom + '</span>';
-    var html = '<div class="panneau"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Odyssée</h2></div>' +
-      '<p>Enchaîne des colosses jamais vus, de plus en plus forts, avec <b>les mêmes cœurs pour toute la partie</b>. Après chaque victoire, tu récupères un cœur et tu choisis <b>un pouvoir parmi trois</b>. Un <b>Titan</b> tous les 5 colosses. Tes compétences et améliorations comptent aussi.</p>' +
-      '<div class="stats"><div><b>' + P.odyssee.meilleur + '</b><span>record (colosses)</span></div><div><b>' + P.odyssee.parties + '</b><span>parties</span></div></div>' +
-      '<h3>Les pouvoirs possibles</h3><div class="glyphes-liste">' + gl + '</div>' +
-      '<button class="gros principal" data-a="goOdyssee"><b>Partir</b><span>Nouvelle Odyssée</span></button></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-  },
-
-  jour: function () {
-    var P = PR(), dj = Jeu.defiJour(), m = dj.mut === 'geant' ? { nom: 'Titan géant', desc: 'Le colosse du jour est un Titan.' } : MUTATEURS[dj.mut];
-    var def = genColosse({ n: dj.d, graine: dj.graine, titan: dj.mut === 'geant' });
-    var auj = P.jour.date === dateJour();
-    var html = '<div class="panneau"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Défi du jour</h2></div>' +
-      '<div class="carte-defi" style="--h:' + def.teinte + '"><b>' + def.nom + ', ' + def.epithete + '</b><span>' + ESPECES[def.espece].nom + ' · puissance ' + dj.d + '</span><div class="mut"><b>' + m.nom + '</b> : ' + m.desc + '</div></div>' +
-      '<div class="stats"><div><b>' + (auj && P.jour.meilleur != null ? fmtTemps(P.jour.meilleur) : '—') + '</b><span>ton meilleur temps aujourd\'hui</span></div><div><b>' + (auj ? P.jour.essais : 0) + '</b><span>essais aujourd\'hui</span></div><div><b>' + P.jour.serie + '</b><span>jours de suite</span></div></div>' +
-      '<p class="petit">Le défi change chaque jour à minuit. La première réussite du jour rapporte 50 poussières d\'étoile en plus.</p>' +
-      '<button class="gros principal" data-a="goJour"><b>Relever le défi</b></button></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-  },
-
-  entrainement: function () {
-    var e = this.ent; e.n = clamp(e.n, 1, this.maxAsc());
-    var def = colosseAscension(e.n), noms = def.attaques.map(function (a) { return CATALOGUE[a].nom; }).join(', ');
-    var types = def.types.map(function (t) { return TYPES_NOYAU[t].nom; }).join(', ');
-    var html = '<div class="panneau"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Entraînement</h2></div>' +
-      '<p>Rejoue un colosse que tu as atteint pour apprendre ses attaques. Rien n\'est compté pour les records.</p>' +
-      '<div class="selecteur"><button data-a="entN" data-v="-10">−10</button><button data-a="entN" data-v="-1">−1</button><div><b>' + (def.titan ? 'TITAN ' : 'Colosse ') + e.n + '</b><span>' + def.nom + ', ' + def.epithete + '</span><span>' + ESPECES[def.espece].nom + '</span></div><button data-a="entN" data-v="1">+1</button><button data-a="entN" data-v="10">+10</button></div>' +
-      '<p class="petit centre">Attaques : ' + noms + (types ? '<br>Cristaux : ' + types : '') + '</p>' +
-      '<button class="bascule' + (e.invincible ? ' on' : '') + '" data-a="entB" data-v="invincible"><b>Invincible</b><span>Les coups ne retirent pas de cœur</span><i>' + (e.invincible ? 'OUI' : 'NON') + '</i></button>' +
-      '<button class="bascule' + (e.lent ? ' on' : '') + '" data-a="entB" data-v="lent"><b>Ralenti</b><span>Tout va à 70 % de la vitesse</span><i>' + (e.lent ? 'OUI' : 'NON') + '</i></button>' +
-      '<button class="gros principal" data-a="goEnt"><b>S\'entraîner</b></button></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-  },
-
-  collection: function () {
-    var d = Sauve.d, et = Jeu.etoilesCollection(), html = '<div class="panneau"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Collection</h2></div>';
-    html += '<p class="petit">Juste de belles comètes, communes aux 3 parties. Les couleurs se gagnent avec les étoiles de ta meilleure partie (' + et + ').</p><h3>Couleur de la comète</h3><div class="tuiles">';
-    for (var i = 0; i < COULEURS_COMETE.length; i++) {
-      var c = COULEURS_COMETE[i], ok = et >= c.etoiles;
-      var fond = c.c === 'arc' ? 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' : c.c;
-      html += '<button class="tuile' + (d.cosmetique.couleur === i ? ' actif' : '') + (ok ? '' : ' verrou') + '" data-a="coul" data-v="' + i + '" title="' + (ok ? c.nom : c.nom + ' : ' + c.etoiles + ' étoiles') + '"><i style="background:' + fond + '"></i><span>' + (ok ? c.nom : c.etoiles + ' ★') + '</span></button>';
-    }
-    html += '</div><h3>Traînée</h3><div class="tuiles larges">';
-    for (i = 0; i < TRAINEES.length; i++) {
-      var t = TRAINEES[i], ok2 = !t.succes || d.succes[t.succes], sc = t.succes ? SUCCES.filter(function (s) { return s.id === t.succes; })[0] : null;
-      html += '<button class="tuile' + (d.cosmetique.trainee === i ? ' actif' : '') + (ok2 ? '' : ' verrou') + '" data-a="trai" data-v="' + i + '" title="' + (ok2 ? t.nom : 'Succès « ' + sc.nom + ' » : ' + sc.desc) + '"><span>' + t.nom + '</span>' + (ok2 ? '' : '<small>🔒 ' + sc.nom + '</small>') + '</button>';
-    }
-    html += '</div></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-  },
-
-  succes: function () {
-    var d = Sauve.d, html = '<div class="panneau large"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Succès</h2></div><div class="liste-succes">';
-    for (var i = 0; i < SUCCES.length; i++) { var s = SUCCES[i], ok = d.succes[s.id]; html += '<div class="succes' + (ok ? ' ok' : '') + '"><b>' + (ok ? '🏆 ' : '') + s.nom + '</b><span>' + s.desc + '</span></div>'; }
-    html += '</div></div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
-  },
-
-  stats: function () {
-    var d = Sauve.d, s = d.stats;
-    var h = Math.floor(s.temps / 3600), m = Math.floor((s.temps % 3600) / 60);
-    var parts = ''; for (var k0 in DIFFS) parts += '<div><b>' + (d.parties[k0].ascension.debloque - 1) + '</b><span>' + DIFFS[k0].ico + ' ' + DIFFS[k0].nom + '</span></div>';
-    var html = '<div class="panneau large"><div class="entete"><button class="retour" data-a="accueil">← Retour</button><h2>Statistiques</h2></div><div class="stats">' +
-      '<div><b>' + (h ? h + ' h ' : '') + m + ' min</b><span>de combat</span></div>' +
-      '<div><b>' + s.colosses + '</b><span>colosses vaincus</span></div>' +
-      '<div><b>' + s.titans + '</b><span>Titans vaincus</span></div>' + parts +
-      '<div><b>' + s.boucles + '</b><span>boucles</span></div>' +
-      '<div><b>' + s.noyaux + '</b><span>cristaux brisés</span></div>' +
-      '<div><b>' + s.balles + '</b><span>balles détruites</span></div>' +
-      '<div><b>' + s.comboMax + '</b><span>meilleur combo</span></div>' +
-      '<div><b>' + s.pile + '</b><span>boucles « pile »</span></div>' +
-      '<div><b>' + s.comps + '</b><span>compétences utilisées</span></div>' +
-      '<div><b>' + Jeu.maxOdy() + '</b><span>record d\'Odyssée</span></div>' +
-      '</div>';
-    var tot = 0, k; for (k in s.mortsPar) tot += s.mortsPar[k];
-    if (tot) {
-      var l = []; for (k in s.mortsPar) l.push([k, s.mortsPar[k]]); l.sort(function (a, b) { return b[1] - a[1]; });
-      html += '<h3>Ce qui t\'a vaincu (' + tot + ' défaites)</h3><div class="barres">';
-      for (var i = 0; i < l.length; i++) html += '<div class="barre"><span>' + (NOMS_CAUSES[l[i][0]] || l[i][0]) + '</span><i style="width:' + Math.max(2, l[i][1] / l[0][1] * 100) + '%"></i><b>' + Math.round(l[i][1] / tot * 100) + ' %</b></div>';
-      html += '</div><div class="conseil">💡 ' + (CONSEILS[l[0][0]] || '') + '</div>';
+    } else {
+      var st = d.stats, hh = Math.floor(st.temps / 3600), mm = Math.floor((st.temps % 3600) / 60);
+      var parts = ''; for (var k0 in DIFFS) parts += '<div><b>' + (d.parties[k0].ascension.debloque - 1) + '</b><span>' + DIFFS[k0].ico + ' ' + DIFFS[k0].nom + '</span></div>';
+      html += '<div class="stats">' +
+        '<div><b>' + (hh ? hh + ' h ' : '') + mm + ' min</b><span>de combat</span></div><div><b>' + st.colosses + '</b><span>colosses vaincus</span></div><div><b>' + st.titans + '</b><span>Titans vaincus</span></div>' + parts +
+        '<div><b>' + st.boucles + '</b><span>boucles</span></div><div><b>' + st.noyaux + '</b><span>cristaux brisés</span></div><div><b>' + st.balles + '</b><span>balles détruites</span></div>' +
+        '<div><b>' + st.comboMax + '</b><span>meilleur combo</span></div><div><b>' + st.pile + '</b><span>boucles « pile »</span></div><div><b>' + st.comps + '</b><span>compétences lancées</span></div><div><b>' + Jeu.maxOdy() + '</b><span>record d’Odyssée</span></div></div>';
+      var tot = 0, kk; for (kk in st.mortsPar) tot += st.mortsPar[kk];
+      if (tot) {
+        var l = []; for (kk in st.mortsPar) l.push([kk, st.mortsPar[kk]]); l.sort(function (a, b) { return b[1] - a[1]; });
+        html += '<h3>Ce qui t’a vaincu (' + tot + ' défaites)</h3><div class="barres">';
+        for (i = 0; i < l.length; i++) html += '<div class="barre"><span>' + (NOMS_CAUSES[l[i][0]] || l[i][0]) + '</span><i style="width:' + Math.max(2, l[i][1] / l[0][1] * 100) + '%"></i><b>' + Math.round(l[i][1] / tot * 100) + ' %</b></div>';
+        html += '</div><div class="conseil">💡 ' + (CONSEILS[l[0][0]] || '') + '</div>';
+      }
     }
     html += '</div>';
-    this.montrer(html, '', function () { Menus.accueil(); });
+    this.montrer(html, '', function () { Menus.accueil(); }, garder);
   },
 
   reglages: function () {
@@ -295,12 +302,13 @@ var Menus = {
   bascule: function (k, nom, desc) { var on = Sauve.d.reglages[k]; return '<button class="bascule' + (on ? ' on' : '') + '" data-a="basc" data-v="' + k + '"><b>' + nom + '</b><span>' + desc + '</span><i>' + (on ? 'OUI' : 'NON') + '</i></button>'; },
 
   pause: function () {
-    var J = Jeu.J, ody = J.cfg.mode === 'odyssee';
-    var html = '<div class="panneau petitp"><h2>Pause</h2><p class="petit">' + (J.cfg.etiquette || '') + ' · ' + Math.floor(pctCombat(J.C) * 100) + ' %</p>' +
+    var J = Jeu.J, ody = J.cfg.mode === 'odyssee', C = J.C, tr = '';
+    (C.def.traits || []).forEach(function (t) { tr += '<div class="pastille-r trait"><i>' + TRAITS[t].ico + '</i><b>' + TRAITS[t].nom + '</b><span>' + TRAITS[t].desc + '</span></div>'; });
+    var html = '<div class="panneau petitp"><h2>Pause</h2><p class="petit">' + (J.cfg.etiquette || '') + ' · ' + Math.floor(pctCombat(C) * 100) + ' %</p>' +
+      (tr ? '<div class="regles-col">' + tr + '</div>' : '') +
       '<button class="principal" data-a="reprendre">Reprendre</button>' +
       (ody ? '' : '<button data-a="recommencer">Recommencer (R)</button>') +
       this.bascule('tremblement', 'Tremblements', 'Secousses de l\'écran') +
-      '<p class="petit">Flèches/ZQSD bouger · Espace élan · J K L compétences</p>' +
       '<button data-a="quitter">' + (ody ? 'Abandonner l\'Odyssée' : 'Quitter') + '</button></div>';
     this.montrer(html, 'sombre', function () { Jeu.reprendre(); });
   },
@@ -309,10 +317,11 @@ var Menus = {
   gains: function (x) {
     var s = x.poussiere ? '<p class="gain">✧ +' + x.poussiere + ' poussière d\'étoile</p>' : '';
     if (x.comps && x.comps.length) s += '<p class="gain nouveau-comp">Nouvelle compétence : ' + x.comps.map(function (c) { return COMPETENCES[c].ico + ' ' + COMPETENCES[c].nom; }).join(', ') + '</p>';
+    if (x.formes && x.formes.length) s += '<p class="gain nouveau-comp">Nouvelle forme : ' + x.formes.map(function (c) { return FORMES[c].ico + ' ' + FORMES[c].nom; }).join(', ') + '</p>';
     return s;
   },
   fin: function (J, x) {
-    var cfg = J.cfg, C = J.C, html;
+    var cfg = J.cfg, C = J.C, html, nouv = (x.comps && x.comps.length) || (x.formes && x.formes.length);
     if (x.victoire) {
       var titre = cfg.mode === 'jour' ? 'Défi relevé !' : (C.def.titan ? 'Titan vaincu !' : 'Colosse vaincu !');
       html = '<div class="panneau petitp fin"><div class="victoire">' + titre + '</div><p>' + C.def.nom + ', ' + C.def.epithete + '</p>' +
@@ -320,20 +329,21 @@ var Menus = {
         '<div class="stats"><div><b>' + fmtTemps(x.temps) + '</b><span>' + (x.nouveauTemps ? '<i class="or">nouveau record !</i>' : 'temps') + '</span></div><div><b>' + C.s.comboMax + '</b><span>meilleur combo</span></div><div><b>' + pluriel(x.touches, 'coup', 'coups') + '</b><span>reçus</span></div></div>' +
         this.gains(x) +
         (cfg.mode === 'ascension' && x.etoiles < 3 ? '<p class="petit">' + (x.etoiles === 1 ? '★★ : ne te fais toucher qu\'une fois au plus. ' : '') + '★★★ : sans te faire toucher.</p>' : '') +
-        (cfg.mode === 'ascension' ? '<button class="gros principal" data-a="suivant"><b>Colosse ' + (cfg.n + 1) + '</b><span>' + colosseAscension(cfg.n + 1).nom + '</span></button><button data-a="rejouer">Rejouer (R)</button>' :
-          '<button class="principal" data-a="rejouer">Rejouer (R)</button>') +
-        (x.comps && x.comps.length ? '<button data-a="versComp">Voir les compétences</button>' : '') +
+        (nouv ? '<button class="principal" data-a="versArsenal" data-v="' + (x.formes && x.formes.length ? 'forme' : 'comp') + '">Voir la nouveauté</button>' : '') +
+        (cfg.mode === 'ascension' ? '<button class="gros' + (nouv ? '' : ' principal') + '" data-a="suivant"><b>Colosse ' + (cfg.n + 1) + '</b><span>' + colosseAscension(cfg.n + 1).nom + '</span></button><button data-a="rejouer">Rejouer (R)</button>' :
+          '<button class="' + (nouv ? '' : 'principal') + '" data-a="rejouer">Rejouer (R)</button>') +
         '<button class="discret" data-a="quitter">Menu</button></div>';
       this.montrer(html, 'fond-leger', function () { Jeu.quitter(); });
       return;
     }
-    var pc = Math.floor(x.pct * 100);
+    var pc = Math.floor(x.pct * 100), tr = C.def.traits && C.def.traits.length ? TRAITS[C.def.traits[0]] : null;
     html = '<div class="panneau petitp fin"><div class="pct-mort">' + pc + ' %</div>' +
       '<p>' + (x.nouveauPct ? '<b class="or">Nouveau record !</b> ' : '') + (cfg.mode === 'ascension' && x.record ? 'Record : ' + Math.floor(x.record.pct * 100) + ' % · essai ' + x.record.essais : '') + '</p>' +
       (x.cause ? '<p class="petit">Vaincu par : <b>' + (NOMS_CAUSES[x.cause] || x.cause) + '</b></p><p class="conseil petit">💡 ' + (CONSEILS[x.cause] || '') + '</p>' : '') +
+      (tr ? '<p class="conseil petit">' + tr.ico + ' ' + tr.nom + ' : ' + tr.conseil + '</p>' : '') +
       this.gains(x) +
       '<button class="gros principal" data-a="rejouer"><b>Réessayer</b><span>Espace · R</span></button>' +
-      (cfg.mode === 'ascension' ? '<button data-a="versEnt">S\'entraîner sur ce colosse</button>' : '') +
+      (cfg.mode === 'ascension' ? '<button data-a="preparer">Changer de forme ou de compétences</button><button data-a="versEnt">S\'entraîner sur ce colosse</button>' : '') +
       '<button class="discret" data-a="quitter">Menu</button></div>';
     this.montrer(html, 'fond-leger', function () { Jeu.quitter(); });
   },

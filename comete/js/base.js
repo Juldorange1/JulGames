@@ -76,7 +76,7 @@ function partieVide() {
     odyssee: { meilleur: 0, parties: 0 },
     jour: { date: '', meilleur: null, essais: 0, serie: 0, dernier: '', fait: 0 },
     poussiere: 0, poussiereTotale: 0,
-    comp: { niv: { lasso: 1, supernova: 1 }, slots: ['lasso', null, 'supernova'], vus: {} },
+    comp: { niv: { lasso: 1, supernova: 1 }, slots: ['lasso', null, 'supernova'], vus: {} }, forme: 'comete',
     ameli: { vitesse: 0, trainee: 0, elan: 0, energie: 0, combo: 0, coeur: 0 },
     tuto: 0, joue: 0
   };

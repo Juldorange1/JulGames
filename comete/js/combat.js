@@ -15,20 +15,59 @@ var DIFFS = {
 
 /* compétences : 2 compétences + 1 ultime équipées (touches J, K, L) ; elles coûtent de l'énergie */
 var COMPETENCES = {
-  lasso:      { nom: 'Lasso', ico: '➰', cout: 22, rech: 1.2, debloque: 1, desc: 'Referme d\'un coup ta traînée (ta comète est reliée au bout de la traînée) : une boucle instantanée.' },
-  rempart:    { nom: 'Fil d\'or', ico: '🛡', cout: 30, rech: 4, duree: 3, debloque: 3, desc: 'Pendant 3 s, ta traînée détruit les balles qui la touchent et rien ne peut la couper.' },
-  ancre:      { nom: 'Ancre', ico: '⚓', cout: 20, rech: 4, duree: 5, debloque: 6, desc: 'Pendant 5 s, ta traînée ne raccourcit plus : trace une immense boucle autour de tout le colosse.' },
-  distorsion: { nom: 'Distorsion', ico: '⏳', cout: 35, rech: 6, duree: 2.5, debloque: 9, desc: 'Pendant 2,5 s, toutes les attaques ralentissent à 35 %.' },
-  orbitales:  { nom: 'Orbitales', ico: '🪐', cout: 30, rech: 5, duree: 6, debloque: 12, desc: 'Trois petites lunes tournent autour de toi pendant 6 s et détruisent les balles qu\'elles touchent.' },
-  vortex:     { nom: 'Vortex', ico: '🌀', cout: 18, rech: 4, duree: 2.5, debloque: 15, desc: 'Un tourbillon aspire les balles proches pendant 2,5 s : entoure-le ensuite pour tout détruire d\'un coup.' },
-  fracture:   { nom: 'Fracture', ico: '💥', cout: 40, rech: 5, debloque: 18, desc: 'Ta prochaine boucle qui frappe fait ×2,5 et étourdit le colosse : il n\'attaque plus pendant 3 temps.' },
-  echo:       { nom: 'Écho', ico: '👥', cout: 30, rech: 5, debloque: 21, desc: 'Un double de ta comète refait tes 2,5 dernières secondes de trajet : ses boucles frappent aussi (×0,6).' },
-  supernova:  { nom: 'Supernova', ico: '✺', cout: 100, rech: 3, ultime: true, debloque: 1, desc: 'ULTIME. Détruit toutes les balles et frappe fort (×5) tout ce qui est à moins de 4,5 cases.' },
-  filante:    { nom: 'Étoile filante', ico: '🌠', cout: 100, rech: 3, duree: 4, ultime: true, debloque: 10, desc: 'ULTIME. Pendant 4 s : invincible, 35 % plus rapide, et tes boucles font ×2.' },
-  constellation: { nom: 'Constellation', ico: '✨', cout: 100, rech: 3, ultime: true, debloque: 20, desc: 'ULTIME. Frappe d\'un coup tous les cristaux et le cœur (×3 chacun, multiplié par ton combo).' }
+  lasso:      { nom: 'Lasso', ico: '➰', role: 'Attaque', cout: 22, rech: 1.2, debloque: 1 },
+  rempart:    { nom: 'Fil d\'or', ico: '🛡', role: 'Défense', cout: 30, rech: 4, duree: 3, debloque: 3 },
+  ancre:      { nom: 'Ancre', ico: '⚓', role: 'Attaque', cout: 20, rech: 4, duree: 5, debloque: 6 },
+  distorsion: { nom: 'Distorsion', ico: '⏳', role: 'Défense', cout: 35, rech: 6, duree: 2.5, debloque: 9 },
+  orbitales:  { nom: 'Orbitales', ico: '🪐', role: 'Défense', cout: 30, rech: 5, duree: 6, debloque: 12 },
+  vortex:     { nom: 'Vortex', ico: '🌀', role: 'Énergie', cout: 18, rech: 4, duree: 2.5, debloque: 15 },
+  fracture:   { nom: 'Fracture', ico: '💥', role: 'Attaque', cout: 40, rech: 5, debloque: 18 },
+  echo:       { nom: 'Écho', ico: '👥', role: 'Attaque', cout: 30, rech: 5, debloque: 21 },
+  supernova:  { nom: 'Supernova', ico: '✺', role: 'Ultime', cout: 100, rech: 3, ultime: true, debloque: 1 },
+  filante:    { nom: 'Étoile filante', ico: '🌠', role: 'Ultime', cout: 100, rech: 3, duree: 4, ultime: true, debloque: 10 },
+  constellation: { nom: 'Constellation', ico: '✨', role: 'Ultime', cout: 100, rech: 3, ultime: true, debloque: 20 }
 };
 function coutComp(id, niv) { return Math.round(COMPETENCES[id].cout * (COMPETENCES[id].ultime ? 1 : 1 - 0.07 * ((niv || 1) - 1))); }
 function puissComp(niv) { return 1 + 0.15 * ((niv || 1) - 1); }   // durée / force selon le niveau
+function virg(v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); }
+// ce que fait une compétence, avec les vrais chiffres de son niveau
+function effetComp(id, niv) {
+  var P = puissComp(niv), c = COMPETENCES[id], d = c.duree ? virg(c.duree * P) + ' s' : '';
+  switch (id) {
+    case 'lasso': return 'Referme ta traînée d’un coup : une boucle instantanée, même si elle ne se croise pas.';
+    case 'rempart': return 'Pendant ' + d + ', ta traînée détruit les balles qui la touchent et rien ne peut la couper.';
+    case 'ancre': return 'Pendant ' + d + ', ta traînée ne raccourcit plus : fais le tour de tout le colosse.';
+    case 'distorsion': return 'Pendant ' + d + ', toutes les attaques vont presque 3 fois moins vite.';
+    case 'orbitales': return 'Pendant ' + d + ', 3 lunes tournent autour de toi et détruisent les balles.';
+    case 'vortex': return 'Un tourbillon aspire les balles pendant ' + d + ' : entoure-le pour tout détruire d’un coup.';
+    case 'fracture': return 'Ta prochaine boucle qui frappe fait ×' + virg(2.5 * P) + ' et le colosse n’attaque plus pendant 3 temps.';
+    case 'echo': return 'Un double de ta comète refait tes ' + virg(2.5 * P) + ' dernières secondes : ses boucles frappent à ×' + virg(0.6 * P) + '.';
+    case 'supernova': return 'Détruit toutes les balles et frappe à ×' + virg(5 * P) + ' tout ce qui est à moins de 4,5 cases de toi.';
+    case 'filante': return 'Pendant ' + d + ' : rien ne te touche, tu vas plus vite et tes boucles font ×2.';
+    case 'constellation': return 'Frappe d’un coup tous les cristaux et le cœur à ×' + virg(3 * P) + ' (multiplié par ton combo).';
+  }
+  return '';
+}
+
+/* formes de la comète : chacune change la façon de jouer */
+var FORMES = {
+  comete:   { nom: 'Comète', ico: '☄', debloque: 1, court: 'Équilibrée', desc: 'La forme de base : ta boucle frappe tout ce qu’elle entoure.', plus: ['Rien de spécial à apprendre'], moins: [] },
+  lame:     { nom: 'Lame', ico: '🗡', debloque: 4, court: 'Attaque rapprochée', desc: 'Traînée courte et tranchante. Ton élan frappe les cristaux qu’il traverse, même blindés, tournants ou liés.', plus: ['Boucles ×1,25', 'L’élan frappe les cristaux (×0,5)', 'Plus rapide (+10 %)'], moins: ['Traînée 35 % plus courte'] },
+  tisseuse: { nom: 'Tisseuse', ico: '🕸', debloque: 8, court: 'Toiles', desc: 'Très longue traînée. Chaque boucle laisse une toile 2 s : elle frappe à chaque temps ce qui est dedans et détruit les balles qui y entrent.', plus: ['Traînée 50 % plus longue', 'Toiles qui frappent et protègent'], moins: ['Plus lente (−10 %)'] },
+  reflet:   { nom: 'Reflet', ico: '🪞', debloque: 13, court: 'Renvoi', desc: 'Les balles que tu entoures repartent en flèches vers le colosse : plus il tire, plus tu frappes.', plus: ['Chaque balle entourée = une flèche (×0,7)'], moins: ['Boucles ×0,6 sur les cristaux'] }
+};
+/* traits des colosses : chacun change le combat ; il faut s'adapter (forme, compétences, façon de jouer) */
+var TRAITS = {
+  vorace:     { nom: 'Vorace', ico: '🍽', dMin: 2.5, desc: 'Chaque balle qui s’échappe sans être détruite lui rend un peu de vie.', conseil: 'Entoure ses balles : Reflet et Tisseuse sont parfaits ici.' },
+  agile:      { nom: 'Agile', ico: '💨', dMin: 2.5, desc: 'Ses cristaux tournent bien plus vite.', conseil: 'Tisseuse ou le Lasso attrapent les cristaux rapides.' },
+  coriace:    { nom: 'Coriace', ico: '💚', dMin: 4, desc: 'Ses cristaux se réparent deux fois plus tôt et plus vite.', conseil: 'Ne lâche pas ton cristal. Lame et Fracture frappent fort.' },
+  glace:      { nom: 'Glace', ico: '🧊', dMin: 7, desc: 'L’arène est gelée : ta comète glisse dans les virages.', conseil: 'Tourne large et anticipe tes virages.' },
+  aimant:     { nom: 'Aimant', ico: '🧲', dMin: 6.5, desc: 'Son corps t’attire doucement vers lui.', conseil: 'Garde de la vitesse et tourne autour de lui.' },
+  gardien:    { nom: 'Gardien', ico: '🔰', dMin: 8, desc: 'Ses cristaux se protègent chacun à leur tour.', conseil: 'Change de cristal dès qu’un bouclier apparaît. Tisseuse aide.' },
+  tranchant:  { nom: 'Tranchant', ico: '✂', dMin: 9.5, desc: 'Une balle sur trois (cerclée de blanc) coupe ta traînée.', conseil: 'Petites boucles rapides (Lame), ou Fil d’or pour protéger ta traînée.' },
+  brume:      { nom: 'Brume', ico: '🌫', dMin: 11, desc: 'On ne voit que près de ta comète et du colosse.', conseil: 'Reste près de lui et suis le rythme de la musique.' },
+  furieux:    { nom: 'Furieux', ico: '🔥', dMin: 12.5, desc: 'Il attaque toujours à pleine puissance.', conseil: 'Distorsion et Orbitales aident à tenir.' }
+};
 
 /* pouvoirs de l'Odyssée (gagnés entre deux colosses, perdus à la fin de la partie) */
 var GLYPHES = {
@@ -68,7 +107,12 @@ function traceur() { return { tx: [], ty: [], tt: [], tl: 0 }; }
 function creerCombat(def, o) {
   o = o || {};
   var W = o.W || 16, H = o.H || 9;
-  var mods = o.mods || {}, mut = o.mut || {}, df = DIFFS[o.diff] || DIFFS.comete, am = o.ameli || {};
+  var mods = o.mods || {}, df = DIFFS[o.diff] || DIFFS.comete, am = o.ameli || {};
+  var traits = {}; (def.traits || []).forEach(function (t) { traits[t] = true; });
+  var mut = {}; for (var mk in (o.mut || {})) mut[mk] = o.mut[mk];
+  if (traits.brume) mut.nuit = true;
+  if (traits.furieux) mut.fureur = true;
+  var forme = FORMES[o.forme] ? o.forme : 'comete';
   var cm = (df.coeurs + (am.coeur || 0));
   var C = {
     def: def, W: W, H: H, t: 0, b: 60 / def.bpm, kb: -999, mods: mods, mut: mut, diff: df,
@@ -80,7 +124,8 @@ function creerCombat(def, o) {
     corps: { x: W / 2, y: H / 2 - 0.3, ang: 0, r: def.corps.r, ruee: null, i: 0 }, corps2: null,
     noyaux: [], coeur: null, hs: 0, hParam: 0, rempartA: 0,
     balles: [], lasers: [], ondes: [], mines: [], traqueurs: [], meteores: [], murs: [], emetteurs: [], bras: [], trous: [],
-    annonces: [], echos: [], braises: [],
+    annonces: [], echos: [], braises: [], toiles: [], fleches: [],
+    forme: forme, traits: traits, accel: ACCEL * (traits.glace ? 0.55 : 1), soin: 0,
     combo: 0, comboT: 0, comboMax: 2.5 + 1.5 * (mods.combo || 0) + 0.3 * (am.combo || 0),
     en: 0, enMax: 100, gainEn: (1 + 0.4 * (mods.nova || 0)) * (1 + 0.08 * (am.energie || 0)),
     slots: mut.sansComp ? [null, null, null] : ((o.comp && o.comp.slots) || ['lasso', null, 'supernova']), niv: (o.comp && o.comp.niv) || {},
@@ -94,7 +139,7 @@ function creerCombat(def, o) {
   var hpMul = df.hp;
   for (var i = 0; i < def.noyaux.length; i++) {
     var n = def.noyaux[i];
-    var bc = n.bouclier || (mut.boucliers ? { per: 8, debut: (i * 3) % 8, duree: 3 } : null);
+    var bc = n.bouclier || (mut.boucliers ? { per: 8, debut: (i * 3) % 8, duree: 3 } : traits.gardien ? { per: 8, debut: Math.floor(i * 8 / def.noyaux.length), duree: 2 } : null);
     var hp = Math.max(2, Math.round(n.hp * hpMul));
     C.noyaux.push({ i: i, x: W / 2, y: H / 2, hp: hp, hpMax: hp, mort: false, flash: 0, dec: 0, bouclier: bc, prot: false, def: n, dernier: 0, regen: false, intang: false });
     C.hpTotal += hp;
@@ -105,6 +150,8 @@ function creerCombat(def, o) {
   C.vmax = VMAX * Math.pow(1.08, mods.vitesse || 0) * C.vitJ * (1 + 0.03 * (am.vitesse || 0));
   C.dashCdMax = DASH_CD * Math.pow(0.7, mods.elan || 0) * (1 - 0.06 * (am.elan || 0));
   C.dashDist = DASH_DIST * (1 + 0.35 * (mods.loin || 0));
+  if (forme === 'lame') { C.longMax *= 0.65; C.vmax *= 1.1; }
+  if (forme === 'tisseuse') { C.longMax *= 1.5; C.vmax *= 0.9; }
   // l'hydre : on remplit l'historique de sa tête pour que sa file existe dès le début
   if (def.espece === 'hydre') { C.hs = -14; C.hist2 = []; for (var k = 0; k < 900; k++) avancerTete(C, 1 / 60); }
   placerBoss(C);
@@ -208,7 +255,7 @@ function pasCombat(C, E) {
   C.t += DT;
   var j = C.j;
   var k = Math.floor((C.t - T0) / C.b);
-  if (k !== C.kb) { C.kb = k; if (k >= 0) { ev(C, { type: 'beat', k: k }); planifier(C, k); } }
+  if (k !== C.kb) { C.kb = k; if (k >= 0) { ev(C, { type: 'beat', k: k }); planifier(C, k); frapperToiles(C); } }
   if (C.phase === 'entree' && C.t >= T0) C.phase = 'noyaux';
   if (C.phase === 'transition' && C.t >= C.tTrans) { C.phase = 'coeur'; }
   // effets de compétences qui se terminent
@@ -239,7 +286,79 @@ function pasCombat(C, E) {
     var br = C.braises[bz]; if (C.t >= br.tFin) { C.braises.splice(bz, 1); continue; }
     for (var bi = C.balles.length - 1; bi >= 0; bi--) { var bl = C.balles[bi]; if (bl.enc && dansPoly(bl.x, bl.y, br.poly)) { C.balles.splice(bi, 1); ev(C, { type: 'balleDetruite', x: bl.x, y: bl.y }); } }
   }
+  // toiles de la Tisseuse : elles détruisent les balles qui y entrent
+  for (var ti = C.toiles.length - 1; ti >= 0; ti--) {
+    var to = C.toiles[ti]; if (C.t >= to.tFin) { C.toiles.splice(ti, 1); continue; }
+    for (var b2 = C.balles.length - 1; b2 >= 0; b2--) { var bb = C.balles[b2]; if (bb.enc && bb.x > to.x0 && bb.x < to.x1 && bb.y > to.y0 && bb.y < to.y1 && dansPoly(bb.x, bb.y, to.poly)) { C.balles.splice(b2, 1); gagnerEnergie(C, 0.5); ev(C, { type: 'balleDetruite', x: bb.x, y: bb.y }); } }
+  }
+  majFleches(C);
   if (C.phase === 'coeur' && C.coeur && C.coeur.hp <= 0) victoire(C);
+}
+
+/* ---------- formes : toiles (Tisseuse), flèches (Reflet), élan tranchant (Lame) ---------- */
+function boite(poly) { var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (var i = 0; i < poly.length; i += 2) { if (poly[i] < x0) x0 = poly[i]; if (poly[i] > x1) x1 = poly[i]; if (poly[i + 1] < y0) y0 = poly[i + 1]; if (poly[i + 1] > y1) y1 = poly[i + 1]; } return { x0: x0, y0: y0, x1: x1, y1: y1 }; }
+// frappe directe (toile, flèche, élan) : seuls les boucliers et les fantômes l'arrêtent
+function frapperDirect(C, n, m) {
+  if (n.mort) return false;
+  if (n.prot || n.intang) { ev(C, { type: 'refus', motif: n.prot ? 'bouclier' : 'intouchable', x: n.x, y: n.y, discret: true }); return false; }
+  n.hp -= Math.min(n.hp, m); n.flash = 0.15; n.dernier = C.t;
+  ev(C, { type: 'degat', x: n.x, y: n.y, v: m, echo: true });
+  if (n.hp <= 1e-6) tuerNoyau(C, n);
+  return true;
+}
+function frapperCoeurDirect(C, m) {
+  var co = C.coeur; if (!co || C.phase !== 'coeur' || co.hp <= 0) return false;
+  co.hp -= Math.min(co.hp, m); co.flash = 0.15; co.dernier = C.t;
+  ev(C, { type: 'degat', x: co.x, y: co.y, v: m, coeur: true, echo: true });
+  return true;
+}
+function frapperToiles(C) {
+  for (var t = 0; t < C.toiles.length; t++) {
+    var to = C.toiles[t], m = 0.35 * multCombo(C), touche = false;
+    for (var i = 0; i < C.noyaux.length; i++) { var n = C.noyaux[i]; if (!n.mort && dansPoly(n.x, n.y, to.poly) && frapperDirect(C, n, m)) touche = true; }
+    if (C.coeur && C.phase === 'coeur' && dansPoly(C.coeur.x, C.coeur.y, to.poly) && frapperCoeurDirect(C, m)) touche = true;
+    if (touche) { to.pulse = C.t; ev(C, { type: 'toile', poly: to.poly }); }
+  }
+}
+function cibleFleche(C, x, y) {
+  var best = null, bd = 1e9;
+  if (C.coeur && C.phase === 'coeur') return { coeur: true };
+  for (var i = 0; i < C.noyaux.length; i++) { var n = C.noyaux[i]; if (n.mort) continue; var d = dist2(n.x, n.y, x, y) * (n.prot || n.intang ? 9 : 1); if (d < bd) { bd = d; best = n; } }
+  return best ? { n: best } : null;
+}
+function lancerFleches(C, x, y, nb) {
+  for (var k = 0; k < nb && C.fleches.length < 40; k++) {
+    var c = cibleFleche(C, x, y); if (!c) return;
+    var a = Math.random() * TAU;
+    C.fleches.push({ x: x, y: y, vx: Math.cos(a) * 4, vy: Math.sin(a) * 4, c: c, m: 0.7 * multCombo(C), vie: 2.5 });
+  }
+}
+function majFleches(C) {
+  for (var i = C.fleches.length - 1; i >= 0; i--) {
+    var f = C.fleches[i]; f.vie -= DT;
+    if (f.c.n && f.c.n.mort) f.c = cibleFleche(C, f.x, f.y) || f.c;
+    var tx, ty;
+    if (f.c.coeur) { if (!C.coeur || C.phase !== 'coeur') { C.fleches.splice(i, 1); continue; } tx = C.coeur.x; ty = C.coeur.y; }
+    else if (f.c.n && !f.c.n.mort) { tx = f.c.n.x; ty = f.c.n.y; }
+    else { C.fleches.splice(i, 1); continue; }
+    var dx = tx - f.x, dy = ty - f.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+    var acc = 70 * DT; f.vx += dx / d * acc; f.vy += dy / d * acc;
+    var v = Math.sqrt(f.vx * f.vx + f.vy * f.vy); if (v > 13) { f.vx *= 13 / v; f.vy *= 13 / v; }
+    f.x += f.vx * DT; f.y += f.vy * DT;
+    if (d < 0.3) { if (f.c.coeur) frapperCoeurDirect(C, f.m); else frapperDirect(C, f.c.n, f.m); C.fleches.splice(i, 1); continue; }
+    if (f.vie <= 0) C.fleches.splice(i, 1);
+  }
+}
+// Lame : l'élan frappe les cristaux qu'il traverse (une fois chacun par élan)
+function elanTranchant(C) {
+  var j = C.j, m = 0.5 * multCombo(C), touche = false;
+  for (var i = 0; i < C.noyaux.length; i++) {
+    var n = C.noyaux[i]; if (n.mort || j.dashHits.indexOf(n) >= 0) continue;
+    var r = (n.def.r || 0.3) + 0.32;
+    if (dist2(n.x, n.y, j.x, j.y) < r * r) { j.dashHits.push(n); if (frapperDirect(C, n, m)) { touche = true; gagnerEnergie(C, 3); } }
+  }
+  if (C.coeur && C.phase === 'coeur' && j.dashHits.indexOf(C.coeur) < 0 && dist2(C.coeur.x, C.coeur.y, j.x, j.y) < 0.62 * 0.62) { j.dashHits.push(C.coeur); if (frapperCoeurDirect(C, m)) { touche = true; gagnerEnergie(C, 3); } }
+  if (touche) { C.combo += 1; C.comboT = C.comboMax; C.s.comboMax = Math.max(C.s.comboMax, Math.floor(C.combo)); ev(C, { type: 'lame', x: j.x, y: j.y }); }
 }
 
 function majNoyaux(C) {
@@ -250,9 +369,9 @@ function majNoyaux(C) {
     var p = bouclierActif(C, n); if (p !== n.prot) { n.prot = p; ev(C, { type: p ? 'bouclierOn' : 'bouclierOff', x: n.x, y: n.y }); }
     n.intang = intangible(C, n);
     // réparation : un cristal qu'on laisse tranquille se répare
-    var vivace = n.def.type === 'vivace', attente = vivace ? 3 : 8;
+    var vivace = n.def.type === 'vivace', cor = C.traits.coriace ? 1.6 : 1, attente = (vivace ? 3 : 8) / cor;
     n.regen = C.phase !== 'entree' && n.hp < n.hpMax && C.t - n.dernier > attente;
-    if (n.regen) n.hp = Math.min(n.hpMax, n.hp + n.hpMax * (vivace ? 0.03 : 0.01) * C.diff.regen * DT);
+    if (n.regen) n.hp = Math.min(n.hpMax, n.hp + n.hpMax * (vivace ? 0.03 : 0.01) * cor * C.diff.regen * DT);
     if (n.def.timide && C.phase !== 'entree') {
       var dj = Math.sqrt(dist2(n.x, n.y, j.x, j.y)), c = corpsDe(C, n.def.corps);
       if (dj < 1.6) { var ap = Math.atan2(j.y - c.y, j.x - c.x), an = Math.atan2(n.y - c.y, n.x - c.x); n.dec -= Math.sign(angDiff(an, ap)) * 1.3 * DT * (1.6 - dj); }
@@ -269,19 +388,25 @@ function deplacerJoueur(C, E) {
   if (ll > 0.05) { j.dx = dx / ll; j.dy = dy / ll; }
   var vm = C.vmax * (C.eff.filante ? 1.35 : 1);
   // accélération : les virages sont arrondis, ce qui aide à tracer des boucles au clavier
-  var tvx = dx * vm, tvy = dy * vm, ex = tvx - j.vx, ey = tvy - j.vy, el = Math.sqrt(ex * ex + ey * ey), mx = ACCEL * DT;
+  var tvx = dx * vm, tvy = dy * vm, ex = tvx - j.vx, ey = tvy - j.vy, el = Math.sqrt(ex * ex + ey * ey), mx = C.accel * DT;
   if (el > mx) { ex *= mx / el; ey *= mx / el; }
   var vx = j.vx + ex, vy = j.vy + ey;
   if (E.elan && j.dashCd <= 0 && j.dashT <= 0 && C.phase !== 'entree') {
     j.dashT = C.dashDist / DASH_V; j.dashCd = C.dashCdMax;
-    j.ddx = j.dx; j.ddy = j.dy;
+    j.ddx = j.dx; j.ddy = j.dy; j.dashHits = [];
     ev(C, { type: 'elan', x: j.x, y: j.y });
   }
   var mvx = vx, mvy = vy;
   if (j.dashT > 0) {
     j.dashT -= DT; mvx = j.ddx * DASH_V; mvy = j.ddy * DASH_V;
     if (j.dashT <= 0) { j.invul = Math.max(j.invul, 0.07); vx = j.ddx * vm; vy = j.ddy * vm; }
+    if (C.forme === 'lame') elanTranchant(C);
     if (C.mods.souffle) for (var b = C.balles.length - 1; b >= 0; b--) { var bl = C.balles[b]; if (bl.enc && dist2(bl.x, bl.y, j.x, j.y) < 0.45 * 0.45) { C.balles.splice(b, 1); ev(C, { type: 'balleDetruite', x: bl.x, y: bl.y }); } }
+  }
+  // trait Aimant : le corps du colosse attire la comète
+  if (C.traits.aimant && C.phase !== 'entree' && C.phase !== 'fin') {
+    var adx = C.corps.x - j.x, ady = C.corps.y - j.y, ad = Math.sqrt(adx * adx + ady * ady) || 1;
+    if (ad > C.corps.r + 0.3) { var af = 2.6 * C.lentE / (1 + ad * 0.12); mvx += adx / ad * af; mvy += ady / ad * af; }
   }
   // trous noirs : ils attirent la comète
   for (var t = 0; t < C.trous.length; t++) {
@@ -342,6 +467,8 @@ function boucle(C, poly, aire, o) {
   if (pile) mult *= C.mods.rythme ? 2 : 1.5;
   if (serre) mult *= C.mods.etau ? 1.7 : 1.3;
   if (C.eff.filante) mult *= 2;
+  if (C.forme === 'lame') mult *= 1.25;
+  if (C.forme === 'reflet') mult *= 0.6;
   if (o.fantome) mult *= 0.6 * puissComp(C.niv.echo);
   var r = frapperBoucle(C, poly, aire, mult, { pile: pile, serre: serre, fantome: o.fantome, lasso: o.lasso });
   if (!o.fantome) C.s.boucles++;
@@ -350,6 +477,11 @@ function boucle(C, poly, aire, o) {
     if (serre) C.s.serrees++;
     if (C.mods.echo) C.echos.push({ t: C.t + 0.6, poly: poly, aire: aire, mult: mult * 0.5 });
     if (C.mods.braise) C.braises.push({ poly: poly, tFin: C.t + 1.2 });
+  }
+  if (C.forme === 'tisseuse' && !o.fantome) {
+    var bx = boite(poly);
+    C.toiles.push({ poly: poly, tFin: C.t + 2.0, nait: C.t, x0: bx.x0, y0: bx.y0, x1: bx.x1, y1: bx.y1, pulse: 0 });
+    if (C.toiles.length > 3) C.toiles.shift();
   }
 }
 
@@ -390,6 +522,10 @@ function frapperBoucle(C, poly, aire, mult, o) {
   for (i = C.traqueurs.length - 1; i >= 0; i--) { var tq = C.traqueurs[i]; if (dansPoly(tq.x, tq.y, poly)) { C.traqueurs.splice(i, 1); balles += 2; gain += 5 * gb; ev(C, { type: 'balleDetruite', x: tq.x, y: tq.y, gros: true }); } }
   for (i = C.trous.length - 1; i >= 0; i--) { var tn = C.trous[i]; if (dansPoly(tn.x, tn.y, poly)) { C.trous.splice(i, 1); balles += 3; gain += 12; ev(C, { type: 'trouDetruit', x: tn.x, y: tn.y }); } }
   if (!echo) gagnerEnergie(C, gain);
+  if (!echo && C.forme === 'reflet' && balles) {
+    var cx = 0, cy = 0, np = poly.length / 2; for (i = 0; i < poly.length; i += 2) { cx += poly[i]; cy += poly[i + 1]; }
+    lancerFleches(C, cx / np, cy / np, balles);
+  }
   if (!o.fantome) { C.s.balles += balles; C.s.ballesMax = Math.max(C.s.ballesMax, balles); }
   var touche = cibles > 0 || balles > 0;
   if (touche && !echo) {
@@ -429,6 +565,10 @@ function tuerNoyau(C, n) {
   }
 }
 
+function posCoeur(C, s) {
+  var cd = C.def.coeur, A = C.W / 2 - 1.3, B = C.H / 2 - 1.0;
+  return { x: C.W / 2 + A * Math.sin(cd.f1 * s + cd.ph), y: C.H / 2 + B * Math.sin(cd.f2 * s + cd.ph * 1.3) };
+}
 function majCoeur(C) {
   var co = C.coeur; if (!co) return;
   co.flash = Math.max(0, co.flash - DT);
@@ -448,8 +588,17 @@ function majCoeur(C) {
   co.souffle = pb < 1 ? 1 - Math.abs(pb - 0.5) * 2 : 0;
   var lent = pb < 1 ? 0.18 : 1;
   co.s += cd.v * rg * lent * C.ve * C.lentE * DT / Math.max(vs, 1.5);
-  co.x = C.W / 2 + A * Math.sin(cd.f1 * co.s + cd.ph);
-  co.y = C.H / 2 + B * Math.sin(cd.f2 * co.s + cd.ph * 1.3);
+  // certains cœurs sautent ailleurs toutes les 2 mesures (l'endroit est annoncé un temps avant)
+  if (cd.saut) {
+    var kk = Math.floor(kb);
+    if (co.sautK == null) co.sautK = kk + 8 - (kk % 8) + (kk % 8 > 4 ? 8 : 0);
+    if (kk >= co.sautK - 1 && !co.vise) { var pv = posCoeur(C, co.s + 2.2); co.vise = pv; }
+    if (kk >= co.sautK) {
+      var x0 = co.x, y0 = co.y; co.s += 2.2; co.sautK += 8; co.vise = null;
+      var pn = posCoeur(C, co.s); ev(C, { type: 'coeurSaut', x0: x0, y0: y0, x1: pn.x, y1: pn.y });
+    }
+  }
+  var pc = posCoeur(C, co.s); co.x = pc.x; co.y = pc.y;
   co.regen = C.t - (co.dernier || 0) > 8 && co.hp < co.hpMax;
   if (co.regen) co.hp = Math.min(co.hpMax, co.hp + co.hpMax * 0.01 * C.diff.regen * DT);
   if (cd.sillage && C.t >= co.prochain) {
@@ -694,6 +843,7 @@ function preparer(C, an, R) {
 
 function balle(C, x, y, a, v, r, o) {
   var bl = { x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: r || 0.13, enc: true, vie: 14, nait: C.t };
+  if (C.traits.tranchant && (C.nbBalles = (C.nbBalles || 0) + 1) % 3 === 0) bl.coupe = true;
   if (o) for (var k in o) bl[k] = o[k];
   C.balles.push(bl);
   return bl;
@@ -799,7 +949,7 @@ function majEnnemis(C) {
       b.x += b.vx * dtE; b.y += b.vy * dtE;
     }
     b.vie -= dtE;
-    if (b.vie <= 0 || b.x < -1 || b.x > W + 1 || b.y < -1 || b.y > H + 1) C.balles.splice(i, 1);
+    if (b.vie <= 0 || b.x < -1 || b.x > W + 1 || b.y < -1 || b.y > H + 1) { C.balles.splice(i, 1); if (C.traits.vorace && !b.sillage) vorace(C); }
   }
   for (i = C.emetteurs.length - 1; i >= 0; i--) {
     var e = C.emetteurs[i];
@@ -854,6 +1004,17 @@ function majEnnemis(C) {
   }
 }
 
+// trait Vorace : une balle échappée soigne le cristal le plus abîmé (ou le cœur)
+function vorace(C) {
+  var cible = null, pire = 1;
+  if (C.phase === 'coeur' && C.coeur) { if (C.coeur.hp < C.coeur.hpMax) cible = C.coeur; }
+  else for (var i = 0; i < C.noyaux.length; i++) { var n = C.noyaux[i]; if (!n.mort && n.hp / n.hpMax < pire) { pire = n.hp / n.hpMax; cible = n; } }
+  if (!cible) return;
+  cible.hp = Math.min(cible.hpMax, cible.hp + (cible === C.coeur ? 0.05 : 0.1) * C.diff.regen);
+  C.soin += 0.1;
+  if (C.soin >= 1) { C.soin = 0; ev(C, { type: 'vorace', x: cible.x, y: cible.y }); }
+}
+
 /* géométrie des dangers */
 function murRect(C, mu) {
   var vert = mu.cote < 2;
@@ -886,6 +1047,11 @@ function dansRempart(C, x, y, marge) {
 }
 function brasPoints(br) { var l = []; for (var k = 0; k < br.n; k++) { var r = 0.7 + k * br.esp; l.push(br.x + Math.cos(br.a) * r, br.y + Math.sin(br.a) * r); } return l; }
 
+function coupeBalle(C, x, y) {
+  if (!C.traits.tranchant) return false;
+  for (var k = 0; k < C.balles.length; k++) { var b = C.balles[k]; if (!b.coupe) continue; var dx = b.x - x, dy = b.y - y; if (dx < 0.25 && dx > -0.25 && dy < 0.25 && dy > -0.25 && dx * dx + dy * dy < (b.r + 0.03) * (b.r + 0.03)) return true; }
+  return false;
+}
 function couperTrace(C, T, protege) {
   if (protege) return;
   var n = T.tx.length; if (n < 2) return;
@@ -896,6 +1062,7 @@ function couperTrace(C, T, protege) {
     if (idx < 0) for (k = 0; k < C.ondes.length; k++) if (dansOnde(C.ondes[k], x, y, 0.02)) { idx = i; cause = 'onde'; break; }
     if (idx < 0) for (k = 0; k < C.murs.length; k++) if (dansMur(C, C.murs[k], x, y, 0)) { idx = i; cause = 'mur'; break; }
     if (idx < 0 && dansRempart(C, x, y, 0)) { idx = i; cause = 'rempart'; }
+    if (idx < 0 && coupeBalle(C, x, y)) { idx = i; cause = 'balle'; }
     if (idx >= 0) { cx = x; cy = y; }
   }
   if (idx >= 0) { for (var r = 0; r <= idx && T.tx.length; r++) retirerTete(T); if (T === C.tr) ev(C, { type: 'coupe', x: cx, y: cy, cause: cause }); }
