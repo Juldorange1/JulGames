@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#07040f">
+<title>Pulsar</title>
+<link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+<canvas id="jeu"></canvas>
+<div id="ecran"></div>
+<div id="toasts"></div>
+<div id="chargement" class="cache"><div class="spin"></div><span>Création du niveau…</span></div>
+<script src="js/base.js?v=2"></script>
+<script src="js/moteur.js?v=2"></script>
+<script src="js/generateur.js?v=2"></script>
+<script src="js/boss.js?v=2"></script>
+<script src="js/icones.js?v=2"></script>
+<script src="js/rendu.js?v=2"></script>
+<script src="js/musique.js?v=2"></script>
+<script src="js/jeu.js?v=2"></script>
+<script src="js/menus.js?v=2"></script>
+<script>Menus.init(); Jeu.init(); Menus.accueil();</script>
+</body>
+</html>
