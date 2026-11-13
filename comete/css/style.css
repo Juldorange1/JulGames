@@ -169,3 +169,47 @@ button.danger { border-color: #ff4d6d; color: #ff9aaa; margin-top: 10px; }
   .accueil { gap: 8px; }
   button.gros { padding: 8px; }
 }
+
+/* Parties (une par difficulté) */
+.parties { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.partie { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto auto; column-gap: 8px; text-align: left; padding: 8px 12px; opacity: .75; }
+.partie i { grid-row: 1 / 4; font-style: normal; font-size: 1.6rem; align-self: center; text-align: center; }
+.partie b { font-size: 1.05rem; }
+.partie span { font-size: .78rem; opacity: .85; }
+.partie small { font-size: .7rem; opacity: .65; }
+.partie.choisie { opacity: 1; border-color: #ffd34d; box-shadow: 0 0 18px rgba(255,211,77,0.35); background: linear-gradient(180deg, rgba(255,211,77,0.16), rgba(255,211,77,0.03)); }
+.p-etincelle i { color: #7dffb0; } .p-comete i { color: #5ef2ff; } .p-trounoir i { color: #c49bff; }
+.comp-btn { border-color: rgba(94,242,255,0.5); }
+.ligne-bas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+/* Compétences */
+.poussiere { color: #ffd34d; font-weight: 700; }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.slot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px; border-radius: 14px; background: rgba(94,242,255,0.08); border: 1px solid rgba(94,242,255,0.35); }
+.slot.ult { background: rgba(255,211,77,0.08); border-color: rgba(255,211,77,0.45); }
+.slot small { font-size: .72rem; opacity: .75; }
+.slot i { font-style: normal; font-size: 1.6rem; }
+.liste-comp { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.carte-comp { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.carte-comp.ult { border-color: rgba(255,211,77,0.35); }
+.carte-comp.verrou { opacity: .45; }
+.carte-comp .tete { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px; }
+.carte-comp .tete i { font-style: normal; font-size: 1.4rem; }
+.carte-comp .tete span { font-size: .75rem; opacity: .8; }
+.carte-comp p { font-size: .83rem; opacity: .88; line-height: 1.35; }
+.carte-comp .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.carte-comp .actions button { padding: 6px 10px; font-size: .82rem; }
+button.achat { border-color: rgba(255,211,77,0.6); color: #ffe7a0; }
+.gain { color: #ffd34d; font-weight: 700; }
+.nouveau-comp { color: #7dffb0; }
+
+/* Commandes tactiles */
+#tactile { position: fixed; right: 14px; bottom: 14px; display: none; grid-template-columns: 58px 58px; grid-template-rows: 58px 58px; gap: 10px; z-index: 6; }
+body.tactile.en-jeu #tactile { display: grid; }
+#tactile button { border-radius: 50%; padding: 0; font-size: 1.4rem; background: rgba(10,8,26,0.5); border-color: rgba(255,255,255,0.3); touch-action: none; }
+#tactile .gros-t { border-color: #5ef2ff; }
+
+@media (max-width: 700px) {
+  .parties, .slots { grid-template-columns: 1fr; }
+  .partie { grid-template-rows: auto auto; }
+}

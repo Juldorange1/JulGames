@@ -209,6 +209,8 @@ var Son = {
       case 'novaPrete': [0, 4, 7, 12].forEach(function (s2, i2) { var o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = 659.25 * Math.pow(2, s2 / 12); var t0 = at + i2 * 0.05; g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4); o.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + 0.45); }); break;
       case 'nova': bruit(8000, 1.2, 0.7, 'highpass'); osc('sawtooth', 80, 30, 1.0, 0.4); osc('sine', noteHz(0, 3), noteHz(0, 1), 1.0, 0.25); break;
       case 'mine': bruit(1800, 0.3, 0.35); break;
+      case 'comp': osc('triangle', noteHz(4, 3), noteHz(9, 3), 0.18, 0.16); osc('sine', noteHz(7, 4), 0, 0.3, 0.06); bruit(5000, 0.25, 0.12, 'highpass'); break;
+      case 'rate': osc('square', 220, 180, 0.08, 0.05); break;
       case 'desamorce': osc('sine', 500, 1500, 0.12, 0.12); break;
       case 'annonce': osc('sine', 1200, 1000, 0.05, 0.03); break;
       case 'laser': bruit(9000, 0.35, 0.18, 'highpass'); osc('sawtooth', 110, 90, 0.3, 0.1); break;

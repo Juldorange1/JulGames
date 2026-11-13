@@ -10,31 +10,58 @@ var EPITHETES = ['le Veilleur', 'la Fournaise', 'le Tisseur d\'Orage', 'l\'Insom
   'le Funambule', 'la Nébuleuse', 'le Juge Silencieux', 'le Cyclone', 'la Lanterne', 'le Roi Sans Ombre', 'l\'Ombre Pâle', 'le Vortex'];
 var TITRES_TITAN = ['Titan', 'Titan Ancien', 'Titan Primordial', 'Titan Éternel', 'Titan Absolu'];
 
+/* les espèces : la forme du colosse et la façon dont ses cristaux bougent */
+var ESPECES = {
+  sentinelle: { dMin: 1, nom: 'Sentinelle', desc: 'Ses cristaux tournent autour de lui.' },
+  essaim:     { dMin: 3, nom: 'Essaim', desc: 'Une nuée de petits cristaux : encercles-en plusieurs à la fois.' },
+  pendule:    { dMin: 5, nom: 'Pendule', desc: 'Ses cristaux se balancent au bout de longues chaînes.' },
+  hydre:      { dMin: 7, nom: 'Hydre', desc: 'Il serpente dans l\'arène, ses cristaux le suivent en file.' },
+  jumeaux:    { dMin: 9, nom: 'Jumeaux', desc: 'Deux corps qui tournent l\'un autour de l\'autre.' },
+  forteresse: { dMin: 11, nom: 'Forteresse', desc: 'Un rempart tournant protège ses cristaux : entre par les brèches.' }
+};
+/* les sortes de cristaux (noyaux) */
+var TYPES_NOYAU = {
+  normal:   { dMin: 1, nom: 'Cristal', desc: 'Encercle-le pour le frapper.' },
+  sens:     { dMin: 4, nom: 'Cristal tournant', desc: 'Ne se brise que si tu tournes dans le sens de sa flèche.' },
+  blinde:   { dMin: 6, nom: 'Cristal blindé', desc: 'Seules les boucles serrées le frappent.' },
+  lie:      { dMin: 8, nom: 'Cristaux liés', desc: 'Deux cristaux enchaînés : il faut les entourer ensemble.' },
+  vivace:   { dMin: 10, nom: 'Cristal vivace', desc: 'Il se répare très vite si tu le laisses tranquille.' },
+  eclatant: { dMin: 12, nom: 'Cristal éclatant', desc: 'Brisé, il éclate en deux petits cristaux rapides.' },
+  fantome:  { dMin: 14, nom: 'Cristal fantôme', desc: 'Il devient intouchable deux temps sur quatre.' }
+};
+
 /* catalogue des attaques : niveau d'apparition, poids, durée d'annonce (en temps) */
 var CATALOGUE = {
   rosace:    { dMin: 1, poids: 3, annonce: 1, nom: 'Rosace' },
   mines:     { dMin: 1, poids: 2, annonce: 1, nom: 'Mines' },
-  salve:     { dMin: 2, poids: 3, annonce: 1, nom: 'Salve' },
-  laser:     { dMin: 3, poids: 3, annonce: 1, nom: 'Laser' },
-  eclats:    { dMin: 4, poids: 2, annonce: 1, nom: 'Éclats' },
-  spirale:   { dMin: 4, poids: 2, annonce: 1, nom: 'Spirale' },
-  onde:      { dMin: 5, poids: 2, annonce: 1, nom: 'Onde' },
-  traqueurs: { dMin: 6, poids: 2, annonce: 1, nom: 'Traqueurs' },
-  meteores:  { dMin: 7, poids: 2, annonce: 2, nom: 'Météores' },
-  croix:     { dMin: 8, poids: 2, annonce: 2, nom: 'Croix' },
-  ruee:      { dMin: 9, poids: 2, annonce: 1, nom: 'Ruée' },
-  murs:      { dMin: 11, poids: 2, annonce: 2, nom: 'Murs' },
-  balayage:  { dMin: 13, poids: 2, annonce: 2, nom: 'Balayage' },
-  pluie:     { dMin: 15, poids: 2, annonce: 1, nom: 'Pluie' },
-  fleur:     { dMin: 18, poids: 2, annonce: 1, nom: 'Fleur' }
+  salve:     { dMin: 1, poids: 3, annonce: 1, nom: 'Salve' },
+  laser:     { dMin: 2, poids: 3, annonce: 1, nom: 'Laser' },
+  eclats:    { dMin: 3, poids: 2, annonce: 1, nom: 'Éclats' },
+  spirale:   { dMin: 3, poids: 2, annonce: 1, nom: 'Spirale' },
+  onde:      { dMin: 4, poids: 1.4, annonce: 2, nom: 'Onde' },
+  traqueurs: { dMin: 5, poids: 2, annonce: 1, nom: 'Traqueurs' },
+  faux:      { dMin: 6, poids: 2, annonce: 1, nom: 'Faux' },
+  meteores:  { dMin: 6, poids: 2, annonce: 2, nom: 'Météores' },
+  croix:     { dMin: 7, poids: 2, annonce: 2, nom: 'Croix' },
+  cage:      { dMin: 8, poids: 2, annonce: 1, nom: 'Cage' },
+  ruee:      { dMin: 8, poids: 2, annonce: 1, nom: 'Ruée' },
+  serpent:   { dMin: 10, poids: 2, annonce: 1, nom: 'Serpent' },
+  murs:      { dMin: 10, poids: 2, annonce: 2, nom: 'Murs' },
+  eclair:    { dMin: 12, poids: 2, annonce: 2, nom: 'Éclair' },
+  balayage:  { dMin: 12, poids: 2, annonce: 2, nom: 'Balayage' },
+  pluie:     { dMin: 14, poids: 2, annonce: 1, nom: 'Pluie' },
+  trounoir:  { dMin: 15, poids: 1.5, annonce: 2, nom: 'Trou noir' },
+  fleur:     { dMin: 17, poids: 2, annonce: 1, nom: 'Fleur' }
 };
+
+var LOURDES = { onde: 1, murs: 1, croix: 1, balayage: 1, meteores: 1, trounoir: 1, cage: 1, eclair: 1, faux: 1, ruee: 1 };
 
 function nomColosse(R) {
   var n = R.choix(SYL1) + R.choix(SYL2) + R.choix(SYL3);
   return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
 }
 
-/* opts : { n (numéro / difficulté), graine, titan, mut: {} } */
+/* opts : { n (difficulté), graine, titan } */
 function genColosse(opts) {
   var d = Math.max(1, opts.n), graine = opts.graine != null ? opts.graine : Math.floor(d) * 7919 + 13;
   var R = rngGraine(graine);
@@ -43,82 +70,139 @@ function genColosse(opts) {
   def.nom = nomColosse(R);
   def.epithete = titan ? R.choix(TITRES_TITAN) : R.choix(EPITHETES);
   def.teinte = R.ent(0, 359);
-  // les noyaux ne sont jamais rouges (le rouge est réservé aux balles)
+  // les cristaux ne sont jamais rouges (le rouge est réservé aux balles)
   def.teinte2 = R.choix([55, 80, 120, 150, 170, 185, 200, 215, 250, 270, 290]);
-  def.bpm = Math.round(clamp(96 + d * 1.3 + R.ent(-5, 5), 92, 150) / 2) * 2;
+  def.bpm = Math.round(clamp(100 + d * 1.3 + R.ent(-5, 5), 96, 156) / 2) * 2;
   var f = clamp(d / 10, 0, 1);    // montée en puissance des mouvements
+
+  // espèce
+  var esp = [];
+  for (var e in ESPECES) if (ESPECES[e].dMin <= d) esp.push([e, e === 'sentinelle' ? 1.2 : (ESPECES[e].dMin > d - 4 ? 2.5 : 1.5)]);
+  def.espece = d <= 2 ? 'sentinelle' : R.pondere(esp);
 
   // corps
   def.corps = {
     forme: R.choix(['poly', 'poly', 'etoile', 'cercle', 'couronne']),
     cotes: R.ent(3, 7),
-    r: (titan ? 1.05 : 0.78) + R() * 0.22,
+    r: (titan ? 1.0 : 0.78) + R() * 0.2,
     rotV: R.entre(0.2, 0.7) * R.signe(),
-    ax: R.entre(1.0, 3.2) * f, ay: R.entre(0.5, 1.6) * f,
-    fx: R.entre(0.12, 0.3), fy: R.entre(0.15, 0.35), ph: R() * TAU
+    ax: R.entre(1.0, 3.0) * f, ay: R.entre(0.5, 1.4) * f,
+    fx: R.entre(0.12, 0.3), fy: R.entre(0.15, 0.35), ph: R() * TAU,
+    f1: R.entre(0.8, 1.2), f2: R.entre(1.1, 1.6), vit: clamp(1.2 + d * 0.025, 1.2, 2.4)
   };
+  if (def.espece === 'jumeaux') def.corps.r = 0.62;
+  if (def.espece === 'forteresse') { def.corps.r = 0.7; def.rempart = { r: 2.95, rot: R.entre(0.22, 0.4) * R.signe(), larg: Math.max(1.0, 1.35 - d * 0.006) }; }
 
-  // noyaux
-  var m = clamp(2 + Math.floor((d + 1) / 6) + (R() < 0.35 ? 1 : 0), 2, 6) + (titan ? 2 : 0);
+  // nombre et vie des cristaux
+  var m = clamp(2 + Math.floor((d + 1) / 7) + (R() < 0.35 ? 1 : 0), 2, 6) + (titan ? 2 : 0);
   if (d <= 1) m = 2;
-  m = Math.min(m, 7);
-  var hp = Math.round((5 + d * 0.9) * (titan ? 1.25 : 1));
+  var hpMul = 1;
+  if (def.espece === 'essaim') { m = clamp(6 + Math.floor(d / 8), 6, 10) + (titan ? 3 : 0); hpMul = 0.42; }
+  if (def.espece === 'jumeaux') m = Math.max(4, m + (m % 2));
+  if (def.espece === 'pendule' || def.espece === 'hydre' || def.espece === 'jumeaux') m = Math.min(m, 6);
+  if (def.espece === 'forteresse') m = Math.min(m, 4);
+  m = Math.min(m, 13);
+  var hp = Math.round((10 + d * 1.15) * (titan ? 1.25 : 1) * hpMul);
+
+  // sortes de cristaux de ce colosse (une ou deux en plus des normaux)
+  var typesDispo = [];
+  for (var t in TYPES_NOYAU) if (t !== 'normal' && TYPES_NOYAU[t].dMin <= d && !(t === 'lie' && def.espece === 'essaim')) typesDispo.push(t);
+  R.melange(typesDispo);
+  def.types = typesDispo.slice(0, d < 4 ? 0 : d < 13 ? 1 : 2);
+  var partType = clamp(0.35 + d * 0.012, 0.35, 0.8);
+
   var sens = R.signe();
   var w = (d <= 1 ? 0.22 : R.entre(0.15, 0.5) * (0.4 + f)) * sens;
-  var bouclierP = d < 6 ? 0 : clamp(0.15 + (d - 6) * 0.025, 0, 0.6);
+  var bouclierP = d < 6 ? 0 : clamp(0.1 + (d - 6) * 0.02, 0, 0.45);
   def.noyaux = [];
   for (var i = 0; i < m; i++) {
     var nk = {
-      hp: hp, dist: R.entre(1.9, 2.7) + (titan ? 0.3 : 0),
-      a0: TAU * i / m + R.entre(-0.2, 0.2),
+      hp: hp, r: def.espece === 'essaim' ? 0.24 : 0.3, type: 'normal', place: 'orbite',
+      dist: R.entre(1.9, 2.7) + (titan ? 0.3 : 0), a0: TAU * i / m + R.entre(-0.2, 0.2),
       w: w * (R() < 0.25 && d >= 8 ? -1.6 : 1),
       resp: d < 4 ? 0 : R.entre(0, 0.7) * f, respF: R.entre(0.4, 1.0), respPh: R() * TAU,
-      bouclier: null, timide: d >= 10 && R() < clamp((d - 10) * 0.03, 0, 0.4)
+      bouclier: null, timide: d >= 10 && R() < clamp((d - 10) * 0.025, 0, 0.3), corps: 0, lien: null
     };
-    if (R() < bouclierP) nk.bouclier = { per: R.choix([8, 8, 16]), debut: R.ent(0, 7), duree: R.choix([2, 3, 4]) };
+    switch (def.espece) {
+      case 'essaim': nk.dist = R.entre(1.4, 3.3); nk.w = R.entre(0.3, 0.9) * R.signe(); nk.bourdon = R.entre(0.25, 0.5); nk.bF = R.entre(1, 2); nk.bPh = R() * TAU; break;
+      case 'pendule': nk.place = 'pendule'; nk.long = R.entre(2.3, 3.7); nk.amp = R.entre(0.4, 0.85); nk.om = R.entre(0.5, 0.9); nk.ph = R() * TAU; nk.pivot = (i - (m - 1) / 2) * 0.55; break;
+      case 'hydre': nk.place = 'chaine'; nk.rang = i + 1; break;
+      case 'jumeaux': nk.corps = i % 2; nk.dist = R.entre(1.7, 2.1); nk.a0 = TAU * Math.floor(i / 2) / Math.ceil(m / 2) + (i % 2) * 0.5; break;
+      case 'forteresse': nk.dist = R.entre(1.6, 1.8); nk.resp = 0; nk.w = R.entre(0.15, 0.35) * sens; break;
+    }
+    if (R() < bouclierP) nk.bouclier = { per: R.choix([8, 8, 16]), debut: R.ent(0, 7), duree: R.choix([2, 3]) };
+    if (def.types.length && R() < partType) {
+      nk.type = R.choix(def.types);
+      if (nk.type === 'sens') nk.sens = R.signe();
+    }
     def.noyaux.push(nk);
   }
+  // les cristaux liés vont par paires, côte à côte (sinon ils redeviennent normaux)
+  var L = def.noyaux;
+  for (i = 0; i < L.length; i++) {
+    var a = L[i];
+    if (a.type !== 'lie' || a.lien != null) continue;
+    var b = null;
+    for (var k2 = i + 1; k2 < L.length; k2++) if (L[k2].corps === a.corps && L[k2].lien == null && (L[k2].type === 'normal' || L[k2].type === 'lie')) { b = k2; break; }
+    if (b == null) { a.type = 'normal'; continue; }
+    var nb = L[b];
+    nb.type = 'lie'; nb.sens = undefined; a.lien = b; nb.lien = i;
+    nb.dist = a.dist; nb.w = a.w; nb.resp = a.resp; nb.respF = a.respF; nb.respPh = a.respPh; nb.a0 = a.a0 + 0.85 / a.dist;
+    if (a.place === 'pendule') { nb.long = a.long; nb.amp = a.amp; nb.om = a.om; nb.ph = a.ph + 0.3; nb.pivot = a.pivot + 0.35; }
+    if (a.place === 'chaine') nb.rang = a.rang + 0.55;
+  }
+  if (def.espece === 'hydre') {
+    // file bien ordonnée derrière la tête
+    var ordre = L.map(function (x, idx) { return idx; }).sort(function (x, y) { return L[x].rang - L[y].rang; });
+    var nouv = ordre.map(function (idx) { return L[idx]; }), pos = {};
+    ordre.forEach(function (idx, k) { pos[idx] = k; });
+    nouv.forEach(function (x, k) { x.rang = k + 1 + (x.type === 'lie' && x.lien != null && pos[x.lien] < k ? -0.45 : 0); if (x.lien != null) x.lien = pos[x.lien]; });
+    def.noyaux = nouv;
+  }
+
   // cœur
   def.coeur = {
-    hp: Math.round((7 + d * 1.2) * (titan ? 1.5 : 1)),
-    v: clamp(1.5 + d * 0.04, 1.5, 3.2) * (titan ? 1.1 : 1),        // unités par seconde
+    hp: Math.round((16 + d * 1.6) * (titan ? 1.5 : 1)),
+    v: clamp(1.6 + d * 0.04, 1.6, 3.3) * (titan ? 1.1 : 1),
     f1: R.entre(0.8, 1.2), f2: R.entre(1.1, 1.7), ph: R() * TAU,
-    sillage: d >= 6
+    sillage: d >= 5
   };
 
-  // attaques : choix d'un répertoire propre au colosse
+  // attaques : un répertoire propre au colosse
   var dispo = [];
-  for (var k in CATALOGUE) if (CATALOGUE[k].dMin <= d) dispo.push([k, CATALOGUE[k].poids + (CATALOGUE[k].dMin > d - 6 ? 1.5 : 0)]);
-  var nbTypes = clamp(2 + Math.floor(d / 5), 2, 6) + (titan ? 1 : 0);
-  var rep = [];
-  var garde = 0;
-  while (rep.length < Math.min(nbTypes, dispo.length) && garde++ < 200) {
-    var c = R.pondere(dispo); if (rep.indexOf(c) < 0) rep.push(c);
-  }
-  if (d <= 1) rep = ['rosace', 'mines'];
+  for (var c in CATALOGUE) if (CATALOGUE[c].dMin <= d) dispo.push([c, CATALOGUE[c].poids + (CATALOGUE[c].dMin > d - 6 ? 1.5 : 0)]);
+  var nbTypes = clamp(3 + Math.floor(d / 5), 3, 7) + (titan ? 1 : 0);
+  var rep = [], garde = 0;
+  while (rep.length < Math.min(nbTypes, dispo.length) && garde++ < 300) { var ch = R.pondere(dispo); if (rep.indexOf(ch) < 0) rep.push(ch); }
+  if (d <= 1) rep = ['rosace', 'mines', 'salve'];
   def.attaques = rep;
 
   // cycles de 8 temps : quels coups, sur quels temps
-  var densite = clamp(2 + Math.floor(d / 6), 2, 5) + (d >= 50 ? 1 : 0);
-  var mkCycle = function (nb, liste) {
-    var slots = [null, null, null, null, null, null, null, null];
-    var ordre = R.melange([0, 2, 4, 6]).concat(R.melange([1, 3, 5, 7]));
-    for (var j = 0; j < nb && j < 8; j++) slots[ordre[j]] = R.choix(liste);
+  var densite = clamp(3 + Math.floor(d / 8), 3, 5) + (d >= 45 ? 1 : 0);
+  // une seule grosse attaque (onde, murs, croix, météores…) par cycle de 8 temps, le reste en attaques légères
+  var legeres = rep.filter(function (x) { return !LOURDES[x]; });
+  var mkCycle = function (nb2, liste) {
+    var slots = [null, null, null, null, null, null, null, null], lourde = false;
+    var ord = R.melange([0, 2, 4, 6]).concat(R.melange([1, 3, 5, 7]));
+    for (var j = 0; j < nb2 && j < 8; j++) {
+      var ch2 = R.choix(liste);
+      if (LOURDES[ch2]) { if (lourde) ch2 = legeres.length ? R.choix(legeres) : null; else lourde = true; }
+      slots[ord[j]] = ch2;
+    }
     return slots;
   };
   def.cycles = []; def.cyclesRage = []; def.cyclesCoeur = [];
   for (var c2 = 0; c2 < 4; c2++) {
     def.cycles.push(mkCycle(densite, rep));
-    def.cyclesRage.push(mkCycle(densite + 1 + (d >= 12 ? 1 : 0), rep));
-    def.cyclesCoeur.push(mkCycle(Math.max(2, densite - 1) + (d >= 20 ? 1 : 0), rep));
+    def.cyclesRage.push(mkCycle(densite + 1, rep));
+    def.cyclesCoeur.push(mkCycle(Math.max(3, densite - 1) + (d >= 18 ? 1 : 0), rep));
   }
-  // vitesse des projectiles
-  def.vB = Math.min(6.0 + Math.max(0, d - 45) * 0.02, 2.5 + d * 0.085, 7.5);
-  if (d <= 1) def.vB = 2.2;
+  def.vB = Math.min(6.4 + Math.max(0, d - 45) * 0.02, 3.0 + d * 0.1, 7.8);
+  if (d <= 1) def.vB = 2.7;
   return def;
 }
 
 /* le colosse n du parcours Ascension : tous les 10 = Titan */
 function colosseAscension(n) {
-  return genColosse({ n: 1 + (n - 1) * 0.75, titan: n % 10 === 0, graine: n * 7919 + 13 });
+  return genColosse({ n: 1 + (n - 1) * 0.8, titan: n % 10 === 0, graine: n * 7919 + 13 });
 }
