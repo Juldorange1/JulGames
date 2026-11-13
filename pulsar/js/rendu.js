@@ -852,6 +852,10 @@ function dessinerHUD(J, h) {
     ctx.fillStyle = '#fff'; ctx.fillText(Math.floor(Math.min(100, p.x / L.fin * 100)) + ' %', W / 2, H * 0.45);
     ctx.globalAlpha = 1;
   }
+  if (H > W * 1.15) {
+    ctx.textAlign = 'center'; ctx.font = 'bold ' + (15 * d) + 'px "Segoe UI", sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText('Tourne ton téléphone pour jouer en grand ⟳', W / 2, H - 40 * d);
+  }
   if (Sauve.d.reglages.fps && J.fps) { ctx.textAlign = 'right'; ctx.font = (12 * d) + 'px monospace'; ctx.fillStyle = '#0f0'; ctx.fillText(J.fps.toFixed(0) + ' i/s', W - 10 * d, H - 12 * d); }
   // message
   if (J.message && J.message.t > 0) {

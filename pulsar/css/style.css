@@ -167,3 +167,10 @@ button.danger { border-color: #ff4d6d; color: #ff9aaa; margin-top: 10px; }
   #apercu { display: none; }
   button.gros { padding: 8px; }
 }
+
+/* Boutons en jeu (tactile) */
+#boutons { position: fixed; left: 12px; bottom: 12px; display: flex; gap: 8px; z-index: 5; }
+#boutons.cache { display: none; }
+#boutons button { width: 46px; height: 46px; padding: 0; border-radius: 50%; font-weight: 900; font-size: 1rem; background: rgba(0,0,0,0.35); border-color: rgba(255,255,255,0.25); opacity: .75; }
+#boutons button.pratique { display: none; color: #5dff8a; border-color: rgba(93,255,138,0.5); }
+#boutons.pratique button.pratique { display: block; }

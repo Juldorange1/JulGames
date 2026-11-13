@@ -1,6 +1,8 @@
 'use strict';
 /* PULSAR — menus (HTML par-dessus le canvas) */
 
+function pluriel(n, un, plus) { return n + ' ' + (n > 1 ? plus : un); }
+
 var Menus = {
   el: null, retour: null, page: null,
   init: function () { this.el = document.getElementById('ecran'); },
@@ -100,7 +102,7 @@ var Menus = {
       '</div><div class="col carte-m">' +
       '<div class="maitrise"><small>Maîtrise</small><b>' + m.toFixed(1) + '</b><span>' + titreMaitrise(m) + '</span></div>' +
       '<canvas id="apercu" width="300" height="90"></canvas>' +
-      '<div class="petit">' + niveauxFinis(d) + ' niveaux finis · ' + d.stats.essais + ' essais · ' + Object.keys(d.succes).length + '/' + SUCCES.length + ' succès</div>' +
+      '<div class="petit">' + pluriel(niveauxFinis(d), 'niveau fini', 'niveaux finis') + ' · ' + pluriel(d.stats.essais, 'essai', 'essais') + ' · ' + Object.keys(d.succes).length + '/' + SUCCES.length + ' succès</div>' +
       '</div></div></div>';
     this.montrer(html, 'fond-leger');
     this.apercu();

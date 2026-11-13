@@ -26,6 +26,7 @@ function paramsD(D, R) {
   if (d >= 3.3) P.modes.ovni = 1.6;
   if (d >= 12) { P.modes.cube = 2.4; P.modes.onde = 2.6; }
   P.pTampon = d >= 1.3 ? 0.1 : 0;
+  P.pGravite = d >= 5 ? Math.min(0.12, 0.03 + 0.008 * d) : 0;
   P.pOrbe = d >= 2 ? Math.min(0.22, 0.07 + 0.012 * d) : 0;
   P.pChaine = d >= 3 ? Math.min(0.4, 0.1 + 0.02 * d) : 0;
   P.pPlafond = d >= 1.5 ? Math.min(0.65, 0.2 + 0.035 * d) : 0;
@@ -270,6 +271,48 @@ function motifSaut(G, opt) {
   return true;
 }
 
+/* Gravité inversée : tampon bleu vers le plafond, course à l'envers, orbe bleu à toucher pour revenir */
+function motifGravite(G) {
+  var L = G.L, P = G.P, R = G.R, s0 = G.s;
+  if (s0.mode !== 'cube' || !s0.sol || s0.g !== 1 || G.plaf) return false;
+  var h = G.h, hs = PHYS.cube.hs, hz = PHYS.cube.hz + P.marge, v = VITESSES[s0.vit];
+  var c = h + R.ent(3, 5);
+  if (c > HAUT - 0.6) return false;
+  var m = L.marque(), e = etatPlat(G);
+  var echec = function () { L.annuler(m); restaurerPlat(G, e); return false; };
+  L.tampon(s0.x + hs - 0.1 + 0.02, h, 'bleu', 1);
+  var xc0 = s0.x + hs + 0.4;
+  var plaf = L.bloc(xc0, c, 80, HAUT + 3 - c, 2);
+  var rien = function () { return false; };
+  var s1 = simuler(s0, 300, rien, L, P.marge, function (q, i) { return i > 3 && q.sol && q.g === -1; });
+  if (!s1.ok || !s1.s.sol || s1.s.g !== -1) return echec();
+  var pasAtt = G.step + s1.n, r = (G.slot - pasAtt % G.slot) % G.slot;
+  var ko = s1.n + r + R.ent(2, 4) * G.slot;
+  var s2 = simuler(s0, ko, rien, L, P.marge);
+  if (!s2.ok) return echec();
+  var ox = s2.x[ko - 1], oy = s2.y[ko - 1];
+  L.orbe(ox, oy, 'bleu');
+  var tenir = function (i) { return i >= ko && i < ko + 8; };
+  var s3 = simuler(s0, ko + 400, tenir, L, P.marge, function (q, i) { return i > ko + 3 && q.sol && q.g === 1; });
+  if (!s3.ok || !s3.s.sol || s3.s.g !== 1 || Math.abs(s3.s.y - (h + hs)) > 0.02) return echec();
+  // fin du plafond, avec des piques pour qui ne touche pas l'orbe
+  var dxw = v * P.fenetre;
+  var xFin = ox + hs + dxw + R.entre(1.6, 2.6);
+  plaf.w = xFin - xc0;
+  var trajVol = { x: s3.x.slice(ko - 1), y: s3.y.slice(ko - 1) };
+  for (var xs = ox + hs + dxw + 0.4; xs + 1 <= xFin + 0.01; xs += 1) if (piqueLibre(trajVol, hz, xs, c, -1, dxw)) L.pique(xs, c, -1);
+  // piques au sol sous la course à l'envers et la chute
+  var xLand = s3.x[s3.n - 1];
+  for (var xf = xc0 + 1; xf + 1 <= xLand - hs - dxw - 0.3; xf += 1) if (piqueLibre({ x: s3.x, y: s3.y }, hz, xf, h, 1, dxw)) L.pique(xf, h, 1);
+  var s4 = simuler(s0, s3.n + 2, tenir, L, P.marge, function (q, i) { return i > ko + 3 && q.sol && q.g === 1; });
+  if (!s4.ok || !s4.s.sol || s4.s.g !== 1) return echec();
+  var sans = simuler(s0, s4.n + 60, rien, L, 0);
+  if (sans.ok && sans.s.g === -1) return echec();      // sans toucher l'orbe, on doit mourir
+  avancer(G, s4.n, tenir);
+  if (R() < 0.7) G.eclatsVoulus.push({ x: ox, y: oy });
+  return true;
+}
+
 /* Arrivée en l'air dans une section au sol (cube ou boule) : on pose un sol et on attend l'atterrissage */
 function atterrir(G) {
   var s = G.s, L = G.L;
@@ -300,9 +343,11 @@ function sectionCube(G, finStep) {
       if (P.pFosse) types.fosse = P.pFosse * 5;
       if (P.pOrbe && !chaine) types.orbe = P.pOrbe * 10;
       if (P.pTampon && !chaine) types.tampon = P.pTampon * 10;
+      if (P.pGravite && !chaine && reste > G.slot * 12) types.gravite = P.pGravite * 10;
       var essais = 0;
       while (!ok && essais < 6) {
         var t = R.pondere(types);
+        if (t === 'gravite') { ok = motifGravite(G); if (ok) chaine = false; essais++; continue; }
         var opt = { type: t === 'fosse' ? R.choix(['simple', 'monte', 'descend']) : t, fosse: t === 'fosse' };
         if (G.h >= 6) opt.type = 'descend';
         var suivante = !chaine ? R() < P.pChaine : R() < P.pChaine * 0.7;

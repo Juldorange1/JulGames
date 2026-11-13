@@ -44,6 +44,10 @@ var Jeu = {
     window.addEventListener('pointerup', haut);
     window.addEventListener('pointercancel', haut);
     cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    var bouton = function (id, f) { var b = document.getElementById(id); b.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); f(); }); };
+    bouton('bPause', function () { if (self.etat === 'jeu') self.pause(); });
+    bouton('bPoint', function () { if (self.etat === 'jeu' && self.J.pratique) self.poserPoint(true); });
+    bouton('bRetire', function () { if (self.etat === 'jeu' && self.J.pratique) self.retirerPoint(); });
     window.addEventListener('blur', function () { if (self.etat === 'jeu') self.pause(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden && self.etat === 'jeu') self.pause(); });
   },
@@ -207,6 +211,8 @@ var Jeu = {
     var dtr = Math.min(0.1, (now - (this.dernier || now)) / 1000); this.dernier = now;
     this.fpsN++; if (now - this.fpsT > 500) { if (this.J) this.J.fps = this.fpsN * 1000 / (now - this.fpsT); this.fpsT = now; this.fpsN = 0; }
     this.manette();
+    var bt = document.getElementById('boutons'), cl = this.etat === 'jeu' ? (this.J && this.J.pratique ? 'pratique' : '') : 'cache';
+    if (bt.className !== cl) bt.className = cl;
     if (this.etat === 'jeu' || this.etat === 'pause' || this.etat === 'fin') {
       if (this.etat === 'jeu') this.majJeu(now, dtr);
       dessinerJeu(this.J, this.etat === 'jeu' ? dtr : 0);

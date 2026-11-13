@@ -59,7 +59,7 @@ function dessinerJoueur(ctx, mode, ic, x, y, s, ang, g) {
   var c1 = COULEURS[ic.c1] || COULEURS[0], c2 = COULEURS[ic.c2] || COULEURS[5];
   ctx.save(); ctx.translate(x, y);
   if (g === -1 && mode !== 'cube' && mode !== 'boule') ctx.scale(1, -1);
-  if (mode === 'cube') { ctx.rotate(ang); dessinerCube(ctx, ic.cube, c1, c2, s * 0.9); }
+  if (mode === 'cube') { ctx.rotate(ang); if (g === -1) ctx.scale(1, -1); dessinerCube(ctx, ic.cube, c1, c2, s * 0.9); }
   else if (mode === 'vaisseau') {
     ctx.rotate(ang);
     ctx.fillStyle = c1; ctx.strokeStyle = '#000'; ctx.lineWidth = s * 0.06;

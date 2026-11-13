@@ -46,7 +46,11 @@ var Son = {
     var p = {
       cfg: cfg, racine: 33 + R.ent(0, 9), gamme: R.choix(gammes), prog: prog,
       dt16: cfg.spb / 4 * DT, motifs: [], basse: R.choix([[0, 0, 12, 0, 0, 12, 0, 7], [0, 0, 0, 0, 12, 12, 0, 0], [0, 12, 0, 12, 0, 12, 7, 12], [0, 0, 7, 0, 0, 0, 10, 12]]),
-      arp: R.choix([[0, 1, 2, 1], [0, 1, 2, 3], [2, 1, 0, 1], [0, 2, 1, 3]]), timbre: R.ent(0, 2), appuiIdx: 0
+      arp: R.choix([[0, 1, 2, 1], [0, 1, 2, 3], [2, 1, 0, 1], [0, 2, 1, 3]]), timbre: R.ent(0, 2), appuiIdx: 0,
+      // rythmique : 0 = carré, 1 = cassé, 2 = demi-temps, 3 = galop
+      style: R.choix([0, 0, 1, 2, 3]),
+      kicks: [[0, 4, 8, 12], [0, 6, 10], [0, 10], [0, 3, 8, 11]],
+      caisses: [[4, 12], [4, 12, 15], [8], [4, 12]]
     };
     for (var m = 0; m < 3; m++) {
       var mo = [];
@@ -98,9 +102,10 @@ var Son = {
   pas16: function (p, n, at, I) {
     var dt = p.dt16, bar = Math.floor(n / 16), s = n % 16;
     var deg = p.prog[bar % 4];
-    if (I >= 1 && s % 4 === 0) this.kick(at, I >= 3 ? 1 : 0.85);
-    if (I >= 3 && s === 14 && bar % 2) this.kick(at, 0.6);
-    if (I >= 2 && (s === 4 || s === 12)) this.caisse(at, 0.55);
+    var st = I >= 3 ? p.style : (p.style === 2 ? 2 : 0);
+    if (I >= 1 && p.kicks[st].indexOf(s) >= 0) this.kick(at, I >= 3 ? 1 : 0.85);
+    if (I >= 3 && s === 14 && bar % 2 && st === 0) this.kick(at, 0.6);
+    if (I >= 2 && p.caisses[st].indexOf(s) >= 0) this.caisse(at, s === 15 ? 0.3 : 0.55);
     if (I >= 1) { if (s % 2 === 0 || I >= 3) this.charley(at, s % 4 === 2 ? 0.28 : 0.13, s % 8 === 6 && I >= 2); }
     if (I >= 1 && s % 2 === 0) { var bn = this.note(p, deg, 0) + p.basse[(s / 2) % 8]; this.basse(at, bn, dt * 1.8, I); }
     if (s === 0) this.nappe(at, [this.note(p, deg, 1), this.note(p, deg + 2, 1), this.note(p, deg + 4, 1)], dt * 16, I);
