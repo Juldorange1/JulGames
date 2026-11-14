@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0812">
+<title>Phase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0812; color: #eee; font-family: "Chakra Petch", system-ui, sans-serif; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+canvas { display: block; position: fixed; inset: 0; }
+#ui { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; padding: 16px; overflow-y: auto; }
+#ui.visible { display: flex; }
+#ui.visible:not(.accueil) { background: rgba(8, 6, 14, .72); backdrop-filter: blur(3px); }
+#ui.large { justify-content: flex-start; padding-top: 28px; }
+#ui.fin { background: rgba(8, 6, 14, .6); }
+#ui.accueil { background: radial-gradient(ellipse at center, rgba(8,6,14,.72) 0%, rgba(8,6,14,.35) 60%, rgba(8,6,14,.15) 100%); }
+h1 { font-size: clamp(56px, 11vw, 120px); margin: 0; letter-spacing: .18em; font-weight: 700; line-height: 1;
+  background: linear-gradient(90deg, #d9c6a5, #4fb8ff, #ffd9b0, #ffe94a); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(0,0,0,.6)); }
+h2 { margin: 0 0 14px; font-size: 30px; letter-spacing: .08em; }
+h3 { margin: 20px 0 8px; } h3 small { font-weight: 400; color: #999; font-size: 13px; }
+.titre { text-align: center; margin-bottom: 26px; }
+.titre p { color: #cfc6dc; max-width: 520px; margin: 10px auto 0; font-size: 16px; text-shadow: 0 2px 6px #000; }
+.menu { display: flex; flex-direction: column; gap: 10px; min-width: min(360px, 100%); }
+.menu.ligne { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 18px; min-width: 0; }
+.btn { font: inherit; font-size: 17px; font-weight: 600; color: #f4f0fa; background: rgba(30, 24, 44, .88); border: 2px solid rgba(255,255,255,.14);
+  border-radius: 10px; padding: 11px 18px; cursor: pointer; text-align: left; transition: transform .08s, border-color .1s, background .1s; outline: none; }
+.btn small { display: block; font-size: 12px; font-weight: 500; color: #a99fbd; margin-top: 2px; }
+.btn:hover:not([disabled]), .btn:focus { border-color: #ffe94a; background: rgba(52, 42, 76, .95); transform: translateX(3px); }
+.btn[disabled] { opacity: .4; cursor: default; }
+.btn.gros { font-size: 22px; padding: 14px 18px; text-align: center; }
+.btn.mini { font-size: 13px; padding: 4px 9px; border-radius: 7px; }
+.btn.danger:hover, .btn.danger:focus { border-color: #ff5a6e; }
+.pied { margin-top: 24px; color: #a99fbd; font-size: 14px; text-shadow: 0 2px 6px #000; }
+.zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; width: min(1100px, 100%); }
+.zone { background: linear-gradient(160deg, var(--f), rgba(10,8,16,.9)); border: 2px solid var(--a); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.zone.ferme { filter: grayscale(.8); opacity: .55; }
+.znom { font-weight: 700; color: var(--a); font-size: 18px; }
+.znom span { display: block; font-size: 11px; color: #bbb; font-weight: 500; }
+.niv b { color: var(--a); margin-right: 4px; }
+.verrou { font-size: 12px; color: #ccc; text-align: center; }
+.med { display: inline-block; font-size: 11px; font-weight: 700; color: #111; background: var(--c); border-radius: 5px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px; }
+.ecl { color: #555; margin-left: 4px; } .ecl.oui { color: #ff7ae0; }
+table.rec { border-collapse: collapse; width: min(860px, 100%); font-size: 14px; }
+table.rec td, table.rec th { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.08); text-align: left; }
+table.rec th { color: #a99fbd; font-weight: 600; }
+.totaux { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-top: 14px; width: min(860px, 100%); }
+.note { color: #999; font-size: 13px; max-width: 860px; }
+.aide { max-width: 860px; line-height: 1.45; }
+.etats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.etats div { border-left: 4px solid var(--c); background: rgba(255,255,255,.04); padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+.etats b { display: block; color: var(--c); margin-bottom: 4px; }
+.regl { display: flex; flex-direction: column; gap: 10px; min-width: min(420px, 100%); }
+.regl label { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: rgba(255,255,255,.04); padding: 8px 12px; border-radius: 8px; }
+select, input[type=range] { font: inherit; accent-color: #ffe94a; }
+select { background: #221a33; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 3px 6px; }
+.touches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 18px; width: min(900px, 100%); }
+.touches div { display: flex; align-items: center; gap: 6px; } .touches span { flex: 1; font-size: 14px; }
+.touches .btn { min-width: 64px; text-align: center; }
+.fin { text-align: center; display: flex; flex-direction: column; align-items: center; }
+.fin .nomniv { font-size: 20px; color: #cfc6dc; }
+.fin .temps { font-size: clamp(48px, 9vw, 86px); font-weight: 700; letter-spacing: .03em; text-shadow: 0 4px 18px rgba(0,0,0,.7); }
+.fin .med { font-size: 18px; padding: 3px 14px; }
+.lignes { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+.vert { color: #7dff9a; } .rouge { color: #ff8a8a; } .gris { color: #999; } .rose { color: #ff6ad5; }
+.splits { max-height: 40vh; overflow-y: auto; margin-top: 12px; }
+#tactile { display: none; }
+#tactile.actif { display: block; }
+#tactile button { position: fixed; width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08);
+  color: #fff; font: 700 15px "Chakra Petch", sans-serif; touch-action: none; }
+#tactile button.on { background: rgba(255,255,255,.35); }
+</style>
+</head>
+<body>
+<canvas id="jeu"></canvas>
+<div id="ui"></div>
+<div id="tactile">
+  <button data-b="1" style="left:14px;bottom:70px">◀</button>
+  <button data-b="2" style="left:134px;bottom:70px">▶</button>
+  <button data-b="4" style="left:74px;bottom:130px">▲</button>
+  <button data-b="8" style="left:74px;bottom:10px">▼</button>
+  <button data-b="16" style="right:14px;bottom:40px;width:74px;height:74px">Saut</button>
+  <button data-b="32" style="right:100px;bottom:120px;color:#d9c6a5">S</button>
+  <button data-b="64" style="right:40px;bottom:150px;color:#4fb8ff">L</button>
+  <button data-b="128" style="right:160px;bottom:60px;color:#ffd9b0">G</button>
+  <button data-b="256" style="right:100px;bottom:10px;color:#ffe94a">P</button>
+  <button data-p="1" style="right:14px;top:60px;width:44px;height:44px">II</button>
+</div>
+<script src="js/moteur.js?v=3"></script>
+<script src="js/niveaux.js?v=3"></script>
+<script src="js/parfaits.js?v=3"></script>
+<script src="js/rendu.js?v=3"></script>
+<script src="js/son.js?v=3"></script>
+<script src="js/jeu.js?v=3"></script>
+</body>
+</html>
