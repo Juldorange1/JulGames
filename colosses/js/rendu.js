@@ -786,7 +786,7 @@ function dessinerHUD(c) {
   {
     const lignes = [];
     const reste = 5 - ((G.salle - 1) % 5) - 1;
-    const rg = typeof Regions !== 'undefined' && Regions.rg;
+    const horde = G.defi && G.defi.format === 'horde', rg = !horde && typeof Regions !== 'undefined' && Regions.rg;
     if (rg) lignes.push({ txt: romain(rg.num) + ' · ' + rg.nom, col: '#e8c47a', font: `700 15px ${POLICE_ER}` });
     if (G.mode === 'normal') lignes.push({ ico: DF().ico, txt: DF().nom + ' · palier ' + PR().palier, col: '#e6e0f0' });
     else if (G.mode === 'entrainement') lignes.push({ txt: 'Entraînement', col: '#7dffb0' });
@@ -799,6 +799,7 @@ function dessinerHUD(c) {
       else if (df.format === 'deluge') info += ' · ' + Math.round(df.degats / 100) / 10 + ' k · ' + Math.max(0, Math.ceil(F.duree - G.chrono)) + ' s';
       else if (df.format === 'survie') info += (typeof Pression !== 'undefined' ? ' · pression ' + Pression.niveau : '');
       else if (df.format === 'affront') info += '';
+      else if (df.format === 'horde') info += ' · ' + (df.tues || 0) + ' abattus';
       else if (df.format === 'chasse') info += ' · parfait ' + fmtPrecis(df.parfait || 0);
       else info += ' · boss ' + (df.i + 1) + '/' + df.boss.length;
       lignes.push({ ico: F.ico, txt: info, col: '#ffd86b' });
@@ -811,7 +812,7 @@ function dessinerHUD(c) {
     c.fillStyle = 'rgba(8,6,10,.62)'; c.fillRect(x0, y0, larg, ht);
     c.strokeStyle = 'rgba(201,168,101,.45)'; c.lineWidth = 1; c.strokeRect(x0 + .5, y0 + .5, larg - 1, ht - 1);
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    texteOmbre(c, 'Salle ' + G.salle, x0 + 12, y0 + 18, '#ffffff', `800 21px ${POLICE_ER}`, 4);
+    texteOmbre(c, horde ? 'Vague ' + (G.defi.h ? G.defi.h.vague : 1) : 'Salle ' + G.salle, x0 + 12, y0 + 18, '#ffffff', `800 21px ${POLICE_ER}`, 4);
     let y = y0 + 34 + 10;
     for (const l of lignes) {
       let tx = x0 + 12;
@@ -886,7 +887,7 @@ function dessinerEcranDefi(c) {
   const f = G.finDefi, df = G.defi, F = FORMATS[df.format];
   c.fillStyle = 'rgba(4,2,10,.84)'; c.fillRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  const titre = df.type === 'abysses' ? 'LES ABYSSES' : df.type === 'survie' ? 'SURVIE' : df.type === 'chasse' ? 'CHASSE' : (df.type === 'jour' ? 'DÉFI DU JOUR' : 'DÉFI DE LA SEMAINE') + ' — ' + df.cle;
+  const titre = df.type === 'abysses' ? 'LES ABYSSES' : df.type === 'survie' || df.type === 'horde' ? 'SURVIE' : df.type === 'chasse' ? 'CHASSE' : (df.type === 'jour' ? 'DÉFI DU JOUR' : 'DÉFI DE LA SEMAINE') + ' — ' + df.cle;
   texteOmbre(c, titre, W / 2, 92, '#b8b0cc', `800 18px ${POLICE}`, 4);
   icoDessin(c, F.ico, W / 2, 140, 40); texteOmbre(c, F.nom, W / 2, 180, '#e8e2f5', `800 24px ${POLICE}`, 4);
   const ok = f.score !== null;

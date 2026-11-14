@@ -79,7 +79,7 @@ function dessinerBilan(c, x, y) {
   const S = G.statsFin; if (!S) return;
   c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
   const w = 760, h = 92; c.fillStyle = 'rgba(8,6,16,.78)'; c.fillRect(x - w / 2, y, w, h); c.strokeStyle = 'rgba(255,216,107,.4)'; c.strokeRect(x - w / 2 + .5, y + .5, w - 1, h - 1);
-  const cases = [[fmtTemps(S.duree), 'durée'], [S.dps + ' /s', 'dégâts par seconde'], [S.eff === null ? '—' : fmtPct(S.eff), 'efficacité (100 % = parfait)'], [S.recus, 'dégâts reçus'], [S.coups, 'coups reçus']];
+  const cases = [[fmtTemps(S.duree), 'durée'], [S.dps + ' /s', 'dégâts par seconde'], (G.defi && G.defi.format === 'horde' ? [G.defi.tues || 0, 'ennemis abattus'] : [S.eff === null ? '—' : fmtPct(S.eff), 'efficacité (100 % = parfait)']), [S.recus, 'dégâts reçus'], [S.coups, 'coups reçus']];
   cases.forEach(([v, l], i) => { const cx = x - w / 2 + w * (i + .5) / cases.length; texteOmbre(c, String(v), cx, y + 30, i === 2 ? (S.eff >= 80 ? '#7dffb0' : S.eff >= 50 ? '#ffe7a6' : '#ffb3c0') : '#fff', `900 22px ${POLICE}`, 4); c.font = `600 12px ${POLICE}`; c.fillStyle = '#b8b0cc'; c.fillText(l, cx, y + 56); });
   if (Video.dispo() || Video.rec) { c.font = `700 14px ${POLICE}`; c.fillStyle = '#ffd8a0'; c.fillText('V (ou Y à la manette) : revoir le combat en vidéo, au ralenti, coup par coup', x, y + 80); }
   c.restore();
