@@ -10,7 +10,7 @@ const NIV = require('../js/niveaux.js');
 const T = M.T;
 
 const args = process.argv.slice(2);
-const opt = { faisceau: 900, pasK: 4, eclat: false, ecrire: false, max: 7200, parCase: 3, danger: 96, affiner: 20000, verbeux: true };
+const opt = { faisceau: 900, pasK: 4, eclat: false, ecrire: false, max: 15000, parCase: 3, danger: 96, affiner: 20000, verbeux: !!require.main && require.main.filename === __filename };
 const ids = [];
 for (const a of args) {
   if (a.startsWith('--faisceau=')) opt.faisceau = +a.split('=')[1];
@@ -36,25 +36,26 @@ function champ(n, cibles) {
   const entrees = {};
   for (let i = 0; i < n.w * n.h; i++) {
     const t = n.g[i];
-    if (t === M.TP1 || t === M.TP2) { const so = n.sorties[t]; if (so) (entrees[so.y * n.w + so.x] = entrees[so.y * n.w + so.x] || []).push(i); }
+    if (t === M.TP1 || t === M.TP2) { const so = n.tp.get(i); if (so) (entrees[so.y * n.w + so.x] = entrees[so.y * n.w + so.x] || []).push(i); }
   }
   // Dijkstra simple (8 voisins)
-  const file = [];
-  for (const [x, y] of cibles) { d[y * n.w + x] = 0; file.push([0, x, y]); }
+  const tas = [];
+  const pousser = (it) => { tas.push(it); let i = tas.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (tas[p][0] <= tas[i][0]) break; [tas[p], tas[i]] = [tas[i], tas[p]]; i = p; } };
+  const tirer = () => { const h = tas[0], z = tas.pop(); if (tas.length) { tas[0] = z; let i = 0; for (;;) { const a = 2 * i + 1, b = a + 1; let m = i; if (a < tas.length && tas[a][0] < tas[m][0]) m = a; if (b < tas.length && tas[b][0] < tas[m][0]) m = b; if (m === i) break; [tas[m], tas[i]] = [tas[i], tas[m]]; i = m; } } return h; };
+  for (const [x, y] of cibles) { d[y * n.w + x] = 0; pousser([0, x, y]); }
   const vois = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
-  while (file.length) {
-    let bi = 0; for (let i = 1; i < file.length; i++) if (file[i][0] < file[bi][0]) bi = i;
-    const [dd, x, y] = file[bi]; file[bi] = file[file.length - 1]; file.pop();
+  while (tas.length) {
+    const [dd, x, y] = tirer();
     if (dd > d[y * n.w + x]) continue;
-    for (const ent of (entrees[y * n.w + x] || [])) {           // téléporteur : l'entrée vaut la sortie
-      if (dd < d[ent]) { d[ent] = dd; file.push([dd, ent % n.w, Math.floor(ent / n.w)]); }
+    for (const en of (entrees[y * n.w + x] || [])) {
+      if (dd < d[en]) { d[en] = dd; pousser([dd, en % n.w, Math.floor(en / n.w)]); }
     }
     for (const [ax, ay, c] of vois) {
       const nx = x + ax, ny = y + ay;
       if (!passe(nx, ny)) continue;
       if (ax && ay && (!passe(x + ax, y) || !passe(x, y + ay))) continue;
       const cout = n.g[ny * n.w + nx] === M.FRAGILE ? c * 1.5 : c;
-      if (dd + cout < d[ny * n.w + nx]) { d[ny * n.w + nx] = dd + cout; file.push([dd + cout, nx, ny]); }
+      if (dd + cout < d[ny * n.w + nx]) { d[ny * n.w + nx] = dd + cout; pousser([dd + cout, nx, ny]); }
     }
   }
   return d;
@@ -251,6 +252,8 @@ function chercher(def, avecEclat) {
   return { ok: e.fini, temps: e.temps, entrees: ok, morts: e.morts };
 }
 
+module.exports = { chercher, opt };
+if (require.main === module) {
 const fichier = path.join(__dirname, '..', 'js', 'parfaits.js');
 const dossier = path.join(__dirname, 'parfaits');
 if (!fs.existsSync(dossier)) fs.mkdirSync(dossier);
@@ -304,3 +307,4 @@ for (const def of cibles) {
 console.log('Total : ' + ((Date.now() - t0) / 1000).toFixed(0) + ' s, ' + echecs + ' échec(s)');
 if (opt.ecrire) { fusionner(); console.log('js/parfaits.js mis à jour'); }
 process.exitCode = echecs ? 1 : 0;
+}

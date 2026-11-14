@@ -34,49 +34,85 @@ function redim() {
   cv.width = Math.round(LARG * DPR); cv.height = Math.round(HAUT * DPR);
   cv.style.width = LARG + 'px'; cv.style.height = HAUT + 'px';
 }
-function zoom() { return Math.max(1, Math.min(LARG / (30 * T), HAUT / (17.5 * T))); }
+function zoom() { return Math.max(1, Math.min(LARG / (34 * T), HAUT / (19 * T))); }
 
 function alea(s) { let x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 
 /* ---------- Préparation d'un niveau : décor fixe dessiné une fois ---------- */
+// themeId : nom du thème, ou fonction x(en cases) -> nom du thème (mode infini, le décor change par régions)
+let themeDe = null, morceaux = new Map();
+const MORC = 48;   // le décor fixe est dessiné par morceaux de 48 colonnes, à la demande
 function preparer(n, themeId) {
-  niv = n; th = THEMES[themeId] || THEMES.carriere;
+  niv = n;
+  themeDe = typeof themeId === 'function' ? themeId : null;
+  th = THEMES[themeDe ? themeDe(0) : themeId] || THEMES.carriere;
+  themeFixe = th;
   parts = [];
-  fond = document.createElement('canvas');
-  fond.width = n.w * T * ZF; fond.height = n.h * T * ZF;
-  const g = fond.getContext('2d');
-  g.scale(ZF, ZF);
+  morceaux = new Map();
+  scanner();
+  decor = [];
+  for (let i = 0; i < 60; i++) decor.push({ x: alea(i * 3.1) * 2400, y: alea(i * 7.7) * n.h * T, s: 0.3 + alea(i * 1.3) * 0.5, k: alea(i * 5.9), r: 20 + alea(i * 9.1) * 90 });
+}
+let themeFixe = THEMES.carriere;
+function themeEn(x) { return themeDe ? (THEMES[themeDe(x)] || THEMES.carriere) : themeFixe; }
+// le niveau s'est allongé (mode infini) : on refait la liste des cases animées et le dernier morceau
+function etendre(n, ancienW) {
+  niv = n;
+  scanner();
+  for (const k of [...morceaux.keys()]) if ((k + 1) * MORC >= ancienW - 2) morceaux.delete(k);
+}
+const tuileR = (x, y) => (x < 0 || x >= niv.w || y < 0) ? M.MUR : (y >= niv.h ? M.VIDE : niv.g[y * niv.w + x]);
+const solideR = (k) => k === M.MUR || k === M.GLACE || k === M.TAPIS_G || k === M.TAPIS_D || k === M.FRAGILE;
+function scanner() {
+  const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [], panneau: [] };
-  const t = (x, y) => (x < 0 || x >= n.w || y < 0) ? M.MUR : (y >= n.h ? M.VIDE : n.g[y * n.w + x]);
-  const solide = (k) => k === M.MUR || k === M.GLACE || k === M.TAPIS_G || k === M.TAPIS_D || k === M.FRAGILE;
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
-    const k = n.g[y * n.w + x], px = x * T, py = y * T;
+    const k = n.g[y * n.w + x];
     switch (k) {
-      case M.MUR: murCase(g, x, y, px, py, t, solide); break;
-      case M.GLACE: glaceCase(g, x, y, px, py, t, solide); break;
-      case M.GRILLE: grilleCase(g, px, py); break;
-      case M.TAMIS: tamisCase(g, px, py); break;
-      case M.PICS: picsCase(g, x, y, px, py, t, solide); break;
-      case M.PLATE: g.fillStyle = th.ombre; g.fillRect(px, py, T, 5); g.fillStyle = th.bord; g.fillRect(px, py, T, 2);
-        g.fillStyle = th.motif; g.fillRect(px + 2, py + 5, 2, 3); g.fillRect(px + T - 4, py + 5, 2, 3); break;
-      case M.TAPIS_G: case M.TAPIS_D: g.fillStyle = '#23262b'; g.fillRect(px, py, T, T); g.fillStyle = '#3c4148'; g.fillRect(px, py + 3, T, T - 6);
-        dyn.tapis.push([x, y, k === M.TAPIS_G ? -1 : 1]); break;
+      case M.TAPIS_G: case M.TAPIS_D: dyn.tapis.push([x, y, k === M.TAPIS_G ? -1 : 1]); break;
       case M.FRAGILE: dyn.fragile.push([x, y]); break;
       case M.CRISTAL: dyn.cristal.push([x, y]); break;
       case M.FEU: dyn.feu.push([x, y]); break;
-      case M.EAU: dyn.eau.push([x, y, t(x, y - 1) !== M.EAU && !solide(t(x, y - 1))]); break;
+      case M.EAU: dyn.eau.push([x, y, tuileR(x, y - 1) !== M.EAU && !solideR(tuileR(x, y - 1))]); break;
       case M.VENT_D: case M.VENT_G: case M.VENT_H: case M.VENT_B: dyn.vent.push([x, y, k]); break;
       case M.RESSORT: dyn.ressort.push([x, y]); break;
       case M.BUT: dyn.but.push([x, y]); break;
       case M.DRAPEAU: dyn.drapeau.push([x, y]); break;
       case M.TP1: case M.TP2: case M.TP1S: case M.TP2S: dyn.tp.push([x, y, k]); break;
       case M.ECLAT: dyn.eclat.push([x, y]); break;
-      case M.PANNEAU: dyn.panneau.push([x, y]); panneauCase(g, px, py); break;
+      case M.PANNEAU: dyn.panneau.push([x, y]); break;
     }
   }
-  // décor lointain (parallaxe)
-  decor = [];
-  for (let i = 0; i < 60; i++) decor.push({ x: alea(i * 3.1) * n.w * T * 1.2, y: alea(i * 7.7) * n.h * T, s: 0.3 + alea(i * 1.3) * 0.5, k: alea(i * 5.9), r: 20 + alea(i * 9.1) * 90 });
+}
+function morceau(k) {
+  let c = morceaux.get(k);
+  if (c) return c;
+  const n = niv, x0 = k * MORC, x1 = Math.min(n.w, x0 + MORC);
+  c = document.createElement('canvas');
+  c.width = MORC * T * ZF; c.height = n.h * T * ZF;
+  const g = c.getContext('2d');
+  g.scale(ZF, ZF); g.translate(-x0 * T, 0);
+  const garde = th;
+  for (let x = x0; x < x1; x++) {
+    th = themeEn(x);
+    for (let y = 0; y < n.h; y++) {
+      const kk = n.g[y * n.w + x], px = x * T, py = y * T;
+      switch (kk) {
+        case M.MUR: murCase(g, x, y, px, py, tuileR, solideR); break;
+        case M.GLACE: glaceCase(g, x, y, px, py, tuileR, solideR); break;
+        case M.GRILLE: grilleCase(g, px, py); break;
+        case M.TAMIS: tamisCase(g, px, py); break;
+        case M.PICS: picsCase(g, x, y, px, py, tuileR, solideR); break;
+        case M.PLATE: g.fillStyle = th.ombre; g.fillRect(px, py, T, 5); g.fillStyle = th.bord; g.fillRect(px, py, T, 2);
+          g.fillStyle = th.motif; g.fillRect(px + 2, py + 5, 2, 3); g.fillRect(px + T - 4, py + 5, 2, 3); break;
+        case M.TAPIS_G: case M.TAPIS_D: g.fillStyle = '#23262b'; g.fillRect(px, py, T, T); g.fillStyle = '#3c4148'; g.fillRect(px, py + 3, T, T - 6); break;
+        case M.PANNEAU: panneauCase(g, px, py); break;
+      }
+    }
+  }
+  th = garde;
+  morceaux.set(k, c);
+  return c;
 }
 
 function murCase(g, x, y, px, py, t, solide) {
@@ -143,7 +179,6 @@ function picsCase(g, x, y, px, py, t, solide) {
     const bx = -8 + i * 5.33;
     g.beginPath(); g.moveTo(bx, 8); g.lineTo(bx + 2.66, -4); g.lineTo(bx + 5.33, 8); g.closePath(); g.fill(); g.stroke();
   }
-  g.fillStyle = '#ff4a5a'; for (let i = 0; i < 3; i++) g.fillRect(-8 + i * 5.33 + 2, -4, 1.3, 2);
   g.restore();
 }
 function panneauCase(g, px, py) {
@@ -193,9 +228,9 @@ function dessiner(e, fantome, hud, dt) {
   cam.z = z;
   const vw = LARG / z, vh = HAUT / z;
   if (niv) {
-    const tx = e.x + PW / 2 + Math.max(-60, Math.min(60, e.vx * 18)), ty = e.y + PH / 2 + Math.max(-30, Math.min(40, e.vy * 6)) - 10;
+    const tx = e.x + PW / 2 + Math.max(-90, Math.min(90, e.vx * 22)), ty = e.y + PH / 2 + Math.max(-30, Math.min(40, e.vy * 6)) - 10;
     if (!hud || hud.recadrer) { if (!hud) { cam.x += (tx - cam.x) * 0.05; cam.y += (ty - cam.y) * 0.05; } else { cam.x = tx; cam.y = ty; } }
-    cam.x += (tx - cam.x) * 0.14; cam.y += (ty - cam.y) * 0.12;
+    cam.x += (tx - cam.x) * 0.18; cam.y += (ty - cam.y) * 0.14;
     const lw = niv.w * T, lh = niv.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
     cam.y = lh <= vh ? lh / 2 : Math.max(vh / 2, Math.min(lh - vh / 2, cam.y));
@@ -203,7 +238,8 @@ function dessiner(e, fantome, hud, dt) {
   let ox = cam.x - vw / 2, oy = cam.y - vh / 2;
   if (tremble > 0 && (!hud || hud.tremble !== false)) { ox += (Math.random() - 0.5) * tremble; oy += (Math.random() - 0.5) * tremble; tremble *= 0.85; if (tremble < 0.3) tremble = 0; }
 
-  // ciel
+  // ciel (en mode infini, le thème dépend de l'endroit)
+  if (themeDe) { const t2 = themeEn(Math.floor(cam.x / T)); if (t2 !== th) th = t2; }
   const gr = g.createLinearGradient(0, 0, 0, HAUT);
   gr.addColorStop(0, th.ciel[0]); gr.addColorStop(1, th.ciel[1]);
   g.fillStyle = gr; g.fillRect(0, 0, LARG, HAUT);
@@ -213,13 +249,10 @@ function dessiner(e, fantome, hud, dt) {
   g.scale(z, z);
   g.translate(-ox, -oy);
   // décor fixe
-  if (fond) {
-    const sx = Math.max(0, ox), sy = Math.max(0, oy);
-    const sw = Math.min(fond.width / ZF - sx, vw + 1), sh = Math.min(fond.height / ZF - sy, vh + 1);
-    if (sw > 0 && sh > 0) {
-      g.imageSmoothingEnabled = false;
-      g.drawImage(fond, sx * ZF, sy * ZF, sw * ZF, sh * ZF, sx, sy, sw, sh);
-    }
+  if (niv) {
+    g.imageSmoothingEnabled = false;
+    const k0 = Math.max(0, Math.floor(ox / T / MORC)), k1 = Math.min(Math.ceil(niv.w / MORC) - 1, Math.floor((ox + vw) / T / MORC));
+    for (let k = k0; k <= k1; k++) g.drawImage(morceau(k), k * MORC * T, 0, MORC * T, niv.h * T);
   }
   const vis = (x, y) => x * T + T > ox - 4 && x * T < ox + vw + 4 && y * T + T > oy - 4 && y * T < oy + vh + 4;
   casesAnimees(g, e, vis);
@@ -274,7 +307,7 @@ function ciel(g, ox, oy, z) {
 function casesAnimees(g, e, vis) {
   const tt = temps;
   for (const [x, y] of dyn.fragile) {
-    if (!vis(x, y) || M.casse(e, y * niv.w + x)) continue;
+    if (!vis(x, y) || M.casse(e, x * 1024 + y)) continue;
     const px = x * T, py = y * T;
     g.fillStyle = th.motif; g.fillRect(px, py, T, T);
     g.fillStyle = th.ombre; g.fillRect(px + 1, py + 1, T - 2, T - 2);
@@ -330,7 +363,7 @@ function casesAnimees(g, e, vis) {
   }
   for (const [x, y] of dyn.cristal) {
     if (!vis(x, y)) continue;
-    const i = y * niv.w + x, pris = e.cristaux.some(c => c[0] === i);
+    const i = x * 1024 + y, pris = e.cristaux.some(c => c[0] === i);
     const px = x * T + 8, py = y * T + 8 + Math.sin(tt * 3 + x) * 1.5;
     g.globalAlpha = pris ? 0.2 : 1;
     g.fillStyle = '#7dfcff'; g.beginPath(); g.moveTo(px, py - 7); g.lineTo(px + 5, py); g.lineTo(px, py + 7); g.lineTo(px - 5, py); g.fill();
@@ -580,5 +613,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { init, preparer, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { init, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

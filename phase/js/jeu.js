@@ -1,7 +1,7 @@
 /* Phase — boucle de jeu, commandes, sauvegarde, menus, chrono, records et fantômes. */
 (function () {
 'use strict';
-const M = window.Moteur, NIV = window.Niveaux, R = window.Rendu, SON = window.Son;
+const M = window.Moteur, NIV = window.Niveaux, R = window.Rendu, SON = window.Son, Gen = window.Gen;
 const PARF = window.PARFAITS || {};
 const MUET = /[?&]muet\b/.test(location.search);
 
@@ -12,7 +12,7 @@ const parId = {};
 LISTE.forEach((l, i) => { parId[l.id] = i; });
 
 /* ---------- Sauvegarde ---------- */
-const CLE = 'phase_v1';
+const CLE = 'phase_v2';
 const TOUCHES_DEF = {
   gauche: ['KeyA', 'ArrowLeft'], droite: ['KeyD', 'ArrowRight'], haut: ['KeyW', 'ArrowUp'], bas: ['KeyS', 'ArrowDown'],
   saut: ['Space', 'KeyC'], solide: ['KeyJ', 'KeyV'], liquide: ['KeyK', 'KeyB'], gaz: ['KeyL', 'KeyN'], plasma: ['Semicolon', 'Comma'],
@@ -20,8 +20,9 @@ const TOUCHES_DEF = {
 };
 const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'Bas (fracas)', saut: 'Saut / giclée / jet', solide: 'Solide',
   liquide: 'Liquide', gaz: 'Gaz', plasma: 'Plasma (éclair)', recommencer: 'Recommencer', pause: 'Pause' };
-let S = { il: {}, course: {}, reglages: { sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
+let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
 try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(S, d); } catch (err) { /* pas de stockage */ }
+if (!S.infini) S.infini = {};
 S.reglages = Object.assign({ sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, S.reglages);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
 for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].slice();
@@ -125,8 +126,50 @@ function lancerCourse(cat) {
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(1);
 }
+/* ---------- Modes infinis ---------- */
+const TOUTES = [0, 1, 2, 3];
+function lancerInfini(mode) {
+  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  const monde = new Gen.Infini(graine, mode);
+  const def = { id: 'inf' + mode, nom: 'Infini · difficulté ' + mode, phases: TOUTES, carte: monde.ajouter(6), panneaux: [] };
+  const n = M.charger(def);
+  const e = M.nouvelEtat(n);
+  R.preparer(n, (x) => monde.theme(x));
+  recadrer = true;
+  J = { mode: 'infini', imode: mode, monde, n, e, entrees: [], L: { id: 'inf' + mode, def, zi: 0 }, salle: 0, finT: 0 };
+  S.essais++;
+  ecran = 'jeu'; cacherUI();
+  SON.jouerMusique(1);
+}
+function avancerInfini() {
+  const e = J.e, m = J.monde, cx = (e.x + M.W / 2) / M.T;
+  // on prépare toujours plusieurs salles d'avance
+  if (cx > J.n.w - 90) {
+    const ancien = J.n.w;
+    M.recharger(J.n, m.ajouter(3));
+    R.etendre(J.n, ancien);
+  }
+  let k = 0;
+  while (k < m.bornes.length && m.bornes[k] <= cx) k++;
+  const salle = Math.max(0, k - 1);
+  if (salle > J.salle) { J.salle = salle; const z = Math.floor(salle / 6) + 1; SON.jouerMusique(((z - 1) % 8) + 1); }
+}
+function finInfini() {
+  const mode = J.imode, n = J.salle, t = J.e.temps, ancien = S.infini[mode];
+  const record = !ancien || n > ancien.salles || (n === ancien.salles && t < ancien.t);
+  if (record) S.infini[mode] = { salles: n, t };
+  sauver();
+  ecran = 'fin';
+  montrer(`<div class="fin"><div class="nomniv">Infini · difficulté ${mode}</div><div class="temps">${n} salle${n > 1 ? 's' : ''} franchie${n > 1 ? 's' : ''}</div>
+    <div class="lignes">${record ? '<div class="vert">Nouveau record !</div>' : `<div>Record : <b>${ancien.salles} salles</b></div>`}
+    <div class="gris">${R.chrono(t)} · difficulté atteinte ${Math.round(J.monde.difficulte(n) / 1.2 * 100)} %</div></div>
+    <div class="menu ligne"><button class="btn" data-a="infini${mode}" autofocus>Recommencer <small>${nomTouche(S.touches.recommencer[0])}</small></button>
+    <button class="btn" data-a="accueil">Menu</button></div></div>`, 'fin');
+}
+
 function recommencer() {
   if (!J) return;
+  if (J.mode === 'infini') { lancerInfini(J.imode); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
   else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : 'parfait');
   else if (J.mode === 'course') {
@@ -144,7 +187,12 @@ function pas() {
   J.inp = inp;
   const avant = J.e.demarre;
   M.pas(J.n, J.e, inp);
-  if (J.e.demarre && J.mode !== 'fantome') J.entrees.push(inp);
+  if (J.mode === 'infini') {
+    if (J.e.ev & M.EV.MORT) J.finT = 50;                      // une seule vie : la course s'arrête
+    if (J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finInfini(); return; } }
+    avancerInfini();
+  }
+  if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini') J.entrees.push(inp);
   if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
   if (!avant && J.e.demarre) recadrer = false;
   const ev = J.e.ev;
@@ -210,7 +258,16 @@ function dessiner(dt) {
   if (!J) { fondMenu(dt); return; }
   const e = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
   const hud = { titre: J.L.id + '  ' + J.L.def.nom, touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
-  if (J.mode === 'course') {
+  if (J.mode === 'infini') {
+    const rec = S.infini[J.imode];
+    hud.chrono = e.temps;
+    hud.titre = 'Infini · difficulté ' + J.imode;
+    hud.sousChrono = 'Salle ' + (J.salle + 1) + (rec ? '   ·   record : ' + rec.salles + ' franchie' + (rec.salles > 1 ? 's' : '') : '');
+    hud.sousCouleur = rec && J.salle > rec.salles ? '#7dff9a' : '#ddd';
+    hud.lignes.push({ t: 'Difficulté ' + Math.round(J.monde.difficulte(J.salle) / 1.2 * 100) + ' %', c: '#aaa' });
+    hud.lignes.push({ t: 'Une seule vie', c: '#ff8a8a' });
+    if (J.finT > 0) { hud.message = 'Fin de la course : ' + J.salle + ' salle' + (J.salle > 1 ? 's' : '') + ' franchie' + (J.salle > 1 ? 's' : ''); hud.messageC = '#ff9ae6'; }
+  } else if (J.mode === 'course') {
     hud.chrono = J.course.total + e.temps;
     hud.titre = (J.cat === 'cent' ? 'Course 100 %' : 'Course complète') + '  ·  ' + hud.titre;
     const pb = S.course[J.cat];
@@ -233,11 +290,12 @@ function dessiner(dt) {
   } else {
     hud.chrono = e.temps;
     if (il && il.t != null) hud.lignes.push({ t: 'Record  ' + R.chrono(il.t) });
+    if (p && p.t) hud.lignes.push({ t: 'Parfait  ' + R.chrono(p.t), c: MEDAILLES[4].c });
     if (p && p.t) {
       const m = medaille(id, il && il.t);
       const vise = Math.min(4, m + 1);
       if (m < 4) hud.lignes.push({ t: MEDAILLES[vise].nom + '  ' + R.chrono(seuil(id, vise)), c: MEDAILLES[vise].c });
-      else hud.lignes.push({ t: 'Parfait atteint !', c: MEDAILLES[4].c });
+      else hud.lignes.push({ t: 'Parfait atteint !', c: '#7dff9a' });
       if (il && il.t != null && e.temps > il.t) hud.couleurChrono = '#ffb0b0';
     }
     if (J.fantome) hud.lignes.push({ t: 'Fantôme : ' + (S.reglages.fantome === 'parfait' ? 'Parfait' : 'record'), c: '#888' });
@@ -306,6 +364,8 @@ function accueil() {
     <button class="btn gros" data-a="niveaux" autofocus>Jouer</button>
     <button class="btn" data-a="course-any" ${tousFaits() ? '' : 'disabled'}>Course complète <small>${tousFaits() ? (S.course.any ? 'record ' + R.chrono(S.course.any.t) : 'les 24 niveaux d\'un trait') : 'finis les 24 niveaux pour la débloquer'}</small></button>
     <button class="btn" data-a="course-cent" ${tousFaits() ? '' : 'disabled'}>Course 100 % <small>${S.course.cent ? 'record ' + R.chrono(S.course.cent.t) : 'avec tous les éclats ◆'}</small></button>
+    <button class="btn" data-a="infini1">Infini · difficulté 1 <small>${S.infini[1] ? 'record ' + S.infini[1].salles + ' salles' : 'salles générées sans fin, de plus en plus dures, une seule vie'}</small></button>
+    <button class="btn" data-a="infini2">Infini · difficulté 2 <small>${S.infini[2] ? 'record ' + S.infini[2].salles + ' salles' : 'commence déjà dur et monte plus vite'}</small></button>
     <button class="btn" data-a="records">Records</button>
     <button class="btn" data-a="aide">Comment jouer</button>
     <button class="btn" data-a="reglages">Réglages</button>
@@ -321,7 +381,7 @@ function niveaux() {
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       h += `<button class="btn niv" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
-        <b>${nv.id}</b> ${nv.nom}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
+        <b>${nv.id}</b> ${nv.nom}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">Parfait ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
     });
     if (!ok) h += '<div class="verrou">Finis la zone précédente</div>';
     h += '</div>';
@@ -340,6 +400,7 @@ function records() {
   }
   const sb = sommeMeilleurs(), sp = sommeParfaits();
   h += `</table><div class="totaux"><div>Somme de tes records <b>${sb != null ? R.chrono(sb) : '—'}</b></div><div>Somme des Parfaits <b>${sp != null ? R.chrono(sp) : '—'}</b></div>
+    <div>Infini · difficulté 1 <b>${S.infini[1] ? S.infini[1].salles + ' salles' : '—'}</b></div><div>Infini · difficulté 2 <b>${S.infini[2] ? S.infini[2].salles + ' salles' : '—'}</b></div>
     <div>Course complète <b>${S.course.any ? R.chrono(S.course.any.t) : '—'}</b></div><div>Course 100 % <b>${S.course.cent ? R.chrono(S.course.cent.t) : '—'}</b></div></div>
     <p class="note">Le temps « Parfait » est celui d'un robot qui a cherché le parcours le plus rapide sur le vrai moteur du jeu. Bronze : ×2,2 · Argent : ×1,5 · Or : ×1,2 · Parfait : l'égaler.</p>
     <div class="menu ligne"><button class="btn" data-a="accueil">Retour</button></div>`;
@@ -433,8 +494,8 @@ function pause() {
   ecran = 'pause';
   montrer(`<div class="fin"><div class="nomniv">Pause</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>Reprendre</button>
-    <button class="btn" data-a="rejouer">${J.mode === 'course' ? 'Recommencer la course' : 'Recommencer le niveau'}</button>
-    <button class="btn" data-a="${J.mode === 'course' ? 'accueil' : 'niveaux'}">Quitter</button></div></div>`, 'fin');
+    <button class="btn" data-a="rejouer">${J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer la course'}</button>
+    <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">Quitter</button></div></div>`, 'fin');
 }
 
 function action(a, el) {
@@ -451,11 +512,14 @@ function action(a, el) {
     case 'voir-record': regarder(i, 'record'); break;
     case 'course-any': lancerCourse('any'); break;
     case 'course-cent': lancerCourse('cent'); break;
+    case 'infini1': lancerInfini(1); break;
+    case 'infini2': lancerInfini(2); break;
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
-    case 'rejouer': if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
+    case 'rejouer': if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':
       if (ecran === 'jeu') recommencer();
       else if (ecran === 'fin' && J && J.mode === 'niveau') lancerNiveau(J.idx);
+      else if (ecran === 'fin' && J && J.mode === 'infini') lancerInfini(J.imode);
       break;
     case 'pause':
       if (ecran === 'jeu') { if (J.mode === 'fantome') { if (J.L) niveauxOuRecords(); } else pause(); }
@@ -512,7 +576,7 @@ addEventListener('keydown', ev => {
     if (ui.querySelector('[data-a="accueil"]') && ecran !== 'fin') { action('accueil'); return; }
     if (ecran === 'fin') { action('niveaux'); return; }
   }
-  if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && J.mode === 'niveau' && !ev.repeat) { action('recommencer'); return; }
+  if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini') && !ev.repeat) { action('recommencer'); return; }
   const btns = [...ui.querySelectorAll('.btn:not([disabled])')];
   if (!btns.length) return;
   const i = btns.indexOf(document.activeElement);
