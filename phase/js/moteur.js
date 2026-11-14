@@ -10,14 +10,16 @@ const NOMS_PHASES = ['Solide', 'Liquide', 'Gaz', 'Plasma'];
 const E = { G: 1, D: 2, H: 4, B: 8, SAUT: 16, S: 32, L: 64, Z: 128, P: 256 };   // bits d'entrée
 const EV = { SAUT: 1, MUR: 2, CHANGE: 4, MORT: 8, CASSE: 16, RESSORT: 32, BOUM: 64, CRISTAL: 128, FIN: 256,
   DRAPEAU: 512, TP: 1024, ECLAT: 2048, ECHEC: 4096, ATTERRIT: 8192, JET: 16384, FRACAS: 32768, CONVERSION: 65536,
-  EVAPORE: 131072, REBOND: 262144, NAGE: 524288 };
+  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304 };
 
 const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, EAU = 7, GLACE = 8, RESSORT = 9,
   CRISTAL = 10, BUT = 11, DRAPEAU = 12, PLATE = 13, TAPIS_G = 14, TAPIS_D = 15, VENT_D = 16, VENT_G = 17,
-  VENT_H = 18, VENT_B = 19, TP1 = 20, TP1S = 21, TP2 = 22, TP2S = 23, ECLAT = 24, PANNEAU = 25;
+  VENT_H = 18, VENT_B = 19, TP1 = 20, TP1S = 21, TP2 = 22, TP2S = 23, ECLAT = 24, PANNEAU = 25,
+  ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30;
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
   'w': EAU, 'i': GLACE, 's': RESSORT, '*': CRISTAL, 'G': BUT, '!': DRAPEAU, '-': PLATE, '[': TAPIS_G, ']': TAPIS_D,
-  '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU };
+  '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU,
+  'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -35,7 +37,9 @@ const K = {
   // plasma
   pVit: 8.5, pDuree: 9, pSortie: 4.8, pRecharge: 8,
   // vent, explosions, tapis
-  vent: [0.08, 0.16, 0.7, 0], ventMax: 6.2, boum: 9, tapis: 1.4
+  vent: [0.08, 0.16, 0.7, 0], ventMax: 6.2, boum: 9, tapis: 1.4,
+  // pièges
+  flechePeriode: 84, flecheVit: 4.2, cassantDelai: 22, cassantRetour: 150, rebondMin: 8.2
 };
 
 /* ---------- Chargement d'un niveau ---------- */
@@ -79,13 +83,40 @@ function recharger(n, c) {
     if (!best) for (const s of sorties) if (s.t === cherche && (!best || Math.abs(s.x - x) < Math.abs(best.x - x))) best = s;
     if (best) tp.set(i, best);
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat });
+  // arbalètes : tirent vers le côté libre, à intervalles fixes (décalés selon la position)
+  const fleches = [];
+  const libre = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]);
+  for (let i = 0; i < w * h; i++) {
+    if (g[i] !== ARBALETE) continue;
+    const x = i % w, y = Math.floor(i / w);
+    let dx = 0, dy = 0;
+    if (libre(x - 1, y)) dx = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1;
+    if (!dx && !dy) continue;
+    let k = 1;
+    while (k < 40 && libre(x + dx * k, y + dy * k)) k++;
+    fleches.push({ x, y, dx, dy, portee: (k - 1) * T + T / 2, dec: (x * 7 + y * 13) % K.flechePeriode });
+  }
+  // portes : chacune s'ouvre avec le bouton le plus proche à sa gauche
+  const boutons = [];
+  for (let i = 0; i < w * h; i++) if (g[i] === BOUTON) boutons.push(i);
+  const porteDe = new Map();
+  for (let i = 0; i < w * h; i++) {
+    if (g[i] !== PORTE) continue;
+    const x = i % w;
+    let best = -1;
+    for (const b of boutons) { const bx = b % w; if (bx <= x && (best < 0 || bx > best % w)) best = b; }
+    if (best >= 0) porteDe.set((x) * 1024 + Math.floor(i / w), (best % w) * 1024 + Math.floor(best / w));
+  }
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe });
   return n;
 }
 
+const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
+  t === CASSANT || t === REBONDI || t === PORTE;
+
 /* ---------- État ---------- */
 function nouvelEtat(n) {
-  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], cp: null, morts: 0,
+  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], cp: null, morts: 0,
     inpPrev: 0, ev: 0, evX: 0, evY: 0 };
   placer(e, n);
   return e;
@@ -94,16 +125,35 @@ function placer(e, n) {
   const d = e.cp || n.dep;
   e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = S; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
-  e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.dansEau = false; e.porte = 0;
+  e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.dansEau = false; e.porte = 0;
 }
 function cloner(e) {
   const c = Object.assign({}, e);
   c.casses = e.casses.slice();
   c.cristaux = e.cristaux.slice();
+  c.craque = e.craque.slice();
+  c.boutons = e.boutons.slice();
   return c;
 }
 
 /* ---------- Cases ---------- */
+// sol cassant : il s'effondre un moment après qu'on s'y est posé, puis revient
+function effondre(e, k) {
+  for (const c of e.craque) if (c[0] === k) { const dt = e.temps - c[1]; return dt >= K.cassantDelai && dt < K.cassantDelai + K.cassantRetour; }
+  return false;
+}
+// position des flèches en vol : calcul direct à partir du temps, sans état
+function flechesEn(n, temps, f) {
+  const out = [], P2 = K.flechePeriode, v = K.flecheVit;
+  if (temps <= 0) return out;
+  let k = Math.floor((temps - f.dec) / P2);
+  for (; k >= 0; k--) {
+    const tir = f.dec + k * P2, d = (temps - tir) * v;
+    if (d > f.portee) break;
+    if (d >= 0) out.push([f.x * T + T / 2 + f.dx * (T / 2 + d), f.y * T + T / 2 + f.dy * (T / 2 + d)]);
+  }
+  return out;
+}
 function casse(e, i) { return e.casses.length > 0 && e.casses.indexOf(i) >= 0; }
 function tuile(n, tx, ty) {
   if (tx < 0 || tx >= n.w || ty < 0) return MUR;
@@ -115,7 +165,9 @@ function plein(n, e, tx, ty) {
   if (ty >= n.h) return false;
   const i = ty * n.w + tx, t = n.g[i];
   switch (t) {
-    case MUR: case GLACE: case TAPIS_G: case TAPIS_D: return true;
+    case MUR: case GLACE: case TAPIS_G: case TAPIS_D: case ARBALETE: case REBONDI: return true;
+    case CASSANT: return !effondre(e, tx * 1024 + ty);
+    case PORTE: { const b = n.porteDe.get(tx * 1024 + ty); return b === undefined || e.boutons.indexOf(b) < 0; }
     case FRAGILE: return !casse(e, tx * 1024 + ty);
     case GRILLE: return e.phase !== L;
     case TAMIS: return e.phase !== Z;
@@ -203,7 +255,7 @@ function contact(n, e, dir) {
 const collant = (t) => t >= 0 && t !== GLACE && t !== PLATE;
 
 // partie mortelle d'une case de pics : seulement les pointes visibles, selon leur sens
-const durs = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE;
+const durs = estDur;
 function sensPics(n, tx, ty) {
   if (durs(tuile(n, tx, ty + 1))) return 0;        // vers le haut
   if (durs(tuile(n, tx, ty - 1))) return 1;        // vers le bas
@@ -259,6 +311,7 @@ function pas(n, e, inp) {
   e.temps++;
   if (e.mortT > 0) { if (--e.mortT === 0) placer(e, n); return; }
 
+  if (e.craque.length && e.temps - e.craque[0][1] >= K.cassantDelai + K.cassantRetour) e.craque = e.craque.filter(c => e.temps - c[1] < K.cassantDelai + K.cassantRetour);
   if (e.cristaux.length && e.cristaux[0][1] <= e.temps) e.cristaux = e.cristaux.filter(c => c[1] > e.temps);
   if (e.jetCd > 0) e.jetCd--;
   if (e.tpCd > 0) e.tpCd--;
@@ -424,7 +477,23 @@ function pas(n, e, inp) {
   if (hitX) e.vx = 0;
   if (hitBas || hitHaut) e.vy = 0;
 
+  // sol rebondissant : on repart vers le haut (sauf le gaz)
+  if (hitBas && e.phase !== Z && vyPre > 1) {
+    const sous = contact(n, e, 0);
+    if (sous === REBONDI) {
+      e.vy = -Math.max(K.rebondMin, vyPre * 0.9 + (e.slam ? 2 : 0)); e.slam = false; e.att = 0;
+      if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+      e.charges = K.charges; e.ev |= EV.BOND; e.evX = e.x + W / 2; e.evY = e.y + H;
+    }
+  }
   const sol = contact(n, e, 0) >= 0 && e.vy >= 0;
+  if (sol) {                                   // on se pose sur un sol cassant : il va céder
+    const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + W - 0.001) / T), ty = Math.round((e.y + H) / T);
+    for (let tx = x0; tx <= x1; tx++) if (tuile(n, tx, ty) === CASSANT) {
+      const k = tx * 1024 + ty;
+      if (!e.craque.some(c => c[0] === k)) { e.craque.push([k, e.temps]); e.ev |= EV.CRAQUE; e.evX = tx; e.evY = ty; }
+    }
+  }
   e.sol = sol;
   if (sol && !sol0) {
     e.ev |= EV.ATTERRIT;
@@ -479,7 +548,7 @@ function pas(n, e, inp) {
   const y0 = Math.floor(e.y / T), y1 = Math.floor((e.y + H - 0.001) / T);
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
     const t = tuile(n, tx, ty);
-    if (t <= MUR || t === GRILLE || t === TAMIS || t === EAU || t === PLATE || (t >= VENT_D && t <= VENT_B)) continue;
+    if (t <= MUR || t === GRILLE || t === TAMIS || t === EAU || t === PLATE || (t >= VENT_D && t <= VENT_B) || estDur(t)) continue;
     const bx = tx * T, by = ty * T;
     const dans = (m) => e.x + W > bx + m && e.x < bx + T - m && e.y + H > by + m && e.y < by + T - m;
     if (t === PICS) {
@@ -504,6 +573,9 @@ function pas(n, e, inp) {
       if (e.phase === Z) e.vy = -4.6;
       else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; } }
       e.slam = false; e.slamAt = 0; e.sol = false; e.att = 0; e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
+    } else if (t === BOUTON) {
+      const k = tx * 1024 + ty;
+      if (e.y + H > by + 10 && e.boutons.indexOf(k) < 0) { e.boutons.push(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
     } else if (t === CRISTAL) {
       const i = tx * 1024 + ty;
       if (e.charges < K.charges && dans(1) && !e.cristaux.some(c => c[0] === i)) {
@@ -528,6 +600,18 @@ function pas(n, e, inp) {
     if (e.fini || e.mortT > 0) break;
   }
   if (e.y > n.h * T + 8) mourir(e);
+  // flèches des arbalètes proches
+  if (n.fleches.length && e.mortT === 0) {
+    const px = e.x + W / 2;
+    for (const f of n.fleches) {
+      if (Math.abs(f.x * T - px) > 44 * T) continue;
+      for (const [ax, ay] of flechesEn(n, e.temps, f)) {
+        const hx = f.dx ? 6 : 1.5, hy = f.dy ? 6 : 1.5;
+        if (ax + hx > e.x && ax - hx < e.x + W && ay + hy > e.y && ay - hy < e.y + H) { mourir(e); break; }
+      }
+      if (e.mortT) break;
+    }
+  }
 }
 
 /* ---------- Entrées compactes (fantômes) ---------- */
@@ -554,6 +638,7 @@ function decompresser(s) {
 const Moteur = { T, W, H, S, L, Z, P, NOMS_PHASES, E, EV, K, CH,
   VIDE, MUR, GRILLE, TAMIS, FRAGILE, PICS, FEU, EAU, GLACE, RESSORT, CRISTAL, BUT, DRAPEAU, PLATE, TAPIS_G, TAPIS_D,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
+  ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, estDur, flechesEn, effondre,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

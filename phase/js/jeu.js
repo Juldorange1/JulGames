@@ -23,6 +23,7 @@ const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'B
 let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
 try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(S, d); } catch (err) { /* pas de stockage */ }
 if (!S.infini) S.infini = {};
+if (!S.defis) S.defis = {};
 S.reglages = Object.assign({ sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, S.reglages);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
 for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].slice();
@@ -139,7 +140,42 @@ function lancerInfini(mode) {
   J = { mode: 'infini', imode: mode, monde, n, e, entrees: [], L: { id: 'inf' + mode, def, zi: 0 }, salle: 0, finT: 0 };
   S.essais++;
   ecran = 'jeu'; cacherUI();
-  SON.jouerMusique(1);
+  SON.jouerMusique('infini');
+}
+/* ---------- Défi du jour ---------- */
+function cleJour() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+function dateDefi(cle) { return String(cle % 100).padStart(2, '0') + '/' + String(Math.floor(cle / 100) % 100).padStart(2, '0'); }
+function lancerDefi() {
+  const cle = cleJour(), r = Gen.defi(cle);
+  const def = { id: 'defi', nom: 'Défi du jour', phases: TOUTES, carte: r.carte, panneaux: [] };
+  const n = M.charger(def);
+  const e = M.nouvelEtat(n);
+  R.preparer(n, (x) => Gen.THEMES_INF[(cle + Math.floor(x / 90)) % 8]);
+  recadrer = true;
+  let fantome = null;
+  const best = S.defis[cle];
+  if (S.reglages.fantome !== 'aucun' && best && best.f) {
+    const ent = M.decompresser(best.f); while (ent.length && !ent[0]) ent.shift();
+    const n2 = M.charger(def); fantome = { n: n2, e: M.nouvelEtat(n2), ent, i: 0 };
+  }
+  J = { mode: 'defi', cle, n, e, entrees: [], fantome, L: { id: 'defi', def, zi: 0 } };
+  S.essais++;
+  ecran = 'jeu'; cacherUI();
+  SON.jouerMusique('defi');
+}
+function finDefi() {
+  const cle = J.cle, t = J.e.temps, ancien = S.defis[cle];
+  const record = !ancien || t < ancien.t;
+  if (record) S.defis[cle] = { t, f: M.compresser(J.entrees), morts: J.e.morts };
+  sauver();
+  ecran = 'fin';
+  SON.jouerMusique('fin');
+  const jours = Object.keys(S.defis).length;
+  montrer(`<div class="fin"><div class="nomniv">Défi du jour · ${dateDefi(cle)}</div><div class="temps">${R.chrono(t)}</div>
+    <div class="lignes">${record ? (ancien ? `<div class="vert">Meilleur temps du jour ! ${R.ecart(t - ancien.t)}</div>` : '<div class="vert">Premier temps du jour</div>') : `<div class="rouge">${R.ecart(t - ancien.t)} sur ton meilleur du jour (${R.chrono(ancien.t)})</div>`}
+    <div class="gris">${J.e.morts} chute${J.e.morts > 1 ? 's' : ''} · ${jours} défi${jours > 1 ? 's' : ''} relevé${jours > 1 ? 's' : ''} en tout · un nouveau défi demain</div></div>
+    <div class="menu ligne"><button class="btn" data-a="defi" autofocus>Recommencer <small>${nomTouche(S.touches.recommencer[0])}</small></button>
+    <button class="btn" data-a="accueil">Menu</button></div></div>`, 'fin');
 }
 function avancerInfini() {
   const e = J.e, m = J.monde, cx = (e.x + M.W / 2) / M.T;
@@ -152,7 +188,7 @@ function avancerInfini() {
   let k = 0;
   while (k < m.bornes.length && m.bornes[k] <= cx) k++;
   const salle = Math.max(0, k - 1);
-  if (salle > J.salle) { J.salle = salle; const z = Math.floor(salle / 6) + 1; SON.jouerMusique(((z - 1) % 8) + 1); }
+  if (salle > J.salle) J.salle = salle;
 }
 function finInfini() {
   const mode = J.imode, n = J.salle, t = J.e.temps, ancien = S.infini[mode];
@@ -170,6 +206,7 @@ function finInfini() {
 function recommencer() {
   if (!J) return;
   if (J.mode === 'infini') { lancerInfini(J.imode); return; }
+  if (J.mode === 'defi') { lancerDefi(); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
   else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : 'parfait');
   else if (J.mode === 'course') {
@@ -208,6 +245,7 @@ function pas() {
 
 function terminer() {
   if (J.mode === 'fantome') { finFantome(); return; }
+  if (J.mode === 'defi') { finDefi(); return; }
   const id = J.L.id, t = J.e.temps;
   if (J.mode === 'niveau') {
     const ancien = S.il[id] || {};
@@ -218,6 +256,7 @@ function terminer() {
     S.il[id].fois = (S.il[id].fois || 0) + 1;
     sauver();
     ecran = 'fin';
+    SON.jouerMusique('fin');
     finNiveau(t, avant, record);
   } else {
     J.course.splits.push(t);
@@ -258,7 +297,13 @@ function dessiner(dt) {
   if (!J) { fondMenu(dt); return; }
   const e = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
   const hud = { titre: J.L.id + '  ' + J.L.def.nom, touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
-  if (J.mode === 'infini') {
+  if (J.mode === 'defi') {
+    const b = S.defis[J.cle];
+    hud.chrono = e.temps;
+    hud.titre = 'Défi du jour · ' + dateDefi(J.cle);
+    if (b) { hud.lignes.push({ t: 'Meilleur du jour  ' + R.chrono(b.t), c: '#ff9ae6' }); if (e.temps > b.t) hud.couleurChrono = '#ffb0b0'; }
+    hud.lignes.push({ t: 'Nouveau défi chaque jour', c: '#999' });
+  } else if (J.mode === 'infini') {
     const rec = S.infini[J.imode];
     hud.chrono = e.temps;
     hud.titre = 'Infini · difficulté ' + J.imode;
@@ -364,6 +409,7 @@ function accueil() {
     <button class="btn gros" data-a="niveaux" autofocus>Jouer</button>
     <button class="btn" data-a="course-any" ${tousFaits() ? '' : 'disabled'}>Course complète <small>${tousFaits() ? (S.course.any ? 'record ' + R.chrono(S.course.any.t) : 'les 24 niveaux d\'un trait') : 'finis les 24 niveaux pour la débloquer'}</small></button>
     <button class="btn" data-a="course-cent" ${tousFaits() ? '' : 'disabled'}>Course 100 % <small>${S.course.cent ? 'record ' + R.chrono(S.course.cent.t) : 'avec tous les éclats ◆'}</small></button>
+    <button class="btn" data-a="defi">Défi du jour · ${dateDefi(cleJour())} <small>${S.defis[cleJour()] ? 'ton meilleur temps : ' + R.chrono(S.defis[cleJour()].t) : 'une longue suite de salles difficiles, la même pour tous, qui change chaque jour'}</small></button>
     <button class="btn" data-a="infini1">Infini · difficulté 1 <small>${S.infini[1] ? 'record ' + S.infini[1].salles + ' salles' : 'salles générées sans fin, de plus en plus dures, une seule vie'}</small></button>
     <button class="btn" data-a="infini2">Infini · difficulté 2 <small>${S.infini[2] ? 'record ' + S.infini[2].salles + ' salles' : 'commence déjà dur et monte plus vite'}</small></button>
     <button class="btn" data-a="records">Records</button>
@@ -500,6 +546,7 @@ function pause() {
 
 function action(a, el) {
   SON.demarrer();
+  SON.bruitMenu('valider');
   const i = el && el.dataset.i != null ? +el.dataset.i : null;
   switch (a) {
     case 'accueil': accueil(); break;
@@ -514,12 +561,14 @@ function action(a, el) {
     case 'course-cent': lancerCourse('cent'); break;
     case 'infini1': lancerInfini(1); break;
     case 'infini2': lancerInfini(2); break;
+    case 'defi': lancerDefi(); break;
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
-    case 'rejouer': if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
+    case 'rejouer': if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':
       if (ecran === 'jeu') recommencer();
       else if (ecran === 'fin' && J && J.mode === 'niveau') lancerNiveau(J.idx);
       else if (ecran === 'fin' && J && J.mode === 'infini') lancerInfini(J.imode);
+      else if (ecran === 'fin' && J && J.mode === 'defi') lancerDefi();
       break;
     case 'pause':
       if (ecran === 'jeu') { if (J.mode === 'fantome') { if (J.L) niveauxOuRecords(); } else pause(); }
@@ -576,12 +625,12 @@ addEventListener('keydown', ev => {
     if (ui.querySelector('[data-a="accueil"]') && ecran !== 'fin') { action('accueil'); return; }
     if (ecran === 'fin') { action('niveaux'); return; }
   }
-  if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini') && !ev.repeat) { action('recommencer'); return; }
+  if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini' || J.mode === 'defi') && !ev.repeat) { action('recommencer'); return; }
   const btns = [...ui.querySelectorAll('.btn:not([disabled])')];
   if (!btns.length) return;
   const i = btns.indexOf(document.activeElement);
-  if (['ArrowDown', 'ArrowRight', 'KeyS', 'KeyD'].includes(ev.code)) { ev.preventDefault(); btns[(i + 1) % btns.length].focus(); }
-  else if (['ArrowUp', 'ArrowLeft', 'KeyW', 'KeyA'].includes(ev.code)) { ev.preventDefault(); btns[(i - 1 + btns.length) % btns.length].focus(); }
+  if (['ArrowDown', 'ArrowRight', 'KeyS', 'KeyD'].includes(ev.code)) { ev.preventDefault(); btns[(i + 1) % btns.length].focus(); SON.bruitMenu('menu'); }
+  else if (['ArrowUp', 'ArrowLeft', 'KeyW', 'KeyA'].includes(ev.code)) { ev.preventDefault(); btns[(i - 1 + btns.length) % btns.length].focus(); SON.bruitMenu('menu'); }
   else if ((ev.code === 'Enter' || ev.code === 'Space') && document.activeElement && document.activeElement.classList.contains('btn')) {
     ev.preventDefault(); document.activeElement.click();
   }

@@ -31,7 +31,7 @@ function champ(n, cibles) {
   const passe = (x, y) => {
     if (x < 0 || y < 0 || x >= n.w || y >= n.h) return false;
     const t = n.g[y * n.w + x];
-    return !(t === M.MUR || t === M.GLACE || t === M.TAPIS_G || t === M.TAPIS_D || t === M.PICS || t === M.FEU);
+    return !(t === M.MUR || t === M.GLACE || t === M.TAPIS_G || t === M.TAPIS_D || t === M.PICS || t === M.FEU || t === M.ARBALETE || t === M.REBONDI);
   };
   const entrees = {};
   for (let i = 0; i < n.w * n.h; i++) {
@@ -171,9 +171,25 @@ function chercher(def, avecEclat) {
     }
     return pire === x1 - x0 + 1 ? opt.danger : 0;
   };
+  // boutons : tant que la porte qui suit est fermée, on vise d'abord son bouton
+  const boutons = [];
+  for (const [porte, b] of n.porteDe) {
+    let bt = boutons.find(o => o.k === b);
+    if (!bt) {
+      const bx = Math.floor(b / 1024), by = b % 1024;
+      bt = { k: b, x: bx, porteX: 0, d: champ(n, [[bx, by]]), versBut: dBut[by * n.w + bx] * T };
+      boutons.push(bt);
+    }
+    bt.porteX = Math.max(bt.porteX, Math.floor(porte / 1024));
+  }
+  boutons.sort((a, b) => a.x - b.x);
   const score = (e) => {
-    if (dEcl && !e.eclat) return lire(n, dEcl, e) + eclatVersBut + danger(e);
-    return lire(n, dBut, e) + danger(e);
+    if (boutons.length) {
+      const px = (e.x + M.W / 2) / T;
+      for (const bt of boutons) if (px < bt.porteX && e.boutons.indexOf(bt.k) < 0 && Math.abs(bt.x - px) < 60) return lire(n, bt.d, e) + bt.versBut + danger(e) - 24 * e.boutons.length;
+    }
+    if (dEcl && !e.eclat) return lire(n, dEcl, e) + eclatVersBut + danger(e) - 24 * e.boutons.length;
+    return lire(n, dBut, e) + danger(e) - 24 * e.boutons.length;
   };
   const A = actions(n);
   const Kp = opt.pasK;
@@ -212,10 +228,10 @@ function chercher(def, avecEclat) {
     for (const nd of enfants) {
       const e = nd.e;
       const cle = Math.round(e.x / 3) + ',' + Math.round(e.y / 3) + ',' + Math.round(e.vx * 1.5) + ',' + Math.round(e.vy * 1.5) + ',' +
-        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '');
+        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length;
       if (vus.has(cle)) continue;
       vus.add(cle);
-      const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0);
+      const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length;
       const k = parCase.get(cc) || 0;
       if (k < opt.parCase) { parCase.set(cc, k + 1); suivant.push(nd); if (suivant.length >= opt.faisceau) break; }
       else reste.push(nd);
@@ -252,7 +268,7 @@ function chercher(def, avecEclat) {
   return { ok: e.fini, temps: e.temps, entrees: ok, morts: e.morts };
 }
 
-module.exports = { chercher, opt };
+module.exports = { chercher, opt, champ, lire };
 if (require.main === module) {
 const fichier = path.join(__dirname, '..', 'js', 'parfaits.js');
 const dossier = path.join(__dirname, 'parfaits');

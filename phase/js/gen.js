@@ -202,6 +202,58 @@ const SALLES = {
     s.couloir(7 + Lw, 9 + Lw);
     return 10 + Lw;
   } },
+  // Arbalètes au plafond (et une au sol) : passer entre les flèches
+  fleches: { phases: [S], f(s, rng, d) {
+    const Lg = ent(rng, 14, 19);
+    s.couloir(0, 2); s.c(3, 13, Lg, 19);
+    const k = 2 + Math.round(d * 2.5);
+    for (let i = 0; i < k; i++) s.p(4 + Math.floor((Lg - 5) * (i + 0.5) / k), 12, 'F');
+    if (d > 0.45) s.p(3 + Math.floor(Lg * 0.55), 19, 'F');
+    if (d > 0.8) s.p(Math.floor(Lg / 2) - 1, 19, '^');
+    s.couloir(Lg + 1, Lg + 3);
+    return Lg + 4;
+  } },
+  // Ponts de sol cassant au-dessus des pics : ne pas traîner
+  cassant: { phases: [S], f(s, rng, d) {
+    s.couloir(0, 2, 13);
+    let x = 3;
+    const k = ent(rng, 2, 3);
+    for (let i = 0; i < k; i++) {
+      const Lp = 5 + Math.round(d * 4) + ent(rng, 0, 2);
+      s.c(x, 13, x + Lp - 1, 23); s.r(x, 20, x + Lp - 1, 20, 'c'); s.n(x, 23, Lp, '^');
+      if (d > 0.6 && Lp > 6) s.p(x + Math.floor(Lp / 2), 20, '.');
+      x += Lp;
+      s.couloir(x, x + 1, 13); x += 2;
+    }
+    s.couloir(x, x + 1);
+    return x + 2;
+  } },
+  // Sols rebondissants au-dessus des pics, plafond hérissé : ne pas trop rebondir
+  rebond: { phases: [S], f(s, rng, d) {
+    s.couloir(0, 2);
+    let x = 3;
+    const k = ent(rng, 3, 4);
+    for (let i = 0; i < k; i++) {
+      const gw = Math.min(4, 2 + Math.round(d * 1.5 + rng() * 0.6));
+      s.c(x, 14, x + gw - 1, 23); s.n(x, 23, gw, '^'); x += gw;
+      s.couloir(x, x + 1); s.r(x, 20, x + 1, 20, 'b');
+      if (d > 0.35) s.n(x - 1, 14, 4, '^');
+      x += 2;
+    }
+    s.couloir(x, x + 2);
+    return x + 3;
+  } },
+  // Bouton au fond d'un creux : il ouvre la porte un peu plus loin
+  bouton: { phases: [S], f(s, rng, d) {
+    const a = ent(rng, 3, 6), lc = 5 + Math.round(d * 3);
+    s.couloir(0, a + lc + 8);
+    s.c(a, 20, a + lc, 21); s.p(a + lc - 1, 21, 'o');
+    if (d > 0.5) s.p(a + 1, 21, '^');
+    if (d > 0.9) s.p(a + lc - 3, 21, '^');
+    s.col(a + lc + 4, 14, 19, 'D');
+    s.couloir(a + lc + 9, a + lc + 10);
+    return a + lc + 11;
+  } },
   // Niche en hauteur où se cache l'éclat (petit détour)
   alcove: { phases: [S], f(s, rng) {
     s.couloir(0, 9);
@@ -270,18 +322,20 @@ function poser(g, x0, type, rng, d, ctx) {
 
 /* Les 8 zones : quelles salles, lesquelles sont nouvelles (plus fréquentes) */
 const ZONES_SALLES = [
-  { types: ['trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort'], nouv: ['trous', 'cheminee', 'fracas', 'ressort'] },
-  { types: ['trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort', 'murLiquide', 'grilles'], nouv: ['murLiquide', 'grilles'] },
-  { types: ['trous', 'piliers', 'cheminee', 'fracas', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent'], nouv: ['tamis', 'feu', 'vent'] },
-  { types: ['trous', 'plafond', 'cheminee', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent', 'eclair'], nouv: ['eclair'] },
-  { types: ['trous', 'cheminee', 'fracas', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau'], nouv: ['eau'] },
-  { types: ['trous', 'plafond', 'piliers', 'grilles', 'feu', 'eclair', 'eau', 'tapis', 'teleport'], nouv: ['tapis', 'teleport'] },
-  { types: ['cheminee', 'fracas', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau', 'glace', 'cheminee*'], nouv: ['glace', 'cheminee*'] },
+  { types: ['trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort', 'cassant', 'fleches', 'rebond', 'bouton'], nouv: ['cheminee', 'fracas', 'ressort', 'cassant'] },
+  { types: ['trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles'], nouv: ['murLiquide', 'grilles'] },
+  { types: ['trous', 'piliers', 'cheminee', 'fracas', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent'], nouv: ['tamis', 'feu', 'vent'] },
+  { types: ['trous', 'plafond', 'cheminee', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent', 'eclair'], nouv: ['eclair'] },
+  { types: ['trous', 'cheminee', 'fracas', 'cassant', 'fleches', 'rebond', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau', 'bouton'], nouv: ['eau'] },
+  { types: ['trous', 'plafond', 'piliers', 'grilles', 'feu', 'fleches', 'rebond', 'bouton', 'eclair', 'eau', 'tapis', 'teleport'], nouv: ['tapis', 'teleport'] },
+  { types: ['cheminee', 'fracas', 'cassant', 'fleches', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau', 'glace', 'cheminee*', 'rebond'], nouv: ['glace', 'cheminee*'] },
   { types: Object.keys(SALLES).filter(t => t !== 'alcove'), nouv: [] }
 ];
 
-function choisir(rng, liste, nouv, prec) {
-  const poids = liste.map(t => (t === prec ? 0 : (nouv.includes(t) ? 3 : 1)));
+// tirage pondéré : jamais une salle vue parmi les 3 dernières, et moins souvent une salle déjà beaucoup vue
+function choisir(rng, liste, nouv, recents, compte) {
+  const poids = liste.map(t => (recents.includes(t) ? 0 : (nouv.includes(t) ? 2.5 : 1) / (1 + ((compte && compte[t]) || 0) * 0.7)));
+  if (poids.every(p => p === 0)) return liste[Math.floor(rng() * liste.length)];
   let tot = poids.reduce((a, b) => a + b, 0), r = rng() * tot;
   for (let i = 0; i < liste.length; i++) { r -= poids[i]; if (r < 0) return liste[i]; }
   return liste[liste.length - 1];
@@ -293,13 +347,12 @@ function niveau(zone, graine, d, nb, panneaux, imposees) {
   const g = new Grille();
   let x = debut(g, panneaux || []);
   const zs = ZONES_SALLES[zone - 1];
-  let prec = null;
-  const suite = [];
+  const suite = [], compte = {};
   for (let i = 0; i < nb; i++) {
-    let t = (imposees && imposees[i]) || choisir(rng, zs.types, zs.nouv, prec);
-    prec = t;
+    const t = (imposees && imposees[i]) || choisir(rng, zs.types, zs.nouv, suite.slice(-3), compte);
+    compte[t] = (compte[t] || 0) + 1;
     suite.push(t);
-    if (i > 0 && i % 3 === 0) salle(g, x).p(1, 19, '!');
+    if (i > 0) salle(g, x).p(1, 19, '!');                 // un drapeau au début de chaque salle
     if (i === Math.floor(nb / 2)) x = poser(g, x, 'alcove', rng, d, {});
     const glace = t.endsWith('*');
     x = poser(g, x, glace ? t.slice(0, -1) : t, rng, d + (rng() - 0.5) * 0.08, { glace });
@@ -330,8 +383,9 @@ Infini.prototype.ajouter = function (k) {
   for (let j = 0; j < k; j++) {
     const i = this.i++;
     if (i > 0 && i % 6 === 0) this.themes.push({ x: this.x, theme: THEMES_INF[(i / 6) % THEMES_INF.length] });
-    let t = choisir(this.rng, TOUS, [], this.prec);
-    this.prec = t;
+    this.recents = this.recents || [];
+    const t = choisir(this.rng, TOUS, [], this.recents.slice(-3));
+    this.recents.push(t);
     this.bornes.push(this.x);
     const glace = this.themes[this.themes.length - 1].theme === 'glacier' && t === 'cheminee';
     this.x = poser(this.g, this.x, t, this.rng, this.difficulte(i), { glace });
@@ -345,6 +399,23 @@ Infini.prototype.theme = function (x) {
   return th;
 };
 
+// Défi du jour : une très longue suite de salles difficiles, la même pour tout le monde ce jour-là
+function defi(cle) {
+  const rng = hasard((cle * 2654435761) >>> 0);
+  const g = new Grille();
+  let x = debut(g, []);
+  const suite = [], compte = {};
+  for (let i = 0; i < 26; i++) {
+    const t = choisir(rng, TOUS, [], suite.slice(-3), compte);
+    compte[t] = (compte[t] || 0) + 1; suite.push(t);
+    if (i > 0 && i % 2 === 0) salle(g, x).p(1, 19, '!');
+    x = poser(g, x, t, rng, 0.75 + rng() * 0.3, {});
+  }
+  x = fin(g, x);
+  for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
+  return { carte: g.carte(), suite, theme: THEMES_INF[cle % THEMES_INF.length] };
+}
+
 // pour les tests : une seule salle entre un départ et une arrivée
 function essai(type, graine, d, glace) {
   const g = new Grille();
@@ -355,7 +426,7 @@ function essai(type, graine, d, glace) {
   return g.carte();
 }
 
-const Gen = { SALLES, ZONES_SALLES, niveau, Infini, essai, hasard, HAUT, THEMES_INF };
+const Gen = { SALLES, ZONES_SALLES, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);
