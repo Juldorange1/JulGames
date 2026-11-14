@@ -812,7 +812,7 @@ function dessinerHUD(c) {
     c.fillStyle = 'rgba(8,6,10,.62)'; c.fillRect(x0, y0, larg, ht);
     c.strokeStyle = 'rgba(201,168,101,.45)'; c.lineWidth = 1; c.strokeRect(x0 + .5, y0 + .5, larg - 1, ht - 1);
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    texteOmbre(c, horde ? 'Vague ' + (G.defi.h ? G.defi.h.vague : 1) : 'Salle ' + G.salle, x0 + 12, y0 + 18, '#ffffff', `800 21px ${POLICE_ER}`, 4);
+    texteOmbre(c, horde ? 'Survie' : 'Salle ' + G.salle, x0 + 12, y0 + 18, '#ffffff', `800 21px ${POLICE_ER}`, 4);
     let y = y0 + 34 + 10;
     for (const l of lignes) {
       let tx = x0 + 12;

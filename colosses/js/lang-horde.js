@@ -1,42 +1,30 @@
 'use strict';
-/* Colosses — traductions de la nouvelle Survie (la horde). */
+/* Colosses — traductions de la Survie (la horde). */
 (function () {
 const T = {
   en: [
-    ["Des vagues d'ennemis sans fin, toujours plus nombreuses : tiens le plus longtemps possible", 'Endless waves of enemies, ever more numerous: hold out as long as you can'],
-    ["des vagues d'ennemis sans fin", 'endless waves of enemies'],
-    ['Pas de boss : douze sortes de petits ennemis, de plus en plus nombreux.', 'No boss: twelve kinds of small enemies, more and more of them.'],
-    ['Les vagues sont les mêmes pour tout le monde, les armes de zone sont freinées et la vie des ennemis suit la force de tes armes : la chance compte très peu.', 'Waves are the same for everyone, area weapons are held back and enemy health follows the strength of your weapons: luck barely matters.'],
-    ['Partie en cours : tu reprends au début de la vague', 'Run in progress: you resume at the start of wave'],
-    ['La horde', 'The horde'], ['vagues sans fin', 'endless waves'], ["sortes d'ennemis", 'kinds of enemies'],
-    ['Choisis tes trois armes. Tout le monde peut prendre les mêmes et les vagues sont identiques pour tous : la chance ne décide de rien. La vie des ennemis suit la force des armes choisies, chaque choix reste bon.', 'Choose your three weapons. Everyone can take the same ones and the waves are identical for all: luck decides nothing. Enemy health follows the strength of the chosen weapons, so every choice stays good.'],
-    ['Lancer la Survie', 'Start Survival'], ['tes armes', 'your weapons'], ['Arme principale', 'Main weapon'], ['Spéciale', 'Special'], ['Talent', 'Talent'],
-    ['ennemis restants', 'enemies left'], ['ennemi restant', 'enemy left'], ['La vague arrive…', 'The wave is coming…'], ['ennemis abattus', 'enemies slain'], [' abattus', ' slain'],
-    ['VAGUE ', 'WAVE '], ['Vague ', 'Wave '], [' vagues', ' waves'], [' vague', ' wave'], [' · en cours : vague ', ' · in progress: wave ']
+    ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Enemies keep coming, ever faster and more numerous: hold out as long as you can'],
+    ['des ennemis sans fin, toujours plus nombreux', 'endless enemies, more and more of them'],
+    ["Pas de boss : douze sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", 'No boss: twelve kinds of enemies, each with its own attack and its own way to be beaten.'],
+    ['Armes au hasard, mais la vie des ennemis suit leur force ; les ennemis arrivent dans le même ordre pour tout le monde et les armes de zone sont freinées : la chance compte très peu.', 'Random weapons, but enemy health follows their strength; enemies come in the same order for everyone and area weapons are held back: luck barely matters.'],
+    ['La horde', 'The horde'], ['sans fin', 'endless'], ["sortes d'ennemis", 'kinds of enemies'],
+    ['Ils arrivent…', 'Here they come…'], ['Reprise : ', 'Resumed: '], ['Menace ', 'Threat '], [' ennemis', ' enemies'], [' ennemi', ' enemy'], ['ennemis abattus', 'enemies slain'], [' abattus', ' slain']
   ],
   es: [
-    ["Des vagues d'ennemis sans fin, toujours plus nombreuses : tiens le plus longtemps possible", 'Oleadas de enemigos sin fin, cada vez más numerosas: aguanta lo máximo posible'],
-    ["des vagues d'ennemis sans fin", 'oleadas de enemigos sin fin'],
-    ['Pas de boss : douze sortes de petits ennemis, de plus en plus nombreux.', 'Sin jefe: doce tipos de enemigos pequeños, cada vez más numerosos.'],
-    ['Les vagues sont les mêmes pour tout le monde, les armes de zone sont freinées et la vie des ennemis suit la force de tes armes : la chance compte très peu.', 'Las oleadas son iguales para todos, las armas de área se frenan y la vida de los enemigos sigue la fuerza de tus armas: la suerte cuenta muy poco.'],
-    ['Partie en cours : tu reprends au début de la vague', 'Partida en curso: retomas al principio de la oleada'],
-    ['La horde', 'La horda'], ['vagues sans fin', 'oleadas sin fin'], ["sortes d'ennemis", 'tipos de enemigos'],
-    ['Choisis tes trois armes. Tout le monde peut prendre les mêmes et les vagues sont identiques pour tous : la chance ne décide de rien. La vie des ennemis suit la force des armes choisies, chaque choix reste bon.', 'Elige tus tres armas. Todos pueden tomar las mismas y las oleadas son idénticas para todos: la suerte no decide nada. La vida de los enemigos sigue la fuerza de las armas elegidas, toda elección sigue siendo buena.'],
-    ['Lancer la Survie', 'Empezar la Supervivencia'], ['tes armes', 'tus armas'], ['Arme principale', 'Arma principal'], ['Spéciale', 'Especial'], ['Talent', 'Talento'],
-    ['ennemis restants', 'enemigos restantes'], ['ennemi restant', 'enemigo restante'], ['La vague arrive…', 'Llega la oleada…'], ['ennemis abattus', 'enemigos abatidos'], [' abattus', ' abatidos'],
-    ['VAGUE ', 'OLEADA '], ['Vague ', 'Oleada '], [' vagues', ' oleadas'], [' vague', ' oleada'], [' · en cours : vague ', ' · en curso: oleada ']
+    ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Los enemigos llegan sin parar, cada vez más rápido y más numerosos: aguanta lo máximo posible'],
+    ['des ennemis sans fin, toujours plus nombreux', 'enemigos sin fin, cada vez más'],
+    ["Pas de boss : douze sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", 'Sin jefe: doce tipos de enemigos, cada uno con su ataque y su forma de vencerlo.'],
+    ['Armes au hasard, mais la vie des ennemis suit leur force ; les ennemis arrivent dans le même ordre pour tout le monde et les armes de zone sont freinées : la chance compte très peu.', 'Armas al azar, pero la vida de los enemigos sigue su fuerza; los enemigos llegan en el mismo orden para todos y las armas de área se frenan: la suerte cuenta muy poco.'],
+    ['La horde', 'La horda'], ['sans fin', 'sin fin'], ["sortes d'ennemis", 'tipos de enemigos'],
+    ['Ils arrivent…', 'Ya vienen…'], ['Reprise : ', 'Reanudado: '], ['Menace ', 'Amenaza '], [' ennemis', ' enemigos'], [' ennemi', ' enemigo'], ['ennemis abattus', 'enemigos abatidos'], [' abattus', ' abatidos']
   ],
   de: [
-    ["Des vagues d'ennemis sans fin, toujours plus nombreuses : tiens le plus longtemps possible", 'Endlose Gegnerwellen, immer zahlreicher: halte so lange wie möglich durch'],
-    ["des vagues d'ennemis sans fin", 'endlose Gegnerwellen'],
-    ['Pas de boss : douze sortes de petits ennemis, de plus en plus nombreux.', 'Kein Boss: zwölf Arten kleiner Gegner, immer mehr davon.'],
-    ['Les vagues sont les mêmes pour tout le monde, les armes de zone sont freinées et la vie des ennemis suit la force de tes armes : la chance compte très peu.', 'Die Wellen sind für alle gleich, Flächenwaffen werden gebremst und das Leben der Gegner richtet sich nach der Stärke deiner Waffen: Glück zählt kaum.'],
-    ['Partie en cours : tu reprends au début de la vague', 'Laufende Partie: du machst am Anfang der Welle weiter'],
-    ['La horde', 'Die Horde'], ['vagues sans fin', 'endlose Wellen'], ["sortes d'ennemis", 'Gegnerarten'],
-    ['Choisis tes trois armes. Tout le monde peut prendre les mêmes et les vagues sont identiques pour tous : la chance ne décide de rien. La vie des ennemis suit la force des armes choisies, chaque choix reste bon.', 'Wähle deine drei Waffen. Alle können dieselben nehmen und die Wellen sind für alle gleich: Glück entscheidet nichts. Das Leben der Gegner richtet sich nach der Stärke der gewählten Waffen, jede Wahl bleibt gut.'],
-    ['Lancer la Survie', 'Überleben starten'], ['tes armes', 'deine Waffen'], ['Arme principale', 'Hauptwaffe'], ['Spéciale', 'Spezial'], ['Talent', 'Talent'],
-    ['ennemis restants', 'Gegner übrig'], ['ennemi restant', 'Gegner übrig'], ['La vague arrive…', 'Die Welle kommt…'], ['ennemis abattus', 'Gegner besiegt'], [' abattus', ' besiegt'],
-    ['VAGUE ', 'WELLE '], ['Vague ', 'Welle '], [' vagues', ' Wellen'], [' vague', ' Welle'], [' · en cours : vague ', ' · läuft: Welle ']
+    ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Gegner kommen ohne Pause, immer schneller und zahlreicher: halte so lange wie möglich durch'],
+    ['des ennemis sans fin, toujours plus nombreux', 'endlose Gegner, immer mehr'],
+    ["Pas de boss : douze sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", 'Kein Boss: zwölf Gegnerarten, jede mit eigenem Angriff und eigener Art, sie zu besiegen.'],
+    ['Armes au hasard, mais la vie des ennemis suit leur force ; les ennemis arrivent dans le même ordre pour tout le monde et les armes de zone sont freinées : la chance compte très peu.', 'Zufällige Waffen, aber das Leben der Gegner richtet sich nach ihrer Stärke; die Gegner kommen für alle in derselben Reihenfolge und Flächenwaffen werden gebremst: Glück zählt kaum.'],
+    ['La horde', 'Die Horde'], ['sans fin', 'endlos'], ["sortes d'ennemis", 'Gegnerarten'],
+    ['Ils arrivent…', 'Sie kommen…'], ['Reprise : ', 'Fortgesetzt: '], ['Menace ', 'Bedrohung '], [' ennemis', ' Gegner'], [' ennemi', ' Gegner'], ['ennemis abattus', 'Gegner besiegt'], [' abattus', ' besiegt']
   ]
 };
 for (const code of Object.keys(T)) { const L = LANGS[code]; if (L) L.frag = T[code].concat(L.frag || []); }
