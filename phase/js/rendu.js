@@ -76,7 +76,7 @@ const solideR = (k) => M.estDur(k);
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], lumieres: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], lumieres: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     switch (k) {
@@ -96,6 +96,7 @@ function scanner() {
       case M.PORTE: dyn.porte.push([x, y]); break;
       case M.BOUTON: dyn.bouton.push([x, y]); break;
       case M.REBONDI: dyn.rebondi.push([x, y]); break;
+      case M.PIECE: dyn.piece.push([x, y]); dyn.lumieres.push([x, y, '255,210,80', 30]); break;
     }
   }
 }
@@ -312,6 +313,7 @@ function evenements(e) {
   if (ev & EV.NAGE) eclats(cxp, cyp, 12, '#bff', 1.6, -0.02);
   if (ev & EV.BOUTON) { eclats(e.evX * T + 8, e.evY * T + 14, 16, '#ffd84a', 2, 0, true); tremble = 2; }
   if (ev & EV.CRAQUE) eclats(e.evX * T + 8, e.evY * T + 2, 6, th.motif, 1, 0.1);
+  if (ev & EV.PIECE) eclats(e.evX * T + 8, e.evY * T + 8, 14, '#ffd84a', 2.2, 0, true);
 }
 
 /* ---------- Caméra : douce, sans à-coups ---------- */
@@ -347,7 +349,7 @@ function dessiner(e, fantome, hud, dt) {
   if (tremble > 0 && (!hud || hud.tremble !== false)) { ox += (Math.random() - 0.5) * tremble; oy += (Math.random() - 0.5) * tremble; tremble *= 0.85; if (tremble < 0.3) tremble = 0; }
   if (themeDe) { const t2 = themeEn(Math.floor(cam.x / T)); if (t2 !== th) th = t2; }
 
-  arrierePlan(g, ox, oy, z);
+  arrierePlan(g, ox, oy, z, !!hud);
 
   g.save();
   g.scale(z, z);
@@ -408,7 +410,7 @@ function dessiner(e, fantome, hud, dt) {
 
 /* ---------- Arrière-plan en couches (parallaxe) ---------- */
 const couches = new Map();
-function arrierePlan(g, ox, oy, z) {
+function arrierePlan(g, ox, oy, z, enJeu) {
   const gr = g.createLinearGradient(0, 0, 0, HAUT);
   gr.addColorStop(0, th.ciel[0]); gr.addColorStop(1, th.ciel[1]);
   g.fillStyle = gr; g.fillRect(0, 0, LARG, HAUT);
@@ -457,7 +459,7 @@ function arrierePlan(g, ox, oy, z) {
   const br = g.createLinearGradient(0, HAUT * 0.55, 0, HAUT);
   br.addColorStop(0, 'rgba(0,0,0,0)'); br.addColorStop(1, `rgba(${th.lum},.06)`);
   g.fillStyle = br; g.fillRect(0, HAUT * 0.55, LARG, HAUT * 0.45);
-  if (th.style === 'cristal' && Math.sin(temps * 0.9) > 0.993) { flash = Math.max(flash, 0.12); flashC = '#e6dcff'; }
+  if (enJeu && th.style === 'cristal' && Math.sin(temps * 0.9) > 0.993) { flash = Math.max(flash, 0.12); flashC = '#e6dcff'; }
 }
 // particules d'ambiance dessinées dans le monde
 function ambiance(g, ox, oy, vw, vh) {
@@ -613,6 +615,13 @@ function casesAnimees(g, e, vis) {
       g.beginPath(); g.arc(px, py, 3 + i * 2.6, tt * (entree ? 4 : -2) + i, tt * (entree ? 4 : -2) + i + 4.2); g.stroke();
     }
     g.globalAlpha = 1;
+  }
+  for (const [x, y] of dyn.piece) {
+    if (!vis(x, y) || e.pieces.indexOf(x * 1024 + y) >= 0) continue;
+    const px = x * T + 8, py = y * T + 8 + Math.sin(tt * 3 + x) * 1.5, l = Math.abs(Math.cos(tt * 3 + x * 0.7));
+    g.fillStyle = '#b8860b'; g.beginPath(); g.ellipse(px, py, 5 * l + 1, 5, 0, 0, 7); g.fill();
+    g.fillStyle = '#ffd84a'; g.beginPath(); g.ellipse(px, py, 4 * l + 0.6, 4, 0, 0, 7); g.fill();
+    g.fillStyle = '#fff6c0'; g.fillRect(px - 0.6, py - 2.5, 1.2, 3);
   }
   for (const [x, y] of dyn.eclat) {
     if (!vis(x, y) || e.eclat) continue;

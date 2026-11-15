@@ -51,7 +51,7 @@ const ZONES = DEF.map((z, zi) => ({
   id: zi + 1, nom: z.nom, theme: z.theme, phases: z.phases,
   niveaux: z.niveaux.map((nom, k) => {
     const d = 0.1 + zi * 0.12 + k * 0.035;
-    const nb = 18 + k * 3;
+    const nb = Math.min(18 + k * 3, 10 + zi * 3 + k * 3);   // les premières zones sont un peu plus courtes
     const pan = z.intro[k] || [];
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13, d, nb, pan, z.imposees[k] || null);
     return { id: (zi + 1) + '-' + (k + 1), nom, phases: z.phases, panneaux: pan, carte: r.carte, suite: r.suite, d };

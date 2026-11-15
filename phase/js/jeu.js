@@ -20,7 +20,7 @@ const TOUCHES_DEF = {
 };
 const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'Bas (fracas)', saut: 'Saut / giclée / jet', solide: 'Solide',
   liquide: 'Liquide', gaz: 'Gaz', plasma: 'Plasma (éclair)', recommencer: 'Recommencer', pause: 'Pause' };
-let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.6, musique: 0.35, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
+let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.5, musique: 0.5, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
 try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(S, d); } catch (err) { /* pas de stockage */ }
 if (!S.infini) S.infini = {};
 if (!S.defis) S.defis = {};
@@ -142,42 +142,77 @@ function lancerInfini(mode) {
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
 }
-/* ---------- Défi du jour ---------- */
+/* ---------- Défi du jour : un objectif différent chaque jour ---------- */
+const DEFIS = [
+  { id: 'chrono', nom: 'Contre-la-montre', but: 'Finis cette longue suite de salles le plus vite possible.', score: 'temps' },
+  { id: 'minute', nom: 'Une minute', but: 'Franchis le plus de salles possible en 1 minute.', score: 'salles', limite: 60 },
+  { id: 'survie', nom: 'Survie', but: 'Une seule vie, des salles de plus en plus dures : va le plus loin possible.', score: 'salles' },
+  { id: 'pieces', nom: 'Chasse aux pièces', but: 'Ramasse le plus de pièces possible en 1 min 30.', score: 'pieces', limite: 90 },
+  { id: 'sansfaute', nom: 'Sans faute', but: 'Finis sans tomber une seule fois : à la moindre chute, tout recommence.', score: 'temps' },
+  { id: 'solide', nom: 'Pierre', but: 'Uniquement l’état solide. Finis le plus vite possible.', score: 'temps' }
+];
 function cleJour() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
 function dateDefi(cle) { return String(cle % 100).padStart(2, '0') + '/' + String(Math.floor(cle / 100) % 100).padStart(2, '0'); }
-function lancerDefi() {
-  const cle = cleJour(), r = Gen.defi(cle);
-  const def = { id: 'defi', nom: 'Défi du jour', phases: TOUTES, carte: r.carte, panneaux: [] };
+function defiDuJour(cle) {
+  const j = Math.floor(Date.UTC(Math.floor(cle / 10000), Math.floor(cle / 100) % 100 - 1, cle % 100) / 86400000);
+  return DEFIS[j % DEFIS.length];
+}
+function texteScore(type, r) {
+  if (!r) return '—';
+  if (type.score === 'temps') return R.chrono(r.t);
+  if (type.score === 'salles') return r.score + ' salle' + (r.score > 1 ? 's' : '');
+  return r.score + ' pièce' + (r.score > 1 ? 's' : '');
+}
+function meilleurQue(type, a, b) {          // a meilleur que b ?
+  if (!b) return true;
+  if (type.score === 'temps') return a.t < b.t;
+  return a.score > b.score || (a.score === b.score && a.t < b.t);
+}
+function lancerDefi(msg) {
+  const force = new URLSearchParams(location.search).get('defi');           // ?defi=pieces : pour tester un type
+  const cle = cleJour(), type = DEFIS.find(d => d.id === force) || defiDuJour(cle);
+  let r = null, monde = null, phases = TOUTES;
+  if (type.id === 'minute') monde = new Gen.Infini(cle, 1, { drapeaux: true, rampe: [0.3, 0.03] });
+  else if (type.id === 'survie') monde = new Gen.Infini(cle, 2, { rampe: [0.2, 0.045] });
+  else if (type.id === 'pieces') r = Gen.defi(cle, { pieces: true, nb: 30, d: 0.55 });
+  else if (type.id === 'sansfaute') r = Gen.defi(cle, { drapeaux: false, nb: 16 });
+  else if (type.id === 'solide') { r = Gen.defi(cle, { types: Gen.TOUS.filter(t => Gen.SALLES[t].phases.length === 1), d: 0.7 }); phases = [0]; }
+  else r = Gen.defi(cle);
+  const def = { id: 'defi', nom: 'Défi du jour', phases, carte: monde ? monde.ajouter(6) : r.carte, panneaux: [] };
   const n = M.charger(def);
   const e = M.nouvelEtat(n);
-  R.preparer(n, (x) => Gen.THEMES_INF[(cle + Math.floor(x / 90)) % 8]);
+  R.preparer(n, monde ? (x) => monde.theme(x) : (x) => Gen.THEMES_INF[(cle + Math.floor(x / 90)) % 8]);
   recadrer = true;
   let fantome = null;
   const best = S.defis[cle];
-  if (S.reglages.fantome !== 'aucun' && best && best.f) {
+  if (type.score === 'temps' && S.reglages.fantome !== 'aucun' && best && best.f) {
     const ent = M.decompresser(best.f); while (ent.length && !ent[0]) ent.shift();
     const n2 = M.charger(def); fantome = { n: n2, e: M.nouvelEtat(n2), ent, i: 0 };
   }
-  J = { mode: 'defi', cle, n, e, entrees: [], fantome, L: { id: 'defi', def, zi: 0 } };
+  J = { mode: 'defi', type, cle, n, e, monde, entrees: [], fantome, L: { id: 'defi', def, zi: 0 }, salle: 0, finT: 0,
+    pieces: r ? r.pieces || 0 : 0, limite: type.limite ? type.limite * 60 : 0 };
   S.essais++;
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('defi');
+  if (msg) { message = msg; messageT = 90; }
 }
 function finDefi() {
-  const cle = J.cle, t = J.e.temps, ancien = S.defis[cle];
-  const record = !ancien || t < ancien.t;
-  if (record) S.defis[cle] = { t, f: M.compresser(J.entrees), morts: J.e.morts };
+  const cle = J.cle, type = J.type, t = J.e.temps, ancien = S.defis[cle] && S.defis[cle].type === type.id ? S.defis[cle] : null;
+  const score = type.score === 'salles' ? J.salle : type.score === 'pieces' ? J.e.pieces.length : t;
+  const res = { type: type.id, score, t };
+  const record = meilleurQue(type, res, ancien);
+  if (record) { if (type.score === 'temps') res.f = M.compresser(J.entrees); S.defis[cle] = res; }
   sauver();
   ecran = 'fin';
-  SON.jouerMusique('fin');
+  SON.attenuer(true);
   const jours = Object.keys(S.defis).length;
-  montrer(`<div class="fin"><div class="nomniv">Défi du jour · ${dateDefi(cle)}</div><div class="temps">${R.chrono(t)}</div>
-    <div class="lignes">${record ? (ancien ? `<div class="vert">Meilleur temps du jour ! ${R.ecart(t - ancien.t)}</div>` : '<div class="vert">Premier temps du jour</div>') : `<div class="rouge">${R.ecart(t - ancien.t)} sur ton meilleur du jour (${R.chrono(ancien.t)})</div>`}
-    <div class="gris">${J.e.morts} chute${J.e.morts > 1 ? 's' : ''} · ${jours} défi${jours > 1 ? 's' : ''} relevé${jours > 1 ? 's' : ''} en tout · un nouveau défi demain</div></div>
+  montrer(`<div class="fin"><div class="nomniv">Défi du jour · ${type.nom} · ${dateDefi(cle)}</div><div class="temps">${texteScore(type, res)}</div>
+    <div class="lignes">${record ? '<div class="vert">' + (ancien ? 'Meilleur résultat du jour !' : 'Premier résultat du jour') + '</div>' : `<div>Ton meilleur du jour : <b>${texteScore(type, ancien)}</b></div>`}
+    <div class="gris">${type.score !== 'temps' ? R.chrono(t) + ' · ' : ''}${J.e.morts} chute${J.e.morts > 1 ? 's' : ''} · ${jours} défi${jours > 1 ? 's' : ''} relevé${jours > 1 ? 's' : ''} en tout · un nouveau défi demain</div></div>
     <div class="menu ligne"><button class="btn" data-a="defi" autofocus>Recommencer <small>${nomTouche(S.touches.recommencer[0])}</small></button>
     <button class="btn" data-a="accueil">Menu</button></div></div>`, 'fin');
 }
-function avancerInfini() {
+function avancerMonde() {
   const e = J.e, m = J.monde, cx = (e.x + M.W / 2) / M.T;
   // on prépare toujours plusieurs salles d'avance
   if (cx > J.n.w - 90) {
@@ -196,6 +231,7 @@ function finInfini() {
   if (record) S.infini[mode] = { salles: n, t };
   sauver();
   ecran = 'fin';
+  SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">Infini · difficulté ${mode}</div><div class="temps">${n} salle${n > 1 ? 's' : ''} franchie${n > 1 ? 's' : ''}</div>
     <div class="lignes">${record ? '<div class="vert">Nouveau record !</div>' : `<div>Record : <b>${ancien.salles} salles</b></div>`}
     <div class="gris">${R.chrono(t)} · difficulté atteinte ${Math.round(J.monde.difficulte(n) / 1.2 * 100)} %</div></div>
@@ -224,11 +260,13 @@ function pas() {
   J.inp = inp;
   const avant = J.e.demarre;
   M.pas(J.n, J.e, inp);
-  if (J.mode === 'infini') {
+  const unevie = J.mode === 'infini' || (J.mode === 'defi' && J.type.id === 'survie');
+  if (unevie) {
     if (J.e.ev & M.EV.MORT) J.finT = 50;                      // une seule vie : la course s'arrête
-    if (J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finInfini(); return; } }
-    avancerInfini();
+    if (J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { if (J.mode === 'infini') finInfini(); else finDefi(); return; } }
   }
+  if (J.monde) avancerMonde();
+  if (J.mode === 'defi' && J.limite && J.e.temps >= J.limite) { finDefi(); return; }
   if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini') J.entrees.push(inp);
   if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
   if (!avant && J.e.demarre) recadrer = false;
@@ -236,6 +274,12 @@ function pas() {
   if (ev) { R.evenements(J.e, J.n); SON.evenements(ev, J.e.phase); if (ev & M.EV.ECHEC) echec = 20; if (ev & M.EV.MORT) S.morts++; }
   if (echec > 0) echec--;
   if (messageT > 0) messageT--;
+  // mort avant le premier drapeau : on repart vraiment de zéro, chrono compris
+  if (J.e.mortT === 1 && !unevie) {
+    if (J.mode === 'defi' && J.type.id === 'sansfaute') { lancerDefi('Chute ! Tout recommence.'); return; }
+    if (!J.e.cp && J.mode === 'niveau') { lancerNiveau(J.idx); message = 'Retour au départ : chrono remis à zéro'; messageT = 80; return; }
+    if (!J.e.cp && J.mode === 'defi' && J.type.score === 'temps') { lancerDefi('Retour au départ : chrono remis à zéro'); return; }
+  }
   if (J.e.fini) {
     if (J.mode === 'course' && J.cat === 'cent' && J.n.aEclat && !J.e.eclat) {
       J.e.fini = false; message = 'Il te manque l\'éclat ◆ de ce niveau !'; messageT = 60;
@@ -256,7 +300,7 @@ function terminer() {
     S.il[id].fois = (S.il[id].fois || 0) + 1;
     sauver();
     ecran = 'fin';
-    SON.jouerMusique('fin');
+    SON.attenuer(true);
     finNiveau(t, avant, record);
   } else {
     J.course.splits.push(t);
@@ -298,11 +342,15 @@ function dessiner(dt) {
   const e = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
   const hud = { titre: J.L.id + '  ' + J.L.def.nom, touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
-    const b = S.defis[J.cle];
-    hud.chrono = e.temps;
-    hud.titre = 'Défi du jour · ' + dateDefi(J.cle);
-    if (b) { hud.lignes.push({ t: 'Meilleur du jour  ' + R.chrono(b.t), c: '#ff9ae6' }); if (e.temps > b.t) hud.couleurChrono = '#ffb0b0'; }
-    hud.lignes.push({ t: 'Nouveau défi chaque jour', c: '#999' });
+    const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
+    hud.titre = 'Défi du jour · ' + ty.nom;
+    if (J.limite) { hud.chrono = Math.max(0, J.limite - e.temps); if (hud.chrono < 600) hud.couleurChrono = '#ff9a7a'; }
+    else hud.chrono = e.temps;
+    if (ty.score === 'salles') hud.sousChrono = 'Salle ' + (J.salle + 1);
+    if (ty.score === 'pieces') hud.sousChrono = 'Pièces ' + e.pieces.length + ' / ' + J.pieces;
+    if (b) { hud.lignes.push({ t: 'Meilleur du jour  ' + texteScore(ty, b), c: '#ff9ae6' }); if (ty.score === 'temps' && e.temps > b.t) hud.couleurChrono = '#ffb0b0'; }
+    hud.lignes.push({ t: ty.but, c: '#bbb' });
+    if (J.finT > 0) { hud.message = 'Fin : ' + J.salle + ' salle' + (J.salle > 1 ? 's' : ''); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'infini') {
     const rec = S.infini[J.imode];
     hud.chrono = e.temps;
@@ -356,25 +404,20 @@ function dessiner(dt) {
 
 /* ---------- Fond animé des menus ---------- */
 let menuNiv = null, menuE = null, menuT = 0;
+// fond du menu : un lent travelling sur un niveau tranquille, sans personnage, sans secousse ni éclair
 function fondMenu(dt) {
   menuT += dt;
   if (!menuNiv) {
-    const L = LISTE[Math.floor(Math.random() * LISTE.length)];
-    const id = L.id;
+    const L = LISTE[Math.floor(Math.random() * 18)];
     menuNiv = { L, n: M.charger(L.def) };
     menuE = M.nouvelEtat(menuNiv.n);
-    menuNiv.ent = PARF[id] ? M.decompresser(PARF[id].f) : [];
-    menuNiv.i = 0;
+    menuE.mortT = 1;                                   // le personnage n'est pas dessiné
+    menuE.x = 20 * M.T; menuE.y = 15 * M.T;
     R.preparer(menuNiv.n, L.zone.theme);
   }
-  if (menuNiv.ent.length) {
-    const k = Math.round(menuT * 60); menuT -= k / 60;
-    for (let i = 0; i < k; i++) {
-      M.pas(menuNiv.n, menuE, menuNiv.ent[menuNiv.i++] || 0);
-      R.evenements(menuE, menuNiv.n);
-      if (menuE.fini || menuNiv.i > menuNiv.ent.length + 60) { menuNiv = null; return; }
-    }
-  } else menuT = 0;
+  menuE.x += 22 * dt;                                  // environ une case et demie par seconde
+  menuE.vx = 0; menuE.vy = 0;
+  if (menuE.x > (menuNiv.n.w - 30) * M.T) { menuNiv = null; return; }
   R.dessiner(menuE, null, null, dt);
 }
 
@@ -386,7 +429,7 @@ function montrer(html, classe) {
   const b = ui.querySelector('[autofocus]') || ui.querySelector('.btn:not([disabled])');
   if (b) b.focus();
 }
-function cacherUI() { ui.className = ''; ui.innerHTML = ''; }
+function cacherUI() { ui.className = ''; ui.innerHTML = ''; SON.attenuer(false); }
 
 function zoneDebloquee(zi) {
   if (zi === 0) return true;
@@ -409,7 +452,7 @@ function accueil() {
     <button class="btn gros" data-a="niveaux" autofocus>Jouer</button>
     <button class="btn" data-a="course-any" ${tousFaits() ? '' : 'disabled'}>Course complète <small>${tousFaits() ? (S.course.any ? 'record ' + R.chrono(S.course.any.t) : 'les 24 niveaux d\'un trait') : 'finis les 24 niveaux pour la débloquer'}</small></button>
     <button class="btn" data-a="course-cent" ${tousFaits() ? '' : 'disabled'}>Course 100 % <small>${S.course.cent ? 'record ' + R.chrono(S.course.cent.t) : 'avec tous les éclats ◆'}</small></button>
-    <button class="btn" data-a="defi">Défi du jour · ${dateDefi(cleJour())} <small>${S.defis[cleJour()] ? 'ton meilleur temps : ' + R.chrono(S.defis[cleJour()].t) : 'une longue suite de salles difficiles, la même pour tous, qui change chaque jour'}</small></button>
+    <button class="btn" data-a="defi">Défi du jour · ${defiDuJour(cleJour()).nom} <small>${defiDuJour(cleJour()).but}${S.defis[cleJour()] ? ' — ton meilleur : ' + texteScore(defiDuJour(cleJour()), S.defis[cleJour()]) : ''}</small></button>
     <button class="btn" data-a="infini1">Infini · difficulté 1 <small>${S.infini[1] ? 'record ' + S.infini[1].salles + ' salles' : 'salles générées sans fin, de plus en plus dures, une seule vie'}</small></button>
     <button class="btn" data-a="infini2">Infini · difficulté 2 <small>${S.infini[2] ? 'record ' + S.infini[2].salles + ' salles' : 'commence déjà dur et monte plus vite'}</small></button>
     <button class="btn" data-a="records">Records</button>
@@ -538,6 +581,7 @@ function finCourse() {
 function pause() {
   if (ecran !== 'jeu') return;
   ecran = 'pause';
+  SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">Pause</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>Reprendre</button>
     <button class="btn" data-a="rejouer">${J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer la course'}</button>
@@ -684,6 +728,6 @@ SON.volumes(S.reglages.sons, S.reglages.musique);
 tactiles();
 accueil();
 requestAnimationFrame(boucle);
-window.Jeu = { LISTE, S, get J() { return J; }, lancerNiveau, regarder, lancerCourse, pas, action };
+window.Jeu = { LISTE, S, DEFIS, defiDuJour, cleJour, get J() { return J; }, lancerNiveau, regarder, lancerCourse, pas, action };
 if (MUET) console.log('Phase : son coupé (?muet)');
 })();

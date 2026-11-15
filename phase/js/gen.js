@@ -256,10 +256,13 @@ const SALLES = {
   } },
   // Niche en hauteur où se cache l'éclat (petit détour)
   alcove: { phases: [S], f(s, rng) {
-    s.couloir(0, 9);
-    s.r(1, 18, 1, 19); s.r(2, 17, 3, 19);          // petit escalier
-    s.c(4, 12, 6, 13); s.p(5, 13, 'e');             // niche juste au-dessus du couloir
-    return 10;
+    // l'éclat est tout en haut d'une cheminée hérissée de pics : un vrai défi à part
+    s.couloir(0, 10);
+    s.r(1, 18, 1, 19); s.r(2, 17, 3, 19);          // petit escalier pour atteindre la cheminée
+    s.c(4, 3, 6, 13);
+    s.p(4, 10, '^'); s.p(6, 7, '^'); s.p(4, 5, '^'); s.p(6, 3, '^');
+    s.p(5, 3, 'e');
+    return 11;
   } },
   // Plateformes en tapis roulants
   tapis: { phases: [S, L, Z, P], f(s, rng, d) {
@@ -352,10 +355,10 @@ function niveau(zone, graine, d, nb, panneaux, imposees) {
     const t = (imposees && imposees[i]) || choisir(rng, zs.types, zs.nouv, suite.slice(-3), compte);
     compte[t] = (compte[t] || 0) + 1;
     suite.push(t);
-    if (i > 0) salle(g, x).p(1, 19, '!');                 // un drapeau au début de chaque salle
     if (i === Math.floor(nb / 2)) x = poser(g, x, 'alcove', rng, d, {});
-    const glace = t.endsWith('*');
+    const glace = t.endsWith('*'), x0 = x;
     x = poser(g, x, glace ? t.slice(0, -1) : t, rng, d + (rng() - 0.5) * 0.08, { glace });
+    if (i > 0) salle(g, x0).p(1, 19, '!');                // un drapeau (point de sauvegarde) au début de chaque salle
   }
   x = fin(g, x);
   for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
@@ -365,9 +368,10 @@ function niveau(zone, graine, d, nb, panneaux, imposees) {
 /* ---------- Mode infini ---------- */
 const THEMES_INF = ['carriere', 'aqueduc', 'chaufferie', 'orage', 'abysses', 'usine', 'glacier', 'coeur'];
 const TOUS = Object.keys(SALLES).filter(t => t !== 'alcove');
-function Infini(graine, mode) {
+function Infini(graine, mode, opts) {
   this.rng = hasard(graine);
   this.mode = mode;
+  this.opts = opts || {};
   this.g = new Grille();
   this.bornes = [];        // début de chaque salle (en cases)
   this.themes = [];        // { x, theme } par région
@@ -377,6 +381,7 @@ function Infini(graine, mode) {
   this.themes.push({ x: 0, theme: THEMES_INF[0] });
 }
 Infini.prototype.difficulte = function (i) {
+  if (this.opts.rampe) return Math.min(1.2, this.opts.rampe[0] + i * this.opts.rampe[1]);
   return this.mode === 2 ? Math.min(1.2, 0.5 + i * 0.03) : Math.min(1.2, 0.05 + i * 0.02);
 };
 Infini.prototype.ajouter = function (k) {
@@ -388,7 +393,9 @@ Infini.prototype.ajouter = function (k) {
     this.recents.push(t);
     this.bornes.push(this.x);
     const glace = this.themes[this.themes.length - 1].theme === 'glacier' && t === 'cheminee';
+    const x0 = this.x;
     this.x = poser(this.g, this.x, t, this.rng, this.difficulte(i), { glace });
+    if (this.opts.drapeaux && i > 0) salle(this.g, x0).p(1, 19, '!');
   }
   this.g.elargir(this.x + 1);
   return this.g.carte();
@@ -400,20 +407,30 @@ Infini.prototype.theme = function (x) {
 };
 
 // Défi du jour : une très longue suite de salles difficiles, la même pour tout le monde ce jour-là
-function defi(cle) {
+function defi(cle, opts) {
+  opts = opts || {};
   const rng = hasard((cle * 2654435761) >>> 0);
   const g = new Grille();
   let x = debut(g, []);
   const suite = [], compte = {};
-  for (let i = 0; i < 26; i++) {
-    const t = choisir(rng, TOUS, [], suite.slice(-3), compte);
+  const liste = opts.types || TOUS;
+  let pieces = 0;
+  for (let i = 0; i < (opts.nb || 26); i++) {
+    const t = choisir(rng, liste, [], suite.slice(-3), compte);
     compte[t] = (compte[t] || 0) + 1; suite.push(t);
-    if (i > 0 && i % 2 === 0) salle(g, x).p(1, 19, '!');
-    x = poser(g, x, t, rng, 0.75 + rng() * 0.3, {});
+    const x0 = x;
+    x = poser(g, x, t, rng, (opts.d || 0.75) + rng() * 0.3, {});
+    if (opts.drapeaux !== false && i > 0 && i % 2 === 0) salle(g, x0).p(1, 19, '!');
+    if (opts.pieces) {               // des pièces dans chaque salle, certaines bien cachées en hauteur
+      for (let k = 0; k < 4; k++) for (let essai = 0; essai < 30; essai++) {
+        const px = x0 + 1 + Math.floor(rng() * (x - x0 - 2)), py = 6 + Math.floor(rng() * 14);
+        if (g.l[py][px] === '.' && g.l[py + 1][px] !== '^' && g.l[py - 1][px] !== '^') { g.l[py][px] = '$'; pieces++; break; }
+      }
+    }
   }
   x = fin(g, x);
   for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
-  return { carte: g.carte(), suite, theme: THEMES_INF[cle % THEMES_INF.length] };
+  return { carte: g.carte(), suite, pieces, theme: THEMES_INF[cle % THEMES_INF.length] };
 }
 
 // pour les tests : une seule salle entre un départ et une arrivée
@@ -426,7 +443,7 @@ function essai(type, graine, d, glace) {
   return g.carte();
 }
 
-const Gen = { SALLES, ZONES_SALLES, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+const Gen = { SALLES, ZONES_SALLES, TOUS, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -10,16 +10,16 @@ const NOMS_PHASES = ['Solide', 'Liquide', 'Gaz', 'Plasma'];
 const E = { G: 1, D: 2, H: 4, B: 8, SAUT: 16, S: 32, L: 64, Z: 128, P: 256 };   // bits d'entrée
 const EV = { SAUT: 1, MUR: 2, CHANGE: 4, MORT: 8, CASSE: 16, RESSORT: 32, BOUM: 64, CRISTAL: 128, FIN: 256,
   DRAPEAU: 512, TP: 1024, ECLAT: 2048, ECHEC: 4096, ATTERRIT: 8192, JET: 16384, FRACAS: 32768, CONVERSION: 65536,
-  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304 };
+  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304, PIECE: 8388608 };
 
 const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, EAU = 7, GLACE = 8, RESSORT = 9,
   CRISTAL = 10, BUT = 11, DRAPEAU = 12, PLATE = 13, TAPIS_G = 14, TAPIS_D = 15, VENT_D = 16, VENT_G = 17,
   VENT_H = 18, VENT_B = 19, TP1 = 20, TP1S = 21, TP2 = 22, TP2S = 23, ECLAT = 24, PANNEAU = 25,
-  ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30;
+  ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30, PIECE = 31;
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
   'w': EAU, 'i': GLACE, 's': RESSORT, '*': CRISTAL, 'G': BUT, '!': DRAPEAU, '-': PLATE, '[': TAPIS_G, ']': TAPIS_D,
   '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU,
-  'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE };
+  'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE, '$': PIECE };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -116,7 +116,7 @@ const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D
 
 /* ---------- État ---------- */
 function nouvelEtat(n) {
-  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], cp: null, morts: 0,
+  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], cp: null, morts: 0,
     inpPrev: 0, ev: 0, evX: 0, evY: 0 };
   placer(e, n);
   return e;
@@ -133,6 +133,7 @@ function cloner(e) {
   c.cristaux = e.cristaux.slice();
   c.craque = e.craque.slice();
   c.boutons = e.boutons.slice();
+  c.pieces = e.pieces.slice();
   return c;
 }
 
@@ -573,6 +574,9 @@ function pas(n, e, inp) {
       if (e.phase === Z) e.vy = -4.6;
       else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; } }
       e.slam = false; e.slamAt = 0; e.sol = false; e.att = 0; e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
+    } else if (t === PIECE) {
+      const k = tx * 1024 + ty;
+      if (dans(2) && e.pieces.indexOf(k) < 0) { e.pieces.push(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
     } else if (t === BOUTON) {
       const k = tx * 1024 + ty;
       if (e.y + H > by + 10 && e.boutons.indexOf(k) < 0) { e.boutons.push(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
@@ -638,7 +642,7 @@ function decompresser(s) {
 const Moteur = { T, W, H, S, L, Z, P, NOMS_PHASES, E, EV, K, CH,
   VIDE, MUR, GRILLE, TAMIS, FRAGILE, PICS, FEU, EAU, GLACE, RESSORT, CRISTAL, BUT, DRAPEAU, PLATE, TAPIS_G, TAPIS_D,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
-  ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, estDur, flechesEn, effondre,
+  ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, estDur, flechesEn, effondre,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

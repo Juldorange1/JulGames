@@ -24,7 +24,7 @@ for (const nom of liste) {
   const tps = [];
   for (const d of [0, 0.4, 0.8, 1.2]) for (let gr = 1; gr <= graines; gr++) {
     const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace);
-    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, carte }, false);
+    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, carte }, type === 'alcove');
     if (!r.ok) {
       echecs++;
       console.log('ÉCHEC ' + nom + ' d=' + d + ' graine ' + gr + ' (' + r.meilleur + ')');
