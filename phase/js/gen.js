@@ -683,7 +683,10 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   let x = debut(g, panneaux || []);
   const types = sallesPour(etats || [S, L, Z, P]);
   const nouv = types.filter(t => (SALLES[t.replace('*', '')].req || []).length > 0);
-  const alcoves = ALCOVES.filter(a => compatible(a, etats || [S, L, Z, P]));
+  const et0 = etats || [S, L, Z, P];
+  // de préférence une cachette faisable avec l'état de départ du niveau (sans dépendre d'un changement d'état)
+  let alcoves = ALCOVES.filter(a => compatible(a, et0) && (COMPAT[a] || []).includes(et0[0]));
+  if (!alcoves.length) alcoves = ALCOVES.filter(a => compatible(a, et0));
   const suite = [], compte = {};
   for (let i = 0; i < nb; i++) {
     const t = (imposees && imposees[i]) || choisir(rng, types, nouv, suite.slice(-3), compte);

@@ -83,7 +83,7 @@ function actions(n) {
   const ph = n.phases;
   // touches 3 et 4 : les deux états propres au niveau
   const em = n.emplacements;
-  for (const [bit, p] of [[E.S, em[0]], [E.L, em[1]], [E.Z, em[2]], [E.P, em[3]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit });
+  for (const [bit, p] of [[E.S, em[0]], [E.L, em[1]], [E.Z, em[2]], [E.P, em[3]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit, etat: p });
   return A;
 }
 
@@ -97,9 +97,26 @@ function affiner(n, entrees, A, avecEclat) {
     for (let i = 0; i < ent.length; i++) { etats.push(M.cloner(e)); M.pas(n, e, ent[i]); if (e.fini && avecEclat && !e.eclat) e.fini = false; }
     return etats;
   };
-  const finir = (depart, ent, i0, limite) => {
+  const memes = (a, b) => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) { const x = a[i], y = b[i]; if (x === y) continue; if (typeof x !== 'object' || x[0] !== y[0] || x[1] !== y[1]) return false; }
+    return true;
+  };
+  const pareil = (a, b) => a.x === b.x && a.y === b.y && a.vx === b.vx && a.vy === b.vy && a.phase === b.phase && a.charges === b.charges &&
+    a.dash === b.dash && a.gaz === b.gaz && a.att === b.att && a.slam === b.slam && a.slamAt === b.slamAt && a.sol === b.sol && a.coyote === b.coyote &&
+    a.tampon === b.tampon && a.verrou === b.verrou && a.jetCd === b.jetCd && a.jetSide === b.jetSide && a.tpCd === b.tpCd && a.immun === b.immun &&
+    a.cdP === b.cdP && a.face === b.face && a.mortT === b.mortT && a.invT === b.invT && (a.cp ? a.cp.tx : -1) === (b.cp ? b.cp.tx : -1) &&
+    a.ban === b.ban && a.banT === b.banT && a.bonus === b.bonus && a.bonusT === b.bonusT && a.bascule === b.bascule && a.surInter === b.surInter &&
+    a.eclat === b.eclat && a.plat === b.plat && a.champCd === b.champCd && a.tremCd === b.tremCd && a.inpPrev === b.inpPrev && a.demarre === b.demarre &&
+    a.dansEau === b.dansEau && a.morts === b.morts && memes(a.casses, b.casses) && memes(a.boutons, b.boutons) && memes(a.craque, b.craque) &&
+    memes(a.cristaux, b.cristaux) && memes(a.orbes, b.orbes) && a.pieces.length === b.pieces.length;
+  let sigs = null, tpsRef = Infinity;
+  const finir = (depart, ent, i0, limite, rejoint) => {
     const e = M.cloner(depart);
     for (let i = i0; i < ent.length; i++) {
+      // même longueur : passé la fenêtre modifiée, si l'état redevient celui de la trajectoire actuelle, la fin sera identique
+      if (rejoint !== undefined && i >= rejoint && sigs && i < sigs.length && (i - rejoint) % 4 === 0 && pareil(e, sigs[i])) return tpsRef;
       M.pas(n, e, ent[i]);
       if (e.fini) { if (!avecEclat || e.eclat) return e.temps; e.fini = false; }
       if (e.temps >= limite) return Infinity;
@@ -109,6 +126,7 @@ function affiner(n, entrees, A, avecEclat) {
   let meilleur = entrees.slice();
   let tps = finir(M.nouvelEtat(n), meilleur, 0, Infinity);
   let etats = instantanes(meilleur);
+  sigs = etats; tpsRef = tps;
   const debut = tps;
   for (let it = 0; it < opt.affiner; it++) {
     const len = meilleur.length;
@@ -119,19 +137,21 @@ function affiner(n, entrees, A, avecEclat) {
       const Lg = 1 + Math.floor(alea() * 14), a = A[Math.floor(alea() * A.length)];
       for (let k = 0; k < Lg; k++) cand.push(a.base | (k === 0 ? a.sw : 0));
       for (let k = i + Lg; k < len; k++) cand.push(meilleur[k]);
+      if (cand.length === len) cand.fenetre = i + Lg;
     } else if (m < 0.65) {
       const Lg = 1 + Math.floor(alea() * 6);
       for (let k = i + Lg; k < len; k++) cand.push(meilleur[k]);
     } else if (m < 0.85) {
       const Lg = 1 + Math.floor(alea() * 10), bit = [M.E.SAUT, M.E.G, M.E.D, M.E.H, M.E.B][Math.floor(alea() * 5)];
       for (let k = i; k < len; k++) cand.push(k < i + Lg ? (meilleur[k] ^ bit) : meilleur[k]);
+      cand.fenetre = i + Lg;
     } else {
       const Lg = 1 + Math.floor(alea() * 4);
       for (let k = 0; k < Lg; k++) cand.push(meilleur[i]);
       for (let k = i; k < len; k++) cand.push(meilleur[k]);
     }
     for (let k = 0; k < cand.length; k++) if ((cand[k] & M.E.G) && (cand[k] & M.E.D)) cand[k] &= ~M.E.G;
-    const t = finir(etats[i] || M.nouvelEtat(n), cand, i, tps);
+    const t = finir(etats[i] || M.nouvelEtat(n), cand, i, tps, cand.fenetre !== undefined ? cand.fenetre + 1 : undefined);
     if (t < tps) {
       tps = t; meilleur = cand;
       // couper ce qui suit l'arrivée
@@ -139,6 +159,7 @@ function affiner(n, entrees, A, avecEclat) {
       for (; k < meilleur.length; k++) { M.pas(n, e, meilleur[k]); if (e.fini) { if (!avecEclat || e.eclat) break; e.fini = false; } }
       meilleur = meilleur.slice(0, k + 1);
       etats = instantanes(meilleur);
+      sigs = etats; tpsRef = tps;
     }
   }
   if (opt.verbeux) console.log('   affinage : ' + (debut / 60).toFixed(3) + ' → ' + (tps / 60).toFixed(3) + ' s');
@@ -201,13 +222,13 @@ function chercher(def, avecEclat, cfg) {
   let meilleur = Infinity, meilleurE = null;
   const fins = [];
   let etapeFin = -1;
-  for (let etape = 0; etape * Kp < opt.max && (!fin || (opt.collecter && fins.length < opt.collecter && etape < etapeFin + 45)); etape++) {
+  for (let etape = 0; etape * Kp < (cfg.max || opt.max) && (!fin || (opt.collecter && fins.length < opt.collecter && etape < etapeFin + 45)); etape++) {
     const enfants = [];
     for (const nd of faisceau) {
       const precJ = nd.a >= 0 ? (A[nd.a].base & M.E.SAUT) : 0;
       for (let ai = 0; ai < A.length; ai++) {
         const a = A[ai];
-        if (a.sw && nd.e.charges <= 0) continue;
+        if (a.sw && (nd.e.charges <= 0 || (a.etat === nd.e.phase && a.etat !== M.P && a.etat !== M.Z && a.etat !== M.OM) || (a.etat === nd.e.ban && nd.e.temps < nd.e.banT))) continue;
         const c = M.cloner(nd.e);
         let mort = false, fini = false;
         for (let k = 0; k < Kp; k++) {
@@ -227,18 +248,23 @@ function chercher(def, avecEclat, cfg) {
     if (fin && etapeFin < 0) etapeFin = etape;
     if (fin && !opt.collecter) break;
     enfants.sort((a, b) => a.s - b.s);
-    const vus = new Set();
+    const vus = new Map();
     const suivant = [];
     const parCase = new Map();
     const reste = [];
     // 1er passage : au plus 2 états par case (diversité), 2e passage : on complète
     for (const nd of enfants) {
       const e = nd.e;
-      const cle = Math.round(e.x / 3) + ',' + Math.round(e.y / 3) + ',' + Math.round(e.vx * 1.5) + ',' + Math.round(e.vy * 1.5) + ',' +
-        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.gaz > 0 ? Math.round(e.gaz / 15) : '') + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '') + (e.plat >= 0 ? 'p' + e.plat : '');
-      if (vus.has(cle)) continue;
-      vus.add(cle);
-      const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length + e.bascule;
+      // clé numérique (bien plus rapide qu'un texte) : position et vitesse arrondies + tout ce qui change la suite
+      const k1 = (Math.round(e.x / 3) + 2048) + 4096 * (Math.round(e.y / 3) + 512) + 4194304 * ((Math.round(e.vx * 1.5) + 64) + 128 * (Math.round(e.vy * 1.5) + 64));
+      const k2 = e.phase + 8 * e.charges + 32 * e.att + 128 * (e.dash > 0 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
+        8192 * (e.slam ? 1 : 0) + 16384 * e.bascule + 32768 * Math.min(63, e.casses.length) + 2097152 * Math.min(15, e.boutons.length) +
+        33554432 * Math.min(63, e.craque.length) + 2147483648 * ((e.temps < e.banT ? e.ban + 1 : 0) + 16 * (e.temps < e.bonusT ? (e.bonus > 1 ? 1 : 2) : 0) + 64 * (e.plat + 1));
+      let v2 = vus.get(k1);
+      if (v2 === undefined) { v2 = new Set(); vus.set(k1, v2); }
+      else if (v2.has(k2)) continue;
+      v2.add(k2);
+      const cc = ((e.x / 16) | 0) + 1024 * (((e.y / 16) | 0) + 64) + 262144 * (e.phase + 8 * (e.eclat ? 1 : 0) + 16 * e.bascule + 32 * Math.min(15, e.boutons.length));
       const k = parCase.get(cc) || 0;
       if (k < opt.parCase) { parCase.set(cc, k + 1); suivant.push(nd); if (suivant.length >= opt.faisceau) break; }
       else reste.push(nd);
@@ -301,10 +327,16 @@ function chercherEclat(def, r0) {
     const e = M.nouvelEtat(n); pre = [];
     for (const inp of r0.entrees) { if (e.x >= (x0 - 2) * T) break; M.pas(n, e, inp); pre.push(inp); }
     if (e.mort || e.mortT > 0) continue;
-    try { a = chercher(def, true, { depart: { etat: e }, finX: ex + 7 }); } catch (err) { a = { ok: false }; }
+    try { a = chercher(def, true, { depart: { etat: e }, finX: ex + 7, max: 2400 }); } catch (err) { a = { ok: false }; }
     if (a.ok) break;
   }
-  if (!a.ok) return { ok: false };
+  if (!a.ok) {                                      // plan B : chercher tout le niveau en passant par l'éclat
+    const r = chercher(def, true);
+    if (!r.ok) return { ok: false };
+    let tout = r.entrees, temps = r.temps;
+    if (opt.affiner > 0) { const A = actions(n); const rr = affiner(n, tout, A, true); tout = rr.entrees; temps = rr.temps; }
+    return { ok: true, temps, entrees: tout };
+  }
   let b;
   try { b = chercher(def, true, { depart: { etat: a.etat } }); } catch (err) { b = { ok: false }; }
   if (!b.ok) return { ok: false };
@@ -331,10 +363,15 @@ function fusionner() {
     "})(typeof window !== 'undefined' ? window : globalThis);\n";
   fs.writeFileSync(fichier, corps);
 }
+const crypto = require('crypto');
+const EMPREINTE_MOTEUR = crypto.createHash('md5').update(fs.readFileSync(path.join(__dirname, '..', 'js', 'moteur.js'))).digest('hex').slice(0, 10);
+function empreinte(def) { return crypto.createHash('md5').update(EMPREINTE_MOTEUR + JSON.stringify(def.etats) + def.carte.join('\n')).digest('hex').slice(0, 12); }
 function enregistrer(id, champs) {
   const f = path.join(dossier, id + '.json');
   let d = {}; try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (err) { d = {}; }
   // on ne garde un nouveau temps que s'il est meilleur (ou si --remplacer, après une modif du niveau/moteur)
+  if (champs.h && d.h !== champs.h) d = { h: champs.h };          // le niveau ou le moteur a changé : on repart de zéro
+  if (champs.h) d.h = champs.h;
   if (opt.remplacer || champs.t !== undefined && (d.t === undefined || champs.t < d.t)) Object.assign(d, champs.t !== undefined ? { t: champs.t, f: champs.f } : {});
   if (champs.te !== undefined && (opt.remplacer || d.te === undefined || champs.te < d.te)) Object.assign(d, { te: champs.te, fe: champs.fe });
   fs.writeFileSync(f, JSON.stringify(d));
@@ -348,19 +385,24 @@ const t0 = Date.now();
 let echecs = 0;
 for (const def of cibles) {
   const d0 = Date.now();
+  const h = empreinte(def);
+  if (args.includes('--changes')) {                // seulement les niveaux qui ont changé depuis leur dernier calcul
+    let d = null; try { d = JSON.parse(fs.readFileSync(path.join(dossier, def.id + '.json'), 'utf8')); } catch (err) { d = null; }
+    if (d && d.h === h && d.t !== undefined && (!opt.eclat || !M.charger(def).aEclat || d.te !== undefined)) { console.log(def.id.padEnd(5) + ' inchangé'); continue; }
+  }
   const r = chercher(def, false);
   let ligne = def.id.padEnd(5) + ' ' + (def.nom || '').padEnd(26);
   if (!r.ok) { echecs++; ligne += ' ÉCHEC (bloqué à ~' + r.meilleur + ' cases du but)'; }
   else {
     ligne += ' ' + (r.temps / 60).toFixed(3) + ' s';
-    if (opt.ecrire) enregistrer(def.id, { t: r.temps, f: M.compresser(r.entrees) });
+    if (opt.ecrire) enregistrer(def.id, { h, t: r.temps, f: M.compresser(r.entrees) });
   }
   if (opt.eclat && M.charger(def).aEclat) {
     const r2 = chercherEclat(def, r);
     if (!r2.ok) { echecs++; ligne += ' | éclat : ÉCHEC'; }
     else {
       ligne += ' | éclat ' + (r2.temps / 60).toFixed(3) + ' s';
-      if (opt.ecrire) enregistrer(def.id, { te: r2.temps, fe: M.compresser(r2.entrees) });
+      if (opt.ecrire) enregistrer(def.id, { h, te: r2.temps, fe: M.compresser(r2.entrees) });
     }
   }
   console.log(ligne + '  (' + ((Date.now() - d0) / 1000).toFixed(1) + ' s de calcul)');

@@ -178,9 +178,18 @@ const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D
   t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || (t >= BAR_S && t <= BAR_ME);
 
 /* ---------- État ---------- */
+// l'état du joueur : une forme fixe, copiée champ par champ (le robot en copie des millions)
+function Etat() {
+  this.f = 0; this.temps = 0; this.demarre = false; this.fini = false; this.eclat = false;
+  this.casses = []; this.cristaux = []; this.craque = []; this.boutons = []; this.pieces = []; this.orbes = [];
+  this.bascule = 0; this.surInter = -1; this.ban = -1; this.banT = 0; this.bonus = 1; this.bonusT = 0; this.cp = null; this.cpN = 0; this.morts = 0;
+  this.inpPrev = 0; this.ev = 0; this.evX = 0; this.evY = 0;
+  this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.phase = 0; this.plat = -1; this.champCd = 0; this.charges = 0; this.gaz = 0; this.dash = 0; this.cdP = 0;
+  this.att = 0; this.slam = false; this.slamAt = 0; this.coyote = 0; this.tampon = 0; this.verrou = 0; this.jetCd = 0; this.jetSide = 0;
+  this.tpCd = 0; this.sol = true; this.face = 1; this.mortT = 0; this.immun = 0; this.dansEau = false; this.porte = 0; this.tremCd = 0; this.invT = 0;
+}
 function nouvelEtat(n) {
-  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], orbes: [], bascule: 0, surInter: -1, ban: -1, banT: 0, bonus: 1, bonusT: 0, cp: null, cpN: 0, morts: 0,
-    inpPrev: 0, ev: 0, evX: 0, evY: 0 };
+  const e = new Etat();
   placer(e, n);
   return e;
 }
@@ -190,14 +199,16 @@ function placer(e, n) {
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
 }
+// les listes ne sont jamais modifiées sur place : la copie peut les partager
 function cloner(e) {
-  const c = Object.assign({}, e);
-  c.casses = e.casses.slice();
-  c.cristaux = e.cristaux.slice();
-  c.craque = e.craque.slice();
-  c.boutons = e.boutons.slice();
-  c.pieces = e.pieces.slice();
-  c.orbes = e.orbes.slice();
+  const c = new Etat();
+  c.f = e.f; c.temps = e.temps; c.demarre = e.demarre; c.fini = e.fini; c.eclat = e.eclat;
+  c.casses = e.casses; c.cristaux = e.cristaux; c.craque = e.craque; c.boutons = e.boutons; c.pieces = e.pieces; c.orbes = e.orbes;
+  c.bascule = e.bascule; c.surInter = e.surInter; c.ban = e.ban; c.banT = e.banT; c.bonus = e.bonus; c.bonusT = e.bonusT; c.cp = e.cp; c.cpN = e.cpN; c.morts = e.morts;
+  c.inpPrev = e.inpPrev; c.ev = e.ev; c.evX = e.evX; c.evY = e.evY;
+  c.x = e.x; c.y = e.y; c.vx = e.vx; c.vy = e.vy; c.phase = e.phase; c.plat = e.plat; c.champCd = e.champCd; c.charges = e.charges; c.gaz = e.gaz; c.dash = e.dash; c.cdP = e.cdP;
+  c.att = e.att; c.slam = e.slam; c.slamAt = e.slamAt; c.coyote = e.coyote; c.tampon = e.tampon; c.verrou = e.verrou; c.jetCd = e.jetCd; c.jetSide = e.jetSide;
+  c.tpCd = e.tpCd; c.sol = e.sol; c.face = e.face; c.mortT = e.mortT; c.immun = e.immun; c.dansEau = e.dansEau; c.porte = e.porte; c.tremCd = e.tremCd; c.invT = e.invT;
   return c;
 }
 
@@ -316,7 +327,7 @@ function bloque(n, e, tx, ty, brise) {
   if (brise && tx >= 0 && tx < n.w && ty >= 0 && ty < n.h) {
     const i = ty * n.w + tx;
     if (n.g[i] === FRAGILE) {
-      e.casses.push(tx * 1024 + ty); e.ev |= EV.CASSE; e.evX = tx; e.evY = ty;
+      e.casses = e.casses.concat(tx * 1024 + ty); e.ev |= EV.CASSE; e.evX = tx; e.evY = ty;
       return false;
     }
   }
@@ -701,7 +712,7 @@ function pas(n, e, inp) {
     const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + W - 0.001) / T), ty = Math.round((e.y + H) / T);
     for (let tx = x0; tx <= x1; tx++) if (tuile(n, tx, ty) === CASSANT) {
       const k = tx * 1024 + ty;
-      if (!e.craque.some(c => c[0] === k)) { e.craque.push([k, e.temps]); e.ev |= EV.CRAQUE; e.evX = tx; e.evY = ty; }
+      if (!e.craque.some(c => c[0] === k)) { e.craque = e.craque.concat([[k, e.temps]]); e.ev |= EV.CRAQUE; e.evX = tx; e.evY = ty; }
     }
   }
   e.sol = sol;
@@ -764,7 +775,7 @@ function pas(n, e, inp) {
       if (e.orbes.some(o => o[0] === k && e.temps - o[1] < K.orbeRecharge)) continue;
       if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
       e.vy = -K.saut * mulSaut(e); e.tampon = 0; e.slam = false; e.att = 0; e.sol = false;
-      e.orbes = e.orbes.filter(o => e.temps - o[1] < K.orbeRecharge); e.orbes.push([k, e.temps]);
+      e.orbes = e.orbes.filter(o => e.temps - o[1] < K.orbeRecharge).concat([[k, e.temps]]);
       e.ev |= EV.ORBE; e.evX = tx; e.evY = ty;
       break orbe;
     }
@@ -824,14 +835,14 @@ function pas(n, e, inp) {
       }
     } else if (t === PIECE) {
       const k = tx * 1024 + ty;
-      if (rectCercle(e, bx + T / 2, by + T / 2, 5) && e.pieces.indexOf(k) < 0) { e.pieces.push(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
+      if (rectCercle(e, bx + T / 2, by + T / 2, 5) && e.pieces.indexOf(k) < 0) { e.pieces = e.pieces.concat(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
     } else if (t === BOUTON) {
       const k = tx * 1024 + ty;
-      if (rectRect(e, bx + 3, by + 9, bx + 13, by + T) && e.boutons.indexOf(k) < 0) { e.boutons.push(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
+      if (rectRect(e, bx + 3, by + 9, bx + 13, by + T) && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
     } else if (t === CRISTAL) {
       const i = tx * 1024 + ty;
       if (e.charges < K.charges && rectPoly(e, formeEn(FORME_CRISTAL, bx + T / 2, by + T / 2)) && !e.cristaux.some(c => c[0] === i)) {
-        e.charges = K.charges; e.cristaux.push([i, e.temps + 150]); e.ev |= EV.CRISTAL; e.evX = tx; e.evY = ty;
+        e.charges = K.charges; e.cristaux = e.cristaux.concat([[i, e.temps + 150]]); e.ev |= EV.CRISTAL; e.evX = tx; e.evY = ty;
       }
     } else if (t === CHAMPI) {                                   // champignon : repousse loin de son centre
       const ccx = bx + T / 2, ccy = by + T / 2;
