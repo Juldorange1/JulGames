@@ -82,7 +82,8 @@ function actions(n) {
   for (const h of hs) for (const vv of [0, E.H, E.B]) for (const j of [0, E.SAUT]) A.push({ base: h | vv | j, sw: 0 });
   const ph = n.phases;
   // touches 3 et 4 : les deux états propres au niveau
-  for (const [bit, p] of [[E.S, M.S], [E.L, M.L], [E.Z, n.emplacements[0]], [E.P, n.emplacements[1]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit });
+  const em = n.emplacements;
+  for (const [bit, p] of [[E.S, em[0]], [E.L, em[1]], [E.Z, em[2]], [E.P, em[3]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit });
   return A;
 }
 
@@ -234,7 +235,7 @@ function chercher(def, avecEclat, cfg) {
     for (const nd of enfants) {
       const e = nd.e;
       const cle = Math.round(e.x / 3) + ',' + Math.round(e.y / 3) + ',' + Math.round(e.vx * 1.5) + ',' + Math.round(e.vy * 1.5) + ',' +
-        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.gaz > 0 ? Math.round(e.gaz / 15) : '') + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '');
+        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.gaz > 0 ? Math.round(e.gaz / 15) : '') + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '') + (e.plat >= 0 ? 'p' + e.plat : '');
       if (vus.has(cle)) continue;
       vus.add(cle);
       const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length + e.bascule;

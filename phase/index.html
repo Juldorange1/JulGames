@@ -17,7 +17,20 @@ html, body, canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3
 .btn, .btn *, select, input, label { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%234fb8ff' stroke='%23201430' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='21' cy='21' r='4' fill='%23ff6ad5' stroke='%23201430' stroke-width='1.5'/%3E%3C/svg%3E") 3 2, pointer !important; }
 .btn[disabled], .btn[disabled] * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%23ffe94a' stroke='%23201430' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M5.5 7 L5.5 16 L9 13' fill='none' stroke='%23fff' stroke-width='1.3' opacity='.8'/%3E%3C/svg%3E") 3 2, default !important; }
 canvas { display: block; position: fixed; inset: 0; }
-#ui { position: fixed; inset: 0; display: none; align-items: center; justify-content: safe center; flex-direction: column; padding: 16px; overflow-y: auto; }
+#ui { position: fixed; inset: 0; display: none; align-items: center; justify-content: safe center; flex-direction: column; padding: 16px; overflow: hidden; }
+.cadre { display: flex; flex-direction: column; align-items: center; transform-origin: top center; width: 100%; }
+* { scrollbar-width: none; } *::-webkit-scrollbar { display: none; }
+#rejeu { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 6px; align-items: center; background: rgba(8,6,14,.7); padding: 8px 10px; border-radius: 12px; z-index: 5; flex-wrap: wrap; justify-content: center; }
+#rejeu.visible { display: flex; }
+#rejeu span { font-size: 12px; opacity: .7; margin-left: 6px; }
+.btn.choisi { border-color: #ffe94a; color: #ffe94a; }
+.onglets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.zones.une { display: block; width: min(820px, 100%); }
+.zones.une .zone { display: grid; grid-template-columns: 1fr 1fr; }
+.zones.une .znom, .zones.une .verrou { grid-column: 1 / -1; }
+.nivw { display: flex; gap: 4px; align-items: stretch; }
+.nivw .niv { flex: 1; }
+.nivw .voirp { padding: 4px 10px; }
 #ui.visible { display: flex; }
 #ui.visible:not(.accueil) { background: rgba(8, 6, 14, .72); backdrop-filter: blur(3px); }
 #ui.large { justify-content: flex-start; padding-top: 28px; }
@@ -38,7 +51,7 @@ h3 { margin: 20px 0 8px; } h3 small { font-weight: 400; color: #999; font-size: 
 .btn:hover:not([disabled]), .btn:focus { border-color: #ffe94a; background: rgba(52, 42, 76, .95); transform: translateX(3px); }
 .btn[disabled] { opacity: .4; }
 .rose { color: #ff8ae0; }
-.skins { display: grid; width: min(720px, 100%); align-self: center; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.skins { display: grid; width: min(980px, 100%); align-self: center; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-bottom: 10px; }
 .skin { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 10px; }
 .skin .ap { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid #201430; }
 .skin small { font-size: 12px; opacity: .8; }
@@ -87,7 +100,7 @@ select { background: #221a33; color: #eee; border: 1px solid #555; border-radius
 .fin .med { font-size: 18px; padding: 3px 14px; }
 .lignes { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
 .vert { color: #7dff9a; } .rouge { color: #ff8a8a; } .gris { color: #999; } .rose { color: #ff6ad5; }
-.splits { max-height: 40vh; overflow-y: auto; margin-top: 12px; }
+.splits { margin-top: 12px; }
 #tactile { display: none; }
 #tactile.actif { display: block; }
 #tactile.cache-jeu { display: none !important; }
@@ -124,14 +137,16 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=17"></script>
-<script src="js/calibrage.js?v=17"></script>
-<script src="js/gen.js?v=17"></script>
-<script src="js/niveaux.js?v=17"></script>
-<script src="js/parfaits.js?v=17"></script>
-<script src="js/rendu.js?v=17"></script>
-<script src="js/son.js?v=17"></script>
-<script src="js/langues.js?v=17"></script>
-<script src="js/jeu.js?v=17"></script>
+<script src="js/moteur.js?v=18"></script>
+<script src="js/calibrage.js?v=18"></script>
+<script src="js/compat.js?v=18"></script>
+<script src="js/gen.js?v=18"></script>
+<script src="js/niveaux.js?v=18"></script>
+<script src="js/parfaits.js?v=18"></script>
+<script src="js/rendu.js?v=18"></script>
+<script src="js/compositeur.js?v=18"></script>
+<script src="js/son.js?v=18"></script>
+<script src="js/langues.js?v=18"></script>
+<script src="js/jeu.js?v=18"></script>
 </body>
 </html>

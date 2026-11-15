@@ -17,13 +17,19 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   VENT_H = 18, VENT_B = 19, TP1 = 20, TP1S = 21, TP2 = 22, TP2S = 23, ECLAT = 24, PANNEAU = 25,
   ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30, PIECE = 31,
   ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
-  BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45;
+  BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
+  BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
+  LASER = 55, CHAMPI = 56;
+// barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
+const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
   'w': EAU, 'i': GLACE, 's': RESSORT, '*': CRISTAL, 'G': BUT, '!': DRAPEAU, '-': PLATE, '[': TAPIS_G, ']': TAPIS_D,
   '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU,
   'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE, '$': PIECE,
   'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
-  '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI };
+  '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI,
+  'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
+  'L': LASER, 'U': CHAMPI };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -45,7 +51,9 @@ const K = {
   // pièges
   flechePeriode: 84, flecheVit: 4.2, cassantDelai: 22, cassantRetour: 150, rebondMin: 8.2,
   orbeRecharge: 30, tremplinVx: 9.5, tremplinVy: 3.5, ennemiVit: 1.3, banDuree: 240, bonusDuree: 360, sautPlus: 1.45, sautMoins: 0.7,
-  invincible: 50, orbeRayon: 17,
+  invincible: 50, orbeRayon: 10,
+  platVit: 1.1, platLarg: 3, platEp: 5, scieVit: 1.5, scieRayon: 7, laserEp: 4, champiRayon: 6.5, champiForce: 7.6,
+  ennemiRayon: 6.5,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -53,9 +61,12 @@ const K = {
 
 /* ---------- Chargement d'un niveau ---------- */
 function charger(def) {
+  // les 4 états du niveau (touches 1 à 4) ; le premier est l'état de base, celui où l'on revient
+  const et = (def.etats && def.etats.length === 4) ? def.etats.slice()
+    : (def.etats && def.etats.length === 2) ? [S, L].concat(def.etats) : [S, L, Z, P];
   let phases = 0;
-  for (const p of (def.phases || [S])) phases |= 1 << p;
-  const n = { def, phases, emplacements: (def.etats && def.etats.length === 2) ? def.etats.slice() : [Z, P] };
+  for (const p of (def.phases || et)) phases |= 1 << p;
+  const n = { def, phases, emplacements: et, base: et[0] };
   recharger(n, def.carte);
   if (!n.dep) throw new Error('Pas de départ @ dans ' + def.id);
   return n;
@@ -130,23 +141,52 @@ function recharger(n, c) {
     while (b < 30 && passeE(hor ? x + b + 1 : x, hor ? y : y + b + 1)) b++;
     ennemis.push({ x, y, hor, min: -a * T, max: b * T, dec: (x * 13 + y * 7) % 200 });
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis });
+  // plateformes mobiles (3 cases de large) et scies : aller-retour d'un mur à l'autre, selon le temps seulement
+  const plates = [], scies = [];
+  const passeP = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]) && g[y * w + x] !== PICS;
+  for (let i = 0; i < w * h; i++) {
+    const t = g[i];
+    if (t !== PLAT_H && t !== PLAT_V && t !== SCIE_H && t !== SCIE_V) continue;
+    const x = i % w, y = Math.floor(i / w), plat = t === PLAT_H || t === PLAT_V, hor = t === PLAT_H || t === SCIE_H;
+    const lg = plat ? K.platLarg : 1;
+    const libreL = (xx, yy) => { for (let k = 0; k < (hor ? 1 : lg); k++) if (!(plat ? passeP(xx + k, yy) : (xx >= 0 && yy >= 0 && xx < w && yy < h && !estDur(g[yy * w + xx])))) return false; return true; };
+    let a = 0, b = 0;
+    if (hor) { while (a < 40 && libreL(x - a - 1, y)) a++; while (b < 40 && libreL(x + lg + b, y)) b++; }
+    else { while (a < 40 && libreL(x, y - a - 1)) a++; while (b < 40 && libreL(x, y + b + 1)) b++; }
+    const o = { x, y, hor, min: -a * T, max: b * T, dec: (x * 29 + y * 11) % 300 };
+    (plat ? plates : scies).push(o);
+  }
+  // lasers : un rayon vers le côté libre, allumé par moments (avec un préavis)
+  const lasers = [];
+  for (let i = 0; i < w * h; i++) {
+    if (g[i] !== LASER) continue;
+    const x = i % w, y = Math.floor(i / w);
+    let dx = 0, dy = 0;
+    if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x - 1, y)) dx = -1;
+    if (!dx && !dy) continue;
+    let k = 1;
+    while (k < 40 && libre(x + dx * k, y + dy * k)) k++;
+    const hs = (x * 19349663 ^ y * 83492791) >>> 0;
+    const per = 110 + hs % 80, on = 40 + (hs >> 7) % 30;
+    lasers.push({ x, y, dx, dy, lg: (k - 1) * T, per, on, dec: (hs >> 3) % per });
+  }
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers });
   return n;
 }
 
 const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
-  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI;
+  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || (t >= BAR_S && t <= BAR_ME);
 
 /* ---------- État ---------- */
 function nouvelEtat(n) {
-  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], orbes: [], bascule: 0, surInter: -1, ban: -1, banT: 0, bonus: 1, bonusT: 0, cp: null, morts: 0,
+  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], orbes: [], bascule: 0, surInter: -1, ban: -1, banT: 0, bonus: 1, bonusT: 0, cp: null, cpN: 0, morts: 0,
     inpPrev: 0, ev: 0, evX: 0, evY: 0 };
   placer(e, n);
   return e;
 }
 function placer(e, n) {
   const d = e.cp || n.dep;
-  e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = S; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
+  e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = n.base; e.plat = -1; e.champCd = 0; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
 }
@@ -191,6 +231,63 @@ function ennemiEn(en, temps) {
   const d = ((temps + en.dec) * K.ennemiVit) % (2 * L), o = en.min + (d < L ? d : 2 * L - d);
   return en.hor ? [en.x * T + 2 + o, en.y * T + 2] : [en.x * T + 2, en.y * T + 2 + o];
 }
+// plateforme mobile / scie : position (coin haut-gauche de la plateforme, centre de la scie) à un instant
+function allerRetour(o, temps, vit) {
+  const L2 = o.max - o.min;
+  if (L2 <= 0) return 0;
+  const d = ((temps + o.dec) * vit) % (2 * L2);
+  return o.min + (d < L2 ? d : 2 * L2 - d);
+}
+function plateEn(p, temps) { const o = allerRetour(p, temps, K.platVit); return p.hor ? [p.x * T + o, p.y * T] : [p.x * T, p.y * T + o]; }
+function scieEn(s2, temps) { const o = allerRetour(s2, temps, K.scieVit); return s2.hor ? [s2.x * T + T / 2 + o, s2.y * T + T / 2] : [s2.x * T + T / 2, s2.y * T + T / 2 + o]; }
+// laser : 0 éteint, 1 préavis (inoffensif), 2 allumé
+function laserEtat(l, temps) {
+  const k = ((temps + l.dec) % l.per + l.per) % l.per;
+  return k < l.on ? 2 : k > l.per - 26 ? 1 : 0;
+}
+function laserRect(l) {
+  const ep = K.laserEp / 2, cx = l.x * T + T / 2, cy = l.y * T + T / 2;
+  if (l.dx) { const x0 = l.dx > 0 ? (l.x + 1) * T : l.x * T - l.lg; return [x0, cy - ep, x0 + l.lg, cy + ep]; }
+  const y0 = l.dy > 0 ? (l.y + 1) * T : l.y * T - l.lg; return [cx - ep, y0, cx + ep, y0 + l.lg];
+}
+function rectRect(e, a, b, c, d) { return e.x + W > a && e.x < c && e.y + H > b && e.y < d; }
+function rectCercle(e, cx, cy, r) {
+  const qx = Math.max(e.x, Math.min(cx, e.x + W)), qy = Math.max(e.y, Math.min(cy, e.y + H));
+  return (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy) < r * r;
+}
+// boîte du joueur contre un polygone convexe (séparation des axes)
+function rectPoly(e, pts) {
+  const bx = [e.x, e.x + W, e.x + W, e.x], by = [e.y, e.y, e.y + H, e.y + H];
+  const axes = [[1, 0], [0, 1]];
+  for (let i = 0; i < pts.length; i += 2) { const j = (i + 2) % pts.length; axes.push([-(pts[j + 1] - pts[i + 1]), pts[j] - pts[i]]); }
+  for (const [ax, ay] of axes) {
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (let i = 0; i < pts.length; i += 2) { const v = pts[i] * ax + pts[i + 1] * ay; if (v < a0) a0 = v; if (v > a1) a1 = v; }
+    for (let i = 0; i < 4; i++) { const v = bx[i] * ax + by[i] * ay; if (v < b0) b0 = v; if (v > b1) b1 = v; }
+    if (a1 <= b0 + 1e-6 || b1 <= a0 + 1e-6) return false;
+  }
+  return true;
+}
+// les 3 pointes d'une case de pics, exactement comme elles sont dessinées
+const PICS_TRI = [0, 1, 2, 3].map(dir => {
+  const a = [0, Math.PI, Math.PI / 2, -Math.PI / 2][dir], c = Math.cos(a), s2 = Math.sin(a), out = [];
+  for (let i = 0; i < 3; i++) {
+    const bx = -8 + i * 5.33, loc = [bx, 8, bx + 2.66, -4, bx + 5.33, 8], tri = [];
+    for (let k = 0; k < 6; k += 2) tri.push(loc[k] * c - loc[k + 1] * s2 + T / 2, loc[k] * s2 + loc[k + 1] * c + T / 2);
+    out.push(tri);
+  }
+  return out;
+});
+function toucherPics(n, e, tx, ty) {
+  for (const tri of PICS_TRI[sensPics(n, tx, ty)]) {
+    const pts = tri.map((v, i) => v + (i % 2 ? ty * T : tx * T));
+    if (rectPoly(e, pts)) return true;
+  }
+  return false;
+}
+const FORME_CRISTAL = [0, -7, 5, 0, 0, 7, -5, 0];
+const FORME_ECLAT = [0, -7, 6, -3.5, 6, 3.5, 0, 7, -6, 3.5, -6, -3.5];
+function formeEn(f, cx, cy) { return f.map((v, i) => v + (i % 2 ? cy : cx)); }
 function casse(e, i) { return e.casses.length > 0 && e.casses.indexOf(i) >= 0; }
 function tuile(n, tx, ty) {
   if (tx < 0 || tx >= n.w || ty < 0) return MUR;
@@ -208,9 +305,8 @@ function plein(n, e, tx, ty) {
     case BLOC_B: return e.bascule === 1;
     case PORTE: { const b = n.porteDe.get(tx * 1024 + ty); return b === undefined || e.boutons.indexOf(b) < 0; }
     case FRAGILE: return !casse(e, tx * 1024 + ty);
-    case GRILLE: return e.phase !== L;
-    case TAMIS: return e.phase !== Z;
-    case PAROI: return e.phase !== OM;
+    case LASER: return true;
+    case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: return e.phase !== BARRIERE[t];
     default: return false;
   }
 }
@@ -316,6 +412,12 @@ function zonePics(n, tx, ty) {
 function mulSaut(e) { return e.temps < e.bonusT ? e.bonus : 1; }
 function approche(v, c, d) { return v < c ? Math.min(c, v + d) : Math.max(c, v - d); }
 
+// devenir un état qui ne passe pas là où l'on se trouve : écrasé
+function ecrase(n, e) {
+  const ax = Math.floor(e.x / T), bx = Math.floor((e.x + W - 0.001) / T), ay = Math.floor(e.y / T), by = Math.floor((e.y + H - 0.001) / T);
+  for (let ty = ay; ty <= by; ty++) for (let tx = ax; tx <= bx; tx++) if (BARRIERE[tuile(n, tx, ty)] !== undefined && plein(n, e, tx, ty)) { mourir(e, true); return; }
+}
+function retour(n, e) { e.phase = n.base; e.dash = 0; e.gaz = 0; e.ev |= EV.CHANGE; ecrase(n, e); }
 function mourir(e, force) {
   if (e.mortT > 0) return;
   if (e.invT > 0 && !force) return;
@@ -341,6 +443,7 @@ function changer(n, e, vers, h, v) {
     if (vers !== L) e.att = 0;
   }
   e.ev |= EV.CHANGE;
+  ecrase(n, e);
 }
 
 /* ---------- Un pas de simulation ---------- */
@@ -378,7 +481,7 @@ function pas(n, e, inp) {
 
   // changements d'état demandés
   let vers = -1;
-  if (presse & E.P) vers = n.emplacements[1]; else if (presse & E.S) vers = S; else if (presse & E.L) vers = L; else if (presse & E.Z) vers = n.emplacements[0];
+  if (presse & E.P) vers = n.emplacements[3]; else if (presse & E.S) vers = n.emplacements[0]; else if (presse & E.L) vers = n.emplacements[1]; else if (presse & E.Z) vers = n.emplacements[2];
   if (vers >= 0 && e.ban === vers && e.temps < e.banT) { e.ev |= EV.ECHEC; vers = -1; }
   if (vers >= 0 && (n.phases & (1 << vers)) && (vers !== e.phase || vers === P || vers === Z || vers === OM)) {
     if (vers === P && (e.cdP > 0 || e.dash > 0)) { /* pas deux éclairs collés */ }
@@ -386,6 +489,14 @@ function pas(n, e, inp) {
     else { e.ev |= EV.ECHEC; }
   }
 
+  // porté par une plateforme mobile
+  if (e.plat >= 0) {
+    const pl = n.plates[e.plat], [px, py] = plateEn(pl, e.temps), [qx, qy] = plateEn(pl, e.temps - 1);
+    if (e.x + W > qx && e.x < qx + K.platLarg * T && Math.abs(e.y + H - qy) < 0.6) {
+      if (px !== qx) bougerX(n, e, px - qx);
+      if (py !== qy) bougerY(n, e, py - qy);
+    } else { e.plat = -1; e.sol = false; }
+  }
   const sol0 = e.sol;
   let porte = 0;
   if (sol0) {
@@ -487,7 +598,7 @@ function pas(n, e, inp) {
         else e.vx = approche(e.vx, h * K.zCourse, K.zAcc);
       } else e.vx = approche(e.vx, 0, 0.07);
     }
-    if (--e.gaz <= 0) { e.phase = S; e.gaz = 0; e.ev |= EV.CHANGE; }
+    if (--e.gaz <= 0) retour(n, e);
   } else if (e.phase === PL || e.phase === CA || e.phase === ME) {
     const pl = e.phase === PL, ca = e.phase === CA, me = e.phase === ME;
     if (eau) {
@@ -519,19 +630,14 @@ function pas(n, e, inp) {
   } else if (e.phase === OM) {                  // ombre : vol libre, traverse les parois spectrales, puis redevient solide
     e.vx = approche(e.vx, h * K.omVit, 0.4);
     e.vy = approche(e.vy, v * K.omVit, 0.4);
-    if (--e.gaz <= 0) {
-      e.phase = S; e.gaz = 0; e.ev |= EV.CHANGE;
-      // redevenir solide à l'intérieur d'une paroi : écrasé
-      const ax = Math.floor(e.x / T), bx = Math.floor((e.x + W - 0.001) / T), ay = Math.floor(e.y / T), by = Math.floor((e.y + H - 0.001) / T);
-      for (let ty = ay; ty <= by; ty++) for (let tx = ax; tx <= bx; tx++) if (tuile(n, tx, ty) === PAROI) mourir(e, true);
-    }
+    if (--e.gaz <= 0) retour(n, e);           // dans une paroi au mauvais moment : écrasé
   } else { // plasma
     if (e.tampon > 0 && sol0) {
-      e.phase = S; e.dash = 0; e.cdP = K.pRecharge; e.vy = -5.8;
+      e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; e.vy = -5.8;
       e.vx = Math.sign(e.vx || e.face) * Math.min(Math.abs(e.vx) + 0.8, 8);
       e.tampon = 0; e.sol = false; e.ev |= EV.SAUT;
     } else if (--e.dash <= 0) {
-      e.phase = S; e.dash = 0; e.cdP = K.pRecharge; e.ev |= EV.CHANGE;
+      e.cdP = K.pRecharge; retour(n, e);
       if (Math.abs(e.vx) > K.pSortie) e.vx = Math.sign(e.vx) * K.pSortie;
       if (e.vy < 0) e.vy *= 0.45; else e.vy = Math.min(e.vy, 4);
     }
@@ -548,7 +654,7 @@ function pas(n, e, inp) {
   }
 
   /* ----- déplacement ----- */
-  const vxPre = e.vx, vyPre = e.vy;
+  const vxPre = e.vx, vyPre = e.vy, basAvant = e.y + H;
   let mx = e.vx + (sol0 && e.phase !== Z ? porte : 0), my = e.vy;
   const nPas = Math.max(1, Math.ceil(Math.max(Math.abs(mx), Math.abs(my)) / 4));
   let hitX = false, hitBas = false, hitHaut = false;
@@ -572,11 +678,25 @@ function pas(n, e, inp) {
     const sous = contact(n, e, 0);
     if (sous === REBONDI) {
       e.vy = -Math.max(K.rebondMin, vyPre * 0.9 + (e.slam ? 2 : 0)); e.slam = false; e.att = 0;
-      if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+      if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
       e.charges = K.charges; e.ev |= EV.BOND; e.evX = e.x + W / 2; e.evY = e.y + H;
     }
   }
-  const sol = contact(n, e, 0) >= 0 && e.vy >= 0;
+  // atterrir sur une plateforme mobile (on ne la heurte que par le dessus)
+  let surPlat = -1;
+  if (n.plates.length && e.vy >= 0 && e.phase !== Z && e.phase !== OM) {
+    for (let i = 0; i < n.plates.length; i++) {
+      const pl = n.plates[i];
+      if (Math.abs(pl.x * T - e.x) > 48 * T) continue;
+      const [px, py] = plateEn(pl, e.temps);
+      if (e.x + W <= px || e.x >= px + K.platLarg * T) continue;
+      if (basAvant <= py + 0.6 && e.y + H >= py) {
+        if (!(e.vy === 0 && e.sol && e.plat !== i && contact(n, e, 0) >= 0)) { e.y = py - H; e.vy = 0; surPlat = i; break; }
+      }
+    }
+  }
+  e.plat = surPlat;
+  const sol = (contact(n, e, 0) >= 0 && e.vy >= 0) || surPlat >= 0;
   if (sol) {                                   // on se pose sur un sol cassant : il va céder
     const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + W - 0.001) / T), ty = Math.round((e.y + H) / T);
     for (let tx = x0; tx <= x1; tx++) if (tuile(n, tx, ty) === CASSANT) {
@@ -640,9 +760,9 @@ function pas(n, e, inp) {
     orbe: for (let ty = gy - 1; ty <= gy + 1; ty++) for (let tx = gx - 1; tx <= gx + 1; tx++) {
       if (tuile(n, tx, ty) !== ORBE) continue;
       const k = tx * 1024 + ty;
-      if (Math.hypot(tx * T + T / 2 - pcx, ty * T + T / 2 - pcy) > K.orbeRayon) continue;
+      if (!rectCercle(e, tx * T + T / 2, ty * T + T / 2, K.orbeRayon)) continue;
       if (e.orbes.some(o => o[0] === k && e.temps - o[1] < K.orbeRecharge)) continue;
-      if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+      if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
       e.vy = -K.saut * mulSaut(e); e.tampon = 0; e.slam = false; e.att = 0; e.sol = false;
       e.orbes = e.orbes.filter(o => e.temps - o[1] < K.orbeRecharge); e.orbes.push([k, e.temps]);
       e.ev |= EV.ORBE; e.evX = tx; e.evY = ty;
@@ -658,11 +778,10 @@ function pas(n, e, inp) {
     const bx = tx * T, by = ty * T;
     const dans = (m) => e.x + W > bx + m && e.x < bx + T - m && e.y + H > by + m && e.y < by + T - m;
     if (t === PICS) {
-      const r = zonePics(n, tx, ty);
-      if (e.x + W > r[0] && e.x < r[2] && e.y + H > r[1] && e.y < r[3]) mourir(e);
+      if (toucherPics(n, e, tx, ty)) mourir(e);
     }
     else if (t === FEU) {
-      if (!dans(2) || e.immun > 0) continue;
+      if (!rectRect(e, bx, by + 4, bx + T, by + T) || e.immun > 0) continue;
       if (e.phase === ME || e.phase === P) { /* insensible */ }
       else if (e.phase !== L && e.phase !== Z) mourir(e);
       else if (e.phase === L) {                               // l'eau s'évapore : elle devient gaz
@@ -671,54 +790,63 @@ function pas(n, e, inp) {
         let dx = e.x + W / 2 - (bx + T / 2), dy = e.y + H / 2 - (by + T / 2);
         const d = Math.hypot(dx, dy) || 1;
         if (d < 0.5) { dx = 0; dy = -1; } else { dx /= d; dy /= d; }
-        e.vx = dx * K.boum + e.vx * 0.2; e.vy = dy * K.boum - 1.2; e.phase = S; e.gaz = 0; e.immun = 12; e.sol = false;
+        e.vx = dx * K.boum + e.vx * 0.2; e.vy = dy * K.boum - 1.2; e.phase = n.base; e.gaz = 0; e.immun = 12; e.sol = false;
         e.ev |= EV.BOUM; e.evX = tx; e.evY = ty;
       }
     } else if (t === RESSORT) {
-      if (!(e.y + H > by + 6) || e.vy < 0 || e.dansEau) continue;
+      if (!rectRect(e, bx + 1, by + 5, bx + T - 1, by + T) || e.vy < 0 || e.dansEau) continue;
       const fort = e.phase === S && (e.slam || e.slamAt > 0);
       if (e.phase === Z) e.vy = -4.6;
-      else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; } }
+      else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; } }
       e.slam = false; e.slamAt = 0; e.sol = false; e.att = 0; e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
     } else if (t === INTER) {
       const k = tx * 1024 + ty;
-      if (dans(2)) { touchInter = k; if (e.surInter !== k) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; } }
+      if (rectRect(e, bx + 3, by + 4, bx + 13, by + T)) { touchInter = k; if (e.surInter !== k) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; } }
     } else if (t === TREMP_G || t === TREMP_D) {            // tremplin latéral : projette sur le côté
-      if (dans(2) && e.tremCd <= 0) {
+      if (rectRect(e, bx + 2, by + 6, bx + 14, by + T) && e.tremCd <= 0) {
         const dir = t === TREMP_D ? 1 : -1;
         e.vx = dir * K.tremplinVx; e.vy = -K.tremplinVy; e.att = 0; e.slam = false; e.sol = false; e.tremCd = 12;
-        if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+        if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
         e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
       }
     } else if (t === BAN_L || t === BAN_Z || t === BAN_P) {    // bannissement : cet état est interdit un moment
-      if (dans(2)) {
-        const ph = t === BAN_L ? L : t === BAN_Z ? n.emplacements[0] : n.emplacements[1];   // 8 et 9 : les états propres au niveau
+      if (rectCercle(e, bx + T / 2, by + T / 2, 6.5)) {
+        const ph = n.emplacements[t === BAN_L ? 1 : t === BAN_Z ? 2 : 3];   // 7, 8, 9 : les états 2, 3 et 4 du niveau
         if (e.ban !== ph || e.banT - e.temps < K.banDuree - 30) { e.ev |= EV.BANNI; e.evX = tx; e.evY = ty; }
         e.ban = ph; e.banT = e.temps + K.banDuree;
-        if (e.phase === ph) { e.phase = S; e.gaz = 0; e.dash = 0; e.att = 0; e.ev |= EV.CHANGE; }
+        if (e.phase === ph) { e.att = 0; retour(n, e); }
       }
     } else if (t === SAUT_PLUS || t === SAUT_MOINS) {           // multiplicateur de saut
-      if (dans(2)) {
+      if (rectCercle(e, bx + T / 2, by + T / 2, 5.5)) {
         const m = t === SAUT_PLUS ? K.sautPlus : K.sautMoins;
         if (e.bonus !== m || e.bonusT - e.temps < K.bonusDuree - 30) { e.ev |= EV.BONUS; e.evX = tx; e.evY = ty; }
         e.bonus = m; e.bonusT = e.temps + K.bonusDuree;
       }
     } else if (t === PIECE) {
       const k = tx * 1024 + ty;
-      if (dans(2) && e.pieces.indexOf(k) < 0) { e.pieces.push(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
+      if (rectCercle(e, bx + T / 2, by + T / 2, 5) && e.pieces.indexOf(k) < 0) { e.pieces.push(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
     } else if (t === BOUTON) {
       const k = tx * 1024 + ty;
-      if (e.y + H > by + 10 && e.boutons.indexOf(k) < 0) { e.boutons.push(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
+      if (rectRect(e, bx + 3, by + 9, bx + 13, by + T) && e.boutons.indexOf(k) < 0) { e.boutons.push(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
     } else if (t === CRISTAL) {
       const i = tx * 1024 + ty;
-      if (e.charges < K.charges && dans(1) && !e.cristaux.some(c => c[0] === i)) {
+      if (e.charges < K.charges && rectPoly(e, formeEn(FORME_CRISTAL, bx + T / 2, by + T / 2)) && !e.cristaux.some(c => c[0] === i)) {
         e.charges = K.charges; e.cristaux.push([i, e.temps + 150]); e.ev |= EV.CRISTAL; e.evX = tx; e.evY = ty;
       }
+    } else if (t === CHAMPI) {                                   // champignon : repousse loin de son centre
+      const ccx = bx + T / 2, ccy = by + T / 2;
+      if (e.champCd <= 0 && rectCercle(e, ccx, ccy, K.champiRayon)) {
+        let dx = e.x + W / 2 - ccx, dy = e.y + H / 2 - ccy;
+        const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+        e.vx = dx * K.champiForce; e.vy = dy * K.champiForce - 1.4; e.champCd = 10; e.slam = false; e.att = 0; e.sol = false; e.plat = -1;
+        if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
+        e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
+      }
     } else if (t === BUT) { e.fini = true; e.ev |= EV.FIN; }
-    else if (t === ECLAT) { if (!e.eclat) { e.eclat = true; e.ev |= EV.ECLAT; e.evX = tx; e.evY = ty; } }
+    else if (t === ECLAT) { if (!e.eclat && rectPoly(e, formeEn(FORME_ECLAT, bx + T / 2, by + T / 2))) { e.eclat = true; e.ev |= EV.ECLAT; e.evX = tx; e.evY = ty; } }
     else if (t === DRAPEAU) {
-      if (!e.cp || e.cp.tx !== tx || e.cp.ty !== ty) {
-        e.cp = { x: tx * T + (T - W) / 2, y: (ty + 1) * T - H, tx, ty }; e.ev |= EV.DRAPEAU; e.evX = tx; e.evY = ty;
+      if ((!e.cp || e.cp.tx !== tx || e.cp.ty !== ty) && rectRect(e, bx + 3, by + 1, bx + 14, by + T)) {
+        e.cp = { x: tx * T + (T - W) / 2, y: (ty + 1) * T - H, tx, ty }; e.cpN++; e.ev |= EV.DRAPEAU; e.evX = tx; e.evY = ty;
       }
     } else if ((t === TP1 || t === TP2) && e.tpCd === 0) {
       const ccx = e.x + W / 2, ccy = e.y + H / 2;
@@ -735,6 +863,7 @@ function pas(n, e, inp) {
   if (e.y > n.h * T + 8) mourir(e, true);
   e.surInter = touchInter;
   if (e.tremCd > 0) e.tremCd--;
+  if (e.champCd > 0) e.champCd--;
   // un bloc de couleur qui apparaît sur le joueur l'écrase
   if ((e.ev & EV.BASCULE) && e.mortT === 0) {
     const ax = Math.floor(e.x / T), bx = Math.floor((e.x + W - 0.001) / T), ay = Math.floor(e.y / T), by = Math.floor((e.y + H - 0.001) / T);
@@ -746,7 +875,26 @@ function pas(n, e, inp) {
     for (const en of n.ennemis) {
       if (Math.abs(en.x * T - px) > 40 * T) continue;
       const [ex, ey] = ennemiEn(en, e.temps);
-      if (ex + 11 > e.x && ex + 1 < e.x + W && ey + 11 > e.y && ey + 1 < e.y + H) { mourir(e); break; }
+      if (rectCercle(e, ex + 6, ey + 6, K.ennemiRayon)) { mourir(e); break; }
+    }
+  }
+  // scies qui roulent
+  if (n.scies.length && e.mortT === 0) {
+    const px = e.x + W / 2;
+    for (const sc of n.scies) {
+      if (Math.abs(sc.x * T - px) > 48 * T) continue;
+      const [cx, cy] = scieEn(sc, e.temps);
+      if (rectCercle(e, cx, cy, K.scieRayon)) { mourir(e); break; }
+    }
+  }
+  // lasers allumés (l'ombre les traverse)
+  if (n.lasers.length && e.mortT === 0 && e.phase !== OM) {
+    const px = e.x + W / 2;
+    for (const la of n.lasers) {
+      if (Math.abs(la.x * T - px) > 48 * T) continue;
+      if (laserEtat(la, e.temps) !== 2) continue;
+      const r = laserRect(la);
+      if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
     }
   }
   // flèches des arbalètes proches
@@ -755,7 +903,7 @@ function pas(n, e, inp) {
     for (const f of n.fleches) {
       if (Math.abs(f.x * T - px) > 44 * T) continue;
       for (const [ax, ay] of flechesEn(n, e.temps, f)) {
-        const hx = f.dx ? 6 : 1.5, hy = f.dy ? 6 : 1.5;
+        const hx = f.dx ? 8 : 2.5, hy = f.dy ? 8 : 2.5;
         if (ax + hx > e.x && ax - hx < e.x + W && ay + hy > e.y && ay - hy < e.y + H) { mourir(e); break; }
       }
       if (e.mortT) break;
@@ -788,7 +936,8 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, NOMS_PHASES, E, EV, K, CH,
   VIDE, MUR, GRILLE, TAMIS, FRAGILE, PICS, FEU, EAU, GLACE, RESSORT, CRISTAL, BUT, DRAPEAU, PLATE, TAPIS_G, TAPIS_D,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
-  BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, estDur, flechesEn, effondre, ennemiEn,
+  BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
+  LASER, CHAMPI, BARRIERE, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

@@ -10,8 +10,8 @@ const S = 0, L = 1, Z = 2, P = 3;
 const DEF = [
   { nom: 'Carrière', theme: 'carriere', phases: [S],
     niveaux: ['Premiers pas', 'Éboulis', 'Fracas', 'Galerie', 'Carrière profonde', 'Front de taille'],
-    intro: { 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé pour sauter plus haut). Contre un mur en l’air : saut mural.',
-      'En l’air, Bas : fracas (brise les blocs fêlés). Saute juste après : rebond. Ressort + fracas : très haut.'],
+    intro: { 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé pour sauter plus haut). Tes 4 états changent à chaque niveau : lis les panneaux.',
+      'Une barrière de couleur ne laisse passer que l’état de sa couleur. Changer d’état coûte une charge (2 au plus), rendue au sol.'],
       1: ['Sol cassant : il cède peu après ton passage. Sol rebondissant : il te relance (lâche Espace pour rebondir moins haut).',
         'Les arbalètes tirent à intervalles réguliers. Un bouton ouvre la porte qui le suit.'],
       2: ['Orbe jaune : appuie sur saut en la touchant pour sauter en plein air. Tremplin vert : il te projette sur le côté.',
@@ -19,22 +19,19 @@ const DEF = [
     imposees: { 0: ['trous', 'cheminee', 'fracas', 'ressort'], 1: ['cassant', 'rebond', 'fleches', 'bouton'], 2: ['orbes', 'tremplins', 'bascule', 'supersaut', 'ennemis'] } },
   { nom: 'Aqueduc', theme: 'aqueduc', phases: [S, L],
     niveaux: ['Goutte', 'Ruissellement', 'Conversion', 'Siphon', 'Égouts', 'Grand canal'],
-    intro: { 1: ['Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.'], 0: ['K : liquide. Tu colles aux murs et aux plafonds, tu passes les grilles. J : redevenir solide.',
-      'Changer d’état coûte une charge (2 au plus), rendue au sol. Liquide lancé contre un mur : ta vitesse devient montée.'] },
+    intro: { 1: ['Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.'], 0: ['Plateformes mobiles : saute dessus, elles te portent. Champignon : il te renvoie au loin.'] },
     imposees: { 0: ['murLiquide', 'grilles'], 1: ['banni'] } },
   { nom: 'Chaufferie', theme: 'chaufferie', phases: [S, L, Z],
     niveaux: ['Vapeur', 'Chaudière', 'Explosions', 'Ventilation', 'Soufflerie', 'Haut fourneau'],
-    intro: { 0: ['L : gaz. Il monte (Bas : descendre), passe les tamis, le vent l’emporte, puis redevient solide.',
-      'Gaz + feu : explosion qui propulse. Liquide + feu : il devient gaz gratuitement. Le feu tue le solide.'] },
+    intro: { 0: ['Gaz + feu : explosion qui propulse. Liquide + feu : il devient gaz gratuitement. Le feu tue le solide.'] },
     imposees: { 0: ['tamis', 'feu', 'vent'] } },
   { nom: 'Orage', theme: 'orage', phases: [S, L, Z, P],
     niveaux: ['Éclair', 'Décharge', 'Super saut', 'Foudre', 'Tempête', 'Œil du cyclone'],
-    intro: { 0: ['M : éclair dans la direction tenue (8 directions), il brise les blocs fêlés. Les cristaux rendent les charges.',
-      'Éclair en diagonale vers le sol puis saut : super saut, très rapide.'] },
+    intro: { 0: ['Lasers : ils s’allument par moments, un clignotement prévient juste avant. Scies : elles balaient le passage.'] },
     imposees: { 0: ['eclair'] } },
   { nom: 'Abysses', theme: 'abysses', phases: [S, L, Z, P],
     niveaux: ['Plongée', 'Récif', 'Geyser', 'Courant froid', 'Fosse', 'Abîme'],
-    intro: { 0: ['Dans l’eau, le solide nage lentement, le liquide file partout, le gaz remonte comme une bulle.'] },
+    intro: { 0: ['Dans l’eau, le liquide file partout, le gaz remonte comme une bulle, le métal coule.'] },
     imposees: { 0: ['eau'] } },
   { nom: 'Usine', theme: 'usine', phases: [S, L, Z, P],
     niveaux: ['Tapis roulants', 'Engrenages', 'Téléporteurs', 'Presse', 'Chaîne de montage', 'Salle des machines'],
@@ -51,8 +48,10 @@ const DEF = [
 
 // Solide et Liquide sont toujours là ; chaque niveau a en plus deux états : celui de sa zone et un autre au hasard
 const PL = 4, CA = 5, ME = 6, OM = 7;
-const SIGNATURE = [ME, PL, Z, P, OM, CA, PL, -1];
+const SIGNATURE = [S, L, Z, P, ME, CA, PL, OM];
 const DESC = {
+  [S]: 'Solide : course, saut, saut mural ; en l’air, Bas = fracas qui brise les blocs fêlés (saute juste après : rebond).',
+  [L]: 'Liquide : tu colles aux murs et aux plafonds, tu passes les grilles ; lancé contre un mur, ta vitesse devient montée.',
   [Z]: 'Gaz : tu montes, tu traverses les tamis, le vent te porte ; touche le feu pour exploser vers le haut.',
   [P]: 'Plasma : éclair dans la direction tenue, il brise les blocs fêlés ; éclair vers le sol puis saut = super saut.',
   [PL]: 'Plume : tu planes lentement (Bas pour descendre vite) ; idéal pour les longues fosses.',
@@ -60,23 +59,23 @@ const DESC = {
   [ME]: 'Métal : lourd, tu coules, et ni les flèches, ni le feu, ni le vent ne t’arrêtent.',
   [OM]: 'Ombre : tu voles librement un court moment et tu traverses les parois violettes.'
 };
+// chaque zone met un état en vedette ; les 4 états de chaque niveau sont tirés avec une graine fixe
 function etatsDuNiveau(zi, k) {
-  const r = Gen.hasard(5000 + zi * 31 + k * 7);
-  let a = SIGNATURE[zi];
-  if (a < 0) a = Gen.VARIABLES[Math.floor(r() * 6)];
-  let b = a;
-  while (b === a) b = Gen.VARIABLES[Math.floor(r() * 6)];
-  return [a, b];
+  if (zi === 0 && k === 0) return [S, L, Z, P];
+  return Gen.etatsAuHasard(Gen.hasard(5000 + zi * 31 + k * 7), SIGNATURE[zi]);
 }
+// niveaux dont la graine a été décalée (si le robot n'y trouvait pas de chemin)
+const DECALE = { '2-2': 1, '5-1': 1, '5-3': 1 };
 const ZONES = DEF.map((z, zi) => ({
   id: zi + 1, nom: z.nom, theme: z.theme, phases: [S, L, Z, P],
   niveaux: z.niveaux.map((nom, k) => {
     const d = 0.1 + zi * 0.12 + k * 0.035;
     const nb = Math.min(18 + k * 3, 10 + zi * 3 + k * 3);   // les premières zones sont un peu plus courtes
     const etats = etatsDuNiveau(zi, k);
-    const pan = ['[3] ' + DESC[etats[0]], '[4] ' + DESC[etats[1]]].concat(z.intro[k] || []);
-    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13, d, nb, pan, z.imposees[k] || null, etats);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: [S, L].concat(etats), etats, panneaux: pan, carte: r.carte, suite: r.suite, d };
+    const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]).concat(z.intro[k] || []);
+    const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
+    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.length ? imp : null, etats);
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, panneaux: pan, carte: r.carte, suite: r.suite, d };
   })
 }));
 

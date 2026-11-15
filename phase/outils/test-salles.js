@@ -22,14 +22,17 @@ const t0 = Date.now();
 for (const nom of liste) {
   const glace = nom.endsWith('*'), type = glace ? nom.slice(0, -1) : nom;
   const req = Gen.SALLES[type].req || [];
-  const phases = [0, 1].concat(req), etats = req.length ? [req[0], req[0]] : [2, 3];
+  // avec chacun de ses états de base mesurés (js/compat.js), à tour de rôle selon la graine
+  const bases = (Gen.COMPAT[type] && Gen.COMPAT[type].length) ? Gen.COMPAT[type] : [0];
   const tps = [];
   for (const d of [0, 0.4, 0.8, 1.2]) for (let gr = 1; gr <= graines; gr++) {
+    const b = bases[(gr + Math.round(d * 5)) % bases.length];
+    const phases = [b].concat(req.filter(x => x !== b)), etats = phases.concat([b, b, b]).slice(0, 4);
     const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace, false, varier, phases);
-    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, etats, carte }, type === 'alcove');
+    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, etats, carte }, type.startsWith('alcove'));
     if (!r.ok) {
       echecs++;
-      console.log('ÉCHEC ' + nom + ' d=' + d + ' graine ' + gr + ' (' + r.meilleur + ')');
+      console.log('ÉCHEC ' + nom + ' base ' + b + ' d=' + d + ' graine ' + gr + ' (' + r.meilleur + ')');
       carte.forEach((l, i) => console.log(String(i).padStart(2) + ' ' + l));
     } else tps.push(r.temps / 60);
   }

@@ -18,8 +18,8 @@ const TOUCHES_DEF = {
   saut: ['Space', 'KeyC'], solide: ['KeyJ', 'KeyV'], liquide: ['KeyK', 'KeyB'], gaz: ['KeyL', 'KeyN'], plasma: ['Semicolon', 'Comma'],
   recommencer: ['KeyR'], pause: ['Escape', 'KeyP']
 };
-const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'Bas (fracas)', saut: 'Saut / giclée / jet', solide: 'Solide', /* traduits à l'affichage */
-  liquide: 'Liquide', gaz: 'État 3 (selon le niveau)', plasma: 'État 4 (selon le niveau)', recommencer: 'Recommencer', pause: 'Pause' };
+const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'Bas (fracas)', saut: 'Saut / giclée / jet', solide: 'État 1 (selon le niveau)', /* traduits à l'affichage */
+  liquide: 'État 2 (selon le niveau)', gaz: 'État 3 (selon le niveau)', plasma: 'État 4 (selon le niveau)', recommencer: 'Recommencer', pause: 'Pause' };
 let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.5, musique: 0.5, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
 try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(S, d); } catch (err) { /* pas de stockage */ }
 if (!S.infini) S.infini = {};
@@ -31,14 +31,20 @@ for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].sl
 /* ---------- Éclats ◆ : monnaie de la boutique ---------- */
 if (!S.bonus) S.bonus = { eclats: 0, jours: {}, infini: {} };
 if (!S.skins) S.skins = { achats: ['base', 'rien'], corps: 'base', accessoire: 'rien', depense: 0 };
-const CORPS = { base: { nom: 'Pierre', prix: 0, c: null }, braise: { nom: 'Braise', prix: 3, c: ['#ffb080', '#c0452a'] }, menthe: { nom: 'Menthe', prix: 3, c: ['#c8ffe0', '#3fae7a'] },
-  nuit: { nom: 'Nuit', prix: 5, c: ['#9aa8ff', '#2a2f6a'] }, rose: { nom: 'Rose', prix: 5, c: ['#ffd0ea', '#d0508e'] }, or: { nom: 'Or', prix: 10, c: ['#fff2a0', '#c8961e'] },
-  neige: { nom: 'Neige', prix: 8, c: ['#ffffff', '#a8c4dc'] }, onyx: { nom: 'Onyx', prix: 14, c: ['#6a6a78', '#16161e'] } };
-const ACCESSOIRES = { rien: { nom: 'Aucun', prix: 0 }, noeud: { nom: 'Nœud', prix: 2 }, lunettes: { nom: 'Lunettes', prix: 4 }, echarpe: { nom: 'Écharpe', prix: 4 },
-  chapeau: { nom: 'Chapeau', prix: 6 }, antenne: { nom: 'Antenne', prix: 6 }, cornes: { nom: 'Cornes', prix: 9 }, aureole: { nom: 'Auréole', prix: 12 }, couronne: { nom: 'Couronne', prix: 18 } };
+const CORPS = { base: { nom: 'Pierre', prix: 0, c: null },
+  menthe: { nom: 'Menthe', prix: 6, c: ['#d8fff0', '#2f9e6a'], m: 'points' }, braise: { nom: 'Braise', prix: 8, c: ['#ffb080', '#a0301a'], m: 'lave' },
+  zebre: { nom: 'Zèbre', prix: 8, c: ['#ffffff', '#c8c8d0'], m: 'rayures' }, damier: { nom: 'Damier', prix: 10, c: ['#ffe8a0', '#d09030'], m: 'damier' },
+  rose: { nom: 'Rose', prix: 10, c: ['#ffd8ee', '#d0508e'], m: 'brillant' }, nuit: { nom: 'Nuit étoilée', prix: 14, c: ['#4a5ac8', '#0a0c2a'], m: 'etoiles' },
+  cristal: { nom: 'Cristal', prix: 16, c: ['#e0fbff', '#5ab8d8'], m: 'facettes' }, neige: { nom: 'Neige', prix: 12, c: ['#ffffff', '#a8c4dc'], m: 'points' },
+  onyx: { nom: 'Onyx', prix: 18, c: ['#5a5a68', '#0e0e14'], m: 'brillant' }, or: { nom: 'Or', prix: 24, c: ['#fff2a0', '#b88010'], m: 'brillant' },
+  volcan: { nom: 'Volcan', prix: 28, c: ['#4a2a22', '#120806'], m: 'lave' }, nebuleuse: { nom: 'Nébuleuse', prix: 34, c: ['#3a1a6a', '#08041a'], m: 'nebuleuse' },
+  arcenciel: { nom: 'Arc-en-ciel', prix: 42, c: ['#ffffff', '#cccccc'], m: 'arcenciel' } };
+const ACCESSOIRES = { rien: { nom: 'Aucun', prix: 0 }, noeud: { nom: 'Nœud', prix: 4 }, bandeau: { nom: 'Bandeau', prix: 5 }, moustache: { nom: 'Moustache', prix: 6 },
+  lunettes: { nom: 'Lunettes', prix: 8 }, echarpe: { nom: 'Écharpe', prix: 8 }, masque: { nom: 'Masque', prix: 10 }, chapeau: { nom: 'Chapeau', prix: 12 },
+  antenne: { nom: 'Antenne', prix: 12 }, cornes: { nom: 'Cornes', prix: 16 }, aureole: { nom: 'Auréole', prix: 22 }, flammes: { nom: 'Flammes', prix: 28 }, couronne: { nom: 'Couronne', prix: 36 } };
 function eclatsGagnes() { let n = S.bonus.eclats; for (const id in S.il) if (S.il[id] && S.il[id].eclat) n++; return n; }
 function eclatsDispo() { return eclatsGagnes() - S.skins.depense; }
-function appliquerApparence() { R.choisirApparence({ corps: CORPS[S.skins.corps] ? CORPS[S.skins.corps].c : null, accessoire: S.skins.accessoire === 'rien' ? null : S.skins.accessoire }); }
+function appliquerApparence() { const c = CORPS[S.skins.corps]; R.choisirApparence({ corps: c ? c.c : null, motif: c ? c.m || null : null, accessoire: S.skins.accessoire === 'rien' || !ACCESSOIRES[S.skins.accessoire] ? null : S.skins.accessoire }); }
 function gagnerBonus(n) { S.bonus.eclats += n; return n; }
 function sauver() { try { localStorage.setItem(CLE, JSON.stringify(S)); } catch (err) { /* plein ou bloqué */ } }
 
@@ -135,7 +141,7 @@ function regarder(idx, cle) {
   const c = charger(idx);
   const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(LISTE[idx].zi + 1);
 }
@@ -151,7 +157,7 @@ const TOUTES = [0, 1, 2, 3];
 function lancerInfini(mode) {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   const monde = new Gen.Infini(graine, mode);
-  const def = { id: 'inf' + mode, nom: 'Infini · difficulté ' + mode, phases: [0, 1].concat(monde.etats), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
+  const def = { id: 'inf' + mode, nom: 'Infini · difficulté ' + mode, phases: monde.etats.slice(), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
   const n = M.charger(def);
   const e = M.nouvelEtat(n);
   R.preparer(n, (x) => monde.theme(x));
@@ -195,10 +201,10 @@ function lancerDefi(msg) {
   else if (type.id === 'survie') monde = new Gen.Infini(cle, 2, { rampe: [0.2, 0.045] });
   else if (type.id === 'pieces') r = Gen.defi(cle, { pieces: true, nb: 30, d: 0.55 });
   else if (type.id === 'sansfaute') r = Gen.defi(cle, { drapeaux: false, nb: 16 });
-  else if (type.id === 'solide') { r = Gen.defi(cle, { types: Gen.TOUS.filter(t => Gen.SALLES[t].phases.length === 1), d: 0.7 }); phases = [0]; }
+  else if (type.id === 'solide') { r = Gen.defi(cle, { types: Gen.TOUS.filter(t => Gen.compatible(t, [0])), d: 0.7, etats: [0, 1, 2, 3] }); phases = [0]; }
   else r = Gen.defi(cle);
   const etats = monde ? monde.etats : r.etats;
-  if (phases === TOUTES) phases = [0, 1].concat(etats);
+  if (phases === TOUTES) phases = etats.slice();
   const def = { id: 'defi', nom: 'Défi du jour', phases, etats, carte: monde ? monde.ajouter(6) : r.carte, panneaux: [] };
   const n = M.charger(def);
   const e = M.nouvelEtat(n);
@@ -357,7 +363,8 @@ function boucle(t) {
   requestAnimationFrame(boucle);
   const dt = Math.min(0.1, (t - (derniere || t)) / 1000);
   derniere = t;
-  acc += dt;
+  acc += dt * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
+  barreRejeu();
   let k = 0;
   while (acc >= 1 / 60 && k < 6) { pas(); acc -= 1 / 60; k++; }
   if (k === 6) acc = 0;
@@ -423,7 +430,7 @@ function dessiner(dt) {
   if (S.reglages.entrees && J.mode !== 'fantome') hud.entrees = J.inp || 0;
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
-  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([34])\] (.*)$/.exec(pn.texte); hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) : tr(pn.texte); } break; }
+  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) : tr(pn.texte); } break; }
   if (messageT > 0) { hud.message = tr(message); hud.messageC = '#ff9ae6'; }
   R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
 }
@@ -451,10 +458,22 @@ function fondMenu(dt) {
 const ui = document.getElementById('ui');
 function montrer(html, classe) {
   ui.className = 'visible ' + (classe || '');
-  ui.innerHTML = html;
+  ui.innerHTML = '<div class="cadre">' + html + '</div>';
+  ajuster();
   const b = ui.querySelector('[autofocus]') || ui.querySelector('.btn:not([disabled])');
   if (b) b.focus();
 }
+// l'écran tient toujours dans la fenêtre (aucune barre de défilement) : on le réduit si besoin
+function ajuster() {
+  const c = ui.querySelector('.cadre');
+  if (!c) return;
+  c.style.transform = ''; c.style.marginBottom = '';
+  const dispoH = ui.clientHeight - 32, dispoW = ui.clientWidth - 24;
+  const h = c.scrollHeight, w = c.scrollWidth;
+  const k = Math.min(1, dispoH / h, dispoW / w);
+  if (k < 1) { c.style.transform = `scale(${k})`; c.style.marginBottom = (-(1 - k) * h) + 'px'; }
+}
+addEventListener('resize', ajuster);
 function cacherUI() { ui.className = ''; ui.innerHTML = ''; SON.attenuer(false); }
 
 function zoneDebloquee(zi) {
@@ -493,10 +512,10 @@ function boutique() {
   J = null; ecran = 'menu';
   const carte = (type, id, o) => {
     const a = S.skins.achats.includes(id), porte = S.skins[type] === id;
-    const fond = type === 'corps' ? (o.c ? `linear-gradient(${o.c[0]}, ${o.c[1]})` : 'linear-gradient(#f6e6c4, #b89a6a)') : '#3a3050';
+    const fond = type === 'corps' ? (o.m === 'arcenciel' ? 'linear-gradient(90deg,#ff5a5a,#ffd84a,#5aff7a,#4ab8ff,#c05aff)' : o.c ? `linear-gradient(${o.c[0]}, ${o.c[1]})` : 'linear-gradient(#f6e6c4, #b89a6a)') : '#3a3050';
     return `<button class="btn skin ${porte ? 'porte' : ''}" data-a="skin" data-t="${type}" data-s="${id}" ${!a && eclatsDispo() < o.prix ? 'disabled' : ''}>
-      <span class="ap" style="background:${fond}">${type === 'accessoire' ? ({ rien: '·', noeud: '🎀', lunettes: '🕶', echarpe: '🧣', chapeau: '🎩', antenne: '📡', cornes: '🐏', aureole: '😇', couronne: '👑' })[id] : ''}</span>
-      <b>${tr(o.nom)}</b><small>${porte ? tr('porté') : a ? tr('à toi') : o.prix + ' ◆'}</small></button>`;
+      <span class="ap" style="background:${fond}">${type === 'accessoire' ? ({ rien: '·', noeud: '🎀', lunettes: '🕶', echarpe: '🧣', chapeau: '🎩', antenne: '📡', cornes: '🐏', aureole: '😇', couronne: '👑', bandeau: '🥋', moustache: '👨', masque: '🦝', flammes: '🔥' })[id] || '' : ''}</span>
+      <b>${tr(o.nom)}</b><small>${porte ? tr(id === 'base' || id === 'rien' ? 'porté' : 'porté · cliquer pour enlever') : a ? tr('à toi') : o.prix + ' ◆'}</small></button>`;
   };
   let h = `<h2>${tr('Boutique')} <span class="rose">${eclatsDispo()} ◆</span></h2>
   <p class="note">${tr('Les éclats ◆ se gagnent en les attrapant dans les niveaux (cachés de mille façons), en finissant le défi du jour, et tous les 10 salles en mode Infini.')}</p>
@@ -514,21 +533,28 @@ function choisirSkin(type, id) {
     if (eclatsDispo() < o.prix) return;
     S.skins.depense += o.prix; S.skins.achats.push(id);
   }
-  S.skins[type] = id;
+  S.skins[type] = S.skins[type] === id ? (type === 'corps' ? 'base' : 'rien') : id;     // re-cliquer : on l'enlève
   appliquerApparence(); sauver(); boutique();
 }
 
+// une zone à la fois (onglets) : l'écran tient sans défilement ; par défaut la première zone pas finie
+let nivZone = -1;
 function niveaux() {
-  let h = '<h2>' + tr('Niveaux') + '</h2><div class="zones">';
+  if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
+  let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets">' + NIV.ZONES.map((z, i) => {
+    const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
+    return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
+  }).join('') + '</div><div class="zones une">';
   NIV.ZONES.forEach((z, zi) => {
+    if (zi !== nivZone) return;
     const ok = zoneDebloquee(zi), th = R.THEMES[z.theme];
     const nFaits = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em></div>`;
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
-      h += `<button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
-        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
+      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
+        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>${PARF[nv.id] ? `<button class="btn mini voirp" data-a="voir-parfait" data-i="${parId[nv.id]}" title="${tr('▶ Voir le Parfait')}">▶</button>` : ''}</div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -537,9 +563,12 @@ function niveaux() {
   montrer(h, 'large');
 }
 
+let recZone = 0;
 function records() {
-  let h = '<h2>' + tr('Records') + '</h2><table class="rec"><tr><th>' + tr('Niveau') + '</th><th>' + tr('Record') + '</th><th>' + tr('Médaille') + '</th><th>' + tr('Parfait') + '</th><th></th></tr>';
-  for (const l of LISTE) {
+  const zr = recZone;
+  let h = '<h2>' + tr('Records') + '</h2><div class="onglets">' + NIV.ZONES.map((z, i) => `<button class="btn mini ${i === zr ? 'choisi' : ''}" data-a="rec-zone" data-i="${i}">${i + 1}. ${tr(z.nom)}</button>`).join('') + '</div>' +
+    '<table class="rec"><tr><th>' + tr('Niveau') + '</th><th>' + tr('Record') + '</th><th>' + tr('Médaille') + '</th><th>' + tr('Parfait') + '</th><th></th></tr>';
+  for (const l of LISTE.filter(v => v.zi === zr)) {
     const r = S.il[l.id], p = PARF[l.id];
     h += `<tr><td><b>${l.id}</b> ${tr(l.def.nom)}</td><td>${r && r.t != null ? R.chrono(r.t) : '—'}</td><td>${badge(medaille(l.id, r && r.t))}</td>
       <td>${p ? R.chrono(p.t) : '—'}</td><td>${p ? `<button class="btn mini" data-a="voir-parfait" data-i="${parId[l.id]}">${tr('▶ Parfait')}</button>` : ''}
@@ -560,11 +589,9 @@ function aide() {
   montrer(`<h2>${tr('Comment jouer')}</h2><div class="aide">
   <p>${tr('Va le plus vite possible jusqu’au portail. Le chrono démarre au premier geste et se compte à l’image près. Tomber ou toucher des pics te renvoie au dernier drapeau ; avant le premier drapeau, tout recommence à zéro.')}</p>
   <div class="etats">
-   <div style="--c:${R.COUL_PHASE[0]}"><b>${k('solide')} · ${tr('Solide')}</b>${tr('Court, saute, fait des sauts muraux. En l’air, Bas : fracas qui brise les blocs fêlés. Saute juste après : rebond.')}</div>
-   <div style="--c:${R.COUL_PHASE[1]}"><b>${k('liquide')} · ${tr('Liquide')}</b>${tr('Colle aux murs et aux plafonds, passe les grilles, glisse vite. Sa vitesse se convertit : contre un mur elle devient montée, une chute devient élan.')}</div>
-   ${NIV.VARIABLES.map(p => `<div style="--c:${R.COUL_PHASE[p]}"><b>${k('gaz')} / ${k('plasma')} · ${tr(M.NOMS_PHASES[p])}</b>${tr(NIV.DESC[p]).replace(/^[^:]*: /, '')}</div>`).join('')}
+   ${[0, 1, 2, 3, 4, 5, 6, 7].map(p => `<div style="--c:${R.COUL_PHASE[p]}"><b>${tr(M.NOMS_PHASES[p])}</b>${tr(NIV.DESC[p]).replace(/^[^:]*: /, '')}</div>`).join('')}
   </div>
-  <p>${tr('Solide et Liquide sont toujours là. Les touches des états 3 et 4 changent d’état selon le niveau : c’est écrit sur les panneaux du début.')}</p>
+  <p>${tr('Chaque niveau te donne 4 états parmi ces 8, sur les touches {0} : les panneaux du début disent lesquels. Une barrière de couleur ne laisse passer que l’état de sa couleur.', [k('solide'), k('liquide'), k('gaz'), k('plasma')].map(x => x.split(' / ')[0]).join(' '))}</p>
   <p>${tr('Changer d’état coûte une charge (2 au maximum, ◆ bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>
   <p>${tr('Pièges : flèches tirées à intervalles réguliers, sols cassants, sols rebondissants, boutons qui ouvrent des portes. Chaque niveau cache un éclat ◆ très difficile à atteindre.')}</p>
   <p>${tr('Orbe jaune : appuie sur saut en la touchant pour sauter en plein air. Tremplin vert : il te projette sur le côté.')} ${tr('Interrupteur : les blocs rouges et bleus s’échangent. Flèche verte : sauts plus hauts un moment, flèche orange : sauts plus courts. Évite les ennemis hérissés.')} ${tr('Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.')}</p>
@@ -619,6 +646,33 @@ function finNiveau(t, avant, record) {
       <button class="btn" data-a="niveaux">${tr('Niveaux')}</button>
     </div></div>`, 'fin');
 }
+// barre du rejeu : pause, image par image, ralenti
+const VITESSES = [0.1, 0.25, 0.5, 1, 2];
+const barre = document.createElement('div');
+barre.id = 'rejeu';
+document.body.appendChild(barre);
+let barreEtat = '';
+function barreRejeu() {
+  const on = J && J.mode === 'fantome' && ecran === 'jeu';
+  const etat = on ? (J.pauseRejeu ? 'p' : '') + J.vitesse : '';
+  if (etat === barreEtat) return;
+  barreEtat = etat;
+  if (!on) { barre.className = ''; barre.innerHTML = ''; return; }
+  barre.className = 'visible';
+  barre.innerHTML = `<button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')}</button>` +
+    VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('') +
+    `<button class="btn mini" data-r="quitter">✕</button><span>${tr('Espace : pause · ↑ ↓ : vitesse · → : image suivante')}</span>`;
+}
+function rejeu(a, v) {
+  if (!J || J.mode !== 'fantome') return;
+  if (a === 'pause') J.pauseRejeu = !J.pauseRejeu;
+  else if (a === 'image' && J.pauseRejeu) pas();
+  else if (a === 'v') J.vitesse = v;
+  else if (a === 'plus' || a === 'moins') { const i = VITESSES.indexOf(J.vitesse); J.vitesse = VITESSES[Math.max(0, Math.min(VITESSES.length - 1, i + (a === 'plus' ? 1 : -1)))]; }
+  else if (a === 'quitter') { finFantome(); }
+  barreRejeu();
+}
+barre.addEventListener('click', ev => { const b = ev.target.closest('[data-r]'); if (b && !b.disabled) rejeu(b.dataset.r, +b.dataset.v); });
 function finFantome() {
   const idx = J.idx;
   ecran = 'fin';
@@ -650,6 +704,8 @@ function pause() {
   montrer(`<div class="fin"><div class="nomniv">${tr('Pause')}</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer la course')}</button>
+    ${J.mode === 'niveau' && PARF[J.L.id] ? `<button class="btn" data-a="voir-parfait" data-i="${J.idx}">${tr('▶ Voir le Parfait')} <small>${R.chrono(PARF[J.L.id].t)}</small></button>` : ''}
+    ${J.mode === 'niveau' && PARF[J.L.id] && PARF[J.L.id].fe ? `<button class="btn" data-a="voir-parfait-eclat" data-i="${J.idx}">${tr('▶ Parfait avec l’éclat ◆')} <small>${R.chrono(PARF[J.L.id].te)}</small></button>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div></div>`, 'fin');
 }
 
@@ -662,6 +718,8 @@ function action(a, el) {
     case 'niveaux': J = null; ecran = 'menu'; niveaux(); break;
     case 'records': J = null; ecran = 'menu'; records(); break;
     case 'aide': aide(); break;
+    case 'rec-zone': recZone = i; records(); break;
+    case 'niv-zone': nivZone = i; niveaux(); break;
     case 'boutique': boutique(); break;
     case 'skin': choisirSkin(el.dataset.t, el.dataset.s); break;
     case 'reglages': reglages(); break;
@@ -724,6 +782,12 @@ addEventListener('keydown', ev => {
   }
   SON.demarrer();
   const enJeu = ecran === 'jeu';
+  if (enJeu && J && J.mode === 'fantome') {
+    if (ev.code === 'Space') { ev.preventDefault(); if (!ev.repeat) rejeu('pause'); return; }
+    if (ev.code === 'ArrowUp') { ev.preventDefault(); rejeu('plus'); return; }
+    if (ev.code === 'ArrowDown') { ev.preventDefault(); rejeu('moins'); return; }
+    if (ev.code === 'ArrowRight') { ev.preventDefault(); if (!J.pauseRejeu) rejeu('pause'); rejeu('image'); return; }
+  }
   if (enJeu) {
     if (!ev.repeat) {
       if (S.touches.recommencer.includes(ev.code)) action('recommencer');

@@ -3,7 +3,7 @@
 'use strict';
 let ac = null, busSons = null, volSons = 0.6, volMus = 0.35;
 // tout est volontairement discret : le réglage à fond reste doux
-const FACT_SONS = 0.14, FACT_MUS = 0.2;
+const FACT_SONS = 0.06, FACT_MUS = 0.1;
 const tampons = {};
 const NOMS = ['saut', 'rebond', 'mur', 'atterrit', 'change', 'mort', 'casse', 'boum', 'cristal', 'fin', 'eclat', 'drapeau',
   'tp', 'echec', 'fracas', 'ressort', 'fleche', 'bouton', 'porte', 'menu', 'valider'];
@@ -99,12 +99,38 @@ function bruitMenu(quoi) { jouer(quoi === 'valider' ? 'valider' : 'menu', 0.3); 
 const FONDU = 3;
 const lecteurs = {};          // cle -> { a: [Audio, Audio], i: lecteur actif, gain: 0..1, cible: 0..1 }
 let voulu = null, baisse = 1, baisseCible = 1;
+// chaque ambiance a une liste de morceaux : le fichier, puis des morceaux composés par le jeu (js/compositeur.js)
+function liste(cle) {
+  const f = 'music/' + (PISTES[cle] || PISTES[0]);
+  const k = typeof cle === 'number' ? cle : ({ infini: 20, defi: 30, fin: 40 })[cle] || 50;
+  if (cle === 'fin') return [f];
+  if (cle === 0) return [f, { g: 900, h: 'calme' }, { g: 901, h: 'calme' }];
+  const n = cle === 'infini' ? 5 : 3;
+  const l = [f];
+  for (let i = 1; i <= n; i++) l.push({ g: k * 17 + i * 101, h: 'vif' });
+  return l;
+}
+const composees = {};
+function url(item) {               // promesse de l'adresse d'un morceau
+  if (typeof item === 'string') return Promise.resolve(item);
+  const c = item.g + item.h;
+  if (!composees[c]) composees[c] = racine.Compositeur ? racine.Compositeur.composer(item.g, item.h, item.h === 'calme' ? 24 : 40).catch(() => null) : Promise.resolve(null);
+  return composees[c];
+}
 function lecteur(cle) {
   if (lecteurs[cle]) return lecteurs[cle];
-  const f = 'music/' + (PISTES[cle] || PISTES[0]);
-  const a = [new Audio(f), new Audio(f)];
+  const l = liste(cle);
+  const a = [new Audio(l[0]), new Audio(l[0])];
   for (const x of a) { x.preload = 'auto'; x.volume = 0; }
-  return (lecteurs[cle] = { a, i: 0, gain: 0, cible: 0, trans: null, ancien: null });
+  const lec = { a, i: 0, gain: 0, cible: 0, trans: null, ancien: null, liste: l, piste: 0, suivante: null };
+  preparerSuivante(lec);
+  return (lecteurs[cle] = lec);
+}
+// on compose à l'avance le morceau suivant de la liste
+function preparerSuivante(lec) {
+  const k = (lec.piste + 1) % lec.liste.length;
+  lec.suivante = null;
+  setTimeout(() => url(lec.liste[k]).then(u => { if (u) lec.suivante = { k, u }; }), 8000);   // un peu plus tard : pas d'à-coup au début d'un niveau
 }
 function jouerMusique(cle) {
   if (cle === undefined || cle === null) cle = 0;
@@ -135,6 +161,10 @@ function mixer() {
     // fin de piste : l'autre lecteur repart du début et on passe de l'un à l'autre en fondu
     if (l.trans == null && x.duration && x.currentTime > x.duration - FONDU - 0.2) {
       const y = l.a[1 - l.i];
+      if (l.suivante) {                          // morceau suivant de la liste (sinon le même recommence)
+        if (!y.src.endsWith(l.suivante.u)) y.src = l.suivante.u;
+        l.piste = l.suivante.k; preparerSuivante(l);
+      } else if (y.src !== x.src) y.src = x.src;
       y.currentTime = 0; y.volume = 0; y.play().catch(() => {});
       l.ancien = x; l.i = 1 - l.i; l.trans = 0;
     }
