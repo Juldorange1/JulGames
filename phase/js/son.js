@@ -3,7 +3,7 @@
 'use strict';
 let ac = null, busSons = null, volSons = 0.6, volMus = 0.35;
 // tout est volontairement discret : le réglage à fond reste doux
-const FACT_SONS = 0.3, FACT_MUS = 0.35;
+const FACT_SONS = 0.14, FACT_MUS = 0.2;
 const tampons = {};
 const NOMS = ['saut', 'rebond', 'mur', 'atterrit', 'change', 'mort', 'casse', 'boum', 'cristal', 'fin', 'eclat', 'drapeau',
   'tp', 'echec', 'fracas', 'ressort', 'fleche', 'bouton', 'porte', 'menu', 'valider'];
@@ -15,7 +15,11 @@ function demarrer() {
   const A = window.AudioContext || window.webkitAudioContext;
   if (!A) return;
   ac = new A();
-  busSons = ac.createGain(); busSons.gain.value = volSons * FACT_SONS; busSons.connect(ac.destination);
+  // bus des bruitages : filtre passe-bas (rien d'aigu ni de criard) et compresseur doux (aucun pic)
+  busSons = ac.createGain(); busSons.gain.value = volSons * FACT_SONS;
+  const doux = ac.createBiquadFilter(); doux.type = 'lowpass'; doux.frequency.value = 3800; doux.Q.value = 0.5;
+  const comp = ac.createDynamicsCompressor(); comp.threshold.value = -24; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+  busSons.connect(doux); doux.connect(comp); comp.connect(ac.destination);
   for (const nom of NOMS) {
     fetch('sfx/' + nom + '.wav').then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(t => { tampons[nom] = t; }).catch(() => {});
   }
@@ -26,36 +30,57 @@ function volumes(s, m) {
   volSons = s; volMus = m;
   if (busSons) busSons.gain.value = s * FACT_SONS;
 }
+const DUREE_MAX = { mort: 0.45, boum: 0.5, casse: 0.35, fracas: 0.35, echec: 0.3, porte: 0.4, fin: 1.2, eclat: 0.8 };
+const derniers = {};
 function jouer(nom, vol, hauteur) {
   if (!ac || !tampons[nom]) return false;
+  const t = ac.currentTime;
+  if (derniers[nom] && t - derniers[nom] < 0.05) return false;   // pas de doublons qui claquent
+  derniers[nom] = t;
   const s = ac.createBufferSource(); s.buffer = tampons[nom];
   if (hauteur) s.playbackRate.value = hauteur;
-  const g = ac.createGain(); g.gain.value = vol === undefined ? 0.6 : vol;
-  s.connect(g); g.connect(busSons); s.start();
+  const g = ac.createGain(), v = vol === undefined ? 0.5 : vol;
+  // enveloppe : petite attaque douce, et les sons longs s'éteignent en fondu
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.008);
+  const d = Math.min(DUREE_MAX[nom] || 0.6, s.buffer.duration / (hauteur || 1));
+  g.gain.setValueAtTime(v, t + d * 0.55); g.gain.linearRampToValueAtTime(0.0001, t + d);
+  s.connect(g); g.connect(busSons); s.start(t); s.stop(t + d + 0.02);
   return true;
+}
+// changement d'état : un petit « bloup » court et rond, plus aigu selon l'état
+const NOTES = [392, 523, 659, 784, 880, 587, 330, 466];
+function bloup(phase) {
+  if (!ac) return;
+  const t = ac.currentTime, f = NOTES[phase] || 523;
+  if (derniers.bloup && t - derniers.bloup < 0.04) return;
+  derniers.bloup = t;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(f * 0.8, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.22, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+  o.connect(g); g.connect(busSons); o.start(t); o.stop(t + 0.1);
 }
 function evenements(ev, phase) {
   if (!ac || !ev) return;
   const EV = racine.Moteur.EV;
-  if (ev & EV.MORT) jouer('mort', 0.55);
+  if (ev & EV.MORT) jouer('mort', 0.3, 0.9);
   if (ev & EV.SAUT) jouer('saut', 0.35);
-  if (ev & EV.REBOND) jouer('rebond', 0.5);
+  if (ev & EV.REBOND) jouer('rebond', 0.35);
   if (ev & EV.MUR) jouer('mur', 0.35);
   if (ev & EV.ATTERRIT) jouer('atterrit', 0.18);
-  if (ev & EV.CHANGE) jouer('change', 0.3, [0.8, 1, 1.25, 1.5][phase] || 1);
-  if (ev & EV.CASSE) jouer('casse', 0.45);
+  if (ev & EV.CHANGE) bloup(phase);
+  if (ev & EV.CASSE) jouer('casse', 0.3);
   if (ev & (EV.RESSORT | EV.BOND)) jouer('ressort', 0.4);
-  if (ev & EV.BOUM) jouer('boum', 0.6);
-  if (ev & EV.EVAPORE) jouer('change', 0.3, 1.6);
+  if (ev & EV.BOUM) jouer('boum', 0.35);
+  if (ev & EV.EVAPORE) bloup(0);
   if (ev & EV.CRISTAL) jouer('cristal', 0.4);
-  if (ev & EV.ECLAT) jouer('eclat', 0.5);
+  if (ev & EV.ECLAT) jouer('eclat', 0.4);
   if (ev & EV.DRAPEAU) jouer('drapeau', 0.3);
   if (ev & EV.TP) jouer('tp', 0.4);
-  if (ev & EV.FIN) jouer('fin', 0.5);
+  if (ev & EV.FIN) jouer('fin', 0.35);
   if (ev & EV.ECHEC) jouer('echec', 0.3);
   if (ev & EV.FRACAS) jouer('fracas', 0.3);
   if (ev & EV.JET) jouer('mur', 0.3, 1.3);
-  if (ev & EV.BOUTON) { jouer('bouton', 0.5); jouer('porte', 0.4); }
+  if (ev & EV.BOUTON) { jouer('bouton', 0.35); jouer('porte', 0.25); }
   if (ev & EV.CRAQUE) jouer('casse', 0.2, 1.8);
   if (ev & EV.PIECE) jouer('cristal', 0.35, 1.5);
   if (ev & EV.ORBE) jouer('saut', 0.4, 1.4);

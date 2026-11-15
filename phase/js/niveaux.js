@@ -49,18 +49,38 @@ const DEF = [
     intro: { 0: ['Le cœur de la matière : tout, tout le temps.'] }, imposees: {} }
 ];
 
+// Solide et Liquide sont toujours là ; chaque niveau a en plus deux états : celui de sa zone et un autre au hasard
+const PL = 4, CA = 5, ME = 6, OM = 7;
+const SIGNATURE = [ME, PL, Z, P, OM, CA, PL, -1];
+const DESC = {
+  [Z]: 'Gaz : tu montes, tu traverses les tamis, le vent te porte ; touche le feu pour exploser vers le haut.',
+  [P]: 'Plasma : éclair dans la direction tenue, il brise les blocs fêlés ; éclair vers le sol puis saut = super saut.',
+  [PL]: 'Plume : tu planes lentement (Bas pour descendre vite) ; idéal pour les longues fosses.',
+  [CA]: 'Caoutchouc : tu rebondis sur le sol et les murs ; saute à l’impact pour rebondir plus haut.',
+  [ME]: 'Métal : lourd, tu coules, et ni les flèches, ni le feu, ni le vent ne t’arrêtent.',
+  [OM]: 'Ombre : tu voles librement un court moment et tu traverses les parois violettes.'
+};
+function etatsDuNiveau(zi, k) {
+  const r = Gen.hasard(5000 + zi * 31 + k * 7);
+  let a = SIGNATURE[zi];
+  if (a < 0) a = Gen.VARIABLES[Math.floor(r() * 6)];
+  let b = a;
+  while (b === a) b = Gen.VARIABLES[Math.floor(r() * 6)];
+  return [a, b];
+}
 const ZONES = DEF.map((z, zi) => ({
-  id: zi + 1, nom: z.nom, theme: z.theme, phases: z.phases,
+  id: zi + 1, nom: z.nom, theme: z.theme, phases: [S, L, Z, P],
   niveaux: z.niveaux.map((nom, k) => {
     const d = 0.1 + zi * 0.12 + k * 0.035;
     const nb = Math.min(18 + k * 3, 10 + zi * 3 + k * 3);   // les premières zones sont un peu plus courtes
-    const pan = z.intro[k] || [];
-    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13, d, nb, pan, z.imposees[k] || null);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: z.phases, panneaux: pan, carte: r.carte, suite: r.suite, d };
+    const etats = etatsDuNiveau(zi, k);
+    const pan = ['[3] ' + DESC[etats[0]], '[4] ' + DESC[etats[1]]].concat(z.intro[k] || []);
+    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13, d, nb, pan, z.imposees[k] || null, etats);
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: [S, L].concat(etats), etats, panneaux: pan, carte: r.carte, suite: r.suite, d };
   })
 }));
 
-const Niveaux = { ZONES, S, L, Z, P };
+const Niveaux = { ZONES, S, L, Z, P, DESC, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;
 else racine.Niveaux = Niveaux;
 })(typeof window !== 'undefined' ? window : globalThis);

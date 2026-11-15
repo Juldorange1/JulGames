@@ -24,7 +24,9 @@ const THEMES = {
   coeur: { ciel: ['#360a33', '#06010b'], mur: '#40143e', clair: '#5a1d57', bord: '#ff74da', ombre: '#1a0619', motif: '#521c50',
     loin: ['#3e0f3b', '#2c0a2a', '#1d061b'], accent: '#ff6ad5', nuit: 0.48, voile: '10,0,10', lum: '255,110,220', tapis: null, style: 'veines', amb: 'eclats', nom: 'Cœur' }
 };
-const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a'];
+const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a', '#f1ecff', '#ff5ca8', '#a9b6c8', '#9a6bff'];
+let APPARENCE = { corps: null, accessoire: null };   // apparence choisie dans la boutique
+function choisirApparence(a) { APPARENCE = a || { corps: null, accessoire: null }; }
 
 let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
@@ -133,6 +135,7 @@ function morceau(k) {
         case M.PANNEAU: panneauCase(g, px, py); break;
         case M.ARBALETE: arbaleteCase(g, x, y, px, py); break;
         case M.REBONDI: rebondiCase(g, px, py); break;
+        case M.PAROI: paroiCase(g, x, y, px, py); break;
       }
     }
   }
@@ -319,6 +322,13 @@ function arbaleteCase(g, x, y, px, py) {
   g.fillStyle = '#111'; g.fillRect(4, -1.5, 5, 3);
   g.fillStyle = '#ff4a4a'; g.fillRect(-5, -1, 2, 2);
   g.restore();
+}
+function paroiCase(g, x, y, px, py) {
+  g.fillStyle = 'rgba(110,60,200,.55)'; g.fillRect(px, py, T, T);
+  g.strokeStyle = 'rgba(200,170,255,.45)'; g.lineWidth = 1;
+  g.beginPath(); const s = alea(x * 5 + y * 9) * 6;
+  g.moveTo(px, py + 4 + s); g.quadraticCurveTo(px + 8, py + s, px + T, py + 6 + s);
+  g.moveTo(px, py + 11 + s / 2); g.quadraticCurveTo(px + 8, py + 8, px + T, py + 13); g.stroke();
 }
 function rebondiCase(g, px, py) {
   const gr = g.createLinearGradient(0, py, 0, py + T);
@@ -917,6 +927,9 @@ function joueur(g, e, alpha, fantome) {
     g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke();
     g.globalAlpha = 1; return;
   }
+  // invincibilité juste après une réapparition : on clignote
+  if (e.invT > 0) { g.globalAlpha = alpha * (Math.floor(e.invT / 4) % 2 ? 0.35 : 0.9); }
+  if (e.phase >= 4) { autresEtats(g, e, x, y, cxp, cyp, c); accessoire(g, e, cxp, y); g.globalAlpha = 1; return; }
   // ombre portée au sol
   if (e.sol) { g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(cxp, y + PH + 0.5, 7, 1.6, 0, 0, 7); g.fill(); }
   if (e.phase === M.S) {
@@ -925,7 +938,7 @@ function joueur(g, e, alpha, fantome) {
     const w = PW * sx, h = PH * sy;
     g.fillStyle = '#2b2116'; arrondi(g, cxp - w / 2 - 1, y + PH - h - 1, w + 2, h + 2, 4); g.fill();
     const gr = g.createLinearGradient(0, y + PH - h, 0, y + PH);
-    gr.addColorStop(0, '#f6e6c4'); gr.addColorStop(1, '#b89a6a');
+    gr.addColorStop(0, APPARENCE.corps ? APPARENCE.corps[0] : '#f6e6c4'); gr.addColorStop(1, APPARENCE.corps ? APPARENCE.corps[1] : '#b89a6a');
     g.fillStyle = gr; arrondi(g, cxp - w / 2, y + PH - h, w, h, 3); g.fill();
     g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(cxp - w / 2 + 2, y + PH - h + 1.5, w - 6, 1.2);
     yeux(g, cxp + e.face * 1.5, y + PH - h + 4.5, e.face, '#2a2018');
@@ -975,7 +988,68 @@ function joueur(g, e, alpha, fantome) {
       g.stroke();
     }
   }
+  accessoire(g, e, cxp, y);
   g.globalAlpha = 1;
+}
+// plume, caoutchouc, métal, ombre
+function autresEtats(g, e, x, y, cxp, cyp, c) {
+  if (e.phase === M.PL) {
+    const bat = Math.sin(temps * (e.sol ? 4 : 14)) * (e.sol ? 1 : 3);
+    g.fillStyle = 'rgba(255,255,255,.8)';
+    for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(cxp + sd * 6, cyp - 1 + bat * 0.4, 6, 2.5, sd * (0.4 + bat * 0.08), 0, 7); g.fill(); }
+    const gr = g.createRadialGradient(cxp - 2, cyp - 2, 1, cxp, cyp, 7);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#cbc0ff');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(cxp, cyp + 1, 5.5, 6, 0, 0, 7); g.fill();
+    yeux(g, cxp + e.face, cyp, e.face, '#4a3a8a');
+    if (!e.sol && Math.random() < 0.15) part(cxp, y + PH, (Math.random() - 0.5) * 0.4, 0.3, 30, 'rgba(255,255,255,.7)', 1.5, 0.01);
+  } else if (e.phase === M.CA) {
+    const sq = Math.max(-0.35, Math.min(0.35, (e.sol ? 0.2 : 0) - Math.abs(e.vy) * 0.03));
+    const rx = 6.5 * (1 + sq), ry = 6.5 * (1 - sq);
+    const gr = g.createRadialGradient(cxp - 2, y + PH - ry - 2, 1, cxp, y + PH - ry, 8);
+    gr.addColorStop(0, '#ffb3d6'); gr.addColorStop(1, '#d6247a');
+    g.fillStyle = '#5a0a30'; g.beginPath(); g.ellipse(cxp, y + PH - ry, rx + 1, ry + 1, 0, 0, 7); g.fill();
+    g.fillStyle = gr; g.beginPath(); g.ellipse(cxp, y + PH - ry, rx, ry, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.ellipse(cxp - 2, y + PH - ry * 1.5, 2, 1.2, -0.4, 0, 7); g.fill();
+    yeux(g, cxp + e.face, y + PH - ry, e.face, '#4a0a2a');
+  } else if (e.phase === M.ME) {
+    g.fillStyle = '#2a3038'; arrondi(g, x - 1, y - 1, PW + 2, PH + 2, 2); g.fill();
+    const gr = g.createLinearGradient(x, y, x + PW, y + PH);
+    gr.addColorStop(0, '#e6edf6'); gr.addColorStop(0.45, '#8c99aa'); gr.addColorStop(1, '#5a6574');
+    g.fillStyle = gr; arrondi(g, x, y, PW, PH, 2); g.fill();
+    g.fillStyle = '#3a424c'; for (const [a, b] of [[2, 2], [PW - 3, 2], [2, PH - 3], [PW - 3, PH - 3]]) g.fillRect(x + a - 0.5, y + b - 0.5, 1.5, 1.5);
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(x + 2, y + 1.5, 4, 1);
+    yeux(g, cxp + e.face * 1.5, y + 5, e.face, '#10161e');
+  } else {                                        // ombre
+    g.globalAlpha *= 0.85;
+    for (let i = 0; i < 5; i++) {
+      const a = temps * 4 + i * 1.26;
+      g.fillStyle = `rgba(120,70,230,${0.25 - i * 0.04})`;
+      g.beginPath(); g.arc(cxp - e.vx * i * 1.5 + Math.cos(a), cyp - e.vy * i * 1.5 + Math.sin(a), 7 - i, 0, 7); g.fill();
+    }
+    g.fillStyle = '#2a1050'; g.beginPath(); g.arc(cxp, cyp, 6, 0, 7); g.fill();
+    g.fillStyle = '#d9c6ff'; g.fillRect(cxp - 3 + e.face, cyp - 1, 2, 2); g.fillRect(cxp + 1 + e.face, cyp - 1, 2, 2);
+    const r = e.gaz / M.K.omDuree;
+    g.strokeStyle = 'rgba(200,170,255,.8)'; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(cxp, cyp, 10, -Math.PI / 2, -Math.PI / 2 + r * Math.PI * 2); g.stroke();
+  }
+}
+// accessoire de la boutique, posé sur la tête quel que soit l'état
+function accessoire(g, e, cxp, y) {
+  const a = APPARENCE.accessoire;
+  if (!a) return;
+  const hy = y - 1;
+  g.save();
+  switch (a) {
+    case 'chapeau': g.fillStyle = '#2a1e18'; g.fillRect(cxp - 6, hy - 1, 12, 2); g.fillRect(cxp - 3.5, hy - 6, 7, 5); g.fillStyle = '#c0392b'; g.fillRect(cxp - 3.5, hy - 2.5, 7, 1.2); break;
+    case 'couronne': g.fillStyle = '#ffd84a'; g.beginPath(); g.moveTo(cxp - 5, hy); g.lineTo(cxp - 5, hy - 5); g.lineTo(cxp - 2.5, hy - 2.5); g.lineTo(cxp, hy - 6); g.lineTo(cxp + 2.5, hy - 2.5); g.lineTo(cxp + 5, hy - 5); g.lineTo(cxp + 5, hy); g.fill(); break;
+    case 'echarpe': g.fillStyle = '#e74c3c'; g.fillRect(cxp - 6, hy + 8, 12, 2.5); g.fillRect(cxp - 6 - e.face * 3, hy + 8 + Math.sin(temps * 8), 4, 5); break;
+    case 'lunettes': g.fillStyle = '#111'; g.fillRect(cxp - 5, hy + 4, 4.5, 2.5); g.fillRect(cxp + 0.5, hy + 4, 4.5, 2.5); g.fillRect(cxp - 1, hy + 4.5, 2, 1); break;
+    case 'cornes': g.fillStyle = '#f5ead0'; for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(cxp + sd * 3, hy + 1); g.quadraticCurveTo(cxp + sd * 8, hy - 2, cxp + sd * 6, hy - 6); g.lineTo(cxp + sd * 4.5, hy + 0.5); g.fill(); } break;
+    case 'aureole': g.strokeStyle = '#fff6a0'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(cxp, hy - 4 + Math.sin(temps * 3), 5.5, 1.8, 0, 0, 7); g.stroke(); break;
+    case 'antenne': g.strokeStyle = '#ccc'; g.lineWidth = 1; g.beginPath(); g.moveTo(cxp, hy); g.lineTo(cxp + Math.sin(temps * 5) * 2, hy - 7); g.stroke(); g.fillStyle = '#ff4a5a'; g.beginPath(); g.arc(cxp + Math.sin(temps * 5) * 2, hy - 7, 1.6, 0, 7); g.fill(); break;
+    case 'noeud': g.fillStyle = '#ff6ad5'; g.beginPath(); g.moveTo(cxp, hy); g.lineTo(cxp - 4, hy - 3); g.lineTo(cxp - 4, hy + 2); g.fill(); g.beginPath(); g.moveTo(cxp, hy); g.lineTo(cxp + 4, hy - 3); g.lineTo(cxp + 4, hy + 2); g.fill(); break;
+  }
+  g.restore();
 }
 function yeux(g, x, y, face, c) {
   g.fillStyle = '#fff'; g.fillRect(x - 3.5, y - 1.5, 3, 3.5); g.fillRect(x + 0.5, y - 1.5, 3, 3.5);
@@ -1035,24 +1109,34 @@ function interfaceJeu(g, e, hud) {
   });
   // états + charges (bas gauche)
   const n = niv;
-  const ph = [M.S, M.L, M.Z, M.P].filter(p => n && (n.phases & (1 << p)));
-  const taille = 34 * P;
+  const emp = n ? [M.S, M.L, n.emplacements[0], n.emplacements[1]] : [M.S];
+  const ph = emp.filter(p => n && (n.phases & (1 << p)));
+  const taille = 44 * P;
   let bx = 16, by = HAUT - taille - 18 * P;
   if (hud.tactile) { bx = LARG / 2 - (ph.length * (taille + 8) + 46 * P) / 2; by = (hud.sousChrono ? 80 : 62) * P; }   // en tactile : en haut, loin des pouces
   g.textAlign = 'center';
   ph.forEach((p, i) => {
     const x = bx + i * (taille + 8);
-    const actif = e.phase === p;
+    const actif = e.phase === p, slot = emp.indexOf(p);
+    const banni = e.ban === p && e.temps < e.banT;
     g.fillStyle = actif ? COUL_PHASE[p] : 'rgba(255,255,255,.08)';
     g.globalAlpha = actif ? 1 : 0.9;
     arrondi(g, x, by, taille, taille, 6); g.fill();
     g.strokeStyle = COUL_PHASE[p]; g.lineWidth = 2; g.stroke();
     g.fillStyle = actif ? '#111' : COUL_PHASE[p];
     g.font = `800 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`;
-    g.fillText((hud.touches && hud.touches[p]) || '', x + taille / 2, by + 5 * P);
-    g.font = `600 ${Math.round(9 * P)}px "Chakra Petch", sans-serif`;
+    g.font = `800 ${Math.round(20 * P)}px "Chakra Petch", sans-serif`;
+    g.fillText((hud.touches && hud.touches[slot]) || '', x + taille / 2, by + 4 * P);
+    g.font = `700 ${Math.round(9.5 * P)}px "Chakra Petch", sans-serif`;
     g.fillText(((hud.nomsPhases && hud.nomsPhases[p]) || M.NOMS_PHASES[p]).toUpperCase(), x + taille / 2, by + taille - 13 * P);
-    if (p === M.Z && e.phase === M.Z) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * e.gaz / M.K.zDuree, 3); }
+    if ((p === M.Z || p === M.OM) && e.phase === p) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * e.gaz / (p === M.Z ? M.K.zDuree : M.K.omDuree), 4); }
+    if (banni) {                                  // état banni : grande croix rouge et temps restant
+      g.globalAlpha = 1;
+      g.fillStyle = 'rgba(20,0,4,.6)'; arrondi(g, x, by, taille, taille, 6); g.fill();
+      g.strokeStyle = '#ff2a3a'; g.lineWidth = 4 * P; g.beginPath();
+      g.moveTo(x + 7, by + 7); g.lineTo(x + taille - 7, by + taille - 7); g.moveTo(x + taille - 7, by + 7); g.lineTo(x + 7, by + taille - 7); g.stroke();
+      g.fillStyle = '#ff2a3a'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * Math.min(1, (e.banT - e.temps) / M.K.banDuree), 4);
+    }
   });
   g.globalAlpha = 1;
   if (ph.length > 1) {
@@ -1073,10 +1157,18 @@ function interfaceJeu(g, e, hud) {
   // entrées affichées
   if (hud.entrees != null) {
     const inp = hud.entrees, E = M.E;
-    const k = 16 * P, x0 = LARG - 16 - k * 3 - 120 * P, y0 = HAUT - k * 2 - 18 * P;
-    const touche = (x, y, on, t, w) => { g.fillStyle = on ? '#fff' : 'rgba(255,255,255,.12)'; g.fillRect(x, y, (w || 1) * k - 2, k - 2); g.fillStyle = on ? '#111' : '#888'; g.font = `700 ${Math.round(10 * P)}px sans-serif`; g.textAlign = 'center'; g.fillText(t, x + (w || 1) * k / 2 - 1, y + 3 * P); };
+    const k = 30 * P, x0 = LARG - 24 - k * 6.6, y0 = HAUT - k * 2 - 28 * P;
+    g.fillStyle = 'rgba(8,6,14,.6)'; arrondi(g, x0 - 10, y0 - 10, k * 6.6 + 14, k * 2 + 20, 10); g.fill();
+    const touche = (x, y, on, t, w) => {
+      g.fillStyle = on ? '#ffe94a' : 'rgba(255,255,255,.14)'; arrondi(g, x, y, (w || 1) * k - 4, k - 4, 6); g.fill();
+      g.strokeStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = on ? '#111' : '#ddd'; g.font = `800 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(t, x + (w || 1) * k / 2 - 2, y + k / 2 - 2); g.textBaseline = 'top';
+    };
     touche(x0 + k, y0, inp & E.H, '↑'); touche(x0, y0 + k, inp & E.G, '←'); touche(x0 + k, y0 + k, inp & E.B, '↓'); touche(x0 + 2 * k, y0 + k, inp & E.D, '→');
-    touche(x0 + 3.5 * k, y0 + k, inp & E.SAUT, 'saut', 3);
+    touche(x0 + 3.4 * k, y0 + k, inp & E.SAUT, hud.nomSaut || 'saut', 3.2);
+    const etat = (bit, i) => touche(x0 + 3.4 * k + i * 0.8 * k, y0, inp & bit, (hud.touches && hud.touches[i]) || '', 0.8);
+    etat(E.S, 0); etat(E.L, 1); etat(E.Z, 2); etat(E.P, 3);
   }
   // panneau
   if (hud.panneau) {
@@ -1108,5 +1200,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { init, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { init, choisirApparence, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

@@ -21,11 +21,12 @@ let echecs = 0;
 const t0 = Date.now();
 for (const nom of liste) {
   const glace = nom.endsWith('*'), type = glace ? nom.slice(0, -1) : nom;
-  const phases = glace ? [0, 1, 2, 3] : Gen.SALLES[type].phases;
+  const req = Gen.SALLES[type].req || [];
+  const phases = [0, 1].concat(req), etats = req.length ? [req[0], req[0]] : [2, 3];
   const tps = [];
   for (const d of [0, 0.4, 0.8, 1.2]) for (let gr = 1; gr <= graines; gr++) {
     const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace, false, varier, phases);
-    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, carte }, type === 'alcove');
+    const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, etats, carte }, type === 'alcove');
     if (!r.ok) {
       echecs++;
       console.log('ÉCHEC ' + nom + ' d=' + d + ' graine ' + gr + ' (' + r.meilleur + ')');

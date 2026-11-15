@@ -4,7 +4,8 @@
    plus dur). Chaque type de salle est vérifié par le robot (outils/test-salles.js). */
 (function (racine) {
 'use strict';
-const S = 0, L = 1, Z = 2, P = 3;
+const S = 0, L = 1, Z = 2, P = 3, PL = 4, CA = 5, ME = 6, OM = 7;
+const VARIABLES = [Z, P, PL, CA, ME, OM];      // les états qui changent d'un niveau à l'autre
 const HAUT = 26;
 
 function hasard(graine) {           // mulberry32
@@ -156,7 +157,7 @@ const SALLES = {
     return Lg + 4;
   } },
   // Tamis au plafond d'un cul-de-sac : monter en gaz, se poser en solide
-  tamis: { phases: [S, L, Z], f(s, rng, d) {
+  tamis: { phases: [S, L], req: [Z], f(s, rng, d) {
     const a = ent(rng, 3, 5), k = ent(rng, 4, 6), b = a + k + ent(rng, 5, 8);
     s.couloir(0, a + k);
     s.r(a, 13, a + k, 13, '~');
@@ -167,7 +168,7 @@ const SALLES = {
     return b + 4;
   } },
   // Feu au pied d'un mur : le gaz explose et propulse
-  feu: { phases: [S, L, Z], f(s, rng, d) {
+  feu: { phases: [S, L], req: [Z], f(s, rng, d) {
     const h = 7 + Math.round(d * 3), a = ent(rng, 4, 6), top = 19 - h - 3;
     s.couloir(0, a + 1);
     s.c(a - 1, top, a + 1, 19); s.p(a, 19, 'f');
@@ -178,7 +179,7 @@ const SALLES = {
     return a + 10;
   } },
   // Tunnel de vent entre deux rangées de pics : seul le gaz passe
-  vent: { phases: [S, L, Z], f(s, rng, d) {
+  vent: { phases: [S, L], req: [Z], f(s, rng, d) {
     const Lt = 8 + Math.round(d * 9) + ent(rng, 0, 2);
     s.couloir(0, 3);
     s.c(4, 14, 3 + Lt, 19); s.r(4, 15, 3 + Lt, 18, '>'); s.n(4, 14, Lt, '^'); s.n(4, 19, Lt, '^');
@@ -186,7 +187,7 @@ const SALLES = {
     return 7 + Lt;
   } },
   // Mur fêlé puis longue fosse avec des cristaux
-  eclair: { phases: [S, L, Z, P], f(s, rng, d) {
+  eclair: { phases: [S, L], req: [P], f(s, rng, d) {
     const Lp = 7 + Math.round(d * 7) + ent(rng, 0, 1);
     s.couloir(0, 2); s.r(3, 14, 4, 19, 'x'); s.couloir(5, 6);
     s.c(7, 11, 6 + Lp, 23); s.n(7, 23, Lp, '^');
@@ -195,7 +196,7 @@ const SALLES = {
     return 10 + Lp;
   } },
   // Tunnel noyé sous un plafond bas
-  eau: { phases: [S, L, Z, P], f(s, rng, d) {
+  eau: { phases: [S, L], f(s, rng, d) {
     const Lw = 6 + Math.round(d * 10);
     s.couloir(0, 2);
     s.c(3, 14, 4, 19); s.r(3, 20, 6 + Lw, 24, 'w'); s.c(5 + Lw, 14, 6 + Lw, 19);
@@ -207,13 +208,22 @@ const SALLES = {
   } },
   // Arbalètes au plafond (et une au sol) : passer entre les flèches
   fleches: { phases: [S], f(s, rng, d) {
-    const Lg = ent(rng, 14, 19);
+    const Lg = ent(rng, 14, 20), forme = Math.floor(rng() * 4);
     s.couloir(0, 2); s.c(3, 13, Lg, 19);
     const k = 2 + Math.round(d * 4);
-    for (let i = 0; i < k; i++) s.p(4 + Math.floor((Lg - 5) * (i + 0.5) / k), 12, 'F');
-    if (d > 0.6) for (let i = 0; i < k - 1; i++) s.p(4 + Math.floor((Lg - 5) * (i + 1) / k), 13, '^');
-    if (d > 0.45) s.p(3 + Math.floor(Lg * 0.55), 19, 'F');
-    if (d > 0.8) { s.p(Math.floor(Lg / 2) - 1, 19, '^'); s.p(Math.floor(Lg * 0.8), 19, 'F'); }
+    const pos = (i, n2) => 4 + Math.floor((Lg - 5) * (i + 0.5 + (rng() - 0.5) * 0.4) / n2);
+    if (forme === 0) {                      // pluie depuis le plafond
+      for (let i = 0; i < k; i++) s.p(pos(i, k), 12, 'F');
+      if (d > 0.6) for (let i = 0; i < k - 1; i++) s.p(4 + Math.floor((Lg - 5) * (i + 1) / k), 13, '^');
+    } else if (forme === 1) {               // bornes au sol qui tirent vers l'arrière, à sauter
+      for (let i = 0; i < Math.ceil(k * 0.7); i++) s.p(pos(i, Math.ceil(k * 0.7)), 19, 'F');
+      if (d > 0.5) s.p(pos(0, 2), 12, 'F');
+    } else if (forme === 2) {               // tirs du sol vers le haut, à travers des grilles
+      for (let i = 0; i < k; i++) { const x = pos(i, k); s.c(x, 20, x, 21); s.p(x, 22, 'F'); s.p(x, 20, '='); }
+    } else {                                // couloir haut avec arbalètes murales qui balaient à différentes hauteurs
+      s.c(3, 10, Lg, 19);
+      for (let i = 0; i < k; i++) { const x = pos(i, k); s.r(x, 10, x, 10 + ent(rng, 1, 4), '#'); s.p(x, 11 + ent(rng, 0, 3), 'F'); }
+    }
     s.couloir(Lg + 1, Lg + 3);
     return Lg + 4;
   } },
@@ -319,8 +329,7 @@ const SALLES = {
   } },
   // Bannissement : un état est interdit un moment, il faut grimper autrement
   banni: { phases: [S, L], f(s, rng, d, ctx) {
-    const ph = (ctx.phases || [0, 1, 2, 3]).filter(p => p > 0);
-    const tile = ['7', '8', '9'][(ph.length ? ph[Math.floor(rng() * ph.length)] : 1) - 1];
+    const tile = ['7', '8', '9'][Math.floor(rng() * 3)];      // 7 : liquide, 8 et 9 : les deux états du niveau
     s.couloir(0, 4); s.col(2, 14, 19, tile);
     const hg = 5 + Math.round(d * 4), a = 6, top = 19 - hg - 2;
     s.couloir(4, a - 2); s.c(a - 1, 17, a - 1, 19); s.c(a, top, a + 2, 19);
@@ -342,9 +351,73 @@ const SALLES = {
     s.couloir(19 + Lb, 21 + Lb);
     return 22 + Lb;
   } },
+  // Plume : longue fosse à traverser en planant depuis un escalier (plafond de glace : le liquide n'y colle pas)
+  plane: { phases: [S, L], req: [PL], f(s, rng, d) {
+    const Lp = 10 + Math.round(d * 4) + ent(rng, 0, 1);
+    s.couloir(0, 3); s.c(4, 8, 7 + Lp, 19);
+    s.r(4, 17, 5, 19); s.r(6, 14, 7, 19);
+    s.r(8, 20, 7 + Lp, 22, '.'); s.c(8, 20, 7 + Lp, 22); s.n(8, 23, Lp, '^'); s.r(8, 7, 7 + Lp, 7, 'i');
+    if (d > 0.5) s.n(10, 8, Lp - 4, '^');
+    s.couloir(8 + Lp, 10 + Lp);
+    return 11 + Lp;
+  } },
+  // Caoutchouc : marches trop hautes pour un saut, faces de glace ; il faut rebondir de plus en plus haut
+  rebondir: { phases: [S, L], req: [CA], f(s, rng, d) {
+    const k = 2 + (d > 0.6 ? 1 : 0), hm = 5;
+    s.couloir(0, 3);
+    let x = 4, haut = 19;
+    s.c(4, 19 - hm * k - 4, 6 + k * 4 + 4, 19);
+    for (let i = 0; i < k; i++) {
+      x += 3; haut -= hm;
+      s.r(x, haut + 1, x + 3 + (k - i - 1) * 4, 19);
+      s.col(x, haut + 1, haut + hm, 'i');
+    }
+    const xf = 6 + k * 4 + 5;
+    s.c(xf - 1, 19 - hm * k - 4, xf + 2, 19);
+    s.couloir(xf, xf + 2);
+    return xf + 3;
+  } },
+  // Métal : couloir sous une pluie de flèches et un vent contraire ; le métal ne craint ni l'un ni l'autre
+  blinde: { phases: [S, L], req: [ME], f(s, rng, d) {
+    const Lg = ent(rng, 16, 22);
+    s.couloir(0, 2); s.c(3, 14, Lg, 19); s.r(3, 14, Lg, 19, '<');
+    for (let x = 4; x < Lg; x += 2) s.p(x, 13, 'F');
+    s.couloir(Lg + 1, Lg + 3);
+    return Lg + 4;
+  } },
+  // Ombre : paroi spectrale épaisse que seule l'ombre traverse
+  traverse: { phases: [S, L], req: [OM], f(s, rng, d) {
+    const ep = 4 + Math.round(d * 5), a = 4;
+    s.couloir(0, a - 1);
+    s.c(a, 10, a + ep - 1, 19); s.r(a, 10, a + ep - 1, 19, '%');
+    if (d > 0.5) { const m = a + Math.floor(ep / 2); s.p(m, 13, '^'); s.p(m, 17, '^'); }
+    s.couloir(a + ep, a + ep + 3);
+    return a + ep + 4;
+  } },
   // Niche en hauteur où se cache l'éclat (petit détour)
   alcove: { phases: [S], f(s, rng) {
-    // l'éclat est tout en haut d'une cheminée hérissée de pics : un vrai défi à part
+    const forme = Math.floor(rng() * 4);
+    if (forme === 1) {                      // poche sous un sol fêlé : un fracas pour l'ouvrir, puis ressortir
+      s.couloir(0, 10);
+      s.r(4, 20, 6, 20, 'x'); s.c(3, 21, 7, 22); s.p(5, 22, 'e'); s.p(3, 22, '^'); s.p(7, 22, '^');
+      s.r(8, 19, 8, 19);
+      return 11;
+    }
+    if (forme === 2) {                      // tout en haut, au-dessus d'une fosse, avec deux orbes
+      s.couloir(0, 2, 13);
+      s.c(3, 5, 10, 23); s.n(3, 23, 8, '^');
+      s.p(5, 15, 'O'); s.p(8, 10, 'O'); s.p(6, 6, 'e'); s.n(3, 5, 8, '^');
+      s.couloir(11, 13, 13);
+      return 14;
+    }
+    if (forme === 3) {                      // tunnel bas hérissé, en cul-de-sac sous le couloir
+      s.couloir(0, 12);
+      s.c(2, 20, 12, 21); s.r(2, 20, 2, 20, '.'); s.p(12, 21, 'e');
+      for (let x = 5; x < 12; x += 3) s.p(x, 21, '^');
+      s.r(3, 20, 12, 20, '#'); s.c(2, 20, 2, 21);
+      return 13;
+    }
+    // forme 0 : l'éclat est tout en haut d'une cheminée hérissée de pics
     s.couloir(0, 10);
     s.r(1, 18, 1, 19); s.r(2, 17, 3, 19);          // petit escalier pour atteindre la cheminée
     s.c(4, 3, 6, 13);
@@ -353,7 +426,7 @@ const SALLES = {
     return 11;
   } },
   // Plateformes en tapis roulants
-  tapis: { phases: [S, L, Z, P], f(s, rng, d) {
+  tapis: { phases: [S, L], f(s, rng, d) {
     s.couloir(0, 2, 12);
     let x = 3;
     const k = ent(rng, 3, 4);
@@ -367,7 +440,7 @@ const SALLES = {
     return x + 3;
   } },
   // Sol de glace avec trous et pics
-  glace: { phases: [S, L, Z, P], f(s, rng, d) {
+  glace: { phases: [S, L], f(s, rng, d) {
     s.couloir(0, 2, 13); s.sol(0, 2, 'i');
     let x = 3;
     const k = ent(rng, 3, 4);
@@ -383,7 +456,7 @@ const SALLES = {
     return x + 3;
   } },
   // Téléporteur au fond d'un trou, sortie de l'autre côté d'un mur
-  teleport: { phases: [S, L, Z, P], f(s, rng, d) {
+  teleport: { phases: [S, L], f(s, rng, d) {
     const a = ent(rng, 3, 5), q = rng() < 0.5;
     s.couloir(0, a + 2);
     s.c(a, 20, a + 1, 23); s.p(a, 23, q ? 'Q' : 'P'); s.p(a + 1, 23, q ? 'Q' : 'P');
@@ -399,9 +472,10 @@ const SALLES = {
 /* ---------- Construction ---------- */
 function debut(g, panneaux) {
   const s = salle(g, 0);
-  s.couloir(1, 8, 13); s.p(2, 19, '@');
+  const larg = Math.max(9, 5 + panneaux.length * 2);
+  s.couloir(1, larg - 1, 13); s.p(2, 19, '@');
   panneaux.forEach((_, i) => s.p(4 + i * 2, 19, '?'));
-  return 9;
+  return larg;
 }
 function fin(g, x0) {
   const s = salle(g, x0);
@@ -422,7 +496,7 @@ function calibre(type, d) {
 /* ---------- Variations : 0 à 3 ajouts tirés au hasard sur chaque salle (des milliers de combinaisons) ----------
    On ne touche qu'aux couloirs plats (sol plein en 20, plafond plein en 13, vide entre) et aux fosses, pour rester
    franchissable (vérifié par outils/test-salles.js --varier). */
-const VARIATIONS = ['orbe', 'cristal', 'arbalete', 'ennemi', 'pics', 'glace', 'arbalete', 'ennemi'];
+const VARIATIONS = ['cristal', 'arbalete', 'ennemi', 'pics', 'glace', 'arbalete', 'ennemi', 'pics'];
 function varier(g, x0, x1, rng, d, ctx) {
   const L = (x, y) => (g.l[y] && g.l[y][x]) || '#';
   const plat = (x) => L(x, 20) === '#' && L(x, 13) === '#' && L(x, 12) === '#' && [14, 15, 16, 17, 18, 19].every(y => L(x, y) === '.');
@@ -479,20 +553,26 @@ function choisir(rng, liste, nouv, recents, compte) {
 }
 
 // Un niveau de campagne : graine fixe, difficulté constante (d), nb salles
-const PH_ZONE = [[S], [S, L], [S, L, Z], [S, L, Z, P], [S, L, Z, P], [S, L, Z, P], [S, L, Z, P], [S, L, Z, P]];
-function niveau(zone, graine, d, nb, panneaux, imposees) {
+// salles jouables avec ces états variables (Solide et Liquide sont toujours là)
+function sallesPour(etats) {
+  const l = Object.keys(SALLES).filter(t => t !== 'alcove' && (SALLES[t].req || []).every(r => etats.includes(r)));
+  if (etats.length === 2) l.push('cheminee*');
+  return l;
+}
+function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3);
   const g = new Grille();
   let x = debut(g, panneaux || []);
-  const zs = ZONES_SALLES[zone - 1];
+  const types = sallesPour(etats || [Z, P]);
+  const nouv = types.filter(t => (SALLES[t.replace('*', '')].req || []).length > 0);
   const suite = [], compte = {};
   for (let i = 0; i < nb; i++) {
-    const t = (imposees && imposees[i]) || choisir(rng, zs.types, zs.nouv, suite.slice(-3), compte);
+    const t = (imposees && imposees[i]) || choisir(rng, types, nouv, suite.slice(-3), compte);
     compte[t] = (compte[t] || 0) + 1;
     suite.push(t);
     if (i === Math.floor(nb / 2)) x = poser(g, x, 'alcove', rng, d, {});
     const glace = t.endsWith('*'), x0 = x;
-    x = poser(g, x, glace ? t.slice(0, -1) : t, rng, d + (rng() - 0.5) * 0.08, { glace, varier: true, rngV, phases: PH_ZONE[zone - 1] });
+    x = poser(g, x, glace ? t.slice(0, -1) : t, rng, d + (rng() - 0.5) * 0.08, { glace, varier: true, rngV });
     if (i > 0 && i % 2 === 0) salle(g, x0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
   }
   x = fin(g, x);
@@ -502,7 +582,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees) {
 
 /* ---------- Mode infini ---------- */
 const THEMES_INF = ['carriere', 'aqueduc', 'chaufferie', 'orage', 'abysses', 'usine', 'glacier', 'coeur'];
-const TOUS = Object.keys(SALLES).filter(t => t !== 'alcove');
+const TOUS = Object.keys(SALLES).filter(t => t !== 'alcove' && !(SALLES[t].req || []).length);
 const SANS_BAN = TOUS.filter(t => t !== 'banni');
 function Infini(graine, mode, opts) {
   this.rng = hasard(graine);
@@ -515,6 +595,10 @@ function Infini(graine, mode, opts) {
   this.i = 0;
   this.prec = null;
   this.themes.push({ x: 0, theme: THEMES_INF[0] });
+  const a = VARIABLES[Math.floor(this.rng() * 6)]; let b = a;
+  while (b === a) b = VARIABLES[Math.floor(this.rng() * 6)];
+  this.etats = this.opts.etats || [a, b];
+  this.types = sallesPour(this.etats).filter(t => !t.endsWith('*'));
 }
 Infini.prototype.difficulte = function (i) {
   if (this.opts.rampe) return Math.min(1.2, this.opts.rampe[0] + i * this.opts.rampe[1]);
@@ -525,7 +609,7 @@ Infini.prototype.ajouter = function (k) {
     const i = this.i++;
     if (i > 0 && i % 6 === 0) this.themes.push({ x: this.x, theme: THEMES_INF[(i / 6) % THEMES_INF.length] });
     this.recents = this.recents || [];
-    const t = choisir(this.rng, TOUS, [], this.recents.slice(-3));
+    const t = choisir(this.rng, this.types, [], this.recents.slice(-3));
     this.recents.push(t);
     this.bornes.push(this.x);
     const glace = this.themes[this.themes.length - 1].theme === 'glacier' && t === 'cheminee';
@@ -549,7 +633,11 @@ function defi(cle, opts) {
   const g = new Grille();
   let x = debut(g, []);
   const suite = [], compte = {};
-  const liste = opts.types || TOUS;
+  const rngE = hasard(cle * 31 + 7);
+  const a = VARIABLES[Math.floor(rngE() * 6)]; let b = a;
+  while (b === a) b = VARIABLES[Math.floor(rngE() * 6)];
+  const etats = [a, b];
+  const liste = (opts.types || sallesPour(etats)).filter(t => !t.endsWith('*'));
   let pieces = 0;
   for (let i = 0; i < (opts.nb || 26); i++) {
     const t = choisir(rng, liste, [], suite.slice(-3), compte);
@@ -566,7 +654,7 @@ function defi(cle, opts) {
   }
   x = fin(g, x);
   for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
-  return { carte: g.carte(), suite, pieces, theme: THEMES_INF[cle % THEMES_INF.length] };
+  return { carte: g.carte(), suite, pieces, etats, theme: THEMES_INF[cle % THEMES_INF.length] };
 }
 
 // pour les tests : une seule salle entre un départ et une arrivée
@@ -579,7 +667,7 @@ function essai(type, graine, d, glace, brut, avecVariations, phases) {
   return g.carte();
 }
 
-const Gen = { SALLES, ZONES_SALLES, TOUS, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+const Gen = { SALLES, ZONES_SALLES, TOUS, VARIABLES, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);

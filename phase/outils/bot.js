@@ -81,8 +81,8 @@ function actions(n) {
   const hs = [0, E.G, E.D];
   for (const h of hs) for (const vv of [0, E.H, E.B]) for (const j of [0, E.SAUT]) A.push({ base: h | vv | j, sw: 0 });
   const ph = n.phases;
-  for (const [bit, p] of [[E.S, M.S], [E.L, M.L], [E.Z, M.Z]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit });
-  if (ph & (1 << M.P)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: E.P });
+  // touches 3 et 4 : les deux états propres au niveau
+  for (const [bit, p] of [[E.S, M.S], [E.L, M.L], [E.Z, n.emplacements[0]], [E.P, n.emplacements[1]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit });
   return A;
 }
 
@@ -234,7 +234,7 @@ function chercher(def, avecEclat, cfg) {
     for (const nd of enfants) {
       const e = nd.e;
       const cle = Math.round(e.x / 3) + ',' + Math.round(e.y / 3) + ',' + Math.round(e.vx * 1.5) + ',' + Math.round(e.vy * 1.5) + ',' +
-        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '');
+        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.gaz > 0 ? Math.round(e.gaz / 15) : '') + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '');
       if (vus.has(cle)) continue;
       vus.add(cle);
       const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length + e.bascule;
@@ -247,7 +247,7 @@ function chercher(def, avecEclat, cfg) {
     faisceau = suivant;
     if (faisceau[0].s < meilleur) { meilleur = faisceau[0].s; meilleurE = faisceau[0].e; }
   }
-  if (!fin) return { ok: false, meilleur: Math.round(meilleur / T) + ' ; meilleur point (' + (meilleurE.x / T).toFixed(1) + ',' + (meilleurE.y / T).toFixed(1) + ')' };
+  if (!fin) return { ok: false, meilleur: Math.round(meilleur / T) + (meilleurE ? ' ; meilleur point (' + (meilleurE.x / T).toFixed(1) + ',' + (meilleurE.y / T).toFixed(1) + ')' : '') };
   // plusieurs chemins différents (pour le robot de difficulté)
   if (opt.collecter) {
     const chemins = [];
@@ -293,12 +293,19 @@ function chercherEclat(def, r0) {
   let ex = -1;
   for (let i = 0; i < n.w * n.h; i++) if (n.g[i] === M.ECLAT) { ex = i % n.w; break; }
   if (ex < 0 || !r0 || !r0.ok) return { ok: false };
-  const x0 = ex - 5;                                   // début de la salle « niche »
-  const e = M.nouvelEtat(n), pre = [];
-  for (const inp of r0.entrees) { if (e.x >= (x0 - 2) * T) break; M.pas(n, e, inp); pre.push(inp); }
-  const a = chercher(def, true, { depart: { etat: e }, finX: x0 + 12 });
+  // on essaie de partir de plus en plus loin avant la niche (les cachettes ont plusieurs formes)
+  let pre, a = { ok: false };
+  for (const recul of [5, 9, 14, 20]) {
+    const x0 = ex - recul;
+    const e = M.nouvelEtat(n); pre = [];
+    for (const inp of r0.entrees) { if (e.x >= (x0 - 2) * T) break; M.pas(n, e, inp); pre.push(inp); }
+    if (e.mort || e.mortT > 0) continue;
+    try { a = chercher(def, true, { depart: { etat: e }, finX: ex + 7 }); } catch (err) { a = { ok: false }; }
+    if (a.ok) break;
+  }
   if (!a.ok) return { ok: false };
-  const b = chercher(def, true, { depart: { etat: a.etat } });
+  let b;
+  try { b = chercher(def, true, { depart: { etat: a.etat } }); } catch (err) { b = { ok: false }; }
   if (!b.ok) return { ok: false };
   let tout = pre.concat(a.entrees, b.entrees);
   let temps = b.temps;

@@ -12,6 +12,10 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0812; color: #eee; font-family: "Chakra Petch", system-ui, sans-serif; }
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* curseur propre au jeu */
+html, body, canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%23ffe94a' stroke='%23201430' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M5.5 7 L5.5 16 L9 13' fill='none' stroke='%23fff' stroke-width='1.3' opacity='.8'/%3E%3C/svg%3E") 3 2, default; }
+.btn, .btn *, select, input, label { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%234fb8ff' stroke='%23201430' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='21' cy='21' r='4' fill='%23ff6ad5' stroke='%23201430' stroke-width='1.5'/%3E%3C/svg%3E") 3 2, pointer !important; }
+.btn[disabled], .btn[disabled] * { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M3 2 L3 22 L8.5 17 L12.5 26 L16 24.5 L12 15.5 L19.5 15.5 Z' fill='%23ffe94a' stroke='%23201430' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M5.5 7 L5.5 16 L9 13' fill='none' stroke='%23fff' stroke-width='1.3' opacity='.8'/%3E%3C/svg%3E") 3 2, default !important; }
 canvas { display: block; position: fixed; inset: 0; }
 #ui { position: fixed; inset: 0; display: none; align-items: center; justify-content: safe center; flex-direction: column; padding: 16px; overflow-y: auto; }
 #ui.visible { display: flex; }
@@ -32,7 +36,14 @@ h3 { margin: 20px 0 8px; } h3 small { font-weight: 400; color: #999; font-size: 
   border-radius: 10px; padding: 11px 18px; cursor: pointer; text-align: left; transition: transform .08s, border-color .1s, background .1s; outline: none; }
 .btn small { display: block; font-size: 12px; font-weight: 500; color: #a99fbd; margin-top: 2px; }
 .btn:hover:not([disabled]), .btn:focus { border-color: #ffe94a; background: rgba(52, 42, 76, .95); transform: translateX(3px); }
-.btn[disabled] { opacity: .4; cursor: default; }
+.btn[disabled] { opacity: .4; }
+.rose { color: #ff8ae0; }
+.skins { display: grid; width: min(720px, 100%); align-self: center; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.skin { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 10px; }
+.skin .ap { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid #201430; }
+.skin small { font-size: 12px; opacity: .8; }
+.skin.porte { border-color: #ff8ae0; box-shadow: 0 0 12px rgba(255,138,224,.45); }
+.etn i { font-style: normal; font-size: 11px; margin-left: 3px; }
 .btn.gros { font-size: 22px; padding: 14px 18px; text-align: center; }
 .btn.mini { font-size: 13px; padding: 4px 9px; border-radius: 7px; }
 .btn.danger:hover, .btn.danger:focus { border-color: #ff5a6e; }
@@ -113,14 +124,14 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=16"></script>
-<script src="js/calibrage.js?v=16"></script>
-<script src="js/gen.js?v=16"></script>
-<script src="js/niveaux.js?v=16"></script>
-<script src="js/parfaits.js?v=16"></script>
-<script src="js/rendu.js?v=16"></script>
-<script src="js/son.js?v=16"></script>
-<script src="js/langues.js?v=16"></script>
-<script src="js/jeu.js?v=16"></script>
+<script src="js/moteur.js?v=17"></script>
+<script src="js/calibrage.js?v=17"></script>
+<script src="js/gen.js?v=17"></script>
+<script src="js/niveaux.js?v=17"></script>
+<script src="js/parfaits.js?v=17"></script>
+<script src="js/rendu.js?v=17"></script>
+<script src="js/son.js?v=17"></script>
+<script src="js/langues.js?v=17"></script>
+<script src="js/jeu.js?v=17"></script>
 </body>
 </html>

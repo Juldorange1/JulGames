@@ -19,7 +19,7 @@ const TOUCHES_DEF = {
   recommencer: ['KeyR'], pause: ['Escape', 'KeyP']
 };
 const NOMS_ACTIONS = { gauche: 'Gauche', droite: 'Droite', haut: 'Haut', bas: 'Bas (fracas)', saut: 'Saut / giclée / jet', solide: 'Solide', /* traduits à l'affichage */
-  liquide: 'Liquide', gaz: 'Gaz', plasma: 'Plasma (éclair)', recommencer: 'Recommencer', pause: 'Pause' };
+  liquide: 'Liquide', gaz: 'État 3 (selon le niveau)', plasma: 'État 4 (selon le niveau)', recommencer: 'Recommencer', pause: 'Pause' };
 let S = { il: {}, course: {}, infini: {}, reglages: { sons: 0.5, musique: 0.5, fantome: 'record', entrees: false, tremble: true }, touches: null, essais: 0, morts: 0 };
 try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(S, d); } catch (err) { /* pas de stockage */ }
 if (!S.infini) S.infini = {};
@@ -28,6 +28,18 @@ S.reglages = Object.assign({ sons: 0.5, musique: 0.5, fantome: 'record', entrees
 window.Langue.choisir(S.reglages.langue);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
 for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].slice();
+/* ---------- Éclats ◆ : monnaie de la boutique ---------- */
+if (!S.bonus) S.bonus = { eclats: 0, jours: {}, infini: {} };
+if (!S.skins) S.skins = { achats: ['base', 'rien'], corps: 'base', accessoire: 'rien', depense: 0 };
+const CORPS = { base: { nom: 'Pierre', prix: 0, c: null }, braise: { nom: 'Braise', prix: 3, c: ['#ffb080', '#c0452a'] }, menthe: { nom: 'Menthe', prix: 3, c: ['#c8ffe0', '#3fae7a'] },
+  nuit: { nom: 'Nuit', prix: 5, c: ['#9aa8ff', '#2a2f6a'] }, rose: { nom: 'Rose', prix: 5, c: ['#ffd0ea', '#d0508e'] }, or: { nom: 'Or', prix: 10, c: ['#fff2a0', '#c8961e'] },
+  neige: { nom: 'Neige', prix: 8, c: ['#ffffff', '#a8c4dc'] }, onyx: { nom: 'Onyx', prix: 14, c: ['#6a6a78', '#16161e'] } };
+const ACCESSOIRES = { rien: { nom: 'Aucun', prix: 0 }, noeud: { nom: 'Nœud', prix: 2 }, lunettes: { nom: 'Lunettes', prix: 4 }, echarpe: { nom: 'Écharpe', prix: 4 },
+  chapeau: { nom: 'Chapeau', prix: 6 }, antenne: { nom: 'Antenne', prix: 6 }, cornes: { nom: 'Cornes', prix: 9 }, aureole: { nom: 'Auréole', prix: 12 }, couronne: { nom: 'Couronne', prix: 18 } };
+function eclatsGagnes() { let n = S.bonus.eclats; for (const id in S.il) if (S.il[id] && S.il[id].eclat) n++; return n; }
+function eclatsDispo() { return eclatsGagnes() - S.skins.depense; }
+function appliquerApparence() { R.choisirApparence({ corps: CORPS[S.skins.corps] ? CORPS[S.skins.corps].c : null, accessoire: S.skins.accessoire === 'rien' ? null : S.skins.accessoire }); }
+function gagnerBonus(n) { S.bonus.eclats += n; return n; }
 function sauver() { try { localStorage.setItem(CLE, JSON.stringify(S)); } catch (err) { /* plein ou bloqué */ } }
 
 /* ---------- Noms des touches (disposition du clavier) ---------- */
@@ -139,7 +151,7 @@ const TOUTES = [0, 1, 2, 3];
 function lancerInfini(mode) {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   const monde = new Gen.Infini(graine, mode);
-  const def = { id: 'inf' + mode, nom: 'Infini · difficulté ' + mode, phases: TOUTES, carte: monde.ajouter(6), panneaux: [] };
+  const def = { id: 'inf' + mode, nom: 'Infini · difficulté ' + mode, phases: [0, 1].concat(monde.etats), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
   const n = M.charger(def);
   const e = M.nouvelEtat(n);
   R.preparer(n, (x) => monde.theme(x));
@@ -185,7 +197,9 @@ function lancerDefi(msg) {
   else if (type.id === 'sansfaute') r = Gen.defi(cle, { drapeaux: false, nb: 16 });
   else if (type.id === 'solide') { r = Gen.defi(cle, { types: Gen.TOUS.filter(t => Gen.SALLES[t].phases.length === 1), d: 0.7 }); phases = [0]; }
   else r = Gen.defi(cle);
-  const def = { id: 'defi', nom: 'Défi du jour', phases, carte: monde ? monde.ajouter(6) : r.carte, panneaux: [] };
+  const etats = monde ? monde.etats : r.etats;
+  if (phases === TOUTES) phases = [0, 1].concat(etats);
+  const def = { id: 'defi', nom: 'Défi du jour', phases, etats, carte: monde ? monde.ajouter(6) : r.carte, panneaux: [] };
   const n = M.charger(def);
   const e = M.nouvelEtat(n);
   R.preparer(n, monde ? (x) => monde.theme(x) : (x) => Gen.THEMES_INF[(cle + Math.floor(x / 90)) % 8]);
@@ -209,13 +223,15 @@ function finDefi() {
   const res = { type: type.id, score, t };
   const record = meilleurQue(type, res, ancien);
   if (record) { if (type.score === 'temps') res.f = M.compresser(J.entrees); S.defis[cle] = res; }
+  const gainD = !S.bonus.jours[cle] && (type.score !== 'salles' || score >= 3) ? gagnerBonus(2) : 0;
+  if (gainD) S.bonus.jours[cle] = 1;
   sauver();
   ecran = 'fin';
   SON.attenuer(true);
   const jours = Object.keys(S.defis).length;
   montrer(`<div class="fin"><div class="nomniv">${tr('Défi du jour · {0}', tr(type.nom))} · ${dateDefi(cle)}</div><div class="temps">${texteScore(type, res)}</div>
     <div class="lignes">${record ? '<div class="vert">' + tr(ancien ? 'Meilleur résultat du jour !' : 'Premier résultat du jour') + '</div>' : `<div>${tr('Ton meilleur du jour : {0}', '<b>' + texteScore(type, ancien) + '</b>')}</div>`}
-    <div class="gris">${type.score !== 'temps' ? R.chrono(t) + ' · ' : ''}${tr('Chutes : {0}', J.e.morts)} · ${tr('Défis relevés : {0} · un nouveau défi demain', jours)}</div></div>
+    <div class="gris">${type.score !== 'temps' ? R.chrono(t) + ' · ' : ''}${tr('Chutes : {0}', J.e.morts)} · ${tr('Défis relevés : {0} · un nouveau défi demain', jours)}</div>${gainD ? `<div class="rose">+${gainD} ◆ ${tr('pour la boutique')}</div>` : ''}</div>
     <div class="menu ligne"><button class="btn" data-a="defi" autofocus>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
     <button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
 }
@@ -236,12 +252,15 @@ function finInfini() {
   const mode = J.imode, n = J.salle, t = J.e.temps, ancien = S.infini[mode];
   const record = !ancien || n > ancien.salles || (n === ancien.salles && t < ancien.t);
   if (record) S.infini[mode] = { salles: n, t };
+  const palier = Math.floor(n / 10) * mode, dejaI = S.bonus.infini[mode] || 0;
+  const gainI = palier > dejaI ? gagnerBonus(palier - dejaI) : 0;
+  if (gainI) S.bonus.infini[mode] = palier;
   sauver();
   ecran = 'fin';
   SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">${tr('Infini · difficulté {0}', mode)}</div><div class="temps">${tr('Salles franchies : {0}', n)}</div>
     <div class="lignes">${record ? '<div class="vert">' + tr('Nouveau record !') + '</div>' : `<div>${tr('Record : {0}', '<b>' + tr('Salles : {0}', ancien.salles) + '</b>')}</div>`}
-    <div class="gris">${R.chrono(t)} · ${tr('Difficulté atteinte : {0} %', Math.round(J.monde.difficulte(n) / 1.2 * 100))}</div></div>
+    <div class="gris">${R.chrono(t)} · ${tr('Difficulté atteinte : {0} %', Math.round(J.monde.difficulte(n) / 1.2 * 100))}</div>${gainI ? `<div class="rose">+${gainI} ◆ ${tr('pour la boutique')}</div>` : ''}<div class="gris">${tr('Tous les 10 salles : un éclat ◆ pour la boutique')}</div></div>
     <div class="menu ligne"><button class="btn" data-a="infini${mode}" autofocus>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
     <button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
 }
@@ -347,7 +366,7 @@ function boucle(t) {
 function dessiner(dt) {
   if (!J) { fondMenu(dt); return; }
   const e = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { nomSaut: tr('saut'), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = tr('Défi du jour · {0}', tr(ty.nom));
@@ -404,7 +423,7 @@ function dessiner(dt) {
   if (S.reglages.entrees && J.mode !== 'fantome') hud.entrees = J.inp || 0;
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
-  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { hud.panneau = tr(pn.texte); break; }
+  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([34])\] (.*)$/.exec(pn.texte); hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) : tr(pn.texte); } break; }
   if (messageT > 0) { hud.message = tr(message); hud.messageC = '#ff9ae6'; }
   R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
 }
@@ -463,10 +482,40 @@ function accueil() {
     <button class="btn" data-a="infini1">${tr('Infini · difficulté {0}', 1)} <small>${S.infini[1] ? tr('record : {0} salles', S.infini[1].salles) : tr('salles générées sans fin, de plus en plus dures, une seule vie')}</small></button>
     <button class="btn" data-a="infini2">${tr('Infini · difficulté {0}', 2)} <small>${S.infini[2] ? tr('record : {0} salles', S.infini[2].salles) : tr('commence déjà dur et monte plus vite')}</small></button>
     <button class="btn" data-a="records">${tr('Records')}</button>
+    <button class="btn" data-a="boutique">${tr('Boutique')} <small class="rose">${eclatsDispo()} ◆</small></button>
     <button class="btn" data-a="aide">${tr('Comment jouer')}</button>
     <button class="btn" data-a="reglages">${tr('Réglages')}</button>
   </div>
   <div class="pied">${tr('Niveaux finis : {0} / {1} · Parfaits : {2} · Chutes : {3}', faits, LISTE.length, parfaits, S.morts)}</div>`, 'accueil');
+}
+
+function boutique() {
+  J = null; ecran = 'menu';
+  const carte = (type, id, o) => {
+    const a = S.skins.achats.includes(id), porte = S.skins[type] === id;
+    const fond = type === 'corps' ? (o.c ? `linear-gradient(${o.c[0]}, ${o.c[1]})` : 'linear-gradient(#f6e6c4, #b89a6a)') : '#3a3050';
+    return `<button class="btn skin ${porte ? 'porte' : ''}" data-a="skin" data-t="${type}" data-s="${id}" ${!a && eclatsDispo() < o.prix ? 'disabled' : ''}>
+      <span class="ap" style="background:${fond}">${type === 'accessoire' ? ({ rien: '·', noeud: '🎀', lunettes: '🕶', echarpe: '🧣', chapeau: '🎩', antenne: '📡', cornes: '🐏', aureole: '😇', couronne: '👑' })[id] : ''}</span>
+      <b>${tr(o.nom)}</b><small>${porte ? tr('porté') : a ? tr('à toi') : o.prix + ' ◆'}</small></button>`;
+  };
+  let h = `<h2>${tr('Boutique')} <span class="rose">${eclatsDispo()} ◆</span></h2>
+  <p class="note">${tr('Les éclats ◆ se gagnent en les attrapant dans les niveaux (cachés de mille façons), en finissant le défi du jour, et tous les 10 salles en mode Infini.')}</p>
+  <h3>${tr('Couleur')}</h3><div class="skins">`;
+  for (const id in CORPS) h += carte('corps', id, CORPS[id]);
+  h += `</div><h3>${tr('Accessoire')}</h3><div class="skins">`;
+  for (const id in ACCESSOIRES) h += carte('accessoire', id, ACCESSOIRES[id]);
+  h += `</div><div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`;
+  montrer(h, 'large');
+}
+function choisirSkin(type, id) {
+  const o = (type === 'corps' ? CORPS : ACCESSOIRES)[id];
+  if (!o) return;
+  if (!S.skins.achats.includes(id)) {
+    if (eclatsDispo() < o.prix) return;
+    S.skins.depense += o.prix; S.skins.achats.push(id);
+  }
+  S.skins[type] = id;
+  appliquerApparence(); sauver(); boutique();
 }
 
 function niveaux() {
@@ -474,12 +523,12 @@ function niveaux() {
   NIV.ZONES.forEach((z, zi) => {
     const ok = zoneDebloquee(zi), th = R.THEMES[z.theme];
     const nFaits = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
-    h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em><span>${z.phases.map(p => tr(M.NOMS_PHASES[p])).join(' · ')}</span></div>`;
+    h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em></div>`;
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
       h += `<button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
-        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
+        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -513,9 +562,9 @@ function aide() {
   <div class="etats">
    <div style="--c:${R.COUL_PHASE[0]}"><b>${k('solide')} · ${tr('Solide')}</b>${tr('Court, saute, fait des sauts muraux. En l’air, Bas : fracas qui brise les blocs fêlés. Saute juste après : rebond.')}</div>
    <div style="--c:${R.COUL_PHASE[1]}"><b>${k('liquide')} · ${tr('Liquide')}</b>${tr('Colle aux murs et aux plafonds, passe les grilles, glisse vite. Sa vitesse se convertit : contre un mur elle devient montée, une chute devient élan.')}</div>
-   <div style="--c:${R.COUL_PHASE[2]}"><b>${k('gaz')} · ${tr('Gaz')}</b>${tr('Monte tout seul, traverse les tamis, porté par le vent. Redevient solide au bout d’un moment. Touche le feu : explosion qui propulse.')}</div>
-   <div style="--c:${R.COUL_PHASE[3]}"><b>${k('plasma')} · ${tr('Plasma')}</b>${tr('Éclair dans les 8 directions qui brise les blocs fêlés. Éclair vers le sol puis saut : super saut.')}</div>
+   ${NIV.VARIABLES.map(p => `<div style="--c:${R.COUL_PHASE[p]}"><b>${k('gaz')} / ${k('plasma')} · ${tr(M.NOMS_PHASES[p])}</b>${tr(NIV.DESC[p]).replace(/^[^:]*: /, '')}</div>`).join('')}
   </div>
+  <p>${tr('Solide et Liquide sont toujours là. Les touches des états 3 et 4 changent d’état selon le niveau : c’est écrit sur les panneaux du début.')}</p>
   <p>${tr('Changer d’état coûte une charge (2 au maximum, ◆ bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>
   <p>${tr('Pièges : flèches tirées à intervalles réguliers, sols cassants, sols rebondissants, boutons qui ouvrent des portes. Chaque niveau cache un éclat ◆ très difficile à atteindre.')}</p>
   <p>${tr('Orbe jaune : appuie sur saut en la touchant pour sauter en plein air. Tremplin vert : il te projette sur le côté.')} ${tr('Interrupteur : les blocs rouges et bleus s’échangent. Flèche verte : sauts plus hauts un moment, flèche orange : sauts plus courts. Évite les ennemis hérissés.')} ${tr('Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.')}</p>
@@ -613,6 +662,8 @@ function action(a, el) {
     case 'niveaux': J = null; ecran = 'menu'; niveaux(); break;
     case 'records': J = null; ecran = 'menu'; records(); break;
     case 'aide': aide(); break;
+    case 'boutique': boutique(); break;
+    case 'skin': choisirSkin(el.dataset.t, el.dataset.s); break;
     case 'reglages': reglages(); break;
     case 'jouer': lancerNiveau(i); break;
     case 'voir-parfait': regarder(i, 'parfait'); break;
@@ -777,6 +828,7 @@ function tactiles() {
 
 /* ---------- Démarrage ---------- */
 R.init(document.getElementById('jeu'));
+appliquerApparence();
 SON.volumes(S.reglages.sons, S.reglages.musique);
 tactiles();
 accueil();
