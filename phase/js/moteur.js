@@ -10,16 +10,20 @@ const NOMS_PHASES = ['Solide', 'Liquide', 'Gaz', 'Plasma'];
 const E = { G: 1, D: 2, H: 4, B: 8, SAUT: 16, S: 32, L: 64, Z: 128, P: 256 };   // bits d'entrée
 const EV = { SAUT: 1, MUR: 2, CHANGE: 4, MORT: 8, CASSE: 16, RESSORT: 32, BOUM: 64, CRISTAL: 128, FIN: 256,
   DRAPEAU: 512, TP: 1024, ECLAT: 2048, ECHEC: 4096, ATTERRIT: 8192, JET: 16384, FRACAS: 32768, CONVERSION: 65536,
-  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304, PIECE: 8388608 };
+  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304, PIECE: 8388608, ORBE: 16777216, BASCULE: 33554432, BANNI: 67108864, BONUS: 134217728 };
 
 const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, EAU = 7, GLACE = 8, RESSORT = 9,
   CRISTAL = 10, BUT = 11, DRAPEAU = 12, PLATE = 13, TAPIS_G = 14, TAPIS_D = 15, VENT_D = 16, VENT_G = 17,
   VENT_H = 18, VENT_B = 19, TP1 = 20, TP1S = 21, TP2 = 22, TP2S = 23, ECLAT = 24, PANNEAU = 25,
-  ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30, PIECE = 31;
+  ARBALETE = 26, CASSANT = 27, REBONDI = 28, BOUTON = 29, PORTE = 30, PIECE = 31,
+  ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
+  BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44;
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
   'w': EAU, 'i': GLACE, 's': RESSORT, '*': CRISTAL, 'G': BUT, '!': DRAPEAU, '-': PLATE, '[': TAPIS_G, ']': TAPIS_D,
   '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU,
-  'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE, '$': PIECE };
+  'F': ARBALETE, 'c': CASSANT, 'b': REBONDI, 'o': BOUTON, 'D': PORTE, '$': PIECE,
+  'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
+  '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -39,7 +43,8 @@ const K = {
   // vent, explosions, tapis
   vent: [0.08, 0.16, 0.7, 0], ventMax: 6.2, boum: 9, tapis: 1.4,
   // pièges
-  flechePeriode: 84, flecheVit: 4.2, cassantDelai: 22, cassantRetour: 150, rebondMin: 8.2
+  flechePeriode: 84, flecheVit: 4.2, cassantDelai: 22, cassantRetour: 150, rebondMin: 8.2,
+  orbeRecharge: 30, tremplinVx: 9.5, tremplinVy: 3.5, ennemiVit: 1.3, banDuree: 240, bonusDuree: 360, sautPlus: 1.45, sautMoins: 0.7
 };
 
 /* ---------- Chargement d'un niveau ---------- */
@@ -107,16 +112,28 @@ function recharger(n, c) {
     for (const b of boutons) { const bx = b % w; if (bx <= x && (best < 0 || bx > best % w)) best = b; }
     if (best >= 0) porteDe.set((x) * 1024 + Math.floor(i / w), (best % w) * 1024 + Math.floor(best / w));
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe });
+  // ennemis : ils patrouillent d'un mur à l'autre (horizontalement ou verticalement), selon le temps seulement
+  const ennemis = [];
+  const passeE = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]) && g[y * w + x] !== PICS;
+  for (let i = 0; i < w * h; i++) {
+    const t = g[i];
+    if (t !== ENNEMI_H && t !== ENNEMI_V) continue;
+    const x = i % w, y = Math.floor(i / w), hor = t === ENNEMI_H;
+    let a = 0, b = 0;
+    while (a < 30 && passeE(hor ? x - a - 1 : x, hor ? y : y - a - 1)) a++;
+    while (b < 30 && passeE(hor ? x + b + 1 : x, hor ? y : y + b + 1)) b++;
+    ennemis.push({ x, y, hor, min: -a * T, max: b * T, dec: (x * 13 + y * 7) % 200 });
+  }
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis });
   return n;
 }
 
 const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
-  t === CASSANT || t === REBONDI || t === PORTE;
+  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B;
 
 /* ---------- État ---------- */
 function nouvelEtat(n) {
-  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], cp: null, morts: 0,
+  const e = { f: 0, temps: 0, demarre: false, fini: false, eclat: false, casses: [], cristaux: [], craque: [], boutons: [], pieces: [], orbes: [], bascule: 0, surInter: -1, ban: -1, banT: 0, bonus: 1, bonusT: 0, cp: null, morts: 0,
     inpPrev: 0, ev: 0, evX: 0, evY: 0 };
   placer(e, n);
   return e;
@@ -125,7 +142,7 @@ function placer(e, n) {
   const d = e.cp || n.dep;
   e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = S; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
-  e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.dansEau = false; e.porte = 0;
+  e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
 }
 function cloner(e) {
   const c = Object.assign({}, e);
@@ -134,6 +151,7 @@ function cloner(e) {
   c.craque = e.craque.slice();
   c.boutons = e.boutons.slice();
   c.pieces = e.pieces.slice();
+  c.orbes = e.orbes.slice();
   return c;
 }
 
@@ -155,6 +173,13 @@ function flechesEn(n, temps, f) {
   }
   return out;
 }
+// position d'un ennemi à un instant donné (aller-retour à vitesse constante)
+function ennemiEn(en, temps) {
+  const L = en.max - en.min;
+  if (L <= 0) return [en.x * T + 2, en.y * T + 2];
+  const d = ((temps + en.dec) * K.ennemiVit) % (2 * L), o = en.min + (d < L ? d : 2 * L - d);
+  return en.hor ? [en.x * T + 2 + o, en.y * T + 2] : [en.x * T + 2, en.y * T + 2 + o];
+}
 function casse(e, i) { return e.casses.length > 0 && e.casses.indexOf(i) >= 0; }
 function tuile(n, tx, ty) {
   if (tx < 0 || tx >= n.w || ty < 0) return MUR;
@@ -168,6 +193,8 @@ function plein(n, e, tx, ty) {
   switch (t) {
     case MUR: case GLACE: case TAPIS_G: case TAPIS_D: case ARBALETE: case REBONDI: return true;
     case CASSANT: return !effondre(e, tx * 1024 + ty);
+    case BLOC_R: return e.bascule === 0;
+    case BLOC_B: return e.bascule === 1;
     case PORTE: { const b = n.porteDe.get(tx * 1024 + ty); return b === undefined || e.boutons.indexOf(b) < 0; }
     case FRAGILE: return !casse(e, tx * 1024 + ty);
     case GRILLE: return e.phase !== L;
@@ -274,6 +301,7 @@ function zonePics(n, tx, ty) {
   }
 }
 
+function mulSaut(e) { return e.temps < e.bonusT ? e.bonus : 1; }
 function approche(v, c, d) { return v < c ? Math.min(c, v + d) : Math.max(c, v - d); }
 
 function mourir(e) {
@@ -336,6 +364,7 @@ function pas(n, e, inp) {
   // changements d'état demandés
   let vers = -1;
   if (presse & E.P) vers = P; else if (presse & E.S) vers = S; else if (presse & E.L) vers = L; else if (presse & E.Z) vers = Z;
+  if (vers >= 0 && e.ban === vers && e.temps < e.banT) { e.ev |= EV.ECHEC; vers = -1; }
   if (vers >= 0 && (n.phases & (1 << vers)) && (vers !== e.phase || vers === P || vers === Z)) {
     if (vers === P && (e.cdP > 0 || e.dash > 0)) { /* pas deux éclairs collés */ }
     else if (e.charges > 0) { e.charges--; changer(n, e, vers, h, v); }
@@ -376,11 +405,11 @@ function pas(n, e, inp) {
       if (e.tampon > 0) {
         if (sol0 || e.coyote > 0) {
           const reb = e.slamAt > 0;
-          e.vy = -(reb ? K.rebond : K.saut); e.tampon = 0; e.coyote = 0; e.sol = false; e.slamAt = 0;
+          e.vy = -(reb ? K.rebond : K.saut) * mulSaut(e); e.tampon = 0; e.coyote = 0; e.sol = false; e.slamAt = 0;
           e.vx += porte; e.ev |= reb ? EV.REBOND : EV.SAUT;
         } else if (cG >= 0 || cD >= 0) {
           const loin = cG >= 0 ? 1 : -1;
-          e.vy = -K.murVy; e.vx = loin * Math.max(K.murVx, Math.abs(e.vx) * 0.5); e.face = loin; e.verrou = 6;
+          e.vy = -K.murVy * mulSaut(e); e.vx = loin * Math.max(K.murVx, Math.abs(e.vx) * 0.5); e.face = loin; e.verrou = 6;
           e.tampon = 0; e.slam = false; e.ev |= EV.MUR; e.evX = loin;
         }
       }
@@ -425,7 +454,7 @@ function pas(n, e, inp) {
       e.vy = Math.min(e.vy + K.lGrav, K.chuteMax);
       if (sol0) e.coyote = 6; else if (e.coyote > 0) e.coyote--;
       if (e.tampon > 0 && (sol0 || e.coyote > 0)) {
-        e.vy = -K.lGiclee; e.tampon = 0; e.coyote = 0; e.vx += porte; e.ev |= EV.SAUT;
+        e.vy = -K.lGiclee * mulSaut(e); e.tampon = 0; e.coyote = 0; e.vx += porte; e.ev |= EV.SAUT;
       }
     }
   } else if (e.phase === Z) {
@@ -545,6 +574,7 @@ function pas(n, e, inp) {
   if (e.sol && (e.phase === S || e.phase === L) && e.charges < K.charges) e.charges = K.charges;
 
   /* ----- cases spéciales touchées ----- */
+  let touchInter = -1;
   const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + W - 0.001) / T);
   const y0 = Math.floor(e.y / T), y1 = Math.floor((e.y + H - 0.001) / T);
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
@@ -574,6 +604,37 @@ function pas(n, e, inp) {
       if (e.phase === Z) e.vy = -4.6;
       else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; } }
       e.slam = false; e.slamAt = 0; e.sol = false; e.att = 0; e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
+    } else if (t === ORBE) {                               // orbe : appuyer sur saut en la touchant = nouveau saut
+      const k = tx * 1024 + ty;
+      if (dans(1) && e.tampon > 0 && e.phase !== Z && !e.orbes.some(o => o[0] === k && e.temps - o[1] < K.orbeRecharge)) {
+        if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+        e.vy = -K.saut * mulSaut(e); e.tampon = 0; e.slam = false; e.att = 0; e.sol = false;
+        e.orbes = e.orbes.filter(o => e.temps - o[1] < K.orbeRecharge); e.orbes.push([k, e.temps]);
+        e.ev |= EV.ORBE; e.evX = tx; e.evY = ty;
+      }
+    } else if (t === INTER) {
+      const k = tx * 1024 + ty;
+      if (dans(2)) { touchInter = k; if (e.surInter !== k) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; } }
+    } else if (t === TREMP_G || t === TREMP_D) {            // tremplin latéral : projette sur le côté
+      if (dans(2) && e.tremCd <= 0) {
+        const dir = t === TREMP_D ? 1 : -1;
+        e.vx = dir * K.tremplinVx; e.vy = -K.tremplinVy; e.att = 0; e.slam = false; e.sol = false; e.tremCd = 12;
+        if (e.phase === P) { e.phase = S; e.dash = 0; e.cdP = K.pRecharge; }
+        e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
+      }
+    } else if (t === BAN_L || t === BAN_Z || t === BAN_P) {    // bannissement : cet état est interdit un moment
+      if (dans(2)) {
+        const ph = t === BAN_L ? L : t === BAN_Z ? Z : P;
+        if (e.ban !== ph || e.banT - e.temps < K.banDuree - 30) { e.ev |= EV.BANNI; e.evX = tx; e.evY = ty; }
+        e.ban = ph; e.banT = e.temps + K.banDuree;
+        if (e.phase === ph) { e.phase = S; e.gaz = 0; e.dash = 0; e.att = 0; }
+      }
+    } else if (t === SAUT_PLUS || t === SAUT_MOINS) {           // multiplicateur de saut
+      if (dans(2)) {
+        const m = t === SAUT_PLUS ? K.sautPlus : K.sautMoins;
+        if (e.bonus !== m || e.bonusT - e.temps < K.bonusDuree - 30) { e.ev |= EV.BONUS; e.evX = tx; e.evY = ty; }
+        e.bonus = m; e.bonusT = e.temps + K.bonusDuree;
+      }
     } else if (t === PIECE) {
       const k = tx * 1024 + ty;
       if (dans(2) && e.pieces.indexOf(k) < 0) { e.pieces.push(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
@@ -604,6 +665,22 @@ function pas(n, e, inp) {
     if (e.fini || e.mortT > 0) break;
   }
   if (e.y > n.h * T + 8) mourir(e);
+  e.surInter = touchInter;
+  if (e.tremCd > 0) e.tremCd--;
+  // un bloc de couleur qui apparaît sur le joueur l'écrase
+  if ((e.ev & EV.BASCULE) && e.mortT === 0) {
+    const ax = Math.floor(e.x / T), bx = Math.floor((e.x + W - 0.001) / T), ay = Math.floor(e.y / T), by = Math.floor((e.y + H - 0.001) / T);
+    for (let ty = ay; ty <= by; ty++) for (let tx = ax; tx <= bx; tx++) { const tt = tuile(n, tx, ty); if ((tt === BLOC_R || tt === BLOC_B) && plein(n, e, tx, ty)) mourir(e); }
+  }
+  // ennemis proches
+  if (n.ennemis.length && e.mortT === 0) {
+    const px = e.x + W / 2;
+    for (const en of n.ennemis) {
+      if (Math.abs(en.x * T - px) > 40 * T) continue;
+      const [ex, ey] = ennemiEn(en, e.temps);
+      if (ex + 11 > e.x && ex + 1 < e.x + W && ey + 11 > e.y && ey + 1 < e.y + H) { mourir(e); break; }
+    }
+  }
   // flèches des arbalètes proches
   if (n.fleches.length && e.mortT === 0) {
     const px = e.x + W / 2;
@@ -642,7 +719,8 @@ function decompresser(s) {
 const Moteur = { T, W, H, S, L, Z, P, NOMS_PHASES, E, EV, K, CH,
   VIDE, MUR, GRILLE, TAMIS, FRAGILE, PICS, FEU, EAU, GLACE, RESSORT, CRISTAL, BUT, DRAPEAU, PLATE, TAPIS_G, TAPIS_D,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
-  ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, estDur, flechesEn, effondre,
+  ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
+  BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, estDur, flechesEn, effondre, ennemiEn,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

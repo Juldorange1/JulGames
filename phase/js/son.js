@@ -58,6 +58,10 @@ function evenements(ev, phase) {
   if (ev & EV.BOUTON) { jouer('bouton', 0.5); jouer('porte', 0.4); }
   if (ev & EV.CRAQUE) jouer('casse', 0.2, 1.8);
   if (ev & EV.PIECE) jouer('cristal', 0.35, 1.5);
+  if (ev & EV.ORBE) jouer('saut', 0.4, 1.4);
+  if (ev & EV.BASCULE) jouer('bouton', 0.4, 1.2);
+  if (ev & EV.BANNI) jouer('echec', 0.35, 0.8);
+  if (ev & EV.BONUS) jouer('ressort', 0.35, 1.3);
 }
 function bruitMenu(quoi) { jouer(quoi === 'valider' ? 'valider' : 'menu', 0.3); }
 

@@ -118,11 +118,12 @@ function lancerNiveau(idx) {
 }
 function regarder(idx, cle) {
   const id = LISTE[idx].id, p = cle === 'record' ? S.il[id] : PARF[id];
-  if (!p || !p.f) return;
+  const fz = cle === 'parfait-eclat' ? (p && p.fe) : (p && p.f);
+  if (!fz) return;
   const c = charger(idx);
-  const ent = M.decompresser(p.f);
+  const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(LISTE[idx].zi + 1);
 }
@@ -250,7 +251,7 @@ function recommencer() {
   if (J.mode === 'infini') { lancerInfini(J.imode); return; }
   if (J.mode === 'defi') { lancerDefi(); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
-  else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : 'parfait');
+  else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat');
   else if (J.mode === 'course') {
     // en course, R ramène au dernier drapeau (le chrono continue)
     if (J.e.mortT === 0 && J.e.demarre) { J.e.mortT = 1; J.e.morts++; }
@@ -472,11 +473,13 @@ function niveaux() {
   let h = '<h2>' + tr('Niveaux') + '</h2><div class="zones">';
   NIV.ZONES.forEach((z, zi) => {
     const ok = zoneDebloquee(zi), th = R.THEMES[z.theme];
-    h += `<div class="zone ${ok ? '' : 'ferme'}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)}<span>${z.phases.map(p => tr(M.NOMS_PHASES[p])).join(' · ')}</span></div>`;
+    const nFaits = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
+    h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em><span>${z.phases.map(p => tr(M.NOMS_PHASES[p])).join(' · ')}</span></div>`;
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
-      h += `<button class="btn niv" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
-        <b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
+      const fait = r && r.t != null;
+      h += `<button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="jouer" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
+        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -491,6 +494,7 @@ function records() {
     const r = S.il[l.id], p = PARF[l.id];
     h += `<tr><td><b>${l.id}</b> ${tr(l.def.nom)}</td><td>${r && r.t != null ? R.chrono(r.t) : '—'}</td><td>${badge(medaille(l.id, r && r.t))}</td>
       <td>${p ? R.chrono(p.t) : '—'}</td><td>${p ? `<button class="btn mini" data-a="voir-parfait" data-i="${parId[l.id]}">${tr('▶ Parfait')}</button>` : ''}
+      ${p && p.fe ? `<button class="btn mini" data-a="voir-parfait-eclat" data-i="${parId[l.id]}">▶ ◆</button>` : ''}
       ${r && r.f ? `<button class="btn mini" data-a="voir-record" data-i="${parId[l.id]}">${tr('▶ Mien')}</button>` : ''}</td></tr>`;
   }
   const sb = sommeMeilleurs(), sp = sommeParfaits();
@@ -514,6 +518,7 @@ function aide() {
   </div>
   <p>${tr('Changer d’état coûte une charge (2 au maximum, ◆ bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>
   <p>${tr('Pièges : flèches tirées à intervalles réguliers, sols cassants, sols rebondissants, boutons qui ouvrent des portes. Chaque niveau cache un éclat ◆ très difficile à atteindre.')}</p>
+  <p>${tr('Orbe jaune : appuie sur saut en la touchant pour sauter en plein air. Tremplin vert : il te projette sur le côté.')} ${tr('Interrupteur : les blocs rouges et bleus s’échangent. Flèche verte : sauts plus hauts un moment, flèche orange : sauts plus courts. Évite les ennemis hérissés.')} ${tr('Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.')}</p>
   <p>${tr('Clavier : {0} recommencer, {1} pause. Manette : A saut, X solide, Y liquide, B gaz, gâchettes plasma, Start pause, Select recommencer. Écran tactile : croix à gauche, saut et états à droite.', k('recommencer'), k('pause'))}</p></div>
   <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
 }
@@ -561,6 +566,7 @@ function finNiveau(t, avant, record) {
       <button class="btn" data-a="rejouer" ${suiv ? '' : 'autofocus'}>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
       ${suiv ? `<button class="btn" data-a="jouer" data-i="${J.idx + 1}" autofocus>${tr('Suivant')} <small>${tr('Entrée')}</small></button>` : ''}
       ${p ? `<button class="btn" data-a="voir-parfait" data-i="${J.idx}">${tr('▶ Voir le Parfait')}</button>` : ''}
+      ${p && p.fe ? `<button class="btn" data-a="voir-parfait-eclat" data-i="${J.idx}">${tr('▶ Parfait avec l’éclat ◆')}</button>` : ''}
       <button class="btn" data-a="niveaux">${tr('Niveaux')}</button>
     </div></div>`, 'fin');
 }
@@ -610,6 +616,7 @@ function action(a, el) {
     case 'reglages': reglages(); break;
     case 'jouer': lancerNiveau(i); break;
     case 'voir-parfait': regarder(i, 'parfait'); break;
+    case 'voir-parfait-eclat': regarder(i, 'parfait-eclat'); break;
     case 'voir-record': regarder(i, 'record'); break;
     case 'course-any': lancerCourse('any'); break;
     case 'course-cent': lancerCourse('cent'); break;

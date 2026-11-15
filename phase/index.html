@@ -43,6 +43,13 @@ h3 { margin: 20px 0 8px; } h3 small { font-weight: 400; color: #999; font-size: 
 .znom { font-weight: 700; color: var(--a); font-size: 18px; }
 .znom span { display: block; font-size: 11px; color: #bbb; font-weight: 500; }
 .niv b { color: var(--a); margin-right: 4px; }
+.niv .etat { display: inline-block; width: 1.3em; text-align: center; margin-right: 4px; font-size: 15px; }
+.niv.fait { background: linear-gradient(90deg, rgba(90,220,120,.28), rgba(30,24,44,.88) 60%); border-color: rgba(110,240,140,.55); }
+.niv.fait .etat { color: #7dff9a; text-shadow: 0 0 8px rgba(120,255,150,.8); }
+.niv.afaire { border-style: dashed; }
+.niv.afaire:not([disabled]) .etat { color: #ffd84a; }
+.zone.complete { box-shadow: 0 0 0 2px #7dff9a inset, 0 0 18px rgba(120,255,150,.25); }
+.znom em { font-style: normal; font-size: 12px; color: #7dff9a; margin-left: 6px; }
 .verrou { font-size: 12px; color: #ccc; text-align: center; }
 .med { display: inline-block; font-size: 11px; font-weight: 700; color: #111; background: var(--c); border-radius: 5px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px; }
 .parf { color: #ff9ae6; margin-left: 6px; font-size: 11px; }
@@ -106,14 +113,14 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=14"></script>
-<script src="js/calibrage.js?v=14"></script>
-<script src="js/gen.js?v=14"></script>
-<script src="js/niveaux.js?v=14"></script>
-<script src="js/parfaits.js?v=14"></script>
-<script src="js/rendu.js?v=14"></script>
-<script src="js/son.js?v=14"></script>
-<script src="js/langues.js?v=14"></script>
-<script src="js/jeu.js?v=14"></script>
+<script src="js/moteur.js?v=16"></script>
+<script src="js/calibrage.js?v=16"></script>
+<script src="js/gen.js?v=16"></script>
+<script src="js/niveaux.js?v=16"></script>
+<script src="js/parfaits.js?v=16"></script>
+<script src="js/rendu.js?v=16"></script>
+<script src="js/son.js?v=16"></script>
+<script src="js/langues.js?v=16"></script>
+<script src="js/jeu.js?v=16"></script>
 </body>
 </html>

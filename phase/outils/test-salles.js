@@ -5,10 +5,11 @@
 const Gen = require('../js/gen.js');
 const bot = require('./bot.js');
 const args = process.argv.slice(2);
-let graines = 6;
+let graines = 6, varier = false;
 const types = [];
 for (const a of args) {
   if (a.startsWith('--graines=')) graines = +a.split('=')[1];
+  else if (a === '--varier') varier = true;
   else if (a.startsWith('--faisceau=')) bot.opt.faisceau = +a.split('=')[1];
   else types.push(a);
 }
@@ -23,7 +24,7 @@ for (const nom of liste) {
   const phases = glace ? [0, 1, 2, 3] : Gen.SALLES[type].phases;
   const tps = [];
   for (const d of [0, 0.4, 0.8, 1.2]) for (let gr = 1; gr <= graines; gr++) {
-    const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace);
+    const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace, false, varier, phases);
     const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, carte }, type === 'alcove');
     if (!r.ok) {
       echecs++;

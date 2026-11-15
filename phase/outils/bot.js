@@ -144,7 +144,8 @@ function affiner(n, entrees, A, avecEclat) {
   return { entrees: meilleur, temps: tps };
 }
 
-function chercher(def, avecEclat) {
+function chercher(def, avecEclat, cfg) {
+  cfg = cfg || {};
   const n = M.charger(def);
   const buts = [], eclats = [];
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
@@ -155,6 +156,7 @@ function chercher(def, avecEclat) {
   const dEcl = avecEclat && eclats.length ? champ(n, eclats) : null;
   let eclatVersBut = 0;
   if (dEcl) eclatVersBut = Math.min(...eclats.map(([x, y]) => dBut[y * n.w + x])) * T;
+  const eclatX = eclats.length ? eclats[0][0] : 1e9;
   // danger : rien de sûr sous le joueur (vide ou pics) alors qu'il tombe
   const danger = (e) => {
     if (e.sol || e.att || e.phase === M.Z || e.dansEau) return 0;
@@ -186,14 +188,14 @@ function chercher(def, avecEclat) {
   const score = (e) => {
     if (boutons.length) {
       const px = (e.x + M.W / 2) / T;
-      for (const bt of boutons) if (px < bt.porteX && e.boutons.indexOf(bt.k) < 0 && Math.abs(bt.x - px) < 60) return lire(n, bt.d, e) + bt.versBut + danger(e) - 24 * e.boutons.length;
+      for (const bt of boutons) if (px < bt.porteX && e.boutons.indexOf(bt.k) < 0 && Math.abs(bt.x - px) < 60 && (!dEcl || e.eclat || bt.porteX < eclatX)) return lire(n, bt.d, e) + bt.versBut + danger(e) - 24 * e.boutons.length;
     }
     if (dEcl && !e.eclat) return lire(n, dEcl, e) + eclatVersBut + danger(e) - 24 * e.boutons.length;
     return lire(n, dBut, e) + danger(e) - 24 * e.boutons.length;
   };
   const A = actions(n);
   const Kp = opt.pasK;
-  let faisceau = [{ e: M.nouvelEtat(n), p: null, a: -1, s: 0 }];
+  let faisceau = [{ e: cfg.depart ? M.cloner(cfg.depart.etat) : M.nouvelEtat(n), p: null, a: -1, s: 0 }];
   let fin = null;
   let meilleur = Infinity, meilleurE = null;
   const fins = [];
@@ -212,6 +214,7 @@ function chercher(def, avecEclat) {
           M.pas(n, c, inp);
           if (c.mortT > 0) { mort = true; break; }
           if (c.fini) { if (!dEcl || c.eclat) fini = true; else c.fini = false; break; }
+          if (cfg.finX && c.x >= cfg.finX * T && (!dEcl || c.eclat)) { fini = true; break; }
         }
         if (mort) continue;
         if (c.fini && dEcl && !c.eclat) continue;
@@ -231,10 +234,10 @@ function chercher(def, avecEclat) {
     for (const nd of enfants) {
       const e = nd.e;
       const cle = Math.round(e.x / 3) + ',' + Math.round(e.y / 3) + ',' + Math.round(e.vx * 1.5) + ',' + Math.round(e.vy * 1.5) + ',' +
-        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length;
+        e.phase + e.charges + e.att + (e.dash > 0 ? 1 : 0) + (e.eclat ? 1 : 0) + ',' + e.casses.length + (e.slam ? 's' : '') + e.boutons.length + '.' + e.craque.length + 'b' + e.bascule + (e.temps < e.banT ? 'n' + e.ban : '') + (e.temps < e.bonusT ? 'm' + e.bonus : '');
       if (vus.has(cle)) continue;
       vus.add(cle);
-      const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length;
+      const cc = ((e.x / 16) | 0) + ',' + ((e.y / 16) | 0) + ',' + e.phase + (e.eclat ? 1 : 0) + ',' + e.boutons.length + e.bascule;
       const k = parCase.get(cc) || 0;
       if (k < opt.parCase) { parCase.set(cc, k + 1); suivant.push(nd); if (suivant.length >= opt.faisceau) break; }
       else reste.push(nd);
@@ -261,13 +264,16 @@ function chercher(def, avecEclat) {
   chaine.reverse();
   const entrees = [];
   for (const ai of chaine) for (let k = 0; k < Kp; k++) entrees.push(A[ai].base | (k === 0 ? A[ai].sw : 0));
-  const e = M.nouvelEtat(n);
+  const e = cfg.depart ? M.cloner(cfg.depart.etat) : M.nouvelEtat(n);
   const ok = [];
+  let atteint = false;
   for (const inp of entrees) {
     M.pas(n, e, inp); ok.push(inp);
-    if (e.fini && (!dEcl || e.eclat)) break;
+    if (e.fini && (!dEcl || e.eclat)) { atteint = true; break; }
     if (e.fini) e.fini = false;
+    if (cfg.finX && e.x >= cfg.finX * T && (!dEcl || e.eclat)) { atteint = true; break; }
   }
+  if (cfg.depart || cfg.finX) return { ok: atteint, temps: e.temps, entrees: ok, etat: e };
   if (e.fini && opt.affiner > 0) {
     const r = affiner(n, ok, A, dEcl ? true : false);
     ok.length = 0; ok.push(...r.entrees);
@@ -281,7 +287,25 @@ function chercher(def, avecEclat) {
   return { ok: e.fini, temps: e.temps, entrees: ok, morts: e.morts };
 }
 
-module.exports = { chercher, opt, champ, lire };
+// Parfait avec l'éclat, en trois morceaux : le Parfait jusqu'à la niche, la niche (éclat), puis la suite jusqu'à l'arrivée
+function chercherEclat(def, r0) {
+  const n = M.charger(def);
+  let ex = -1;
+  for (let i = 0; i < n.w * n.h; i++) if (n.g[i] === M.ECLAT) { ex = i % n.w; break; }
+  if (ex < 0 || !r0 || !r0.ok) return { ok: false };
+  const x0 = ex - 5;                                   // début de la salle « niche »
+  const e = M.nouvelEtat(n), pre = [];
+  for (const inp of r0.entrees) { if (e.x >= (x0 - 2) * T) break; M.pas(n, e, inp); pre.push(inp); }
+  const a = chercher(def, true, { depart: { etat: e }, finX: x0 + 12 });
+  if (!a.ok) return { ok: false };
+  const b = chercher(def, true, { depart: { etat: a.etat } });
+  if (!b.ok) return { ok: false };
+  let tout = pre.concat(a.entrees, b.entrees);
+  let temps = b.temps;
+  if (opt.affiner > 0) { const A = actions(n); const r = affiner(n, tout, A, true); tout = r.entrees; temps = r.temps; }
+  return { ok: true, temps, entrees: tout };
+}
+module.exports = { chercher, chercherEclat, opt, champ, lire };
 if (require.main === module) {
 const fichier = path.join(__dirname, '..', 'js', 'parfaits.js');
 const dossier = path.join(__dirname, 'parfaits');
@@ -291,7 +315,7 @@ function fusionner() {
   for (const f of fs.readdirSync(dossier).sort()) if (f.endsWith('.json')) {
     const d = JSON.parse(fs.readFileSync(path.join(dossier, f), 'utf8'));
     if (d.te !== undefined && (d.t === undefined || d.te < d.t)) { d.t = d.te; d.f = d.fe; }   // le parcours avec l'éclat peut être le plus rapide
-    PARFAITS[f.slice(0, -5)] = { t: d.t, f: d.f };
+    PARFAITS[f.slice(0, -5)] = d.te !== undefined ? { t: d.t, f: d.f, te: d.te, fe: d.fe } : { t: d.t, f: d.f };
   }
   const corps = '/* Généré par outils/bot.js : temps « Parfait » (en images à 60 par seconde) et fantôme du robot. */\n' +
     '(function (r) {\nconst PARFAITS = ' + JSON.stringify(PARFAITS, null, 0).replace(/\},"/g, '},\n"') + ';\n' +
@@ -324,7 +348,7 @@ for (const def of cibles) {
     if (opt.ecrire) enregistrer(def.id, { t: r.temps, f: M.compresser(r.entrees) });
   }
   if (opt.eclat && M.charger(def).aEclat) {
-    const r2 = chercher(def, true);
+    const r2 = chercherEclat(def, r);
     if (!r2.ok) { echecs++; ligne += ' | éclat : ÉCHEC'; }
     else {
       ligne += ' | éclat ' + (r2.temps / 60).toFixed(3) + ' s';
