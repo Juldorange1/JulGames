@@ -8,21 +8,21 @@ const T = M.T, PW = M.W, PH = M.H;
 // motif : façon de dessiner la roche ; amb : particules d'ambiance ; lum : couleur de la lumière ambiante
 const THEMES = {
   carriere: { ciel: ['#4a2f1c', '#1a0f08'], mur: '#86613f', clair: '#a9804f', bord: '#e2b072', ombre: '#3b2817', motif: '#9a7550',
-    loin: ['#5a3b24', '#3d2817', '#2a1b10'], accent: '#ffb35a', lum: '255,190,120', tapis: '#6f8f3f', style: 'pierre', amb: 'poussiere', nom: 'Carrière' },
+    loin: ['#5a3b24', '#3d2817', '#2a1b10'], accent: '#ffb35a', nuit: 0.3, lum: '255,190,120', tapis: '#6f8f3f', style: 'pierre', amb: 'poussiere', nom: 'Carrière' },
   aqueduc: { ciel: ['#163a63', '#060f1d'], mur: '#466784', clair: '#5f86a8', bord: '#a8dcff', ombre: '#1d2e3f', motif: '#557a9c',
-    loin: ['#22476e', '#183654', '#10243a'], accent: '#5ec8ff', lum: '140,210,255', tapis: '#3f8f6a', style: 'brique', amb: 'gouttes', nom: 'Aqueduc' },
+    loin: ['#22476e', '#183654', '#10243a'], accent: '#5ec8ff', nuit: 0.36, voile: '2,8,20', lum: '140,210,255', tapis: '#3f8f6a', style: 'brique', amb: 'gouttes', nom: 'Aqueduc' },
   chaufferie: { ciel: ['#4d160a', '#140302'], mur: '#5f3124', clair: '#7d4331', bord: '#ff9a55', ombre: '#2a110b', motif: '#704030',
-    loin: ['#5a1d0f', '#3f130a', '#2a0b05'], accent: '#ff7a2f', lum: '255,130,60', tapis: null, style: 'brique', amb: 'braises', nom: 'Chaufferie' },
+    loin: ['#5a1d0f', '#3f130a', '#2a0b05'], accent: '#ff7a2f', nuit: 0.42, voile: '14,2,0', lum: '255,130,60', tapis: null, style: 'brique', amb: 'braises', nom: 'Chaufferie' },
   orage: { ciel: ['#25185a', '#07041c'], mur: '#3d3470', clair: '#544a92', bord: '#cdb0ff', ombre: '#1a1536', motif: '#4a4086',
-    loin: ['#2c2266', '#201a4e', '#151036'], accent: '#ffe35a', lum: '200,170,255', tapis: null, style: 'cristal', amb: 'pluie', nom: 'Orage' },
+    loin: ['#2c2266', '#201a4e', '#151036'], accent: '#ffe35a', nuit: 0.46, voile: '4,2,18', lum: '200,170,255', tapis: null, style: 'cristal', amb: 'pluie', nom: 'Orage' },
   abysses: { ciel: ['#05414d', '#010a10'], mur: '#1f5157', clair: '#2b6b72', bord: '#6ff7e3', ombre: '#0b2326', motif: '#286066',
-    loin: ['#0b4a54', '#08363e', '#05252b'], accent: '#5ff0dc', lum: '110,255,230', tapis: '#2f7f5f', style: 'corail', amb: 'bulles', nom: 'Abysses' },
+    loin: ['#0b4a54', '#08363e', '#05252b'], accent: '#5ff0dc', nuit: 0.55, voile: '0,8,14', lum: '110,255,230', tapis: '#2f7f5f', style: 'corail', amb: 'bulles', nom: 'Abysses' },
   usine: { ciel: ['#2c313a', '#0b0c0f'], mur: '#4f565f', clair: '#6a737d', bord: '#e3e9ef', ombre: '#22262b', motif: '#5d656e',
-    loin: ['#363c45', '#2a2f37', '#1e2228'], accent: '#ffc83a', lum: '255,220,150', tapis: null, style: 'metal', amb: 'etincelles', nom: 'Usine' },
+    loin: ['#363c45', '#2a2f37', '#1e2228'], accent: '#ffc83a', nuit: 0.36, lum: '255,220,150', tapis: null, style: 'metal', amb: 'etincelles', nom: 'Usine' },
   glacier: { ciel: ['#2b5480', '#0a1426'], mur: '#6385a8', clair: '#86a9cc', bord: '#ffffff', ombre: '#2c4258', motif: '#7399bf',
-    loin: ['#3c6690', '#2c4f73', '#1f3a57'], accent: '#bff4ff', lum: '200,240,255', tapis: null, style: 'neige', amb: 'neige', nom: 'Glacier' },
+    loin: ['#3c6690', '#2c4f73', '#1f3a57'], accent: '#bff4ff', nuit: 0.16, voile: '10,20,40', lum: '200,240,255', tapis: null, style: 'neige', amb: 'neige', nom: 'Glacier' },
   coeur: { ciel: ['#360a33', '#06010b'], mur: '#40143e', clair: '#5a1d57', bord: '#ff74da', ombre: '#1a0619', motif: '#521c50',
-    loin: ['#3e0f3b', '#2c0a2a', '#1d061b'], accent: '#ff6ad5', lum: '255,110,220', tapis: null, style: 'veines', amb: 'eclats', nom: 'Cœur' }
+    loin: ['#3e0f3b', '#2c0a2a', '#1d061b'], accent: '#ff6ad5', nuit: 0.48, voile: '10,0,10', lum: '255,110,220', tapis: null, style: 'veines', amb: 'eclats', nom: 'Cœur' }
 };
 const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a'];
 
@@ -30,6 +30,7 @@ let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
 let dyn = null;           // cases animées par type
+let ombreCv = null;
 let parts = [];
 let temps = 0;
 
@@ -143,15 +144,56 @@ function profondeur(x, y) {
     }
   return 3;
 }
+/* Textures procédurales (bruit fractal), une par zone, de 64×64 pixels et raccordables */
+const textures = new Map();
+function hexRvb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function textureDe(th) {
+  if (textures.has(th)) return textures.get(th);
+  const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d'), img = g.createImageData(N, N);
+  const a = hexRvb(th.ombre), b = hexRvb(th.mur), d = hexRvb(th.clair);
+  const val = (x, y, f, s) => {           // bruit de valeur raccordable (période N)
+    const P = N / f, x0 = Math.floor(x / f), y0 = Math.floor(y / f), u = (x / f) - x0, v = (y / f) - y0;
+    const h = (i, j) => alea(((i % P + P) % P) * 57.3 + ((j % P + P) % P) * 131.7 + s);
+    const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+    return (h(x0, y0) * (1 - su) + h(x0 + 1, y0) * su) * (1 - sv) + (h(x0, y0 + 1) * (1 - su) + h(x0 + 1, y0 + 1) * su) * sv;
+  };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let n = val(x, y, 16, 1) * 0.5 + val(x, y, 8, 2) * 0.25 + val(x, y, 4, 3) * 0.15 + val(x, y, 2, 4) * 0.1;
+    if (th.style === 'brique') { const ly = y % 8 === 7, lx = ((x + (Math.floor(y / 8) % 2) * 8) % 16) === 15; if (ly || lx) n *= 0.45; }
+    if (th.style === 'metal') { if (x % 32 === 0 || y % 32 === 0) n *= 0.5; else if (x % 32 === 1 || y % 32 === 1) n = Math.min(1, n * 1.35); n = n * 0.6 + 0.25 + 0.08 * Math.sin(y * 0.9); }
+    if (th.style === 'neige') n = n * 0.7 + 0.2;
+    if (th.style === 'cristal' && val(x, y, 4, 9) > 0.78) n = 1.15;
+    if (th.style === 'veines' && Math.abs(val(x, y, 16, 7) - 0.5) < 0.03) n = 1.25;
+    const k = (x + y * N) * 4;
+    for (let i = 0; i < 3; i++) {
+      const v = n < 0.5 ? a[i] + (b[i] - a[i]) * (n / 0.5) : b[i] + (d[i] - b[i]) * Math.min(1.3, (n - 0.5) / 0.5);
+      img.data[k + i] = Math.max(0, Math.min(255, v));
+    }
+    img.data[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  textures.set(th, c);
+  return c;
+}
+const motifs = new WeakMap();
+function motifPour(g) {
+  let m = motifs.get(g); if (!m) { m = new Map(); motifs.set(g, m); }
+  if (!m.has(th)) m.set(th, g.createPattern(textureDe(th), 'repeat'));
+  return m.get(th);
+}
 function murCase(g, x, y, px, py) {
   const prof = profondeur(x, y);
   const libre = (dx, dy) => !solideR(tuileR(x + dx, y + dy));
-  // fond de la roche, éclairé par le haut
+  // roche texturée, éclairée par le haut
+  g.fillStyle = motifPour(g); g.fillRect(px, py, T, T);
   const gr = g.createLinearGradient(0, py, 0, py + T);
-  gr.addColorStop(0, th.clair); gr.addColorStop(1, th.mur);
+  gr.addColorStop(0, 'rgba(255,255,255,.07)'); gr.addColorStop(1, 'rgba(0,0,0,.12)');
   g.fillStyle = gr; g.fillRect(px, py, T, T);
   motifRoche(g, x, y, px, py);
-  if (prof > 0) { g.fillStyle = `rgba(4,2,8,${[0, 0.42, 0.66, 0.8][prof]})`; g.fillRect(px, py, T, T); return; }
+  if (prof > 0) { g.fillStyle = `rgba(4,2,8,${[0, 0.38, 0.62, 0.78][prof]})`; g.fillRect(px, py, T, T); return; }
+  // occlusion ambiante près des coins creux
+  if (libre(0, 1) && (libre(-1, 1) || libre(1, 1))) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(px, py + T - 3, T, 3); }
   // ombres douces au contact du vide
   if (libre(0, 1)) { const o = g.createLinearGradient(0, py + T - 6, 0, py + T); o.addColorStop(0, 'rgba(0,0,0,0)'); o.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = o; g.fillRect(px, py + T - 6, T, 6); }
   if (libre(-1, 0)) { g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(px, py, 2, T); }
@@ -366,6 +408,26 @@ function dessiner(e, fantome, hud, dt) {
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
   if (e.mortT === 0) joueur(g, e, 1, false);
   eauDessus(g, vis);
+  // carte de lumière : un voile sombre, percé par chaque source de lumière
+  {
+    const sombre = th.nuit || 0.38;
+    if (!ombreCv || ombreCv.width !== Math.ceil(vw) || ombreCv.height !== Math.ceil(vh)) { ombreCv = document.createElement('canvas'); ombreCv.width = Math.ceil(vw); ombreCv.height = Math.ceil(vh); }
+    const o = ombreCv.getContext('2d');
+    o.globalCompositeOperation = 'source-over';
+    o.clearRect(0, 0, ombreCv.width, ombreCv.height);
+    o.fillStyle = `rgba(${th.voile || '6,4,14'},${sombre})`; o.fillRect(0, 0, ombreCv.width, ombreCv.height);
+    o.globalCompositeOperation = 'destination-out';
+    const trou = (wx, wy, r, f) => {
+      const sx = wx - ox, sy = wy - oy;
+      if (sx < -r || sy < -r || sx > vw + r || sy > vh + r) return;
+      const l = o.createRadialGradient(sx, sy, 0, sx, sy, r);
+      l.addColorStop(0, `rgba(0,0,0,${f})`); l.addColorStop(0.6, `rgba(0,0,0,${f * 0.45})`); l.addColorStop(1, 'rgba(0,0,0,0)');
+      o.fillStyle = l; o.fillRect(sx - r, sy - r, r * 2, r * 2);
+    };
+    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? 120 : 260, 1);
+    for (const [x, y, c, r] of dyn.lumieres) if (vis(x, y)) trou(x * T + 8, y * T + 8, r * 2.2 * (0.92 + 0.08 * Math.sin(temps * 5 + x)), 0.95);
+    g.drawImage(ombreCv, ox, oy, vw, vh);
+  }
   // lumières (mode additif)
   g.globalCompositeOperation = 'lighter';
   for (const [x, y, c, r] of dyn.lumieres) {
@@ -388,7 +450,7 @@ function dessiner(e, fantome, hud, dt) {
     if (p.vie <= 0) { parts.splice(i, 1); continue; }
     if (!p.lum) continue;
     g.globalAlpha = Math.min(1, p.vie / p.max * 1.5);
-    g.fillStyle = p.c; g.fillRect(p.x - p.t / 2, p.y - p.t / 2, p.t, p.t);
+    g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.t * 0.6, 0, 6.3); g.fill();
   }
   g.globalCompositeOperation = 'source-over';
   for (const p of parts) {
@@ -426,8 +488,20 @@ function arrierePlan(g, ox, oy, z, enJeu) {
     g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 60, 0); g.lineTo(x + 260, HAUT); g.lineTo(x + 140, HAUT); g.fill();
   }
   g.restore();
-  // trois reliefs, du plus lointain au plus proche
+  // grand astre lumineux (soleil voilé, lune, lueur) qui défile très lentement
+  {
+    const ax = LARG * 0.72 - (ox * 0.02 * z) % (LARG * 0.6), ay = HAUT * 0.22, r = Math.min(LARG, HAUT) * 0.5;
+    const l = g.createRadialGradient(ax, ay, 0, ax, ay, r);
+    l.addColorStop(0, `rgba(${th.lum},.32)`); l.addColorStop(0.15, `rgba(${th.lum},.14)`); l.addColorStop(1, `rgba(${th.lum},0)`);
+    g.fillStyle = l; g.fillRect(0, 0, LARG, HAUT);
+  }
+  // trois reliefs, du plus lointain au plus proche, chacun voilé de brume (perspective atmosphérique)
   for (let c = 0; c < 3; c++) {
+    if (c > 0) {
+      const hz = g.createLinearGradient(0, HAUT * 0.25, 0, HAUT);
+      hz.addColorStop(0, 'rgba(0,0,0,0)'); hz.addColorStop(1, `rgba(${th.lum},.05)`);
+      g.fillStyle = hz; g.fillRect(0, 0, LARG, HAUT);
+    }
     const f = [0.12, 0.25, 0.42][c], base = HAUT * [0.42, 0.58, 0.74][c] - (oy * f * 0.3 * z) % 60, amp = HAUT * [0.18, 0.16, 0.14][c];
     g.fillStyle = th.loin[c];
     g.beginPath(); g.moveTo(0, HAUT);
@@ -446,6 +520,8 @@ function arrierePlan(g, ox, oy, z, enJeu) {
       g.lineTo(x, base - h);
     }
     g.lineTo(LARG + 20, HAUT); g.fill();
+    // arête éclairée par l'astre
+    g.strokeStyle = `rgba(${th.lum},${0.05 + c * 0.03})`; g.lineWidth = 1.5; g.stroke();
     // fenêtres / détails sur les reliefs
     if (th.style === 'brique' || th.style === 'metal') {
       g.fillStyle = th === THEMES.chaufferie ? `rgba(255,120,40,${0.25 + 0.1 * Math.sin(temps * 2 + c)})` : `rgba(${th.lum},.12)`;
@@ -655,6 +731,9 @@ function eauDessus(g, vis) {
     if (!vis(x, y)) continue;
     const px = x * T, py = y * T;
     g.fillStyle = 'rgba(30,150,210,.4)'; g.fillRect(px, py, T, T);
+    // reflets mouvants (caustiques)
+    const c1 = Math.sin(x * 1.3 + temps * 2.1) + Math.sin(y * 1.7 - temps * 1.6);
+    if (c1 > 1.2) { g.fillStyle = `rgba(190,245,255,${(c1 - 1.2) * 0.18})`; g.fillRect(px + (Math.sin(temps + y) * 4 + 4), py + 4, 8, 1.5); }
     if (surf) {
       const o = Math.sin(temps * 3 + x * 0.8) * 1.5;
       g.fillStyle = 'rgba(200,245,255,.75)'; g.fillRect(px, py + 2 + o, T, 1.5);
@@ -792,7 +871,9 @@ function interfaceJeu(g, e, hud) {
   // états + charges (bas gauche)
   const n = niv;
   const ph = [M.S, M.L, M.Z, M.P].filter(p => n && (n.phases & (1 << p)));
-  const taille = 34 * P, bx = 16, by = HAUT - taille - 18 * P;
+  const taille = 34 * P;
+  let bx = 16, by = HAUT - taille - 18 * P;
+  if (hud.tactile) { bx = LARG / 2 - (ph.length * (taille + 8) + 46 * P) / 2; by = (hud.sousChrono ? 80 : 62) * P; }   // en tactile : en haut, loin des pouces
   g.textAlign = 'center';
   ph.forEach((p, i) => {
     const x = bx + i * (taille + 8);
@@ -805,7 +886,7 @@ function interfaceJeu(g, e, hud) {
     g.font = `800 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`;
     g.fillText((hud.touches && hud.touches[p]) || '', x + taille / 2, by + 5 * P);
     g.font = `600 ${Math.round(9 * P)}px "Chakra Petch", sans-serif`;
-    g.fillText(M.NOMS_PHASES[p].toUpperCase(), x + taille / 2, by + taille - 13 * P);
+    g.fillText(((hud.nomsPhases && hud.nomsPhases[p]) || M.NOMS_PHASES[p]).toUpperCase(), x + taille / 2, by + taille - 13 * P);
     if (p === M.Z && e.phase === M.Z) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * e.gaz / M.K.zDuree, 3); }
   });
   g.globalAlpha = 1;
@@ -836,7 +917,7 @@ function interfaceJeu(g, e, hud) {
   if (hud.panneau) {
     g.font = `600 ${Math.round(16 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
     const lignes = couper(g, hud.panneau, Math.min(LARG - 60, 720));
-    const hL = 22 * P, bh = lignes.length * hL + 20, bw = Math.min(LARG - 40, 760), bxx = (LARG - bw) / 2, byy = 84 * P;
+    const hL = 22 * P, bh = lignes.length * hL + 20, bw = Math.min(LARG - 40, 760), bxx = (LARG - bw) / 2, byy = (hud.tactile ? 124 : 84) * P;
     g.fillStyle = 'rgba(10,8,16,.82)'; arrondi(g, bxx, byy, bw, bh, 10); g.fill();
     g.strokeStyle = th.accent; g.lineWidth = 1.5; g.stroke();
     g.fillStyle = '#f2ead8';

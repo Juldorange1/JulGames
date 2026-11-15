@@ -196,7 +196,9 @@ function chercher(def, avecEclat) {
   let faisceau = [{ e: M.nouvelEtat(n), p: null, a: -1, s: 0 }];
   let fin = null;
   let meilleur = Infinity, meilleurE = null;
-  for (let etape = 0; etape * Kp < opt.max && !fin; etape++) {
+  const fins = [];
+  let etapeFin = -1;
+  for (let etape = 0; etape * Kp < opt.max && (!fin || (opt.collecter && fins.length < opt.collecter && etape < etapeFin + 45)); etape++) {
     const enfants = [];
     for (const nd of faisceau) {
       const precJ = nd.a >= 0 ? (A[nd.a].base & M.E.SAUT) : 0;
@@ -214,11 +216,12 @@ function chercher(def, avecEclat) {
         if (mort) continue;
         if (c.fini && dEcl && !c.eclat) continue;
         const nn = { e: c, p: nd, a: ai, s: fini ? -1 : score(c) };
-        if (fini) { if (!fin || c.temps < fin.e.temps) fin = nn; continue; }
+        if (fini) { if (!fin || c.temps < fin.e.temps) fin = nn; if (opt.collecter) fins.push(nn); continue; }
         enfants.push(nn);
       }
     }
-    if (fin) break;
+    if (fin && etapeFin < 0) etapeFin = etape;
+    if (fin && !opt.collecter) break;
     enfants.sort((a, b) => a.s - b.s);
     const vus = new Set();
     const suivant = [];
@@ -242,6 +245,16 @@ function chercher(def, avecEclat) {
     if (faisceau[0].s < meilleur) { meilleur = faisceau[0].s; meilleurE = faisceau[0].e; }
   }
   if (!fin) return { ok: false, meilleur: Math.round(meilleur / T) + ' ; meilleur point (' + (meilleurE.x / T).toFixed(1) + ',' + (meilleurE.y / T).toFixed(1) + ')' };
+  // plusieurs chemins différents (pour le robot de difficulté)
+  if (opt.collecter) {
+    const chemins = [];
+    for (const f of fins.slice(0, opt.collecter * 3)) {
+      const ch = []; for (let nd = f; nd && nd.a >= 0; nd = nd.p) ch.push(nd.a); ch.reverse();
+      const ent = []; for (const ai of ch) for (let k = 0; k < Kp; k++) ent.push(A[ai].base | (k === 0 ? A[ai].sw : 0));
+      chemins.push(ent);
+    }
+    return { ok: true, temps: fin.e.temps, chemins };
+  }
   // reconstruction des entrées image par image (rejoue pour s'arrêter pile à l'arrivée)
   const chaine = [];
   for (let nd = fin; nd && nd.a >= 0; nd = nd.p) chaine.push(nd.a);

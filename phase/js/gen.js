@@ -151,7 +151,7 @@ const SALLES = {
     s.couloir(0, 2, 13);
     s.c(3, 13, Lg, 19); s.r(3, 20, Lg, 20, '='); s.c(3, 21, Lg, 23); s.n(3, 23, Lg - 2, '^');
     const pas = Math.floor((Lg - 6) / k);
-    for (let i = 0; i < k; i++) s.col(7 + i * pas, 13, 19, '=');
+    for (let i = 0; i < k; i++) { const gx = 7 + i * pas; s.col(gx, 13, 19, '='); if (d < 0.45) s.r(gx - 2, 20, gx + 2, 20); }
     s.couloir(Lg + 1, Lg + 3);
     return Lg + 4;
   } },
@@ -172,6 +172,8 @@ const SALLES = {
     s.couloir(0, a + 1);
     s.c(a - 1, top, a + 1, 19); s.p(a, 19, 'f');
     s.c(a + 2, top, a + 4, top + 2); s.c(a + 3, top, a + 6, 19);
+    if (d > 0.3) s.col(a - 1, top + 2, 15 - Math.round((1.2 - d) * 4), '^');   // paroi gauche hérissée
+    if (d > 0.7) s.n(a + 4, 19, 2, '^');                                     // réception piégée
     s.couloir(a + 7, a + 9);
     return a + 10;
   } },
@@ -194,11 +196,12 @@ const SALLES = {
   } },
   // Tunnel noyé sous un plafond bas
   eau: { phases: [S, L, Z, P], f(s, rng, d) {
-    const Lw = 8 + Math.round(d * 8);
+    const Lw = 6 + Math.round(d * 10);
     s.couloir(0, 2);
     s.c(3, 14, 4, 19); s.r(3, 20, 6 + Lw, 24, 'w'); s.c(5 + Lw, 14, 6 + Lw, 19);
-    const k = 1 + Math.round(d * 3);
+    const k = Math.round(d * 3.4);
     for (let i = 0; i < k; i++) s.p(7 + Math.floor((Lw - 4) * (i + 0.5) / k), i % 2 ? 24 : 20, '^');
+    if (d < 0.4) s.r(6 + Lw, 20, 6 + Lw, 21);   // marche pour sortir de l'eau
     s.couloir(7 + Lw, 9 + Lw);
     return 10 + Lw;
   } },
@@ -206,10 +209,11 @@ const SALLES = {
   fleches: { phases: [S], f(s, rng, d) {
     const Lg = ent(rng, 14, 19);
     s.couloir(0, 2); s.c(3, 13, Lg, 19);
-    const k = 2 + Math.round(d * 2.5);
+    const k = 2 + Math.round(d * 4);
     for (let i = 0; i < k; i++) s.p(4 + Math.floor((Lg - 5) * (i + 0.5) / k), 12, 'F');
+    if (d > 0.6) for (let i = 0; i < k - 1; i++) s.p(4 + Math.floor((Lg - 5) * (i + 1) / k), 13, '^');
     if (d > 0.45) s.p(3 + Math.floor(Lg * 0.55), 19, 'F');
-    if (d > 0.8) s.p(Math.floor(Lg / 2) - 1, 19, '^');
+    if (d > 0.8) { s.p(Math.floor(Lg / 2) - 1, 19, '^'); s.p(Math.floor(Lg * 0.8), 19, 'F'); }
     s.couloir(Lg + 1, Lg + 3);
     return Lg + 4;
   } },
@@ -221,7 +225,8 @@ const SALLES = {
     for (let i = 0; i < k; i++) {
       const Lp = 5 + Math.round(d * 4) + ent(rng, 0, 2);
       s.c(x, 13, x + Lp - 1, 23); s.r(x, 20, x + Lp - 1, 20, 'c'); s.n(x, 23, Lp, '^');
-      if (d > 0.6 && Lp > 6) s.p(x + Math.floor(Lp / 2), 20, '.');
+      if (d > 0.3 && Lp > 5) s.p(x + Math.floor(Lp / 2), 20, '.');
+      if (d > 0.85 && Lp > 7) { s.p(x + 2, 20, '.'); s.n(x + 1, 14, Lp - 2, '^'); }
       x += Lp;
       s.couloir(x, x + 1, 13); x += 2;
     }
@@ -284,11 +289,11 @@ const SALLES = {
     let x = 3;
     const k = ent(rng, 3, 4);
     for (let i = 0; i < k; i++) {
-      const pw = ent(rng, 4, 6);
+      const pw = ent(rng, 5, 7) - Math.round(d * 1.5);
       s.couloir(x, x + pw - 1, 13); s.sol(x, x + pw - 1, 'i');
-      if (d > 0.3 && pw >= 5) s.p(x + 2, 19, '^');
+      if (d > 0.6 && pw >= 5) s.p(x + pw - 2, 19, '^');
       x += pw;
-      const gw = Math.min(4, 2 + Math.round(d * 1.6));
+      const gw = Math.min(4, 1 + Math.round(d * 2.2));
       s.c(x, 13, x + gw - 1, 23); s.n(x, 23, gw, '^'); x += gw;
     }
     s.couloir(x, x + 2, 13); s.sol(x, x + 2, 'i');
@@ -300,7 +305,9 @@ const SALLES = {
     s.couloir(0, a + 2);
     s.c(a, 20, a + 1, 23); s.p(a, 23, q ? 'Q' : 'P'); s.p(a + 1, 23, q ? 'Q' : 'P');
     s.c(a + 6, 9, a + 11, 19); s.p(a + 8, 10, q ? 'q' : 'p');
-    if (d > 0.5) s.n(a + 7, 19, 2, '^');
+    const pk = Math.round(d * 3.2);
+    if (pk > 0) s.n(a + 6, 19, Math.min(4, pk + 1), '^');
+    if (d > 0.8) s.p(a + 11, 12, '^');
     s.couloir(a + 12, a + 14);
     return a + 15;
   } }
@@ -319,8 +326,20 @@ function fin(g, x0) {
   g.elargir(x0 + 8);
   return x0 + 8;
 }
+// Calibrage mesuré par outils/difficulte.js : pour chaque type de salle, la difficulté demandée est convertie en
+// réglage interne, afin que toutes les salles d'une même difficulté soient aussi dures les unes que les autres.
+const CAL = (typeof module !== 'undefined' && module.exports) ? (() => { try { return require('./calibrage.js'); } catch (e) { return {}; } })() : (racine.CALIBRAGE || {});
+function calibre(type, d) {
+  const c = CAL[type];
+  if (!c || !c.length) return d;
+  if (d <= c[0][0]) return c[0][1];
+  for (let i = 1; i < c.length; i++) if (d <= c[i][0]) { const [a, va] = c[i - 1], [b, vb] = c[i]; return va + (vb - va) * (d - a) / (b - a); }
+  return c[c.length - 1][1];
+}
 function poser(g, x0, type, rng, d, ctx) {
-  return x0 + SALLES[type].f(salle(g, x0), rng, borne(d, 0, 1.2), ctx || {});
+  ctx = ctx || {};
+  const dd = ctx.brut ? d : calibre(ctx.glace ? type + '*' : type, d);
+  return x0 + SALLES[type].f(salle(g, x0), rng, borne(dd, 0, 1.2), ctx);
 }
 
 /* Les 8 zones : quelles salles, lesquelles sont nouvelles (plus fréquentes) */
@@ -434,16 +453,16 @@ function defi(cle, opts) {
 }
 
 // pour les tests : une seule salle entre un départ et une arrivée
-function essai(type, graine, d, glace) {
+function essai(type, graine, d, glace, brut) {
   const g = new Grille();
   let x = debut(g, []);
-  x = poser(g, x, type, hasard(graine), d, { glace });
+  x = poser(g, x, type, hasard(graine), d, { glace, brut });
   x = fin(g, x);
   for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
   return g.carte();
 }
 
-const Gen = { SALLES, ZONES_SALLES, TOUS, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+const Gen = { SALLES, ZONES_SALLES, TOUS, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);
