@@ -64,7 +64,22 @@ const MANETTE_DEF = { saut: 0, solide: 2, liquide: 3, gaz: 1, recommencer: 8, pa
 const NOMS_BOUTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Select', 'Start', 'L3', 'R3', '↑', '↓', '←', '→', 'Home'];
 if (!S.manette) S.manette = Object.assign({}, MANETTE_DEF);
 let attenteManette = null;
-function sauver() { try { localStorage.setItem(CLE, JSON.stringify(S)); } catch (err) { /* plein ou bloqué */ } }
+function sauver() {
+  S.sauveT = Date.now();
+  try { localStorage.setItem(CLE, JSON.stringify(S)); } catch (err) { /* plein ou bloqué */ }
+  // programme Steam : la sauvegarde part aussi dans le cloud (quelques secondes après la dernière modification)
+  if (STEAM) { clearTimeout(sauver.t); sauver.t = setTimeout(() => { try { STEAM.cloudEcrire(JSON.stringify(S)); } catch (err) { } }, 3000); }
+}
+const STEAM = window.shiftrunSteam || null;
+let LB_PRET = false;
+if (STEAM) {
+  STEAM.classementPret().then(v => { LB_PRET = !!v; }).catch(() => {});
+  // au lancement : si la sauvegarde du cloud est plus récente (autre ordinateur), on la reprend
+  STEAM.cloudLire().then(txt => {
+    if (!txt) return;
+    try { const d = JSON.parse(txt); if ((d.sauveT || 0) > (S.sauveT || 0) + 1000) { localStorage.setItem(CLE, txt); location.reload(); } } catch (err) { }
+  }).catch(() => {});
+}
 
 /* ---------- Noms des touches (disposition du clavier) ---------- */
 const AZERTY = { KeyA: 'Q', KeyQ: 'A', KeyW: 'Z', KeyZ: 'W', Semicolon: 'M', KeyM: ',', Comma: ';', Period: ':', Slash: '!' };
@@ -304,6 +319,27 @@ function poser() {
 addEventListener('keyup', ev => { if (ev.code === 'Space' || ev.code === 'Enter') { if (ED) ED.peint = false; } });
 function copierCode(code) {
   try { navigator.clipboard.writeText(code); message = '📋 ' + tr('Code copié'); messageT = 80; } catch (err) { message = code; messageT = 200; }
+}
+/* ---------- Classement mondial (programme Steam) : les meilleurs temps et leurs fantômes ---------- */
+let CLASSEMENT = [];
+function classementMondial(idx) {
+  const id = LISTE[idx].id;
+  montrer(`<h2>🌐 ${tr('Classement mondial')} · ${id}</h2><p class="note">${tr('Chargement…')}</p>`, 'large');
+  STEAM.classementTop('niveau-' + id, 10).then(l => {
+    CLASSEMENT = l || [];
+    montrer(`<h2>🌐 ${tr('Classement mondial')} · ${id} ${tr(LISTE[idx].def.nom)}</h2>
+      <table class="rec"><tr><th>#</th><th>${tr('Joueur')}</th><th>${tr('Temps')}</th><th></th></tr>
+      ${CLASSEMENT.map((en, k) => `<tr><td>${k + 1}</td><td>${en.nom}</td><td>${R.chrono(en.temps)}</td><td>${en.fantome ? `<button class="btn mini" data-a="fantome-mondial" data-i="${idx}" data-k="${k}">▶ ${tr('fantôme')}</button>` : ''}</td></tr>`).join('') || `<tr><td colspan="4">${tr('Personne pour l’instant : sois le premier !')}</td></tr>`}</table>
+      <div class="menu ligne"><button class="btn" data-a="jouer" data-i="${idx}" autofocus>▶ ${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button></div>`, 'large');
+  }).catch(() => montrer(`<h2>🌐 ${tr('Classement mondial')}</h2><p class="note">${tr('Classement indisponible.')}</p><div class="menu ligne"><button class="btn" data-a="niveaux" autofocus>${tr('Niveaux')}</button></div>`, 'large'));
+}
+// rejouer les entrées d'un autre joueur (fantôme du classement)
+function regarderEntrees(idx, ent, nom) {
+  const c = charger(idx);
+  while (ent.length && !ent[0]) ent.shift();
+  J = Object.assign(c, { mode: 'fantome', vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: nom });
+  ecran = 'jeu'; cacherUI();
+  SON.jouerMusique(LISTE[idx].zi + 1);
 }
 /* ---------- Didacticiel ---------- */
 function lancerTuto() {
@@ -830,7 +866,7 @@ function verifierSucces() {
   const neufs = [];
   for (const x of SUCCES) {
     const r = rangDe(x), avant = S.succes[x.id] || 0;
-    for (let k = avant; k < r; k++) { gagnerBonus(RANGS[k].g); neufs.push([x, k]); }
+    for (let k = avant; k < r; k++) { gagnerBonus(RANGS[k].g); neufs.push([x, k]); if (STEAM) STEAM.succes(x.id + '_' + (k + 1)); }   // aussi en succès Steam
     if (r > avant) S.succes[x.id] = r;
   }
   if (neufs.length) sauver();
@@ -930,6 +966,7 @@ function terminer() {
     J.gainE = eclatsGagnes() - avantE;
     majSegments(id, record);
     if (J.e.morts === 0) S.il[id].sansChute = true;
+    if (STEAM && LB_PRET) STEAM.classementEnvoyer('niveau-' + id, t, M.compresser(J.entrees));
     J.succesNeufs = verifierSucces();
     sauver();
     ecran = 'fin';
@@ -1048,9 +1085,11 @@ function dessiner(dt) {
     hud.lignes.push({ t: tr('Niveau {0} / {1}', J.idx + 1, LISTE.length) });
   } else if (J.mode === 'fantome') {
     hud.chrono = e.temps;
-    hud.lignes.push({ t: tr('▶ Rejeu : {0}', tr(J.quoi)), c: '#ff6ad5' });
-    hud.attente = tr('Échap pour quitter');
-    hud.entrees = J.inp || 0;
+    if (!window.VITRINE) {
+      hud.lignes.push({ t: tr('▶ Rejeu : {0}', tr(J.quoi)), c: '#ff6ad5' });
+      hud.attente = tr('Échap pour quitter');
+      hud.entrees = J.inp || 0;
+    }
   } else {
     hud.chrono = e.temps;
     if (il && il.t != null) hud.lignes.push({ t: tr('Record  {0}', R.chrono(il.t)) });
@@ -1072,6 +1111,7 @@ function dessiner(dt) {
   if (assiste() && J.mode !== 'fantome') hud.lignes.push({ t: '♿ ' + tr('Assistance'), c: '#7dd3ff' });
   if (messageT > 0) { hud.message = tr(message); hud.messageC = J.couleurMsg || '#ff9ae6'; if (messageT === 1) J.couleurMsg = null; }
   R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
+  if (window.VITRINE_DESSUS) window.VITRINE_DESSUS();
 }
 
 /* ---------- Fond animé des menus ---------- */
@@ -1326,6 +1366,7 @@ function finNiveau(t, avant, record) {
       <button class="btn" data-a="rejouer" ${suiv ? '' : 'autofocus'}>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
       ${suiv ? `<button class="btn" data-a="jouer" data-i="${J.idx + 1}" autofocus>${tr('Suivant')} <small>${tr('Entrée')}</small></button>` : ''}
       ${p ? `<button class="btn" data-a="voir-parfait" data-i="${J.idx}">${tr('▶ Voir le Parfait')}</button>` : ''}
+      ${LB_PRET ? `<button class="btn" data-a="classement" data-i="${J.idx}">🌐 ${tr('Classement mondial')}</button>` : ''}
       ${p && p.fe ? `<button class="btn" data-a="voir-parfait-eclat" data-i="${J.idx}">${tr('▶ Parfait avec l’éclat ◆')}</button>` : ''}
       <button class="btn" data-a="niveaux">${tr('Niveaux')}</button>
     </div></div>`, 'fin');
@@ -1337,7 +1378,7 @@ barre.id = 'rejeu';
 document.body.appendChild(barre);
 let barreEtat = '';
 function barreRejeu() {
-  const on = J && J.mode === 'fantome' && ecran === 'jeu';
+  const on = J && J.mode === 'fantome' && ecran === 'jeu' && !window.VITRINE;
   const etat = on ? (J.pauseRejeu ? 'p' : '') + J.vitesse : '';
   if (etat === barreEtat) return;
   barreEtat = etat;
@@ -1426,6 +1467,8 @@ function action(a, el) {
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;
     case 'tuto': lancerTuto(); break;
+    case 'classement': classementMondial(i); break;
+    case 'fantome-mondial': { const en = CLASSEMENT[+el.dataset.k]; if (en && en.fantome) regarderEntrees(i, M.decompresser(en.fantome), en.nom); break; }
     case 'editeur': editeurMenu(); break;
     case 'ed-nouveau': ouvrirEditeur(null); break;
     case 'ed-ouvrir': ouvrirEditeur(i); break;
@@ -1676,6 +1719,6 @@ SON.volumes(S.reglages.sons, S.reglages.musique);
 tactiles();
 accueil();
 requestAnimationFrame(boucle);
-window.Jeu = { LISTE, S, DEFIS, defiDuJour, cleJour, get J() { return J; }, lancerNiveau, regarder, lancerCourse, pas, action };
+window.Jeu = { SUCCES, RANGS, LISTE, S, DEFIS, defiDuJour, cleJour, get J() { return J; }, lancerNiveau, regarder, lancerCourse, pas, action };
 if (MUET) console.log('Phase : son coupé (?muet)');
 })();

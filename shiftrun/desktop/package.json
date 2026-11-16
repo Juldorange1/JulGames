@@ -1,0 +1,69 @@
+{
+  "name": "shiftrun",
+  "productName": "Shiftrun",
+  "version": "1.0.0",
+  "description": "Shiftrun - jeu de speedrun où l'on change de forme (programme pour Windows, avec Steam)",
+  "author": "Juldorange",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:muet": "electron . --muet",
+    "test": "electron . --test",
+    "vitrine": "electron . --vitrine",
+    "build": "electron-builder --win dir portable"
+  },
+  "dependencies": {
+    "steamworks.js": "0.4.0"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.juldorange.shiftrun",
+    "productName": "Shiftrun",
+    "copyright": "Juldorange",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "steam-lb.js",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "game",
+        "filter": [
+          "index.html",
+          "icon.png",
+          "js/**/*",
+          "fonts/**/*",
+          "music/**/*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "../icon.png",
+      "target": [
+        "dir",
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Shiftrun-${version}-portable.exe"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/steamworks.js/**/*"
+    ],
+    "executableName": "Shiftrun"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true
+  }
+}

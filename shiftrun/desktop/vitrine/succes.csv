@@ -1,0 +1,101 @@
+﻿nom_api;nom;description;icone;icone_grisee
+niveaux_1;Explorateur · Bronze;Niveaux finis : 1;succes-niveaux_1.jpg;succes-niveaux_1-gris.jpg
+niveaux_2;Explorateur · Argent;Niveaux finis : 10;succes-niveaux_2.jpg;succes-niveaux_2-gris.jpg
+niveaux_3;Explorateur · Or;Niveaux finis : 24;succes-niveaux_3.jpg;succes-niveaux_3-gris.jpg
+niveaux_4;Explorateur · Platine;Niveaux finis : 36;succes-niveaux_4.jpg;succes-niveaux_4-gris.jpg
+niveaux_5;Explorateur · Diamant;Niveaux finis : 48;succes-niveaux_5.jpg;succes-niveaux_5-gris.jpg
+zones_1;Conquérant · Bronze;Zones entièrement finies : 1;succes-zones_1.jpg;succes-zones_1-gris.jpg
+zones_2;Conquérant · Argent;Zones entièrement finies : 2;succes-zones_2.jpg;succes-zones_2-gris.jpg
+zones_3;Conquérant · Or;Zones entièrement finies : 4;succes-zones_3.jpg;succes-zones_3-gris.jpg
+zones_4;Conquérant · Platine;Zones entièrement finies : 6;succes-zones_4.jpg;succes-zones_4-gris.jpg
+zones_5;Conquérant · Diamant;Zones entièrement finies : 8;succes-zones_5.jpg;succes-zones_5-gris.jpg
+or_1;Doré · Bronze;Médailles d’or (ou mieux) : 1;succes-or_1.jpg;succes-or_1-gris.jpg
+or_2;Doré · Argent;Médailles d’or (ou mieux) : 5;succes-or_2.jpg;succes-or_2-gris.jpg
+or_3;Doré · Or;Médailles d’or (ou mieux) : 15;succes-or_3.jpg;succes-or_3-gris.jpg
+or_4;Doré · Platine;Médailles d’or (ou mieux) : 30;succes-or_4.jpg;succes-or_4-gris.jpg
+or_5;Doré · Diamant;Médailles d’or (ou mieux) : 48;succes-or_5.jpg;succes-or_5-gris.jpg
+parfaits_1;Robot humain · Bronze;Temps Parfaits égalés : 1;succes-parfaits_1.jpg;succes-parfaits_1-gris.jpg
+parfaits_2;Robot humain · Argent;Temps Parfaits égalés : 3;succes-parfaits_2.jpg;succes-parfaits_2-gris.jpg
+parfaits_3;Robot humain · Or;Temps Parfaits égalés : 10;succes-parfaits_3.jpg;succes-parfaits_3-gris.jpg
+parfaits_4;Robot humain · Platine;Temps Parfaits égalés : 24;succes-parfaits_4.jpg;succes-parfaits_4-gris.jpg
+parfaits_5;Robot humain · Diamant;Temps Parfaits égalés : 48;succes-parfaits_5.jpg;succes-parfaits_5-gris.jpg
+eclats_1;Chasseur d’éclats · Bronze;Éclats ◆ trouvés dans les niveaux : 1;succes-eclats_1.jpg;succes-eclats_1-gris.jpg
+eclats_2;Chasseur d’éclats · Argent;Éclats ◆ trouvés dans les niveaux : 10;succes-eclats_2.jpg;succes-eclats_2-gris.jpg
+eclats_3;Chasseur d’éclats · Or;Éclats ◆ trouvés dans les niveaux : 24;succes-eclats_3.jpg;succes-eclats_3-gris.jpg
+eclats_4;Chasseur d’éclats · Platine;Éclats ◆ trouvés dans les niveaux : 36;succes-eclats_4.jpg;succes-eclats_4-gris.jpg
+eclats_5;Chasseur d’éclats · Diamant;Éclats ◆ trouvés dans les niveaux : 48;succes-eclats_5.jpg;succes-eclats_5-gris.jpg
+propre_1;Sans une égratignure · Bronze;Niveaux finis sans tomber : 1;succes-propre_1.jpg;succes-propre_1-gris.jpg
+propre_2;Sans une égratignure · Argent;Niveaux finis sans tomber : 5;succes-propre_2.jpg;succes-propre_2-gris.jpg
+propre_3;Sans une égratignure · Or;Niveaux finis sans tomber : 15;succes-propre_3.jpg;succes-propre_3-gris.jpg
+propre_4;Sans une égratignure · Platine;Niveaux finis sans tomber : 30;succes-propre_4.jpg;succes-propre_4-gris.jpg
+propre_5;Sans une égratignure · Diamant;Niveaux finis sans tomber : 48;succes-propre_5.jpg;succes-propre_5-gris.jpg
+survie_1;Survivant · Bronze;Ennemis écrasés en une partie (record) : 10;succes-survie_1.jpg;succes-survie_1-gris.jpg
+survie_2;Survivant · Argent;Ennemis écrasés en une partie (record) : 25;succes-survie_2.jpg;succes-survie_2-gris.jpg
+survie_3;Survivant · Or;Ennemis écrasés en une partie (record) : 50;succes-survie_3.jpg;succes-survie_3-gris.jpg
+survie_4;Survivant · Platine;Ennemis écrasés en une partie (record) : 100;succes-survie_4.jpg;succes-survie_4-gris.jpg
+survie_5;Survivant · Diamant;Ennemis écrasés en une partie (record) : 200;succes-survie_5.jpg;succes-survie_5-gris.jpg
+massacre_1;Écraseur · Bronze;Ennemis écrasés en tout : 50;succes-massacre_1.jpg;succes-massacre_1-gris.jpg
+massacre_2;Écraseur · Argent;Ennemis écrasés en tout : 250;succes-massacre_2.jpg;succes-massacre_2-gris.jpg
+massacre_3;Écraseur · Or;Ennemis écrasés en tout : 1000;succes-massacre_3.jpg;succes-massacre_3-gris.jpg
+massacre_4;Écraseur · Platine;Ennemis écrasés en tout : 5000;succes-massacre_4.jpg;succes-massacre_4-gris.jpg
+massacre_5;Écraseur · Diamant;Ennemis écrasés en tout : 20000;succes-massacre_5.jpg;succes-massacre_5-gris.jpg
+infini_1;Sans fin · Bronze;Salles franchies en Infini (record) : 10;succes-infini_1.jpg;succes-infini_1-gris.jpg
+infini_2;Sans fin · Argent;Salles franchies en Infini (record) : 20;succes-infini_2.jpg;succes-infini_2-gris.jpg
+infini_3;Sans fin · Or;Salles franchies en Infini (record) : 40;succes-infini_3.jpg;succes-infini_3-gris.jpg
+infini_4;Sans fin · Platine;Salles franchies en Infini (record) : 70;succes-infini_4.jpg;succes-infini_4-gris.jpg
+infini_5;Sans fin · Diamant;Salles franchies en Infini (record) : 100;succes-infini_5.jpg;succes-infini_5-gris.jpg
+semaine_1;Régulier · Bronze;Défis de la semaine finis : 1;succes-semaine_1.jpg;succes-semaine_1-gris.jpg
+semaine_2;Régulier · Argent;Défis de la semaine finis : 4;succes-semaine_2.jpg;succes-semaine_2-gris.jpg
+semaine_3;Régulier · Or;Défis de la semaine finis : 12;succes-semaine_3.jpg;succes-semaine_3-gris.jpg
+semaine_4;Régulier · Platine;Défis de la semaine finis : 26;succes-semaine_4.jpg;succes-semaine_4-gris.jpg
+semaine_5;Régulier · Diamant;Défis de la semaine finis : 52;succes-semaine_5.jpg;succes-semaine_5-gris.jpg
+mois_1;Fidèle · Bronze;Défis du mois finis : 1;succes-mois_1.jpg;succes-mois_1-gris.jpg
+mois_2;Fidèle · Argent;Défis du mois finis : 3;succes-mois_2.jpg;succes-mois_2-gris.jpg
+mois_3;Fidèle · Or;Défis du mois finis : 6;succes-mois_3.jpg;succes-mois_3-gris.jpg
+mois_4;Fidèle · Platine;Défis du mois finis : 12;succes-mois_4.jpg;succes-mois_4-gris.jpg
+mois_5;Fidèle · Diamant;Défis du mois finis : 24;succes-mois_5.jpg;succes-mois_5-gris.jpg
+temps_1;Passionné · Bronze;Heures de jeu : 1;succes-temps_1.jpg;succes-temps_1-gris.jpg
+temps_2;Passionné · Argent;Heures de jeu : 5;succes-temps_2.jpg;succes-temps_2-gris.jpg
+temps_3;Passionné · Or;Heures de jeu : 20;succes-temps_3.jpg;succes-temps_3-gris.jpg
+temps_4;Passionné · Platine;Heures de jeu : 50;succes-temps_4.jpg;succes-temps_4-gris.jpg
+temps_5;Passionné · Diamant;Heures de jeu : 100;succes-temps_5.jpg;succes-temps_5-gris.jpg
+chutes_1;Persévérant · Bronze;Chutes : 100;succes-chutes_1.jpg;succes-chutes_1-gris.jpg
+chutes_2;Persévérant · Argent;Chutes : 1000;succes-chutes_2.jpg;succes-chutes_2-gris.jpg
+chutes_3;Persévérant · Or;Chutes : 5000;succes-chutes_3.jpg;succes-chutes_3-gris.jpg
+chutes_4;Persévérant · Platine;Chutes : 20000;succes-chutes_4.jpg;succes-chutes_4-gris.jpg
+chutes_5;Persévérant · Diamant;Chutes : 50000;succes-chutes_5.jpg;succes-chutes_5-gris.jpg
+sauts_1;Bondissant · Bronze;Sauts : 1000;succes-sauts_1.jpg;succes-sauts_1-gris.jpg
+sauts_2;Bondissant · Argent;Sauts : 10000;succes-sauts_2.jpg;succes-sauts_2-gris.jpg
+sauts_3;Bondissant · Or;Sauts : 50000;succes-sauts_3.jpg;succes-sauts_3-gris.jpg
+sauts_4;Bondissant · Platine;Sauts : 200000;succes-sauts_4.jpg;succes-sauts_4-gris.jpg
+sauts_5;Bondissant · Diamant;Sauts : 1000000;succes-sauts_5.jpg;succes-sauts_5-gris.jpg
+formes_1;Métamorphe · Bronze;Changements de transformation : 500;succes-formes_1.jpg;succes-formes_1-gris.jpg
+formes_2;Métamorphe · Argent;Changements de transformation : 5000;succes-formes_2.jpg;succes-formes_2-gris.jpg
+formes_3;Métamorphe · Or;Changements de transformation : 25000;succes-formes_3.jpg;succes-formes_3-gris.jpg
+formes_4;Métamorphe · Platine;Changements de transformation : 100000;succes-formes_4.jpg;succes-formes_4-gris.jpg
+formes_5;Métamorphe · Diamant;Changements de transformation : 500000;succes-formes_5.jpg;succes-formes_5-gris.jpg
+capas_1;Virtuose · Bronze;Compétences utilisées : 50;succes-capas_1.jpg;succes-capas_1-gris.jpg
+capas_2;Virtuose · Argent;Compétences utilisées : 500;succes-capas_2.jpg;succes-capas_2-gris.jpg
+capas_3;Virtuose · Or;Compétences utilisées : 5000;succes-capas_3.jpg;succes-capas_3-gris.jpg
+capas_4;Virtuose · Platine;Compétences utilisées : 25000;succes-capas_4.jpg;succes-capas_4-gris.jpg
+capas_5;Virtuose · Diamant;Compétences utilisées : 100000;succes-capas_5.jpg;succes-capas_5-gris.jpg
+km_1;Marathonien · Bronze;Kilomètres parcourus : 1;succes-km_1.jpg;succes-km_1-gris.jpg
+km_2;Marathonien · Argent;Kilomètres parcourus : 10;succes-km_2.jpg;succes-km_2-gris.jpg
+km_3;Marathonien · Or;Kilomètres parcourus : 50;succes-km_3.jpg;succes-km_3-gris.jpg
+km_4;Marathonien · Platine;Kilomètres parcourus : 200;succes-km_4.jpg;succes-km_4-gris.jpg
+km_5;Marathonien · Diamant;Kilomètres parcourus : 1000;succes-km_5.jpg;succes-km_5-gris.jpg
+look_1;Coquet · Bronze;Apparences possédées : 1;succes-look_1.jpg;succes-look_1-gris.jpg
+look_2;Coquet · Argent;Apparences possédées : 10;succes-look_2.jpg;succes-look_2-gris.jpg
+look_3;Coquet · Or;Apparences possédées : 25;succes-look_3.jpg;succes-look_3-gris.jpg
+look_4;Coquet · Platine;Apparences possédées : 50;succes-look_4.jpg;succes-look_4-gris.jpg
+look_5;Coquet · Diamant;Apparences possédées : 84;succes-look_5.jpg;succes-look_5-gris.jpg
+entr_1;Travailleur · Bronze;Parties d’entraînement finies : 1;succes-entr_1.jpg;succes-entr_1-gris.jpg
+entr_2;Travailleur · Argent;Parties d’entraînement finies : 10;succes-entr_2.jpg;succes-entr_2-gris.jpg
+entr_3;Travailleur · Or;Parties d’entraînement finies : 50;succes-entr_3.jpg;succes-entr_3-gris.jpg
+entr_4;Travailleur · Platine;Parties d’entraînement finies : 200;succes-entr_4.jpg;succes-entr_4-gris.jpg
+entr_5;Travailleur · Diamant;Parties d’entraînement finies : 500;succes-entr_5.jpg;succes-entr_5-gris.jpg
+rejeux_1;Élève · Bronze;Rejeux regardés : 1;succes-rejeux_1.jpg;succes-rejeux_1-gris.jpg
+rejeux_2;Élève · Argent;Rejeux regardés : 10;succes-rejeux_2.jpg;succes-rejeux_2-gris.jpg
+rejeux_3;Élève · Or;Rejeux regardés : 50;succes-rejeux_3.jpg;succes-rejeux_3-gris.jpg
+rejeux_4;Élève · Platine;Rejeux regardés : 100;succes-rejeux_4.jpg;succes-rejeux_4-gris.jpg
+rejeux_5;Élève · Diamant;Rejeux regardés : 300;succes-rejeux_5.jpg;succes-rejeux_5-gris.jpg

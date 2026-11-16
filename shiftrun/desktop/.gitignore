@@ -1,0 +1,6 @@
+node_modules/
+dist/
+npm.log
+vitrine.log
+vitrine/bande-annonce.*
+build.log

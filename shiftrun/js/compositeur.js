@@ -103,6 +103,10 @@ function composer(graine, humeur, mesures) {
         ton(t0 + k * croche, freq(p.note(d + varie + (partie === 2 ? 2 : 0), 1)), croche * long * 0.95, p.ondeLead, 0.085, 3200);
       }
     }
+    // nappe d'accords tenue (douce, filtrée) : donne de la profondeur
+    if (m % 2 === 0) for (const dg of [0, 2, 4]) ton(t0, freq(p.note(acc + dg, 0)), mesure * 2 * 0.95, 'sawtooth', 0.018, 900 + 600 * Math.sin(m * 0.4));
+    // contre-chant dans le pont
+    if (partie === 2 && !calme) for (let k = 0; k < 8; k += 2) { const d = p.motif[(m % 2) * 8 + 7 - k]; if (d != null) ton(t0 + k * croche, freq(p.note(d - 2, 0)), croche * 1.8, 'triangle', 0.05, 2000); }
     // batterie
     if (p.batterie && !intro) for (let k = 0; k < 8; k++) {
       if (k % 4 === 0) frappe(t0 + k * croche, 'k');

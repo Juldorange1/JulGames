@@ -623,7 +623,7 @@ function dessiner(e, fantome, hud, dt) {
   const vg = g.createRadialGradient(LARG / 2, HAUT / 2, Math.min(LARG, HAUT) * 0.38, LARG / 2, HAUT / 2, Math.max(LARG, HAUT) * 0.78);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
   g.fillStyle = vg; g.fillRect(0, 0, LARG, HAUT);
-  interfaceJeu(g, e, hud);
+  if (!(typeof window !== 'undefined' && window.VITRINE_SANS_HUD)) interfaceJeu(g, e, hud);
 }
 
 /* ---------- Arrière-plan en couches (parallaxe) ---------- */

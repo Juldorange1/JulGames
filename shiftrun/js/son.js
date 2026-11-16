@@ -20,9 +20,7 @@ function demarrer() {
   const doux = ac.createBiquadFilter(); doux.type = 'lowpass'; doux.frequency.value = 3800; doux.Q.value = 0.5;
   const comp = ac.createDynamicsCompressor(); comp.threshold.value = -24; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
   busSons.connect(doux); doux.connect(comp); comp.connect(ac.destination);
-  for (const nom of NOMS) {
-    fetch('sfx/' + nom + '.wav').then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(t => { tampons[nom] = t; }).catch(() => {});
-  }
+
   if (voulu !== null) { const v = voulu; voulu = null; jouerMusique(v); }
   setInterval(mixer, 33);
 }
@@ -32,7 +30,51 @@ function volumes(s, m) {
 }
 const DUREE_MAX = { mort: 0.45, boum: 0.5, casse: 0.35, fracas: 0.35, echec: 0.3, porte: 0.4, fin: 1.2, eclat: 0.8 };
 const derniers = {};
+// Bruitages originaux, fabriqués par le jeu (oscillateurs + bruit filtré, enveloppes douces) : aucun fichier extérieur
+let bruitBuf = null;
+function synth(nom, vol, h) {
+  if (!ac) return false;
+  const t = ac.currentTime; h = h || 1; vol = vol === undefined ? 0.5 : vol;
+  if (!bruitBuf) { bruitBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = bruitBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const env = (g, a, d, v) => { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
+  const ton = (type, f0, f1, a, d, v, delai) => {
+    const o = ac.createOscillator(), g = ac.createGain(), t0 = t + (delai || 0);
+    o.type = type; o.frequency.setValueAtTime(f0 * h, t0); if (f1) o.frequency.exponentialRampToValueAtTime(f1 * h, t0 + a + d);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(v * vol, t0 + a); g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+    o.connect(g); g.connect(busSons); o.start(t0); o.stop(t0 + a + d + 0.05);
+  };
+  const souffle = (fType, f0, f1, a, d, v, q) => {
+    const b = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    b.buffer = bruitBuf; f.type = fType; f.Q.value = q || 1; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + a + d);
+    env(g, a, d, v * vol); b.connect(f); f.connect(g); g.connect(busSons); b.start(t, Math.random() * 0.5); b.stop(t + a + d + 0.05);
+  };
+  switch (nom) {
+    case 'saut': ton('triangle', 330, 620, 0.005, 0.09, 0.7); souffle('bandpass', 900, 2200, 0.005, 0.06, 0.25, 2); break;
+    case 'mur': ton('triangle', 300, 520, 0.005, 0.08, 0.6); souffle('highpass', 1800, 0, 0.002, 0.05, 0.3); break;
+    case 'rebond': ton('sine', 220, 660, 0.005, 0.14, 0.7); break;
+    case 'atterrit': souffle('lowpass', 500, 200, 0.002, 0.07, 0.6); break;
+    case 'mort': ton('triangle', 440, 110, 0.01, 0.35, 0.6); souffle('lowpass', 1200, 200, 0.01, 0.3, 0.4); break;
+    case 'casse': souffle('bandpass', 1400, 400, 0.002, 0.18, 0.8, 0.8); ton('square', 140, 70, 0.002, 0.1, 0.25); break;
+    case 'boum': ton('sine', 120, 40, 0.005, 0.35, 0.9); souffle('lowpass', 900, 120, 0.005, 0.4, 0.6); break;
+    case 'cristal': [0, 0.06].forEach((dl, k) => ton('sine', [1320, 1760][k], 0, 0.003, 0.35, 0.45, dl)); break;
+    case 'eclat': [0, 0.07, 0.14, 0.21].forEach((dl, k) => ton('sine', [880, 1109, 1319, 1760][k], 0, 0.004, 0.4, 0.4, dl)); break;
+    case 'drapeau': ton('triangle', 660, 0, 0.005, 0.2, 0.45); ton('triangle', 990, 0, 0.005, 0.3, 0.4, 0.09); break;
+    case 'fin': [0, 0.1, 0.2, 0.32].forEach((dl, k) => ton('triangle', [523, 659, 784, 1047][k], 0, 0.01, 0.5, 0.45, dl)); break;
+    case 'tp': ton('sine', 300, 1400, 0.01, 0.2, 0.4); souffle('bandpass', 600, 3000, 0.01, 0.2, 0.25, 3); break;
+    case 'echec': ton('square', 150, 120, 0.005, 0.1, 0.18); break;
+    case 'fracas': ton('sine', 90, 45, 0.002, 0.2, 0.9); souffle('lowpass', 600, 150, 0.002, 0.18, 0.5); break;
+    case 'ressort': ton('triangle', 180, 900, 0.005, 0.22, 0.6); ton('sine', 360, 1200, 0.005, 0.18, 0.25); break;
+    case 'bouton': ton('square', 700, 500, 0.002, 0.05, 0.25); break;
+    case 'porte': souffle('lowpass', 300, 120, 0.02, 0.35, 0.5); break;
+    case 'menu': ton('sine', 880, 0, 0.002, 0.05, 0.25); break;
+    case 'valider': ton('sine', 660, 0, 0.003, 0.08, 0.35); ton('sine', 990, 0, 0.003, 0.12, 0.3, 0.05); break;
+    case 'capa': ton('sine', 520, 1040, 0.005, 0.12, 0.45); ton('triangle', 780, 1560, 0.005, 0.1, 0.25, 0.03); break;
+    default: return false;
+  }
+  return true;
+}
 function jouer(nom, vol, hauteur) {
+  if (synth(nom, vol, hauteur)) { return true; }                     // les bruitages du jeu sont maintenant tous originaux
   if (!ac || !tampons[nom]) return false;
   const t = ac.currentTime;
   if (derniers[nom] && t - derniers[nom] < 0.05) return false;   // pas de doublons qui claquent
@@ -87,6 +129,7 @@ function evenements(ev, phase) {
   if (ev & EV.BASCULE) jouer('bouton', 0.4, 1.2);
   if (ev & EV.BANNI) jouer('echec', 0.35, 0.8);
   if (ev & EV.BONUS) jouer('ressort', 0.35, 1.3);
+  if (ev & EV.CAPA) jouer('capa', 0.4, [1, 1.1, 0.9, 1.25, 1.2, 1, 0.8, 0.9, 1.3, 0.75][phase] || 1);
 }
 function bruitMenu(quoi) { jouer(quoi === 'valider' ? 'valider' : 'menu', 0.3); }
 

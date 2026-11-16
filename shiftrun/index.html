@@ -6,8 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0b0812">
 <title>Shiftrun</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<style>/* police embarquée : le jeu marche aussi hors ligne (programme Steam) */
+@font-face { font-family: "Chakra Petch"; font-weight: 400; src: url(fonts/chakra-petch-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; src: url(fonts/chakra-petch-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 600; src: url(fonts/chakra-petch-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700 900; src: url(fonts/chakra-petch-latin-700-normal.woff2) format("woff2"); }
+</style>
+
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0812; color: #eee; font-family: "Chakra Petch", system-ui, sans-serif; }
@@ -174,16 +179,17 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=26"></script>
-<script src="js/calibrage.js?v=26"></script>
-<script src="js/compat.js?v=26"></script>
-<script src="js/gen.js?v=26"></script>
-<script src="js/niveaux.js?v=26"></script>
-<script src="js/parfaits.js?v=26"></script>
-<script src="js/rendu.js?v=26"></script>
-<script src="js/compositeur.js?v=26"></script>
-<script src="js/son.js?v=26"></script>
-<script src="js/langues.js?v=26"></script>
-<script src="js/jeu.js?v=26"></script>
+<script src="js/moteur.js?v=27"></script>
+<script src="js/calibrage.js?v=27"></script>
+<script src="js/compat.js?v=27"></script>
+<script src="js/gen.js?v=27"></script>
+<script src="js/niveaux.js?v=27"></script>
+<script src="js/parfaits.js?v=27"></script>
+<script src="js/rendu.js?v=27"></script>
+<script src="js/compositeur.js?v=27"></script>
+<script src="js/son.js?v=27"></script>
+<script src="js/langues.js?v=27"></script>
+<script src="js/jeu.js?v=27"></script>
+<script src="js/vitrine.js?v=27"></script>
 </body>
 </html>
