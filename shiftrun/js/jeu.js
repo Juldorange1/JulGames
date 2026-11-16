@@ -177,6 +177,37 @@ function lancerInfini(mode) {
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
 }
+/* ---------- Défis spéciaux : descendre ou monter très loin ---------- */
+const SPECIAUX = [
+  { id: 'd100', nom: 'Descente de 100 m', but: 'Descends au fond d’un puits de 100 mètres.', sens: 'bas', m: 100, graine: 11, gain: 3 },
+  { id: 'a100', nom: 'Ascension de 100 m', but: 'Grimpe tout en haut d’un puits de 100 mètres.', sens: 'haut', m: 100, graine: 23, gain: 3 },
+  { id: 'd250', nom: 'Abîme de 250 m', but: 'Une descente vertigineuse de 250 mètres.', sens: 'bas', m: 250, graine: 37, gain: 6 }
+];
+if (!S.speciaux) S.speciaux = {};
+function lancerSpecial(id) {
+  const sp = SPECIAUX.find(x => x.id === id); if (!sp) return;
+  const r = Gen.vertical(sp.graine, sp.sens, sp.m);
+  const def = { id: 'sp-' + id, nom: sp.nom, phases: r.etats.slice(), etats: r.etats, carte: r.carte, panneaux: [] };
+  const n = M.charger(def), e = M.nouvelEtat(n);
+  R.preparer(n, () => sp.sens === 'bas' ? 'abysses' : 'orage');
+  recadrer = true;
+  J = { mode: 'special', sp, n, e, entrees: [], L: { id: def.id, def, zi: 0 }, salle: 0, finT: 0, y0: e.y };
+  S.essais++;
+  ecran = 'jeu'; cacherUI();
+  SON.jouerMusique('defi');
+}
+function finSpecial() {
+  const sp = J.sp, t = J.e.temps, ancien = S.speciaux[sp.id];
+  const record = !ancien || t < ancien.t;
+  const gain = !ancien ? gagnerBonus(sp.gain) : 0;
+  if (record) S.speciaux[sp.id] = { t };
+  sauver();
+  ecran = 'fin'; SON.attenuer(true);
+  montrer(`<div class="fin"><div class="nomniv">${tr(sp.nom)}</div><div class="temps">${R.chrono(t)}</div>
+    <div class="lignes">${record ? '<div class="vert">' + tr(ancien ? 'Nouveau record !' : 'Premier temps enregistré') + '</div>' : `<div>${tr('Record : {0}', '<b>' + R.chrono(ancien.t) + '</b>')}</div>`}
+    ${gain ? `<div class="rose">+${gain} ◆ ${tr('pour la boutique')}</div>` : ''}${verifierSucces({ mode: 'special' })}</div>${statsHTML()}
+    <div class="menu ligne"><button class="btn" data-a="special" data-s="${sp.id}" autofocus>${tr('Recommencer')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
+}
 /* ---------- Survivant : une arène, des ennemis de plus en plus nombreux ; on les écrase en leur sautant dessus ---------- */
 function areneSurvie() {
   const Wd = 46, l = [];
@@ -188,7 +219,7 @@ function areneSurvie() {
   return l.map(r => r.join(''));
 }
 function lancerSurvie() {
-  const def = { id: 'survie', nom: 'Survivant', phases: [0, 1, 5, 4], etats: [0, 1, 5, 4], carte: areneSurvie(), panneaux: [] };
+  const def = { id: 'survie', nom: 'Survivant', phases: [0, 5, 4], etats: [0, 5, 4], carte: areneSurvie(), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, () => 'orage');
   recadrer = true;
@@ -380,6 +411,7 @@ function recommencer() {
   if (J.mode === 'infini') { lancerInfini(J.imode); return; }
   if (J.mode === 'defi') { lancerDefiLong(J.periode); return; }
   if (J.mode === 'survie') { lancerSurvie(); return; }
+  if (J.mode === 'special') { lancerSpecial(J.sp.id); return; }
   if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(J.drapeauDepart || 0); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
   else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat');
@@ -556,6 +588,7 @@ function pas() {
 function terminer() {
   if (J.mode === 'fantome') { finFantome(); return; }
   if (J.mode === 'defi') { finDefi(); return; }
+  if (J.mode === 'special') { finSpecial(); return; }
   const id = J.L.id, t = J.e.temps;
   if (J.mode === 'niveau' && J.entrainement) {
     ecran = 'fin'; SON.attenuer(true);
@@ -626,7 +659,7 @@ function dessiner(dt) {
     if (Math.abs(p.x - e.x) < 40 && Math.abs(p.y - e.y) < 40) { e = M.cloner(J.e); e.x = p.x + (J.e.x - p.x) * a; e.y = p.y + (J.e.y - p.y) * a; }
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { nomSaut: tr('saut'), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: [0, 1, 2, 3].map(touchePhase), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { nomSaut: tr('saut'), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: [0, 1, 2].map(touchePhase), nomsCapas: M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : ''), echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -650,6 +683,12 @@ function dessiner(dt) {
     hud.chrono = Math.max(0, e.temps - (J.segT || 0));
     hud.titre = '🎯 ' + tr('Entraînement') + '  ·  ' + hud.titre;
     hud.lignes.push({ t: tr('Pause : choisir un drapeau · Page préc. / suiv. : drapeau précédent / suivant'), c: '#ffd84a' });
+  } else if (J.mode === 'special') {
+    hud.chrono = e.temps;
+    hud.titre = tr(J.sp.nom);
+    const fait = Math.max(0, Math.round((J.sp.sens === 'bas' ? e.y - J.y0 : J.y0 - e.y) / M.T));
+    hud.sousChrono = Math.min(J.sp.m, fait) + ' m / ' + J.sp.m + ' m';
+    if (S.speciaux[J.sp.id]) hud.lignes.push({ t: tr('Ton meilleur  {0}', R.chrono(S.speciaux[J.sp.id].t)), c: '#ff9ae6' });
   } else if (J.mode === 'survie') {
     hud.chrono = e.temps;
     hud.titre = tr('Survivant');
@@ -694,7 +733,7 @@ function dessiner(dt) {
   if (S.reglages.entrees && J.mode !== 'fantome') hud.entrees = J.inp || 0;
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
-  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) : tr(pn.texte); } break; }
+  for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); const pe = m ? J.n.emplacements[+m[1] - 1] : -1; hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) + (NIV.CAPA[pe] ? '   ↻ ' + tr(NIV.CAPA[pe][0]) + ' : ' + tr(NIV.CAPA[pe][1]) : '') : tr(pn.texte); } break; }
   if (messageT > 0) { hud.message = tr(message); hud.messageC = J.couleurMsg || '#ff9ae6'; if (messageT === 1) J.couleurMsg = null; }
   R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
 }
@@ -764,6 +803,7 @@ function accueil() {
     ${carte('entrainement', '🎯 ' + tr('Entraînement'), tr('repars de n’importe quel drapeau pour répéter un passage'))}
     ${carte('infini', '∞ ' + tr('Infini'), S.infini[2] ? tr('record : {0} salles', S.infini[2].salles) : tr('salles générées sans fin, de plus en plus dures, une seule vie'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', R.chrono(S.survie.t) + ' · ' + S.survie.kills + ' ✖') : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
+    ${SPECIAUX.map(sp => carte('special', (sp.sens === 'bas' ? '⬇ ' : '⬆ ') + tr(sp.nom), S.speciaux[sp.id] ? tr('ton meilleur : {0}', R.chrono(S.speciaux[sp.id].t)) : tr(sp.but), 'data-s="' + sp.id + '"')).join('')}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(PERIODES.semaine.but))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(PERIODES.mois.but))}
     ${carte('course-any', '⏱ ' + tr('Course complète'), tousFaits() ? (S.course.any ? tr('record {0}', R.chrono(S.course.any.t)) : tr('tous les niveaux d’un trait')) : tr('finis tous les niveaux pour la débloquer'), tousFaits() ? '' : 'disabled')}
@@ -858,9 +898,9 @@ function aide() {
   montrer(`<h2>${tr('Comment jouer')}</h2><div class="aide">
   <p>${tr('Va le plus vite possible jusqu’au portail. Le chrono démarre au premier geste et se compte à l’image près. Tomber ou toucher des pics te renvoie au dernier drapeau ; avant le premier drapeau, tout recommence à zéro.')}</p>
   <div class="etats">
-   ${[0, 1, 2, 3, 4, 5, 6, 7].map(p => `<div style="--c:${R.COUL_PHASE[p]}"><b>${tr(M.NOMS_PHASES[p])}</b>${tr(NIV.DESC[p]).replace(/^[^:]*: /, '')}</div>`).join('')}
+   ${M.NOMS_PHASES.map((nm, p) => `<div style="--c:${R.COUL_PHASE[p]}"><b>${tr(nm)}</b>${tr(NIV.DESC[p]).replace(/^[^:]*: /, '')}<br><i>↻ ${tr(NIV.CAPA[p][0])} : ${tr(NIV.CAPA[p][1])}</i></div>`).join('')}
   </div>
-  <p>${tr('Chaque niveau te donne 4 états parmi ces 8, sur les touches {0} : les panneaux du début disent lesquels. Une barrière de couleur ne laisse passer que l’état de sa couleur.', [k('solide'), k('liquide'), k('gaz'), k('plasma')].map(x => x.split(' / ')[0]).join(' '))}</p>
+  <p>${tr('Chaque niveau te donne 3 états parmi ces 10, sur les touches {0} : les panneaux du début disent lesquels. Réappuie sur la touche de l’état où tu es pour utiliser sa compétence (elle coûte une charge). Une barrière de couleur ne laisse passer que l’état de sa couleur.', [k('solide'), k('liquide'), k('gaz')].map(x => x.split(' / ')[0]).join(' '))}</p>
   <p>${tr('Changer d’état coûte une charge (2 au maximum, ◆ bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>
   <p>${tr('Pièges : flèches tirées à intervalles réguliers, sols cassants, sols rebondissants, boutons qui ouvrent des portes. Chaque niveau cache un éclat ◆ très difficile à atteindre.')}</p>
   <p>${tr('Orbe jaune : appuie sur saut en la touchant pour sauter en plein air. Tremplin vert : il te projette sur le côté.')} ${tr('Interrupteur : les blocs rouges et bleus s’échangent. Flèche verte : sauts plus hauts un moment, flèche orange : sauts plus courts. Évite les ennemis hérissés.')} ${tr('Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.')}</p>
@@ -881,6 +921,7 @@ function reglages() {
    <label>${tr('Tremblements de l’écran')} <input type="checkbox" data-r="tremble" ${r.tremble ? 'checked' : ''}></label>
   </div><h3>${tr('Touches')} <small>${tr('(clique puis appuie sur la nouvelle touche)')}</small></h3><div class="touches">`;
   for (const a in TOUCHES_DEF) {
+    if (a === 'plasma') continue;          // 3 états : la 4e touche n'existe plus
     h += `<div><span>${tr(NOMS_ACTIONS[a])}</span><button class="btn mini" data-a="touche" data-t="${a}" data-k="0">${nomTouche(S.touches[a][0])}</button>
       <button class="btn mini" data-a="touche" data-t="${a}" data-k="1">${nomTouche(S.touches[a][1])}</button></div>`;
   }
@@ -1009,6 +1050,7 @@ function action(a, el) {
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;
+    case 'special': lancerSpecial(el.dataset.s); break;
 
     case 'skin': choisirSkin(el.dataset.t, el.dataset.s); break;
     case 'reglages': reglages(); break;
@@ -1026,6 +1068,7 @@ function action(a, el) {
       else if (ecran === 'fin' && J && J.mode === 'infini') lancerInfini(J.imode);
       else if (ecran === 'fin' && J && J.mode === 'defi') lancerDefiLong(J.periode);
       else if (ecran === 'fin' && J && J.mode === 'survie') lancerSurvie();
+      else if (ecran === 'fin' && J && J.mode === 'special') lancerSpecial(J.sp.id);
       break;
     case 'pause':
       if (ecran === 'jeu') { if (J.mode === 'fantome') { if (J.L) niveauxOuRecords(); } else pause(); }
@@ -1175,8 +1218,12 @@ function majTactile() {
   zoneT.classList.toggle('actif', tactileVoulu());
   zoneT.classList.toggle('cache-jeu', ecran !== 'jeu');
   // seuls les états permis dans ce niveau ont un bouton
-  const ph = J && J.n ? J.n.phases : 15;
-  zoneT.querySelectorAll('.t-etat').forEach((el, i) => { el.style.display = (ph & (1 << i)) ? '' : 'none'; });
+  const em = J && J.n ? J.n.emplacements : [0, 1, 2];
+  zoneT.querySelectorAll('.t-etat').forEach((el, i) => {
+    const p = em[i];
+    el.style.display = p !== undefined ? '' : 'none';
+    if (p !== undefined) { el.style.setProperty('--c', R.COUL_PHASE[p]); el.textContent = tr(M.NOMS_PHASES[p]).slice(0, 2); }
+  });
 }
 let joyBits = 0, boutonsBits = 0;
 function tactiles() {

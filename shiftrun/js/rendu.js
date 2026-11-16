@@ -24,7 +24,7 @@ const THEMES = {
   coeur: { ciel: ['#360a33', '#06010b'], mur: '#40143e', clair: '#5a1d57', bord: '#ff74da', ombre: '#1a0619', motif: '#521c50',
     loin: ['#3e0f3b', '#2c0a2a', '#1d061b'], accent: '#ff6ad5', nuit: 0.48, voile: '10,0,10', lum: '255,110,220', tapis: null, style: 'veines', amb: 'eclats', nom: 'Cœur' }
 };
-const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a', '#f1ecff', '#ff5ca8', '#a9b6c8', '#9a6bff'];
+const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a', '#f1ecff', '#ff5ca8', '#a9b6c8', '#9a6bff', '#bff4ff', '#ff6a2a'];
 let APPARENCE = { corps: null, motif: null, accessoire: null };   // apparence choisie dans la boutique
 function choisirApparence(a) { APPARENCE = a || { corps: null, motif: null, accessoire: null }; }
 
@@ -108,7 +108,7 @@ function scanner() {
       case M.PIECE: dyn.piece.push([x, y]); dyn.lumieres.push([x, y, '255,210,80', 30]); break;
       case M.CHAMPI: dyn.champi.push([x, y]); break;
       case M.BOUCLE_H: case M.BOUCLE_B: dyn.boucle.push([x, y, k === M.BOUCLE_B]); break;
-      case M.BAR_S: case M.BAR_P: case M.BAR_PL: case M.BAR_CA: case M.BAR_ME: dyn.barriere.push([x, y, M.BARRIERE[k]]); break;
+      case M.BAR_S: case M.BAR_P: case M.BAR_PL: case M.BAR_CA: case M.BAR_ME: case M.BAR_GL: case M.BAR_MA: dyn.barriere.push([x, y, M.BARRIERE[k]]); break;
     }
   }
 }
@@ -449,6 +449,7 @@ function dessiner(e, fantome, hud, dt) {
     g.fillStyle = '#fff'; g.fillRect(cx2 - 3, cy2 - 6.2, 6, 1.2);                                        // le dessus : là où on l'écrase
   }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
+  competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
@@ -941,6 +942,22 @@ function casesAnimees(g, e, vis) {
     g.fillStyle = `rgba(255,255,255,${0.5 + 0.4 * Math.sin(tt * 4)})`; g.fillRect(px - 1, py - 5, 2, 2);
   }
 }
+// compétences : fil du grappin, jets d'eau, perle, aura de suspension, blocs de glace
+function competences(g, e) {
+  if (e.glaces && e.glaces.length) for (const [k, fin] of e.glaces) {
+    if (fin <= e.temps) continue;
+    const tx = Math.floor(k / 1024), ty = k % 1024, px = tx * T, py = ty * T, a = Math.min(1, (fin - e.temps) / 40);
+    g.globalAlpha = a; g.fillStyle = 'rgba(190,240,255,.85)'; g.fillRect(px, py, T, T);
+    g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(px + 2, py + 2, T - 6, 2); g.strokeStyle = '#5ab8e0'; g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1); g.globalAlpha = 1;
+  }
+  if (e.grap) {
+    g.strokeStyle = '#d9c6a5'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(e.x + PW / 2, e.y + PH / 2); g.lineTo(e.grap[0], e.grap[1]); g.stroke();
+    g.fillStyle = '#ffe94a'; g.beginPath(); g.arc(e.grap[0], e.grap[1], 2.5, 0, 7); g.fill();
+  }
+  if (e.tirs && e.tirs.length) for (const t of e.tirs) { if (t[5] > 0) continue; g.fillStyle = '#9fe0ff'; g.beginPath(); g.arc(t[0], t[1], 2.4, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillRect(t[0] - 0.6, t[1] - 1.4, 1.2, 1.2); }
+  if (e.perle) { const [px, py] = e.perle; g.fillStyle = '#2a1050'; g.beginPath(); g.arc(px, py, 3.5, 0, 7); g.fill(); g.strokeStyle = '#c8a8ff'; g.lineWidth = 1; g.stroke(); }
+  if (e.hover > 0) { g.strokeStyle = `rgba(241,236,255,${0.4 + 0.3 * Math.sin(temps * 12)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(e.x + PW / 2, e.y + PH / 2, 10, -Math.PI / 2, -Math.PI / 2 + (e.hover / M.K.hover) * Math.PI * 2); g.stroke(); }
+}
 // champignons, barrières d'état, plateformes mobiles, scies, lasers
 function mobiles(g, e, ox, vw, vis) {
   const tt = temps;
@@ -1061,7 +1078,8 @@ const MATIERE = {
   0: ['#f6e6c4', '#b89a6a', '#2b2116', '#2a2018'], 1: ['#b9e8ff', '#2a8ad8', '#0b2f4d', '#06243a'],
   2: ['#fffaf2', '#f0c8a0', '#9a6a40', '#6a3a20'], 3: ['#fffde0', '#ffd23a', '#a07a00', '#5a3a00'],
   4: ['#ffffff', '#cbc0ff', '#5a4aa0', '#4a3a8a'], 5: ['#ffb3d6', '#d6247a', '#5a0a30', '#4a0a2a'],
-  6: ['#e6edf6', '#6a7584', '#20262e', '#10161e'], 7: ['#6a4aa8', '#1a0838', '#0a0418', '#e0d0ff']
+  6: ['#e6edf6', '#6a7584', '#20262e', '#10161e'], 7: ['#6a4aa8', '#1a0838', '#0a0418', '#e0d0ff'],
+  8: ['#ffffff', '#8fd8ff', '#2a6a8a', '#0a3a5a'], 9: ['#ffd070', '#e0401a', '#3a0a04', '#2a0800']
 };
 function joueur(g, e, alpha, fantome) {
   const x = e.x, y = e.y;
@@ -1115,6 +1133,10 @@ function joueur(g, e, alpha, fantome) {
   } else if (ph === M.ME) {
     g.fillStyle = '#3a424c'; for (const [a, b] of [[2, 2], [PW - 3, 2], [2, PH - 3], [PW - 3, PH - 3]]) g.fillRect(x + a - 0.5, y + b - 0.5, 1.5, 1.5);
     g.fillStyle = 'rgba(255,255,255,.65)'; g.fillRect(x + 2, y + 1.5, 5, 1);
+  } else if (ph === M.GL) {                                         // glace : facettes et reflet
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x + 6, y + 1); g.lineTo(x + 6, y + 11); g.moveTo(x + 1.5, y + 3.5); g.lineTo(x + 10.5, y + 8.5); g.moveTo(x + 10.5, y + 3.5); g.lineTo(x + 1.5, y + 8.5); g.stroke();
+  } else if (ph === M.MA) {                                         // magma : fissures qui rougeoient
+    g.strokeStyle = `rgba(255,${200 + 55 * Math.sin(t * 6) | 0},80,.95)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x + 1, y + 7); g.lineTo(x + 5, y + 5); g.lineTo(x + 7, y + 9); g.lineTo(x + 11, y + 6); g.stroke();
   } else if (ph === M.OM) {                                         // ombre : le temps restant remplit le carré
     const r = e.gaz / M.K.omDuree;
     g.fillStyle = `rgba(180,140,255,${0.25 + 0.15 * Math.sin(t * 10)})`; g.fillRect(x + 1, y + 1 + (PH - 2) * (1 - r), PW - 2, (PH - 2) * r);
@@ -1239,6 +1261,10 @@ function interfaceJeu(g, e, hud) {
     const lgN = g.measureText(nomE).width;
     if (lgN > taille - 5) g.font = `700 ${Math.max(6, Math.floor(9.5 * P * (taille - 5) / lgN))}px "Chakra Petch", sans-serif`;
     g.fillText(nomE, x + taille / 2, by + taille - 13 * P);
+    if (actif && hud.nomsCapas) {                    // la compétence : réappuyer sur la même touche
+      g.font = `700 ${Math.round(13 * P)}px "Chakra Petch", sans-serif`; g.fillStyle = e.capCd > 0 ? 'rgba(255,255,255,.4)' : '#ffe94a';
+      g.fillText('↻ ' + hud.nomsCapas[p], x + taille / 2, by - 15 * P);
+    }
     if ((p === M.Z || p === M.OM) && e.phase === p) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * e.gaz / (p === M.Z ? M.K.zDuree : M.K.omDuree), 4); }
     if (banni) {                                  // état banni : grande croix rouge et temps restant
       g.globalAlpha = 1;
@@ -1265,7 +1291,7 @@ function interfaceJeu(g, e, hud) {
     if (e.cp) for (const [fx] of dyn.drapeau) if (fx <= e.cp.tx) k++;
     g.textAlign = 'left'; g.font = `700 ${Math.round(16 * P)}px "Chakra Petch", sans-serif`;
     const tx2 = '⚑ ' + k + ' / ' + dyn.drapeau.length;
-    const yy = hud.tactile ? HAUT - 40 * P : by - 30 * P;
+    const yy = hud.tactile ? HAUT - 40 * P : by - 48 * P;
     g.fillStyle = 'rgba(8,6,14,.55)'; arrondi(g, bx - 4, yy - 4, g.measureText(tx2).width + 14, 24 * P, 6); g.fill();
     g.fillStyle = k ? '#7dff9a' : '#ccc'; g.fillText(tx2, bx + 3, yy);
     g.textAlign = 'center';
@@ -1289,7 +1315,7 @@ function interfaceJeu(g, e, hud) {
     touche(x0 + k, y0, inp & E.H, '↑'); touche(x0, y0 + k, inp & E.G, '←'); touche(x0 + k, y0 + k, inp & E.B, '↓'); touche(x0 + 2 * k, y0 + k, inp & E.D, '→');
     touche(x0 + 3.4 * k, y0 + k, inp & E.SAUT, hud.nomSaut || 'saut', 3.2);
     const etat = (bit, i) => touche(x0 + 3.4 * k + i * 0.8 * k, y0, inp & bit, (hud.touches && hud.touches[i]) || '', 0.8);
-    etat(E.S, 0); etat(E.L, 1); etat(E.Z, 2); etat(E.P, 3);
+    etat(E.S, 0); etat(E.L, 1); etat(E.Z, 2);
   }
   // panneau
   if (hud.panneau) {

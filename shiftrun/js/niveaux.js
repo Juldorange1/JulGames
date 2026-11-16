@@ -10,7 +10,7 @@ const S = 0, L = 1, Z = 2, P = 3;
 const DEF = [
   { nom: 'Carrière', theme: 'carriere', phases: [S],
     niveaux: ['Premiers pas', 'Éboulis', 'Fracas', 'Galerie', 'Carrière profonde', 'Front de taille'],
-    intro: { 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé pour sauter plus haut). Tes 4 états changent à chaque niveau : lis les panneaux.',
+    intro: { 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé). 3 états par niveau (J K L) : réappuie sur l’état où tu es pour utiliser sa compétence.',
       'Une barrière de couleur ne laisse passer que l’état de sa couleur. Changer d’état coûte une charge (2 au plus), rendue au sol.'],
       1: ['Sol cassant : il cède peu après ton passage. Sol rebondissant : il te relance (lâche Espace pour rebondir moins haut).',
         'Les arbalètes tirent à intervalles réguliers. Un bouton ouvre la porte qui le suit.'],
@@ -47,8 +47,8 @@ const DEF = [
 ];
 
 // Solide et Liquide sont toujours là ; chaque niveau a en plus deux états : celui de sa zone et un autre au hasard
-const PL = 4, CA = 5, ME = 6, OM = 7;
-const SIGNATURE = [S, L, Z, P, ME, CA, PL, OM];
+const PL = 4, CA = 5, ME = 6, OM = 7, GL = 8, MA = 9;
+const SIGNATURE = [S, L, MA, P, GL, CA, PL, OM];
 const DESC = {
   [S]: 'Solide : course, saut, saut mural ; en l’air, Bas = fracas qui brise les blocs fêlés (saute juste après : rebond).',
   [L]: 'Liquide : tu colles aux murs et aux plafonds, tu passes les grilles ; lancé contre un mur, ta vitesse devient montée.',
@@ -57,11 +57,26 @@ const DESC = {
   [PL]: 'Plume : tu planes lentement (Bas pour descendre vite) ; idéal pour les longues fosses.',
   [CA]: 'Caoutchouc : tu rebondis sur le sol et les murs ; saute à l’impact pour rebondir plus haut.',
   [ME]: 'Métal : lourd, tu coules, et ni les flèches, ni le feu, ni le vent ne t’arrêtent.',
-  [OM]: 'Ombre : tu voles librement un court moment et tu traverses les parois violettes.'
+  [OM]: 'Ombre : tu voles librement un court moment et tu traverses les parois violettes.',
+  [GL]: 'Glace : tu glisses très vite et tu marches sur l’eau.',
+  [MA]: 'Magma : le feu ne te fait rien ; tu es un peu lent.'
+};
+// compétence de chaque état : on l'utilise en réappuyant sur la touche de l'état où l'on est déjà
+const CAPA = {
+  [S]: ['Grappin', 'grappin vers la direction tenue, il te tire jusqu’au mur'],
+  [L]: ['Rafale', 'trois jets qui actionnent boutons et interrupteurs à distance'],
+  [Z]: ['Souffle', 'grosse poussée à l’opposé de la direction tenue'],
+  [P]: ['Éclair enchaîné', 'un nouvel éclair dans une autre direction'],
+  [PL]: ['Suspension', 'immobile en l’air un moment, te rend une charge'],
+  [CA]: ['Dash', 'élan horizontal qui rebondit sur les murs'],
+  [ME]: ['Marteau', 'écrasement immédiat qui brise les blocs fêlés'],
+  [OM]: ['Perle', 'lance une perle, tu te téléportes où elle s’arrête'],
+  [GL]: ['Bloc de glace', 'pose un bloc de glace sous tes pieds pour un moment'],
+  [MA]: ['Explosion', 'brise les blocs fêlés autour de toi et te soulève']
 };
 // chaque zone met un état en vedette ; les 4 états de chaque niveau sont tirés avec une graine fixe
 function etatsDuNiveau(zi, k) {
-  if (zi === 0 && k === 0) return [S, L, Z, P];
+  if (zi === 0 && k === 0) return [S, L, Z];
   return Gen.etatsAuHasard(Gen.hasard(5000 + zi * 31 + k * 7), SIGNATURE[zi]);
 }
 // niveaux dont la graine a été décalée (si le robot n'y trouvait pas de chemin)
@@ -79,7 +94,7 @@ const ZONES = DEF.map((z, zi) => ({
   })
 }));
 
-const Niveaux = { ZONES, S, L, Z, P, DESC, VARIABLES: Gen.VARIABLES };
+const Niveaux = { ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;
 else racine.Niveaux = Niveaux;
 })(typeof window !== 'undefined' ? window : globalThis);

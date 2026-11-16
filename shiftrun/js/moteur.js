@@ -5,12 +5,12 @@
 'use strict';
 
 const T = 16, W = 12, H = 12;                       // taille d'une case, boîte du joueur
-const S = 0, L = 1, Z = 2, P = 3, PL = 4, CA = 5, ME = 6, OM = 7;   // solide, liquide (de base) ; gaz, plasma, plume, caoutchouc, métal, ombre (selon le niveau)
-const NOMS_PHASES = ['Solide', 'Liquide', 'Gaz', 'Plasma', 'Plume', 'Caoutchouc', 'Métal', 'Ombre'];
+const S = 0, L = 1, Z = 2, P = 3, PL = 4, CA = 5, ME = 6, OM = 7, GL = 8, MA = 9;   // les 10 états (3 par niveau)
+const NOMS_PHASES = ['Solide', 'Liquide', 'Gaz', 'Plasma', 'Plume', 'Caoutchouc', 'Métal', 'Ombre', 'Glace', 'Magma'];
 const E = { G: 1, D: 2, H: 4, B: 8, SAUT: 16, S: 32, L: 64, Z: 128, P: 256 };   // bits d'entrée
 const EV = { SAUT: 1, MUR: 2, CHANGE: 4, MORT: 8, CASSE: 16, RESSORT: 32, BOUM: 64, CRISTAL: 128, FIN: 256,
   DRAPEAU: 512, TP: 1024, ECLAT: 2048, ECHEC: 4096, ATTERRIT: 8192, JET: 16384, FRACAS: 32768, CONVERSION: 65536,
-  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304, PIECE: 8388608, ORBE: 16777216, BASCULE: 33554432, BANNI: 67108864, BONUS: 134217728, INVINCIBLE: 268435456 };
+  EVAPORE: 131072, REBOND: 262144, NAGE: 524288, BOND: 1048576, BOUTON: 2097152, CRAQUE: 4194304, PIECE: 8388608, ORBE: 16777216, BASCULE: 33554432, BANNI: 67108864, BONUS: 134217728, INVINCIBLE: 268435456, CAPA: 536870912 };
 
 const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, EAU = 7, GLACE = 8, RESSORT = 9,
   CRISTAL = 10, BUT = 11, DRAPEAU = 12, PLATE = 13, TAPIS_G = 14, TAPIS_D = 15, VENT_D = 16, VENT_G = 17,
@@ -19,9 +19,9 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
   BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
-  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58;
+  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
-const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME };
+const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME, [BAR_GL]: GL, [BAR_MA]: MA };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
   'w': EAU, 'i': GLACE, 's': RESSORT, '*': CRISTAL, 'G': BUT, '!': DRAPEAU, '-': PLATE, '[': TAPIS_G, ']': TAPIS_D,
   '>': VENT_D, '<': VENT_G, 'A': VENT_H, 'V': VENT_B, 'P': TP1, 'p': TP1S, 'Q': TP2, 'q': TP2S, 'e': ECLAT, '?': PANNEAU,
@@ -29,7 +29,7 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
   '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI,
   'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
-  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B };
+  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -47,13 +47,18 @@ const K = {
   // plasma
   pVit: 8.5, pDuree: 9, pSortie: 4.8, pRecharge: 8,
   // vent, explosions, tapis
-  vent: [0.08, 0.16, 0.7, 0, 0.5, 0.12, 0, 0], ventMax: 6.2, boum: 9, tapis: 1.4,
+  vent: [0.08, 0.16, 0.7, 0, 0.5, 0.12, 0, 0, 0.1, 0.06], ventMax: 6.2, boum: 9, tapis: 1.4,
   // pièges
   flechePeriode: 84, flecheVit: 4.2, cassantDelai: 22, cassantRetour: 150, rebondMin: 8.2,
   orbeRecharge: 30, tremplinVx: 9.5, tremplinVy: 3.5, ennemiVit: 1.3, banDuree: 240, bonusDuree: 360, sautPlus: 1.45, sautMoins: 0.7,
   invincible: 50, orbeRayon: 10,
   platVit: 1.1, platLarg: 3, platEp: 5, scieVit: 1.5, scieRayon: 7, laserEp: 4, champiRayon: 6.5, champiForce: 7.6,
   ennemiRayon: 6.5,
+  // glace, magma
+  glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 3.0, maSaut: 6.0,
+  // compétences (réappuyer sur l'état actuel)
+  capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
+  hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -62,7 +67,7 @@ const K = {
 /* ---------- Chargement d'un niveau ---------- */
 function charger(def) {
   // les 4 états du niveau (touches 1 à 4) ; le premier est l'état de base, celui où l'on revient
-  const et = (def.etats && def.etats.length === 4) ? def.etats.slice()
+  const et = (def.etats && def.etats.length >= 3) ? def.etats.slice()
     : (def.etats && def.etats.length === 2) ? [S, L].concat(def.etats) : [S, L, Z, P];
   let phases = 0;
   for (const p of (def.phases || et)) phases |= 1 << p;
@@ -182,7 +187,7 @@ function recharger(n, c) {
 }
 
 const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
-  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || (t >= BAR_S && t <= BAR_ME);
+  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || (t >= BAR_S && t <= BAR_ME) || t === BAR_GL || t === BAR_MA;
 
 /* ---------- État ---------- */
 // l'état du joueur : une forme fixe, copiée champ par champ (le robot en copie des millions)
@@ -194,6 +199,7 @@ function Etat() {
   this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.phase = 0; this.plat = -1; this.champCd = 0; this.charges = 0; this.gaz = 0; this.dash = 0; this.cdP = 0;
   this.att = 0; this.slam = false; this.slamAt = 0; this.coyote = 0; this.tampon = 0; this.verrou = 0; this.jetCd = 0; this.jetSide = 0;
   this.tpCd = 0; this.sol = true; this.face = 1; this.mortT = 0; this.immun = 0; this.dansEau = false; this.porte = 0; this.tremCd = 0; this.invT = 0;
+  this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = false; this.dashCA = 0; this.glaces = [];
 }
 function nouvelEtat(n) {
   const e = new Etat();
@@ -205,6 +211,7 @@ function placer(e, n) {
   e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = n.base; e.plat = -1; e.champCd = 0; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
+  e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = false; e.dashCA = 0; e.glaces = [];
 }
 // les listes ne sont jamais modifiées sur place : la copie peut les partager
 function cloner(e) {
@@ -216,6 +223,7 @@ function cloner(e) {
   c.x = e.x; c.y = e.y; c.vx = e.vx; c.vy = e.vy; c.phase = e.phase; c.plat = e.plat; c.champCd = e.champCd; c.charges = e.charges; c.gaz = e.gaz; c.dash = e.dash; c.cdP = e.cdP;
   c.att = e.att; c.slam = e.slam; c.slamAt = e.slamAt; c.coyote = e.coyote; c.tampon = e.tampon; c.verrou = e.verrou; c.jetCd = e.jetCd; c.jetSide = e.jetSide;
   c.tpCd = e.tpCd; c.sol = e.sol; c.face = e.face; c.mortT = e.mortT; c.immun = e.immun; c.dansEau = e.dansEau; c.porte = e.porte; c.tremCd = e.tremCd; c.invT = e.invT;
+  c.capCd = e.capCd; c.grap = e.grap; c.grapT = e.grapT; c.tirs = e.tirs; c.perle = e.perle; c.hover = e.hover; c.hoverUse = e.hoverUse; c.dashCA = e.dashCA; c.glaces = e.glaces;
   return c;
 }
 
@@ -279,7 +287,9 @@ const FORMES = [
   [3, 0, 9, 0, 12, 6, 9, 12, 3, 12, 0, 6],                                                         // plume : hexagone
   cercle12,                                                                                        // caoutchouc : balle
   [1.5, 0, 10.5, 0, 12, 1.5, 12, 10.5, 10.5, 12, 1.5, 12, 0, 10.5, 0, 1.5],                        // métal : lingot
-  [6, 0, 12, 3, 12, 9, 6, 12, 0, 9, 0, 3]                                                          // ombre : cristal noir
+  [6, 0, 12, 3, 12, 9, 6, 12, 0, 9, 0, 3],                                                         // ombre : cristal noir
+  [6, 0, 10.2, 1.8, 12, 6, 10.2, 10.2, 6, 12, 1.8, 10.2, 0, 6, 1.8, 1.8],                          // glace : flocon
+  [6, 0, 12, 4.5, 10.2, 12, 1.8, 12, 0, 4.5]                                                       // magma : roche en fusion
 ];
 function formeJoueur(e) { const f = FORMES[e.phase] || FORMES[0], o = new Array(f.length); for (let i = 0; i < f.length; i += 2) { o[i] = f[i] + e.x; o[i + 1] = f[i + 1] + e.y; } return o; }
 // deux polygones convexes se touchent-ils ? (séparation des axes)
@@ -343,10 +353,16 @@ function tuile(n, tx, ty) {
   if (ty >= n.h) return VIDE;
   return n.g[ty * n.w + tx];
 }
+function glaceEn(e, tx, ty) {
+  const k = tx * 1024 + ty;
+  for (const g2 of e.glaces) if (g2[0] === k && g2[1] > e.temps) return true;
+  return false;
+}
 function plein(n, e, tx, ty) {
   if (tx < 0 || tx >= n.w || ty < 0) return true;
   if (ty >= n.h) return false;
   const i = ty * n.w + tx, t = n.g[i];
+  if (e.glaces && e.glaces.length && (t === VIDE || t === EAU) && glaceEn(e, tx, ty)) return true;
   switch (t) {
     case MUR: case GLACE: case TAPIS_G: case TAPIS_D: case ARBALETE: case REBONDI: return true;
     case CASSANT: return !effondre(e, tx * 1024 + ty);
@@ -355,7 +371,7 @@ function plein(n, e, tx, ty) {
     case PORTE: { const b = n.porteDe.get(tx * 1024 + ty); return b === undefined || e.boutons.indexOf(b) < 0; }
     case FRAGILE: return !casse(e, tx * 1024 + ty);
     case LASER: return true;
-    case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: return e.phase !== BARRIERE[t];
+    case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: case BAR_GL: case BAR_MA: return e.phase !== BARRIERE[t];
     default: return false;
   }
 }
@@ -398,7 +414,7 @@ function bougerY(n, e, dy) {
     ty = Math.floor((e.y + H - 0.001) / T);
     for (let tx = x0; tx <= x1; tx++) {
       if (bloque(n, e, tx, ty, brise)) hit = true;
-      else if (tuile(n, tx, ty) === PLATE && avantBas <= ty * T + 0.001) hit = true;
+      else if ((tuile(n, tx, ty) === PLATE || (e.phase === GL && tuile(n, tx, ty) === EAU && tuile(n, tx, ty - 1) !== EAU)) && avantBas <= ty * T + 0.001) hit = true;
     }
     if (hit) e.y = ty * T - H;
   } else if (dy < 0) {
@@ -421,7 +437,7 @@ function contact(n, e, dir) {
       if (Math.abs(ty * T - yb) > 0.01) return -1;
       for (let tx = x0; tx <= x1; tx++) {
         if (plein(n, e, tx, ty)) note(tuile(n, tx, ty));
-        else if (tuile(n, tx, ty) === PLATE) note(PLATE);
+        else if (tuile(n, tx, ty) === PLATE || (e.phase === GL && tuile(n, tx, ty) === EAU && tuile(n, tx, ty - 1) !== EAU)) note(PLATE);
       }
     } else {
       const ty = Math.round(e.y / T) - 1;
@@ -495,6 +511,91 @@ function changer(n, e, vers, h, v) {
   ecrase(n, e);
 }
 
+/* ---------- Compétences : réappuyer sur la touche de l'état actuel ---------- */
+function capacite(n, e, h, v) {
+  if (e.capCd > 0) { e.ev |= EV.ECHEC; return; }
+  const ph = e.phase, cxp = e.x + W / 2, cyp = e.y + H / 2;
+  const payer = () => { if (e.charges <= 0) { e.ev |= EV.ECHEC; return false; } e.charges--; e.capCd = K.capCd; e.ev |= EV.CAPA; return true; };
+  if (ph === S) {                                     // grappin : s'accroche au premier mur dans la direction visée
+    let dx = h, dy = v; if (!dx && !dy) { dx = e.face; dy = -1; }
+    const k = Math.hypot(dx, dy); dx /= k; dy /= k;
+    let ax = -1, ay = -1;
+    for (let d = 8; d <= K.grapPortee * T; d += 4) {
+      const px = cxp + dx * d, py = cyp + dy * d;
+      if (plein(n, e, Math.floor(px / T), Math.floor(py / T))) { ax = px - dx * 2; ay = py - dy * 2; break; }
+    }
+    if (ax < 0) { e.ev |= EV.ECHEC; return; }
+    if (!payer()) return;
+    e.grap = [ax, ay]; e.grapT = K.grapDuree; e.slam = false; e.att = 0;
+  } else if (ph === L) {                              // rafale : 3 jets qui actionnent boutons et interrupteurs
+    if (!payer()) return;
+    let dx = h, dy = v; if (!dx && !dy) dx = e.face;
+    const k = Math.hypot(dx, dy); dx /= k; dy /= k;
+    e.tirs = e.tirs.concat([0, 5, 10].map(r => [cxp, cyp, dx * K.tirVit, dy * K.tirVit, K.tirVie + r, r]));
+  } else if (ph === Z) {                              // souffle : grosse poussée à l'opposé de la direction visée
+    if (!payer()) return;
+    let dx = h, dy = v; if (!dx && !dy) dy = 1;
+    const k = Math.hypot(dx, dy);
+    e.vx = -dx / k * K.souffle; e.vy = -dy / k * K.souffle; e.sol = false; e.plat = -1; e.ev |= EV.BOUM; e.evX = cxp; e.evY = cyp;
+  } else if (ph === P) {                              // éclair enchaîné dans une nouvelle direction
+    if (!payer()) return;
+    changer(n, e, P, h, v);
+  } else if (ph === PL) {                             // suspension : immobile en l'air, recharge une charge
+    if (e.sol || e.hoverUse) { e.ev |= EV.ECHEC; return; }
+    e.hover = K.hover; e.hoverUse = true; e.capCd = K.capCd; e.ev |= EV.CAPA;
+  } else if (ph === CA) {                             // dash rebondissant
+    if (!payer()) return;
+    e.dashCA = K.dashCAt; e.vx = (h || e.face) * K.dashCA; e.vy = 0;
+  } else if (ph === ME) {                             // marteau : écrasement immédiat, brise les blocs fêlés
+    if (!payer()) return;
+    e.vy = K.marteau; e.vx *= 0.3; e.ev |= EV.FRACAS;
+  } else if (ph === OM) {                             // perle : lancée, on se téléporte où elle s'arrête
+    if (!payer()) return;
+    e.perle = [cxp, cyp, (h || e.face) * K.perleVx, v > 0 ? 4 : v < 0 ? -5.5 : K.perleVy, K.perleVie];
+  } else if (ph === GL) {                             // bloc de glace sous les pieds (ou devant, au sol)
+    if (!payer()) return;
+    let tx = Math.floor(cxp / T), ty = Math.floor((e.y + H + 1) / T);
+    if (plein(n, e, tx, ty)) { tx = Math.floor((cxp + e.face * T) / T); ty = Math.floor(cyp / T); }
+    if (!plein(n, e, tx, ty) && (tuile(n, tx, ty) === VIDE || tuile(n, tx, ty) === EAU)) e.glaces = e.glaces.filter(g2 => g2[1] > e.temps).concat([[tx * 1024 + ty, e.temps + K.glaceVie]]);
+  } else if (ph === MA) {                             // explosion : brise les blocs fêlés autour, petit bond
+    if (!payer()) return;
+    const r = K.explosion, x0 = Math.floor(cxp / T - r), x1 = Math.floor(cxp / T + r), y0 = Math.floor(cyp / T - r), y1 = Math.floor(cyp / T + r);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      if (tuile(n, tx, ty) === FRAGILE && !casse(e, tx * 1024 + ty) && Math.hypot(tx * T + T / 2 - cxp, ty * T + T / 2 - cyp) <= r * T) { e.casses = e.casses.concat(tx * 1024 + ty); e.ev |= EV.CASSE; }
+    }
+    e.vy = Math.min(e.vy, -5.5); e.sol = false; e.plat = -1; e.ev |= EV.BOUM; e.evX = cxp; e.evY = cyp;
+  }
+}
+// projectiles des compétences (jets du liquide, perle de l'ombre)
+function projectiles(n, e) {
+  if (e.tirs.length) {
+    const out = [];
+    for (const t of e.tirs) {
+      if (t[5] > 0) { out.push([t[0], t[1], t[2], t[3], t[4], t[5] - 1]); continue; }
+      const x = t[0] + t[2], y = t[1] + t[3], vie = t[4] - 1;
+      const tx = Math.floor(x / T), ty = Math.floor(y / T), k = tx * 1024 + ty, tt = tuile(n, tx, ty);
+      if (tt === BOUTON && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; continue; }
+      if (tt === INTER) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; continue; }
+      if (vie <= 0 || plein(n, e, tx, ty)) continue;
+      out.push([x, y, t[2], t[3], vie, 0]);
+    }
+    e.tirs = out;
+  }
+  if (e.perle) {
+    const [x0, y0, vx, vy, vie] = e.perle;
+    const x = x0 + vx, y = y0 + vy, tx = Math.floor(x / T), ty = Math.floor(y / T);
+    if (vie <= 0 || plein(n, e, tx, ty) || tuile(n, tx, ty) === PICS) {
+      // téléportation au dernier point libre de la perle
+      let px = x0 - W / 2, py = y0 - H / 2;
+      const libreB = (ax, ay) => { for (const [qx, qy] of [[ax, ay], [ax + W - 0.01, ay], [ax, ay + H - 0.01], [ax + W - 0.01, ay + H - 0.01]]) if (plein(n, e, Math.floor(qx / T), Math.floor(qy / T))) return false; return true; };
+      for (let k2 = 0; k2 < 12 && !libreB(px, py); k2++) { px -= Math.sign(vx) * 2; py -= Math.sign(vy) * 2; }
+      if (libreB(px, py)) { e.evX = e.x + W / 2; e.evY = e.y + H / 2; e.x = px; e.y = py; e.vx *= 0.5; e.vy = 0; e.plat = -1; e.ev |= EV.TP; }
+      e.perle = null;
+    } else e.perle = [x, y, vx, vy + 0.25, vie - 1];
+  }
+  if (e.glaces.length && e.glaces[0][1] <= e.temps) e.glaces = e.glaces.filter(g2 => g2[1] > e.temps);
+}
+
 /* ---------- Un pas de simulation ---------- */
 function pas(n, e, inp) {
   e.ev = 0;
@@ -530,11 +631,15 @@ function pas(n, e, inp) {
 
   // changements d'état demandés
   let vers = -1;
-  if (presse & E.P) vers = n.emplacements[3]; else if (presse & E.S) vers = n.emplacements[0]; else if (presse & E.L) vers = n.emplacements[1]; else if (presse & E.Z) vers = n.emplacements[2];
+  if (e.capCd > 0) e.capCd--;
+  if (presse & E.S) vers = n.emplacements[0]; else if (presse & E.L) vers = n.emplacements[1]; else if (presse & E.Z) vers = n.emplacements[2];
+  if (vers >= 0 && vers === n.emplacements[0] && n.emplacements.length > 3 && (presse & E.P)) vers = n.emplacements[3];
+  if (vers < 0 && (presse & E.P) && n.emplacements.length > 3) vers = n.emplacements[3];
   if (vers >= 0 && e.ban === vers && e.temps < e.banT) { e.ev |= EV.ECHEC; vers = -1; }
-  if (vers >= 0 && (n.phases & (1 << vers)) && (vers !== e.phase || vers === P || vers === Z || vers === OM)) {
-    if (vers === P && (e.cdP > 0 || e.dash > 0)) { /* pas deux éclairs collés */ }
-    else if (e.charges > 0) { e.charges--; changer(n, e, vers, h, v); }
+  if (vers >= 0 && vers === e.phase) capacite(n, e, h, v);           // déjà dans cet état : sa compétence
+  else if (vers >= 0 && (n.phases & (1 << vers))) {
+    if (vers === P && e.cdP > 0) { /* pas deux éclairs collés */ }
+    else if (e.charges > 0) { e.charges--; e.grap = null; e.hover = 0; e.dashCA = 0; changer(n, e, vers, h, v); }
     else { e.ev |= EV.ECHEC; }
   }
 
@@ -648,19 +753,19 @@ function pas(n, e, inp) {
       } else e.vx = approche(e.vx, 0, 0.07);
     }
     if (--e.gaz <= 0) retour(n, e);
-  } else if (e.phase === PL || e.phase === CA || e.phase === ME) {
-    const pl = e.phase === PL, ca = e.phase === CA, me = e.phase === ME;
+  } else if (e.phase === PL || e.phase === CA || e.phase === ME || e.phase === GL || e.phase === MA) {
+    const pl = e.phase === PL, ca = e.phase === CA, me = e.phase === ME, gl = e.phase === GL, ma = e.phase === MA;
     if (eau) {
       e.vx = approche(e.vx, h * (me ? 2.2 : 1.8), 0.2);
       e.vy = me ? Math.min(e.vy + 0.4, 5) : Math.min(e.vy + (pl ? 0.06 : 0.16), pl ? 1 : 2.2);
       if (e.tampon > 0) { e.vy = me ? -2.6 : -3.6; e.tampon = 0; e.ev |= EV.SAUT; }
     } else {
-      const max = pl ? K.plCourse : ca ? K.caCourse : K.meCourse;
-      const acc = sol0 ? (glace ? 0.05 : (me ? 0.3 : 0.38)) : (pl ? 0.32 : me ? 0.18 : 0.28);
+      const max = pl ? K.plCourse : ca ? K.caCourse : gl ? K.glCourse : ma ? K.maCourse : K.meCourse;
+      const acc = gl ? (sol0 ? K.glAcc : 0.2) : sol0 ? (glace ? 0.05 : (me ? 0.3 : 0.38)) : (pl ? 0.32 : me ? 0.18 : 0.28);
       if (h !== 0) {
-        if (Math.sign(e.vx) === h && Math.abs(e.vx) > max) e.vx -= h * (sol0 ? 0.1 : 0.02);
+        if (Math.sign(e.vx) === h && Math.abs(e.vx) > max) e.vx -= h * (sol0 ? (gl ? 0.01 : 0.1) : 0.02);
         else e.vx = approche(e.vx, h * max, acc);
-      } else e.vx = approche(e.vx, 0, sol0 ? (glace ? 0.02 : 0.45) : (pl ? 0.04 : 0.08));
+      } else e.vx = approche(e.vx, 0, gl ? (sol0 ? K.glFrein : 0.03) : sol0 ? (glace ? 0.02 : 0.45) : (pl ? 0.04 : 0.08));
       const tient = (inp & E.SAUT) && e.vy < 0;
       if (pl) {                                   // plume : chute très lente, Bas pour descendre vite
         e.vy += tient ? 0.2 : 0.16;
@@ -673,7 +778,7 @@ function pas(n, e, inp) {
       }
       if (sol0) e.coyote = 6; else if (e.coyote > 0) e.coyote--;
       if (e.tampon > 0 && (sol0 || e.coyote > 0)) {
-        e.vy = -(pl ? K.plSaut : me ? K.meSaut : K.saut) * mulSaut(e); e.tampon = 0; e.coyote = 0; e.sol = false; e.vx += porte; e.ev |= EV.SAUT;
+        e.vy = -(pl ? K.plSaut : me ? K.meSaut : ma ? K.maSaut : K.saut) * mulSaut(e); e.tampon = 0; e.coyote = 0; e.sol = false; e.vx += porte; e.ev |= EV.SAUT;
       }
     }
   } else if (e.phase === OM) {                  // ombre : vol libre, traverse les parois spectrales, puis redevient solide
@@ -691,6 +796,23 @@ function pas(n, e, inp) {
       if (e.vy < 0) e.vy *= 0.45; else e.vy = Math.min(e.vy, 4);
     }
   }
+
+  // compétences en cours
+  if (e.grap) {
+    const dx = e.grap[0] - (e.x + W / 2), dy = e.grap[1] - (e.y + H / 2), d = Math.hypot(dx, dy);
+    if (d < 9 || --e.grapT <= 0 || e.tampon > 0) {
+      if (e.tampon > 0) { e.vy = Math.min(e.vy, -4.5); e.tampon = 0; e.ev |= EV.SAUT; }
+      e.grap = null;
+    } else { e.vx = dx / d * K.grapVit; e.vy = dy / d * K.grapVit; }
+  }
+  if (e.hover > 0) {
+    e.vx = 0; e.vy = 0;
+    if (--e.hover === K.hover - K.hoverRecharge && e.charges < K.charges) { e.charges++; e.ev |= EV.CRISTAL; e.evX = Math.floor((e.x + W / 2) / T); e.evY = Math.floor((e.y + H / 2) / T); }
+    if (e.tampon > 0) { e.hover = 0; }
+  }
+  if (e.dashCA > 0) { e.dashCA--; e.vy = 0; }
+  if (e.sol || e.att) e.hoverUse = false;
+  if (e.tirs.length || e.perle || e.glaces.length) projectiles(n, e);
 
   // vent
   if (milieu >= VENT_D && milieu <= VENT_B && !(e.phase === P && e.dash > 0)) {
@@ -831,7 +953,7 @@ function pas(n, e, inp) {
     }
     else if (t === FEU) {
       if (!rectRect(e, bx, by + 4, bx + T, by + T) || e.immun > 0) continue;
-      if (e.phase === ME || e.phase === P) { /* insensible */ }
+      if (e.phase === ME || e.phase === P || e.phase === MA) { /* insensible */ }
       else if (e.phase !== L && e.phase !== Z) mourir(e);
       else if (e.phase === L) {                               // l'eau s'évapore : elle devient gaz
         e.phase = Z; e.gaz = K.zDuree; e.vy = -3; e.att = 0; e.immun = 10; e.ev |= EV.EVAPORE; e.evX = tx; e.evY = ty;
@@ -994,12 +1116,12 @@ function decompresser(s) {
   return out;
 }
 
-const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, NOMS_PHASES, E, EV, K, CH,
+const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV, K, CH,
   VIDE, MUR, GRILLE, TAMIS, FRAGILE, PICS, FEU, EAU, GLACE, RESSORT, CRISTAL, BUT, DRAPEAU, PLATE, TAPIS_G, TAPIS_D,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BARRIERE, FORMES, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BAR_GL, BAR_MA, BARRIERE, FORMES, glaceEn, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

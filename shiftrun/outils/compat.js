@@ -41,6 +41,6 @@ for (const nom of liste) {
     if (bon) ok.push(b);
   }
   res[nom] = ok;
-  console.log(nom.padEnd(12) + ' ' + JSON.stringify(ok.map(b => ['S', 'L', 'Z', 'P', 'PL', 'CA', 'ME', 'OM'][b])));
+  console.log(nom.padEnd(12) + ' ' + JSON.stringify(ok.map(b => ['S', 'L', 'Z', 'P', 'PL', 'CA', 'ME', 'OM', 'GL', 'MA'][b])));
 }
 if (sortie) fs.writeFileSync(sortie, JSON.stringify(res));

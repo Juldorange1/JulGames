@@ -84,7 +84,7 @@ function actions(n) {
   const ph = n.phases;
   // touches 3 et 4 : les deux états propres au niveau
   const em = n.emplacements;
-  for (const [bit, p] of [[E.S, em[0]], [E.L, em[1]], [E.Z, em[2]], [E.P, em[3]]]) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit, etat: p });
+  for (const [bit, p] of [[E.S, em[0]], [E.L, em[1]], [E.Z, em[2]], [E.P, em[3]]]) if (p !== undefined) if (ph & (1 << p)) for (const h of hs) for (const vv of [0, E.H, E.B]) A.push({ base: h | vv, sw: bit, etat: p });
   return A;
 }
 
@@ -229,7 +229,14 @@ function chercher(def, avecEclat, cfg) {
       const precJ = nd.a >= 0 ? (A[nd.a].base & M.E.SAUT) : 0;
       for (let ai = 0; ai < A.length; ai++) {
         const a = A[ai];
-        if (a.sw && (nd.e.charges <= 0 || (a.etat === nd.e.phase && a.etat !== M.P && a.etat !== M.Z && a.etat !== M.OM) || (a.etat === nd.e.ban && nd.e.temps < nd.e.banT))) continue;
+        if (a.sw) {
+          const ee = nd.e;
+          if (a.etat === ee.phase) {                     // même état : sa compétence
+            if (ee.capCd > 0) continue;
+            if (ee.phase === M.PL) { if (ee.sol || ee.hoverUse) continue; }
+            else if (ee.charges <= 0) continue;
+          } else if (ee.charges <= 0 || (a.etat === ee.ban && ee.temps < ee.banT)) continue;
+        }
         const c = M.cloner(nd.e);
         let mort = false, fini = false;
         for (let k = 0; k < Kp; k++) {
@@ -258,7 +265,8 @@ function chercher(def, avecEclat, cfg) {
       const e = nd.e;
       // clé numérique (bien plus rapide qu'un texte) : position et vitesse arrondies + tout ce qui change la suite
       const k1 = (Math.round(e.x / 3) + 2048) + 4096 * (Math.round(e.y / 3) + 512) + 4194304 * ((Math.round(e.vx * 1.5) + 64) + 128 * (Math.round(e.vy * 1.5) + 64));
-      const k2 = e.phase + 8 * e.charges + 32 * e.att + 128 * (e.dash > 0 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
+      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd);
+      const k2 = k3 * 4294967296 + (e.phase % 8) + 8 * e.charges + 32 * e.att + 128 * (e.phase >= 8 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
         8192 * (e.slam ? 1 : 0) + 16384 * e.bascule + 32768 * Math.min(63, e.casses.length) + 2097152 * Math.min(15, e.boutons.length) +
         33554432 * Math.min(63, e.craque.length) + 2147483648 * ((e.temps < e.banT ? e.ban + 1 : 0) + 16 * (e.temps < e.bonusT ? (e.bonus > 1 ? 1 : 2) : 0) + 64 * (e.plat + 1));
       let v2 = vus.get(k1);

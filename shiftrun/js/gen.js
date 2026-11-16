@@ -4,12 +4,12 @@
    plus dur). Chaque type de salle est vérifié par le robot (outils/test-salles.js). */
 (function (racine) {
 'use strict';
-const S = 0, L = 1, Z = 2, P = 3, PL = 4, CA = 5, ME = 6, OM = 7;
+const S = 0, L = 1, Z = 2, P = 3, PL = 4, CA = 5, ME = 6, OM = 7, GL = 8, MA = 9;
 const VARIABLES = [Z, P, PL, CA, ME, OM];      // états « spéciaux »
-const TOUS_ETATS = [S, L, Z, P, PL, CA, ME, OM];
-const STABLES = [S, L, PL, CA, ME];             // états qui peuvent servir d'état de base (on y revient après gaz, plasma, ombre)
-const CAR_BARRIERE = { [S]: 'a', [L]: '=', [Z]: '~', [P]: 'r', [PL]: 'l', [CA]: 'n', [ME]: 'm', [OM]: '%' };
-const HAUT = 26;
+const TOUS_ETATS = [S, L, Z, P, PL, CA, ME, OM, GL, MA];
+const STABLES = [S, L, PL, CA, ME, GL, MA];             // états qui peuvent servir d'état de base (on y revient après gaz, plasma, ombre)
+const CAR_BARRIERE = { [S]: 'a', [L]: '=', [Z]: '~', [P]: 'r', [PL]: 'l', [CA]: 'n', [ME]: 'm', [OM]: '%', [GL]: 'j', [MA]: 'v' };
+const HAUT = 40;                 // assez haut pour des gouffres et des tours (le couloir reste aux rangées 14 à 19)
 
 function hasard(graine) {           // mulberry32
   let a = graine >>> 0;
@@ -484,6 +484,44 @@ const SALLES = {
   } },
   // Barrières d'état : seul un état précis les traverse (une salle par état, le niveau prend celles de ses états)
   porteS: porte(S), porteL: porte(L), porteZ: porte(Z), porteP: porte(P), portePL: porte(PL), porteCA: porte(CA), porteME: porte(ME), porteOM: porte(OM),
+  porteGL: porte(GL), porteMA: porte(MA),
+  // Lac : un grand bassin dont le fond est hérissé ; la glace marche dessus et file
+  lac: { phases: [S], req: [GL], f(s, rng, d) {
+    const Lp = 12 + Math.round(d * 8) + ent(rng, 0, 2);
+    s.couloir(0, 2); s.c(3, 14, 2 + Lp, 19); s.r(3, 20, 2 + Lp, 25, 'w'); s.n(3, 26, Lp, '^'); s.r(3, 26, 2 + Lp, 26, '^');
+    if (d > 0.5) s.n(5, 13, Lp - 4, '^');
+    s.couloir(3 + Lp, 5 + Lp);
+    return 6 + Lp;
+  } },
+  // Brasier : un long couloir dont le sol brûle ; le magma n'en a rien à faire
+  brasier: { phases: [S], req: [MA], f(s, rng, d) {
+    const Lp = 10 + Math.round(d * 8) + ent(rng, 0, 2);
+    s.couloir(0, 2); s.c(3, 14 + (d > 0.6 ? 2 : 0), 2 + Lp, 19); s.r(3, 19, 2 + Lp, 19, 'f');
+    s.couloir(3 + Lp, 5 + Lp);
+    return 6 + Lp;
+  } },
+  // Gouffre : le couloir est muré, il faut descendre au fond d'un puits et remonter par un ascenseur
+  gouffre: { phases: [S], f(s, rng, d) {
+    const prof = 30 + Math.round(d * 6), a = 3;
+    s.couloir(0, a + 12);
+    s.r(a + 4, 14, a + 7, 19);                                    // le mur qui coupe le couloir
+    s.c(a, 20, a + 2, prof); s.c(a, prof - 3, a + 11, prof); s.c(a + 8, 20, a + 10, prof);
+    for (let y = 24; y < prof - 4; y += 4) s.p(y % 8 ? a : a + 2, y, '^');      // pics sur les parois de la descente
+    if (d > 0.5) s.n(a + 4, prof, 3, '^');
+    s.r(a, prof + 1, a + 11, prof + 1);
+    s.p(a + 8, prof, 'N');                                         // l'ascenseur du retour
+    return a + 13;
+  } },
+  // Tour : le couloir est muré, il faut grimper très haut et redescendre de l'autre côté
+  tour: { phases: [S], f(s, rng, d) {
+    const top = 3 + ent(rng, 0, 2), a = 3;
+    s.couloir(0, a + 12);
+    s.r(a + 4, 4, a + 7, 19);                                     // la tour pleine au milieu
+    s.c(a, top, a + 2, 13); s.c(a, top, a + 10, top + 1); s.c(a + 8, top, a + 10, 13);
+    for (let y = top + 3; y < 12; y += 3) s.p(a + 1, y, 'O');     // orbes pour monter
+    if (d > 0.4) s.p(a + 5, top - 1, '^');
+    return a + 13;
+  } },
   // Trou bouclé : trop large pour être sauté ; tomber dedans fait ressortir par le haut (on dérive à chaque chute)
   boucle: { phases: [S], f(s, rng, d) {
     const Lp = 9 + Math.round(d * 5) + ent(rng, 0, 2);
@@ -703,19 +741,19 @@ function etatsAuHasard(rng, impose) {
     const base = impose !== undefined && STABLES.includes(impose) && rng() < 0.5 ? impose : STABLES[Math.floor(rng() * STABLES.length)];
     et.push(base);
     if (impose !== undefined && !et.includes(impose)) et.push(impose);
-    while (et.length < 4) { const c = TOUS_ETATS[Math.floor(rng() * 8)]; if (!et.includes(c)) et.push(c); }
+    while (et.length < 3) { const c = TOUS_ETATS[Math.floor(rng() * TOUS_ETATS.length)]; if (!et.includes(c)) et.push(c); }
     const ordre = [et[0]].concat(et.slice(1).sort((a, b) => a - b));
-    if (sallesPour(ordre).length >= 14 && ALCOVES.some(a => compatible(a, ordre))) return ordre;
+    if (sallesPour(ordre).length >= 12 && ALCOVES.some(a => compatible(a, ordre) && (COMPAT[a] || []).includes(ordre[0]))) return ordre;
   }
-  return [S, L, Z, P];
+  return [S, L, Z];
 }
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3);
   const g = new Grille();
   let x = debut(g, panneaux || []);
-  const types = sallesPour(etats || [S, L, Z, P]);
+  const types = sallesPour(etats || [S, L, Z]);
   const nouv = types.filter(t => (SALLES[t.replace('*', '')].req || []).length > 0);
-  const et0 = etats || [S, L, Z, P];
+  const et0 = etats || [S, L, Z];
   // de préférence une cachette faisable avec l'état de départ du niveau (sans dépendre d'un changement d'état)
   let alcoves = ALCOVES.filter(a => compatible(a, et0) && (COMPAT[a] || []).includes(et0[0]));
   if (!alcoves.length) alcoves = ALCOVES.filter(a => compatible(a, et0));
@@ -807,6 +845,48 @@ function defi(cle, opts) {
   return { carte: g.carte(), suite, pieces, etats, theme: THEMES_INF[cle % THEMES_INF.length] };
 }
 
+/* ---------- Défis spéciaux : descendre ou monter de N mètres (1 case = 1 mètre) ---------- */
+function vertical(graine, sens, metres, etats) {
+  const rng = hasard(graine * 131 + 7), Wd = 30, Hh = metres + 16, l = [];
+  for (let y = 0; y < Hh; y++) l.push(new Array(Wd).fill('#'));
+  const c = (xa, ya, xb, yb, ch = '.') => { for (let y = Math.max(1, ya); y <= Math.min(Hh - 2, yb); y++) for (let x = Math.max(1, xa); x <= Math.min(Wd - 2, xb); x++) l[y][x] = ch; };
+  const p = (x, y, ch) => { if (y > 0 && y < Hh - 1 && x > 0 && x < Wd - 1) l[y][x] = ch; };
+  c(2, 2, Wd - 3, Hh - 3);                                          // le grand puits
+  const debutY = sens === 'bas' ? 6 : Hh - 4, finY = sens === 'bas' ? Hh - 4 : 6;
+  // tranches de 9 mètres, chacune avec son obstacle
+  let k = 0;
+  for (let y = 10; y < Hh - 8; y += 9, k++) {
+    const t = Math.floor(rng() * 6);
+    if (sens === 'bas') {
+      if (t === 0 || t === 3) {                                     // plancher percé d'un trou, pics autour
+        const gx = 3 + Math.floor(rng() * (Wd - 9)), gw = 3;
+        c(2, y, Wd - 3, y, '#'); c(gx, y, gx + gw - 1, y, '.');
+        if (k > 1) { p(gx - 1, y - 1, '^'); p(gx + gw, y - 1, '^'); }
+      } else if (t === 1) { p(3 + Math.floor(rng() * 6), y + 3, 'Z'); p(Wd - 9 + Math.floor(rng() * 5), y + 6, 'Z'); }   // scies qui balaient
+      else if (t === 2) { p(1, y + 2, 'L'); p(Wd - 2, y + 6, 'L'); }                                                   // lasers à préavis
+      else if (t === 4) {                                           // goulet étroit aux parois hérissées
+        const gx = 6 + Math.floor(rng() * (Wd - 14));
+        c(2, y, gx - 1, y + 5, '#'); c(gx + 3, y, Wd - 3, y + 5, '#');      // 3 rangées libres dessous avant la tranche suivante
+        for (let yy = y + 1; yy < y + 5; yy += 3) p((yy % 2) ? gx - 1 : gx + 3, yy, '^');
+      } else { const gx = 4 + Math.floor(rng() * (Wd - 10)); c(2, y + 4, Wd - 3, y + 4, '^'); c(gx, y + 4, gx + 3, y + 4, '.'); p(gx + 1, y + 1, 'U'); }  // champignon au-dessus des pics
+    } else {
+      if (t === 0 || t === 3) {                                     // plancher percé : il faut trouver le trou en montant
+        const gx = 3 + Math.floor(rng() * (Wd - 9));
+        c(2, y, Wd - 3, y, '#'); c(gx, y, gx + 2, y, '.');
+        p(gx + 1, y + 3, 'O'); p(gx + 1, y + 6, 's'); c(gx, y + 7, gx + 2, y + 7, '#'); p(gx + 1, y + 6, 's');
+      } else if (t === 1) { const gx = 3 + Math.floor(rng() * (Wd - 9)); p(gx, y + 7, 'N'); }   // ascenseur
+      else if (t === 2) { for (let j = 0; j < 3; j++) p(6 + j * 7 + Math.floor(rng() * 3), y + 2 + j * 2, 'O'); }   // orbes en escalier
+      else if (t === 4) { for (let j = 0; j < 4; j++) c(3 + j * 6, y + 7 - j * 2, 6 + j * 6, y + 7 - j * 2, '#'); }   // marches
+      else { p(5 + Math.floor(rng() * (Wd - 12)), y + 7, 'U'); }                                                       // champignon
+    }
+  }
+  c(2, debutY + 1, Wd - 3, debutY + 1, '#'); p(Math.floor(Wd / 2), debutY, '@');
+  if (sens === 'bas') c(Wd - 8, debutY + 1, Wd - 6, debutY + 1, '.');          // le trou pour commencer à descendre
+  if (sens === 'bas') { c(2, Hh - 3, Wd - 3, Hh - 3, '.'); l[Hh - 3][Math.floor(Wd / 2)] = 'G'; }
+  else { c(2, debutY + 1, Wd - 3, debutY + 1, '#'); l[finY][Math.floor(Wd / 2)] = 'G'; c(Math.floor(Wd / 2) - 2, finY + 1, Math.floor(Wd / 2) + 2, finY + 1, '#'); }
+  return { carte: l.map(r => r.join('')), etats: etats || etatsAuHasard(rng) };
+}
+
 // pour les tests : une seule salle entre un départ et une arrivée
 function essai(type, graine, d, glace, brut, avecVariations, phases) {
   const g = new Grille();
@@ -817,7 +897,7 @@ function essai(type, graine, d, glace, brut, avecVariations, phases) {
   return g.carte();
 }
 
-const Gen = { SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+const Gen = { vertical, SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);
