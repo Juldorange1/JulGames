@@ -232,10 +232,8 @@ function areneHasard(graine) {
   for (let y = 0; y < Gen.HAUT; y++) l.push(new Array(Wd).fill('#'));
   const c = (xa, ya, xb, yb, ch) => { for (let y = ya; y <= yb; y++) for (let x = Math.max(1, xa); x <= Math.min(Wd - 2, xb); x++) l[y][x] = ch; };
   c(1, 6, Wd - 2, 19, '.');
-  const sol = Math.floor(rng() * 3);
-  if (sol === 0) { for (let k = 0; k < 1 + Math.floor(rng() * 3); k++) { const a = 3 + Math.floor(rng() * (Wd - 10)); c(a, 20, a + 2 + Math.floor(rng() * 3), 20, '}'); c(a, 5, a + 2 + Math.floor(rng() * 3), 5, '{'); } }
-  else if (sol === 1) { c(1, 20, Wd - 2, 20, '}'); c(1, 5, Wd - 2, 5, '{'); c(16, 18, 29, 18, '#'); }
-  else { const a = 15 + Math.floor(rng() * 10); c(a, 20, a + 5, 20, '}'); c(a, 5, a + 5, 5, '{'); }
+  const sol = rng() < 0.5 ? 0 : 2;                    // le plus souvent un vrai sol ; au plus un petit trou qui renvoie en haut
+  if (sol === 2) { const a = 15 + Math.floor(rng() * 12); c(a, 20, a + 2, 20, '}'); c(a, 5, a + 2, 5, '{'); }
   // étages de plateformes, jamais trop haut pour être atteints
   for (const y of [16, 13, 10]) {
     let x = 2 + Math.floor(rng() * 4);
@@ -265,13 +263,12 @@ function areneSurvie(id) {
     trouBas(20, 25); cotes(6, 19);
   } else if (id === 'ciel') {
     plates([[4, 9, 15], [16, 22, 12], [24, 30, 16], [34, 41, 11], [10, 14, 9], [28, 31, 8]]);
-    c(1, 20, Wd - 2, 20, '}'); c(1, 5, Wd - 2, 5, '{');              // pas de sol : on retombe toujours par le haut
-    c(18, 18, 27, 18, '#'); cotes(6, 19);
+    trouBas(21, 23); cotes(6, 19);
   } else {
     plates([[5, 12, 16], [33, 40, 16], [17, 28, 13], [3, 9, 10], [36, 42, 10], [19, 26, 9]]);
-    trouBas(13, 15); trouBas(30, 32); cotes(14, 19);
+    trouBas(22, 24); cotes(14, 19);
   }
-  l[id === 'ciel' ? 17 : 19][22] = '@';
+  l[19][id === 'ciel' || id === 'fosse' ? 19 : 22] = '@';
   return l.map(r => r.join(''));
 }
 function choixSurvie() {
@@ -311,12 +308,15 @@ function nouveauMonstre(type, x, y) {
 function majSurvie() {
   const e = J.e, n = J.n, T2 = M.T;
   if (!e.demarre || J.finT > 0) return;
+  if (!J.prochain && J.spawnT <= 72) {                       // on annonce l'apparition à l'avance
+    const types = Object.keys(ENNEMIS).filter(t => ENNEMIS[t].vague <= J.vague + 1);
+    const xs = [4, 13, 22, 31, 40];
+    J.prochain = { type: types[Math.floor(hasardJ() * types.length)], x: xs[Math.floor(hasardJ() * xs.length)] * T2 + 2, y: 6 * T2 + 2 };
+  }
   if (--J.spawnT <= 0) {
     J.vague++;
-    const types = Object.keys(ENNEMIS).filter(t => ENNEMIS[t].vague <= J.vague);
-    const t = types[Math.floor(hasardJ() * types.length)];
-    const xs = [4, 22, 40];
-    const nm = nouveauMonstre(t, xs[Math.floor(hasardJ() * 3)] * T2 + 2, 6 * T2 + 2);
+    const pr2 = J.prochain || { type: 'marcheur', x: 22 * T2, y: 6 * T2 }; J.prochain = null;
+    const nm = nouveauMonstre(pr2.type, pr2.x, pr2.y);
     if (nm.elite) { nm.pv++; nm.vit *= 1.15; }                   // élite : plus résistant, un peu plus vif
     J.monstres.push(nm);
     J.spawnT = Math.max(30, Math.round(170 * Math.pow(0.95, J.vague)));
@@ -563,12 +563,13 @@ function recommencer() {
 function nouvellesStats() { return { sauts: 0, murs: 0, chg: 0, parEtat: new Array(16).fill(0), dist: 0, vmax: 0, air: 0, haut: Infinity, bas: -Infinity, fracas: 0, cristaux: 0, orbes: 0, rebonds: 0, immobile: 0, drapeaux: 0 }; }
 function compterStats(e, x0, y0) {
   const st = J.stats || (J.stats = nouvellesStats());
+  const cum = J.mode === 'fantome' ? {} : S.cumul;              // les rejeux ne comptent pas dans tes totaux
   if (!e.demarre || e.mortT) return;
   const ev = e.ev;
-  if (ev & M.EV.SAUT) { st.sauts++; S.cumul.sauts++; }
+  if (ev & M.EV.SAUT) { st.sauts++; cum.sauts = (cum.sauts || 0) + 1; }
   if (ev & M.EV.MUR) st.murs++;
-  if (ev & M.EV.CHANGE) { st.chg++; S.cumul.chg++; }
-  if (ev & M.EV.CAPA) { st.capas = (st.capas || 0) + 1; S.cumul.capas++; }
+  if (ev & M.EV.CHANGE) { st.chg++; cum.chg = (cum.chg || 0) + 1; }
+  if (ev & M.EV.CAPA) { st.capas = (st.capas || 0) + 1; cum.capas = (cum.capas || 0) + 1; }
   if (ev & M.EV.FRACAS) st.fracas++;
   if (ev & M.EV.CRISTAL) st.cristaux++;
   if (ev & M.EV.ORBE) st.orbes++;
@@ -576,7 +577,7 @@ function compterStats(e, x0, y0) {
   if (ev & M.EV.DRAPEAU) st.drapeaux++;
   st.parEtat[e.phase]++;
   const d = Math.hypot(e.x - x0, e.y - y0);
-  if (d < 40) { st.dist += d; S.cumul.dist += d; st.vmax = Math.max(st.vmax, d); if (d < 0.05) st.immobile++; }
+  if (d < 40) { st.dist += d; cum.dist = (cum.dist || 0) + d; st.vmax = Math.max(st.vmax, d); if (d < 0.05) st.immobile++; }
   if (!e.sol) st.air++;
   st.haut = Math.min(st.haut, e.y); st.bas = Math.max(st.bas, e.y);
 }
@@ -593,6 +594,7 @@ function statsHTML() {
     max: [tr('Le plus d’ennemis à la fois'), J.maxEnnemis || 0], salles: [tr('Salles'), J.salle || 0], vvert: [tr('Vitesse verticale'), (Math.max(0, st.bas - st.haut) / M.T / sec).toFixed(1) + ' m/s']
   };
   const plan = {
+    fantome: [['vmoy', 'vmax', 'chg', 'capas'], ['dist', 'sauts', 'murs', 'air', 'immo', 'drap', 'reb', 'orbes', 'eclat']],
     niveau: [['chutes', 'vmoy', 'eclat', 'chg'], ['vmax', 'dist', 'sauts', 'murs', 'capas', 'air', 'immo', 'drap', 'reb', 'orbes']],
     defi: [['chutes', 'vmoy', 'dist', 'drap'], ['vmax', 'sauts', 'murs', 'chg', 'capas', 'air', 'immo', 'reb', 'orbes']],
     infini: [['salles', 'dist', 'vmoy', 'chg'], ['vmax', 'sauts', 'murs', 'capas', 'air', 'immo', 'reb', 'orbes']],
@@ -636,7 +638,7 @@ function splitsHTML(id) {
   const fl = J.splits; if (!fl || !fl.length) return '';
   const rec = S.il[id] && S.il[id].splitsPrec, best = (S.il[id] && S.il[id].segs) || [];
   const pts = fl.concat([J.e.temps]);
-  let h = '<div class="segs">', prec = 0;
+  let h = '<details class="plier"><summary class="btn mini">⚑ ' + tr('Temps à chaque drapeau') + '</summary><div class="segs">', prec = 0;
   pts.forEach((t, k) => {
     if (t == null) return;
     const seg = t - prec, or = best[k] != null && seg <= best[k];
@@ -644,7 +646,7 @@ function splitsHTML(id) {
     h += `<div class="${or ? 'or' : ''}"><small>${k < fl.length ? '⚑ ' + (k + 1) : '🏁'}</small><b>${R.chrono(seg)}</b>${d != null ? `<i class="${d <= 0 ? 'vert' : 'rouge'}">${R.ecart(d)}</i>` : ''}</div>`;
     prec = t;
   });
-  return h + '</div>';
+  return h + '</div></details>';
 }
 function majSegments(id, record) {
   const r = S.il[id]; if (!r || !J.splits) return;
@@ -721,7 +723,8 @@ function pas() {
   J.inp = inp;
   const avant = J.e.demarre, x0 = J.e.x, y0 = J.e.y;
   M.pas(J.n, J.e, inp);
-  if (J.mode !== 'fantome') { compterStats(J.e, x0, y0); noterDrapeau(); }
+  compterStats(J.e, x0, y0);
+  if (J.mode !== 'fantome') noterDrapeau();
   if (J.mode === 'survie') majSurvie();
   const unevie = J.mode === 'infini' || J.mode === 'survie';
   if (unevie) {
@@ -862,8 +865,10 @@ function dessiner(dt) {
     if (S.speciaux[J.sp.id]) hud.lignes.push({ t: tr('Ton meilleur  {0}', R.chrono(S.speciaux[J.sp.id].t)), c: '#ff9ae6' });
   } else if (J.mode === 'survie') {
     hud.chrono = e.temps;
+    hud.texteCentre = J.kills + ' ✖';                              // le score : les ennemis écrasés
     hud.titre = tr('Survivant') + ' · ' + tr(J.arene.nom);
-    hud.sousChrono = tr('Ennemis écrasés : {0}', J.kills) + (S.survie ? '   ·   ' + tr('record : {0}', S.survie.kills + ' ✖') : '');
+    hud.sousChrono = S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : tr('Ennemis écrasés');
+    hud.prochain = J.prochain && { x: J.prochain.x, y: J.prochain.y, r: ENNEMIS[J.prochain.type].r, t: J.spawnT };
     hud.lignes.push({ t: tr('Saute-leur sur la tête !'), c: '#ffd84a' });
     hud.monstres = J.monstres; hud.balles = J.balles;
     if (J.finT > 0) { hud.message = tr('Ennemis écrasés : {0}', J.kills); hud.messageC = '#ff9ae6'; }
@@ -975,7 +980,6 @@ function accueil() {
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
-    ${carte('records', '🏁 ' + tr('Records'), tr('tes temps, les Parfaits et leurs rejeux'))}
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
     ${carte('aide', '❓ ' + tr('Comment jouer'), tr('les états, les pièges, les touches'))}
@@ -1186,8 +1190,8 @@ function finFantome() {
   const idx = J.idx;
   ecran = 'fin';
   montrer(`<div class="fin"><div class="nomniv">${LISTE[idx].id} ${tr(LISTE[idx].def.nom)}</div><div class="temps">${R.chrono(J.e.temps)}</div>
-    <div class="lignes"><div>${tr('Rejeu : {0}', tr(J.quoi))}</div></div>
-    <div class="menu ligne"><button class="btn" data-a="jouer" data-i="${idx}" autofocus>${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button><button class="btn" data-a="records">${tr('Records')}</button></div></div>`, 'fin');
+    <div class="lignes"><div>${tr('Rejeu : {0}', tr(J.quoi))}</div></div>${statsHTML()}
+    <div class="menu ligne"><button class="btn" data-a="jouer" data-i="${idx}" autofocus>${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button></div></div>`, 'fin');
 }
 function finCourse() {
   const cat = J.cat, tot = J.course.total, pb = S.course[cat];

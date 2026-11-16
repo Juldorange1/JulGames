@@ -60,6 +60,7 @@ function bruit(x, s) {
 let themeDe = null, morceaux = new Map(), themeFixe = THEMES.carriere;
 const MORC = 48;   // le décor fixe est dessiné par morceaux de 48 colonnes, à la demande
 function preparer(n, themeId) {
+  ZF = n.h > 60 ? 2 : 3;
   niv = n;
   themeDe = typeof themeId === 'function' ? themeId : null;
   th = THEMES[themeDe ? themeDe(0) : themeId] || THEMES.carriere;
@@ -164,27 +165,69 @@ const textures = new Map();
 function hexRvb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
 function textureDe(th) {
   if (textures.has(th)) return textures.get(th);
-  const N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+  const N = 192, c = document.createElement('canvas'); c.width = c.height = N;     // 192 texels = 64 unités du monde (3 texels par pixel)
   const g = c.getContext('2d'), img = g.createImageData(N, N);
-  const a = hexRvb(th.ombre), b = hexRvb(th.mur), d = hexRvb(th.clair);
-  const val = (x, y, f, s) => {           // bruit de valeur raccordable (période N)
+  const A = hexRvb(th.ombre), B = hexRvb(th.mur), D = hexRvb(th.clair);
+  const val = (x, y, f, sd) => {           // bruit de valeur raccordable (période N)
     const P = N / f, x0 = Math.floor(x / f), y0 = Math.floor(y / f), u = (x / f) - x0, v = (y / f) - y0;
-    const h = (i, j) => alea(((i % P + P) % P) * 57.3 + ((j % P + P) % P) * 131.7 + s);
+    const h = (i, j) => alea(((i % P + P) % P) * 57.3 + ((j % P + P) % P) * 131.7 + sd);
     const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
     return (h(x0, y0) * (1 - su) + h(x0 + 1, y0) * su) * (1 - sv) + (h(x0, y0 + 1) * (1 - su) + h(x0 + 1, y0 + 1) * su) * sv;
   };
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let n = val(x, y, 16, 1) * 0.5 + val(x, y, 8, 2) * 0.25 + val(x, y, 4, 3) * 0.15 + val(x, y, 2, 4) * 0.1;
-    if (th.style === 'brique') { const ly = y % 8 === 7, lx = ((x + (Math.floor(y / 8) % 2) * 8) % 16) === 15; if (ly || lx) n *= 0.45; }
-    if (th.style === 'metal') { if (x % 32 === 0 || y % 32 === 0) n *= 0.5; else if (x % 32 === 1 || y % 32 === 1) n = Math.min(1, n * 1.35); n = n * 0.6 + 0.25 + 0.08 * Math.sin(y * 0.9); }
-    if (th.style === 'neige') n = n * 0.7 + 0.2;
-    if (th.style === 'cristal' && val(x, y, 4, 9) > 0.78) n = 1.15;
-    if (th.style === 'veines' && Math.abs(val(x, y, 16, 7) - 0.5) < 0.03) n = 1.25;
-    const k = (x + y * N) * 4;
-    for (let i = 0; i < 3; i++) {
-      const v = n < 0.5 ? a[i] + (b[i] - a[i]) * (n / 0.5) : b[i] + (d[i] - b[i]) * Math.min(1.3, (n - 0.5) / 0.5);
-      img.data[k + i] = Math.max(0, Math.min(255, v));
+  const fbm = (x, y, sd) => val(x, y, 48, sd) * 0.45 + val(x, y, 24, sd + 1) * 0.25 + val(x, y, 12, sd + 2) * 0.15 + val(x, y, 6, sd + 3) * 0.1 + val(x, y, 3, sd + 4) * 0.05;
+  // cailloux de Voronoï raccordables : cellule la plus proche, distance au bord
+  const G = th.style === 'neige' ? 5 : th.style === 'corail' ? 7 : 6, cs = N / G, pts = [];
+  for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) pts.push([(i + 0.15 + alea(i * 7.1 + j * 3.3 + 9) * 0.7) * cs, (j + 0.15 + alea(i * 2.7 + j * 8.9 + 4) * 0.7) * cs, alea(i * 5.3 + j * 1.7)]);
+  const voro = (x, y) => {
+    let d1 = 1e9, d2 = 1e9, best = null;
+    for (const p of pts) for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) {
+      const dx = x - p[0] - ox, dy = y - p[1] - oy, d = dx * dx + dy * dy;
+      if (d < d1) { d2 = d1; d1 = d; best = [p, dx, dy]; } else if (d < d2) d2 = d;
     }
+    return { e: Math.sqrt(d2) - Math.sqrt(d1), p: best[0], dx: best[1], dy: best[2], d: Math.sqrt(d1) };
+  };
+  const mix = (n) => { const out = [0, 0, 0]; for (let i = 0; i < 3; i++) out[i] = n < 0.5 ? A[i] + (B[i] - A[i]) * (n / 0.5) : B[i] + (D[i] - B[i]) * Math.min(1.4, (n - 0.5) / 0.5); return out; };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let n = fbm(x, y, 1), lum = 1, add = [0, 0, 0];
+    switch (th.style) {
+      case 'pierre': case 'neige': case 'corail': case 'cristal': {
+        const v = voro(x, y), bord = Math.min(1, v.e / 5);
+        n = n * 0.55 + v.p[2] * 0.35 + 0.1;
+        // chaque caillou est bombé et éclairé par le haut à gauche
+        const k = Math.max(0, 1 - v.d / (cs * 0.8));
+        lum = 0.72 + 0.28 * bord + 0.16 * k + (-v.dx - v.dy) / cs * 0.12;
+        if (v.e < 2.2) lum *= 0.45 + v.e * 0.2;                       // joints sombres
+        if (th.style === 'neige') { n = n * 0.6 + 0.35; if (v.e > 2.2 && v.dy < -cs * 0.25) add = [25, 30, 35]; }
+        if (th.style === 'corail' && val(x, y, 6, 11) > 0.72) add = [10, 50, 45];          // pores bleutés
+        if (th.style === 'cristal' && v.p[2] > 0.82) { lum = 1.15 + (v.dx - v.dy) / cs * 0.4; add = [40, 30, 70]; }   // facettes de cristal
+        break;
+      }
+      case 'brique': {
+        const bw = 48, bh = 24, row = Math.floor(y / bh), dec = (row % 2) * bw / 2, col = Math.floor((x + dec) / bw);
+        const lx = (x + dec) % bw, ly = y % bh, id = alea(row * 13.7 + col * 7.3);
+        n = n * 0.5 + id * 0.35 + 0.15;
+        if (ly < 3 || lx < 3) lum = 0.42;                              // mortier
+        else { if (ly < 6) lum = 1.15; else if (ly > bh - 4) lum = 0.82; if (lx < 6) lum *= 1.06; else if (lx > bw - 4) lum *= 0.88; }
+        if (id > 0.85 && val(x, y, 4, 5) > 0.6) lum *= 0.75;            // briques abîmées
+        break;
+      }
+      case 'metal': {
+        const lx = x % 48, ly = y % 48;
+        n = 0.5 + (val(x, y, 48, 3) - 0.5) * 0.3 + Math.sin(y * 1.7 + val(x, y, 6, 2) * 3) * 0.04;   // métal brossé
+        if (lx < 2 || ly < 2) lum = 0.5; else if (lx < 4 || ly < 4) lum = 1.3; else if (lx > 45 || ly > 45) lum = 0.75;
+        for (const [rx, ry] of [[8, 8], [40, 8], [8, 40], [40, 40]]) { const d = Math.hypot(lx - rx, ly - ry); if (d < 3) lum = d < 1.6 ? 1.45 : 0.6; }   // rivets
+        if (val(x, y, 12, 9) > 0.74) add = [40, 14, -10];                // rouille
+        break;
+      }
+      case 'veines': {
+        const r = Math.abs(fbm(x, y, 7) - 0.5);
+        n = n * 0.7 + 0.1;
+        if (r < 0.025) { lum = 1.6; add = [90, 10, 70]; } else if (r < 0.05) add = [30, 0, 25];   // veines qui brillent
+        break;
+      }
+    }
+    const col = mix(n), k = (x + y * N) * 4;
+    for (let i = 0; i < 3; i++) img.data[k + i] = Math.max(0, Math.min(255, col[i] * lum + add[i]));
     img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
@@ -194,7 +237,7 @@ function textureDe(th) {
 const motifs = new WeakMap();
 function motifPour(g) {
   let m = motifs.get(g); if (!m) { m = new Map(); motifs.set(g, m); }
-  if (!m.has(th)) m.set(th, g.createPattern(textureDe(th), 'repeat'));
+  if (!m.has(th)) { const pt = g.createPattern(textureDe(th), 'repeat'); if (pt.setTransform && typeof DOMMatrix !== 'undefined') pt.setTransform(new DOMMatrix().scale(1 / 3)); m.set(th, pt); }
   return m.get(th);
 }
 function murCase(g, x, y, px, py) {
@@ -203,8 +246,14 @@ function murCase(g, x, y, px, py) {
   // roche texturée, éclairée par le haut
   g.fillStyle = motifPour(g); g.fillRect(px, py, T, T);
   const gr = g.createLinearGradient(0, py, 0, py + T);
-  gr.addColorStop(0, 'rgba(255,255,255,.07)'); gr.addColorStop(1, 'rgba(0,0,0,.12)');
+  gr.addColorStop(0, 'rgba(255,255,255,.05)'); gr.addColorStop(1, 'rgba(0,0,0,.1)');
   g.fillStyle = gr; g.fillRect(px, py, T, T);
+  if (prof === 0) {                                           // arêtes en relief : la lumière vient d'en haut à gauche
+    const bv = 3.5;
+    if (libre(0, -1)) { const l2 = g.createLinearGradient(0, py, 0, py + bv); l2.addColorStop(0, `rgba(${th.lum},.35)`); l2.addColorStop(1, `rgba(${th.lum},0)`); g.fillStyle = l2; g.fillRect(px, py, T, bv); }
+    if (libre(-1, 0)) { const l2 = g.createLinearGradient(px, 0, px + bv, 0); l2.addColorStop(0, 'rgba(255,255,255,.16)'); l2.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = l2; g.fillRect(px, py, bv, T); }
+    if (libre(1, 0)) { const l2 = g.createLinearGradient(px + T - bv, 0, px + T, 0); l2.addColorStop(0, 'rgba(0,0,0,0)'); l2.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = l2; g.fillRect(px + T - bv, py, bv, T); }
+  }
   motifRoche(g, x, y, px, py);
   if (prof > 0) { g.fillStyle = `rgba(4,2,8,${[0, 0.38, 0.62, 0.78][prof]})`; g.fillRect(px, py, T, T); return; }
   // occlusion ambiante près des coins creux
@@ -259,7 +308,7 @@ function dessusRoche(g, x, y, px, py) {
   g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(px, py + 2, T, 2);
   const s = alea(x * 11 + y * 5);
   switch (th.style) {
-    case 'pierre': if (s < 0.35) { g.fillStyle = '#7c9a4a'; for (let i = 0; i < 3; i++) g.fillRect(px + 3 + i * 4 + s * 3, py - 2 - (i % 2), 1.5, 3); } break;
+    case 'pierre': if (s < 0.55) { for (let i = 0; i < 7; i++) { const hx = px + 1 + i * 2.1 + alea(x * 3 + i) * 1.2, hh = 1.5 + alea(x * 5 + i * 3) * 2.5; g.fillStyle = i % 2 ? '#8fb04e' : '#6a8a38'; g.fillRect(hx, py + 3.5 - hh, 0.9, hh + 0.5); } } break;
     case 'brique': if (th === THEMES.aqueduc && s < 0.4) { g.fillStyle = '#4f9a6a'; g.fillRect(px + s * 10, py - 1, 5, 2); } break;
     case 'neige': g.fillStyle = '#fff'; g.beginPath(); g.moveTo(px, py + 2); for (let i = 0; i <= 4; i++) g.lineTo(px + i * 4, py - 1 - alea(x * 4 + i) * 2); g.lineTo(px + T, py + 2); g.fill(); break;
     case 'corail': if (s < 0.3) { g.fillStyle = '#ff7f9f'; g.fillRect(px + 4 + s * 6, py - 3, 2, 3); g.fillRect(px + 3 + s * 6, py - 4, 4, 1.5); } break;
@@ -274,8 +323,12 @@ function glaceCase(g, x, y, px, py) {
   gr.addColorStop(0, '#cdf2ff'); gr.addColorStop(1, '#86c4e4');
   g.fillStyle = gr; g.fillRect(px, py, T, T);
   if (prof > 0) { g.fillStyle = `rgba(16,36,66,${[0, 0.38, 0.58, 0.72][prof]})`; g.fillRect(px, py, T, T); return; }
-  g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1;
-  g.beginPath(); const s = alea(x * 9 + y * 4) * 8; g.moveTo(px + 2 + s, py + 3); g.lineTo(px + 5 + s, py + 11); g.stroke();
+  const s = alea(x * 9 + y * 4) * 8;
+  const rf = g.createLinearGradient(px, py, px + T, py + T); rf.addColorStop(0, 'rgba(255,255,255,.35)'); rf.addColorStop(0.45, 'rgba(255,255,255,0)'); rf.addColorStop(0.6, 'rgba(255,255,255,.15)'); rf.addColorStop(0.75, 'rgba(255,255,255,0)');
+  g.fillStyle = rf; g.fillRect(px, py, T, T);                                       // reflets en biais
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.7;
+  g.beginPath(); g.moveTo(px + 2 + s, py + 3); g.lineTo(px + 5 + s, py + 8); g.lineTo(px + 3 + s, py + 12); g.moveTo(px + 5 + s, py + 8); g.lineTo(px + 9 + s * 0.5, py + 10); g.stroke();   // fissures
+  g.fillStyle = 'rgba(30,80,120,.12)'; g.beginPath(); g.arc(px + 4 + s, py + 11, 1.6, 0, 7); g.arc(px + 11, py + 5 + s * 0.5, 1.1, 0, 7); g.fill();   // bulles prises dans la glace
   if (!solideR(tuileR(x, y - 1))) { g.fillStyle = '#f6feff'; g.fillRect(px, py, T, 2); }
   if (!solideR(tuileR(x, y + 1))) { g.fillStyle = 'rgba(40,90,130,.5)'; g.fillRect(px, py + T - 2, T, 2); }
 }
@@ -296,12 +349,16 @@ function tamisCase(g, px, py) {
 function picsCase(g, x, y, px, py) {
   const dir = M.sensPics(niv, x, y);
   g.save(); g.translate(px + T / 2, py + T / 2); g.rotate([0, Math.PI, Math.PI / 2, -Math.PI / 2][dir]);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 3; i++) {                       // exactement les 3 triangles de la zone mortelle
     const bx = -8 + i * 5.33;
-    const gr = g.createLinearGradient(bx, 0, bx + 5.33, 0);
-    gr.addColorStop(0, '#f1f3f8'); gr.addColorStop(0.5, '#b9bfcc'); gr.addColorStop(1, '#6d7383');
-    g.fillStyle = gr;
-    g.beginPath(); g.moveTo(bx, 8); g.lineTo(bx + 2.66, -4); g.lineTo(bx + 5.33, 8); g.closePath(); g.fill();
+    const gr = g.createLinearGradient(bx, 0, bx + 2.66, 0);
+    gr.addColorStop(0, '#e8ecf4'); gr.addColorStop(1, '#a8b0c0');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(bx, 8); g.lineTo(bx + 2.66, -4); g.lineTo(bx + 2.66, 8); g.closePath(); g.fill();      // face éclairée
+    const gr2 = g.createLinearGradient(bx + 2.66, 0, bx + 5.33, 0);
+    gr2.addColorStop(0, '#6c7486'); gr2.addColorStop(1, '#3a404e');
+    g.fillStyle = gr2; g.beginPath(); g.moveTo(bx + 2.66, -4); g.lineTo(bx + 5.33, 8); g.lineTo(bx + 2.66, 8); g.closePath(); g.fill();   // face dans l'ombre
+    g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(bx + 2.2, -3, 0.8, 2.5);                                                      // éclat de lumière
+    g.fillStyle = 'rgba(120,40,40,.35)'; g.beginPath(); g.moveTo(bx + 1, 6); g.lineTo(bx + 2.66, 1); g.lineTo(bx + 4.3, 6); g.closePath(); g.fill();   // traces de rouille
   }
   g.restore();
 }
@@ -483,6 +540,13 @@ function dessiner(e, fantome, hud, dt) {
       if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(tt)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
     if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.35)'; g.fillRect(cx2 - m.dir * (r + 9), cy2 - 2, 8, 4); }
     g.globalAlpha = 1;
+  }
+  if (hud && hud.prochain) {                                      // apparition annoncée : cercle qui se resserre et point d'exclamation
+    const p2 = hud.prochain, cx2 = p2.x + p2.r, cy2 = p2.y + p2.r, k = Math.max(0, p2.t) / 72;
+    g.strokeStyle = `rgba(255,80,90,${0.5 + 0.4 * Math.sin(temps * 14)})`; g.lineWidth = 2;
+    g.beginPath(); g.arc(cx2, cy2, p2.r + k * 18, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(255,80,90,.18)'; g.beginPath(); g.arc(cx2, cy2, p2.r, 0, 7); g.fill();
+    g.fillStyle = '#ff5a6a'; g.font = '800 14px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', cx2, cy2); g.textBaseline = 'top';
   }
   if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = b2[5] ? '#a0ffd8' : '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(b2[0] - 0.8, b2[1] - 1.5, 1.2, 1.2); }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
@@ -1106,13 +1170,15 @@ function eauDessus(g, vis) {
   for (const [x, y, surf] of dyn.eau) {
     if (!vis(x, y)) continue;
     const px = x * T, py = y * T;
-    g.fillStyle = 'rgba(30,150,210,.4)'; g.fillRect(px, py, T, T);
+    let fond = 0; for (let k = 1; k < 6 && tuileR(x, y - k) === M.EAU; k++) fond++;      // plus c'est profond, plus c'est sombre
+    g.fillStyle = `rgba(${30 - fond * 4},${150 - fond * 18},${210 - fond * 16},${0.4 + fond * 0.08})`; g.fillRect(px, py, T, T);
     // reflets mouvants (caustiques)
     const c1 = Math.sin(x * 1.3 + temps * 2.1) + Math.sin(y * 1.7 - temps * 1.6);
     if (c1 > 1.2) { g.fillStyle = `rgba(190,245,255,${(c1 - 1.2) * 0.18})`; g.fillRect(px + (Math.sin(temps + y) * 4 + 4), py + 4, 8, 1.5); }
     if (surf) {
       const o = Math.sin(temps * 3 + x * 0.8) * 1.5;
       g.fillStyle = 'rgba(200,245,255,.75)'; g.fillRect(px, py + 2 + o, T, 1.5);
+      g.fillStyle = 'rgba(255,255,255,.55)'; for (let k = 0; k < 3; k++) { const fx = px + ((temps * 9 + k * 6 + x * 5) % T); g.fillRect(fx, py + 1.6 + o + Math.sin(temps * 4 + k) * 0.5, 2, 0.8); }   // écume
       g.fillStyle = 'rgba(40,160,220,.25)'; g.fillRect(px, py, T, 2 + o);
     } else if (alea(x * 5 + y * 11 + Math.floor(temps * 2)) < 0.03) part(px + 8, py + 8, 0, -0.4, 40, 'rgba(200,250,255,.6)', 1.5, -0.005);
   }
@@ -1185,6 +1251,12 @@ function joueur(g, e, alpha, fantome) {
   } else if (ph === M.OM) {                                         // ombre : le temps restant remplit le carré
     const r = e.gaz / M.K.omDuree;
     g.fillStyle = `rgba(180,140,255,${0.25 + 0.15 * Math.sin(t * 10)})`; g.fillRect(x + 1, y + 1 + (PH - 2) * (1 - r), PW - 2, (PH - 2) * r);
+  }
+  {
+    const vol = g.createRadialGradient(x + PW * 0.32, y + PH * 0.28, 0.5, x + PW / 2, y + PH / 2, PW * 0.75);
+    vol.addColorStop(0, 'rgba(255,255,255,.32)'); vol.addColorStop(0.45, 'rgba(255,255,255,0)'); vol.addColorStop(1, 'rgba(0,0,0,.38)');
+    g.fillStyle = vol; g.fillRect(x, y, PW, PH);                       // volume : lumière et ombre propre
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(x + PW * 0.3, y + PH * 0.24, 1.3, 0.8, -0.6, 0, 7); g.fill();   // éclat spéculaire
   }
   if (APPARENCE.motif !== 'rien') { g.globalAlpha *= 0.55; motif(g, APPARENCE.motif, x, y, PW, PH, t); g.globalAlpha /= 0.55; }   // le motif laisse voir la couleur de l'état
   yeuxStyle(g, x + PW / 2 + e.face, y + (ph === M.L ? 7.5 : ph === M.P ? 5.5 : 5), e.face, m[3], APPARENCE.yeux);
@@ -1332,14 +1404,15 @@ function interfaceJeu(g, e, hud) {
   g.textAlign = 'center';
   g.font = `800 ${Math.round(34 * P)}px "Chakra Petch", monospace`;
   {   // fonds sombres derrière les textes
-    const lc = g.measureText(chrono(hud.chrono)).width + 36 * P;
+    const lc = g.measureText(hud.texteCentre || chrono(hud.chrono)).width + 36 * P;
     g.fillStyle = 'rgba(8,6,14,.55)'; arrondi(g, LARG / 2 - lc / 2, 8 * P, lc, (hud.sousChrono ? 68 : 48) * P, 12 * P); g.fill();
     const nl = (hud.lignes ? hud.lignes.length : 0) + 1;
-    g.fillStyle = 'rgba(8,6,14,.45)'; arrondi(g, 8, 8 * P, 250 * P, (14 + nl * 18) * P, 10 * P); g.fill();
+    g.fillStyle = 'rgba(8,6,14,.45)'; arrondi(g, 8, 8 * P, Math.max(330, 290 * P), 14 * P + Math.max(26, 24 * P) + (nl - 1) * Math.max(22, 20 * P) + 10, 10 * P); g.fill();
     if (hud.droite && hud.droite.length) { arrondi(g, LARG - 8 - 190 * P, 8 * P, 190 * P, (16 + (hud.droite.length + 1) * 18) * P, 10 * P); g.fill(); }
   }
-  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillText(chrono(hud.chrono), LARG / 2 + 2, 14 * P + 2);
-  g.fillStyle = hud.couleurChrono || '#fff'; g.fillText(chrono(hud.chrono), LARG / 2, 14 * P);
+  const centre = hud.texteCentre || chrono(hud.chrono);
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.fillText(centre, LARG / 2 + 2, 14 * P + 2);
+  g.fillStyle = hud.couleurChrono || '#fff'; g.fillText(centre, LARG / 2, 14 * P);
   if (hud.sousChrono) {
     g.font = `600 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", monospace`;
     g.fillStyle = hud.sousCouleur || '#bbb'; g.fillText(hud.sousChrono, LARG / 2, 54 * P);
@@ -1350,7 +1423,8 @@ function interfaceJeu(g, e, hud) {
   g.fillStyle = th.accent; g.fillText(hud.titre || '', 16, 14 * P);
   g.font = `500 ${Math.max(16, Math.round(13 * P))}px "Chakra Petch", sans-serif`;
   g.fillStyle = '#ccc';
-  if (hud.lignes) hud.lignes.forEach((l, i) => { g.fillStyle = l.c || '#ccc'; g.fillText(l.t, 16, (36 + i * 18) * P); });
+  const pasL = Math.max(22, 20 * P);
+  if (hud.lignes) hud.lignes.forEach((l, i) => { g.fillStyle = l.c || '#ccc'; g.fillText(l.t, 16, 14 * P + Math.max(26, 24 * P) + i * pasL); });
   // morts
   g.textAlign = 'right';
   g.fillStyle = '#ccc'; g.fillText('☠ ' + e.morts, LARG - 16, 14 * P);
