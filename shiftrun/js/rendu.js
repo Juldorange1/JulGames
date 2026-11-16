@@ -31,6 +31,10 @@ function choisirApparence(a) { APPARENCE = Object.assign({ contour: 'base', moti
 let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
+let ACCES = { daltonien: false, sansFlash: false };
+function accessibilite(r) { ACCES = { daltonien: !!r.daltonien, sansFlash: !!r.sansFlash }; }
+// un symbole par état (mode daltonien) : la barrière se reconnaît sans les couleurs
+const SYMBOLES = ['■', '💧', '☁', '⚡', '🪶', '●', '⚙', '◆', '❄', '🔥'];
 let dyn = null;           // cases animées par type
 let ombreCv = null;
 let parts = [];
@@ -549,6 +553,12 @@ function dessiner(e, fantome, hud, dt) {
     g.fillStyle = '#ff5a6a'; g.font = '800 14px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', cx2, cy2); g.textBaseline = 'top';
   }
   if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = b2[5] ? '#a0ffd8' : '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(b2[0] - 0.8, b2[1] - 1.5, 1.2, 1.2); }
+  if (hud && hud.curseur) {                                       // éditeur : case visée et aperçu de ce qu'on va poser
+    const [cx3, cy3] = hud.curseur;
+    g.strokeStyle = `rgba(255,233,74,${0.6 + 0.4 * Math.sin(temps * 8)})`; g.lineWidth = 1.5; g.strokeRect(cx3 * T - 0.5, cy3 * T - 0.5, T + 1, T + 1);
+    g.fillStyle = 'rgba(255,233,74,.18)'; g.fillRect(cx3 * T, cy3 * T, T, T);
+    g.fillStyle = '#fff'; g.font = '700 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(hud.curseur[2], cx3 * T + T / 2, cy3 * T - 6); g.textBaseline = 'top';
+  }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
   competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
@@ -607,6 +617,7 @@ function dessiner(e, fantome, hud, dt) {
   ambiance(g, ox, oy, vw, vh);
   g.restore();
 
+  if (flash > 0 && ACCES.sansFlash) flash = Math.min(flash, 0.04);
   if (flash > 0) { g.globalAlpha = flash; g.fillStyle = flashC; g.fillRect(0, 0, LARG, HAUT); g.globalAlpha = 1; flash *= 0.85; if (flash < 0.02) flash = 0; }
   // vignette colorée
   const vg = g.createRadialGradient(LARG / 2, HAUT / 2, Math.min(LARG, HAUT) * 0.38, LARG / 2, HAUT / 2, Math.max(LARG, HAUT) * 0.78);
@@ -1096,6 +1107,7 @@ function mobiles(g, e, ox, vw, vis) {
     for (let k = -8; k < T; k += 8) g.fillRect(px, py + ((k + d + 16) % 16), T, 1.5);
     g.globalAlpha = 1;
     g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
+    if (ACCES.daltonien && (y % 2 === 0)) { g.font = '10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(SYMBOLES[ph], px + T / 2, py + T / 2 + 0.5); g.textBaseline = 'top'; }
   }
   if (niv.plates) for (const p of niv.plates) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
@@ -1540,5 +1552,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { init, choisirApparence, apercu, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { init, choisirApparence, apercu, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

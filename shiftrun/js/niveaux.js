@@ -95,7 +95,43 @@ const ZONES = DEF.map((z, zi) => ({
   })
 }));
 
-const Niveaux = { ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
+// Didacticiel : une seule idée par passage, avec un panneau qui l'explique
+function didacticiel() {
+  const W2 = 128, H2 = 26, l = [];
+  for (let y = 0; y < H2; y++) l.push(new Array(W2).fill('#'));
+  const c = (xa, ya, xb, yb, ch = '.') => { for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) l[y][x] = ch; };
+  const p = (x, y, ch) => { l[y][x] = ch; };
+  c(1, 13, 126, 19);                                  // le couloir
+  p(2, 19, '@'); p(4, 19, '?');
+  // A : sauter un trou
+  c(9, 20, 11, 23); c(9, 23, 11, 23, '^'); p(13, 19, '?');
+  // B : monter une cheminée par sauts muraux, puis redescendre
+  c(17, 14, 22, 19, '#'); c(17, 5, 19, 13); c(17, 5, 26, 7); c(23, 8, 26, 19); p(15, 19, '?');
+  // C : grille, seul le liquide passe
+  p(29, 19, '?'); c(33, 13, 34, 19, '=');
+  // D : le liquide colle aux murs et grimpe
+  p(37, 19, '?'); c(40, 13, 44, 19, '#'); c(36, 4, 39, 12); c(36, 4, 49, 7); c(40, 8, 44, 12, '#'); c(45, 4, 49, 19);
+  // E : grappin au-dessus d'une fosse trop large
+  p(51, 19, '?'); c(54, 20, 66, 23); c(54, 23, 66, 23, '^');
+  // F : la plume plane au-dessus d'une très longue fosse ; on atterrit plus bas
+  p(70, 19, '?'); c(74, 20, 87, 23); c(74, 23, 87, 23, '^'); c(88, 20, 126, 22);
+  // G : arrivée
+  p(96, 22, '!'); p(106, 22, '?'); p(122, 22, 'G');
+  return l.map(r => r.join(''));
+}
+const TUTO = {
+  id: 'tuto', nom: 'Didacticiel', etats: [S, L, PL], phases: [S, L, PL], capacites: true, carte: didacticiel(),
+  panneaux: ['Avance avec Q D ou ← →. Saute avec Espace : garde-le appuyé pour sauter plus haut.',
+    'Saute par-dessus le trou : les pics sont mortels, tu repartirais du dernier drapeau.',
+    'Monte dans la cheminée : contre un mur en l’air, saute encore. C’est le saut mural.',
+    'Touche K : tu deviens Liquide. Le liquide passe à travers les grilles.',
+    'En Liquide, tu colles aux murs : tiens ↑ contre le mur pour grimper.',
+    'Repasse en Solide avec J, puis réappuie sur J en tenant ↗ : grappin ! Il te tire au plafond.',
+    'Touche L : Plume. Elle plane lentement au-dessus des longues fosses.',
+    'Bravo ! Chaque niveau te donne ses propres transformations : lis les panneaux du début. Bonne course !']
+};
+
+const Niveaux = { TUTO, ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;
 else racine.Niveaux = Niveaux;
 })(typeof window !== 'undefined' ? window : globalThis);
