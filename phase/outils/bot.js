@@ -37,6 +37,7 @@ function champ(n, cibles) {
   for (let i = 0; i < n.w * n.h; i++) {
     const t = n.g[i];
     if (t === M.TP1 || t === M.TP2) { const so = n.tp.get(i); if (so) (entrees[so.y * n.w + so.x] = entrees[so.y * n.w + so.x] || []).push(i); }
+    if (t === M.BOUCLE_B || t === M.BOUCLE_H) { const j = n.boucle.get(i); if (j !== undefined) (entrees[j] = entrees[j] || []).push(i); }
   }
   // Dijkstra simple (8 voisins)
   const tas = [];
@@ -189,7 +190,7 @@ function chercher(def, avecEclat, cfg) {
       for (; ty < n.h; ty++) {
         const t = n.g[ty * n.w + tx];
         if (t === M.PICS || (t === M.FEU && e.phase === M.S)) break;
-        if (t === M.EAU || t === M.RESSORT || t === M.PLATE || M.plein(n, e, tx, ty)) { bon = true; break; }
+        if (t === M.EAU || t === M.RESSORT || t === M.PLATE || t === M.BOUCLE_B || M.plein(n, e, tx, ty)) { bon = true; break; }
       }
       if (!bon) pire++;
     }
@@ -330,19 +331,23 @@ function chercherEclat(def, r0) {
     try { a = chercher(def, true, { depart: { etat: e }, finX: ex + 7, max: 2400 }); } catch (err) { a = { ok: false }; }
     if (a.ok) break;
   }
-  if (!a.ok) {                                      // plan B : chercher tout le niveau en passant par l'éclat
-    const r = chercher(def, true);
-    if (!r.ok) return { ok: false };
-    let tout = r.entrees, temps = r.temps;
-    if (opt.affiner > 0) { const A = actions(n); const rr = affiner(n, tout, A, true); tout = rr.entrees; temps = rr.temps; }
-    return { ok: true, temps, entrees: tout };
+  // deux façons : (1) le Parfait jusqu'à la niche + la niche + la suite ; (2) tout le niveau en visant l'éclat.
+  // On garde la plus rapide ; si l'une échoue, l'autre suffit (un éclat n'est jamais déclaré impossible à tort).
+  const cands = [];
+  if (a.ok) {
+    let b;
+    try { b = chercher(def, true, { depart: { etat: a.etat } }); } catch (err) { b = { ok: false }; }
+    if (b.ok) cands.push({ entrees: pre.concat(a.entrees, b.entrees), temps: b.temps });
   }
-  let b;
-  try { b = chercher(def, true, { depart: { etat: a.etat } }); } catch (err) { b = { ok: false }; }
-  if (!b.ok) return { ok: false };
-  let tout = pre.concat(a.entrees, b.entrees);
-  let temps = b.temps;
-  if (opt.affiner > 0) { const A = actions(n); const r = affiner(n, tout, A, true); tout = r.entrees; temps = r.temps; }
+  let r;
+  const aff = opt.affiner; opt.affiner = 0;             // l'affinage se fait une seule fois, sur le meilleur
+  try { r = chercher(def, true); } catch (err) { r = { ok: false }; }
+  opt.affiner = aff;
+  if (r.ok) cands.push({ entrees: r.entrees, temps: r.temps });
+  if (!cands.length) return { ok: false };
+  cands.sort((x, y) => x.temps - y.temps);
+  let tout = cands[0].entrees, temps = cands[0].temps;
+  if (opt.affiner > 0) { const A = actions(n); const rr = affiner(n, tout, A, true); tout = rr.entrees; temps = rr.temps; }
   return { ok: true, temps, entrees: tout };
 }
 module.exports = { chercher, chercherEclat, opt, champ, lire };

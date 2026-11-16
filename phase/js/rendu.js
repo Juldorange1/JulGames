@@ -79,7 +79,7 @@ const solideR = (k) => M.estDur(k);
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], lumieres: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], lumieres: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     switch (k) {
@@ -107,6 +107,7 @@ function scanner() {
       case M.SAUT_PLUS: case M.SAUT_MOINS: dyn.bonus.push([x, y, k === M.SAUT_PLUS ? 1 : -1]); dyn.lumieres.push([x, y, k === M.SAUT_PLUS ? '120,255,140' : '255,170,80', 30]); break;
       case M.PIECE: dyn.piece.push([x, y]); dyn.lumieres.push([x, y, '255,210,80', 30]); break;
       case M.CHAMPI: dyn.champi.push([x, y]); break;
+      case M.BOUCLE_H: case M.BOUCLE_B: dyn.boucle.push([x, y, k === M.BOUCLE_B]); break;
       case M.BAR_S: case M.BAR_P: case M.BAR_PL: case M.BAR_CA: case M.BAR_ME: dyn.barriere.push([x, y, M.BARRIERE[k]]); break;
     }
   }
@@ -439,6 +440,14 @@ function dessiner(e, fantome, hud, dt) {
   mobiles(g, e, ox, vw, vis);
   fleches(g, e, ox, vw);
   ennemis(g, e, ox, vw);
+  if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : rond comme sa hitbox (rayon 6,5)
+    const cx2 = m.x + 6, cy2 = m.y + 6;
+    g.fillStyle = '#3a0a1a'; g.beginPath(); g.arc(cx2, cy2, 6.5, 0, 7); g.fill();
+    const gr = g.createRadialGradient(cx2 - 2, cy2 - 2, 1, cx2, cy2, 6); gr.addColorStop(0, m.saute ? '#ffb070' : '#ff6a80'); gr.addColorStop(1, m.saute ? '#b04010' : '#a0203a');
+    g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, 5.5, 0, 7); g.fill();
+    g.fillStyle = '#ffde4a'; g.fillRect(cx2 - 3 + m.dir, cy2 - 2, 2, 2); g.fillRect(cx2 + 1 + m.dir, cy2 - 2, 2, 2);
+    g.fillStyle = '#fff'; g.fillRect(cx2 - 3, cy2 - 6.2, 6, 1.2);                                        // le dessus : là où on l'écrase
+  }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
   if (e.mortT === 0) joueur(g, e, 1, false);
   eauDessus(g, vis);
@@ -888,6 +897,14 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = '#fff2f4'; for (const [a, b, rr] of [[-2.5, -2.5, 1.6], [2.5, -1, 1.4], [-0.5, 2.5, 1.2]]) { g.beginPath(); g.arc(cx2 + a, cy2 + b, rr, 0, 7); g.fill(); }
     g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, r - 0.5, Math.PI * 1.1, Math.PI * 1.6); g.stroke();
   }
+  for (const [x, y, bas] of dyn.boucle) {                        // bord bouclé : un rideau bleu qui ondule
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T;
+    const gr = g.createLinearGradient(0, bas ? py + T : py, 0, bas ? py : py + T);
+    gr.addColorStop(0, 'rgba(90,200,255,.75)'); gr.addColorStop(1, 'rgba(90,200,255,0)');
+    g.fillStyle = gr; g.fillRect(px, py, T, T);
+    g.fillStyle = 'rgba(220,250,255,.8)'; g.fillRect(px, bas ? py + T - 2 - Math.sin(tt * 5 + x) : py + 1 + Math.sin(tt * 5 + x), T, 1.2);
+  }
   for (const [x, y, ph] of dyn.barriere) {
     if (!vis(x, y)) continue;
     const px = x * T, py = y * T, c = COUL_PHASE[ph], ouvert = e.phase === ph;
@@ -996,8 +1013,9 @@ function joueur(g, e, alpha, fantome) {
   const x = e.x, y = e.y;
   g.globalAlpha = alpha;
   if (fantome) {
-    g.fillStyle = COUL_PHASE[e.phase]; g.fillRect(x, y, PW, PH);
-    g.strokeStyle = '#fff'; g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, PW - 1, PH - 1);
+    const fo2 = M.FORMES[e.phase] || M.FORMES[0];
+    g.beginPath(); for (let i = 0; i < fo2.length; i += 2) g.lineTo(x + fo2[i], y + fo2[i + 1]); g.closePath();
+    g.fillStyle = COUL_PHASE[e.phase]; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke();
     g.globalAlpha = 1; return;
   }
   if (e.invT > 0) g.globalAlpha = alpha * (Math.floor(e.invT / 4) % 2 ? 0.35 : 0.9);   // invincible : il clignote
@@ -1005,10 +1023,18 @@ function joueur(g, e, alpha, fantome) {
   const ph = e.phase, m = MATIERE[ph];
   let haut = m[0], bas = m[1];
   if (ph === M.S && APPARENCE.corps) { haut = APPARENCE.corps[0]; bas = APPARENCE.corps[1]; }
-  g.fillStyle = m[2]; g.fillRect(x, y, PW, PH);                       // contour (dans la boîte)
+  // la forme de l'état (goutte, balle, losange…) : exactement la hitbox du moteur
+  const fo = M.FORMES[ph] || M.FORMES[0];
+  const chemin = (k) => {
+    const cx2 = x + PW / 2, cy2 = y + PH / 2;
+    g.beginPath();
+    for (let i = 0; i < fo.length; i += 2) { const px = x + fo[i], py = y + fo[i + 1]; g.lineTo(cx2 + (px - cx2) * k, cy2 + (py - cy2) * k); }
+    g.closePath();
+  };
+  chemin(1); g.fillStyle = m[2]; g.fill();                            // contour sombre (dans la forme)
   const gr = g.createLinearGradient(0, y, 0, y + PH); gr.addColorStop(0, haut); gr.addColorStop(1, bas);
-  g.fillStyle = gr; g.fillRect(x + 1, y + 1, PW - 2, PH - 2);
-  g.save(); g.beginPath(); g.rect(x + 1, y + 1, PW - 2, PH - 2); g.clip();
+  chemin(0.84); g.fillStyle = gr; g.fill();
+  g.save(); chemin(0.84); g.clip();
   const t = temps;
   if (ph === M.S) {
     if (APPARENCE.motif) motif(g, APPARENCE.motif, x + 1, y + 1, PW - 2, PH - 2, t);
@@ -1039,7 +1065,7 @@ function joueur(g, e, alpha, fantome) {
     const r = e.gaz / M.K.omDuree;
     g.fillStyle = `rgba(180,140,255,${0.25 + 0.15 * Math.sin(t * 10)})`; g.fillRect(x + 1, y + 1 + (PH - 2) * (1 - r), PW - 2, (PH - 2) * r);
   }
-  yeux(g, x + PW / 2 + e.face, y + 5, e.face, m[3]);
+  yeux(g, x + PW / 2 + e.face, y + (ph === M.L ? 7.5 : ph === M.P ? 5.5 : 5), e.face, m[3]);
   accessoire(g, e, x, y);
   g.restore();
   g.globalAlpha = 1;

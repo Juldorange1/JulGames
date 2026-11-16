@@ -26,7 +26,7 @@ for (const nom of liste) {
   const bases = (Gen.COMPAT[type] && Gen.COMPAT[type].length) ? Gen.COMPAT[type] : [0];
   const tps = [];
   for (const d of [0, 0.4, 0.8, 1.2]) for (let gr = 1; gr <= graines; gr++) {
-    const b = bases[(gr + Math.round(d * 5)) % bases.length];
+    const b = glace ? 0 : bases[(gr + Math.round(d * 5)) % bases.length];   // la cheminée glacée n'existe qu'avec le solide
     const phases = [b].concat(req.filter(x => x !== b)), etats = phases.concat([b, b, b]).slice(0, 4);
     const carte = Gen.essai(type, gr * 7919 + Math.round(d * 100), d, glace, false, varier, phases);
     const r = bot.chercher({ id: nom + '/' + d + '/' + gr, nom, phases, etats, carte }, type.startsWith('alcove'));

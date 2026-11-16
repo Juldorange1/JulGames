@@ -19,7 +19,7 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
   BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
-  LASER = 55, CHAMPI = 56;
+  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
 const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
@@ -29,7 +29,7 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
   '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI,
   'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
-  'L': LASER, 'U': CHAMPI };
+  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -170,7 +170,14 @@ function recharger(n, c) {
     const per = 110 + hs % 80, on = 40 + (hs >> 7) % 30;
     lasers.push({ x, y, dx, dy, lg: (k - 1) * T, per, on, dec: (hs >> 3) % per });
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers });
+  // trous bouclés : tomber dans le bas ramène en haut de la même colonne (et monter dans le haut ramène en bas)
+  const boucle = new Map();
+  for (let i = 0; i < w * h; i++) {
+    if (g[i] !== BOUCLE_B) continue;
+    const x = i % w;
+    for (let y = Math.floor(i / w) - 1; y >= 0; y--) if (g[y * w + x] === BOUCLE_H) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
+  }
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle });
   return n;
 }
 
@@ -261,24 +268,55 @@ function laserRect(l) {
   if (l.dx) { const x0 = l.dx > 0 ? (l.x + 1) * T : l.x * T - l.lg; return [x0, cy - ep, x0 + l.lg, cy + ep]; }
   const y0 = l.dy > 0 ? (l.y + 1) * T : l.y * T - l.lg; return [cx - ep, y0, cx + ep, y0 + l.lg];
 }
-function rectRect(e, a, b, c, d) { return e.x + W > a && e.x < c && e.y + H > b && e.y < d; }
-function rectCercle(e, cx, cy, r) {
-  const qx = Math.max(e.x, Math.min(cx, e.x + W)), qy = Math.max(e.y, Math.min(cy, e.y + H));
-  return (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy) < r * r;
-}
-// boîte du joueur contre un polygone convexe (séparation des axes)
-function rectPoly(e, pts) {
-  const bx = [e.x, e.x + W, e.x + W, e.x], by = [e.y, e.y, e.y + H, e.y + H];
-  const axes = [[1, 0], [0, 1]];
-  for (let i = 0; i < pts.length; i += 2) { const j = (i + 2) % pts.length; axes.push([-(pts[j + 1] - pts[i + 1]), pts[j] - pts[i]]); }
-  for (const [ax, ay] of axes) {
+// forme du joueur selon son état (dans sa boîte de 12 × 12, qu'elle touche des 4 côtés) : c'est aussi sa hitbox
+// contre les dangers et les objets ; le dessin utilise exactement ces points.
+const cercle12 = (() => { const p = []; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; p.push(6 + Math.cos(a) * 6, 6 + Math.sin(a) * 6); } return p; })();
+const FORMES = [
+  [0, 0, 12, 0, 12, 12, 0, 12],                                                                    // solide : bloc
+  [6, 0, 8.6, 3.2, 10.8, 6, 12, 8.6, 11.4, 10.6, 9.6, 12, 2.4, 12, 0.6, 10.6, 0, 8.6, 1.2, 6, 3.4, 3.2],   // liquide : goutte
+  [3, 0, 9, 0, 12, 3.5, 12, 8.5, 9, 12, 3, 12, 0, 8.5, 0, 3.5],                                    // gaz : nuage
+  [6, 0, 12, 6, 6, 12, 0, 6],                                                                      // plasma : losange
+  [3, 0, 9, 0, 12, 6, 9, 12, 3, 12, 0, 6],                                                         // plume : hexagone
+  cercle12,                                                                                        // caoutchouc : balle
+  [1.5, 0, 10.5, 0, 12, 1.5, 12, 10.5, 10.5, 12, 1.5, 12, 0, 10.5, 0, 1.5],                        // métal : lingot
+  [6, 0, 12, 3, 12, 9, 6, 12, 0, 9, 0, 3]                                                          // ombre : cristal noir
+];
+function formeJoueur(e) { const f = FORMES[e.phase] || FORMES[0], o = new Array(f.length); for (let i = 0; i < f.length; i += 2) { o[i] = f[i] + e.x; o[i + 1] = f[i + 1] + e.y; } return o; }
+// deux polygones convexes se touchent-ils ? (séparation des axes)
+function polyPoly(A, B) {
+  for (const P2 of [A, B]) for (let i = 0; i < P2.length; i += 2) {
+    const j = (i + 2) % P2.length, ax = -(P2[j + 1] - P2[i + 1]), ay = P2[j] - P2[i];
     let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
-    for (let i = 0; i < pts.length; i += 2) { const v = pts[i] * ax + pts[i + 1] * ay; if (v < a0) a0 = v; if (v > a1) a1 = v; }
-    for (let i = 0; i < 4; i++) { const v = bx[i] * ax + by[i] * ay; if (v < b0) b0 = v; if (v > b1) b1 = v; }
+    for (let k = 0; k < A.length; k += 2) { const v = A[k] * ax + A[k + 1] * ay; if (v < a0) a0 = v; if (v > a1) a1 = v; }
+    for (let k = 0; k < B.length; k += 2) { const v = B[k] * ax + B[k + 1] * ay; if (v < b0) b0 = v; if (v > b1) b1 = v; }
     if (a1 <= b0 + 1e-6 || b1 <= a0 + 1e-6) return false;
   }
   return true;
 }
+function polyCercle(A, cx, cy, r) {
+  let best = Infinity, bx = 0, by = 0;
+  for (let k = 0; k < A.length; k += 2) { const d = (A[k] - cx) * (A[k] - cx) + (A[k + 1] - cy) * (A[k + 1] - cy); if (d < best) { best = d; bx = A[k]; by = A[k + 1]; } }
+  const axes = [[bx - cx, by - cy]];
+  for (let i = 0; i < A.length; i += 2) { const j = (i + 2) % A.length; axes.push([-(A[j + 1] - A[i + 1]), A[j] - A[i]]); }
+  for (const [ax, ay] of axes) {
+    const L2 = Math.hypot(ax, ay) || 1;
+    let a0 = Infinity, a1 = -Infinity;
+    for (let k = 0; k < A.length; k += 2) { const v = (A[k] * ax + A[k + 1] * ay) / L2; if (v < a0) a0 = v; if (v > a1) a1 = v; }
+    const c = (cx * ax + cy * ay) / L2;
+    if (a1 <= c - r + 1e-6 || c + r <= a0 + 1e-6) return false;
+  }
+  return true;
+}
+function rectRect(e, a, b, c, d) {
+  if (!(e.x + W > a && e.x < c && e.y + H > b && e.y < d)) return false;
+  return e.phase === S || polyPoly(formeJoueur(e), [a, b, c, b, c, d, a, d]);
+}
+function rectCercle(e, cx, cy, r) {
+  const qx = Math.max(e.x, Math.min(cx, e.x + W)), qy = Math.max(e.y, Math.min(cy, e.y + H));
+  if ((qx - cx) * (qx - cx) + (qy - cy) * (qy - cy) >= r * r) return false;
+  return e.phase === S || polyCercle(formeJoueur(e), cx, cy, r);
+}
+function rectPoly(e, pts) { return polyPoly(formeJoueur(e), pts); }
 // les 3 pointes d'une case de pics, exactement comme elles sont dessinées
 const PICS_TRI = [0, 1, 2, 3].map(dir => {
   const a = [0, Math.PI, Math.PI / 2, -Math.PI / 2][dir], c = Math.cos(a), s2 = Math.sin(a), out = [];
@@ -871,6 +909,19 @@ function pas(n, e, inp) {
     }
     if (e.fini || e.mortT > 0) break;
   }
+  // trou bouclé : on ressort de l'autre bord, avec la même vitesse
+  if (n.boucle.size && e.mortT === 0) {
+    const bx2 = Math.floor((e.x + W / 2) / T), by2 = Math.floor((e.y + H / 2) / T), i = by2 * n.w + bx2, t = tuile(n, bx2, by2);
+    if ((t === BOUCLE_B && e.vy > 0) || (t === BOUCLE_H && e.vy < 0)) {
+      const j = n.boucle.get(i);
+      if (j !== undefined) {
+        const ty = Math.floor(j / n.w);
+        e.evX = e.x + W / 2; e.evY = e.y + H / 2;
+        e.y = t === BOUCLE_B ? ty * T + 1 : (ty + 1) * T - H - 1;
+        e.plat = -1; e.sol = false; e.ev |= EV.TP;
+      }
+    }
+  }
   if (e.y > n.h * T + 8) mourir(e, true);
   e.surInter = touchInter;
   if (e.tremCd > 0) e.tremCd--;
@@ -948,7 +999,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, NOMS_PHASES, E, EV, K, CH,
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BARRIERE, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BARRIERE, FORMES, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

@@ -461,8 +461,39 @@ const SALLES = {
     for (let x = 6; x < 15; x += 4) s.p(x, 20, 'L');
     return 19;
   } },
+  // Long détour par une galerie haute : ascenseur, galerie hérissée, éclat au bout, puis on redescend plus loin
+  alcove6: { phases: [S], f(s, rng) {
+    s.couloir(0, 35);
+    s.c(2, 3, 4, 13); s.p(2, 19, 'N');                // ascenseur : une plateforme monte du couloir à la galerie
+    s.c(2, 3, 30, 6);                                  // galerie haute
+    for (let x = 8; x < 28; x += 5) s.p(x, 6, '^');
+    s.p(15, 3, '^'); s.p(25, 3, '^');
+    s.p(29, 5, 'e');
+    s.r(31, 3, 31, 13); s.c(32, 3, 34, 13); s.c(31, 3, 31, 6);   // descente vers le couloir
+    return 36;
+  } },
+  // Long tunnel profond sous le couloir, balayé par des lasers ; un ressort au bout pour remonter
+  alcove7: { phases: [S], f(s, rng) {
+    s.couloir(0, 31);
+    s.c(3, 20, 3, 20); s.c(3, 21, 28, 24);
+    for (let x = 8; x < 26; x += 5) s.p(x, 20, 'L');
+    for (let x = 6; x < 26; x += 5) s.p(x, 24, '^');
+    s.p(27, 23, 'e');
+    s.c(28, 20, 28, 20); s.p(28, 24, 's');
+    return 32;
+  } },
   // Barrières d'état : seul un état précis les traverse (une salle par état, le niveau prend celles de ses états)
   porteS: porte(S), porteL: porte(L), porteZ: porte(Z), porteP: porte(P), portePL: porte(PL), porteCA: porte(CA), porteME: porte(ME), porteOM: porte(OM),
+  // Trou bouclé : trop large pour être sauté ; tomber dedans fait ressortir par le haut (on dérive à chaque chute)
+  boucle: { phases: [S], f(s, rng, d) {
+    const Lp = 9 + Math.round(d * 5) + ent(rng, 0, 2);
+    s.couloir(0, 2); s.c(3, 6, 2 + Lp, 23);
+    s.r(3, 23, 2 + Lp, 23, '}'); s.r(3, 6, 2 + Lp, 6, '{');            // le bas et le haut sont reliés
+    if (d > 0.35) { const m = 3 + Math.floor(Lp / 2); s.r(m, 13, m, 16); }   // pilier suspendu à contourner
+    if (d > 0.75) s.n(4, 7, Lp - 2, '^');
+    s.couloir(3 + Lp, 5 + Lp);
+    return 6 + Lp;
+  } },
   // Navette : plateformes mobiles au-dessus d'une fosse à pics
   navette: { phases: [S], f(s, rng, d) {
     const Lp = 11 + Math.round(d * 5) + ent(rng, 0, 2), deux = Lp >= 14;
@@ -608,6 +639,7 @@ function varier(g, x0, x1, rng, d, ctx) {
       if (v === 'champi' && fosse(x) && L(x, 19) === '.') { g.met(x, 19, 'U'); faits.push(x); break; }
       if (v === 'pics' && plat(x) && plat(x + 1) && plat(x - 1) && plat(x + 2)) { g.met(x, 14, '^'); g.met(x + 1, 14, '^'); faits.push(x); break; }
       if (v === 'ennemi' || v === 'glace') {
+        if (!plat(x)) continue;                        // ne jamais écraser un objet de la salle (interrupteur, ressort…)
         let a = x, b = x;
         while (a > x0 && plat(a - 1)) a--;
         while (b < x1 - 1 && plat(b + 1)) b++;
@@ -658,7 +690,7 @@ function compatible(t, etats) {
   const b = COMPAT[nom];
   return b ? b.some(x => etats.includes(x)) : etats.includes(S);
 }
-const ALCOVES = ['alcove0', 'alcove1', 'alcove2', 'alcove3', 'alcove4', 'alcove5'];
+const ALCOVES = ['alcove0', 'alcove1', 'alcove2', 'alcove3', 'alcove4', 'alcove5', 'alcove6', 'alcove7'];
 function sallesPour(etats) {
   const l = Object.keys(SALLES).filter(t => !t.startsWith('alcove') && compatible(t, etats));
   if (compatible('cheminee', etats) && etats.includes(S)) l.push('cheminee*');   // la glace : sauts muraux du solide
