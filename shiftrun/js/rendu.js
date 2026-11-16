@@ -25,8 +25,8 @@ const THEMES = {
     loin: ['#3e0f3b', '#2c0a2a', '#1d061b'], accent: '#ff6ad5', nuit: 0.48, voile: '10,0,10', lum: '255,110,220', tapis: null, style: 'veines', amb: 'eclats', nom: 'Cœur' }
 };
 const COUL_PHASE = ['#e3cfa8', '#4fb8ff', '#ffe2bf', '#ffe94a', '#f1ecff', '#ff5ca8', '#a9b6c8', '#9a6bff', '#bff4ff', '#ff6a2a'];
-let APPARENCE = { corps: null, motif: null, accessoire: null };   // apparence choisie dans la boutique
-function choisirApparence(a) { APPARENCE = a || { corps: null, motif: null, accessoire: null }; }
+let APPARENCE = { contour: 'base', motif: 'rien', yeux: 'base', tete: 'rien', trainee: 'rien', aura: 'rien' };   // apparences portées (boutique)
+function choisirApparence(a) { APPARENCE = Object.assign({ contour: 'base', motif: 'rien', yeux: 'base', tete: 'rien', trainee: 'rien', aura: 'rien' }, a || {}); }
 
 let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
@@ -79,7 +79,7 @@ const solideR = (k) => M.estDur(k);
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], lumieres: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     switch (k) {
@@ -108,6 +108,7 @@ function scanner() {
       case M.PIECE: dyn.piece.push([x, y]); dyn.lumieres.push([x, y, '255,210,80', 30]); break;
       case M.CHAMPI: dyn.champi.push([x, y]); break;
       case M.BOUCLE_H: case M.BOUCLE_B: dyn.boucle.push([x, y, k === M.BOUCLE_B]); break;
+      case M.BOUCLE_G: case M.BOUCLE_D: dyn.boucleH.push([x, y, k === M.BOUCLE_D]); break;
       case M.BAR_S: case M.BAR_P: case M.BAR_PL: case M.BAR_CA: case M.BAR_ME: case M.BAR_GL: case M.BAR_MA: dyn.barriere.push([x, y, M.BARRIERE[k]]); break;
     }
   }
@@ -440,14 +441,31 @@ function dessiner(e, fantome, hud, dt) {
   mobiles(g, e, ox, vw, vis);
   fleches(g, e, ox, vw);
   ennemis(g, e, ox, vw);
-  if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : rond comme sa hitbox (rayon 6,5)
-    const cx2 = m.x + 6, cy2 = m.y + 6;
-    g.fillStyle = '#3a0a1a'; g.beginPath(); g.arc(cx2, cy2, 6.5, 0, 7); g.fill();
-    const gr = g.createRadialGradient(cx2 - 2, cy2 - 2, 1, cx2, cy2, 6); gr.addColorStop(0, m.saute ? '#ffb070' : '#ff6a80'); gr.addColorStop(1, m.saute ? '#b04010' : '#a0203a');
-    g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, 5.5, 0, 7); g.fill();
-    g.fillStyle = '#ffde4a'; g.fillRect(cx2 - 3 + m.dir, cy2 - 2, 2, 2); g.fillRect(cx2 + 1 + m.dir, cy2 - 2, 2, 2);
-    g.fillStyle = '#fff'; g.fillRect(cx2 - 3, cy2 - 6.2, 6, 1.2);                                        // le dessus : là où on l'écrase
+  if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : chaque ennemi est un rond de rayon r (sa hitbox)
+    const r = m.r, cx2 = m.x + r, cy2 = m.y + r;
+    const C = { marcheur: ['#ff6a80', '#a0203a'], sauteur: ['#ffb070', '#b04010'], volant: ['#9ae0ff', '#2a6aa0'], herisse: ['#e0e0e8', '#505868'],
+      tireur: ['#c0ff8a', '#3a8a20'], fonceur: ['#ff4ae0', '#801070'], lourd: ['#c89a6a', '#5a3a1a'], diviseur: ['#ffe94a', '#a08000'],
+      petit: ['#fff6a0', '#b0a020'], fantome: ['#e8e0ff', '#6a5aa0'], bombe: ['#404048', '#101014'] }[m.type] || ['#ff6a80', '#a0203a'];
+    g.globalAlpha = m.invisible ? 0.15 : 1;
+    if (m.type === 'herisse') {                                     // piquants compris dans le rayon : on ne peut pas l'écraser
+      g.fillStyle = '#e8e0e4';
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + m.t * 0.05; g.beginPath(); g.moveTo(cx2 + Math.cos(a) * r, cy2 + Math.sin(a) * r); g.lineTo(cx2 + Math.cos(a + 0.3) * (r - 2.5), cy2 + Math.sin(a + 0.3) * (r - 2.5)); g.lineTo(cx2 + Math.cos(a - 0.3) * (r - 2.5), cy2 + Math.sin(a - 0.3) * (r - 2.5)); g.fill(); }
+    }
+    const gr = g.createRadialGradient(cx2 - r * 0.3, cy2 - r * 0.3, 1, cx2, cy2, r);
+    gr.addColorStop(0, C[0]); gr.addColorStop(1, C[1]);
+    g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, m.type === 'herisse' ? r - 2.5 : r, 0, 7); g.fill();
+    if (m.type === 'volant') { g.fillStyle = 'rgba(255,255,255,.7)'; const bat = Math.sin(m.t * 0.4) * 2; g.fillRect(cx2 - r + 1, cy2 - 2 + bat, 3, 2); g.fillRect(cx2 + r - 4, cy2 - 2 + bat, 3, 2); }
+    if (m.type === 'lourd' && m.pv > 1) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx2, cy2, r - 1, 0, 7); g.stroke(); }
+    if (m.type === 'bombe') { g.fillStyle = m.meche && Math.floor(m.meche / 6) % 2 ? '#ff3a3a' : '#ffd34d'; g.fillRect(cx2 - 1, cy2 - r - 2, 2, 3);
+      if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(m.t)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
+    if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.3)'; g.fillRect(cx2 - m.dir * (r + 8), cy2 - 2, 8, 4); }
+    if (m.type === 'tireur') { g.fillStyle = '#1a3a10'; g.fillRect(cx2 + (m.dir > 0 ? 1 : -5), cy2 - 1.5, 4, 3); }
+    g.fillStyle = m.type === 'fantome' ? '#3a2a6a' : '#ffde4a';
+    g.fillRect(cx2 - 3 + m.dir, cy2 - 2, 2, 2); g.fillRect(cx2 + 1 + m.dir, cy2 - 2, 2, 2);
+    if (m.type !== 'herisse') { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(cx2 - r * 0.5, cy2 - r + 0.3, r, 1.2); }   // le dessus : là où on l'écrase
+    g.globalAlpha = 1;
   }
+  if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
   competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
@@ -976,6 +994,14 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = gr; g.fillRect(px, py, T, T);
     g.fillStyle = 'rgba(220,250,255,.8)'; g.fillRect(px, bas ? py + T - 2 - Math.sin(tt * 5 + x) : py + 1 + Math.sin(tt * 5 + x), T, 1.2);
   }
+  for (const [x, y, droite] of dyn.boucleH) {                   // bord bouclé gauche/droite
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T;
+    const gr = g.createLinearGradient(droite ? px + T : px, 0, droite ? px : px + T, 0);
+    gr.addColorStop(0, 'rgba(90,200,255,.75)'); gr.addColorStop(1, 'rgba(90,200,255,0)');
+    g.fillStyle = gr; g.fillRect(px, py, T, T);
+    g.fillStyle = 'rgba(220,250,255,.8)'; g.fillRect(droite ? px + T - 2 - Math.sin(tt * 5 + y) : px + 1 + Math.sin(tt * 5 + y), py, 1.2, T);
+  }
   for (const [x, y, ph] of dyn.barriere) {
     if (!vis(x, y)) continue;
     const px = x * T, py = y * T, c = COUL_PHASE[ph], ouvert = e.phase === ph;
@@ -1093,8 +1119,9 @@ function joueur(g, e, alpha, fantome) {
   if (e.invT > 0) g.globalAlpha = alpha * (Math.floor(e.invT / 4) % 2 ? 0.35 : 0.9);   // invincible : il clignote
   if (e.sol) { g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x + 1, y + PH, PW - 2, 1); }
   const ph = e.phase, m = MATIERE[ph];
-  let haut = m[0], bas = m[1];
-  if (ph === M.S && APPARENCE.corps) { haut = APPARENCE.corps[0]; bas = APPARENCE.corps[1]; }
+  const haut = m[0], bas = m[1];
+  aura(g, x + PW / 2, y + PH / 2, APPARENCE.aura);
+  trainee(e, APPARENCE.trainee);
   // la forme de l'état (goutte, balle, losange…) : exactement la hitbox du moteur
   const fo = M.FORMES[ph] || M.FORMES[0];
   const chemin = (k) => {
@@ -1103,13 +1130,12 @@ function joueur(g, e, alpha, fantome) {
     for (let i = 0; i < fo.length; i += 2) { const px = x + fo[i], py = y + fo[i + 1]; g.lineTo(cx2 + (px - cx2) * k, cy2 + (py - cy2) * k); }
     g.closePath();
   };
-  chemin(1); g.fillStyle = m[2]; g.fill();                            // contour sombre (dans la forme)
+  chemin(1); g.fillStyle = couleurContour(APPARENCE.contour, m[2]); g.fill();     // contour (couleur de l'apparence)
   const gr = g.createLinearGradient(0, y, 0, y + PH); gr.addColorStop(0, haut); gr.addColorStop(1, bas);
   chemin(0.84); g.fillStyle = gr; g.fill();
   g.save(); chemin(0.84); g.clip();
   const t = temps;
   if (ph === M.S) {
-    if (APPARENCE.motif) motif(g, APPARENCE.motif, x + 1, y + 1, PW - 2, PH - 2, t);
     g.fillStyle = 'rgba(255,255,255,.45)'; g.fillRect(x + 2, y + 2, PW - 5, 1);
   } else if (ph === M.L) {
     g.fillStyle = 'rgba(255,255,255,.55)';
@@ -1141,10 +1167,77 @@ function joueur(g, e, alpha, fantome) {
     const r = e.gaz / M.K.omDuree;
     g.fillStyle = `rgba(180,140,255,${0.25 + 0.15 * Math.sin(t * 10)})`; g.fillRect(x + 1, y + 1 + (PH - 2) * (1 - r), PW - 2, (PH - 2) * r);
   }
-  yeux(g, x + PW / 2 + e.face, y + (ph === M.L ? 7.5 : ph === M.P ? 5.5 : 5), e.face, m[3]);
+  if (APPARENCE.motif !== 'rien') { g.globalAlpha *= 0.55; motif(g, APPARENCE.motif, x, y, PW, PH, t); g.globalAlpha /= 0.55; }   // le motif laisse voir la couleur de l'état
+  yeuxStyle(g, x + PW / 2 + e.face, y + (ph === M.L ? 7.5 : ph === M.P ? 5.5 : 5), e.face, m[3], APPARENCE.yeux);
   accessoire(g, e, x, y);
   g.restore();
   g.globalAlpha = 1;
+}
+// couleur du contour selon l'apparence (les animées changent avec le temps)
+function couleurContour(c, defaut) {
+  const t = temps;
+  switch (c) {
+    case 'blanc': return '#ffffff'; case 'noir': return '#0a0a0e'; case 'rose': return '#ff4ab8'; case 'cyan': return '#2ae0ff'; case 'vert': return '#3ae06a';
+    case 'rouge': return '#ff2a3a'; case 'violet': return '#9a4aff'; case 'argent': return '#cfd6e0'; case 'or': return '#ffcc2a';
+    case 'neon': return `hsl(300,100%,${45 + 20 * Math.sin(t * 6)}%)`; case 'feu': return `hsl(${20 + 20 * Math.sin(t * 8)},100%,55%)`;
+    case 'galaxie': return `hsl(${250 + 40 * Math.sin(t * 2)},80%,${40 + 15 * Math.sin(t * 5)}%)`; case 'arcenciel': return `hsl(${(t * 140) % 360},95%,60%)`;
+    default: return defaut;
+  }
+}
+function aura(g, cx, cy, a) {
+  if (!a || a === 'rien') return;
+  const t = temps, C = { douce: '255,255,255', glace: '150,230,255', rose: '255,110,210', toxique: '120,255,90', feu: '255,120,40', ombre: '60,20,120', doree: '255,210,70',
+    electrique: '120,200,255', pulsar: '255,80,255', etoilee: '200,180,255', divine: '255,250,200', neant: '0,0,0', arcenciel: null }[a];
+  const r = 15 + (a === 'pulsar' ? 4 * Math.sin(t * 6) : 0);
+  const col = C || `${Math.round(127 + 127 * Math.sin(t * 3))},${Math.round(127 + 127 * Math.sin(t * 3 + 2))},${Math.round(127 + 127 * Math.sin(t * 3 + 4))}`;
+  const gr = g.createRadialGradient(cx, cy, 4, cx, cy, r);
+  gr.addColorStop(0, `rgba(${col},${a === 'neant' ? 0.6 : 0.45})`); gr.addColorStop(1, `rgba(${col},0)`);
+  g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+  if (a === 'electrique' && Math.random() < 0.3) { g.strokeStyle = 'rgba(200,240,255,.8)'; g.lineWidth = 1; g.beginPath(); let px = cx + (Math.random() - 0.5) * 20, py = cy + (Math.random() - 0.5) * 20; g.moveTo(px, py); for (let k = 0; k < 3; k++) { px += (Math.random() - 0.5) * 8; py += (Math.random() - 0.5) * 8; g.lineTo(px, py); } g.stroke(); }
+  if (a === 'etoilee' || a === 'divine') for (let k = 0; k < 4; k++) { const an = t * 2 + k * 1.57; g.fillStyle = a === 'divine' ? '#fff8c0' : '#e0d0ff'; g.fillRect(cx + Math.cos(an) * 11, cy + Math.sin(an) * 11, 1.5, 1.5); }
+}
+let derniereTrainee = 0;
+function trainee(e, tr2) {
+  if (!tr2 || tr2 === 'rien' || Math.abs(e.vx) + Math.abs(e.vy) < 1.2) return;
+  if (temps - derniereTrainee < 0.03) return;
+  derniereTrainee = temps;
+  const x = e.x + PW / 2 - Math.sign(e.vx) * 5 + (Math.random() - 0.5) * 4, y = e.y + PH / 2 + (Math.random() - 0.5) * 4;
+  const hsl = `hsl(${(temps * 200) % 360},95%,60%)`;
+  const P2 = { poussiere: ['rgba(220,200,170,.6)', 2, 0.02], bulles: ['rgba(170,230,255,.7)', 2.5, -0.03], feuilles: ['#6ad04a', 2.5, 0.03], neige: ['#ffffff', 2, 0.01],
+    notes: ['#ffe94a', 2.5, -0.02], pixels: ['#4ab8ff', 2, 0], etincelles: ['#ffd34d', 1.6, 0.05], coeurs: ['#ff4a8a', 2.5, -0.02], etoiles: ['#fff6c0', 2, 0],
+    eclairs: ['#bfe8ff', 1.5, 0], flammes: ['#ff7a2a', 2.6, -0.06], ombre: ['rgba(40,10,80,.7)', 3.5, 0], arcenciel: [hsl, 2.5, 0] }[tr2];
+  if (!P2) return;
+  part(x, y, -e.vx * 0.15 + (Math.random() - 0.5) * 0.5, -e.vy * 0.1 + (Math.random() - 0.5) * 0.5, 28, P2[0], P2[1], P2[2], tr2 === 'etincelles' || tr2 === 'eclairs' || tr2 === 'flammes' || tr2 === 'arcenciel');
+}
+function yeuxStyle(g, x, y, face, c, st) {
+  const f = face > 0 ? 1 : 0;
+  switch (st) {
+    case 'ronds': g.fillStyle = '#fff'; g.beginPath(); g.arc(x - 2, y, 2, 0, 7); g.arc(x + 2.5, y, 2, 0, 7); g.fill(); g.fillStyle = c; g.fillRect(x - 2.5 + f, y - 0.5, 1.4, 1.4); g.fillRect(x + 2 + f, y - 0.5, 1.4, 1.4); return;
+    case 'fache': yeux(g, x, y, face, c); g.fillStyle = c; g.beginPath(); g.moveTo(x - 4, y - 2.5); g.lineTo(x - 0.5, y - 1); g.lineTo(x - 0.5, y - 2); g.fill(); g.beginPath(); g.moveTo(x + 4, y - 2.5); g.lineTo(x + 0.5, y - 1); g.lineTo(x + 0.5, y - 2); g.fill(); return;
+    case 'endormi': g.fillStyle = c; g.fillRect(x - 3.5, y + 0.5, 3, 1); g.fillRect(x + 0.5, y + 0.5, 3, 1); return;
+    case 'surpris': g.fillStyle = '#fff'; g.fillRect(x - 4, y - 2, 3.5, 4.5); g.fillRect(x + 0.5, y - 2, 3.5, 4.5); g.fillStyle = c; g.fillRect(x - 2.8, y - 0.5, 1.2, 1.2); g.fillRect(x + 1.7, y - 0.5, 1.2, 1.2); return;
+    case 'mignon': g.fillStyle = c; g.fillRect(x - 3.5, y - 1, 3, 3); g.fillRect(x + 0.5, y - 1, 3, 3); g.fillStyle = '#fff'; g.fillRect(x - 3, y - 0.5, 1, 1); g.fillRect(x + 1, y - 0.5, 1, 1); g.fillStyle = 'rgba(255,120,160,.7)'; g.fillRect(x - 5, y + 2.5, 2, 1); g.fillRect(x + 3, y + 2.5, 2, 1); return;
+    case 'cyclope': g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(x + face * 0.8, y, 1.2, 0, 7); g.fill(); return;
+    case 'croix': g.strokeStyle = c; g.lineWidth = 1; g.beginPath(); for (const ox of [-2, 2]) { g.moveTo(x + ox - 1.3, y - 1.3); g.lineTo(x + ox + 1.3, y + 1.3); g.moveTo(x + ox + 1.3, y - 1.3); g.lineTo(x + ox - 1.3, y + 1.3); } g.stroke(); return;
+    case 'lunettes': g.fillStyle = '#111'; g.fillRect(x - 4.5, y - 1.5, 4, 3); g.fillRect(x + 0.5, y - 1.5, 4, 3); g.fillRect(x - 0.5, y - 0.5, 1, 1); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x - 4, y - 1, 1.2, 1); return;
+    case 'masque': g.fillStyle = 'rgba(20,20,30,.9)'; g.fillRect(x - 5.5, y - 2, 11, 4); g.fillStyle = '#fff'; g.fillRect(x - 3.5 + f, y - 0.5, 1.5, 1.5); g.fillRect(x + 1.5 + f, y - 0.5, 1.5, 1.5); return;
+    case 'coeur': g.fillStyle = '#ff3a7a'; for (const ox of [-2, 2]) { g.beginPath(); g.arc(x + ox - 0.7, y - 0.5, 0.9, 0, 7); g.arc(x + ox + 0.7, y - 0.5, 0.9, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + ox - 1.6, y - 0.2); g.lineTo(x + ox, y + 1.8); g.lineTo(x + ox + 1.6, y - 0.2); g.fill(); } return;
+    case 'etoile': g.fillStyle = '#ffe94a'; for (const ox of [-2, 2]) { g.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, r = k % 2 ? 0.8 : 2; g.lineTo(x + ox + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); } return;
+    case 'robot': g.fillStyle = '#ff2a3a'; g.fillRect(x - 4.5, y - 0.8, 9, 1.6); g.fillStyle = `rgba(255,120,120,${0.5 + 0.5 * Math.sin(temps * 8)})`; g.fillRect(x - 4.5 + ((temps * 20) % 8), y - 0.8, 1.5, 1.6); return;
+    case 'flamme': g.fillStyle = `hsl(${30 + 15 * Math.sin(temps * 10)},100%,60%)`; for (const ox of [-2, 2]) { g.beginPath(); g.moveTo(x + ox - 1.3, y + 1.5); g.quadraticCurveTo(x + ox, y - 3, x + ox + 1.3, y + 1.5); g.fill(); } return;
+    default: yeux(g, x, y, face, c);
+  }
+}
+// aperçu de la boutique : le personnage (solide) avec ces apparences, en grand
+function apercu(cv, eq) {
+  const g = cv.getContext('2d'), sauve = APPARENCE;
+  APPARENCE = Object.assign({}, APPARENCE, eq);
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.save(); g.scale(cv.width / 24, cv.height / 24);
+  const e = { x: 6, y: 6, vx: 0, vy: 0, phase: 0, face: 1, sol: false, invT: 0, gaz: 0, mortT: 0 };
+  joueur(g, e, 1, false);
+  g.restore();
+  APPARENCE = sauve;
 }
 // motifs des apparences (boutique)
 function motif(g, mo, x, y, w, h, t) {
@@ -1157,13 +1250,17 @@ function motif(g, mo, x, y, w, h, t) {
     case 'facettes': g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + w / 2, y + h / 2); g.lineTo(x, y + h); g.fill(); g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(x + w, y); g.lineTo(x + w / 2, y + h / 2); g.lineTo(x + w, y + h); g.fill(); break;
     case 'arcenciel': for (let k = 0; k < h; k++) { g.fillStyle = `hsl(${(t * 120 + k * 30) % 360},90%,62%)`; g.fillRect(x, y + k, w, 1); } break;
     case 'brillant': { const k = ((t * 12) % (w * 3)) - w; g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.moveTo(x + k, y + h); g.lineTo(x + k + 3, y + h); g.lineTo(x + k + 7, y); g.lineTo(x + k + 4, y); g.fill(); break; }
+    case 'zigzag': g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.beginPath(); for (let b = 2; b < h; b += 4) { g.moveTo(x, y + b); for (let a = 0; a <= w; a += 3) g.lineTo(x + a, y + b + ((a / 3) % 2 ? 1.5 : -1.5)); } g.stroke(); break;
+    case 'ecailles': g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 0.8; for (let b = 0; b < h; b += 3) for (let a = (b / 3) % 2 ? 1.5 : 0; a < w; a += 3) { g.beginPath(); g.arc(x + a + 1.5, y + b, 1.5, 0, Math.PI); g.stroke(); } break;
+    case 'coeurs': g.fillStyle = 'rgba(255,60,130,.8)'; for (const [a, b] of [[3, 3], [8, 7], [3, 9]]) { g.beginPath(); g.arc(x + a - 0.6, y + b, 0.9, 0, 7); g.arc(x + a + 0.6, y + b, 0.9, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + a - 1.5, y + b + 0.3); g.lineTo(x + a, y + b + 2); g.lineTo(x + a + 1.5, y + b + 0.3); g.fill(); } break;
+    case 'circuit': g.strokeStyle = 'rgba(80,255,180,.8)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x + 4, y + 3); g.lineTo(x + 4, y + 8); g.lineTo(x + w, y + 8); g.moveTo(x + 8, y); g.lineTo(x + 8, y + 5); g.stroke(); g.fillStyle = 'rgba(80,255,180,.9)'; g.fillRect(x + 3.5, y + 7.5, 1.2, 1.2); g.fillRect(x + 7.5, y + 4.5, 1.2, 1.2); break;
     case 'nebuleuse': { const g2 = g.createRadialGradient(x + w / 2 + Math.sin(t) * 2, y + h / 2, 0, x + w / 2, y + h / 2, w); g2.addColorStop(0, 'rgba(255,120,240,.7)'); g2.addColorStop(0.5, 'rgba(90,60,255,.4)'); g2.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = g2; g.fillRect(x, y, w, h); motif(g, 'etoiles', x, y, w, h, t); break; }
   }
 }
 // accessoire de la boutique : dessiné DANS le carré (la hitbox ne change pas)
 function accessoire(g, e, x, y) {
-  const a = APPARENCE.accessoire;
-  if (!a) return;
+  const a = APPARENCE.tete;
+  if (!a || a === 'rien') return;
   const cx2 = x + PW / 2;
   switch (a) {
     case 'chapeau': g.fillStyle = '#1e1612'; g.fillRect(x, y, PW, 3); g.fillStyle = '#c0392b'; g.fillRect(x, y + 2, PW, 1); break;
@@ -1177,6 +1274,12 @@ function accessoire(g, e, x, y) {
     case 'masque': g.fillStyle = 'rgba(20,20,30,.85)'; g.fillRect(x, y + 3, PW, 3.5); break;
     case 'moustache': g.fillStyle = '#2a1a10'; g.fillRect(cx2 - 4, y + 8, 3.5, 1.5); g.fillRect(cx2 + 0.5, y + 8, 3.5, 1.5); break;
     case 'bandeau': g.fillStyle = '#ffffff'; g.fillRect(x, y + 1.5, PW, 1.5); g.fillStyle = '#e83a3a'; g.fillRect(cx2 - 1, y + 1.5, 2, 1.5); break;
+    case 'casquette': g.fillStyle = '#2a6ae0'; g.fillRect(x, y, PW, 3); g.fillRect(e.face > 0 ? x + PW - 4 : x, y + 2, 4, 1.5); break;
+    case 'bonnet': g.fillStyle = '#e04a4a'; g.fillRect(x, y, PW, 3.5); g.fillStyle = '#fff'; g.fillRect(x, y + 2.5, PW, 1); g.fillRect(cx2 - 1, y, 2, 1.5); break;
+    case 'oreilles': g.fillStyle = '#f0b0c0'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4, y); g.lineTo(x + 1, y + 4); g.fill(); g.beginPath(); g.moveTo(x + PW, y); g.lineTo(x + PW - 4, y); g.lineTo(x + PW - 1, y + 4); g.fill(); break;
+    case 'crete': g.fillStyle = '#ff3a6a'; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(cx2 - 4 + k * 3, y + 3); g.lineTo(cx2 - 2.5 + k * 3, y); g.lineTo(cx2 - 1 + k * 3, y + 3); g.fill(); } break;
+    case 'plume': g.strokeStyle = '#7dffb0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx2, y + 3); g.quadraticCurveTo(cx2 + 4, y, cx2 + 5, y + 0.5); g.stroke(); break;
+    case 'diademe': g.fillStyle = '#c0f0ff'; g.fillRect(x + 1, y + 1.5, PW - 2, 1.2); g.fillStyle = '#ff6ad5'; g.beginPath(); g.arc(cx2, y + 2, 1.6, 0, 7); g.fill(); break;
     case 'flammes': for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#ffd040' : '#ff6a14'; const h2 = 2 + 1.5 * Math.abs(Math.sin(temps * 9 + k)); g.fillRect(x + 1 + k * 2.6, y, 2, h2); } break;
   }
 }
@@ -1347,5 +1450,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { init, choisirApparence, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { init, choisirApparence, apercu, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

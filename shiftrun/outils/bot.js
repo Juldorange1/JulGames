@@ -37,7 +37,7 @@ function champ(n, cibles) {
   for (let i = 0; i < n.w * n.h; i++) {
     const t = n.g[i];
     if (t === M.TP1 || t === M.TP2) { const so = n.tp.get(i); if (so) (entrees[so.y * n.w + so.x] = entrees[so.y * n.w + so.x] || []).push(i); }
-    if (t === M.BOUCLE_B || t === M.BOUCLE_H) { const j = n.boucle.get(i); if (j !== undefined) (entrees[j] = entrees[j] || []).push(i); }
+    if (t === M.BOUCLE_B || t === M.BOUCLE_H || t === M.BOUCLE_G || t === M.BOUCLE_D) { const j = n.boucle.get(i); if (j !== undefined) (entrees[j] = entrees[j] || []).push(i); }
   }
   // Dijkstra simple (8 voisins)
   const tas = [];
@@ -232,7 +232,7 @@ function chercher(def, avecEclat, cfg) {
         if (a.sw) {
           const ee = nd.e;
           if (a.etat === ee.phase) {                     // même état : sa compétence
-            if (ee.capCd > 0) continue;
+            if (ee.capCd > 0 || !n.capacites) continue;
             if (ee.phase === M.PL) { if (ee.sol || ee.hoverUse) continue; }
             else if (ee.charges <= 0) continue;
           } else if (ee.charges <= 0 || (a.etat === ee.ban && ee.temps < ee.banT)) continue;

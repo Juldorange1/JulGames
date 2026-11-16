@@ -19,7 +19,7 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
   BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
-  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60;
+  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60, BOUCLE_G = 61, BOUCLE_D = 62;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
 const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME, [BAR_GL]: GL, [BAR_MA]: MA };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
@@ -29,7 +29,7 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
   '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI,
   'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
-  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA };
+  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D };
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -67,11 +67,10 @@ const K = {
 /* ---------- Chargement d'un niveau ---------- */
 function charger(def) {
   // les 4 états du niveau (touches 1 à 4) ; le premier est l'état de base, celui où l'on revient
-  const et = (def.etats && def.etats.length >= 3) ? def.etats.slice()
-    : (def.etats && def.etats.length === 2) ? [S, L].concat(def.etats) : [S, L, Z, P];
+  const et = (def.etats && def.etats.length >= 2) ? def.etats.slice() : [S, L, Z];
   let phases = 0;
   for (const p of (def.phases || et)) phases |= 1 << p;
-  const n = { def, phases, emplacements: et, base: et[0] };
+  const n = { def, phases, emplacements: et, base: et[0], capacites: def.capacites !== false };
   recharger(n, def.carte);
   if (!n.dep) throw new Error('Pas de départ @ dans ' + def.id);
   return n;
@@ -181,6 +180,11 @@ function recharger(n, c) {
     if (g[i] !== BOUCLE_B) continue;
     const x = i % w;
     for (let y = Math.floor(i / w) - 1; y >= 0; y--) if (g[y * w + x] === BOUCLE_H) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
+  }
+  for (let i = 0; i < w * h; i++) {                 // à droite on ressort à gauche (même rangée), et inversement
+    if (g[i] !== BOUCLE_D) continue;
+    const y = Math.floor(i / w);
+    for (let x = i % w - 1; x >= 0; x--) if (g[y * w + x] === BOUCLE_G) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
   }
   Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle });
   return n;
@@ -636,7 +640,7 @@ function pas(n, e, inp) {
   if (vers >= 0 && vers === n.emplacements[0] && n.emplacements.length > 3 && (presse & E.P)) vers = n.emplacements[3];
   if (vers < 0 && (presse & E.P) && n.emplacements.length > 3) vers = n.emplacements[3];
   if (vers >= 0 && e.ban === vers && e.temps < e.banT) { e.ev |= EV.ECHEC; vers = -1; }
-  if (vers >= 0 && vers === e.phase) capacite(n, e, h, v);           // déjà dans cet état : sa compétence
+  if (vers >= 0 && vers === e.phase) { if (n.capacites) capacite(n, e, h, v); }   // déjà dans cet état : sa compétence (si le niveau les permet)
   else if (vers >= 0 && (n.phases & (1 << vers))) {
     if (vers === P && e.cdP > 0) { /* pas deux éclairs collés */ }
     else if (e.charges > 0) { e.charges--; e.grap = null; e.hover = 0; e.dashCA = 0; changer(n, e, vers, h, v); }
@@ -1042,6 +1046,14 @@ function pas(n, e, inp) {
         e.y = t === BOUCLE_B ? ty * T + 1 : (ty + 1) * T - H - 1;
         e.plat = -1; e.sol = false; e.ev |= EV.TP;
       }
+    } else if ((t === BOUCLE_D && e.vx > 0) || (t === BOUCLE_G && e.vx < 0)) {
+      const j = n.boucle.get(i);
+      if (j !== undefined) {
+        const tx2 = j % n.w;
+        e.evX = e.x + W / 2; e.evY = e.y + H / 2;
+        e.x = t === BOUCLE_D ? tx2 * T + 1 : (tx2 + 1) * T - W - 1;
+        e.plat = -1; e.ev |= EV.TP;
+      }
     }
   }
   if (e.y > n.h * T + 8) mourir(e, true);
@@ -1121,7 +1133,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BAR_GL, BAR_MA, BARRIERE, FORMES, glaceEn, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, BARRIERE, FORMES, glaceEn, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

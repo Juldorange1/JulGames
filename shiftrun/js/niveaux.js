@@ -10,7 +10,7 @@ const S = 0, L = 1, Z = 2, P = 3;
 const DEF = [
   { nom: 'Carrière', theme: 'carriere', phases: [S],
     niveaux: ['Premiers pas', 'Éboulis', 'Fracas', 'Galerie', 'Carrière profonde', 'Front de taille'],
-    intro: { 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé). 3 états par niveau (J K L) : réappuie sur l’état où tu es pour utiliser sa compétence.',
+    intro: { 3: ['Nouveau : réappuie sur la transformation où tu es pour utiliser sa compétence (elle coûte une charge).'], 0: ['Courir : Q D ou ← →. Sauter : Espace (garde-le appuyé). Change de transformation avec J et K : les panneaux disent lesquelles.',
       'Une barrière de couleur ne laisse passer que l’état de sa couleur. Changer d’état coûte une charge (2 au plus), rendue au sol.'],
       1: ['Sol cassant : il cède peu après ton passage. Sol rebondissant : il te relance (lâche Espace pour rebondir moins haut).',
         'Les arbalètes tirent à intervalles réguliers. Un bouton ouvre la porte qui le suit.'],
@@ -76,8 +76,9 @@ const CAPA = {
 };
 // chaque zone met un état en vedette ; les 4 états de chaque niveau sont tirés avec une graine fixe
 function etatsDuNiveau(zi, k) {
-  if (zi === 0 && k === 0) return [S, L, Z];
-  return Gen.etatsAuHasard(Gen.hasard(5000 + zi * 31 + k * 7), SIGNATURE[zi]);
+  if (zi === 0 && k === 0) return [S, L];
+  // la première zone : seulement 2 transformations (plus simple, mais toujours dur à speedrunner)
+  return Gen.etatsAuHasard(Gen.hasard(5000 + zi * 31 + k * 7), SIGNATURE[zi], zi === 0 ? 2 : 3);
 }
 // niveaux dont la graine a été décalée (si le robot n'y trouvait pas de chemin)
 const DECALE = { '2-2': 1, '5-1': 1, '5-3': 1, '2-3': 3, '4-4': 3, '6-2': 3, '7-6': 3 };
@@ -90,7 +91,7 @@ const ZONES = DEF.map((z, zi) => ({
     const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]).concat(z.intro[k] || []);
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.length ? imp : null, etats);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, panneaux: pan, carte: r.carte, suite: r.suite, d };
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d };
   })
 }));
 

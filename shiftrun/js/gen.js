@@ -735,17 +735,18 @@ function sallesPour(etats) {
   return l;
 }
 // 4 états au hasard : le premier (état de base) est un état stable ; assez de salles possibles
-function etatsAuHasard(rng, impose) {
+function etatsAuHasard(rng, impose, nb) {
+  nb = nb || 3;
   for (let essai = 0; essai < 200; essai++) {
     const et = [];
     const base = impose !== undefined && STABLES.includes(impose) && rng() < 0.5 ? impose : STABLES[Math.floor(rng() * STABLES.length)];
     et.push(base);
     if (impose !== undefined && !et.includes(impose)) et.push(impose);
-    while (et.length < 3) { const c = TOUS_ETATS[Math.floor(rng() * TOUS_ETATS.length)]; if (!et.includes(c)) et.push(c); }
+    while (et.length < nb) { const c = TOUS_ETATS[Math.floor(rng() * TOUS_ETATS.length)]; if (!et.includes(c)) et.push(c); }
     const ordre = [et[0]].concat(et.slice(1).sort((a, b) => a - b));
-    if (sallesPour(ordre).length >= 12 && ALCOVES.some(a => compatible(a, ordre) && (COMPAT[a] || []).includes(ordre[0]))) return ordre;
+    if (sallesPour(ordre).length >= (nb < 3 ? 8 : 12) && ALCOVES.some(a => compatible(a, ordre) && (COMPAT[a] || []).includes(ordre[0]))) return ordre;
   }
-  return [S, L, Z];
+  return nb < 3 ? [S, L] : [S, L, Z];
 }
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3);

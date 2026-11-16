@@ -14,11 +14,11 @@ const freq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // plan d'un morceau à partir de sa graine
 function plan(graine, humeur) {
   const r = hasard(graine * 7919 + 13);
-  const modes = humeur === 'calme' ? ['majeur', 'dorien'] : ['mineur', 'dorien', 'mixo', 'mineur', 'majeur'];
+  const modes = humeur === 'calme' ? ['majeur', 'dorien'] : ['mineur', 'mineur', 'dorien', 'mineur', 'mixo'];      // plus sombre, plus tendu
   const mode = modes[Math.floor(r() * modes.length)];
   const gamme = MODES[mode];
   const tonique = 45 + Math.floor(r() * 10);
-  const tempo = humeur === 'calme' ? 92 + Math.floor(r() * 20) : 128 + Math.floor(r() * 32);
+  const tempo = humeur === 'calme' ? 92 + Math.floor(r() * 20) : 150 + Math.floor(r() * 26);
   const suiteA = SUITES[Math.floor(r() * SUITES.length)], suiteB = SUITES[Math.floor(r() * SUITES.length)];
   const note = (deg, oct) => tonique + 12 * (oct + Math.floor(deg / 7)) + gamme[((deg % 7) + 7) % 7];
   // motif mélodique de 2 mesures (16 croches), repris et varié
@@ -31,7 +31,7 @@ function plan(graine, humeur) {
     motif.push(d);
   }
   const arpForme = [[0, 2, 4, 2], [0, 4, 2, 4], [0, 2, 4, 7], [4, 2, 0, 2]][Math.floor(r() * 4)];
-  const batterie = humeur === 'calme' ? 0 : 1 + Math.floor(r() * 2);
+  const batterie = humeur === 'calme' ? 0 : 2;
   return { r, gamme, tonique, tempo, suiteA, suiteB, note, motif, arpForme, batterie, ondeLead: r() < 0.5 ? 'square' : 'triangle', ondeArp: r() < 0.6 ? 'square' : 'sawtooth' };
 }
 
@@ -80,16 +80,17 @@ function composer(graine, humeur, mesures) {
     const suite = partie === 2 ? p.suiteB : p.suiteA;
     const acc = suite[m % 4], t0 = 0.05 + m * mesure;
     const intro = m < 2, calme = partie === 2 && m % 8 < 2;
-    // basse
+    // basse : en mode intense, octaves pulsées en dents de scie filtrées (ça pousse)
     for (let k = 0; k < 8; k++) {
       if (p.batterie === 0 && k % 2) continue;
-      const f = freq(p.note(acc, -1) + (k === 6 && p.r() < 0.3 ? 7 : 0));
-      ton(t0 + k * croche, f, croche * 0.9, 'triangle', 0.32, 900);
+      const f = freq(p.note(acc, -1) + (p.batterie && k % 2 ? 12 : 0) + (k === 6 && p.r() < 0.3 ? 7 : 0));
+      ton(t0 + k * croche, f, croche * 0.8, p.batterie ? 'sawtooth' : 'triangle', p.batterie ? 0.2 : 0.32, p.batterie ? 700 + 500 * ((m % 8) / 8) : 900);
     }
-    // arpèges
-    if (!intro) for (let k = 0; k < 8; k++) {
-      const deg = acc + p.arpForme[k % 4];
-      ton(t0 + k * croche, freq(p.note(deg, 1)), croche * 0.7, p.ondeArp, 0.05, 2600);
+    // arpèges (doubles croches en mode intense)
+    const sub = p.batterie ? 2 : 1;
+    if (!intro) for (let k = 0; k < 8 * sub; k++) {
+      const deg = acc + p.arpForme[k % 4] + (k % 8 >= 4 && sub > 1 ? 7 : 0);
+      ton(t0 + k * croche / sub, freq(p.note(deg, 1)), croche / sub * 0.7, p.ondeArp, 0.04, 2200 + 1200 * ((m % 8) / 8));
     }
     // mélodie (pas pendant l'intro ni le début du pont)
     if (!intro && !calme) {
@@ -106,8 +107,9 @@ function composer(graine, humeur, mesures) {
     if (p.batterie && !intro) for (let k = 0; k < 8; k++) {
       if (k % 4 === 0) frappe(t0 + k * croche, 'k');
       if (k % 4 === 2) frappe(t0 + k * croche, 's');
-      if (p.batterie > 1 || k % 2 === 0) frappe(t0 + k * croche, 'h');
-      if (p.batterie > 1 && k === 7 && m % 4 === 3) frappe(t0 + k * croche, 'k');
+      if (p.batterie > 1 || k % 2 === 0) { frappe(t0 + k * croche, 'h'); if (p.batterie > 1) frappe(t0 + (k + 0.5) * croche, 'h'); }
+      if (p.batterie > 1 && k % 2 === 0 && k % 4 !== 0) frappe(t0 + k * croche, 'k');      // grosse caisse sur chaque temps
+      if (p.batterie > 1 && m % 8 === 7 && k >= 4) frappe(t0 + (k + 0.5) * croche, 's');   // roulement avant chaque reprise
     }
   }
   return ac.startRendering().then(buf => URL.createObjectURL(new Blob([wav(buf)], { type: 'audio/wav' })));
