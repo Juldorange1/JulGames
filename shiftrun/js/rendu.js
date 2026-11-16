@@ -441,31 +441,50 @@ function dessiner(e, fantome, hud, dt) {
   mobiles(g, e, ox, vw, vis);
   fleches(g, e, ox, vw);
   ennemis(g, e, ox, vw);
-  if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : chaque ennemi est un rond de rayon r (sa hitbox)
-    const r = m.r, cx2 = m.x + r, cy2 = m.y + r;
-    const C = { marcheur: ['#ff6a80', '#a0203a'], sauteur: ['#ffb070', '#b04010'], volant: ['#9ae0ff', '#2a6aa0'], herisse: ['#e0e0e8', '#505868'],
-      tireur: ['#c0ff8a', '#3a8a20'], fonceur: ['#ff4ae0', '#801070'], lourd: ['#c89a6a', '#5a3a1a'], diviseur: ['#ffe94a', '#a08000'],
-      petit: ['#fff6a0', '#b0a020'], fantome: ['#e8e0ff', '#6a5aa0'], bombe: ['#404048', '#101014'] }[m.type] || ['#ff6a80', '#a0203a'];
+  if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : chaque ennemi est un rond de rayon r (sa hitbox), détails dedans
+    const r = m.r, cx2 = m.x + r, cy2 = m.y + r, tt = m.t;
+    const C = { marcheur: ['#ff8a9a', '#c0304a', '#5a0a1a'], sauteur: ['#ffc080', '#d05a20', '#5a2008'], volant: ['#b8ecff', '#3a8ad0', '#0a2a50'], herisse: ['#f0f0f6', '#7a8296', '#2a2e3a'],
+      tireur: ['#d4ffa0', '#4aa030', '#14380a'], fonceur: ['#ff8af0', '#a02090', '#40083a'], lourd: ['#e0b88a', '#7a5028', '#2a1808'], diviseur: ['#fff27a', '#c0a010', '#4a3a00'],
+      petit: ['#fffac0', '#d0c040', '#4a4000'], fantome: ['#f4f0ff', '#8a7ac8', '#3a2a6a'], bombe: ['#6a6a76', '#202028', '#08080c'],
+      archer: ['#a0ffd8', '#2a9a70', '#0a3a28'], invocateur: ['#d0a0ff', '#6a2aa0', '#24083a'], rebond: ['#ffa0c0', '#e04a7a', '#4a0a20'] }[m.type] || ['#ff8a9a', '#c0304a', '#5a0a1a'];
     g.globalAlpha = m.invisible ? 0.15 : 1;
-    if (m.type === 'herisse') {                                     // piquants compris dans le rayon : on ne peut pas l'écraser
-      g.fillStyle = '#e8e0e4';
-      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + m.t * 0.05; g.beginPath(); g.moveTo(cx2 + Math.cos(a) * r, cy2 + Math.sin(a) * r); g.lineTo(cx2 + Math.cos(a + 0.3) * (r - 2.5), cy2 + Math.sin(a + 0.3) * (r - 2.5)); g.lineTo(cx2 + Math.cos(a - 0.3) * (r - 2.5), cy2 + Math.sin(a - 0.3) * (r - 2.5)); g.fill(); }
+    const ri = m.type === 'herisse' ? r - 2.5 : r;
+    if (m.type === 'herisse') {
+      g.fillStyle = '#f4eef2';
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + tt * 0.05; g.beginPath(); g.moveTo(cx2 + Math.cos(a) * r, cy2 + Math.sin(a) * r); g.lineTo(cx2 + Math.cos(a + 0.3) * ri, cy2 + Math.sin(a + 0.3) * ri); g.lineTo(cx2 + Math.cos(a - 0.3) * ri, cy2 + Math.sin(a - 0.3) * ri); g.fill(); }
     }
-    const gr = g.createRadialGradient(cx2 - r * 0.3, cy2 - r * 0.3, 1, cx2, cy2, r);
-    gr.addColorStop(0, C[0]); gr.addColorStop(1, C[1]);
-    g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, m.type === 'herisse' ? r - 2.5 : r, 0, 7); g.fill();
-    if (m.type === 'volant') { g.fillStyle = 'rgba(255,255,255,.7)'; const bat = Math.sin(m.t * 0.4) * 2; g.fillRect(cx2 - r + 1, cy2 - 2 + bat, 3, 2); g.fillRect(cx2 + r - 4, cy2 - 2 + bat, 3, 2); }
-    if (m.type === 'lourd' && m.pv > 1) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx2, cy2, r - 1, 0, 7); g.stroke(); }
-    if (m.type === 'bombe') { g.fillStyle = m.meche && Math.floor(m.meche / 6) % 2 ? '#ff3a3a' : '#ffd34d'; g.fillRect(cx2 - 1, cy2 - r - 2, 2, 3);
-      if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(m.t)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
-    if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.3)'; g.fillRect(cx2 - m.dir * (r + 8), cy2 - 2, 8, 4); }
-    if (m.type === 'tireur') { g.fillStyle = '#1a3a10'; g.fillRect(cx2 + (m.dir > 0 ? 1 : -5), cy2 - 1.5, 4, 3); }
-    g.fillStyle = m.type === 'fantome' ? '#3a2a6a' : '#ffde4a';
-    g.fillRect(cx2 - 3 + m.dir, cy2 - 2, 2, 2); g.fillRect(cx2 + 1 + m.dir, cy2 - 2, 2, 2);
-    if (m.type !== 'herisse') { g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(cx2 - r * 0.5, cy2 - r + 0.3, r, 1.2); }   // le dessus : là où on l'écrase
+    g.fillStyle = C[2]; g.beginPath(); g.arc(cx2, cy2, ri, 0, 7); g.fill();                      // contour
+    const gr = g.createRadialGradient(cx2 - ri * 0.35, cy2 - ri * 0.4, 0.5, cx2, cy2, ri);
+    gr.addColorStop(0, C[0]); gr.addColorStop(0.7, C[1]); gr.addColorStop(1, C[2]);
+    g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, ri - 0.9, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(cx2 - ri * 0.35, cy2 - ri * 0.45, ri * 0.28, ri * 0.16, -0.5, 0, 7); g.fill();   // reflet
+    // pattes qui trottinent (dans le rond)
+    if (['marcheur', 'sauteur', 'lourd', 'diviseur', 'petit', 'tireur', 'archer', 'invocateur', 'fonceur', 'bombe'].includes(m.type)) {
+      const pas2 = Math.sin(tt * 0.35) * 1.2; g.fillStyle = C[2];
+      g.fillRect(cx2 - ri * 0.5 - 1, cy2 + ri - 2.2 + pas2 * 0.3, 2.4, 1.8); g.fillRect(cx2 + ri * 0.5 - 1.4, cy2 + ri - 2.2 - pas2 * 0.3, 2.4, 1.8);
+    }
+    // yeux qui regardent le joueur
+    const ax = Math.max(-1, Math.min(1, (e.x + 6 - cx2) / 40)), ay = Math.max(-1, Math.min(1, (e.y + 6 - cy2) / 40));
+    const ey = cy2 - ri * 0.18, ec = ri * 0.32, er = Math.max(1.4, ri * 0.24);
+    for (const sx of m.type === 'invocateur' ? [0] : [-1, 1]) {
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(cx2 + sx * ec, ey, er, 0, 7); g.fill();
+      g.fillStyle = m.type === 'fantome' ? '#3a2a6a' : '#140a10'; g.beginPath(); g.arc(cx2 + sx * ec + ax * er * 0.45, ey + ay * er * 0.45, er * 0.55, 0, 7); g.fill();
+    }
+    if (m.type === 'marcheur' || m.type === 'fonceur' || m.type === 'lourd') { g.strokeStyle = C[2]; g.lineWidth = 1; g.beginPath(); g.moveTo(cx2 - ec - er, ey - er - 0.5); g.lineTo(cx2 - ec + er * 0.6, ey - er * 0.4); g.moveTo(cx2 + ec + er, ey - er - 0.5); g.lineTo(cx2 + ec - er * 0.6, ey - er * 0.4); g.stroke(); }  // sourcils méchants
+    if (m.type === 'volant') { g.fillStyle = 'rgba(255,255,255,.85)'; const bat = Math.sin(tt * 0.5) * 1.6; g.beginPath(); g.ellipse(cx2 - ri + 1.6, cy2 + bat * 0.4, 1.6, 2.6 + bat * 0.3, 0.4, 0, 7); g.ellipse(cx2 + ri - 1.6, cy2 - bat * 0.4, 1.6, 2.6 - bat * 0.3, -0.4, 0, 7); g.fill(); }
+    if (m.type === 'rebond') { g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, ri * 0.6, 0.3, 2.8); g.stroke(); }
+    if (m.type === 'archer') { g.strokeStyle = '#6a4a20'; g.lineWidth = 1.2; g.beginPath(); g.arc(cx2 + m.dir * ri * 0.45, cy2 + 1, ri * 0.45, -1.2, 1.2); g.stroke(); }
+    if (m.type === 'invocateur') { g.fillStyle = 'rgba(40,10,70,.8)'; g.beginPath(); g.moveTo(cx2 - ri * 0.8, cy2 - ri * 0.3); g.lineTo(cx2, cy2 - ri + 0.5); g.lineTo(cx2 + ri * 0.8, cy2 - ri * 0.3); g.fill(); }
+    if (m.type === 'tireur') { g.fillStyle = C[2]; g.fillRect(cx2 + (m.dir > 0 ? ri * 0.3 : -ri * 0.3 - 4), cy2 + 1, 4, 2.5); }
+    if (m.type === 'lourd' && m.pv > 1) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx2, cy2, ri - 1, 0, 7); g.stroke(); }
+    if (m.elite) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.4; g.beginPath(); g.arc(cx2, cy2, ri - 0.8, 0, 7); g.stroke();       // élite : liseré et couronne dorés
+      g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 3, cy2 - ri + 3.5); g.lineTo(cx2 - 3, cy2 - ri + 1); g.lineTo(cx2 - 1.5, cy2 - ri + 2.4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 1.5, cy2 - ri + 2.4); g.lineTo(cx2 + 3, cy2 - ri + 1); g.lineTo(cx2 + 3, cy2 - ri + 3.5); g.fill(); }
+    if (m.type === 'bombe') { g.fillStyle = m.meche && Math.floor(m.meche / 6) % 2 ? '#ff3a3a' : '#ffd34d'; g.fillRect(cx2 - 1, cy2 - ri, 2, 2.5);
+      if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(tt)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
+    if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.35)'; g.fillRect(cx2 - m.dir * (r + 9), cy2 - 2, 8, 4); }
     g.globalAlpha = 1;
   }
-  if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); }
+  if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = b2[5] ? '#a0ffd8' : '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(b2[0] - 0.8, b2[1] - 1.5, 1.2, 1.2); }
   if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
   competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
@@ -1322,64 +1341,61 @@ function interfaceJeu(g, e, hud) {
   g.fillStyle = 'rgba(0,0,0,.55)'; g.fillText(chrono(hud.chrono), LARG / 2 + 2, 14 * P + 2);
   g.fillStyle = hud.couleurChrono || '#fff'; g.fillText(chrono(hud.chrono), LARG / 2, 14 * P);
   if (hud.sousChrono) {
-    g.font = `600 ${Math.round(15 * P)}px "Chakra Petch", monospace`;
+    g.font = `600 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", monospace`;
     g.fillStyle = hud.sousCouleur || '#bbb'; g.fillText(hud.sousChrono, LARG / 2, 54 * P);
   }
   // nom du niveau
   g.textAlign = 'left';
-  g.font = `700 ${Math.round(16 * P)}px "Chakra Petch", sans-serif`;
+  g.font = `700 ${Math.max(16, Math.round(16 * P))}px "Chakra Petch", sans-serif`;
   g.fillStyle = th.accent; g.fillText(hud.titre || '', 16, 14 * P);
-  g.font = `500 ${Math.round(13 * P)}px "Chakra Petch", sans-serif`;
+  g.font = `500 ${Math.max(16, Math.round(13 * P))}px "Chakra Petch", sans-serif`;
   g.fillStyle = '#ccc';
   if (hud.lignes) hud.lignes.forEach((l, i) => { g.fillStyle = l.c || '#ccc'; g.fillText(l.t, 16, (36 + i * 18) * P); });
   // morts
   g.textAlign = 'right';
   g.fillStyle = '#ccc'; g.fillText('☠ ' + e.morts, LARG - 16, 14 * P);
   if (hud.droite) hud.droite.forEach((l, i) => {
-    g.fillStyle = l.c || '#aaa'; g.font = `${l.gras ? 700 : 500} ${Math.round(13 * P)}px "Chakra Petch", monospace`;
+    g.fillStyle = l.c || '#aaa'; g.font = `${l.gras ? 700 : 500} ${Math.max(16, Math.round(13 * P))}px "Chakra Petch", monospace`;
     g.fillText(l.t, LARG - 16, (36 + i * 18) * P);
   });
   // états + charges (bas gauche)
   const n = niv;
   const emp = n ? n.emplacements.slice() : [M.S];
   const ph = emp.filter(p => n && (n.phases & (1 << p)));
-  const taille = 44 * P;
+  const taille = Math.max(64, 54 * P), lg = Math.max(122, 104 * P);     // cases larges : les noms tiennent en 16 px au moins
   let bx = 16, by = HAUT - taille - 18 * P;
-  if (hud.tactile) { bx = LARG / 2 - (ph.length * (taille + 8) + 46 * P) / 2; by = (hud.sousChrono ? 80 : 62) * P; }   // en tactile : en haut, loin des pouces
+  if (hud.tactile) { bx = LARG / 2 - (ph.length * (lg + 8) + 46 * P) / 2; by = (hud.sousChrono ? 80 : 62) * P; }   // en tactile : en haut, loin des pouces
   g.textAlign = 'center';
   ph.forEach((p, i) => {
-    const x = bx + i * (taille + 8);
+    const x = bx + i * (lg + 8);
     const actif = e.phase === p, slot = emp.indexOf(p);
     const banni = e.ban === p && e.temps < e.banT;
     g.fillStyle = actif ? COUL_PHASE[p] : 'rgba(255,255,255,.08)';
     g.globalAlpha = actif ? 1 : 0.9;
-    arrondi(g, x, by, taille, taille, 6); g.fill();
+    arrondi(g, x, by, lg, taille, 8); g.fill();
     g.strokeStyle = COUL_PHASE[p]; g.lineWidth = 2; g.stroke();
     g.fillStyle = actif ? '#111' : COUL_PHASE[p];
-    g.font = `800 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`;
-    g.font = `800 ${Math.round(20 * P)}px "Chakra Petch", sans-serif`;
-    g.fillText((hud.touches && hud.touches[slot]) || '', x + taille / 2, by + 4 * P);
+    g.font = `800 ${Math.max(24, Math.round(22 * P))}px "Chakra Petch", sans-serif`;
+    g.fillText((hud.touches && hud.touches[slot]) || '', x + lg / 2, by + 4 * P);
     const nomE = ((hud.nomsPhases && hud.nomsPhases[p]) || M.NOMS_PHASES[p]).toUpperCase();
-    g.font = `700 ${Math.round(9.5 * P)}px "Chakra Petch", sans-serif`;
-    const lgN = g.measureText(nomE).width;
-    if (lgN > taille - 5) g.font = `700 ${Math.max(6, Math.floor(9.5 * P * (taille - 5) / lgN))}px "Chakra Petch", sans-serif`;
-    g.fillText(nomE, x + taille / 2, by + taille - 13 * P);
+    g.font = `700 ${Math.max(16, Math.round(14 * P))}px "Chakra Petch", sans-serif`;
+    g.fillText(nomE, x + lg / 2, by + taille - Math.max(20, 18 * P));
     if (actif && hud.nomsCapas) {                    // la compétence : réappuyer sur la même touche
-      g.font = `700 ${Math.round(13 * P)}px "Chakra Petch", sans-serif`; g.fillStyle = e.capCd > 0 ? 'rgba(255,255,255,.4)' : '#ffe94a';
-      g.fillText('↻ ' + hud.nomsCapas[p], x + taille / 2, by - 15 * P);
+      g.font = `700 ${Math.max(16, Math.round(13 * P))}px "Chakra Petch", sans-serif`; g.fillStyle = e.capCd > 0 ? 'rgba(255,255,255,.4)' : '#ffe94a';
+      g.fillText('↻ ' + hud.nomsCapas[p], x + lg / 2, by - Math.max(22, 20 * P));
     }
-    if ((p === M.Z || p === M.OM) && e.phase === p) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * e.gaz / (p === M.Z ? M.K.zDuree : M.K.omDuree), 4); }
+    if ((p === M.Z || p === M.OM) && e.phase === p) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (lg - 6) * e.gaz / (p === M.Z ? M.K.zDuree : M.K.omDuree), 4); }
     if (banni) {                                  // état banni : grande croix rouge et temps restant
       g.globalAlpha = 1;
-      g.fillStyle = 'rgba(20,0,4,.6)'; arrondi(g, x, by, taille, taille, 6); g.fill();
+      g.fillStyle = 'rgba(20,0,4,.6)'; arrondi(g, x, by, lg, taille, 8); g.fill();
       g.strokeStyle = '#ff2a3a'; g.lineWidth = 4 * P; g.beginPath();
-      g.moveTo(x + 7, by + 7); g.lineTo(x + taille - 7, by + taille - 7); g.moveTo(x + taille - 7, by + 7); g.lineTo(x + 7, by + taille - 7); g.stroke();
-      g.fillStyle = '#ff2a3a'; g.fillRect(x + 3, by + taille + 3, (taille - 6) * Math.min(1, (e.banT - e.temps) / M.K.banDuree), 4);
+      g.moveTo(x + 7, by + 7); g.lineTo(x + lg - 7, by + taille - 7); g.moveTo(x + lg - 7, by + 7); g.lineTo(x + 7, by + taille - 7); g.stroke();
+      g.fillStyle = '#ff2a3a'; g.fillRect(x + 3, by + taille + 3, (lg - 6) * Math.min(1, (e.banT - e.temps) / M.K.banDuree), 4);
     }
   });
   g.globalAlpha = 1;
   if (ph.length > 1) {
-    const cxh = bx + ph.length * (taille + 8) + 10;
+    const cxh = bx + ph.length * (lg + 8) + 10;
     for (let i = 0; i < M.K.charges; i++) {
       const plein = i < e.charges;
       g.fillStyle = plein ? '#7dfcff' : 'rgba(255,255,255,.12)';
@@ -1392,16 +1408,16 @@ function interfaceJeu(g, e, hud) {
   if (n && dyn.drapeau.length) {
     let k = 0;
     if (e.cp) for (const [fx] of dyn.drapeau) if (fx <= e.cp.tx) k++;
-    g.textAlign = 'left'; g.font = `700 ${Math.round(16 * P)}px "Chakra Petch", sans-serif`;
+    g.textAlign = 'left'; g.font = `700 ${Math.max(16, Math.round(16 * P))}px "Chakra Petch", sans-serif`;
     const tx2 = '⚑ ' + k + ' / ' + dyn.drapeau.length;
-    const yy = hud.tactile ? HAUT - 40 * P : by - 48 * P;
+    const yy = hud.tactile ? HAUT - 40 * P : by - Math.max(56, 52 * P);
     g.fillStyle = 'rgba(8,6,14,.55)'; arrondi(g, bx - 4, yy - 4, g.measureText(tx2).width + 14, 24 * P, 6); g.fill();
     g.fillStyle = k ? '#7dff9a' : '#ccc'; g.fillText(tx2, bx + 3, yy);
     g.textAlign = 'center';
   }
   // éclat
   if (n && n.aEclat) {
-    g.font = `700 ${Math.round(18 * P)}px sans-serif`; g.textAlign = 'right';
+    g.font = `700 ${Math.max(16, Math.round(18 * P))}px sans-serif`; g.textAlign = 'right';
     g.fillStyle = e.eclat ? '#ff7ae0' : 'rgba(255,255,255,.2)'; g.fillText('◆', LARG - 16, HAUT - 40 * P);
   }
   // entrées affichées
@@ -1412,7 +1428,7 @@ function interfaceJeu(g, e, hud) {
     const touche = (x, y, on, t, w) => {
       g.fillStyle = on ? '#ffe94a' : 'rgba(255,255,255,.14)'; arrondi(g, x, y, (w || 1) * k - 4, k - 4, 6); g.fill();
       g.strokeStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.stroke();
-      g.fillStyle = on ? '#111' : '#ddd'; g.font = `800 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = on ? '#111' : '#ddd'; g.font = `800 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(t, x + (w || 1) * k / 2 - 2, y + k / 2 - 2); g.textBaseline = 'top';
     };
     touche(x0 + k, y0, inp & E.H, '↑'); touche(x0, y0 + k, inp & E.G, '←'); touche(x0 + k, y0 + k, inp & E.B, '↓'); touche(x0 + 2 * k, y0 + k, inp & E.D, '→');
@@ -1422,7 +1438,7 @@ function interfaceJeu(g, e, hud) {
   }
   // panneau
   if (hud.panneau) {
-    g.font = `600 ${Math.round(16 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
+    g.font = `600 ${Math.max(16, Math.round(16 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
     const lignes = couper(g, hud.panneau, Math.min(LARG - 60, 720));
     const hL = 22 * P, bh = lignes.length * hL + 20, bw = Math.min(LARG - 40, 760), bxx = (LARG - bw) / 2, byy = (hud.tactile ? 124 : 84) * P;
     g.fillStyle = 'rgba(10,8,16,.82)'; arrondi(g, bxx, byy, bw, bh, 10); g.fill();
@@ -1435,7 +1451,7 @@ function interfaceJeu(g, e, hud) {
     g.fillStyle = hud.messageC || '#fff'; g.fillText(hud.message, LARG / 2, HAUT * 0.3);
   }
   if (hud.attente) {
-    g.font = `600 ${Math.round(15 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
+    g.font = `600 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
     g.globalAlpha = 0.6 + 0.4 * Math.sin(temps * 4);
     g.fillStyle = '#fff'; g.fillText(hud.attente, LARG / 2, HAUT - 46 * P);
     g.globalAlpha = 1;
