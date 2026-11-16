@@ -339,10 +339,12 @@ function chercherEclat(def, r0) {
     try { b = chercher(def, true, { depart: { etat: a.etat } }); } catch (err) { b = { ok: false }; }
     if (b.ok) cands.push({ entrees: pre.concat(a.entrees, b.entrees), temps: b.temps });
   }
-  let r;
+  let r = { ok: false };
+  if (!cands.length) {                                   // seulement si la recherche locale a échoué (gain de temps)
   const aff = opt.affiner; opt.affiner = 0;             // l'affinage se fait une seule fois, sur le meilleur
   try { r = chercher(def, true); } catch (err) { r = { ok: false }; }
   opt.affiner = aff;
+  }
   if (r.ok) cands.push({ entrees: r.entrees, temps: r.temps });
   if (!cands.length) return { ok: false };
   cands.sort((x, y) => x.temps - y.temps);
