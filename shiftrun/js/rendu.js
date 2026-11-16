@@ -520,6 +520,15 @@ function arrierePlan(g, ox, oy, z, enJeu) {
   gr.addColorStop(0, th.ciel[0]); gr.addColorStop(1, th.ciel[1]);
   g.fillStyle = gr; g.fillRect(0, 0, LARG, HAUT);
   const id = th.style + th.nom;
+  // étoiles et poussière lumineuse très lointaines, qui scintillent
+  g.save();
+  for (let i = 0; i < 90; i++) {
+    const s1 = alea(i * 1.37 + 3), s2 = alea(i * 7.91 + 1);
+    const x = ((s1 * LARG * 1.5 - ox * 0.03 * z) % LARG + LARG) % LARG, y = s2 * HAUT * 0.6;
+    g.globalAlpha = (0.15 + 0.35 * Math.abs(Math.sin(temps * (0.5 + s1) + i))) * (th.nuit || 0.4);
+    g.fillStyle = `rgb(${th.lum})`; g.fillRect(x, y, 1 + (i % 5 === 0 ? 1 : 0), 1 + (i % 5 === 0 ? 1 : 0));
+  }
+  g.restore();
   // rayons de lumière lointains
   g.save();
   g.globalCompositeOperation = 'lighter';
@@ -575,11 +584,56 @@ function arrierePlan(g, ox, oy, z, enJeu) {
     }
   }
   objetsFond(g, ox, oy, z);
+  decorPlus(g, ox, oy, z);
   // brume au sol
   const br = g.createLinearGradient(0, HAUT * 0.55, 0, HAUT);
   br.addColorStop(0, 'rgba(0,0,0,0)'); br.addColorStop(1, `rgba(${th.lum},.06)`);
   g.fillStyle = br; g.fillRect(0, HAUT * 0.55, LARG, HAUT * 0.45);
   if (enJeu && th.style === 'cristal' && Math.sin(temps * 0.9) > 0.993) { flash = Math.max(flash, 0.12); flashC = '#e6dcff'; }
+}
+// lumières flottantes, bancs de brume qui dérivent, et silhouettes proches qui encadrent l'écran (parallaxe forte)
+function decorPlus(g, ox, oy, z) {
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 22; i++) {                                 // lucioles / bokeh flous
+    const s1 = alea(i * 5.17 + 2), s2 = alea(i * 2.71 + 8), r = 6 + s1 * 22;
+    const x = ((s1 * LARG * 2 - ox * (0.12 + s2 * 0.1) * z + Math.sin(temps * 0.3 + i) * 30) % (LARG + 80) + LARG + 80) % (LARG + 80) - 40;
+    const y = HAUT * (0.15 + s2 * 0.7) + Math.sin(temps * (0.4 + s1 * 0.4) + i * 2) * 18;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(${th.lum},${0.10 + 0.06 * Math.sin(temps * 1.3 + i)})`); gr.addColorStop(1, `rgba(${th.lum},0)`);
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.restore();
+  // deux bancs de brume qui glissent lentement
+  g.save();
+  for (let k = 0; k < 2; k++) {
+    const y = HAUT * (0.5 + k * 0.22), h = HAUT * 0.16, d = (temps * (8 + k * 6) + ox * (0.2 + k * 0.1) * z) % (LARG * 2);
+    for (let j = -1; j <= 1; j++) {
+      const x = j * LARG * 2 - d;
+      const gr = g.createRadialGradient(x + LARG, y, 0, x + LARG, y, LARG);
+      gr.addColorStop(0, `rgba(${th.lum},${0.05 - k * 0.015})`); gr.addColorStop(1, `rgba(${th.lum},0)`);
+      g.fillStyle = gr; g.fillRect(x, y - h, LARG * 2, h * 2);
+    }
+  }
+  g.restore();
+  // silhouettes proches en haut et en bas de l'écran (stalactites, tuyaux, glaçons, coraux…)
+  const f = 0.6, dec = ox * f * z, E = 90;
+  const i0 = Math.floor(dec / E) - 1, i1 = i0 + Math.ceil(LARG / E) + 2;
+  g.save();
+  g.fillStyle = th.loin[2]; g.globalAlpha = 0.85;
+  for (let i = i0; i <= i1; i++) {
+    const s1 = alea(i * 4.3 + 11), s2 = alea(i * 8.9 + 3), x = i * E - dec;
+    const lh = 20 + s1 * 70, lw = 18 + s2 * 34;
+    switch (th.style) {
+      case 'metal': if (s1 > 0.45) { g.fillRect(x, 0, 10, lh + 30); g.fillRect(x - 6, lh + 26, 22, 8); } break;               // tuyaux
+      case 'brique': if (s1 > 0.5) { for (let k = 0; k < lh / 8; k++) g.fillRect(x + (k % 2) * 2, k * 8, 6, 6); } break;      // chaînes
+      case 'neige': g.beginPath(); g.moveTo(x, 0); g.lineTo(x + lw * 0.5, lh * 1.2); g.lineTo(x + lw, 0); g.fill(); break;     // glaçons
+      case 'corail': g.beginPath(); g.moveTo(x, HAUT); g.quadraticCurveTo(x + lw * 0.2 + Math.sin(temps + i) * 6, HAUT - lh * 1.4, x + lw * 0.5, HAUT - lh * 1.6); g.quadraticCurveTo(x + lw * 0.8, HAUT - lh, x + lw, HAUT); g.fill(); break;
+      default: g.beginPath(); g.moveTo(x, 0); g.lineTo(x + lw * 0.45, lh); g.lineTo(x + lw, 0); g.fill();                    // stalactites
+        if (s2 > 0.55) { g.beginPath(); g.moveTo(x + 10, HAUT); g.lineTo(x + 10 + lw * 0.4, HAUT - lh * 0.6); g.lineTo(x + 10 + lw * 0.8, HAUT); g.fill(); }
+    }
+  }
+  g.restore();
 }
 // grands éléments du fond, propres à chaque zone (parallaxe moyenne)
 function objetsFond(g, ox, oy, z) {
