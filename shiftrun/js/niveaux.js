@@ -92,7 +92,8 @@ const ZONES = DEF.map((z, zi) => ({
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
     if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';        // le « boss » de la zone : le broyeur, juste avant l'arrivée
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d };
+    const effet = zi >= 1 && (k === 2 || (zi >= 4 && k === 4)) ? ['brouillard', 'unecharge', 'rapide'][(zi + k) % 3] : undefined;   // certains niveaux ont un effet
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d, effet };
   })
 }));
 

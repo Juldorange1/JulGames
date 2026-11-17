@@ -520,7 +520,6 @@ function dessiner(e, fantome, hud, dt) {
   arrierePlan(g, ox, oy, z, !!hud);
 
   g.save();
-  if (hud && hud.miroir) { g.translate(LARG, 0); g.scale(-1, 1); }     // mutateur miroir : tout le décor est retourné
   g.scale(z, z);
   g.translate(-ox, -oy);
   if (niv) {
@@ -1009,7 +1008,7 @@ function casesAnimees(g, e, vis) {
   }
   for (const [x, y, k] of dyn.plaque) {                     // plaque de transformation : couleur de l'état qu'elle donne
     if (!vis(x, y)) continue;
-    const p = niv.emplacements[k], px = x * T, py = y * T;
+    const p = M.plaqueEtat(niv, k), px = x * T, py = y * T;
     if (p === undefined) continue;
     g.fillStyle = '#2a2833'; g.fillRect(px, py + T - 4, T, 4);
     g.fillStyle = COUL_PHASE[p]; g.fillRect(px + 1, py + T - 6, T - 2, 3);

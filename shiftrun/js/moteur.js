@@ -76,6 +76,8 @@ function charger(def) {
   let phases = 0;
   for (const p of (def.phases || et)) phases |= 1 << p;
   const n = { def, phases, emplacements: et, base: et[0], capacites: def.capacites !== false };
+  n.uneCharge = def.effet === 'unecharge';
+  n.horsEtats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !et.includes(p)).sort((a, b) => ((a * 7 + et.length * 3 + et[0]) % 10) - ((b * 7 + et.length * 3 + et[0]) % 10));
   recharger(n, def.carte);
   if (!n.dep) throw new Error('Pas de départ @ dans ' + def.id);
   return n;
@@ -445,6 +447,13 @@ function tuile(n, tx, ty) {
   if (ty >= n.h) return VIDE;
   return n.g[ty * n.w + tx];
 }
+function boiteLibre(n, e, x, y) {
+  const x0 = Math.floor(x / T), x1 = Math.floor((x + W - 0.01) / T), y0 = Math.floor(y / T), y1 = Math.floor((y + H - 0.01) / T);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (plein(n, e, tx, ty)) return false;
+  return true;
+}
+// plaques : elles donnent des transformations que le niveau n'a PAS (dans un ordre propre à chaque niveau)
+function plaqueEtat(n, k) { return n.horsEtats[k]; }
 function rythmeLa(n, temps, tx, ty) {
   const d = n.rythme.get(ty * n.w + tx);
   if (d === undefined) return false;
@@ -721,6 +730,7 @@ function pas(n, e, inp) {
   if (!e.demarre) { if (!inp) return; e.demarre = true; }
   e.temps++;
   if (e.mortT > 0) { if (--e.mortT === 0) { placer(e, n); e.invT = K.invincible; e.ev |= EV.INVINCIBLE; } return; }
+  if (n.uneCharge && e.charges > 1) e.charges = 1;               // effet de niveau : une seule charge
   if (e.invT > 0) e.invT--;
 
   if (e.craque.length && e.temps - e.craque[0][1] >= K.cassantDelai + K.cassantRetour) e.craque = e.craque.filter(c => e.temps - c[1] < K.cassantDelai + K.cassantRetour);
@@ -1157,7 +1167,7 @@ function pas(n, e, inp) {
       const k = tx * 1024 + ty;
       if (rectRect(e, bx + 2, by + 3, bx + 14, by + T) && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
     } else if (t >= PLAQUE0 && t <= PLAQUE2) {                // plaque : transforme tout de suite, sans dépenser de charge
-      const vers = n.emplacements[t - PLAQUE0];
+      const vers = plaqueEtat(n, t - PLAQUE0);
       if (vers !== undefined && vers !== e.phase && rectRect(e, bx + 1, by + 11, bx + T - 1, by + T) && !(e.ban === vers && e.temps < e.banT)) {
         e.grap = null; e.hover = 0; e.dashCA = 0; e.torrent = 0; changer(n, e, vers, e.face, 0);
       }
@@ -1259,7 +1269,15 @@ function pas(n, e, inp) {
     for (const p of n.pilons) {
       if (Math.abs(p.x * T - e.x) > 3 * T) continue;
       const r = pilonRect(p, e.temps);
-      if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
+      if (!rectRect(e, r[0], r[1], r[2], r[3])) continue;
+      // le pilon est un bloc : il pousse ; il ne tue que s'il écrase contre un mur ou le sol
+      const gch = e.x + W - r[0], dte = r[2] - e.x, hau = e.y + H - r[1], bas = r[3] - e.y, m = Math.min(gch, dte, hau, bas);
+      let nx = e.x, ny = e.y;
+      if (m === hau) { ny = r[1] - H; if (e.vy > 0) e.vy = 0; e.sol = true; e.att = 0; }
+      else if (m === bas) { ny = r[3]; if (e.vy < 1) e.vy = 1; }
+      else if (m === gch) nx = r[0] - W; else nx = r[2];
+      if (!boiteLibre(n, e, nx, ny)) { mourir(e); break; }
+      e.x = nx; e.y = ny;
     }
   }
   // scies en orbite
@@ -1321,7 +1339,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

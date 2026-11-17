@@ -25,16 +25,19 @@ const ent = (rng, a, b) => a + Math.floor(rng() * (b - a + 1));
 const borne = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* ---------- Grille qui s'allonge vers la droite ---------- */
-function Grille() {
+const DESC = 20;                 // les niveaux de campagne ont 20 rangées de plus : le couloir peut descendre et remonter
+const PALIER = 10;               // une salle de transition fait monter ou descendre le couloir de 10 rangées
+function Grille(h) {
+  this.h = h || HAUT;
   this.l = [];
-  for (let y = 0; y < HAUT; y++) this.l.push([]);
+  for (let y = 0; y < this.h; y++) this.l.push([]);
   this.w = 0;
 }
 Grille.prototype.elargir = function (w2) {
-  while (this.w < w2) { for (let y = 0; y < HAUT; y++) this.l[y].push('#'); this.w++; }
+  while (this.w < w2) { for (let y = 0; y < this.h; y++) this.l[y].push('#'); this.w++; }
 };
 Grille.prototype.met = function (x, y, c) {
-  if (y <= 0 || y >= HAUT - 1 || x < 0) return;
+  if (y <= 0 || y >= this.h - 1 || x < 0) return;
   if (x >= this.w) this.elargir(x + 1);
   if (x === 0 && c !== '#') return;
   this.l[y][x] = c;
@@ -42,13 +45,14 @@ Grille.prototype.met = function (x, y, c) {
 Grille.prototype.carte = function () { return this.l.map(r => r.join('')); };
 
 // outils relatifs au début d'une salle
-function salle(g, x0) {
+function salle(g, x0, dy) {
+  dy = dy || 0;                                          // décalage vertical du couloir (niveaux qui montent et descendent)
   const api = {
-    r(xa, ya, xb, yb, c = '#') { for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) g.met(x0 + x, y, c); },
+    r(xa, ya, xb, yb, c = '#') { for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) g.met(x0 + x, y + dy, c); },
     c(xa, ya, xb, yb) { api.r(xa, ya, xb, yb, '.'); },
-    p(x, y, c) { g.met(x0 + x, y, c); },
-    n(x, y, k, c) { for (let i = 0; i < k; i++) g.met(x0 + x + i, y, c); },
-    col(x, ya, yb, c) { for (let y = ya; y <= yb; y++) g.met(x0 + x, y, c); },
+    p(x, y, c) { g.met(x0 + x, y + dy, c); },
+    n(x, y, k, c) { for (let i = 0; i < k; i++) g.met(x0 + x + i, y + dy, c); },
+    col(x, ya, yb, c) { for (let y = ya; y <= yb; y++) g.met(x0 + x, y + dy, c); },
     couloir(xa, xb, haut = 14) { api.c(xa, haut, xb, 19); },
     sol(xa, xb, c) { api.r(xa, 20, xb, 20, c); }
   };
@@ -868,6 +872,37 @@ SALLES.broyeur = { phases: [S], f(s, rng, d) {
   s.couloir(Lg + 1, Lg + 3);
   return Lg + 4;
 } };
+// Transitions : le couloir change de hauteur (decale = rangées gagnées vers le bas)
+// Chute : un grand puits aux parois hérissées, on atterrit dans un couloir plus bas
+SALLES.chute = { phases: [S], decale: PALIER, f(s, rng, d) {
+  const L = 16;
+  s.couloir(0, 2); s.c(3, 14, 8, 23); s.c(3, 24, L, 29);
+  for (let y = 16, i = 0; y < 23; y += 3, i++) s.p(i % 2 ? 8 : 3, y, '^');
+  if (d > 0.4) s.n(5, 18, 2, '-');
+  if (d > 0.6) s.n(11, 29, 2, '^');
+  return L + 1;
+} };
+// Montée : un puits à gravir par des plateformes fines, on ressort dans un couloir plus haut
+SALLES.montee = { phases: [S], decale: -PALIER, f(s, rng, d) {
+  const L = 18;
+  s.couloir(0, 3); s.c(4, 4, 9, 19); s.c(10, 4, L, 9);
+  [16, 13, 10, 7].forEach((y, i) => s.n(i % 2 ? 4 : 7, y, 3, '-'));
+  if (d > 0.5) s.p(4, 18, '^');
+  if (d > 0.7) s.p(13, 3, 'L');
+  return L + 1;
+} };
+// Retour : le couloir est muré ; on plonge dans un boyau bas qui repart vers la GAUCHE, puis on retombe et on repart à droite
+SALLES.retour = { phases: [S], decale: PALIER, f(s, rng, d) {
+  const L = 34;
+  s.couloir(0, 30); s.c(27, 20, 28, 20);                       // le trou au bout du couloir muré
+  s.c(3, 21, 28, 22);                                          // le boyau (2 rangées) vers la gauche
+  for (let x = 23; x > 6; x -= 5) s.p(x, 22, '^');
+  s.c(3, 23, 4, 23);                                           // le trou du bout du boyau
+  s.c(3, 24, L, 29);                                           // le couloir du dessous, vers la droite
+  if (d > 0.4) for (let x = 10; x < L - 4; x += 8) s.n(x, 29, 2, '^');
+  if (d > 0.7) s.p(18, 24, 'K');
+  return L + 1;
+} };
 // Descente puis remontée : un puits qu'on descend en évitant les pics des parois, et des plateformes fines pour remonter
 SALLES.puits = { phases: [S], f(s, rng, d) {
   const prof = 10 + Math.round(d * 6);
@@ -884,15 +919,15 @@ SALLES.puits = { phases: [S], f(s, rng, d) {
 } };
 
 /* ---------- Construction ---------- */
-function debut(g, panneaux) {
-  const s = salle(g, 0);
+function debut(g, panneaux, dy) {
+  const s = salle(g, 0, dy);
   const larg = Math.max(9, 5 + panneaux.length * 2);
   s.couloir(1, larg - 1, 13); s.p(2, 19, '@');
   panneaux.forEach((_, i) => s.p(4 + i * 2, 19, '?'));
   return larg;
 }
-function fin(g, x0) {
-  const s = salle(g, x0);
+function fin(g, x0, dy) {
+  const s = salle(g, x0, dy);
   s.couloir(0, 6, 13); s.p(5, 19, 'G');
   g.elargir(x0 + 8);
   return x0 + 8;
@@ -912,7 +947,9 @@ function calibre(type, d) {
    franchissable (vérifié par outils/test-salles.js --varier). */
 const VARIATIONS = ['cristal', 'arbalete', 'ennemi', 'pics', 'glace', 'arbalete', 'ennemi', 'pics', 'laser', 'scie', 'champi'];
 function varier(g, x0, x1, rng, d, ctx) {
-  const L = (x, y) => (g.l[y] && g.l[y][x]) || '#';
+  const dy = (ctx && ctx.dy) || 0, gm = g;
+  g = { met: (x, y, c) => gm.met(x, y + dy, c), l: gm.l };
+  const L = (x, y) => (gm.l[y + dy] && gm.l[y + dy][x]) || '#';
   const plat = (x) => L(x, 20) === '#' && L(x, 13) === '#' && L(x, 12) === '#' && [14, 15, 16, 17, 18, 19].every(y => L(x, y) === '.');
   const fosse = (x) => L(x, 20) === '.' && L(x, 23) === '^' && L(x, 16) === '.';
   const k = Math.floor(rng() * (1.6 + d * 2.2));
@@ -944,7 +981,7 @@ function varier(g, x0, x1, rng, d, ctx) {
 function poser(g, x0, type, rng, d, ctx) {
   ctx = ctx || {};
   const dd = ctx.brut ? d : calibre(ctx.glace ? type + '*' : type, d);
-  const x1 = x0 + SALLES[type].f(salle(g, x0), rng, borne(dd, 0, 1.2), ctx);
+  const x1 = x0 + SALLES[type].f(salle(g, x0, ctx.dy), rng, borne(dd, 0, 1.2), ctx);
   if (ctx.varier) varier(g, x0, x1, ctx.rngV || rng, borne(d, 0, 1.2), ctx);
   return x1;
 }
@@ -982,7 +1019,7 @@ function compatible(t, etats) {
 }
 const ALCOVES = ['alcove0', 'alcove1', 'alcove2', 'alcove3', 'alcove4', 'alcove5', 'alcove6', 'alcove7'];
 function sallesPour(etats) {
-  const l = Object.keys(SALLES).filter(t => !t.startsWith('alcove') && compatible(t, etats));
+  const l = Object.keys(SALLES).filter(t => !t.startsWith('alcove') && !SALLES[t].decale && compatible(t, etats));
   if (compatible('cheminee', etats) && etats.includes(S)) l.push('cheminee*');   // la glace : sauts muraux du solide
   return l;
 }
@@ -1003,9 +1040,11 @@ function etatsAuHasard(rng, impose, nb) {
 const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3);
-  const g = new Grille();
-  let x = debut(g, panneaux || []);
+  const g = new Grille(HAUT + DESC);
+  let oy = rng() < 0.5 ? 0 : PALIER;                     // hauteur du couloir (0, 10 ou 20 rangées plus bas)
+  let x = debut(g, panneaux || [], oy);
   const types = sallesPour(etats || [S, L, Z]);
+  const descentes = ['chute', 'retour'].filter(t => compatible(t, etats || [S, L, Z])), montees = ['montee'].filter(t => compatible(t, etats || [S, L, Z]));
   const nouv = types.filter(t => (SALLES[t.replace('*', '')].req || []).length > 0);
   const et0 = etats || [S, L, Z];
   // de préférence une cachette faisable avec l'état de départ du niveau (sans dépendre d'un changement d'état)
@@ -1021,22 +1060,29 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
     let liste = types;
     if (i % 2 === 1 && autres.length) { const l2 = parEtat[autres[(i >> 1) % autres.length]]; if (l2 && l2.length) liste = l2; }
     else if (i % 4 === 2 && verticales.length) liste = verticales;
-    const t = (imposees && imposees[i]) || choisir(rng, liste, nouv, suite.slice(-3), compte);
+    let t = (imposees && imposees[i]) || choisir(rng, liste, nouv, suite.slice(-3), compte);
+    // de temps en temps (et souvent dès le départ), le couloir descend, remonte ou repart vers la gauche
+    if (!(imposees && imposees[i]) && (i === 0 ? rng() < 0.55 : i % 5 === 3)) {
+      const bas = oy + PALIER <= DESC ? descentes : [], haut = oy - PALIER >= 0 ? montees : [];
+      const choix = (i === 0 && bas.length) ? bas : bas.concat(haut);
+      if (choix.length) t = choix[Math.floor(rng() * choix.length)];
+    }
     compte[t] = (compte[t] || 0) + 1;
     suite.push(t);
-    if (i === Math.floor(nb / 2) && alcoves.length) x = poser(g, x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, {});
-    const glace = t.endsWith('*'), x0 = x;
-    x = poser(g, x, glace ? t.slice(0, -1) : t, rng, d + (rng() - 0.5) * 0.08, { glace, varier: true, rngV });
-    if (i > 0 && i % 2 === 0) salle(g, x0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
+    if (i === Math.floor(nb / 2) && alcoves.length) x = poser(g, x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, { dy: oy });
+    const glace = t.endsWith('*'), x0 = x, oy0 = oy, nom = glace ? t.slice(0, -1) : t;
+    x = poser(g, x, nom, rng, d + (rng() - 0.5) * 0.08, { glace, varier: !SALLES[nom].decale, rngV, dy: oy });
+    oy += SALLES[nom].decale || 0;
+    if (i > 0 && i % 2 === 0) salle(g, x0, oy0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
   }
-  x = fin(g, x);
-  for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
+  x = fin(g, x, oy);
+  for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
   return { carte: g.carte(), suite };
 }
 
 /* ---------- Mode infini ---------- */
 const THEMES_INF = ['carriere', 'aqueduc', 'chaufferie', 'orage', 'abysses', 'usine', 'glacier', 'coeur'];
-const TOUS = Object.keys(SALLES).filter(t => !t.startsWith('alcove') && !(SALLES[t].req || []).length);
+const TOUS = Object.keys(SALLES).filter(t => !t.startsWith('alcove') && !SALLES[t].decale && !(SALLES[t].req || []).length);
 const SANS_BAN = TOUS.filter(t => t !== 'banni');
 function Infini(graine, mode, opts) {
   this.rng = hasard(graine);
@@ -1151,11 +1197,12 @@ function vertical(graine, sens, metres, etats) {
 
 // pour les tests : une seule salle entre un départ et une arrivée
 function essai(type, graine, d, glace, brut, avecVariations, phases) {
-  const g = new Grille();
-  let x = debut(g, []);
-  x = poser(g, x, type, hasard(graine), d, { glace, brut, varier: !!avecVariations, rngV: hasard(graine * 31 + 5), phases });
-  x = fin(g, x);
-  for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
+  const dec = (SALLES[type] && SALLES[type].decale) || 0, oy = dec < 0 ? -dec : 0;
+  const g = new Grille(dec ? HAUT + DESC : HAUT);
+  let x = debut(g, [], oy);
+  x = poser(g, x, type, hasard(graine), d, { glace, brut, varier: !!avecVariations, rngV: hasard(graine * 31 + 5), phases, dy: oy });
+  x = fin(g, x, oy + dec);
+  for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
   return g.carte();
 }
 
