@@ -31,6 +31,7 @@ function choisirApparence(a) { APPARENCE = Object.assign({ contour: 'base', moti
 let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
 const derVue = { ox: 0, oy: 0, z: 2 };
+let transi = 0, transiC = '#fff';               // nouvelle région : un voile de sa couleur qui s'efface
 // case de la carte sous un point de l'écran (souris de l'éditeur)
 function versCase(sx, sy) { const rc = cv.getBoundingClientRect(); return [Math.floor((derVue.ox + (sx - rc.left) / derVue.z) / T), Math.floor((derVue.oy + (sy - rc.top) / derVue.z) / T)]; }
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
@@ -87,7 +88,7 @@ const solideR = (k) => M.estDur(k);
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [], levier: [], grilleL: [], plaque: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [], levier: [], grilleL: [], plaque: [], cle: [], porteCle: [], rythme: [], minuteur: [], porteMin: [], apes: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     // l'eau remplit aussi les cases non pleines qu'elle entoure (pics, orbes, cristaux… sous l'eau : pas de trou)
@@ -109,6 +110,12 @@ function scanner() {
       case M.PORTE: dyn.porte.push([x, y]); break;
       case M.BOUTON: dyn.bouton.push([x, y]); break;
       case M.LEVIER: dyn.levier.push([x, y]); break;
+      case M.CLE: dyn.cle.push([x, y]); dyn.lumieres.push([x, y, '255,215,90', 30]); break;
+      case M.PORTE_CLE: dyn.porteCle.push([x, y]); break;
+      case M.RYTHME: dyn.rythme.push([x, y]); break;
+      case M.MINUTEUR: dyn.minuteur.push([x, y]); break;
+      case M.PORTE_MIN: dyn.porteMin.push([x, y]); break;
+      case M.APESANTEUR: dyn.apes.push([x, y]); break;
       case M.GRILLE_LEV: dyn.grilleL.push([x, y]); break;
       case M.PLAQUE0: case M.PLAQUE1: case M.PLAQUE2: dyn.plaque.push([x, y, k - M.PLAQUE0]); break;
       case M.REBONDI: dyn.rebondi.push([x, y]); break;
@@ -508,11 +515,12 @@ function dessiner(e, fantome, hud, dt) {
   let ox = cam.x - vw / 2, oy = cam.y - vh / 2;
   derVue.ox = ox; derVue.oy = oy; derVue.z = z;
   if (tremble > 0 && (!hud || hud.tremble !== false)) { ox += (Math.random() - 0.5) * tremble; oy += (Math.random() - 0.5) * tremble; tremble *= 0.85; if (tremble < 0.3) tremble = 0; }
-  if (themeDe) { const t2 = themeEn(Math.floor(cam.x / T)); if (t2 !== th) th = t2; }
+  if (themeDe) { const t2 = themeEn(Math.floor(cam.x / T)); if (t2 !== th) { if (th && hud) { transi = 1; transiC = t2.accent; } th = t2; } }
 
   arrierePlan(g, ox, oy, z, !!hud);
 
   g.save();
+  if (hud && hud.miroir) { g.translate(LARG, 0); g.scale(-1, 1); }     // mutateur miroir : tout le décor est retourné
   g.scale(z, z);
   g.translate(-ox, -oy);
   if (niv) {
@@ -597,7 +605,7 @@ function dessiner(e, fantome, hud, dt) {
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
   {
-    const sombre = th.nuit || 0.38;
+    const sombre = hud && hud.brouillard ? 0.93 : (th.nuit || 0.38);
     if (!ombreCv || ombreCv.width !== Math.ceil(vw) || ombreCv.height !== Math.ceil(vh)) { ombreCv = document.createElement('canvas'); ombreCv.width = Math.ceil(vw); ombreCv.height = Math.ceil(vh); }
     const o = ombreCv.getContext('2d');
     o.globalCompositeOperation = 'source-over';
@@ -611,7 +619,7 @@ function dessiner(e, fantome, hud, dt) {
       l.addColorStop(0, `rgba(0,0,0,${f})`); l.addColorStop(0.6, `rgba(0,0,0,${f * 0.45})`); l.addColorStop(1, 'rgba(0,0,0,0)');
       o.fillStyle = l; o.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
-    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? 120 : 260, 1);
+    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillard ? 85 : 120) : 260, 1);
     for (const [x, y, c, r] of dyn.lumieres) if (vis(x, y)) trou(x * T + 8, y * T + 8, r * 2.2 * (0.92 + 0.08 * Math.sin(temps * 5 + x)), 0.95);
     g.drawImage(ombreCv, ox, oy, vw, vh);
   }
@@ -649,6 +657,20 @@ function dessiner(e, fantome, hud, dt) {
   ambiance(g, ox, oy, vw, vh);
   g.restore();
 
+  // lignes de vitesse quand on file très vite
+  if (hud && niv && e.mortT === 0) {
+    const v = Math.hypot(e.vx, e.vy);
+    if (v > 4.6) {
+      const k = Math.min(1, (v - 4.6) / 3);
+      g.strokeStyle = `rgba(255,255,255,${0.10 * k})`; g.lineWidth = 2;
+      for (let i = 0; i < 14; i++) {
+        const y = alea(i * 5.3 + Math.floor(temps * 20)) * HAUT, x = alea(i * 2.1 + Math.floor(temps * 20)) * LARG, lg = 40 + 80 * k;
+        if (Math.abs(y - HAUT / 2) < HAUT * 0.18) continue;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(e.vx || 1) * lg, y); g.stroke();
+      }
+    }
+  }
+  if (transi > 0 && !ACCES.sansFlash) { g.globalAlpha = transi * 0.22; g.fillStyle = transiC; g.fillRect(0, 0, LARG, HAUT); g.globalAlpha = 1; transi -= 0.012; }
   if (flash > 0 && ACCES.sansFlash) flash = Math.min(flash, 0.04);
   if (flash > 0) { g.globalAlpha = flash; g.fillStyle = flashC; g.fillRect(0, 0, LARG, HAUT); g.globalAlpha = 1; flash *= 0.85; if (flash < 0.02) flash = 0; }
   // vignette colorée
@@ -861,7 +883,7 @@ function objetsFond(g, ox, oy, z) {
 }
 // particules d'ambiance dessinées dans le monde
 function ambiance(g, ox, oy, vw, vh) {
-  const n = 40;
+  const n = 75;
   g.save();
   for (let i = 0; i < n; i++) {
     const s = alea(i * 3.7), s2 = alea(i * 9.1);
@@ -918,6 +940,56 @@ function casesAnimees(g, e, vis) {
     g.fillStyle = '#2c2f36'; g.fillRect(px, py, T, T);
     g.fillStyle = '#8b93a1'; for (let i = 0; i < 4; i++) g.fillRect(px + 1 + i * 4, py, 2, T);
     g.fillStyle = '#ffd84a'; g.fillRect(px, py + 7, T, 2);
+  }
+  for (const [x, y] of dyn.cle) {                           // clé dorée qui flotte (disparaît une fois prise)
+    if (!vis(x, y) || e.cles.indexOf(x * 1024 + y) >= 0) continue;
+    const px = x * T + 8, py = y * T + 8 + Math.sin(tt * 3 + x) * 1.5;
+    g.fillStyle = '#ffd84a'; g.beginPath(); g.arc(px - 2, py, 3, 0, 7); g.fill(); g.fillRect(px, py - 1, 6, 2); g.fillRect(px + 3, py + 1, 1.5, 2); g.fillRect(px + 5, py + 1, 1.5, 2);
+    g.fillStyle = '#3a2a08'; g.beginPath(); g.arc(px - 2, py, 1.2, 0, 7); g.fill();
+  }
+  for (const [x, y] of dyn.porteCle) {                      // porte dorée à serrure
+    if (!vis(x, y)) continue;
+    const c = niv.porteCle.get(x * 1024 + y), ouvert = c !== undefined && e.cles.indexOf(c) >= 0, px = x * T, py = y * T;
+    if (ouvert) { g.fillStyle = 'rgba(255,216,74,.12)'; g.fillRect(px + 2, py, T - 4, 2); continue; }
+    g.fillStyle = '#5a4210'; g.fillRect(px, py, T, T); g.fillStyle = '#d8a83a'; g.fillRect(px + 1, py + 1, T - 2, T - 2);
+    g.fillStyle = '#5a4210'; g.beginPath(); g.arc(px + 8, py + 6, 2.2, 0, 7); g.fill(); g.fillRect(px + 7, py + 7, 2, 5);
+  }
+  for (const [x, y] of dyn.rythme) {                        // plateforme en rythme : pleine quand elle est là, clignote avant de partir
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T, la = M.rythmeLa(niv, e.temps, x, y), dd = niv.rythme.get(y * niv.w + x), k = (e.temps + dd) % M.K.rythmePer;
+    if (la) {
+      const part2 = k > M.K.rythmeOn - 24 && Math.floor(tt * 14) % 2;
+      g.fillStyle = part2 ? 'rgba(160,120,255,.45)' : '#8a6aff'; g.fillRect(px, py, T, 5); g.fillStyle = '#d8ccff'; g.fillRect(px, py, T, 1.5);
+    } else { g.strokeStyle = 'rgba(160,130,255,.35)'; g.lineWidth = 1; g.setLineDash([2, 2]); g.strokeRect(px + 0.5, py + 0.5, T - 1, 4); g.setLineDash([]); }
+  }
+  for (const [x, y] of dyn.minuteur) {                      // bouton à minuterie (bleu) + jauge du temps restant
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T, actif = e.minut > e.temps;
+    g.fillStyle = '#2a3440'; g.fillRect(px + 1, py + T - 3, T - 2, 3);
+    g.fillStyle = actif ? '#7ad8ff' : '#3a8cff'; g.fillRect(px + 3, actif ? py + T - 4 : py + 9, T - 6, actif ? 1.5 : 4);
+    if (actif) { g.fillStyle = '#7ad8ff'; g.fillRect(px, py - 3, T * (e.minut - e.temps) / M.K.minuterie, 2); }
+  }
+  for (const [x, y] of dyn.porteMin) {                      // porte bleue : ouverte tant que la minuterie tourne
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T;
+    if (e.temps < e.minut) { g.fillStyle = 'rgba(122,216,255,.15)'; g.fillRect(px + 2, py, T - 4, 2); continue; }
+    g.fillStyle = '#16304a'; g.fillRect(px, py, T, T); g.fillStyle = '#3a8cff'; for (let i = 0; i < 3; i++) g.fillRect(px + 2 + i * 5, py, 2.5, T);
+  }
+  for (const [x, y] of dyn.apes) {                          // zone inversée : voile violet et poussière qui « tombe » vers le haut
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T;
+    g.fillStyle = 'rgba(190,120,255,.16)'; g.fillRect(px, py, T, T);
+    g.fillStyle = 'rgba(230,200,255,.55)'; const o = (tt * 30 + x * 7) % T; g.fillRect(px + 4 + (x % 3) * 3, py + T - o, 1.5, 3);
+  }
+  if (niv.broyeurs && e.broy >= 0) {                        // broyeur : un mur de scies qui avance (tout ce qui est à sa gauche est perdu)
+    const bx = e.broyX + 6, top = (cam.y - 400), bas = cam.y + 400;
+    g.fillStyle = 'rgba(40,10,10,.85)'; g.fillRect(bx - 400, top, 400, bas - top);
+    for (let yy = Math.floor(top / 12) * 12; yy < bas; yy += 12) {
+      g.save(); g.translate(bx - 6, yy); g.rotate(tt * 12 + yy);
+      g.fillStyle = '#c9ced8'; g.beginPath(); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = i % 2 ? 4 : 6; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill();
+      g.restore();
+    }
+    g.fillStyle = '#ff3a3a'; g.fillRect(bx - 1, top, 2, bas - top);
   }
   for (const [x, y] of dyn.levier) {                        // levier : socle + manche (à gauche, puis à droite une fois tiré)
     if (!vis(x, y)) continue;

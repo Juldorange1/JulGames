@@ -186,6 +186,9 @@ function jouerMusique(cle) {
   l.cible = 1;
 }
 function attenuer(oui) { baisseCible = oui ? 0.4 : 1; }
+// fin de niveau proche : la musique accélère un peu et monte doucement (0 = normal, 1 = tout près de l'arrivée)
+let intens = 0;
+function intensite(k) { intens = Math.max(0, Math.min(1, k || 0)); for (const c in lecteurs) for (const au of lecteurs[c].a) { try { au.preservesPitch = true; au.playbackRate = 1 + intens * 0.06; } catch (e) { /* lecteur sans vitesse */ } } }
 // appelé 30 fois par seconde : rapproche doucement chaque volume de sa cible
 function mixer() {
   const pasF = 1 / (FONDU * 30);
@@ -194,7 +197,7 @@ function mixer() {
     const l = lecteurs[k];
     if (l.gain < l.cible) l.gain = Math.min(l.cible, l.gain + pasF);
     else if (l.gain > l.cible) l.gain = Math.max(l.cible, l.gain - pasF);
-    const base = Math.max(0, Math.min(1, volMus * FACT_MUS * baisse * Math.sin(l.gain * Math.PI / 2)));
+    const base = Math.max(0, Math.min(1, volMus * FACT_MUS * baisse * (1 + intens * 0.15) * Math.sin(l.gain * Math.PI / 2)));
     const x = l.a[l.i];
     if (l.gain <= 0) {                     // silencieuse : en pause, pas remise à zéro (elle reprendra là)
       for (const a of l.a) if (!a.paused) a.pause();
@@ -220,5 +223,5 @@ function mixer() {
   }
 }
 
-racine.Son = { demarrer, evenements, volumes, jouerMusique, attenuer, jouer, bruitMenu };
+racine.Son = { intensite, demarrer, evenements, volumes, jouerMusique, attenuer, jouer, bruitMenu };
 })(window);

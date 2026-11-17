@@ -109,7 +109,7 @@ function affiner(n, entrees, A, avecEclat) {
     a.tampon === b.tampon && a.verrou === b.verrou && a.jetCd === b.jetCd && a.jetSide === b.jetSide && a.tpCd === b.tpCd && a.immun === b.immun &&
     a.cdP === b.cdP && a.face === b.face && a.mortT === b.mortT && a.invT === b.invT && (a.cp ? a.cp.tx : -1) === (b.cp ? b.cp.tx : -1) &&
     a.ban === b.ban && a.banT === b.banT && a.bonus === b.bonus && a.bonusT === b.bonusT && a.bascule === b.bascule && a.surInter === b.surInter &&
-    a.eclat === b.eclat && a.torrent === b.torrent && a.tdx === b.tdx && a.tdy === b.tdy && memes(a.eteints, b.eteints) && a.plat === b.plat && a.champCd === b.champCd && a.tremCd === b.tremCd && a.inpPrev === b.inpPrev && a.demarre === b.demarre &&
+    a.eclat === b.eclat && a.torrent === b.torrent && a.tdx === b.tdx && a.tdy === b.tdy && memes(a.eteints, b.eteints) && memes(a.cles, b.cles) && memes(a.clesCp, b.clesCp) && a.minut === b.minut && a.broy === b.broy && a.broyX === b.broyX && a.plat === b.plat && a.champCd === b.champCd && a.tremCd === b.tremCd && a.inpPrev === b.inpPrev && a.demarre === b.demarre &&
     a.dansEau === b.dansEau && a.morts === b.morts && memes(a.casses, b.casses) && memes(a.boutons, b.boutons) && memes(a.craque, b.craque) &&
     memes(a.cristaux, b.cristaux) && memes(a.orbes, b.orbes) && a.pieces.length === b.pieces.length;
   let sigs = null, tpsRef = Infinity;
@@ -212,11 +212,16 @@ function chercher(def, avecEclat, cfg) {
     if (!bt) { const bx = Math.floor(b / 1024), by = b % 1024; bt = { k: b, x: bx, porteX: 0, d: champ(n, [[bx, by]]), versBut: dBut[by * n.w + bx] * T }; boutons.push(bt); }
     bt.porteX = Math.max(bt.porteX, Math.floor(grille / 1024));
   }
+  if (n.porteCle) for (const [porte, b] of n.porteCle) {                       // clés : avant leur porte dorée
+    let bt = boutons.find(o => o.k === b && o.cle);
+    if (!bt) { const bx = Math.floor(b / 1024), by = b % 1024; bt = { k: b, cle: true, x: bx, porteX: 0, d: champ(n, [[bx, by]]), versBut: dBut[by * n.w + bx] * T }; boutons.push(bt); }
+    bt.porteX = Math.max(bt.porteX, Math.floor(porte / 1024));
+  }
   boutons.sort((a, b) => a.x - b.x);
   const score = (e) => {
     if (boutons.length) {
       const px = (e.x + M.W / 2) / T;
-      for (const bt of boutons) if (px < bt.porteX && e.boutons.indexOf(bt.k) < 0 && Math.abs(bt.x - px) < 60 && (!dEcl || e.eclat || bt.porteX < eclatX)) return lire(n, bt.d, e) + bt.versBut + danger(e) - 24 * e.boutons.length;
+      for (const bt of boutons) if (px < bt.porteX && (bt.cle ? e.cles : e.boutons).indexOf(bt.k) < 0 && Math.abs(bt.x - px) < 60 && (!dEcl || e.eclat || bt.porteX < eclatX)) return lire(n, bt.d, e) + bt.versBut + danger(e) - 24 * e.boutons.length;
     }
     if (dEcl && !e.eclat) return lire(n, dEcl, e) + eclatVersBut + danger(e) - 24 * e.boutons.length;
     return lire(n, dBut, e) + danger(e) - 24 * e.boutons.length;
@@ -270,12 +275,14 @@ function chercher(def, avecEclat, cfg) {
       const e = nd.e;
       // clé numérique (bien plus rapide qu'un texte) : position et vitesse arrondies + tout ce qui change la suite
       const k1 = (Math.round(e.x / 3) + 2048) + 4096 * (Math.round(e.y / 3) + 512) + 4194304 * ((Math.round(e.vx * 1.5) + 64) + 128 * (Math.round(e.vy * 1.5) + 64));
-      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd) + 1048576 * Math.min(15, e.torrent) + 16777216 * Math.min(7, e.eteints.length);
-      const k2 = k3 * 4294967296 + (e.phase % 8) + 8 * e.charges + 32 * e.att + 128 * (e.phase >= 8 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
+      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd) + 1048576 * Math.min(15, e.torrent) + 16777216 * Math.min(7, e.eteints.length) + 134217728 * Math.min(3, e.cles.length) + 536870912 * (e.minut > e.temps ? 1 + Math.min(6, (e.minut - e.temps) >> 5) : 0) + 4294967296 * (e.broy + 1);
+      const k2 = (e.phase % 8) + 8 * e.charges + 32 * e.att + 128 * (e.phase >= 8 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
         8192 * (e.slam ? 1 : 0) + 16384 * e.bascule + 32768 * Math.min(63, e.casses.length) + 2097152 * Math.min(15, e.boutons.length) +
         33554432 * Math.min(63, e.craque.length) + 2147483648 * ((e.temps < e.banT ? e.ban + 1 : 0) + 16 * (e.temps < e.bonusT ? (e.bonus > 1 ? 1 : 2) : 0) + 64 * (e.plat + 1));
-      let v2 = vus.get(k1);
-      if (v2 === undefined) { v2 = new Set(); vus.set(k1, v2); }
+      let m3 = vus.get(k1);                       // trois niveaux : chaque clé reste un entier exact
+      if (m3 === undefined) { m3 = new Map(); vus.set(k1, m3); }
+      let v2 = m3.get(k3);
+      if (v2 === undefined) { v2 = new Set(); m3.set(k3, v2); }
       else if (v2.has(k2)) continue;
       v2.add(k2);
       const cc = ((e.x / 16) | 0) + 1024 * (((e.y / 16) | 0) + 64) + 262144 * (e.phase + 8 * (e.eclat ? 1 : 0) + 16 * e.bascule + 32 * Math.min(15, e.boutons.length));

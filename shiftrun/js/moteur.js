@@ -20,7 +20,8 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
   LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60, BOUCLE_G = 61, BOUCLE_D = 62,
-  PILON = 63, ORBITE = 64, GEYSER = 65, BRULEUR = 66, LEVIER = 67, GRILLE_LEV = 68, PLAQUE0 = 69, PLAQUE1 = 70, PLAQUE2 = 71, SAUTEUR = 72, VOLANT = 73;
+  PILON = 63, ORBITE = 64, GEYSER = 65, BRULEUR = 66, LEVIER = 67, GRILLE_LEV = 68, PLAQUE0 = 69, PLAQUE1 = 70, PLAQUE2 = 71, SAUTEUR = 72, VOLANT = 73,
+  CLE = 74, PORTE_CLE = 75, RYTHME = 76, MINUTEUR = 77, PORTE_MIN = 78, APESANTEUR = 79, BROYEUR = 80;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
 const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME, [BAR_GL]: GL, [BAR_MA]: MA };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
@@ -32,7 +33,8 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
   'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D,
   'K': PILON, 'C': ORBITE, 'g': GEYSER, 't': BRULEUR, 'u': EAU, 'y': EAU,
-  'J': LEVIER, 'T': GRILLE_LEV, ':': PLAQUE0, ';': PLAQUE1, '&': PLAQUE2, 'S': SAUTEUR, 'I': VOLANT };   // u / y : eau avec un courant vers la gauche / la droite
+  'J': LEVIER, 'T': GRILLE_LEV, ':': PLAQUE0, ';': PLAQUE1, '&': PLAQUE2, 'S': SAUTEUR, 'I': VOLANT,
+  '+': CLE, 'd': PORTE_CLE, '|': RYTHME, '/': MINUTEUR, '"': PORTE_MIN, ',': APESANTEUR, '_': BROYEUR };   // u / y : eau avec un courant vers la gauche / la droite
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -61,7 +63,7 @@ const K = {
   glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 3.0, maSaut: 6.0,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 16, torrentVit: 7.8, feuEteint: 240, hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
+  rythmePer: 130, rythmeOn: 78, minuterie: 200, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -190,6 +192,26 @@ function recharger(n, c) {
       if (grilles.indexOf(gi) === grilles.length - 1 || grilles[grilles.indexOf(gi) + 1] % w !== gx) prec = gx;
     }
   }
+  const porteCle = new Map(), rythme = new Map(), broyeurs = [];
+  {
+    const cles = [];
+    for (let i = 0; i < w * h; i++) if (g[i] === CLE) cles.push(i);
+    for (let i = 0; i < w * h; i++) {
+      if (g[i] !== PORTE_CLE) continue;
+      const x = i % w; let best = -1;
+      for (const c of cles) { const cx2 = c % w; if (cx2 <= x && (best < 0 || cx2 > best % w)) best = c; }
+      if (best >= 0) porteCle.set(x * 1024 + Math.floor(i / w), (best % w) * 1024 + Math.floor(best / w));
+    }
+    for (let i = 0; i < w * h; i++) {                         // une rangée de plateformes en rythme bat ensemble
+      if (g[i] !== RYTHME) continue;
+      let d0 = i; while (d0 % w > 0 && g[d0 - 1] === RYTHME) d0--;
+      const x = d0 % w, y = Math.floor(d0 / w);
+      rythme.set(i, ((x * 19349663 ^ y * 83492791) >>> 0) % K.rythmePer);
+    }
+    const marques = [];
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (g[y * w + x] === BROYEUR) { marques.push(x); break; }
+    for (let k = 0; k + 1 < marques.length; k += 2) broyeurs.push({ x0: marques[k], x1: marques[k + 1] });
+  }
   // pilons (tombent du plafond jusqu'au sol), scies en orbite, geysers (colonne qui projette), brûleurs (jet de flammes)
   const pilons = [], orbites = [], geysers = [], bruleurs = [];
   for (let i = 0; i < w * h; i++) {
@@ -219,12 +241,12 @@ function recharger(n, c) {
     const y = Math.floor(i / w);
     for (let x = i % w - 1; x >= 0; x--) if (g[y * w + x] === BOUCLE_G) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle, courants, pilons, orbites, geysers, bruleurs, leviersDe });
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle, courants, pilons, orbites, geysers, bruleurs, leviersDe, porteCle, rythme, broyeurs });
   return n;
 }
 
 const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
-  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || t === BRULEUR || t === GRILLE_LEV || (t >= BAR_S && t <= BAR_ME) || t === BAR_GL || t === BAR_MA;
+  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || t === BRULEUR || t === GRILLE_LEV || t === PORTE_CLE || t === PORTE_MIN || (t >= BAR_S && t <= BAR_ME) || t === BAR_GL || t === BAR_MA;
 
 /* ---------- État ---------- */
 // l'état du joueur : une forme fixe, copiée champ par champ (le robot en copie des millions)
@@ -237,6 +259,7 @@ function Etat() {
   this.att = 0; this.slam = false; this.slamAt = 0; this.coyote = 0; this.tampon = 0; this.verrou = 0; this.jetCd = 0; this.jetSide = 0;
   this.tpCd = 0; this.sol = true; this.face = 1; this.mortT = 0; this.immun = 0; this.dansEau = false; this.porte = 0; this.tremCd = 0; this.invT = 0;
   this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = false; this.dashCA = 0; this.glaces = []; this.torrent = 0; this.tdx = 0; this.tdy = 0; this.eteints = [];
+  this.cles = []; this.clesCp = []; this.minut = 0; this.broy = -1; this.broyX = 0;
 }
 function nouvelEtat(n) {
   const e = new Etat();
@@ -250,6 +273,7 @@ function placer(e, n) {
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
   e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = false; e.dashCA = 0; e.glaces = []; e.torrent = 0; e.eteints = [];
+  e.cles = e.clesCp || []; e.minut = 0; e.broy = -1; e.broyX = 0;
 }
 // les listes ne sont jamais modifiées sur place : la copie peut les partager
 function cloner(e) {
@@ -262,6 +286,7 @@ function cloner(e) {
   c.att = e.att; c.slam = e.slam; c.slamAt = e.slamAt; c.coyote = e.coyote; c.tampon = e.tampon; c.verrou = e.verrou; c.jetCd = e.jetCd; c.jetSide = e.jetSide;
   c.tpCd = e.tpCd; c.sol = e.sol; c.face = e.face; c.mortT = e.mortT; c.immun = e.immun; c.dansEau = e.dansEau; c.porte = e.porte; c.tremCd = e.tremCd; c.invT = e.invT;
   c.capCd = e.capCd; c.grap = e.grap; c.grapT = e.grapT; c.tirs = e.tirs; c.perle = e.perle; c.hover = e.hover; c.hoverUse = e.hoverUse; c.dashCA = e.dashCA; c.glaces = e.glaces; c.torrent = e.torrent; c.tdx = e.tdx; c.tdy = e.tdy; c.eteints = e.eteints;
+  c.cles = e.cles; c.clesCp = e.clesCp; c.minut = e.minut; c.broy = e.broy; c.broyX = e.broyX;
   return c;
 }
 
@@ -420,6 +445,11 @@ function tuile(n, tx, ty) {
   if (ty >= n.h) return VIDE;
   return n.g[ty * n.w + tx];
 }
+function rythmeLa(n, temps, tx, ty) {
+  const d = n.rythme.get(ty * n.w + tx);
+  if (d === undefined) return false;
+  return ((temps + d) % K.rythmePer) < K.rythmeOn;
+}
 function grilleOuverte(n, e, tx, ty) {
   const l = n.leviersDe.get(tx * 1024 + ty);
   if (!l) return true;
@@ -451,6 +481,8 @@ function plein(n, e, tx, ty) {
     case FRAGILE: return !casse(e, tx * 1024 + ty);
     case LASER: case BRULEUR: return true;
     case GRILLE_LEV: return !grilleOuverte(n, e, tx, ty);
+    case PORTE_CLE: { const c = n.porteCle.get(tx * 1024 + ty); return c === undefined || e.cles.indexOf(c) < 0; }
+    case PORTE_MIN: return !(e.temps < e.minut);
     case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: case BAR_GL: case BAR_MA: return e.phase !== BARRIERE[t];
     default: return false;
   }
@@ -494,7 +526,7 @@ function bougerY(n, e, dy) {
     ty = Math.floor((e.y + H - 0.001) / T);
     for (let tx = x0; tx <= x1; tx++) {
       if (bloque(n, e, tx, ty, brise)) hit = true;
-      else if (((tuile(n, tx, ty) === PLATE && !traverseBas) || (e.phase === GL && tuile(n, tx, ty) === EAU && tuile(n, tx, ty - 1) !== EAU)) && avantBas <= ty * T + 0.001) hit = true;
+      else if (((tuile(n, tx, ty) === PLATE && !traverseBas) || (tuile(n, tx, ty) === RYTHME && rythmeLa(n, e.temps, tx, ty)) || (e.phase === GL && tuile(n, tx, ty) === EAU && tuile(n, tx, ty - 1) !== EAU)) && avantBas <= ty * T + 0.001) hit = true;
     }
     if (hit) e.y = ty * T - H;
   } else if (dy < 0) {
@@ -655,6 +687,7 @@ function projectiles(n, e) {
       if (t[5] > 0) { out.push([t[0], t[1], t[2], t[3], t[4], t[5] - 1]); continue; }
       const x = t[0] + t[2], y = t[1] + t[3], vie = t[4] - 1;
       const tx = Math.floor(x / T), ty = Math.floor(y / T), k = tx * 1024 + ty, tt = tuile(n, tx, ty);
+      if (tt === MINUTEUR) { e.minut = e.temps + K.minuterie; e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; continue; }
       if ((tt === BOUTON || tt === LEVIER) && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; continue; }
       if ((tt === FEU || tt === BRULEUR) && !feuEteint(e, tx, ty)) { e.eteints = e.eteints.filter(f => f[1] > e.temps).concat([[k, e.temps + K.feuEteint]]); e.ev |= EV.EVAPORE; e.evX = tx; e.evY = ty; continue; }
       if (tt === INTER) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; continue; }
@@ -917,6 +950,18 @@ function pas(n, e, inp) {
     else if (milieu === VENT_B && e.vy < m) e.vy = Math.min(m, e.vy + f);
   }
 
+  // zone inversée : tout y tombe vers le haut (quel que soit l'état)
+  if (milieu === APESANTEUR) { e.vy = Math.max(-K.apesMax, e.vy - K.apesanteur - (e.vy > 0 ? 0.5 : 0)); e.sol = false; e.att = 0; e.plat = -1; }
+  // broyeur : une fois passé son départ, un mur de scies avance et poursuit le joueur jusqu'à sa fin
+  if (n.broyeurs.length && e.demarre) {
+    if (e.broy < 0) { for (let k = 0; k < n.broyeurs.length; k++) { const b = n.broyeurs[k]; if (cx > b.x0 + 3 && cx < b.x1 && (!e.cp || e.cp.tx < b.x0)) { e.broy = k; e.broyX = b.x0 * T; e.ev |= EV.BOUM; e.evX = b.x0; e.evY = cy; break; } } }
+    if (e.broy >= 0) {
+      const b = n.broyeurs[e.broy];
+      e.broyX = Math.min(b.x1 * T, e.broyX + K.broyeurVit);
+      if (cx > b.x1 + 1) e.broy = -1;
+      else if (e.x < e.broyX + 6 && e.mortT === 0) mourir(e, true);
+    }
+  }
   // courants d'eau : poussent sur le côté
   if (eau && n.courants.size) {
     const d = n.courants.get(cy * n.w + cx);
@@ -1103,6 +1148,11 @@ function pas(n, e, inp) {
     } else if (t === PIECE) {
       const k = tx * 1024 + ty;
       if (rectCercle(e, bx + T / 2, by + T / 2, 5) && e.pieces.indexOf(k) < 0) { e.pieces = e.pieces.concat(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
+    } else if (t === CLE) {
+      const k = tx * 1024 + ty;
+      if (rectCercle(e, bx + T / 2, by + T / 2, 5) && e.cles.indexOf(k) < 0) { e.cles = e.cles.concat(k); e.ev |= EV.PIECE; e.evX = tx; e.evY = ty; }
+    } else if (t === MINUTEUR) {
+      if (rectRect(e, bx + 3, by + 9, bx + 13, by + T) && e.minut < e.temps + K.minuterie - 30) { if (e.minut <= e.temps) { e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; } e.minut = e.temps + K.minuterie; }
     } else if (t === LEVIER) {
       const k = tx * 1024 + ty;
       if (rectRect(e, bx + 2, by + 3, bx + 14, by + T) && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
@@ -1132,7 +1182,7 @@ function pas(n, e, inp) {
     else if (t === ECLAT) { if (!e.eclat && rectPoly(e, formeEn(FORME_ECLAT, bx + T / 2, by + T / 2))) { e.eclat = true; e.ev |= EV.ECLAT; e.evX = tx; e.evY = ty; } }
     else if (t === DRAPEAU) {
       if ((!e.cp || e.cp.tx !== tx || e.cp.ty !== ty) && rectRect(e, bx + 3, by + 1, bx + 14, by + T)) {
-        e.cp = { x: tx * T + (T - W) / 2, y: (ty + 1) * T - H, tx, ty }; e.cpN++; e.ev |= EV.DRAPEAU; e.evX = tx; e.evY = ty;
+        e.cp = { x: tx * T + (T - W) / 2, y: (ty + 1) * T - H, tx, ty }; e.cpN++; e.clesCp = e.cles; e.ev |= EV.DRAPEAU; e.evX = tx; e.evY = ty;
       }
     } else if ((t === TP1 || t === TP2) && e.tpCd === 0) {
       const ccx = e.x + W / 2, ccy = e.y + H / 2;
@@ -1271,7 +1321,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

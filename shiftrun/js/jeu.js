@@ -26,6 +26,7 @@ if (!S.infini) S.infini = {};
 if (!S.defis) S.defis = {};
 if (!S.succes) S.succes = {};
 S.reglages = Object.assign({ sons: 0.5, musique: 0.5, fantome: 'record', entrees: true, tremble: true, langue: window.Langue.detecter(), tactile: 'auto' }, S.reglages);
+if (!S.medV2) { for (const id in S.il) if (S.il[id] && S.il[id].mMax === 4) S.il[id].mMax = 6; S.medV2 = 1; }   // Platine et Diamant ajoutés : le Parfait passe de 4 à 6
 if (!S.reglages.entreesV2) { S.reglages.entrees = true; S.reglages.entreesV2 = 1; }   // les touches affichées sont maintenant visibles par défaut (désactivables)
 window.Langue.choisir(S.reglages.langue);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
@@ -112,6 +113,7 @@ function lireEntrees() {
   for (const a in BITS) for (const c of S.touches[a]) if (tenues.has(c)) { b |= BITS[a]; break; }
   b |= manette() | tactile.bits;
   if ((b & M.E.G) && (b & M.E.D)) b &= ~(M.E.G | M.E.D);
+  if (S.mut.miroir && J && J.mode !== 'editeur') { const g = b & M.E.G, d = b & M.E.D; b = (b & ~(M.E.G | M.E.D)) | (g ? M.E.D : 0) | (d ? M.E.G : 0); }
   return b;
 }
 function manette() {
@@ -210,13 +212,14 @@ function lancerInfini(mode) {
 }
 /* ---------- Éditeur de niveaux (entièrement au clavier, souris possible) et partage par code ---------- */
 const ED_CATS = [
-  ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
+  ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['|', 'Plateforme en rythme', '🎵'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
   ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '💎'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
-  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾'], ['S', 'Sauteur', '🐸'], ['I', 'Volant', '🦇']]],
-  ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨']]],
+  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾'], ['S', 'Sauteur', '🐸'], ['I', 'Volant', '🦇'], ['_', 'Broyeur (début puis fin)', '🪚']]],
+  ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨'], [',', 'Zone inversée', '🔃']]],
   ['🚀', 'Mouvement', [['s', 'Ressort', '🪀'], ['U', 'Champignon', '🍄'], ['(', 'Tremplin ←', '↖'], [')', 'Tremplin →', '↗'], ['M', 'Plateforme ↔', '↔'], ['N', 'Plateforme ↕', '↕'], ['H', 'Saut +', '⏫'], ['h', 'Saut −', '⏬'],
     ['P', 'Téléporteur 1', '🟣'], ['p', 'Sortie 1', '⭕'], ['Q', 'Téléporteur 2', '🔵'], ['q', 'Sortie 2', '🔘'], ['{', 'Haut bouclé', '⤒'], ['}', 'Bas bouclé', '⤓'], ['W', 'Bord gauche bouclé', '⇤'], ['X', 'Bord droit bouclé', '⇥']]],
   ['🔀', 'Mécanismes', [['o', 'Bouton', '🔘'], ['D', 'Porte', '🚪'], ['k', 'Interrupteur', '🎚'], ['R', 'Bloc rouge', '🟥'], ['B', 'Bloc bleu', '🟦'], ['J', 'Levier', '🕹'], ['T', 'Grille à leviers', '🚧'],
+    ['+', 'Clé', '🔑'], ['d', 'Porte dorée', '🚪'], ['/', 'Minuterie', '⏱'], ['"', 'Porte à minuterie', '🟦'],
     [':', 'Plaque → transformation 1', '1️⃣'], [';', 'Plaque → transformation 2', '2️⃣'], ['&', 'Plaque → transformation 3', '3️⃣']]],
   ['🚧', 'Barrières', [['a', 'Barrière Solide', '🟨'], ['=', 'Barrière Liquide', '🟦'], ['~', 'Barrière Gaz', '⬜'], ['r', 'Barrière Plasma', '🟧'], ['l', 'Barrière Plume', '🟪'], ['n', 'Barrière Caoutchouc', '🩷'],
     ['m', 'Barrière Métal', '⬛'], ['%', 'Barrière Ombre', '🟫'], ['j', 'Barrière Glace', '🩵'], ['v', 'Barrière Magma', '🟥']]]
@@ -232,14 +235,15 @@ function nouvelleCarte() {
   return l;
 }
 function codeNiveau(nom, etats, l) {               // nom|états|lignes compressées (répétitions), en base 64
-  const rle = l.map(r => { let o = '', i = 0; while (i < r.length) { let j = i; while (j < r.length && r[j] === r[i]) j++; o += (j - i > 1 ? (j - i) : '') + r[i]; i = j; } return o; }).join('/');
+  const sur = (c) => c === '/' ? '¤' : c === '|' ? '¦' : c;          // « / » et « | » servent de séparateurs dans le code
+  const rle = l.map(r => { let o = '', i = 0; while (i < r.length) { let j = i; while (j < r.length && r[j] === r[i]) j++; o += (j - i > 1 ? (j - i) : '') + sur(r[i]); i = j; } return o; }).join('/');
   return 'SR1:' + btoa(unescape(encodeURIComponent(nom + '|' + etats.join(',') + '|' + rle)));
 }
 function lireCode(code) {
   try {
     const t = decodeURIComponent(escape(atob(code.trim().replace(/^SR1:/, ''))));
     const [nom, et, rle] = t.split('|');
-    const l = rle.split('/').map(r => { const o = []; const re = /(\d*)(\D)/g; let m; while ((m = re.exec(r))) for (let k = 0; k < (m[1] ? +m[1] : 1); k++) o.push(m[2]); return o; });
+    const l = rle.split('/').map(r => { const o = []; const re = /(\d*)(\D)/g; let m; while ((m = re.exec(r))) for (let k = 0; k < (m[1] ? +m[1] : 1); k++) o.push(m[2] === '¤' ? '/' : m[2] === '¦' ? '|' : m[2]); return o; });
     const etats = et.split(',').map(Number).filter(x => x >= 0 && x < 10);
     if (!l.length || !etats.length) return null;
     return { nom, etats, l };
@@ -862,6 +866,7 @@ function finInfini() {
   ecran = 'fin';
   const record = !ancien || n > ancien.salles || (n === ancien.salles && t < ancien.t);
   if (record && !assiste()) S.infini[mode] = { salles: n, t };
+  majSerie();
   const gainI = gagnerBonus(gainTemps(t));
   sauver();
   ecran = 'fin';
@@ -997,7 +1002,7 @@ const SUCCES = [
   { id: 'niveaux', nom: 'Explorateur', but: 'Niveaux finis', p: [1, 10, 24, 36, 48], v: () => nbIl(r => r.t != null) },
   { id: 'zones', nom: 'Conquérant', but: 'Zones entièrement finies', p: [1, 2, 4, 6, 8], v: () => NIV.ZONES.filter(z => z.niveaux.every(v => S.il[v.id] && S.il[v.id].t != null)).length },
   { id: 'or', nom: 'Doré', but: 'Médailles d’or (ou mieux)', p: [1, 5, 15, 30, 48], v: () => nbIl(r => (r.mMax || 0) >= 3) },
-  { id: 'parfaits', nom: 'Robot humain', but: 'Temps Parfaits égalés', p: [1, 3, 10, 24, 48], v: () => nbIl(r => (r.mMax || 0) >= 4) },
+  { id: 'parfaits', nom: 'Robot humain', but: 'Temps Parfaits égalés', p: [1, 3, 10, 24, 48], v: () => nbIl(r => (r.mMax || 0) >= MP) },
   { id: 'eclats', nom: 'Chasseur d’éclats', but: 'Éclats ◆ trouvés dans les niveaux', p: [1, 10, 24, 36, 48], v: () => nbIl(r => r.eclat) },
   { id: 'propre', nom: 'Sans une égratignure', but: 'Niveaux finis sans tomber', p: [1, 5, 15, 30, 48], v: () => nbIl(r => r.sansChute) },
   { id: 'survie', nom: 'Survivant', but: 'Ennemis écrasés en une partie (record)', p: [10, 25, 50, 100, 200], v: () => (S.survie && (S.survie.killsMax || S.survie.kills)) || 0 },
@@ -1060,24 +1065,36 @@ function pas() {
   else inp = lireEntrees();
   J.inp = inp;
   const avant = J.e.demarre, x0 = J.e.x, y0 = J.e.y;
-  if (J.mode !== 'fantome') { if (S.reglages.invincible && J.e.mortT === 0) J.e.invT = Math.max(J.e.invT, 2); if (S.reglages.chargesInf) J.e.charges = M.K.charges; }
+  if (J.mode !== 'fantome') {
+    if ((S.reglages.invincible || (J.bouclier && J.salle < J.bouclier)) && J.e.mortT === 0) J.e.invT = Math.max(J.e.invT, 2);
+    if (S.reglages.chargesInf || (J.chargesJusque && J.salle < J.chargesJusque)) J.e.charges = M.K.charges;
+    if (S.mut.unecharge) J.e.charges = Math.min(J.e.charges, 1);
+    if (J.sautJusque && J.salle < J.sautJusque) J.e.bonus = Math.max(J.e.bonus, 1.2);
+  }
   M.pas(J.n, J.e, inp);
   compterStats(J.e, x0, y0);
   if (J.mode !== 'fantome') noterDrapeau();
   if (J.mode === 'editeur') return;
   if (J.mode === 'survie') majSurvie();
+  if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
+  if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
+  if (J.mode === 'expedition' && J.salle >= J.prochainChoix && J.finT === 0) { choixBonus(); return; }
   const unevie = J.mode === 'infini' || J.mode === 'survie';
   if (unevie) {
     if (J.e.ev & M.EV.MORT) J.finT = 50;                      // une seule vie : la course s'arrête
     if (J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { if (J.mode === 'infini') finInfini(); else if (J.mode === 'survie') finSurvie(); else finDefi(); return; } }
   }
   if (J.monde) avancerMonde();
+  if (J.mode === 'expedition' && J.e.ev & M.EV.MORT && J.vies > 0) { message = '❤ ' + tr('Plus que {0} vie(s)', J.vies); messageT = 90; }
   if (J.mode === 'defi' && J.limite && J.e.temps >= J.limite) { finDefi(); return; }
-  if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini') J.entrees.push(inp);
+  if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini' && J.mode !== 'expedition') J.entrees.push(inp);
   if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini) S.tempsJeu = (S.tempsJeu || 0) + 1;
   if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
   if (!avant && J.e.demarre) recadrer = false;
   const ev = J.e.ev;
+  if (ev & M.EV.CAPA) J.capas = (J.capas || 0) + 1;
+  if (J.mode === 'niveau' && !(J.e.temps % 12)) aidePieges();
+  if (J.mode === 'niveau' && !(J.e.temps % 30)) SON.intensite(J.n.w ? Math.max(0, (J.e.x / M.T / J.n.w - 0.7) / 0.3) : 0);
   if (ev) { R.evenements(J.e, J.n); SON.evenements(ev, J.e.phase); if (ev & M.EV.ECHEC) echec = 20; if (ev & M.EV.MORT) { S.morts++; vibrer(0.6, 160); } if (ev & M.EV.BOUM) vibrer(0.8, 120); if (ev & (M.EV.REBOND | M.EV.BOND)) vibrer(0.25, 60); }
   if (echec > 0) echec--;
   if (messageT > 0) messageT--;
@@ -1129,6 +1146,8 @@ function terminer() {
     J.gainE = eclatsGagnes() - avantE;
     majSegments(id, record);
     if (J.e.morts === 0) S.il[id].sansChute = true;
+    S.il[id].obj = (S.il[id].obj || 0) | objectifsFaits(id, t);
+    majSerie();
     if (STEAM && LB_PRET) STEAM.classementEnvoyer('niveau-' + id, t, M.compresser(J.entrees));
     J.succesNeufs = verifierSucces();
     sauver();
@@ -1149,11 +1168,12 @@ function terminer() {
 }
 
 /* ---------- Médailles ---------- */
-const MEDAILLES = [null, { nom: 'Bronze', c: '#d08a4a', k: 2.2 }, { nom: 'Argent', c: '#c9d3df', k: 1.5 }, { nom: 'Or', c: '#ffd34d', k: 1.2 }, { nom: 'Parfait', c: '#ff6ad5', k: 1 }];
+const MEDAILLES = [null, { nom: 'Bronze', c: '#d08a4a', k: 2.2 }, { nom: 'Argent', c: '#c9d3df', k: 1.5 }, { nom: 'Or', c: '#ffd34d', k: 1.2 }, { nom: 'Platine', c: '#9ff0e8', k: 1.1 }, { nom: 'Diamant', c: '#7ab8ff', k: 1.05 }, { nom: 'Parfait', c: '#ff6ad5', k: 1 }];
+const MP = MEDAILLES.length - 1;              // indice du Parfait
 function seuil(id, m) { const p = PARF[id]; return p && p.t ? Math.floor(p.t * MEDAILLES[m].k) : null; }
 function medaille(id, t) {
   if (t == null || !PARF[id]) return 0;
-  for (let m = 4; m >= 1; m--) if (t <= seuil(id, m)) return m;
+  for (let m = MP; m >= 1; m--) if (t <= seuil(id, m)) return m;
   return 0;
 }
 function badge(m) { return m ? `<span class="med" style="--c:${MEDAILLES[m].c}">${tr(MEDAILLES[m].nom)}</span>` : ''; }
@@ -1166,7 +1186,7 @@ function boucle(t) {
   requestAnimationFrame(boucle);
   const dt = Math.min(0.1, (t - (derniere || t)) / 1000);
   derniere = t;
-  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
+  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (S.mut.rapide && J && J.mode !== 'fantome' ? 1.5 : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
   barreRejeu();
   let k = 0;
   while (acc >= 1 / 60 && k < 6) { if (J) J.ePrec = M.cloner(J.e); pas(); acc -= 1 / 60; k++; }
@@ -1193,7 +1213,7 @@ function dessiner(dt) {
     if (Math.abs(p.x - e.x) < 40 && Math.abs(p.y - e.y) < 40) { e = M.cloner(J.e); e.x = p.x + (J.e.x - p.x) * a; e.y = p.y + (J.e.y - p.y) * a; }
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { miroir: !!S.mut.miroir, brouillard: !!S.mut.brouillard, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -1205,6 +1225,13 @@ function dessiner(dt) {
     if (b) { hud.lignes.push({ t: tr(J.periode === 'jour' ? 'Meilleur du jour  {0}' : 'Ton meilleur  {0}', texteScore(ty, b)), c: '#ff9ae6' }); if (ty.score === 'temps' && e.temps > b.t) hud.couleurChrono = '#ffb0b0'; }
     hud.lignes.push({ t: tr(ty.but), c: '#bbb' });
     if (J.finT > 0) { hud.message = tr('Fin : {0}', tr('Salles : {0}', J.salle)); hud.messageC = '#ff9ae6'; }
+  } else if (J.mode === 'expedition') {
+    hud.chrono = e.temps; hud.titre = '🎲 ' + tr('Expédition');
+    hud.sousChrono = tr('Salle {0}', J.salle + 1) + '   ' + '❤'.repeat(Math.max(0, J.vies));
+    const actifs = [[J.chargesJusque, '⚡'], [J.sautJusque, '🦘'], [J.ralenti, '🐢'], [J.bouclier, '🛡']].filter(b => b[0] && J.salle < b[0]).map(b => b[1] + ' ' + (b[0] - J.salle));
+    if (actifs.length) hud.lignes.push({ t: actifs.join('   '), c: '#9ff' });
+    hud.lignes.push({ t: tr('Prochain bonus : salle {0}', J.prochainChoix), c: '#aaa' });
+    if (J.finT > 0) { hud.message = tr('Salles franchies : {0}', J.salle); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'infini') {
     const rec = S.infini[J.imode];
     hud.chrono = e.temps;
@@ -1258,11 +1285,11 @@ function dessiner(dt) {
   } else {
     hud.chrono = e.temps;
     if (il && il.t != null) hud.lignes.push({ t: tr('Record  {0}', R.chrono(il.t)) });
-    if (p && p.t) hud.lignes.push({ t: tr('Parfait  {0}', R.chrono(p.t)), c: MEDAILLES[4].c });
+    if (p && p.t) hud.lignes.push({ t: tr('Parfait  {0}', R.chrono(p.t)), c: MEDAILLES[MP].c });
     if (p && p.t) {
       const m = medaille(id, il && il.t);
-      const vise = Math.min(4, m + 1);
-      if (m < 4) hud.lignes.push({ t: tr(MEDAILLES[vise].nom) + '  ' + R.chrono(seuil(id, vise)), c: MEDAILLES[vise].c });
+      const vise = Math.min(MP, m + 1);
+      if (m < MP) hud.lignes.push({ t: tr(MEDAILLES[vise].nom) + '  ' + R.chrono(seuil(id, vise)), c: MEDAILLES[vise].c });
       else hud.lignes.push({ t: tr('Parfait atteint !'), c: '#7dff9a' });
       if (il && il.t != null && e.temps > il.t) hud.couleurChrono = '#ffb0b0';
     }
@@ -1334,15 +1361,17 @@ function sommeParfaits() { let s = 0; for (const l of LISTE) { if (!PARF[l.id]) 
 function accueil() {
   J = null; ecran = 'menu'; SON.jouerMusique(0);
   const faits = LISTE.filter(l => S.il[l.id] && S.il[l.id].t != null).length;
-  const parfaits = LISTE.filter(l => medaille(l.id, S.il[l.id] && S.il[l.id].t) === 4).length;
+  const parfaits = LISTE.filter(l => medaille(l.id, S.il[l.id] && S.il[l.id].t) === MP).length;
   const nbSucces = nbRangs();
   const carte = (a, titre, sous, attr) => `<button class="btn carte" data-a="${a}" ${attr || ''}><b>${titre}</b><small>${sous}</small></button>`;
   montrer(`
-  <div class="titre"><h1>SHIFTRUN</h1><p>${tr('Un jeu fait pour le speedrun : change de forme pour aller plus vite.')}</p></div>
+  <div class="titre"><h1>SHIFTRUN</h1><p>${tr('Un jeu fait pour le speedrun : change de forme pour aller plus vite.')}</p>${serieActuelle() ? `<p class="serie">🔥 ${tr('Série : {0} jours de suite', serieActuelle())}</p>` : ''}</div>
   <div class="grille">
     ${S.tutoVu ? '' : carte('tuto', '🎓 ' + tr('Didacticiel'), tr('5 minutes pour apprendre à jouer, une idée à la fois'), 'autofocus')}
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('infini', '∞ ' + tr('Infini'), S.infini[2] ? tr('record : {0} salles', S.infini[2].salles) : tr('salles générées sans fin, de plus en plus dures, une seule vie'))}
+    ${carte('expedition', '🎲 ' + tr('Expédition'), S.expedition ? tr('record : {0} salles', S.expedition.salles) : tr('3 vies, et un bonus à choisir toutes les 5 salles'))}
+    ${carte('mutateurs', '🧪 ' + tr('Mutateurs'), mutateurActif() ? '<span class="rose">' + MUTATEURS.filter(m => S.mut[m[0]]).map(m => m[1]).join(' ') + '</span>' : tr('vitesse, miroir, brouillard, une charge'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
@@ -1392,6 +1421,7 @@ let nivZone = -1;
 function niveaux() {
   if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
   let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
+    + '<div class="badges">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(p => { const l = LISTE.filter(v => v.def.etats.includes(p)), f = l.filter(v => S.il[v.id] && S.il[v.id].t != null).length, o = l.filter(v => S.il[v.id] && (S.il[v.id].mMax || 0) >= 3).length; return `<span class="badge ${l.length && o === l.length ? 'maitre' : ''}" style="--c:${R.COUL_PHASE[p]}" title="${tr('Niveaux finis avec cet état')}">${tr(M.NOMS_PHASES[p])} <b>${f}/${l.length}</b>${l.length && o === l.length ? ' 👑' : ''}</span>`; }).join('') + '</div>'
     + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
@@ -1405,7 +1435,7 @@ function niveaux() {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
       h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok ? '' : 'disabled'}>
-        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>${PARF[nv.id] ? `<button class="btn mini voirp" data-a="voir-parfait" data-i="${parId[nv.id]}" title="${tr('▶ Voir le Parfait')}">▶</button>` : ''}</div>`;
+        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span> <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button>${PARF[nv.id] ? `<button class="btn mini voirp" data-a="voir-parfait" data-i="${parId[nv.id]}" title="${tr('▶ Voir le Parfait')}">▶</button>` : ''}</div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -1454,7 +1484,8 @@ function aide() {
     ['🔨 ' + tr('Machines'), `<p>${tr('Pilon : un bloc d’acier tremble puis tombe du plafond. Passe juste après sa chute.')}</p>
       <p>${tr('Scies en orbite : deux scies tournent autour d’un pivot.')} ${tr('Brûleur : il crache une flamme par moments ; le Torrent du Liquide l’éteint un moment.')}</p>
       <p>${tr('Geyser : quand il jaillit, il te projette tout en haut et recharge tes compétences.')} ${tr('Courant : sous l’eau, des traînées montrent le sens dans lequel il te pousse.')}</p>
-      <p>${tr('Leviers : tire tous les leviers d’une zone pour ouvrir sa grille. Plaque colorée : elle te transforme sans dépenser de charge.')} ${tr('Bas : traverse les plateformes fines.')}</p>`],
+      <p>${tr('Leviers : tire tous les leviers d’une zone pour ouvrir sa grille. Plaque colorée : elle te transforme sans dépenser de charge.')} ${tr('Bas : traverse les plateformes fines.')}</p>
+      <p>${tr('Clé : elle ouvre la porte dorée (tu la perds si tu tombes avant un drapeau). Minuterie : la porte bleue s’ouvre quelques secondes. Plateformes violettes : elles vont et viennent en rythme. Zone inversée : on y tombe vers le haut. Broyeur : un mur de scies te poursuit, ne t’arrête pas !')}</p>`],
     ['🎮 ' + tr('Touches'), `<p>${tr('Clavier : {0} recommencer, {1} pause.', k('recommencer'), k('pause'))}</p>
       <p>${tr('Manette')} : ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')}</p>
       <p>${tr('Tout se règle dans les Réglages. Le jeu se joue entièrement au clavier : flèches pour choisir, Entrée pour valider, Échap pour revenir.')}</p>`]
@@ -1511,8 +1542,104 @@ function reglages() {
   v('fantome', r.fantome); v('langue', r.langue); v('tactile', r.tactile || 'auto'); v('vitesse', String(r.vitesse || 1));
 }
 // assistance active ou vitesse réduite : la partie ne compte pas pour les records
-function assiste() { const r = S.reglages; return !!(r.invincible || r.chargesInf || (r.vitesse && +r.vitesse < 1)); }
+function assiste() { const r = S.reglages; return !!(r.invincible || r.chargesInf || (r.vitesse && +r.vitesse < 1) || mutateurActif()); }
+// mutateurs : des façons différentes de rejouer (sans record)
+if (!S.mut) S.mut = {};
+const MUTATEURS = [['rapide', '⏩', 'Vitesse ×1,5', 'tout va une fois et demie plus vite'], ['miroir', '🪞', 'Miroir', 'le niveau est retourné : on court vers la gauche'],
+  ['brouillard', '🌫', 'Brouillard', 'on ne voit que tout près de soi'], ['unecharge', '1️⃣', 'Une seule charge', 'une seule transformation entre deux recharges']];
+function mutateurActif() { return MUTATEURS.some(m => S.mut[m[0]]); }
+function mutateurs() {
+  J = null; ecran = 'menu';
+  montrer(`<h2>🧪 ${tr('Mutateurs')}</h2><p class="note">${tr('Ils changent toutes les parties tant qu’ils sont allumés. Les temps ne comptent pas pour les records.')}</p>
+    <div class="grille">${MUTATEURS.map(([id, ic, nom, d], k) => `<button class="btn carte ${S.mut[id] ? 'choisi' : ''}" data-a="mutateur" data-c="${id}" ${k === 0 ? 'autofocus' : ''}><b>${ic} ${tr(nom)} ${S.mut[id] ? '✅' : '⬜'}</b><small>${tr(d)}</small></button>`).join('')}</div>
+    <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
+}
 
+// 5 objectifs par niveau : finir, sans chute, médaille d'or, l'éclat ◆, sans aucune compétence
+const OBJECTIFS = [['Finir le niveau', '🏁'], ['Sans aucune chute', '💚'], ['Médaille d’or ou mieux', '🥇'], ['Prendre l’éclat ◆', '◆'], ['Sans utiliser de compétence', '🚫']];
+function objectifsFaits(id, t) {
+  let b = 1;
+  if (J.e.morts === 0) b |= 2;
+  if (medaille(id, t) >= 3) b |= 4;
+  if (J.e.eclat || !J.n.aEclat) b |= 8;
+  if (!J.capas) b |= 16;
+  return b;
+}
+const etoiles = (o) => OBJECTIFS.map((_, k) => (o & (1 << k)) ? '★' : '☆').join('');
+// série : au moins une partie finie chaque jour
+function jourDe(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function majSerie() {
+  const auj = jourDe(new Date()), hier = jourDe(new Date(Date.now() - 864e5));
+  const se = S.serie || { der: '', n: 0 };
+  if (se.der === auj) return;
+  se.n = se.der === hier ? se.n + 1 : 1; se.der = auj; se.max = Math.max(se.max || 0, se.n);
+  S.serie = se;
+}
+function serieActuelle() { const se = S.serie; if (!se) return 0; return (se.der === jourDe(new Date()) || se.der === jourDe(new Date(Date.now() - 864e5))) ? se.n : 0; }
+// aide : la première fois qu'on croise une sorte de piège, une phrase s'affiche
+const AIDE_PIEGES = () => ({ [M.PILON]: 'Pilon : il tremble puis tombe. Passe juste après sa chute.', [M.ORBITE]: 'Scies en orbite : regarde leur tour, passe quand elles sont loin.',
+  [M.GEYSER]: 'Geyser : attends qu’il jaillisse, il te projette tout en haut.', [M.BRULEUR]: 'Brûleur : il crache des flammes par moments.', [M.LEVIER]: 'Levier : tire tous les leviers de la zone pour ouvrir la grille.',
+  [M.PLAQUE0]: 'Plaque colorée : elle te transforme sans dépenser de charge.', [M.PLAQUE1]: 'Plaque colorée : elle te transforme sans dépenser de charge.', [M.PLAQUE2]: 'Plaque colorée : elle te transforme sans dépenser de charge.',
+  [M.SAUTEUR]: 'Sauteur : il bondit sans arrêt, passe sous lui ou par-dessus.', [M.VOLANT]: 'Volant : il ondule dans les airs.', [M.LASER]: 'Laser : il clignote juste avant de s’allumer.',
+  [M.ARBALETE]: 'Arbalète : elle tire à intervalles réguliers.', [M.CASSANT]: 'Sol cassant : il s’effondre juste après ton passage.', [M.BOUTON]: 'Bouton : il ouvre la porte qui suit.',
+  [M.INTER]: 'Interrupteur : les blocs rouges et bleus s’échangent.', [M.ORBE]: 'Orbe : appuie sur saut en la touchant pour sauter en l’air.', [M.CHAMPI]: 'Champignon : il te renvoie au loin.',
+  [M.CLE]: 'Clé : prends-la pour ouvrir la porte dorée. Tu la perds si tu tombes avant un drapeau.', [M.RYTHME]: 'Plateforme en rythme : elle apparaît et disparaît en cadence.',
+  [M.MINUTEUR]: 'Minuterie : la porte bleue reste ouverte quelques secondes.', [M.APESANTEUR]: 'Zone inversée : tout y tombe vers le haut.' });
+let aideCache = null;
+function aidePieges() {
+  if (!S.vus) S.vus = {};
+  aideCache = aideCache || AIDE_PIEGES();
+  const e = J.e, n = J.n, cx = Math.floor(e.x / M.T), cy = Math.floor(e.y / M.T);
+  for (let x = cx; x < cx + 9; x++) for (let y = cy - 5; y < cy + 6; y++) {
+    if (x < 0 || y < 0 || x >= n.w || y >= n.h) continue;
+    const t = n.g[y * n.w + x], txt = aideCache[t];
+    if (txt && !S.vus[t]) { S.vus[t] = 1; message = '💡 ' + tr(txt); messageT = 260; sauver(); return; }
+  }
+}
+// mode Expédition : des salles sans fin, 3 vies, et toutes les 5 salles un bonus à choisir parmi 3
+const BONUS = [['vie', '❤', 'Une vie de plus'], ['charges', '⚡', 'Charges infinies pendant 5 salles'], ['saut', '🦘', 'Sauts plus hauts pendant 5 salles'],
+  ['ralenti', '🐢', 'Temps ralenti pendant 5 salles'], ['bouclier', '🛡', 'Invincible pendant 2 salles'], ['tresor', '💎', '3 éclats ◆ tout de suite']];
+function lancerExpedition() {
+  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.15, 0.022] });
+  const def = { id: 'exp', nom: 'Expédition', phases: monde.etats.slice(), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
+  const n = M.charger(def), e = M.nouvelEtat(n);
+  R.preparer(n, (x) => monde.theme(x));
+  recadrer = true;
+  J = { mode: 'expedition', monde, n, e, entrees: [], L: { id: 'exp', def, zi: 0 }, salle: 0, finT: 0, vies: 3, prochainChoix: 5, bonusPris: [] };
+  S.essais++;
+  ecran = 'jeu'; cacherUI();
+  SON.jouerMusique('infini');
+}
+function choixBonus() {
+  ecran = 'choix'; SON.attenuer(true);
+  const l = BONUS.slice(); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+  montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')} · ${tr('Salle {0}', J.salle)}</div><div class="temps">${tr('Choisis un bonus')}</div>
+    <div class="grille">${l.slice(0, 3).map((b, k) => `<button class="btn carte" data-a="bonus" data-c="${b[0]}" ${k === 0 ? 'autofocus' : ''}><b>${b[1]} ${tr(b[2])}</b></button>`).join('')}</div>
+    <div class="lignes"><div>${'❤'.repeat(Math.max(0, J.vies))} · ${tr('Bonus pris : {0}', J.bonusPris.length)}</div></div></div>`, 'fin');
+}
+function prendreBonus(id) {
+  if (id === 'vie') J.vies++;
+  else if (id === 'charges') J.chargesJusque = J.salle + 5;
+  else if (id === 'saut') J.sautJusque = J.salle + 5;
+  else if (id === 'ralenti') J.ralenti = J.salle + 5;
+  else if (id === 'bouclier') J.bouclier = J.salle + 2;
+  else if (id === 'tresor') gagnerBonus(3);
+  J.bonusPris.push(id); J.prochainChoix += 5;
+  ecran = 'jeu'; cacherUI();
+}
+function finExpedition() {
+  const n = J.salle, t = J.e.temps, ancien = S.expedition;
+  const record = !ancien || n > ancien.salles;
+  if (record && !assiste()) S.expedition = { salles: n, t };
+  const gain = gagnerBonus(gainTemps(t) + Math.floor(n / 10));
+  majSerie(); sauver();
+  ecran = 'fin'; SON.attenuer(true);
+  montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')}</div><div class="temps">${tr('Salles franchies : {0}', n)}</div>
+    <div class="lignes">${record ? '<div class="vert">' + tr('Nouveau record !') + '</div>' : `<div>${tr('Record : {0}', '<b>' + tr('Salles : {0}', ancien.salles) + '</b>')}</div>`}
+    <div class="gris">${R.chrono(t)} · ${tr('Bonus pris : {0}', J.bonusPris.length)}</div>${gain ? `<div class="rose">+${gain} ◆ ${tr('pour la boutique')}</div>` : ''}</div>
+    ${statsHTML()}<div class="menu ligne"><button class="btn" data-a="expedition" autofocus>${tr('Recommencer')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
+}
 function finNiveau(t, avant, record) {
   const id = J.L.id, m = medaille(id, S.il[id].t), p = PARF[id];
   const mCe = medaille(id, t);
@@ -1521,10 +1648,12 @@ function finNiveau(t, avant, record) {
   else if (record) lignes += '<div class="vert">' + tr('Premier temps enregistré') + '</div>';
   else lignes += `<div class="rouge">${tr('{0} sur ton record ({1})', R.ecart(t - avant), R.chrono(avant))}</div>`;
   if (p) {
-    const vise = Math.min(4, m + 1);
+    const vise = Math.min(MP, m + 1);
     lignes += `<div>${tr('Parfait : {0}', '<b>' + R.chrono(p.t) + '</b>')} ${t <= p.t ? '— <b class="rose">' + tr('ÉGALÉ !') + '</b>' : '(' + R.ecart(t - p.t) + ')'}</div>`;
-    if (m < 4) lignes += `<div>${tr('Prochaine médaille : {0} en {1}', badge(vise), R.chrono(seuil(id, vise)))}</div>`;
+    if (m < MP) lignes += `<div>${tr('Prochaine médaille : {0} en {1}', badge(vise), R.chrono(seuil(id, vise)))}</div>`;
   }
+  const ob = S.il[id].obj || 0, obCe = objectifsFaits(id, t);
+  lignes += `<div class="objectifs">${OBJECTIFS.map((o, k) => `<span class="${(obCe & (1 << k)) ? 'ok' : (ob & (1 << k)) ? 'deja' : ''}">${o[1]} ${tr(o[0])}</span>`).join('')}</div>`;
   lignes += `<div class="gris">${tr('Chutes : {0}', J.e.morts)}${J.n.aEclat ? ' · ' + (J.e.eclat ? tr('éclat ◆ pris') : tr('éclat pas pris')) : ''}</div>`;
   if (J.gainE > 0) lignes += `<div class="rose">+${J.gainE} ◆ ${tr('pour la boutique')}</div>`;
   lignes += J.succesNeufs || '';
@@ -1609,7 +1738,8 @@ function pause() {
     ${J.mode === 'niveau' && PARF[J.L.id] ? `<button class="btn" data-a="voir-parfait" data-i="${J.idx}">${tr('▶ Voir le Parfait')} <small>${R.chrono(PARF[J.L.id].t)}</small></button>` : ''}
     ${J.mode === 'niveau' && PARF[J.L.id] && PARF[J.L.id].fe ? `<button class="btn" data-a="voir-parfait-eclat" data-i="${J.idx}">${tr('▶ Parfait avec l’éclat ◆')} <small>${R.chrono(PARF[J.L.id].te)}</small></button>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
-    <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div></div>`, 'fin');
+    <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
+    <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
 }
 
 function action(a, el) {
@@ -1618,6 +1748,10 @@ function action(a, el) {
   const i = el && el.dataset.i != null ? +el.dataset.i : null;
   switch (a) {
     case 'accueil': accueil(); break;
+    case 'expedition': lancerExpedition(); break;
+    case 'mutateurs': mutateurs(); break;
+    case 'mutateur': S.mut[el.dataset.c] = !S.mut[el.dataset.c]; sauver(); mutateurs(); break;
+    case 'bonus': prendreBonus(el.dataset.c); break;
     case 'niveaux': if (!(J && J.entrainement) && !(el && el.dataset.garde)) nivEntrainement = false; J = null; ecran = 'menu'; niveaux(); break;
     case 'records': J = null; ecran = 'menu'; records(); break;
     case 'aide': aide(); break;
@@ -1666,7 +1800,7 @@ function action(a, el) {
     case 'course-any': lancerCourse('any'); break;
     case 'course-cent': lancerCourse('cent'); break;
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
-    case 'rejouer': if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
+    case 'rejouer': if (J && J.mode === 'expedition') lancerExpedition(); else if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':
       if (ecran === 'jeu') recommencer();
       else if (ecran === 'fin' && J && J.mode === 'niveau') lancerNiveau(J.idx);

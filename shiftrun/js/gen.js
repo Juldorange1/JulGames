@@ -746,6 +746,23 @@ SALLES.chaos = { phases: [S], f(s, rng, d) {
   return total + 3;
 } };
 for (const nom in COMBOS) SALLES[nom] = comboSalle(COMBOS[nom]);
+// salles à barrière : la barrière d'une transformation (pleine hauteur) mêlée à des menaces ; 5 par transformation
+const MOTIFS_BAR = { Pilons: ['bar', 'pilon', 'bar'], Lasers: ['laserPlafond', 'bar', 'fosse'], Orbite: ['bar', 'orbite'],
+  Feux: ['bruleurSol', 'bar', 'bruleurPlafond'], Serre: ['bar', 'serre', 'bar'] };
+const NOMS_ETATS = ['S', 'L', 'Z', 'P', 'PL', 'CA', 'ME', 'OM', 'GL', 'MA'];
+for (let et = 0; et < 10; et++) for (const m in MOTIFS_BAR) {
+  const c = CAR_BARRIERE[et], motif = MOTIFS_BAR[m];
+  SALLES['bar' + NOMS_ETATS[et] + m] = { phases: [S], req: [et], f(s, rng, d) {
+    let total = 3; for (const k of motif) total += (k === 'bar' ? 3 : MOD[k][0]) + 1;
+    s.couloir(0, total + 2);
+    let x = 3;
+    for (const k of motif) {
+      if (k === 'bar') { s.r(x + 1, 14, x + 1, 19, c); x += 4; }
+      else { MOD[k][1](s, x, rng, d); x += MOD[k][0] + 1; }
+    }
+    return total + 3;
+  } };
+}
 // Leviers : trois leviers cachés en hauteur, dans une fosse et derrière des pics ouvrent la grille de sortie
 SALLES.leviers = { phases: [S], f(s, rng, d) {
   s.couloir(0, 30, 8);
@@ -766,6 +783,90 @@ SALLES.plaques = { phases: [S], f(s, rng, d) {
   if (d > 0.5) for (let x = 6; x < Lg - 4; x += 6) s.p(x, 11, 'F');
   s.couloir(Lg + 1, Lg + 2);
   return Lg + 3;
+} };
+// Lacets : une grande salle en zigzag à gravir (droite, gauche, droite…) dans des passages bas, puis on redescend
+SALLES.lacets = { phases: [S], f(s, rng, d) {
+  s.couloir(0, 3);
+  s.c(4, 2, 18, 19);
+  [17, 14, 11, 8, 5].forEach((y, i) => {
+    if (i % 2 === 0) s.r(4, y, 16, y); else s.r(6, y, 18, y);
+    if (d > 0.35 && i > 0) s.n(i % 2 ? 9 : 10, y - 1, 2, '^');                        // pics sur l'étage
+    if (d > 0.8 && i % 2 === 0) s.p(11, y + 2, 'S');
+  });
+  s.r(19, 5, 19, 19); s.c(19, 2, 21, 4); s.c(20, 5, 21, 19);
+  if (d > 0.5) { s.p(5, 19, '#'); s.p(9, 19, 'E'); }
+  s.couloir(22, 24);
+  return 25;
+} };
+// Lacets vers le bas : le couloir s'arrête, on descend en zigzag puis une plateforme remonte au couloir
+SALLES.lacetsBas = { phases: [S], f(s, rng, d) {
+  s.couloir(0, 5);
+  s.c(4, 20, 18, 32); s.r(6, 14, 18, 19);
+  [23, 26, 29].forEach((y, i) => {
+    if (i % 2 === 0) s.r(4, y, 16, y); else s.r(6, y, 18, y);
+    if (d > 0.4) s.n(i % 2 ? 10 : 8, y - 1, 2, '^');
+  });
+  s.n(4, 32, 15, '^'); s.c(4, 31, 18, 31);
+  s.r(4, 32, 18, 32); if (d > 0.6) s.n(7, 32, 3, '^');
+  s.c(19, 14, 21, 31); s.p(19, 31, 'N');
+  s.couloir(22, 24);
+  return 25;
+} };
+// Clé : la clé attend en haut d'une colonne de pics ; la porte dorée barre le couloir plus loin
+SALLES.cle = { phases: [S], f(s, rng, d) {
+  s.couloir(0, 22, 9);
+  s.r(6, 13, 8, 19); s.n(6, 12, 3, '^'); s.n(5, 19, 1, '^'); s.n(9, 19, 1, '^');
+  s.r(10, 9, 10, 11); s.p(7, 9, '+');                                            // la clé au-dessus des pics
+  if (d > 0.5) s.p(13, 9, 'F');
+  s.r(18, 9, 18, 19, 'd');                                                      // la porte dorée
+  s.couloir(23, 25);
+  return 26;
+} };
+// Rythme : une fosse à pics qu'on traverse sur des plateformes qui apparaissent et disparaissent en cadence
+SALLES.rythme = { phases: [S], f(s, rng, d) {
+  const Lp = 14 + Math.round(d * 6);
+  s.couloir(0, 2, 12); s.c(3, 12, 2 + Lp, 23); s.n(3, 23, Lp, '^');
+  for (let x = 4, i = 0; x < 2 + Lp - 1; x += 4, i++) s.n(x, i % 2 ? 18 : 20, 2, '|');
+  s.couloir(3 + Lp, 5 + Lp, 12);
+  return 6 + Lp;
+} };
+// Minuterie : un bouton bleu ouvre la porte bleue quelques secondes ; il faut filer, sans heurter les menaces
+SALLES.minuterie = { phases: [S], f(s, rng, d) {
+  const Lg = 20 + Math.round(d * 6);
+  s.couloir(0, Lg, 13);
+  s.p(3, 19, '/');
+  for (let x = 7; x < Lg - 4; x += 5) { if ((x / 5) % 2 < 1) s.n(x, 19, 2, '^'); else s.p(x, 13, 'L'); }
+  s.r(Lg - 2, 14, Lg - 2, 19, '"');
+  s.couloir(Lg + 1, Lg + 2);
+  return Lg + 3;
+} };
+// Zone inversée : un puits où tout tombe vers le haut ; on remonte, on file en hauteur, on redescend
+SALLES.inversee = { phases: [S], f(s, rng, d) {
+  s.couloir(0, 4);
+  s.r(5, 14, 7, 19);
+  s.c(3, 4, 4, 13); s.r(3, 6, 4, 13, ',');                                      // le puits inversé
+  s.c(3, 3, 17, 5);
+  if (d > 0.4) for (let x = 7; x < 16; x += 4) s.p(x, 3, '^');
+  if (d > 0.7) s.p(11, 5, 'S');
+  s.c(16, 6, 17, 19);
+  s.couloir(18, 20);
+  return 21;
+} };
+// Broyeur : un mur de scies se met en marche et pousse jusqu'au bout de la salle (le « boss » de fin de zone)
+SALLES.broyeur = { phases: [S], f(s, rng, d) {
+  const Lg = 34 + Math.round(d * 8);
+  s.couloir(0, Lg, 11);
+  s.p(2, 19, '_');
+  for (let x = 8; x < Lg - 4; x += 6) {
+    const k = Math.floor(rng() * 4);
+    if (k === 0) { s.c(x, 20, x + 2, 21); s.n(x, 22, 3, '^'); }
+    else if (k === 1) s.r(x, 11, x + 2, 16);
+    else if (k === 2) s.r(x + 1, 17, x + 1, 19);
+    else { s.p(x + 1, 11, 'K'); }
+  }
+  s.p(Lg - 1, 19, '_');
+  s.couloir(Lg + 1, Lg + 3);
+  return Lg + 4;
 } };
 // Descente puis remontée : un puits qu'on descend en évitant les pics des parois, et des plateformes fines pour remonter
 SALLES.puits = { phases: [S], f(s, rng, d) {
@@ -899,6 +1000,7 @@ function etatsAuHasard(rng, impose, nb) {
   }
   return nb < 3 ? [S, L] : [S, L, Z];
 }
+const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3);
   const g = new Grille();
@@ -910,8 +1012,16 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   let alcoves = ALCOVES.filter(a => compatible(a, et0) && (COMPAT[a] || []).includes(et0[0]));
   if (!alcoves.length) alcoves = ALCOVES.filter(a => compatible(a, et0));
   const suite = [], compte = {};
+  // une salle sur deux exige une des autres transformations, à tour de rôle : le Parfait doit toutes les jouer ;
+  // une salle sur quatre fait monter, descendre ou revenir vers la gauche
+  const autres = et0.slice(1), parEtat = {};
+  for (const st of autres) parEtat[st] = types.filter(t => (SALLES[t.replace('*', '')].req || []).includes(st));
+  const verticales = types.filter(t => VERTICALES.includes(t));
   for (let i = 0; i < nb; i++) {
-    const t = (imposees && imposees[i]) || choisir(rng, types, nouv, suite.slice(-3), compte);
+    let liste = types;
+    if (i % 2 === 1 && autres.length) { const l2 = parEtat[autres[(i >> 1) % autres.length]]; if (l2 && l2.length) liste = l2; }
+    else if (i % 4 === 2 && verticales.length) liste = verticales;
+    const t = (imposees && imposees[i]) || choisir(rng, liste, nouv, suite.slice(-3), compte);
     compte[t] = (compte[t] || 0) + 1;
     suite.push(t);
     if (i === Math.floor(nb / 2) && alcoves.length) x = poser(g, x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, {});

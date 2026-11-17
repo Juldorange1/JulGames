@@ -90,7 +90,8 @@ const ZONES = DEF.map((z, zi) => ({
     const etats = etatsDuNiveau(zi, k);
     const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]).concat(z.intro[k] || []);
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
-    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.length ? imp : null, etats);
+    if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';        // le « boss » de la zone : le broyeur, juste avant l'arrivée
+    const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
     return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d };
   })
 }));
@@ -131,6 +132,15 @@ const TUTO = {
     'Bravo ! Chaque niveau te donne ses propres transformations : lis les panneaux du début. Bonne course !']
 };
 
+// zone 9, le Sommet : de grands niveaux verticaux, en montée et en descente (façon Celeste)
+const SOMMET = ['Premier à-pic', 'Cheminée des vents', 'Chute libre', 'Arête', 'Grand gouffre', 'Le Sommet'];
+ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'glacier', phases: [S, L, Z, P], niveaux: SOMMET.map((nom, k) => {
+  const sens = k % 3 === 2 || k === 4 ? 'bas' : 'haut', metres = 60 + k * 18;
+  const etats = Gen.etatsAuHasard(Gen.hasard(9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0)), undefined, 3);
+  const v = Gen.vertical(7300 + k * 41 + (DECALE['9-' + (k + 1)] || 0), sens, metres, etats);
+  const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]);
+  return { id: '9-' + (k + 1), nom, phases: etats.slice(), etats, capacites: true, panneaux: [], carte: v.carte, suite: [sens + ' ' + metres + ' m'], d: 0.9 + k * 0.05 };
+}) });
 const Niveaux = { TUTO, ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;
 else racine.Niveaux = Niveaux;
