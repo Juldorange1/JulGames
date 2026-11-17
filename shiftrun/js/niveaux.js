@@ -81,7 +81,7 @@ function etatsDuNiveau(zi, k) {
   return Gen.etatsAuHasard(Gen.hasard(5000 + zi * 31 + k * 7), SIGNATURE[zi], zi === 0 ? 2 : 3);
 }
 // niveaux dont la graine a été décalée (si le robot n'y trouvait pas de chemin)
-const DECALE = { '1-1': 1, '6-4': 1, '2-2': 1, '5-1': 1, '5-3': 1, '2-3': 3, '4-4': 3, '6-2': 3, '7-6': 3 };
+const DECALE = { '1-1': 1, '6-4': 3, '2-2': 1, '5-1': 1, '5-3': 1, '2-3': 3, '4-4': 3, '6-2': 3, '7-6': 3 };
 const ZONES = DEF.map((z, zi) => ({
   id: zi + 1, nom: z.nom, theme: z.theme, phases: [S, L, Z, P],
   niveaux: z.niveaux.map((nom, k) => {
