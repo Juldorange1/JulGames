@@ -49,12 +49,13 @@ details.plier { width: min(900px, 100%); margin-top: 12px; text-align: center; }
 .segs small { display: block; color: #b9afcd; font-size: 16px; } .segs i { font-style: normal; display: block; font-size: 16px; }
 .succes-neuf { color: #ffd34d; font-weight: 700; }
 .sc-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; width: min(1200px, 100%); align-items: start; }
-.sc-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 10px; }
-.sc-carte { background: rgba(30,24,44,.88); border: 2px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 12px; font-size: clamp(16px, .6vw + 11px, 20px); }
+.sc-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(1300px, 96vw); }
+@media (max-width: 700px) { .sc-liste { grid-template-columns: 1fr; } }
+.sc-carte { background: rgba(30,24,44,.92); border: 2px solid rgba(255,255,255,.14); border-radius: 14px; padding: 10px 16px; font-size: clamp(19px, .8vw + 12px, 26px); }
 .sc-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.rangs { display: flex; gap: 4px; } .rangs i { width: 16px; height: 16px; border-radius: 50%; display: inline-block; }
-.sc-but { color: #cfc6dc; margin-top: 4px; font-size: clamp(16px, .5vw + 11px, 19px); }
-.barre { height: 10px; background: rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; margin-top: 6px; } .barre div { height: 100%; }
+.rangs { display: flex; gap: 6px; } .rangs i { width: 22px; height: 22px; border-radius: 50%; display: inline-block; }
+.sc-but { color: #e4dcef; margin-top: 4px; font-size: clamp(17px, .6vw + 11px, 23px); line-height: 1.25; }
+.barre { height: 14px; background: rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; margin-top: 6px; } .barre div { height: 100%; }
 .sc-finis { background: rgba(20,40,28,.6); border: 2px solid rgba(110,240,140,.35); border-radius: 12px; padding: 10px 14px; max-height: 70vh; overflow: hidden; }
 .sc-ok { font-size: clamp(16px, .5vw + 11px, 19px); padding: 2px 0; }
 @media (max-width: 800px) { .sc-cols { grid-template-columns: 1fr; } }
@@ -71,6 +72,20 @@ details.plier { width: min(900px, 100%); margin-top: 12px; text-align: center; }
 .nivw .niv { flex: 1; }
 .nivw .voirp { padding: 4px 10px; }
 #ui.visible { display: flex; }
+#edPanel { position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 42vw); display: none; overflow-y: auto; padding: 12px; background: rgba(10, 8, 18, .9); border-left: 2px solid #3a3550; font-size: 17px; color: #eee; z-index: 5; }
+#edPanel input { width: 100%; font: inherit; font-size: 19px; padding: 6px 8px; background: #1a1626; color: #fff; border: 2px solid #4a4466; border-radius: 6px; -webkit-user-select: text; user-select: text; }
+#edPanel .edl { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#edPanel .edb { flex: 1 1 auto; font: inherit; font-size: 17px; padding: 6px 8px; background: #241f36; color: #eee; border: 2px solid #3d3758; border-radius: 6px; cursor: pointer; }
+#edPanel .edb:hover { background: #322a4c; }
+#edPanel .edb.on { background: #4a3a10; border-color: #ffe94a; color: #fff; }
+#edPanel .edb:disabled { opacity: .4; cursor: default; }
+#edPanel .edcats { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+#edPanel .edcats .edb { font-size: 22px; padding: 4px 0; }
+#edPanel .edtitre { margin-top: 10px; font-weight: 700; color: #ffe94a; font-size: 18px; }
+#edPanel .edcases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-top: 6px; }
+#edPanel .edcase { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 16px; }
+#edPanel .edcase span { font-size: 22px; width: 28px; text-align: center; }
+#edPanel .edaide { margin-top: 12px; color: #bbb; font-size: 16px; line-height: 1.4; }
 #ui.visible:not(.accueil) { background: rgba(8, 6, 14, .72); backdrop-filter: blur(3px); }
 #ui.large { justify-content: flex-start; padding-top: 28px; }
 #ui.fin { background: rgba(8, 6, 14, .6); }
@@ -179,17 +194,17 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=27"></script>
-<script src="js/calibrage.js?v=27"></script>
-<script src="js/compat.js?v=27"></script>
-<script src="js/gen.js?v=27"></script>
-<script src="js/niveaux.js?v=27"></script>
-<script src="js/parfaits.js?v=27"></script>
-<script src="js/rendu.js?v=27"></script>
-<script src="js/compositeur.js?v=27"></script>
-<script src="js/son.js?v=27"></script>
-<script src="js/langues.js?v=27"></script>
-<script src="js/jeu.js?v=27"></script>
-<script src="js/vitrine.js?v=27"></script>
+<script src="js/moteur.js?v=31"></script>
+<script src="js/calibrage.js?v=31"></script>
+<script src="js/compat.js?v=31"></script>
+<script src="js/gen.js?v=31"></script>
+<script src="js/niveaux.js?v=31"></script>
+<script src="js/parfaits.js?v=31"></script>
+<script src="js/rendu.js?v=31"></script>
+<script src="js/compositeur.js?v=31"></script>
+<script src="js/son.js?v=31"></script>
+<script src="js/langues.js?v=31"></script>
+<script src="js/jeu.js?v=31"></script>
+<script src="js/vitrine.js?v=31"></script>
 </body>
 </html>

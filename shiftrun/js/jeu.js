@@ -203,16 +203,18 @@ function lancerInfini(mode) {
   SON.jouerMusique('infini');
 }
 /* ---------- Éditeur de niveaux (entièrement au clavier, souris possible) et partage par code ---------- */
-const PALETTE = [
-  ['#', 'Mur'], ['.', 'Vide'], ['^', 'Pics'], ['-', 'Plateforme fine'], ['@', 'Départ'], ['G', 'Arrivée'], ['!', 'Drapeau'], ['e', 'Éclat ◆'],
-  ['x', 'Bloc fêlé'], ['c', 'Sol cassant'], ['b', 'Sol rebondissant'], ['s', 'Ressort'], ['i', 'Glace'], ['w', 'Eau'], ['f', 'Feu'],
-  ['*', 'Cristal'], ['O', 'Orbe'], ['U', 'Champignon'], ['(', 'Tremplin ←'], [')', 'Tremplin →'], ['[', 'Tapis ←'], [']', 'Tapis →'],
-  ['>', 'Vent →'], ['<', 'Vent ←'], ['A', 'Vent ↑'], ['F', 'Arbalète'], ['L', 'Laser'], ['Z', 'Scie ↔'], ['z', 'Scie ↕'], ['M', 'Plateforme ↔'], ['N', 'Plateforme ↕'],
-  ['E', 'Ennemi ↔'], ['Y', 'Ennemi ↕'], ['o', 'Bouton'], ['D', 'Porte'], ['k', 'Interrupteur'], ['R', 'Bloc rouge'], ['B', 'Bloc bleu'],
-  ['{', 'Haut bouclé'], ['}', 'Bas bouclé'], ['W', 'Bord gauche bouclé'], ['X', 'Bord droit bouclé'], ['H', 'Saut +'], ['h', 'Saut −'],
-  ['a', 'Barrière Solide'], ['=', 'Barrière Liquide'], ['~', 'Barrière Gaz'], ['r', 'Barrière Plasma'], ['l', 'Barrière Plume'], ['n', 'Barrière Caoutchouc'],
-  ['m', 'Barrière Métal'], ['%', 'Barrière Ombre'], ['j', 'Barrière Glace'], ['v', 'Barrière Magma'], ['P', 'Téléporteur 1'], ['p', 'Sortie 1'], ['Q', 'Téléporteur 2'], ['q', 'Sortie 2']
+const ED_CATS = [
+  ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
+  ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '💎'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
+  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾']]],
+  ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨']]],
+  ['🚀', 'Mouvement', [['s', 'Ressort', '🪀'], ['U', 'Champignon', '🍄'], ['(', 'Tremplin ←', '↖'], [')', 'Tremplin →', '↗'], ['M', 'Plateforme ↔', '↔'], ['N', 'Plateforme ↕', '↕'], ['H', 'Saut +', '⏫'], ['h', 'Saut −', '⏬'],
+    ['P', 'Téléporteur 1', '🟣'], ['p', 'Sortie 1', '⭕'], ['Q', 'Téléporteur 2', '🔵'], ['q', 'Sortie 2', '🔘'], ['{', 'Haut bouclé', '⤒'], ['}', 'Bas bouclé', '⤓'], ['W', 'Bord gauche bouclé', '⇤'], ['X', 'Bord droit bouclé', '⇥']]],
+  ['🔀', 'Mécanismes', [['o', 'Bouton', '🔘'], ['D', 'Porte', '🚪'], ['k', 'Interrupteur', '🎚'], ['R', 'Bloc rouge', '🟥'], ['B', 'Bloc bleu', '🟦']]],
+  ['🚧', 'Barrières', [['a', 'Barrière Solide', '🟨'], ['=', 'Barrière Liquide', '🟦'], ['~', 'Barrière Gaz', '⬜'], ['r', 'Barrière Plasma', '🟧'], ['l', 'Barrière Plume', '🟪'], ['n', 'Barrière Caoutchouc', '🩷'],
+    ['m', 'Barrière Métal', '⬛'], ['%', 'Barrière Ombre', '🟫'], ['j', 'Barrière Glace', '🩵'], ['v', 'Barrière Magma', '🟥']]]
 ];
+const PALETTE = ED_CATS.flatMap(c => c[2]);
 if (!S.persos) S.persos = [];
 let ED = null;
 function nouvelleCarte() {
@@ -247,9 +249,82 @@ function editeurMenu() {
 }
 function ouvrirEditeur(i) {
   const p = i == null ? { nom: tr('Mon niveau') + ' ' + (S.persos.length + 1), etats: [0, 1, 2], l: nouvelleCarte() } : { nom: S.persos[i].nom, etats: S.persos[i].etats.slice(), l: S.persos[i].carte.map(r => r.split('')) };
-  ED = { idx: i, nom: p.nom, etats: p.etats, l: p.l, cx: 3, cy: 18, pal: 0 };
+  ED = { idx: i, nom: p.nom, etats: p.etats, l: p.l, cx: 3, cy: 18, pal: 0, cat: 0, outil: 'pinceau', annul: [], refaire: [], grille: true, vx: 3 * M.T, vy: 18 * M.T, debut: null, souris: 0 };
   majEditeur();
-  ecran = 'editeur'; cacherUI();
+  ecran = 'editeur'; cacherUI(); panneauEditeur();
+}
+/* ----- panneau latéral de l'éditeur (souris ou clavier) ----- */
+const edPanel = document.createElement('div');
+edPanel.id = 'edPanel';
+document.body.appendChild(edPanel);
+function panneauEditeur() {
+  if (!ED) return;
+  const w = ED.l[0].length, h = ED.l.length;
+  const outil = (id, ic, nom, k) => `<button class="edb${ED.outil === id ? ' on' : ''}" data-ed="outil" data-v="${id}" title="${k}">${ic} ${tr(nom)}</button>`;
+  edPanel.innerHTML = `<input id="edNom" value="${ED.nom.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" maxlength="40" aria-label="${tr('Nom du niveau')}">
+    <div class="edl">${ED.etats.map((e2, k) => `<button class="edb" data-ed="etat" data-v="${k}" style="border-color:${R.COUL_PHASE[e2]}">${k + 1} · ${tr(M.NOMS_PHASES[e2])}</button>`).join('')}</div>
+    <div class="edl">${outil('pinceau', '🖌', 'Pinceau', 'B')}${outil('rect', '▭', 'Rectangle', 'R')}${outil('pipette', '💉', 'Pipette', 'I')}</div>
+    <div class="edl"><button class="edb" data-ed="annuler" ${ED.annul.length ? '' : 'disabled'}>↶ ${tr('Annuler')}</button><button class="edb" data-ed="refaire" ${ED.refaire.length ? '' : 'disabled'}>↷ ${tr('Rétablir')}</button><button class="edb${ED.grille ? ' on' : ''}" data-ed="grille">▦ ${tr('Grille')}</button></div>
+    <div class="edcats">${ED_CATS.map((c, k) => `<button class="edb${ED.cat === k ? ' on' : ''}" data-ed="cat" data-v="${k}" title="${tr(c[1])}">${c[0]}</button>`).join('')}</div>
+    <div class="edtitre">${ED_CATS[ED.cat][0]} ${tr(ED_CATS[ED.cat][1])}</div>
+    <div class="edcases">${ED_CATS[ED.cat][2].map(c => { const k = PALETTE.indexOf(c); return `<button class="edb edcase${k === ED.pal ? ' on' : ''}" data-ed="case" data-v="${k}"><span>${c[2]}</span>${tr(c[1])}</button>`; }).join('')}</div>
+    <div class="edtitre">${tr('Taille')} : ${w} × ${h}</div>
+    <div class="edl"><button class="edb" data-ed="taille" data-v="-10,0">− ${tr('Largeur')}</button><button class="edb" data-ed="taille" data-v="10,0">+ ${tr('Largeur')}</button></div>
+    <div class="edl"><button class="edb" data-ed="taille" data-v="0,-2">− ${tr('Hauteur')}</button><button class="edb" data-ed="taille" data-v="0,2">+ ${tr('Hauteur')}</button></div>
+    <div class="edl"><button class="edb" data-ed="tester">▶ ${tr('Tester')}</button><button class="edb" data-ed="ici">▶ ${tr('Tester d’ici')}</button></div>
+    <div class="edl"><button class="edb" data-ed="sauver">💾 ${tr('Enregistrer')}</button><button class="edb" data-ed="code">📋 ${tr('Code')}</button><button class="edb" data-ed="quitter">✖ ${tr('Quitter')}</button></div>
+    <div class="edaide">${tr('Clic gauche : poser · clic droit : effacer')}<br>${tr('Molette : défiler (Maj : de haut en bas)')}<br>${tr('Ctrl + Z / Y : annuler, rétablir')}<br>${tr('Clavier : flèches, Espace, Q / E, Tab')}</div>`;
+  const nomIn = edPanel.querySelector('#edNom');
+  nomIn.addEventListener('input', () => { ED.nom = nomIn.value || tr('Mon niveau'); });
+  nomIn.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.code === 'Enter' || ev.code === 'Escape') nomIn.blur(); });
+}
+edPanel.addEventListener('mousedown', ev => { if (ev.target.tagName !== 'INPUT') ev.preventDefault(); });   // le panneau ne vole pas le clavier
+edPanel.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-ed]');
+  if (!b || !ED) return;
+  const a = b.dataset.ed, v = b.dataset.v;
+  if (a === 'outil') { ED.outil = v; ED.debut = null; }
+  else if (a === 'case') { ED.pal = +v; if (ED.outil === 'pipette') ED.outil = 'pinceau'; }
+  else if (a === 'cat') ED.cat = +v;
+  else if (a === 'etat') { changerEtat(+v); return; }
+  else if (a === 'annuler') { annulerEd(); return; }
+  else if (a === 'refaire') { refaireEd(); return; }
+  else if (a === 'grille') ED.grille = !ED.grille;
+  else if (a === 'taille') { const [dw, dh] = v.split(',').map(Number); tailleEd(dw, dh); return; }
+  else if (a === 'tester') { testerPerso(); return; }
+  else if (a === 'ici') { testerPerso(true); return; }
+  else if (a === 'sauver') sauverPerso();
+  else if (a === 'code') copierCode(codeNiveau(ED.nom, ED.etats, ED.l));
+  else if (a === 'quitter') { sauverPerso(); editeurMenu(); return; }
+  panneauEditeur();
+});
+function instantane() {
+  ED.annul.push(ED.l.map(r => r.join('')));
+  if (ED.annul.length > 150) ED.annul.shift();
+  ED.refaire = [];
+}
+function annulerEd() { if (!ED.annul.length) return; ED.refaire.push(ED.l.map(r => r.join(''))); ED.l = ED.annul.pop().map(r => r.split('')); bornerCurseur(); majEditeur(); panneauEditeur(); }
+function refaireEd() { if (!ED.refaire.length) return; ED.annul.push(ED.l.map(r => r.join(''))); ED.l = ED.refaire.pop().map(r => r.split('')); bornerCurseur(); majEditeur(); panneauEditeur(); }
+function bornerCurseur() { const w = ED.l[0].length, h = ED.l.length; ED.cx = Math.max(1, Math.min(w - 2, ED.cx)); ED.cy = Math.max(1, Math.min(h - 2, ED.cy)); }
+function changerEtat(k) {
+  ED.etats[k] = (ED.etats[k] + 1) % 10;
+  while (ED.etats.filter(x => x === ED.etats[k]).length > 1) ED.etats[k] = (ED.etats[k] + 1) % 10;
+  majEditeur(); panneauEditeur();
+}
+// agrandir / rétrécir : la largeur à droite (avant le bord), la hauteur en haut (tout descend)
+function tailleEd(dw, dh) {
+  const l = ED.l, w = l[0].length, h = l.length;
+  if (w + dw < 20 || w + dw > 400 || h + dh < 12 || h + dh > 80) return;
+  instantane();
+  if (dw > 0) for (const r of l) r.splice(w - 1, 0, ...new Array(dw).fill('#'));
+  if (dw < 0) for (const r of l) r.splice(w - 1 + dw, -dw);
+  const w2 = l[0].length;
+  if (dh > 0) for (let k = 0; k < dh; k++) l.splice(1, 0, new Array(w2).fill('#'));
+  if (dh < 0) l.splice(1, -dh);
+  for (const r of l) { r[0] = '#'; r[r.length - 1] = '#'; }
+  l[0].fill('#'); l[l.length - 1].fill('#');
+  if (dh) { ED.cy += dh; ED.vy += dh * M.T; }
+  bornerCurseur(); majEditeur(); panneauEditeur();
 }
 function majEditeur() {
   const carte = ED.l.map(r => r.join(''));
@@ -265,9 +340,14 @@ function sauverPerso() {
   if (ED.idx == null) { S.persos.push(p); ED.idx = S.persos.length - 1; } else S.persos[ED.idx] = p;
   sauver(); message = '💾 ' + tr('Niveau enregistré'); messageT = 80;
 }
-function testerPerso() {
+function testerPerso(ici) {
   sauverPerso();
-  const def = { id: 'perso', nom: ED.nom, etats: ED.etats, phases: ED.etats.slice(), carte: ED.l.map(r => r.join('')), panneaux: [] };
+  let carte = ED.l.map(r => r.join(''));
+  if (ici) {                                        // départ provisoire à l'endroit du curseur
+    if (M.estDur(M.CH[ED.l[ED.cy][ED.cx]])) { message = tr('Place le curseur sur une case libre'); messageT = 90; return; }
+    carte = ED.l.map((r, y) => r.map((c, x) => (x === ED.cx && y === ED.cy) ? '@' : c === '@' ? '.' : c).join(''));
+  }
+  const def = { id: 'perso', nom: ED.nom, etats: ED.etats, phases: ED.etats.slice(), carte, panneaux: [] };
   lancerPerso(def, true);
 }
 function lancerPerso(def, depuisEditeur) {
@@ -297,26 +377,96 @@ function importerCode() {
 // commandes de l'éditeur au clavier
 function toucheEditeur(ev) {
   const l = ED.l, h = l.length, w = l[0].length, c = ev.code;
+  if (ev.ctrlKey && c === 'KeyZ') { if (ev.shiftKey) refaireEd(); else annulerEd(); return; }
+  if (ev.ctrlKey && c === 'KeyY') { refaireEd(); return; }
   const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1] }[c];
-  if (mv) { ED.cx = Math.max(1, Math.min(w - 2, ED.cx + mv[0] * (ev.shiftKey ? 5 : 1))); ED.cy = Math.max(1, Math.min(h - 2, ED.cy + mv[1] * (ev.shiftKey ? 5 : 1))); if (ED.peint) poser(); return; }
-  if (c === 'Space' || c === 'Enter') { ED.peint = true; poser(); return; }
-  if (c === 'Backspace' || c === 'Delete') { const g = ED.pal; ED.pal = 1; poser(); ED.pal = g; return; }
-  if (c === 'KeyQ' || c === 'PageUp') { ED.pal = (ED.pal - 1 + PALETTE.length) % PALETTE.length; return; }
-  if (c === 'KeyE' || c === 'PageDown') { ED.pal = (ED.pal + 1) % PALETTE.length; return; }
-  if (c === 'Digit1' || c === 'Digit2' || c === 'Digit3') { const k = +c.slice(-1) - 1; ED.etats[k] = (ED.etats[k] + 1) % 10; while (ED.etats.filter(x => x === ED.etats[k]).length > 1) ED.etats[k] = (ED.etats[k] + 1) % 10; majEditeur(); return; }
-  if (c === 'KeyX') { if (w < 400) { for (const r of l) r.splice(w - 1, 0, ...new Array(20).fill('#')); majEditeur(); } return; }      // agrandir vers la droite
-  if (c === 'KeyT') { testerPerso(); return; }
+  if (mv) {
+    ED.cx = Math.max(1, Math.min(w - 2, ED.cx + mv[0] * (ev.shiftKey ? 5 : 1))); ED.cy = Math.max(1, Math.min(h - 2, ED.cy + mv[1] * (ev.shiftKey ? 5 : 1)));
+    ED.vx = ED.cx * M.T; ED.vy = ED.cy * M.T;
+    if (ED.peint) poser(); return;
+  }
+  if (c === 'Space' || c === 'Enter') {
+    if (ev.repeat) return;
+    if (ED.outil === 'pipette') { pipette(ED.cx, ED.cy); return; }
+    if (ED.outil === 'rect') { if (!ED.debut) ED.debut = [ED.cx, ED.cy]; else { remplir(ED.debut, [ED.cx, ED.cy], PALETTE[ED.pal][0]); ED.debut = null; panneauEditeur(); } return; }
+    instantane(); ED.peint = true; poser(); return;
+  }
+  if (c === 'Backspace' || c === 'Delete') { instantane(); poser('.'); return; }
+  if (c === 'KeyQ' || c === 'PageUp') { ED.pal = (ED.pal - 1 + PALETTE.length) % PALETTE.length; ED.cat = catDe(ED.pal); panneauEditeur(); return; }
+  if (c === 'KeyE' || c === 'PageDown') { ED.pal = (ED.pal + 1) % PALETTE.length; ED.cat = catDe(ED.pal); panneauEditeur(); return; }
+  if (c === 'Tab') { ED.cat = (ED.cat + (ev.shiftKey ? ED_CATS.length - 1 : 1)) % ED_CATS.length; ED.pal = PALETTE.indexOf(ED_CATS[ED.cat][2][0]); panneauEditeur(); return; }
+  if (c === 'Digit1' || c === 'Digit2' || c === 'Digit3') { changerEtat(+c.slice(-1) - 1); return; }
+  if (c === 'KeyB') { ED.outil = 'pinceau'; ED.debut = null; panneauEditeur(); return; }
+  if (c === 'KeyR') { ED.outil = 'rect'; ED.debut = null; panneauEditeur(); return; }
+  if (c === 'KeyI') { pipette(ED.cx, ED.cy); return; }
+  if (c === 'KeyG') { ED.grille = !ED.grille; panneauEditeur(); return; }
+  if (c === 'KeyX') { tailleEd(ev.shiftKey ? -10 : 10, 0); return; }
+  if (c === 'KeyH') { tailleEd(0, ev.shiftKey ? -2 : 2); return; }
+  if (c === 'KeyT') { testerPerso(ev.shiftKey); return; }
   if (c === 'KeyF') { sauverPerso(); return; }
   if (c === 'KeyC') { copierCode(codeNiveau(ED.nom, ED.etats, l)); return; }
-  if (c === 'Escape') { sauverPerso(); editeurMenu(); return; }
+  if (c === 'KeyN') { const ni = edPanel.querySelector('#edNom'); if (ni) { ni.focus(); ni.select(); } return; }
+  if (c === 'Escape') { if (ED.debut) { ED.debut = null; return; } sauverPerso(); editeurMenu(); return; }
 }
-function poser() {
-  const ch = PALETTE[ED.pal][0];
-  if (ch === '@' || ch === 'G') for (const r of ED.l) for (let x = 0; x < r.length; x++) if (r[x] === ch) r[x] = '.';     // un seul départ et une seule arrivée
-  ED.l[ED.cy][ED.cx] = ch;
+const catDe = (k) => Math.max(0, ED_CATS.findIndex(c => c[2].includes(PALETTE[k])));
+function poserEn(x, y, ch) {
+  if (x < 1 || y < 1 || x > ED.l[0].length - 2 || y > ED.l.length - 2) return;
+  if (ch === '@' || ch === 'G') for (const r of ED.l) for (let i = 0; i < r.length; i++) if (r[i] === ch) r[i] = '.';     // un seul départ et une seule arrivée
+  ED.l[y][x] = ch;
+}
+function poser(ch) { poserEn(ED.cx, ED.cy, ch || PALETTE[ED.pal][0]); majEditeur(); }
+function remplir(a, b, ch) {
+  instantane();
+  const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+  if (ch === '@' || ch === 'G') poserEn(b[0], b[1], ch);
+  else for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) poserEn(x, y, ch);
   majEditeur();
 }
+function pipette(x, y) {
+  const ch = ED.l[y] && ED.l[y][x], k = PALETTE.findIndex(p2 => p2[0] === ch);
+  if (k >= 0) { ED.pal = k; ED.cat = catDe(k); }
+  if (ED.outil === 'pipette') ED.outil = 'pinceau';
+  panneauEditeur();
+}
 addEventListener('keyup', ev => { if (ev.code === 'Space' || ev.code === 'Enter') { if (ED) ED.peint = false; } });
+// souris : clic gauche = outil, clic droit = effacer, glisser = peindre, molette ou clic du milieu = défiler
+(function () {
+  const cvs = document.getElementById('jeu');
+  const actif = () => ED && ecran === 'editeur' && J && J.mode === 'editeur';
+  const versCase = (ev) => { const [x, y] = R.versCase(ev.clientX, ev.clientY); return [Math.max(1, Math.min(ED.l[0].length - 2, x)), Math.max(1, Math.min(ED.l.length - 2, y))]; };
+  cvs.addEventListener('contextmenu', ev => { if (actif()) ev.preventDefault(); });
+  cvs.addEventListener('mousedown', ev => {
+    if (!actif()) return;
+    ev.preventDefault();
+    const [x, y] = versCase(ev); ED.cx = x; ED.cy = y;
+    if (ev.button === 2) { instantane(); ED.souris = 2; poser('.'); return; }
+    if (ev.button === 1) { ED.souris = 3; ED.glisse = [ev.clientX, ev.clientY, ED.vx, ED.vy]; return; }
+    if (ED.outil === 'pipette') { pipette(x, y); return; }
+    if (ED.outil === 'rect') { ED.debut = [x, y]; ED.souris = 4; return; }
+    instantane(); ED.souris = 1; poser();
+  });
+  addEventListener('mousemove', ev => {
+    if (!actif()) return;
+    if (ED.souris === 3) { const z = R.vue().z; ED.vx = ED.glisse[2] - (ev.clientX - ED.glisse[0]) / z; ED.vy = ED.glisse[3] - (ev.clientY - ED.glisse[1]) / z; return; }
+    if (ev.target !== cvs && !ED.souris) return;
+    const [x, y] = versCase(ev);
+    if (x === ED.cx && y === ED.cy) return;
+    ED.cx = x; ED.cy = y;
+    if (ED.souris === 1) poser(); else if (ED.souris === 2) poser('.');
+  });
+  addEventListener('mouseup', () => {
+    if (!ED) return;
+    if (ED.souris === 4 && ED.debut && actif()) { remplir(ED.debut, [ED.cx, ED.cy], PALETTE[ED.pal][0]); ED.debut = null; }
+    if (ED.souris) { ED.souris = 0; panneauEditeur(); }
+  });
+  cvs.addEventListener('wheel', ev => {
+    if (!actif()) return;
+    ev.preventDefault();
+    const d = ev.deltaY + ev.deltaX;
+    if (ev.shiftKey) ED.vy += d * 0.6; else ED.vx += d * 0.8;
+    ED.vx = Math.max(0, Math.min(ED.l[0].length * M.T, ED.vx)); ED.vy = Math.max(0, Math.min(ED.l.length * M.T, ED.vy));
+  }, { passive: false });
+})();
 function copierCode(code) {
   try { navigator.clipboard.writeText(code); message = '📋 ' + tr('Code copié'); messageT = 80; } catch (err) { message = code; messageT = 200; }
 }
@@ -872,6 +1022,7 @@ function verifierSucces() {
   if (neufs.length) sauver();
   return neufs.map(([x, k]) => `<div class="succes-neuf">🏆 ${tr(x.nom)} · <span style="color:${RANGS[k].c}">${tr(RANGS[k].nom)}</span> <span class="rose">+${RANGS[k].g} ◆</span></div>`).join('');
 }
+let scPage = 0;
 function succesEcran() {
   verifierSucces();
   const enCours = SUCCES.filter(x => (S.succes[x.id] || 0) < 5), finis = [];
@@ -884,10 +1035,15 @@ function succesEcran() {
       <div class="barre"><div style="width:${pc}%;background:${RANGS[Math.min(4, r)].c}"></div></div>
       <div class="sc-but">${r < 5 ? tr('Prochain rang : {0}', tr(RANGS[r].nom)) + ' · +' + RANGS[r].g + ' ◆' : tr('Tous les rangs obtenus !')}</div></div>`;
   };
+  // 4 onglets de quelques grandes cartes : tout tient à l'écran sans rien réduire
+  const GROUPES = [['🗺 ' + tr('Progression'), ['niveaux', 'zones', 'or', 'parfaits', 'eclats', 'propre']], ['⚔ ' + tr('Modes'), ['survie', 'massacre', 'infini', 'semaine', 'mois']],
+    ['⏱ ' + tr('Endurance'), ['temps', 'chutes', 'sauts', 'formes', 'capas', 'km']], ['✨ ' + tr('Divers'), ['look', 'entr', 'rejeux']]];
+  scPage = Math.max(0, Math.min(GROUPES.length - 1, scPage));
+  const liste = GROUPES[scPage][1].map(id => SUCCES.find(x => x.id === id)).filter(Boolean);
   montrer(`<h2>🏆 ${tr('Succès')} <span class="rose">${nbRangs()} / ${SUCCES.length * 5}</span></h2>
-    <div class="sc-cols"><div><h3>${tr('En cours')}</h3><div class="sc-liste">${enCours.map(carteS).join('')}</div></div>
-    <div class="sc-finis"><h3>✔ ${tr('Réussis')}</h3>${finis.length ? finis.map(([x, k]) => `<div class="sc-ok"><span style="color:${RANGS[k].c}">● ${tr(RANGS[k].nom)}</span> ${tr(x.nom)}</div>`).join('') : `<div class="note">${tr('Rien pour l’instant : à toi de jouer !')}</div>`}</div></div>
-    <div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`, 'large');
+    <div class="onglets">${GROUPES.map((g2, i) => `<button class="btn mini ${i === scPage ? 'choisi' : ''}" data-a="sc-page" data-i="${i}" ${i === scPage ? 'autofocus' : ''}>${g2[0]}</button>`).join('')}</div>
+    <div class="sc-liste">${liste.map(carteS).join('')}</div>
+    <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
 }
 /* ---------- Pas de simulation ---------- */
 function pas() {
@@ -1011,13 +1167,15 @@ function boucle(t) {
   dessiner(dt);
 }
 function dessiner(dt) {
+  if (edPanel.style.display === 'block' && !(J && J.mode === 'editeur' && ecran === 'editeur')) edPanel.style.display = 'none';
   if (!J) { fondMenu(dt); return; }
   if (J.mode === 'editeur' && ED) {
     const pal = PALETTE[ED.pal];
-    J.e.x = ED.cx * M.T; J.e.y = ED.cy * M.T;
-    R.dessiner(J.e, null, { recadrer: false, curseur: [ED.cx, ED.cy, pal[0]], texteCentre: '🛠 ' + pal[1], sousChrono: (ED.pal + 1) + ' / ' + PALETTE.length,
-      titre: ED.nom, lignes: [{ t: tr('Flèches : bouger (Maj : ×5)') }, { t: tr('Espace : poser · Retour : effacer') }, { t: tr('Q / E : choisir la case') }, { t: tr('1 2 3 : transformations · X : agrandir') }, { t: tr('T : tester · F : enregistrer') }, { t: tr('C : copier le code · Échap : quitter') },
-        { t: ED.etats.map((p, k) => (k + 1) + ' ' + tr(M.NOMS_PHASES[p])).join('   '), c: '#ffe94a' }], droite: [], touches: [], message: messageT > 0 ? message : null }, dt);
+    J.e.x = ED.vx; J.e.y = ED.vy;
+    if (edPanel.style.display !== 'block') { edPanel.style.display = 'block'; panneauEditeur(); }
+    const sel = ED.debut ? [Math.min(ED.debut[0], ED.cx), Math.min(ED.debut[1], ED.cy), Math.max(ED.debut[0], ED.cx), Math.max(ED.debut[1], ED.cy)] : null;
+    R.dessiner(J.e, null, { recadrer: false, curseur: [ED.cx, ED.cy, pal[0]], grille: ED.grille, selection: sel, texteCentre: pal[2] + ' ' + tr(pal[1]),
+      titre: ED.nom, lignes: [{ t: ED.etats.map((p, k) => (k + 1) + ' ' + tr(M.NOMS_PHASES[p])).join('   '), c: '#ffe94a' }], droite: [], touches: [], message: messageT > 0 ? message : null }, dt);
     if (messageT > 0) messageT--;
     return;
   }
@@ -1286,6 +1444,9 @@ function aide() {
       <p>${tr('Interrupteur : les blocs rouges et bleus s’échangent. Flèche verte : sauts plus hauts un moment, flèche orange : sauts plus courts. Évite les ennemis hérissés.')}</p>
       <p>${tr('Cristal barré : cet état est interdit pendant quelques secondes. Il faut passer autrement.')}</p>
       <p>${tr('Plateformes mobiles : saute dessus, elles te portent. Champignon : il te renvoie au loin.')} ${tr('Lasers : ils s’allument par moments, un clignotement prévient juste avant. Scies : elles balaient le passage.')}</p>`],
+    ['🔨 ' + tr('Machines'), `<p>${tr('Pilon : un bloc d’acier tremble puis tombe du plafond. Passe juste après sa chute.')}</p>
+      <p>${tr('Scies en orbite : deux scies tournent autour d’un pivot.')} ${tr('Brûleur : il crache une flamme par moments ; le Torrent du Liquide l’éteint un moment.')}</p>
+      <p>${tr('Geyser : quand il jaillit, il te projette tout en haut et recharge tes compétences.')} ${tr('Courant : sous l’eau, des traînées montrent le sens dans lequel il te pousse.')}</p>`],
     ['🎮 ' + tr('Touches'), `<p>${tr('Clavier : {0} recommencer, {1} pause.', k('recommencer'), k('pause'))}</p>
       <p>${tr('Manette')} : ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')}</p>
       <p>${tr('Tout se règle dans les Réglages. Le jeu se joue entièrement au clavier : flèches pour choisir, Entrée pour valider, Échap pour revenir.')}</p>`]
@@ -1454,6 +1615,7 @@ function action(a, el) {
     case 'aide': aide(); break;
     case 'aide-page': aidePage = i; aide(); break;
     case 'regl-page': reglPage = i; reglages(); break;
+    case 'sc-page': scPage = i; succesEcran(); break;
     case 'rec-zone': recZone = i; records(); break;
     case 'niv-zone': nivZone = i; niveaux(); break;
     case 'boutique': boutique(); break;
@@ -1473,7 +1635,7 @@ function action(a, el) {
     case 'ed-nouveau': ouvrirEditeur(null); break;
     case 'ed-ouvrir': ouvrirEditeur(i); break;
     case 'ed-importer': importerCode(); break;
-    case 'ed-retour': ecran = 'editeur'; cacherUI(); majEditeur(); break;
+    case 'ed-retour': ecran = 'editeur'; cacherUI(); majEditeur(); panneauEditeur(); break;
     case 'ed-copier': { const ta = ui.querySelector('textarea.code'); if (ta) copierCode(ta.value); if (ta) { ta.select(); } break; }
     case 'perso-rejouer': lancerPerso(J.L.def, J.depuisEditeur); break;
     case 'ed-jouer-code': case 'ed-garder-code': {
@@ -1550,7 +1712,7 @@ addEventListener('keydown', ev => {
     return;
   }
   SON.demarrer();
-  if (ecran === 'editeur' && ED) { ev.preventDefault(); toucheEditeur(ev); return; }
+  if (ecran === 'editeur' && ED) { if (ev.target && ev.target.tagName === 'INPUT') return; ev.preventDefault(); toucheEditeur(ev); return; }
   if (ev.target && ev.target.tagName === 'TEXTAREA') { if (ev.code === 'Enter') { ev.preventDefault(); action('ed-jouer-code'); } else if (ev.code === 'Escape') action('editeur'); return; }
   const enJeu = ecran === 'jeu';
   if (enJeu && J && J.mode === 'fantome') {

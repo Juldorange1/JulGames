@@ -109,7 +109,7 @@ function affiner(n, entrees, A, avecEclat) {
     a.tampon === b.tampon && a.verrou === b.verrou && a.jetCd === b.jetCd && a.jetSide === b.jetSide && a.tpCd === b.tpCd && a.immun === b.immun &&
     a.cdP === b.cdP && a.face === b.face && a.mortT === b.mortT && a.invT === b.invT && (a.cp ? a.cp.tx : -1) === (b.cp ? b.cp.tx : -1) &&
     a.ban === b.ban && a.banT === b.banT && a.bonus === b.bonus && a.bonusT === b.bonusT && a.bascule === b.bascule && a.surInter === b.surInter &&
-    a.eclat === b.eclat && a.plat === b.plat && a.champCd === b.champCd && a.tremCd === b.tremCd && a.inpPrev === b.inpPrev && a.demarre === b.demarre &&
+    a.eclat === b.eclat && a.torrent === b.torrent && a.tdx === b.tdx && a.tdy === b.tdy && memes(a.eteints, b.eteints) && a.plat === b.plat && a.champCd === b.champCd && a.tremCd === b.tremCd && a.inpPrev === b.inpPrev && a.demarre === b.demarre &&
     a.dansEau === b.dansEau && a.morts === b.morts && memes(a.casses, b.casses) && memes(a.boutons, b.boutons) && memes(a.craque, b.craque) &&
     memes(a.cristaux, b.cristaux) && memes(a.orbes, b.orbes) && a.pieces.length === b.pieces.length;
   let sigs = null, tpsRef = Infinity;
@@ -265,7 +265,7 @@ function chercher(def, avecEclat, cfg) {
       const e = nd.e;
       // clé numérique (bien plus rapide qu'un texte) : position et vitesse arrondies + tout ce qui change la suite
       const k1 = (Math.round(e.x / 3) + 2048) + 4096 * (Math.round(e.y / 3) + 512) + 4194304 * ((Math.round(e.vx * 1.5) + 64) + 128 * (Math.round(e.vy * 1.5) + 64));
-      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd);
+      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd) + 1048576 * Math.min(15, e.torrent) + 16777216 * Math.min(7, e.eteints.length);
       const k2 = k3 * 4294967296 + (e.phase % 8) + 8 * e.charges + 32 * e.att + 128 * (e.phase >= 8 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
         8192 * (e.slam ? 1 : 0) + 16384 * e.bascule + 32768 * Math.min(63, e.casses.length) + 2097152 * Math.min(15, e.boutons.length) +
         33554432 * Math.min(63, e.craque.length) + 2147483648 * ((e.temps < e.banT ? e.ban + 1 : 0) + 16 * (e.temps < e.bonusT ? (e.bonus > 1 ? 1 : 2) : 0) + 64 * (e.plat + 1));

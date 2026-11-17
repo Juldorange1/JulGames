@@ -64,7 +64,7 @@ const DESC = {
 // compétence de chaque état : on l'utilise en réappuyant sur la touche de l'état où l'on est déjà
 const CAPA = {
   [S]: ['Grappin', 'grappin vers la direction tenue, il te tire jusqu’au mur'],
-  [L]: ['Rafale', 'trois jets qui actionnent boutons et interrupteurs à distance'],
+  [L]: ['Torrent', 'jaillis comme un jet d’eau dans la direction tenue : éteint le feu, actionne boutons et interrupteurs'],
   [Z]: ['Souffle', 'grosse poussée à l’opposé de la direction tenue'],
   [P]: ['Éclair enchaîné', 'un nouvel éclair dans une autre direction'],
   [PL]: ['Suspension', 'immobile en l’air un moment, te rend une charge'],

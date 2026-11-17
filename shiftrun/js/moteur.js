@@ -19,7 +19,8 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   ORBE = 32, INTER = 33, BLOC_R = 34, BLOC_B = 35, TREMP_G = 36, TREMP_D = 37, ENNEMI_H = 38, ENNEMI_V = 39,
   BAN_L = 40, BAN_Z = 41, BAN_P = 42, SAUT_PLUS = 43, SAUT_MOINS = 44, PAROI = 45,
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
-  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60, BOUCLE_G = 61, BOUCLE_D = 62;
+  LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60, BOUCLE_G = 61, BOUCLE_D = 62,
+  PILON = 63, ORBITE = 64, GEYSER = 65, BRULEUR = 66;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
 const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME, [BAR_GL]: GL, [BAR_MA]: MA };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
@@ -29,7 +30,8 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'O': ORBE, 'k': INTER, 'R': BLOC_R, 'B': BLOC_B, '(': TREMP_G, ')': TREMP_D, 'E': ENNEMI_H, 'Y': ENNEMI_V,
   '7': BAN_L, '8': BAN_Z, '9': BAN_P, 'H': SAUT_PLUS, 'h': SAUT_MOINS, '%': PAROI,
   'a': BAR_S, 'r': BAR_P, 'l': BAR_PL, 'n': BAR_CA, 'm': BAR_ME, 'M': PLAT_H, 'N': PLAT_V, 'Z': SCIE_H, 'z': SCIE_V,
-  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D };
+  'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D,
+  'K': PILON, 'C': ORBITE, 'g': GEYSER, 't': BRULEUR, 'u': EAU, 'y': EAU };   // u / y : eau avec un courant vers la gauche / la droite
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -58,7 +60,7 @@ const K = {
   glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 3.0, maSaut: 6.0,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
+  orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 16, torrentVit: 7.8, feuEteint: 240, hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -82,7 +84,7 @@ function recharger(n, c) {
   for (const l of c) w = Math.max(w, l.length);
   const g = new Uint8Array(w * h);
   let aEclat = false;
-  const panneaux = [], sorties = [];
+  const panneaux = [], sorties = [], courants = new Map();
   for (let y = 0; y < h; y++) {
     const l = c[y];
     for (let x = 0; x < w; x++) {
@@ -90,6 +92,7 @@ function recharger(n, c) {
       const t = CH[ch];
       if (t === undefined) throw new Error('Caractère inconnu « ' + ch + ' » dans ' + n.def.id + ' (' + x + ',' + y + ')');
       g[y * w + x] = t;
+      if (ch === 'u' || ch === 'y') courants.set(y * w + x, ch === 'y' ? 1 : -1);
       if (ch === '@' && !n.dep) n.dep = { x: x * T + (T - W) / 2, y: (y + 1) * T - H };
       if (t === PANNEAU) panneaux.push({ x, y, texte: (n.def.panneaux || [])[panneaux.length] || '' });
       if (t === TP1S || t === TP2S) sorties.push({ x, y, t });
@@ -174,6 +177,23 @@ function recharger(n, c) {
     const per = 110 + hs % 80, on = 40 + (hs >> 7) % 30;
     lasers.push({ x, y, dx, dy, lg: (k - 1) * T, per, on, dec: (hs >> 3) % per });
   }
+  // pilons (tombent du plafond jusqu'au sol), scies en orbite, geysers (colonne qui projette), brûleurs (jet de flammes)
+  const pilons = [], orbites = [], geysers = [], bruleurs = [];
+  for (let i = 0; i < w * h; i++) {
+    const t = g[i];
+    if (t !== PILON && t !== ORBITE && t !== GEYSER && t !== BRULEUR) continue;
+    const x = i % w, y = Math.floor(i / w), hs = (x * 19349663 ^ y * 83492791) >>> 0;
+    if (t === PILON) { let k = 0; while (k < 30 && libre(x, y + k + 1) && g[(y + k + 1) * w + x] !== PICS) k++; pilons.push({ x, y, lg: k * T, per: 150 + hs % 50, dec: hs % 200 }); }
+    else if (t === ORBITE) orbites.push({ x, y, sens: (x + y) % 2 ? 1 : -1, dec: hs % 400 });
+    else if (t === GEYSER) { let k = 0; while (k < K.geyserH && libre(x, y - k - 1)) k++; geysers.push({ x, y, lg: k, per: 150 + hs % 40, dec: hs % 190 }); }
+    else {
+      let dx = 0, dy = 0;
+      if (libre(x, y - 1)) dy = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x - 1, y)) dx = -1; else if (libre(x, y + 1)) dy = 1;
+      if (!dx && !dy) continue;
+      let k = 0; while (k < K.bruLg && libre(x + dx * (k + 1), y + dy * (k + 1))) k++;
+      bruleurs.push({ x, y, dx, dy, lg: k * T, per: 120 + hs % 40, dec: hs % 160 });
+    }
+  }
   // trous bouclés : tomber dans le bas ramène en haut de la même colonne (et monter dans le haut ramène en bas)
   const boucle = new Map();
   for (let i = 0; i < w * h; i++) {
@@ -186,12 +206,12 @@ function recharger(n, c) {
     const y = Math.floor(i / w);
     for (let x = i % w - 1; x >= 0; x--) if (g[y * w + x] === BOUCLE_G) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle });
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle, courants, pilons, orbites, geysers, bruleurs });
   return n;
 }
 
 const estDur = (t) => t === MUR || t === GLACE || t === TAPIS_G || t === TAPIS_D || t === FRAGILE || t === ARBALETE ||
-  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || (t >= BAR_S && t <= BAR_ME) || t === BAR_GL || t === BAR_MA;
+  t === CASSANT || t === REBONDI || t === PORTE || t === BLOC_R || t === BLOC_B || t === PAROI || t === LASER || t === BRULEUR || (t >= BAR_S && t <= BAR_ME) || t === BAR_GL || t === BAR_MA;
 
 /* ---------- État ---------- */
 // l'état du joueur : une forme fixe, copiée champ par champ (le robot en copie des millions)
@@ -203,7 +223,7 @@ function Etat() {
   this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.phase = 0; this.plat = -1; this.champCd = 0; this.charges = 0; this.gaz = 0; this.dash = 0; this.cdP = 0;
   this.att = 0; this.slam = false; this.slamAt = 0; this.coyote = 0; this.tampon = 0; this.verrou = 0; this.jetCd = 0; this.jetSide = 0;
   this.tpCd = 0; this.sol = true; this.face = 1; this.mortT = 0; this.immun = 0; this.dansEau = false; this.porte = 0; this.tremCd = 0; this.invT = 0;
-  this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = false; this.dashCA = 0; this.glaces = [];
+  this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = false; this.dashCA = 0; this.glaces = []; this.torrent = 0; this.tdx = 0; this.tdy = 0; this.eteints = [];
 }
 function nouvelEtat(n) {
   const e = new Etat();
@@ -215,7 +235,7 @@ function placer(e, n) {
   e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = n.base; e.plat = -1; e.champCd = 0; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
-  e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = false; e.dashCA = 0; e.glaces = [];
+  e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = false; e.dashCA = 0; e.glaces = []; e.torrent = 0; e.eteints = [];
 }
 // les listes ne sont jamais modifiées sur place : la copie peut les partager
 function cloner(e) {
@@ -227,7 +247,7 @@ function cloner(e) {
   c.x = e.x; c.y = e.y; c.vx = e.vx; c.vy = e.vy; c.phase = e.phase; c.plat = e.plat; c.champCd = e.champCd; c.charges = e.charges; c.gaz = e.gaz; c.dash = e.dash; c.cdP = e.cdP;
   c.att = e.att; c.slam = e.slam; c.slamAt = e.slamAt; c.coyote = e.coyote; c.tampon = e.tampon; c.verrou = e.verrou; c.jetCd = e.jetCd; c.jetSide = e.jetSide;
   c.tpCd = e.tpCd; c.sol = e.sol; c.face = e.face; c.mortT = e.mortT; c.immun = e.immun; c.dansEau = e.dansEau; c.porte = e.porte; c.tremCd = e.tremCd; c.invT = e.invT;
-  c.capCd = e.capCd; c.grap = e.grap; c.grapT = e.grapT; c.tirs = e.tirs; c.perle = e.perle; c.hover = e.hover; c.hoverUse = e.hoverUse; c.dashCA = e.dashCA; c.glaces = e.glaces;
+  c.capCd = e.capCd; c.grap = e.grap; c.grapT = e.grapT; c.tirs = e.tirs; c.perle = e.perle; c.hover = e.hover; c.hoverUse = e.hoverUse; c.dashCA = e.dashCA; c.glaces = e.glaces; c.torrent = e.torrent; c.tdx = e.tdx; c.tdy = e.tdy; c.eteints = e.eteints;
   return c;
 }
 
@@ -279,6 +299,33 @@ function laserRect(l) {
   const ep = K.laserEp / 2, cx = l.x * T + T / 2, cy = l.y * T + T / 2;
   if (l.dx) { const x0 = l.dx > 0 ? (l.x + 1) * T : l.x * T - l.lg; return [x0, cy - ep, x0 + l.lg, cy + ep]; }
   const y0 = l.dy > 0 ? (l.y + 1) * T : l.y * T - l.lg; return [cx - ep, y0, cx + ep, y0 + l.lg];
+}
+// pilon : décalage vers le bas (0 = au plafond) ; attente, chute rapide, écrasement, remontée lente
+function pilonEn(p, temps) {
+  const k = ((temps + p.dec) % p.per + p.per) % p.per, L2 = p.lg;
+  if (k < 60) return 0;
+  if (k < 72) { const u = (k - 60) / 12; return L2 * u * u; }
+  if (k < 98) return L2;
+  return L2 * (1 - (k - 98) / (p.per - 98));
+}
+function pilonRect(p, temps) { const o = pilonEn(p, temps); return [p.x * T, p.y * T + o, p.x * T + T, p.y * T + o + T]; }
+// scies en orbite : deux scies opposées qui tournent autour du pivot
+function orbiteEn(o, temps) {
+  const a = (temps + o.dec) * K.orbVit * o.sens, cx = o.x * T + T / 2, cy = o.y * T + T / 2;
+  return [[cx + Math.cos(a) * K.orbR, cy + Math.sin(a) * K.orbR], [cx - Math.cos(a) * K.orbR, cy - Math.sin(a) * K.orbR]];
+}
+// geyser / brûleur : 0 calme, 1 préavis (inoffensif), 2 actif
+function cycleEtat(o, temps, on) {
+  const k = ((temps + o.dec) % o.per + o.per) % o.per;
+  return k < on ? 2 : k > o.per - 30 ? 1 : 0;
+}
+const geyserEtat = (gy, temps) => cycleEtat(gy, temps, 55);
+function geyserRect(gy) { return [gy.x * T + 2, (gy.y - gy.lg) * T, gy.x * T + T - 2, gy.y * T + T]; }
+const bruleurEtat = (b, temps) => cycleEtat(b, temps, 48);
+function bruleurRect(b) {
+  const ep = K.bruEp / 2, cx = b.x * T + T / 2, cy = b.y * T + T / 2;
+  if (b.dx) { const x0 = b.dx > 0 ? (b.x + 1) * T : b.x * T - b.lg; return [x0, cy - ep, x0 + b.lg, cy + ep]; }
+  const y0 = b.dy > 0 ? (b.y + 1) * T : b.y * T - b.lg; return [cx - ep, y0, cx + ep, y0 + b.lg];
 }
 // forme du joueur selon son état (dans sa boîte de 12 × 12, qu'elle touche des 4 côtés) : c'est aussi sa hitbox
 // contre les dangers et les objets ; le dessin utilise exactement ces points.
@@ -357,6 +404,12 @@ function tuile(n, tx, ty) {
   if (ty >= n.h) return VIDE;
   return n.g[ty * n.w + tx];
 }
+function feuEteint(e, tx, ty) {
+  if (!e.eteints || !e.eteints.length) return false;
+  const k = tx * 1024 + ty;
+  for (const f of e.eteints) if (f[0] === k && f[1] > e.temps) return true;
+  return false;
+}
 function glaceEn(e, tx, ty) {
   const k = tx * 1024 + ty;
   for (const g2 of e.glaces) if (g2[0] === k && g2[1] > e.temps) return true;
@@ -374,7 +427,7 @@ function plein(n, e, tx, ty) {
     case BLOC_B: return e.bascule === 1;
     case PORTE: { const b = n.porteDe.get(tx * 1024 + ty); return b === undefined || e.boutons.indexOf(b) < 0; }
     case FRAGILE: return !casse(e, tx * 1024 + ty);
-    case LASER: return true;
+    case LASER: case BRULEUR: return true;
     case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: case BAR_GL: case BAR_MA: return e.phase !== BARRIERE[t];
     default: return false;
   }
@@ -531,11 +584,12 @@ function capacite(n, e, h, v) {
     if (ax < 0) { e.ev |= EV.ECHEC; return; }
     if (!payer()) return;
     e.grap = [ax, ay]; e.grapT = K.grapDuree; e.slam = false; e.att = 0;
-  } else if (ph === L) {                              // rafale : 3 jets qui actionnent boutons et interrupteurs
+  } else if (ph === L) {                              // torrent : jaillit comme un jet d'eau, éteint le feu, actionne boutons et interrupteurs
     if (!payer()) return;
     let dx = h, dy = v; if (!dx && !dy) dx = e.face;
-    const k = Math.hypot(dx, dy); dx /= k; dy /= k;
-    e.tirs = e.tirs.concat([0, 5, 10].map(r => [cxp, cyp, dx * K.tirVit, dy * K.tirVit, K.tirVie + r, r]));
+    const k = Math.hypot(dx, dy);
+    e.torrent = K.torrentT; e.tdx = dx / k; e.tdy = dy / k; e.att = 0; e.sol = false; e.plat = -1;
+    e.tirs = e.tirs.concat([[cxp, cyp, e.tdx * K.tirVit, e.tdy * K.tirVit, K.tirVie, 0]]);   // un jet part devant : boutons et interrupteurs à distance
   } else if (ph === Z) {                              // souffle : grosse poussée à l'opposé de la direction visée
     if (!payer()) return;
     let dx = h, dy = v; if (!dx && !dy) dy = 1;
@@ -579,6 +633,7 @@ function projectiles(n, e) {
       const x = t[0] + t[2], y = t[1] + t[3], vie = t[4] - 1;
       const tx = Math.floor(x / T), ty = Math.floor(y / T), k = tx * 1024 + ty, tt = tuile(n, tx, ty);
       if (tt === BOUTON && e.boutons.indexOf(k) < 0) { e.boutons = e.boutons.concat(k); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; continue; }
+      if ((tt === FEU || tt === BRULEUR) && !feuEteint(e, tx, ty)) { e.eteints = e.eteints.filter(f => f[1] > e.temps).concat([[k, e.temps + K.feuEteint]]); e.ev |= EV.EVAPORE; e.evX = tx; e.evY = ty; continue; }
       if (tt === INTER) { e.bascule ^= 1; e.ev |= EV.BASCULE; e.evX = tx; e.evY = ty; continue; }
       if (vie <= 0 || plein(n, e, tx, ty)) continue;
       out.push([x, y, t[2], t[3], vie, 0]);
@@ -815,6 +870,16 @@ function pas(n, e, inp) {
     if (e.tampon > 0) { e.hover = 0; }
   }
   if (e.dashCA > 0) { e.dashCA--; e.vy = 0; }
+  if (e.torrent > 0) {                                // le torrent pousse droit devant et noie ce qu'il traverse
+    e.torrent--; e.vx = e.tdx * K.torrentVit; e.vy = e.tdy * K.torrentVit;
+    const x0 = Math.floor((e.x - 2) / T), x1 = Math.floor((e.x + W + 2) / T), y0 = Math.floor((e.y - 2) / T), y1 = Math.floor((e.y + H + 2) / T);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const t2 = tuile(n, tx, ty), k2 = tx * 1024 + ty;
+      if ((t2 === FEU || t2 === BRULEUR) && !feuEteint(e, tx, ty)) { e.eteints = e.eteints.filter(f => f[1] > e.temps).concat([[k2, e.temps + K.feuEteint]]); e.ev |= EV.EVAPORE; e.evX = tx; e.evY = ty; }
+      if (t2 === BOUTON && e.boutons.indexOf(k2) < 0) { e.boutons = e.boutons.concat(k2); e.ev |= EV.BOUTON; e.evX = tx; e.evY = ty; }
+    }
+    if (e.torrent === 0) { e.vx *= 0.6; e.vy = Math.min(e.vy, 0) * 0.5; }
+  }
   if (e.sol || e.att) e.hoverUse = false;
   if (e.tirs.length || e.perle || e.glaces.length) projectiles(n, e);
 
@@ -826,6 +891,20 @@ function pas(n, e, inp) {
     else if (milieu === VENT_G && e.vx > -m) e.vx = Math.max(-m, e.vx - f);
     else if (milieu === VENT_H && e.vy > -m) e.vy = Math.max(-m, e.vy - f - (e.phase === Z ? 0 : 0.0));
     else if (milieu === VENT_B && e.vy < m) e.vy = Math.min(m, e.vy + f);
+  }
+
+  // courants d'eau : poussent sur le côté
+  if (eau && n.courants.size) {
+    const d = n.courants.get(cy * n.w + cx);
+    if (d) e.vx = d > 0 ? Math.min(Math.max(e.vx, K.courantMax), e.vx + K.courant) : Math.max(Math.min(e.vx, -K.courantMax), e.vx - K.courant);
+  }
+  // geysers actifs : projettent vers le haut et rendent les charges
+  if (n.geysers.length) for (const gy of n.geysers) {
+    if (Math.abs(gy.x * T - e.x) > 2 * T || geyserEtat(gy, e.temps) !== 2) continue;
+    const r = geyserRect(gy);
+    if (!rectRect(e, r[0], r[1], r[2], r[3])) continue;
+    if (e.vy > -K.geyserVit + 1) { e.ev |= EV.RESSORT; e.evX = gy.x; e.evY = gy.y; }
+    e.vy = Math.min(e.vy, -K.geyserVit); e.att = 0; e.sol = false; e.plat = -1; e.slam = false; e.slamAt = 0; e.charges = K.charges;
   }
 
   /* ----- déplacement ----- */
@@ -956,7 +1035,7 @@ function pas(n, e, inp) {
       if (toucherPics(n, e, tx, ty)) mourir(e);
     }
     else if (t === FEU) {
-      if (!rectRect(e, bx, by + 4, bx + T, by + T) || e.immun > 0) continue;
+      if (!rectRect(e, bx, by + 4, bx + T, by + T) || e.immun > 0 || feuEteint(e, tx, ty)) continue;
       if (e.phase === ME || e.phase === P || e.phase === MA) { /* insensible */ }
       else if (e.phase !== L && e.phase !== Z) mourir(e);
       else if (e.phase === L) {                               // l'eau s'évapore : elle devient gaz
@@ -1093,6 +1172,33 @@ function pas(n, e, inp) {
       if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
     }
   }
+  // pilons qui écrasent
+  if (n.pilons.length && e.mortT === 0) {
+    for (const p of n.pilons) {
+      if (Math.abs(p.x * T - e.x) > 3 * T) continue;
+      const r = pilonRect(p, e.temps);
+      if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
+    }
+  }
+  // scies en orbite
+  if (n.orbites.length && e.mortT === 0) {
+    for (const o of n.orbites) {
+      if (Math.abs(o.x * T - e.x) > 5 * T) continue;
+      for (const [cx2, cy2] of orbiteEn(o, e.temps)) if (rectCercle(e, cx2, cy2, K.scieRayon)) { mourir(e); break; }
+      if (e.mortT) break;
+    }
+  }
+  // brûleurs allumés (éteints un moment par le torrent) : le métal, le plasma, le magma et le gaz n'y craignent rien ; l'eau s'évapore
+  if (n.bruleurs.length && e.mortT === 0 && e.immun <= 0) {
+    for (const b of n.bruleurs) {
+      if (Math.abs(b.x * T - e.x) > 6 * T || bruleurEtat(b, e.temps) !== 2 || feuEteint(e, b.x, b.y)) continue;
+      const r = bruleurRect(b);
+      if (!rectRect(e, r[0], r[1], r[2], r[3])) continue;
+      if (e.phase === ME || e.phase === P || e.phase === MA || e.phase === Z) continue;
+      if (e.phase === L) { e.phase = Z; e.gaz = K.zDuree; e.vy = -3; e.att = 0; e.immun = 10; e.ev |= EV.EVAPORE; e.evX = b.x; e.evY = b.y; break; }
+      mourir(e); break;
+    }
+  }
   // flèches des arbalètes proches
   if (n.fleches.length && e.mortT === 0 && e.phase !== ME) {
     const px = e.x + W / 2;
@@ -1133,7 +1239,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, BARRIERE, FORMES, glaceEn, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

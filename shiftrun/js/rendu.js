@@ -30,6 +30,9 @@ function choisirApparence(a) { APPARENCE = Object.assign({ contour: 'base', moti
 
 let cv, cx, LARG = 0, HAUT = 0, DPR = 1;
 let niv = null, th = THEMES.carriere, ZF = 2;
+const derVue = { ox: 0, oy: 0, z: 2 };
+// case de la carte sous un point de l'écran (souris de l'éditeur)
+function versCase(sx, sy) { const rc = cv.getBoundingClientRect(); return [Math.floor((derVue.ox + (sx - rc.left) / derVue.z) / T), Math.floor((derVue.oy + (sy - rc.top) / derVue.z) / T)]; }
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
 let ACCES = { daltonien: false, sansFlash: false };
 function accessibilite(r) { ACCES = { daltonien: !!r.daltonien, sansFlash: !!r.sansFlash }; }
@@ -87,6 +90,8 @@ function scanner() {
     panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
+    // l'eau remplit aussi les cases non pleines qu'elle entoure (pics, orbes, cristaux… sous l'eau : pas de trou)
+    if (k !== M.EAU && !solideR(k) && (tuileR(x, y - 1) === M.EAU || (tuileR(x - 1, y) === M.EAU && tuileR(x + 1, y) === M.EAU))) dyn.eau.push([x, y, false]);
     switch (k) {
       case M.TAPIS_G: case M.TAPIS_D: dyn.tapis.push([x, y, k === M.TAPIS_G ? -1 : 1]); break;
       case M.FRAGILE: dyn.fragile.push([x, y]); break;
@@ -146,6 +151,8 @@ function morceau(k) {
         case M.REBONDI: rebondiCase(g, px, py); break;
         case M.PAROI: paroiCase(g, x, y, px, py); break;
         case M.LASER: laserCase(g, x, y, px, py); break;
+        case M.BRULEUR: bruleurCase(g, x, y, px, py); break;
+        case M.GEYSER: g.fillStyle = '#3a3330'; g.fillRect(px + 1, py + T - 5, T - 2, 5); g.fillStyle = '#6a5a50'; g.fillRect(px + 1, py + T - 5, T - 2, 1.5); g.fillStyle = '#120c0a'; for (let k = 3; k < T - 3; k += 3) g.fillRect(px + k, py + T - 3, 1.5, 3); break;
         case M.CASSANT: g.fillStyle = '#5b3e24'; g.fillRect(px, py, T, T); break;
       }
     }
@@ -405,6 +412,16 @@ function laserCase(g, x, y, px, py) {
   g.fillStyle = '#ff3a5a';
   if (l.dx) g.fillRect(l.dx > 0 ? px + T - 3 : px, py + 6, 3, 4); else g.fillRect(px + 6, l.dy > 0 ? py + T - 3 : py, 4, 3);
 }
+function bruleurCase(g, x, y, px, py) {               // bec de brûleur : bloc de fonte avec une buse
+  const b = niv.bruleurs.find(o => o.x === x && o.y === y);
+  g.fillStyle = '#2c2420'; g.fillRect(px, py, T, T);
+  g.fillStyle = '#5a4438'; g.fillRect(px + 1, py + 1, T - 2, T - 2);
+  g.fillStyle = '#3a2a22'; g.fillRect(px + 3, py + 3, T - 6, T - 6);
+  g.fillStyle = '#8a6a50'; for (const [a, c] of [[2, 2], [T - 4, 2], [2, T - 4], [T - 4, T - 4]]) g.fillRect(px + a, py + c, 2, 2);
+  if (!b) return;
+  g.fillStyle = '#ff8a3a';
+  if (b.dx) g.fillRect(b.dx > 0 ? px + T - 3 : px, py + 4, 3, 8); else g.fillRect(px + 4, b.dy > 0 ? py + T - 3 : py, 8, 3);
+}
 function rebondiCase(g, px, py) {
   const gr = g.createLinearGradient(0, py, 0, py + T);
   gr.addColorStop(0, '#9dff7a'); gr.addColorStop(1, '#3f9a3a');
@@ -443,7 +460,10 @@ function evenements(e) {
   if (ev & EV.FRACAS) eclats(cxp, e.y, 8, '#fff', 1.6, -0.05);
   if (ev & EV.CONVERSION) eclats(cxp, cyp, 10, '#bfe8ff', 2, 0, true);
   if (ev & EV.JET) eclats(cxp, cyp, 12, '#4fb8ff', 2.2, 0.1);
-  if (ev & EV.NAGE) eclats(cxp, cyp, 12, '#bff', 1.6, -0.02);
+  if (ev & EV.NAGE) { eclats(cxp, cyp, 12, '#bff', 1.6, -0.02); for (let k = 0; k < 14; k++) part(cxp + (Math.random() - 0.5) * 10, e.y, (Math.random() - 0.5) * 2.2, -1.5 - Math.random() * 2.2, 40, 'rgba(190,240,255,.85)', 1.8, 0.14); }   // éclaboussures qui retombent
+  if (ev & EV.CAPA) { for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; part(cxp, cyp, Math.cos(a) * 2.4, Math.sin(a) * 2.4, 22, COUL_PHASE[e.phase], 2, 0, true); } }
+  if (e.torrent > 0) for (let k = 0; k < 3; k++) part(cxp - e.tdx * 6 + (Math.random() - 0.5) * 6, cyp - e.tdy * 6 + (Math.random() - 0.5) * 6, -e.tdx * 1.5 + (Math.random() - 0.5), -e.tdy * 1.5 + (Math.random() - 0.5), 24, 'rgba(120,200,255,.8)', 2.2, 0.06);   // le jet d'eau
+  if (e.sol && Math.abs(e.vx) > 2.5 && Math.random() < 0.25) part(cxp - Math.sign(e.vx) * 5, e.y + PH - 1, -e.vx * 0.15, -0.3 - Math.random() * 0.4, 18, 'rgba(220,200,170,.4)', 1.6, 0.02);   // poussière de course
   if (ev & EV.BOUTON) { eclats(e.evX * T + 8, e.evY * T + 14, 16, '#ffd84a', 2, 0, true); tremble = 2; }
   if (ev & EV.CRAQUE) eclats(e.evX * T + 8, e.evY * T + 2, 6, th.motif, 1, 0.1);
   if (ev & EV.ORBE) { eclats(e.evX * T + 8, e.evY * T + 8, 16, '#ffe85a', 2.4, 0, true); }
@@ -483,6 +503,7 @@ function dessiner(e, fantome, hud, dt) {
   const vw = LARG / z, vh = HAUT / z;
   if (niv) suivre(e, hud, vw, vh);
   let ox = cam.x - vw / 2, oy = cam.y - vh / 2;
+  derVue.ox = ox; derVue.oy = oy; derVue.z = z;
   if (tremble > 0 && (!hud || hud.tremble !== false)) { ox += (Math.random() - 0.5) * tremble; oy += (Math.random() - 0.5) * tremble; tremble *= 0.85; if (tremble < 0.3) tremble = 0; }
   if (themeDe) { const t2 = themeEn(Math.floor(cam.x / T)); if (t2 !== th) th = t2; }
 
@@ -553,6 +574,14 @@ function dessiner(e, fantome, hud, dt) {
     g.fillStyle = '#ff5a6a'; g.font = '800 14px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', cx2, cy2); g.textBaseline = 'top';
   }
   if (hud && hud.balles) for (const b2 of hud.balles) { g.fillStyle = b2[5] ? '#a0ffd8' : '#c0ff8a'; g.beginPath(); g.arc(b2[0], b2[1], 2.5, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(b2[0] - 0.8, b2[1] - 1.5, 1.2, 1.2); }
+  if (hud && hud.grille && niv) {                                // éditeur : grille fine
+    g.strokeStyle = 'rgba(255,255,255,.09)'; g.lineWidth = 0.5; g.beginPath();
+    const x0g = Math.max(0, Math.floor(ox / T)), x1g = Math.min(niv.w, Math.ceil((ox + vw) / T)), y0g = Math.max(0, Math.floor(oy / T)), y1g = Math.min(niv.h, Math.ceil((oy + vh) / T));
+    for (let x = x0g; x <= x1g; x++) { g.moveTo(x * T, y0g * T); g.lineTo(x * T, y1g * T); }
+    for (let y = y0g; y <= y1g; y++) { g.moveTo(x0g * T, y * T); g.lineTo(x1g * T, y * T); }
+    g.stroke();
+  }
+  if (hud && hud.selection) { const [a, b, c2, d2] = hud.selection; g.fillStyle = 'rgba(120,200,255,.2)'; g.fillRect(a * T, b * T, (c2 - a + 1) * T, (d2 - b + 1) * T); g.strokeStyle = '#7cf'; g.lineWidth = 1; g.setLineDash([3, 2]); g.strokeRect(a * T, b * T, (c2 - a + 1) * T, (d2 - b + 1) * T); g.setLineDash([]); }
   if (hud && hud.curseur) {                                       // éditeur : case visée et aperçu de ce qu'on va poser
     const [cx3, cy3] = hud.curseur;
     g.strokeStyle = `rgba(255,233,74,${0.6 + 0.4 * Math.sin(temps * 8)})`; g.lineWidth = 1.5; g.strokeRect(cx3 * T - 0.5, cy3 * T - 0.5, T + 1, T + 1);
@@ -926,6 +955,11 @@ function casesAnimees(g, e, vis) {
   for (const [x, y] of dyn.feu) {
     if (!vis(x, y)) continue;
     const px = x * T, py = y * T;
+    if (M.feuEteint(e, x, y)) {                                   // éteint par le torrent : braises qui fument
+      g.fillStyle = '#2a0c04'; g.fillRect(px + 1, py + T - 4, T - 2, 4); g.fillStyle = 'rgba(255,90,30,.5)'; g.fillRect(px + 3, py + T - 3, T - 6, 1);
+      if (Math.random() < 0.12) part(px + Math.random() * T, py + T - 4, (Math.random() - 0.5) * 0.3, -0.5, 40, 'rgba(200,200,210,.45)', 2.5, -0.005);
+      continue;
+    }
     g.fillStyle = '#2a0c04'; g.fillRect(px + 1, py + T - 4, T - 2, 4);
     for (let i = 0; i < 5; i++) {
       const h = 9 + 3 * Math.sin(tt * 13 + i * 1.7 + x);              // flammes entre 4 et 16 : la zone qui brûle
@@ -1127,6 +1161,58 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = '#2a2c34'; g.beginPath(); g.arc(0, 0, 1.6, 0, 7); g.fill();
     g.restore();
   }
+  if (niv.pilons) for (const p of niv.pilons) {            // pilon : chaîne + bloc d'acier = sa hitbox ; il tremble avant de tomber
+    if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
+    const [a, b, c2, d2] = M.pilonRect(p, e.temps), cyc = ((e.temps + p.dec) % p.per + p.per) % p.per;
+    const tr = cyc > 38 && cyc < 60 ? Math.sin(tt * 70) * 0.8 : 0;
+    g.fillStyle = '#5a5e68'; for (let yy = p.y * T; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
+    const gr = g.createLinearGradient(a, 0, c2, 0); gr.addColorStop(0, '#9aa2b0'); gr.addColorStop(0.5, '#dfe5ee'); gr.addColorStop(1, '#6a7280');
+    g.fillStyle = gr; g.fillRect(a + tr, b, c2 - a, d2 - b);
+    g.fillStyle = '#3a3e48'; g.fillRect(a + tr, d2 - 3, c2 - a, 3);
+    g.fillStyle = '#ffd84a'; for (let k = 0; k < T; k += 6) g.fillRect(a + tr + k, d2 - 3, 3, 3);
+    g.fillStyle = '#2a2c34'; for (const [u, w2] of [[3, 3], [T - 5, 3]]) g.fillRect(a + tr + u, b + w2, 2, 2);
+    if (cyc >= 72 && cyc < 76 && p.lg > 0) for (let k = 0; k < 3; k++) part(a + Math.random() * T, d2, (Math.random() - 0.5) * 2.5, -Math.random() * 1.2, 20, 'rgba(210,200,180,.6)', 1.8, 0.05);
+  }
+  if (niv.orbites) for (const o of niv.orbites) {          // pivot + deux scies (cercle = hitbox), trajet en pointillé
+    if (o.x * T < ox - 600 || o.x * T > ox + vw + 600) continue;
+    const cx0 = o.x * T + T / 2, cy0 = o.y * T + T / 2, r = M.K.scieRayon;
+    g.strokeStyle = 'rgba(200,210,230,.18)'; g.lineWidth = 1; g.setLineDash([3, 4]); g.beginPath(); g.arc(cx0, cy0, M.K.orbR, 0, 7); g.stroke(); g.setLineDash([]);
+    const ps = M.orbiteEn(o, e.temps);
+    g.strokeStyle = '#4a4e5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(ps[0][0], ps[0][1]); g.lineTo(ps[1][0], ps[1][1]); g.stroke();
+    g.fillStyle = '#2a2c34'; g.beginPath(); g.arc(cx0, cy0, 4, 0, 7); g.fill(); g.fillStyle = '#8a90a0'; g.beginPath(); g.arc(cx0, cy0, 2, 0, 7); g.fill();
+    for (const [sx, sy] of ps) {
+      g.save(); g.translate(sx, sy); g.rotate(tt * 16 * o.sens);
+      g.fillStyle = '#d6dbe4'; g.beginPath();
+      for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const rr = i % 2 ? r - 2 : r; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      g.closePath(); g.fill();
+      g.fillStyle = '#8a3a3a'; g.beginPath(); g.arc(0, 0, r - 3.5, 0, 7); g.fill();
+      g.fillStyle = '#2a2c34'; g.beginPath(); g.arc(0, 0, 1.6, 0, 7); g.fill();
+      g.restore();
+    }
+  }
+  if (niv.geysers) for (const gy of niv.geysers) {         // geyser : bulles au préavis, colonne d'eau bouillante quand il souffle (= sa zone)
+    if (gy.x * T < ox - 600 || gy.x * T > ox + vw + 600) continue;
+    const et = M.geyserEtat(gy, e.temps), [a, b, c2, d2] = M.geyserRect(gy);
+    if (et === 1 && Math.random() < 0.4) part(a + Math.random() * (c2 - a), d2 - 4, (Math.random() - 0.5) * 0.4, -0.8 - Math.random(), 22, 'rgba(220,240,255,.7)', 1.6, 0);
+    if (et !== 2) continue;
+    const gr = g.createLinearGradient(0, b, 0, d2); gr.addColorStop(0, 'rgba(200,240,255,.15)'); gr.addColorStop(1, 'rgba(160,225,255,.7)');
+    g.fillStyle = gr; g.fillRect(a, b, c2 - a, d2 - b);
+    g.fillStyle = 'rgba(255,255,255,.7)'; for (let k = 0; k < 4; k++) { const yy = d2 - ((tt * 160 + k * 23) % (d2 - b)); g.fillRect(a + 2 + (k % 2) * 6, yy, 2, 6); }
+    if (Math.random() < 0.5) part(a + Math.random() * (c2 - a), b + 2, (Math.random() - 0.5) * 2, -0.5, 26, 'rgba(230,248,255,.75)', 2, 0.08);
+  }
+  if (niv.bruleurs) for (const bu of niv.bruleurs) {       // brûleur : flamme = sa hitbox ; fumée quand le torrent l'a éteint
+    if (bu.x * T < ox - 600 || bu.x * T > ox + vw + 600) continue;
+    if (M.feuEteint(e, bu.x, bu.y)) { if (Math.random() < 0.1) part(bu.x * T + 8 + bu.dx * 9, bu.y * T + 8 + bu.dy * 9, 0, -0.5, 40, 'rgba(200,200,210,.45)', 2.5, -0.005); continue; }
+    const et = M.bruleurEtat(bu, e.temps), [a, b, c2, d2] = M.bruleurRect(bu);
+    if (et === 1) { if (Math.random() < 0.3) part(bu.x * T + 8 + bu.dx * 9, bu.y * T + 8 + bu.dy * 9, bu.dx * 0.6, bu.dy * 0.6 - 0.1, 14, 'rgba(255,170,60,.8)', 1.5, 0); continue; }
+    if (et !== 2) continue;
+    const gr = bu.dx ? g.createLinearGradient(bu.dx > 0 ? a : c2, 0, bu.dx > 0 ? c2 : a, 0) : g.createLinearGradient(0, bu.dy > 0 ? b : d2, 0, bu.dy > 0 ? d2 : b);
+    gr.addColorStop(0, '#fff6c0'); gr.addColorStop(0.35, '#ffb02a'); gr.addColorStop(0.8, '#ff4a1a'); gr.addColorStop(1, '#c02000');
+    g.fillStyle = gr; g.fillRect(a, b, c2 - a, d2 - b);
+    g.fillStyle = 'rgba(255,255,220,.8)'; const fl = Math.sin(tt * 40) * 1;
+    if (bu.dx) g.fillRect(a, (b + d2) / 2 - 1.5 + fl, c2 - a, 3); else g.fillRect((a + c2) / 2 - 1.5 + fl, b, 3, d2 - b);
+    if (Math.random() < 0.5) part(bu.dx ? (bu.dx > 0 ? c2 : a) : a + Math.random() * (c2 - a), bu.dy ? (bu.dy > 0 ? d2 : b) : b + Math.random() * (d2 - b), bu.dx * 0.5, bu.dy * 0.5 - 0.3, 16, 'rgba(255,140,40,.7)', 1.6, -0.02);
+  }
   if (niv.lasers) for (const l of niv.lasers) {
     if (l.x * T < ox - 600 || l.x * T > ox + vw + 600) continue;
     const etat = M.laserEtat(l, e.temps);
@@ -1192,7 +1278,13 @@ function eauDessus(g, vis) {
       g.fillStyle = 'rgba(200,245,255,.75)'; g.fillRect(px, py + 2 + o, T, 1.5);
       g.fillStyle = 'rgba(255,255,255,.55)'; for (let k = 0; k < 3; k++) { const fx = px + ((temps * 9 + k * 6 + x * 5) % T); g.fillRect(fx, py + 1.6 + o + Math.sin(temps * 4 + k) * 0.5, 2, 0.8); }   // écume
       g.fillStyle = 'rgba(40,160,220,.25)'; g.fillRect(px, py, T, 2 + o);
-    } else if (alea(x * 5 + y * 11 + Math.floor(temps * 2)) < 0.03) part(px + 8, py + 8, 0, -0.4, 40, 'rgba(200,250,255,.6)', 1.5, -0.005);
+    }
+    const cour = niv.courants && niv.courants.get(y * niv.w + x);
+    if (cour) {
+      g.fillStyle = 'rgba(210,250,255,.55)';
+      for (let k = 0; k < 2; k++) { const fx = ((temps * 34 * cour + k * 8 + y * 5) % T + T) % T; g.fillRect(px + fx - (cour > 0 ? 5 : 0), py + 4 + k * 7 + Math.sin(temps * 3 + x + k) * 1.2, 5, 1.2); }
+    }
+    if (!surf && alea(x * 5 + y * 11 + Math.floor(temps * 2)) < 0.03) part(px + 8, py + 8, 0, -0.4, 40, 'rgba(200,250,255,.6)', 1.5, -0.005);
   }
 }
 
@@ -1552,5 +1644,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { init, choisirApparence, apercu, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { versCase, vue: () => derVue, init, choisirApparence, apercu, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

@@ -628,6 +628,88 @@ const SALLES = {
     if (d > 0.8) s.p(a + 11, 12, '^');
     s.couloir(a + 12, a + 14);
     return a + 15;
+  } },
+  // Pilons : des blocs d'acier tombent du plafond et écrasent le couloir ; passer entre deux chutes
+  pilons: { phases: [S], f(s, rng, d) {
+    const k = 2 + Math.round(d * 2.4), pas = 4 + (d < 0.5 ? 1 : 0), Lg = 3 + k * pas;
+    s.couloir(0, Lg, 13);
+    for (let i = 0; i < k; i++) s.p(4 + i * pas, 14, 'K');
+    if (d > 0.7) s.p(4 + Math.floor(pas / 2), 14, '^');
+    s.couloir(Lg + 1, Lg + 2);
+    return Lg + 3;
+  } },
+  // Orbites : des scies tournent autour d'un pivot au milieu du couloir
+  orbites: { phases: [S], f(s, rng, d) {
+    const k = 1 + Math.round(d * 2), pas = 8, Lg = 4 + k * pas;
+    s.couloir(0, Lg, 12);
+    for (let i = 0; i < k; i++) s.p(4 + Math.floor(pas / 2) + i * pas, 17, 'C');
+    s.couloir(Lg + 1, Lg + 2);
+    return Lg + 3;
+  } },
+  // Geysers : une colonne d'eau bouillante jaillit par moments et projette tout en haut d'un mur
+  geysers: { phases: [S], f(s, rng, d) {
+    const hm = 4 + Math.round(d * 2), deux = d > 0.55, xe = deux ? 15 : 10;
+    s.couloir(0, 3); s.c(4, 6, xe + 2, 19);
+    s.p(5, 19, 'g'); s.r(7, 20 - hm, deux ? 11 : 9, 19);           // le mur à franchir
+    if (deux) { s.p(11, 19 - hm, 'g'); s.r(12, 17 - hm, 14, 19); }  // un second geyser sur le mur, vers un mur plus haut
+    if (d > 0.35) s.p(6, 19, '^');
+    s.couloir(xe + 3, xe + 5);
+    return xe + 6;
+  } },
+  // Brûleurs : des becs crachent des flammes par moments, du sol et du plafond (le torrent les éteint)
+  bruleurs: { phases: [S], f(s, rng, d) {
+    const k = 2 + Math.round(d * 2.5), pas = 4, Lg = 4 + k * pas;
+    s.couloir(0, Lg, 13);
+    for (let i = 0; i < k; i++) s.p(4 + i * pas, i % 2 ? 13 : 20, 't');
+    s.couloir(Lg + 1, Lg + 2);
+    return Lg + 3;
+  } },
+  // Sous-marin : un grand bassin à traverser sous l'eau, entre des rideaux de roche, avec des courants
+  sousMarin: { phases: [S, L], f(s, rng, d) {
+    const k = 2 + Math.round(d * 2), pas = 6, Lw = 3 + k * pas;
+    s.couloir(0, 2);
+    s.c(3, 13, 2 + Lw, 27); s.r(3, 17, 2 + Lw, 27, 'w');
+    for (let i = 0; i < k; i++) {
+      const x = 5 + i * pas;
+      s.r(x, 13, x + 1, 20 + (i % 2));                         // rideau : il faut plonger dessous
+      const c = i % 2 ? 'y' : 'u';
+      s.r(x - 2, 22, x + 3, 25, c);                             // un courant sous le rideau
+      if (d > 0.5) s.p(x + 3, 27, '^');
+    }
+    if (d > 0.8) s.n(4, 27, 2, '^');
+    s.r(3 + Lw, 17, 3 + Lw, 27); s.c(3 + Lw, 13, 5 + Lw, 16);
+    s.couloir(6 + Lw, 8 + Lw);
+    return 9 + Lw;
+  } },
+  // Ballet : un gouffre traversé sur des plateformes qui vont et viennent, dans tous les sens
+  ballet: { phases: [S], f(s, rng, d) {
+    const k = 3 + Math.round(d * 1.6), lc = 7, Lp = k * lc + 1;
+    s.couloir(0, 2, 12); s.c(3, 11, 2 + Lp, 23); s.n(3, 23, Lp, '^');
+    for (let i = 0; i < k; i++) {
+      const x = 3 + i * lc;
+      if (i > 0) s.r(x, 18 + (i % 2) * 2, x, 22);                     // pilier de séparation
+      if (i % 2 === 0) s.p(x + 1, 19, 'M'); else s.p(x + 3, 21, 'N');
+    }
+    if (d > 0.6) s.n(5, 11, Lp - 6, '^');
+    s.couloir(3 + Lp, 5 + Lp, 12);
+    return 6 + Lp;
+  } },
+  // Arène : une longue galerie pleine d'ennemis qui patrouillent au sol et tombent du plafond
+  arene: { phases: [S], f(s, rng, d) {
+    const Lg = ent(rng, 22, 28);
+    s.couloir(0, Lg, 11);
+    const k = 2 + Math.round(d * 2);
+    let prec = 1;
+    for (let i = 0; i < k; i++) {
+      const fin = Math.round(1 + (Lg - 2) * (i + 1) / k);
+      if (i < k - 1) s.p(fin, 19, '#');
+      s.p(Math.floor((prec + fin) / 2), 19, 'E');
+      prec = fin + 1;
+    }
+    for (let i = 0; i < 1 + Math.round(d * 2); i++) s.p(4 + Math.floor((Lg - 6) * (i + 0.5) / (1 + Math.round(d * 2))), 11, 'Y');
+    s.n(Math.floor(Lg / 2) - 2, 15, 4, '-');
+    s.couloir(Lg + 1, Lg + 2);
+    return Lg + 3;
   } }
 };
 
