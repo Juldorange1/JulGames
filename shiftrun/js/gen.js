@@ -819,8 +819,9 @@ SALLES.lacetsBas = { phases: [S], f(s, rng, d) {
 // Clé : la clé attend en haut d'une colonne de pics ; la porte dorée barre le couloir plus loin
 SALLES.cle = { phases: [S], f(s, rng, d) {
   s.couloir(0, 22, 9);
-  s.r(6, 13, 8, 19); s.n(6, 12, 3, '^'); s.n(5, 19, 1, '^'); s.n(9, 19, 1, '^');
-  s.r(10, 9, 10, 11); s.p(7, 9, '+');                                            // la clé au-dessus des pics
+  s.r(6, 14, 8, 19); s.p(5, 19, '^'); s.p(9, 19, '^'); s.n(3, 16, 2, '-');       // un pilier entouré de pics, une marche fine
+  s.p(7, 13, '+');                                                               // la clé en haut du pilier
+  if (d > 0.6) s.n(6, 9, 3, '^');
   if (d > 0.5) s.p(13, 9, 'F');
   s.r(18, 9, 18, 19, 'd');                                                      // la porte dorée
   s.couloir(23, 25);
