@@ -207,6 +207,11 @@ function chercher(def, avecEclat, cfg) {
     }
     bt.porteX = Math.max(bt.porteX, Math.floor(porte / 1024));
   }
+  if (n.leviersDe) for (const [grille, ls] of n.leviersDe) for (const b of ls) {      // leviers : tous, avant leur grille
+    let bt = boutons.find(o => o.k === b);
+    if (!bt) { const bx = Math.floor(b / 1024), by = b % 1024; bt = { k: b, x: bx, porteX: 0, d: champ(n, [[bx, by]]), versBut: dBut[by * n.w + bx] * T }; boutons.push(bt); }
+    bt.porteX = Math.max(bt.porteX, Math.floor(grille / 1024));
+  }
   boutons.sort((a, b) => a.x - b.x);
   const score = (e) => {
     if (boutons.length) {

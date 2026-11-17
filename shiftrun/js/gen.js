@@ -75,6 +75,43 @@ function porte(etat) {
   } };
 }
 // chaque salle : (s, rng, d, ctx) -> largeur ; ctx.glace pour les variantes de glace
+// détour : montée par des plateformes fines, galerie en hauteur (rangées 4 à 10) avec un défi, l'éclat, puis un trou
+// qui retombe dans le couloir. La variante 6 passe sous le sol, dans un tunnel noyé.
+function detour(v) {
+  return { phases: [S], f(s, rng) {
+    const L = 30 + ent(rng, 0, 6), a = 3, b = L - 5, mid = Math.floor((a + b) / 2);
+    s.couloir(0, L);
+    if (v === 6) {                                   // tunnel noyé sous le couloir, avec des courants
+      s.c(a, 21, b + 1, 26); s.r(a, 21, b + 1, 26, 'w');
+      s.n(a, 20, 2, '-'); s.n(b, 20, 2, '-');          // entrée et sortie : plateformes fines (bas pour plonger)
+      let i = 0;
+      for (let x = a + 5; x < b - 2; x += 6, i++) { s.r(x, 21, x, 23); s.r(x - 3, 25, x + 2, 26, i % 2 ? 'u' : 'y'); s.p(x + 2, 26, '^'); }
+      s.p(mid, 24, 'e');
+      return L + 1;
+    }
+    s.c(a, 4, a + 1, 13); s.c(a + 2, 4, b + 1, 10);  // le puits de montée et la galerie
+    s.n(a + 2, 17, 2, '-'); s.n(a, 14, 2, '-');       // marches fines (on les traverse par-dessous)
+    s.c(b, 11, b + 1, 13);                            // trou de retour vers le couloir
+    const x0 = a + 5, x1 = b - 2;
+    if (v === 0) { for (let x = x0; x < x1; x += 4) s.n(x, 10, 2, '^'); s.p(mid, 6, 'e'); }
+    else if (v === 1) {                                // fosse à pics traversée sur des plateformes mobiles
+      s.c(x0, 11, x1, 11); s.n(x0, 12, x1 - x0 + 1, '^');
+      for (let x = x0 + 7; x < x1; x += 8) s.r(x, 9, x, 11);
+      for (let x = x0; x < x1 - 2; x += 8) s.p(x, 9, 'M');
+      s.p(mid, 6, 'e');
+    }
+    else if (v === 2) { for (let x = x0; x < x1; x += 4) s.p(x, 3, 'L'); s.p(mid + 2, 9, 'e'); }
+    else if (v === 3) { for (let x = x0; x < x1; x += 4) s.p(x, 4, 'K'); s.p(mid + 2, 10, 'e'); }
+    else if (v === 4) { for (let x = x0 + 2; x < x1; x += 7) s.p(x, 7, 'C'); s.p(mid, 9, 'e'); }
+    else if (v === 5) { for (let x = x0; x < x1; x += 3) s.p(x, (x / 3) % 2 ? 11 : 3, 't'); s.p(mid, 7, 'e'); }
+    else {                                             // ennemis qui patrouillent et tombent du plafond
+      for (let x = x0; x < x1; x += 7) { s.p(x, 10, '#'); s.p(x + 3, 10, 'E'); }
+      for (let x = x0 + 5; x < x1; x += 9) s.p(x, 4, 'Y');
+      s.p(mid, 6, 'e');
+    }
+    return L + 1;
+  } };
+}
 const SALLES = {
   // Trous à pics à sauter
   trous: { phases: [S], f(s, rng, d) {
@@ -415,73 +452,10 @@ const SALLES = {
     s.couloir(a + ep, a + ep + 3);
     return a + ep + 4;
   } },
-  // Cachettes de l'éclat ◆ : chacune a sa façon d'être atteinte (le niveau choisit une cachette faisable avec ses états)
-  // poche sous un sol fêlé : un fracas (ou un éclair, ou le métal) pour l'ouvrir, puis ressortir
-  alcove1: { phases: [S], f(s, rng) {
-    s.couloir(0, 10);
-    s.r(4, 20, 6, 20, 'x'); s.c(3, 21, 7, 22); s.p(5, 22, 'e'); s.p(3, 22, '^'); s.p(7, 22, '^');
-    s.r(8, 19, 8, 19);
-    return 11;
-  } },
-  // tout en haut, au-dessus d'une fosse, avec deux orbes
-  alcove2: { phases: [S], f(s, rng) {
-    s.couloir(0, 2, 13);
-    s.c(3, 5, 10, 23); s.n(3, 23, 8, '^');
-    s.p(5, 15, 'O'); s.p(8, 10, 'O'); s.p(6, 6, 'e'); s.n(3, 5, 8, '^');
-    s.couloir(11, 13, 13);
-    return 14;
-  } },
-  // tunnel bas hérissé, en cul-de-sac sous le couloir
-  alcove3: { phases: [S], f(s, rng) {
-    s.couloir(0, 13);
-    s.c(2, 20, 2, 20); s.c(2, 21, 12, 22); s.p(12, 22, 'e');      // trou dans le sol, tunnel de 2 cases de haut dessous
-    for (let x = 5; x < 12; x += 3) s.p(x, 22, '^');
-    return 14;
-  } },
-  // tout en haut d'une cheminée hérissée de pics
-  alcove0: { phases: [S], f(s, rng) {
-    s.couloir(0, 10);
-    s.r(1, 18, 1, 19); s.r(2, 17, 3, 19);
-    s.c(4, 3, 6, 13);
-    s.p(4, 10, '^'); s.p(6, 7, '^'); s.p(4, 5, '^'); s.p(6, 3, '^');
-    s.p(5, 3, 'e');
-    return 11;
-  } },
-  // tout en haut d'un puits, au bout d'une plateforme qui monte et descend
-  alcove4: { phases: [S], f(s, rng) {
-    s.couloir(0, 12);
-    s.c(4, 4, 6, 13); s.p(4, 19, 'N'); s.c(7, 4, 8, 5); s.p(8, 5, 'e'); s.p(7, 3, '#');
-    s.n(4, 3, 3, '#');
-    return 13;
-  } },
-  // au fond d'un cul-de-sac balayé par des lasers
-  alcove5: { phases: [S], f(s, rng) {
-    s.couloir(0, 18);
-    s.c(3, 20, 3, 20); s.c(3, 21, 15, 22); s.p(15, 22, 'e');      // poche sous le couloir, balayée par des lasers
-    for (let x = 6; x < 15; x += 4) s.p(x, 20, 'L');
-    return 19;
-  } },
-  // Long détour par une galerie haute : ascenseur, galerie hérissée, éclat au bout, puis on redescend plus loin
-  alcove6: { phases: [S], f(s, rng) {
-    s.couloir(0, 35);
-    s.c(2, 3, 4, 13); s.p(2, 19, 'N');                // ascenseur : une plateforme monte du couloir à la galerie
-    s.c(2, 3, 30, 6);                                  // galerie haute
-    for (let x = 8; x < 28; x += 5) s.p(x, 6, '^');
-    s.p(15, 3, '^'); s.p(25, 3, '^');
-    s.p(29, 5, 'e');
-    s.r(31, 3, 31, 13); s.c(32, 3, 34, 13); s.c(31, 3, 31, 6);   // descente vers le couloir
-    return 36;
-  } },
-  // Long tunnel profond sous le couloir, balayé par des lasers ; un ressort au bout pour remonter
-  alcove7: { phases: [S], f(s, rng) {
-    s.couloir(0, 31);
-    s.c(3, 20, 3, 20); s.c(3, 21, 28, 24);
-    for (let x = 8; x < 26; x += 5) s.p(x, 20, 'L');
-    for (let x = 6; x < 26; x += 5) s.p(x, 24, '^');
-    s.p(27, 23, 'e');
-    s.c(28, 20, 28, 20); s.p(28, 24, 's');
-    return 32;
-  } },
+  // Détours de l'éclat ◆ : le couloir continue tout droit, mais une galerie en hauteur (ou sous l'eau) part, plus longue
+  // et plus dure, avec l'éclat au milieu, et rejoint le couloir plus loin (le niveau choisit un détour faisable)
+  alcove0: detour(0), alcove1: detour(1), alcove2: detour(2), alcove3: detour(3),
+  alcove4: detour(4), alcove5: detour(5), alcove6: detour(6), alcove7: detour(7),
   // Barrières d'état : seul un état précis les traverse (une salle par état, le niveau prend celles de ses états)
   porteS: porte(S), porteL: porte(L), porteZ: porte(Z), porteP: porte(P), portePL: porte(PL), porteCA: porte(CA), porteME: porte(ME), porteOM: porte(OM),
   porteGL: porte(GL), porteMA: porte(MA),
@@ -712,6 +686,101 @@ const SALLES = {
     return Lg + 3;
   } }
 };
+
+/* ---------- Combinaisons de menaces : des modules posés à la suite dans le couloir (rangées 14 à 19) ----------
+   Chaque module occupe quelques colonnes ; une salle « combo » enchaîne un motif de modules, répété selon la
+   difficulté. Toutes sont vérifiées par le robot (outils/parallele.js test). */
+const MOD = {
+  picsSol: [4, (s, x) => s.n(x + 1, 19, 2, '^')],
+  picsPlafond: [3, (s, x) => s.n(x, 14, 3, '^')],
+  fosse: [5, (s, x) => { s.c(x + 1, 20, x + 3, 21); s.n(x + 1, 22, 3, '^'); }],
+  laserPlafond: [3, (s, x) => s.p(x + 1, 13, 'L')],
+  laserSol: [3, (s, x) => s.p(x + 1, 20, 'L')],
+  arbalete: [3, (s, x) => s.p(x + 1, 13, 'F')],
+  scieV: [3, (s, x) => s.p(x + 1, 13, 'z')],
+  pilon: [3, (s, x) => s.p(x + 1, 14, 'K')],
+  orbite: [7, (s, x) => s.p(x + 3, 17, 'C')],
+  bruleurSol: [3, (s, x) => s.p(x + 1, 20, 't')],
+  bruleurPlafond: [3, (s, x) => s.p(x + 1, 13, 't')],
+  ennemi: [8, (s, x) => { s.p(x, 19, '#'); s.p(x + 7, 19, '#'); s.p(x + 3, 19, 'E'); }],
+  sauteur: [8, (s, x) => { s.p(x, 19, '#'); s.p(x + 7, 19, '#'); s.p(x + 3, 19, 'S'); }],
+  volant: [8, (s, x) => { s.r(x, 14, x, 15); s.r(x + 7, 14, x + 7, 15); s.p(x + 3, 16, 'I'); }],
+  geyserMur: [7, (s, x) => { s.p(x + 1, 19, 'g'); s.r(x + 3, 15, x + 5, 19); }],
+  muret: [3, (s, x) => s.r(x + 1, 17, x + 1, 19)],
+  serre: [6, (s, x) => { s.r(x, 14, x + 5, 16); s.n(x + 1, 17, 4, '^'); }],
+  orbeFosse: [7, (s, x) => { s.c(x + 1, 20, x + 5, 21); s.n(x + 1, 22, 5, '^'); s.p(x + 3, 16, 'O'); }],
+  fines: [6, (s, x) => { s.n(x, 17, 6, '-'); s.p(x + 2, 13, 'L'); s.p(x + 3, 20, 'L'); }]
+};
+const COMBOS = {
+  pilonsLasers: ['pilon', 'laserPlafond'], feuxCroises: ['bruleurSol', 'bruleurPlafond'], sciesPics: ['scieV', 'picsSol'],
+  arbaletesPilons: ['arbalete', 'pilon'], orbitesFosses: ['orbite', 'fosse'], ennemisLasers: ['ennemi', 'laserSol'],
+  sauteurs: ['sauteur', 'sauteur'], volants: ['volant', 'picsSol'], serreLaser: ['serre', 'laserPlafond'],
+  serrePilon: ['serre', 'pilon'], muretsArbaletes: ['muret', 'arbalete'], fossesLasers: ['fosse', 'laserSol'],
+  pilonsFosses: ['pilon', 'fosse'], orbitesEnnemis: ['orbite', 'ennemi'], bruleursFosses: ['bruleurPlafond', 'fosse'],
+  geysersPilons: ['geyserMur', 'pilon'], geysersLasers: ['geyserMur', 'laserPlafond'], picsAlternes: ['picsSol', 'picsPlafond'],
+  sciesOrbite: ['scieV', 'scieV', 'orbite'], lasersCroises: ['laserSol', 'laserPlafond'], arbaletesFosses: ['arbalete', 'fosse'],
+  volantsPilons: ['volant', 'pilon'], sauteursFosses: ['sauteur', 'fosse'], murets: ['muret', 'picsSol', 'muret'],
+  serreBruleur: ['serre', 'bruleurSol'], orbitesLasers: ['orbite', 'laserPlafond'], grandFeu: ['bruleurSol', 'bruleurSol', 'bruleurPlafond'],
+  machines: ['pilon', 'orbite', 'bruleurSol', 'laserPlafond'], zoo: ['ennemi', 'sauteur', 'volant'], geysersFosses: ['geyserMur', 'fosse'],
+  orbesFeu: ['orbeFosse', 'bruleurPlafond'], finesLasers: ['fines', 'pilon'], sciesFosses: ['scieV', 'fosse', 'arbalete']
+};
+function comboSalle(motif) {
+  return { phases: [S], f(s, rng, d) {
+    const k = 1 + Math.round(d * 1.6) + (motif.length < 3 ? 1 : 0);
+    let x = 3;
+    const suite = [];
+    for (let i = 0; i < k; i++) suite.push(...motif);
+    let total = 3; for (const m of suite) total += MOD[m][0] + 1;
+    s.couloir(0, total + 2);
+    for (const m of suite) { MOD[m][1](s, x, rng, d); x += MOD[m][0] + 1; }
+    return total + 3;
+  } };
+}
+// le chaos : 4 à 6 modules tirés au hasard
+SALLES.chaos = { phases: [S], f(s, rng, d) {
+  const noms = Object.keys(MOD), suite = [];
+  for (let i = 0; i < 4 + Math.round(d * 2); i++) suite.push(noms[Math.floor(rng() * noms.length)]);
+  let total = 3; for (const m of suite) total += MOD[m][0] + 1;
+  s.couloir(0, total + 2);
+  let x = 3; for (const m of suite) { MOD[m][1](s, x, rng, d); x += MOD[m][0] + 1; }
+  return total + 3;
+} };
+for (const nom in COMBOS) SALLES[nom] = comboSalle(COMBOS[nom]);
+// Leviers : trois leviers cachés en hauteur, dans une fosse et derrière des pics ouvrent la grille de sortie
+SALLES.leviers = { phases: [S], f(s, rng, d) {
+  s.couloir(0, 30, 8);
+  s.r(4, 13, 6, 19); s.n(4, 12, 3, '-'); s.p(5, 9, 'J');                      // levier 1 : en haut d'un pilier
+  s.c(10, 20, 14, 23); s.n(10, 23, 2, '^'); s.n(13, 23, 2, '^'); s.p(12, 23, 'J');   // levier 2 : au fond d'une fosse à pics
+  s.n(17, 19, 2, '^'); s.r(20, 15, 22, 19); s.p(19, 19, 'J');                 // levier 3 : coincé entre pics et mur
+  if (d > 0.5) { s.p(8, 8, 'L'); s.p(16, 8, 'K'); }
+  s.r(26, 8, 26, 19, 'T');                                                    // la grille
+  s.couloir(27, 32);
+  return 33;
+} };
+// Plaques : elles transforment sans dépenser de charge (dans la transformation 2 ou 3 du niveau)
+SALLES.plaques = { phases: [S], f(s, rng, d) {
+  const Lg = 22 + ent(rng, 0, 4);
+  s.couloir(0, Lg, 11);
+  for (let x = 4; x < Lg - 4; x += 6) { s.p(x, 19, x % 12 === 4 ? ';' : '&'); s.c(x + 2, 20, x + 3, 21); s.n(x + 2, 22, 2, '^'); }
+  s.p(Lg - 2, 19, ':');
+  if (d > 0.5) for (let x = 6; x < Lg - 4; x += 6) s.p(x, 11, 'F');
+  s.couloir(Lg + 1, Lg + 2);
+  return Lg + 3;
+} };
+// Descente puis remontée : un puits qu'on descend en évitant les pics des parois, et des plateformes fines pour remonter
+SALLES.puits = { phases: [S], f(s, rng, d) {
+  const prof = 10 + Math.round(d * 6);
+  s.couloir(0, 3);
+  s.c(4, 14, 8, 19 + prof);
+  for (let y = 21, i = 0; y < 19 + prof - 2; y += 3, i++) s.p(i % 2 ? 8 : 4, y, '^');
+  s.n(4, 19 + prof, 5, '#');
+  s.c(9, 19 + prof - 3, 14, 19 + prof - 1);                                  // le fond s'ouvre à droite
+  s.c(12, 14, 15, 19 + prof - 1);
+  for (let y = 19 + prof - 3, i = 0; y > 15; y -= 3, i++) s.n(i % 2 ? 12 : 14, y, 2, '-');
+  if (d > 0.6) s.p(13, 13, 'L');
+  s.couloir(16, 18);
+  return 19;
+} };
 
 /* ---------- Construction ---------- */
 function debut(g, panneaux) {

@@ -25,7 +25,8 @@ try { const d = JSON.parse(localStorage.getItem(CLE)); if (d) S = Object.assign(
 if (!S.infini) S.infini = {};
 if (!S.defis) S.defis = {};
 if (!S.succes) S.succes = {};
-S.reglages = Object.assign({ sons: 0.5, musique: 0.5, fantome: 'record', entrees: false, tremble: true, langue: window.Langue.detecter(), tactile: 'auto' }, S.reglages);
+S.reglages = Object.assign({ sons: 0.5, musique: 0.5, fantome: 'record', entrees: true, tremble: true, langue: window.Langue.detecter(), tactile: 'auto' }, S.reglages);
+if (!S.reglages.entreesV2) { S.reglages.entrees = true; S.reglages.entreesV2 = 1; }   // les touches affichées sont maintenant visibles par défaut (désactivables)
 window.Langue.choisir(S.reglages.langue);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
 for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].slice();
@@ -95,7 +96,11 @@ function touchePhase(p) { return nomTouche(S.touches[['solide', 'liquide', 'gaz'
 
 /* ---------- Entrées ---------- */
 const tenues = new Set();
-let manettePrec = 0, manetteNav = 0, dernierePad = null;
+let manettePrec = 0, manetteNav = 0, dernierePad = null, sourceEntree = 'clavier';
+addEventListener('keydown', ev => { if (ev.isTrusted) sourceEntree = 'clavier'; }, true);
+// noms des touches d'état et de saut affichés : ceux de la manette si on joue à la manette
+const nomsEtatsHUD = () => sourceEntree === 'pad' ? ['solide', 'liquide', 'gaz'].map(a => NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a]) : [0, 1, 2].map(touchePhase);
+const nomSautHUD = () => sourceEntree === 'pad' ? (NOMS_BOUTONS[S.manette.saut] || 'A') : tr('saut');
 // petite vibration de la manette (chute, explosion)
 function vibrer(force, duree) {
   try { const a = dernierePad && dernierePad.vibrationActuator; if (a && a.playEffect) a.playEffect('dual-rumble', { duration: duree, strongMagnitude: force, weakMagnitude: force * 0.6 }); } catch (err) { /* manette sans vibration */ }
@@ -115,6 +120,7 @@ function manette() {
   for (const p of pads) {
     if (!p) continue;
     dernierePad = p;
+    if (p.buttons.some(x => x && x.pressed) || Math.abs(p.axes[0] || 0) > 0.4 || Math.abs(p.axes[1] || 0) > 0.4) sourceEntree = 'pad';
     const bt = (i) => p.buttons[i] && p.buttons[i].pressed;
     const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
     if (ax < -0.4 || bt(14)) b |= M.E.G;
@@ -206,11 +212,12 @@ function lancerInfini(mode) {
 const ED_CATS = [
   ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
   ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '💎'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
-  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾']]],
+  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾'], ['S', 'Sauteur', '🐸'], ['I', 'Volant', '🦇']]],
   ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨']]],
   ['🚀', 'Mouvement', [['s', 'Ressort', '🪀'], ['U', 'Champignon', '🍄'], ['(', 'Tremplin ←', '↖'], [')', 'Tremplin →', '↗'], ['M', 'Plateforme ↔', '↔'], ['N', 'Plateforme ↕', '↕'], ['H', 'Saut +', '⏫'], ['h', 'Saut −', '⏬'],
     ['P', 'Téléporteur 1', '🟣'], ['p', 'Sortie 1', '⭕'], ['Q', 'Téléporteur 2', '🔵'], ['q', 'Sortie 2', '🔘'], ['{', 'Haut bouclé', '⤒'], ['}', 'Bas bouclé', '⤓'], ['W', 'Bord gauche bouclé', '⇤'], ['X', 'Bord droit bouclé', '⇥']]],
-  ['🔀', 'Mécanismes', [['o', 'Bouton', '🔘'], ['D', 'Porte', '🚪'], ['k', 'Interrupteur', '🎚'], ['R', 'Bloc rouge', '🟥'], ['B', 'Bloc bleu', '🟦']]],
+  ['🔀', 'Mécanismes', [['o', 'Bouton', '🔘'], ['D', 'Porte', '🚪'], ['k', 'Interrupteur', '🎚'], ['R', 'Bloc rouge', '🟥'], ['B', 'Bloc bleu', '🟦'], ['J', 'Levier', '🕹'], ['T', 'Grille à leviers', '🚧'],
+    [':', 'Plaque → transformation 1', '1️⃣'], [';', 'Plaque → transformation 2', '2️⃣'], ['&', 'Plaque → transformation 3', '3️⃣']]],
   ['🚧', 'Barrières', [['a', 'Barrière Solide', '🟨'], ['=', 'Barrière Liquide', '🟦'], ['~', 'Barrière Gaz', '⬜'], ['r', 'Barrière Plasma', '🟧'], ['l', 'Barrière Plume', '🟪'], ['n', 'Barrière Caoutchouc', '🩷'],
     ['m', 'Barrière Métal', '⬛'], ['%', 'Barrière Ombre', '🟫'], ['j', 'Barrière Glace', '🩵'], ['v', 'Barrière Magma', '🟥']]]
 ];
@@ -1186,7 +1193,7 @@ function dessiner(dt) {
     if (Math.abs(p.x - e.x) < 40 && Math.abs(p.y - e.y) < 40) { e = M.cloner(J.e); e.x = p.x + (J.e.x - p.x) * a; e.y = p.y + (J.e.y - p.y) * a; }
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { nomSaut: tr('saut'), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: [0, 1, 2].map(touchePhase), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -1262,7 +1269,7 @@ function dessiner(dt) {
     if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', tr(S.reglages.fantome === 'parfait' ? 'Parfait' : 'record')), c: '#888' });
   }
   if (!e.demarre) hud.attente = tr('Bouge pour lancer le chrono');
-  if (S.reglages.entrees && J.mode !== 'fantome') hud.entrees = J.inp || 0;
+  if (S.reglages.entrees) { hud.entrees = J.inp || 0; hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]); }
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
   for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); const pe = m ? J.n.emplacements[+m[1] - 1] : -1; hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) + (NIV.CAPA[pe] && J.n.capacites ? '   ↻ ' + tr(NIV.CAPA[pe][0]) + ' : ' + tr(NIV.CAPA[pe][1]) : '') : tr(pn.texte); } break; }
@@ -1446,7 +1453,8 @@ function aide() {
       <p>${tr('Plateformes mobiles : saute dessus, elles te portent. Champignon : il te renvoie au loin.')} ${tr('Lasers : ils s’allument par moments, un clignotement prévient juste avant. Scies : elles balaient le passage.')}</p>`],
     ['🔨 ' + tr('Machines'), `<p>${tr('Pilon : un bloc d’acier tremble puis tombe du plafond. Passe juste après sa chute.')}</p>
       <p>${tr('Scies en orbite : deux scies tournent autour d’un pivot.')} ${tr('Brûleur : il crache une flamme par moments ; le Torrent du Liquide l’éteint un moment.')}</p>
-      <p>${tr('Geyser : quand il jaillit, il te projette tout en haut et recharge tes compétences.')} ${tr('Courant : sous l’eau, des traînées montrent le sens dans lequel il te pousse.')}</p>`],
+      <p>${tr('Geyser : quand il jaillit, il te projette tout en haut et recharge tes compétences.')} ${tr('Courant : sous l’eau, des traînées montrent le sens dans lequel il te pousse.')}</p>
+      <p>${tr('Leviers : tire tous les leviers d’une zone pour ouvrir sa grille. Plaque colorée : elle te transforme sans dépenser de charge.')} ${tr('Bas : traverse les plateformes fines.')}</p>`],
     ['🎮 ' + tr('Touches'), `<p>${tr('Clavier : {0} recommencer, {1} pause.', k('recommencer'), k('pause'))}</p>
       <p>${tr('Manette')} : ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')}</p>
       <p>${tr('Tout se règle dans les Réglages. Le jeu se joue entièrement au clavier : flèches pour choisir, Entrée pour valider, Échap pour revenir.')}</p>`]
@@ -1473,7 +1481,7 @@ function reglages() {
    <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique"></label>
    <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option><option value="parfait">${tr('Le Parfait')}</option></select></label>
    <label>${tr('Commandes tactiles')} <select data-r="tactile"><option value="auto">${tr('Auto')}</option><option value="oui">${tr('Toujours')}</option><option value="non">${tr('Jamais')}</option></select></label>
-   <label>${tr('Afficher les entrées')} <input type="checkbox" data-r="entrees" ${r.entrees ? 'checked' : ''}></label>
+   <label>${tr('Afficher les touches à l’écran')} <input type="checkbox" data-r="entrees" ${r.entrees ? 'checked' : ''}></label>
    <label>${tr('Plein écran')} <input type="checkbox" data-r="pleinEcran" ${document.fullscreenElement ? 'checked' : ''}></label></div>`;
   else if (reglPage === 1) h += `<div class="regl">
    <label>${tr('Vitesse du jeu')} <select data-r="vitesse"><option value="1">100 %</option><option value="0.85">85 %</option><option value="0.7">70 %</option><option value="0.55">55 %</option></select></label>
@@ -1533,7 +1541,7 @@ function finNiveau(t, avant, record) {
     </div></div>`, 'fin');
 }
 // barre du rejeu : pause, image par image, ralenti
-const VITESSES = [0.1, 0.25, 0.5, 1, 2];
+const VITESSES = [0.1, 0.25, 0.5, 0.75, 1, 2];
 const barre = document.createElement('div');
 barre.id = 'rejeu';
 document.body.appendChild(barre);
@@ -1789,18 +1797,27 @@ function naviguer([dx, dy]) {
 addEventListener('keyup', ev => { tenues.delete(ev.code); });
 addEventListener('blur', () => tenues.clear());
 
-// navigation des menus à la manette
+// la manette partout hors de la course : menus, réglages, rejeux, éditeur (elle « appuie » sur les touches du clavier)
+function toucheVirtuelle(code, o) {
+  o = o || {};
+  const ev = new KeyboardEvent(o.haut ? 'keyup' : 'keydown', { code, key: code, shiftKey: !!o.maj, ctrlKey: !!o.ctrl, repeat: !!o.repet, bubbles: true, cancelable: true });
+  window.dispatchEvent(ev);
+}
+let manetteRep = 0, manetteRepT = 0;
 setInterval(() => {
-  if (ecran === 'jeu') return;
+  const rejeuEnCours = ecran === 'jeu' && J && J.mode === 'fantome';
+  if (ecran === 'jeu' && !rejeuEnCours) { manetteNav = 0; return; }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let b = 0;
   for (const p of pads) {
     if (!p) continue;
     const bt = (i) => p.buttons[i] && p.buttons[i].pressed;
-    if (bt(13) || (p.axes[1] || 0) > 0.5 || bt(15) || (p.axes[0] || 0) > 0.5) b |= 1;
-    if (bt(12) || (p.axes[1] || 0) < -0.5 || bt(14) || (p.axes[0] || 0) < -0.5) b |= 2;
-    if (bt(0)) b |= 4;
-    if (bt(1)) b |= 8;
+    const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+    if (bt(13) || ay > 0.5) b |= 1;
+    if (bt(12) || ay < -0.5) b |= 2;
+    if (bt(15) || ax > 0.5) b |= 16;
+    if (bt(14) || ax < -0.5) b |= 32;
+    for (const [k, bit] of [[0, 4], [1, 8], [2, 64], [3, 128], [4, 256], [5, 512], [6, 1024], [7, 2048], [8, 4096], [9, 8192]]) if (bt(k)) b |= bit;
   }
   if (attenteManette) {                                     // on attend le nouveau bouton pour une action
     for (const p of pads) if (p) for (let k = 0; k < p.buttons.length; k++) if (p.buttons[k] && p.buttons[k].pressed && !((manetteNav >> 4) & (1 << k))) {
@@ -1810,12 +1827,39 @@ setInterval(() => {
     let tous = 0; for (const p of pads) if (p) for (let k = 0; k < Math.min(16, p.buttons.length); k++) if (p.buttons[k] && p.buttons[k].pressed) tous |= 1 << k;
     manetteNav = tous << 4; return;
   }
-  const pr = b & ~manetteNav; manetteNav = b;
-  if (pr & 1) naviguer([0, 1]);
-  if (pr & 2) naviguer([0, -1]);
-  if (pr & 4 && document.activeElement && document.activeElement.classList.contains('btn')) document.activeElement.click();
-  if (pr & 8) { if (ecran === 'pause') action('pause'); else action('accueil'); }
-}, 50);
+  if (manetteNav >= 0xffff0) { manetteNav = b; return; }     // juste après un réglage de bouton : on attend qu'il soit relâché
+  const pr = b & ~manetteNav, lache = manetteNav & ~b; manetteNav = b;
+  // directions, avec répétition quand on les tient (curseur de l'éditeur, listes)
+  const dir = b & 51;
+  const fl = (bits) => { if (bits & 1) toucheVirtuelle('ArrowDown', { repet: bits === -1 }); if (bits & 2) toucheVirtuelle('ArrowUp'); if (bits & 16) toucheVirtuelle('ArrowRight'); if (bits & 32) toucheVirtuelle('ArrowLeft'); };
+  if (pr & 51) { fl(pr & 51); manetteRep = dir; manetteRepT = Date.now() + 330; }
+  else if (dir && dir === manetteRep && Date.now() > manetteRepT) { fl(dir); manetteRepT = Date.now() + (ecran === 'editeur' ? 70 : 120); }
+  else if (!dir) manetteRep = 0;
+  if (ecran === 'editeur' && ED) {
+    // A poser (maintenu = peindre) · B effacer · X / Y case suivante / précédente · LB / RB catégorie · LT / RT annuler / rétablir · Select tester · Start quitter
+    if (pr & 4) toucheVirtuelle('Space'); if (lache & 4) toucheVirtuelle('Space', { haut: true });
+    if (pr & 8) toucheVirtuelle('Backspace');
+    if (pr & 64) toucheVirtuelle('KeyE');
+    if (pr & 128) toucheVirtuelle('KeyQ');
+    if (pr & 256) toucheVirtuelle('Tab', { maj: true });
+    if (pr & 512) toucheVirtuelle('Tab');
+    if (pr & 1024) toucheVirtuelle('KeyZ', { ctrl: true });
+    if (pr & 2048) toucheVirtuelle('KeyY', { ctrl: true });
+    if (pr & 4096) toucheVirtuelle('KeyT');
+    if (pr & 8192) toucheVirtuelle('Escape');
+    return;
+  }
+  if (rejeuEnCours) {                                     // rejeu : A pause, ↑ ↓ vitesse, ← → ±5 s, B quitter
+    if (pr & 4) toucheVirtuelle('Space');
+    if (pr & 8) toucheVirtuelle('Escape');
+    return;
+  }
+  const el = document.activeElement;
+  if (pr & 4) { if (el && (el.classList.contains('btn') || el.tagName === 'BUTTON')) el.click(); else if (el && el.type === 'checkbox') el.click(); else naviguer([0, 1]); }
+  if (pr & 8) toucheVirtuelle('Escape');
+  if (pr & 256) toucheVirtuelle('ArrowLeft');                 // LB / RB : onglet précédent / suivant (quand on est sur les onglets)
+  if (pr & 512) toucheVirtuelle('ArrowRight');
+}, 40);
 
 /* ---------- Commandes tactiles : joystick à gauche (il apparaît sous le doigt), saut et états à droite ---------- */
 const zoneT = document.getElementById('tactile');

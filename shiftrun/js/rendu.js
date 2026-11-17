@@ -87,7 +87,7 @@ const solideR = (k) => M.estDur(k);
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [], levier: [], grilleL: [], plaque: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     // l'eau remplit aussi les cases non pleines qu'elle entoure (pics, orbes, cristaux… sous l'eau : pas de trou)
@@ -108,6 +108,9 @@ function scanner() {
       case M.CASSANT: dyn.cassant.push([x, y]); break;
       case M.PORTE: dyn.porte.push([x, y]); break;
       case M.BOUTON: dyn.bouton.push([x, y]); break;
+      case M.LEVIER: dyn.levier.push([x, y]); break;
+      case M.GRILLE_LEV: dyn.grilleL.push([x, y]); break;
+      case M.PLAQUE0: case M.PLAQUE1: case M.PLAQUE2: dyn.plaque.push([x, y, k - M.PLAQUE0]); break;
       case M.REBONDI: dyn.rebondi.push([x, y]); break;
       case M.ORBE: dyn.orbe.push([x, y]); dyn.lumieres.push([x, y, '255,230,90', 34]); break;
       case M.INTER: dyn.inter.push([x, y]); break;
@@ -916,6 +919,31 @@ function casesAnimees(g, e, vis) {
     g.fillStyle = '#8b93a1'; for (let i = 0; i < 4; i++) g.fillRect(px + 1 + i * 4, py, 2, T);
     g.fillStyle = '#ffd84a'; g.fillRect(px, py + 7, T, 2);
   }
+  for (const [x, y] of dyn.levier) {                        // levier : socle + manche (à gauche, puis à droite une fois tiré)
+    if (!vis(x, y)) continue;
+    const tire = e.boutons.indexOf(x * 1024 + y) >= 0, px = x * T, py = y * T;
+    g.fillStyle = '#4a3a2a'; g.fillRect(px + 3, py + T - 4, T - 6, 4);
+    g.strokeStyle = '#c8b090'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 8, py + T - 4); g.lineTo(px + (tire ? 13 : 3), py + 5); g.stroke();
+    g.fillStyle = tire ? '#7dff9a' : '#ffb03a'; g.beginPath(); g.arc(px + (tire ? 13 : 3), py + 5, 2.6, 0, 7); g.fill();
+  }
+  for (const [x, y] of dyn.grilleL) {                       // grille à leviers : barreaux + voyants (un par levier tiré)
+    if (!vis(x, y)) continue;
+    const px = x * T, py = y * T;
+    if (M.grilleOuverte(niv, e, x, y)) { g.fillStyle = 'rgba(125,255,154,.15)'; g.fillRect(px + 2, py, T - 4, 2); continue; }
+    g.fillStyle = '#23262e'; g.fillRect(px, py, T, T);
+    g.fillStyle = '#b0884a'; for (let i = 0; i < 3; i++) g.fillRect(px + 2 + i * 5, py, 2.5, T);
+    const l = niv.leviersDe.get(x * 1024 + y) || [];
+    l.forEach((k, i) => { g.fillStyle = e.boutons.indexOf(k) >= 0 ? '#7dff9a' : '#ff5a4a'; g.fillRect(px + 2 + (i % 4) * 3.5, py + 6 + Math.floor(i / 4) * 3, 2.5, 2.5); });
+  }
+  for (const [x, y, k] of dyn.plaque) {                     // plaque de transformation : couleur de l'état qu'elle donne
+    if (!vis(x, y)) continue;
+    const p = niv.emplacements[k], px = x * T, py = y * T;
+    if (p === undefined) continue;
+    g.fillStyle = '#2a2833'; g.fillRect(px, py + T - 4, T, 4);
+    g.fillStyle = COUL_PHASE[p]; g.fillRect(px + 1, py + T - 6, T - 2, 3);
+    const gr = g.createLinearGradient(0, py + T - 6, 0, py); gr.addColorStop(0, COUL_PHASE[p]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalAlpha = 0.35 + Math.sin(tt * 5 + x) * 0.15; g.fillStyle = gr; g.fillRect(px + 2, py, T - 4, T - 6); g.globalAlpha = 1;
+  }
   for (const [x, y] of dyn.bouton) {
     if (!vis(x, y)) continue;
     const appui = e.boutons.indexOf(x * 1024 + y) >= 0;
@@ -1241,7 +1269,12 @@ function ennemis(g, e, ox, vw) {
     for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(Math.cos(a) * RE, Math.sin(a) * RE); g.lineTo(Math.cos(a + 0.4) * 3.6, Math.sin(a + 0.4) * 3.6); g.lineTo(Math.cos(a - 0.4) * 3.6, Math.sin(a - 0.4) * 3.6); g.fill(); }
     g.restore();
     const gr = g.createRadialGradient(cx2 - 1.5, cy2 - 1.5, 1, cx2, cy2, 4.6);
-    gr.addColorStop(0, '#ff6a80'); gr.addColorStop(1, '#a0203a');
+    const coul = en.sorte === 1 ? ['#9aff6a', '#2f8a20'] : en.sorte === 2 ? ['#c9a0ff', '#5a2aa0'] : ['#ff6a80', '#a0203a'];
+    gr.addColorStop(0, coul[0]); gr.addColorStop(1, coul[1]);
+    if (en.sorte === 2) {                                         // ailes (dans le cercle de la hitbox)
+      const b = Math.sin(temps * 22) * 1.6;
+      g.fillStyle = 'rgba(230,210,255,.75)'; g.beginPath(); g.ellipse(cx2 - 4, cy2 - 3 + b, 2.4, 1.4, -0.5, 0, 7); g.ellipse(cx2 + 4, cy2 - 3 + b, 2.4, 1.4, 0.5, 0, 7); g.fill();
+    }
     g.fillStyle = gr; g.beginPath(); g.arc(cx2, cy2, 4.6, 0, 7); g.fill();
     g.fillStyle = '#ffde4a'; g.fillRect(cx2 - 3, cy2 - 1.5, 2, 2); g.fillRect(cx2 + 1, cy2 - 1.5, 2, 2);
   }
@@ -1599,20 +1632,20 @@ function interfaceJeu(g, e, hud) {
     g.fillStyle = e.eclat ? '#ff7ae0' : 'rgba(255,255,255,.2)'; g.fillText('◆', LARG - 16, HAUT - 40 * P);
   }
   // entrées affichées
-  if (hud.entrees != null) {
+  if (hud.entrees != null) {                                       // grandes touches : déplacements, saut, transformations
     const inp = hud.entrees, E = M.E;
-    const k = 30 * P, x0 = LARG - 24 - k * 6.6, y0 = HAUT - k * 2 - 28 * P;
-    g.fillStyle = 'rgba(8,6,14,.6)'; arrondi(g, x0 - 10, y0 - 10, k * 6.6 + 14, k * 2 + 20, 10); g.fill();
-    const touche = (x, y, on, t, w) => {
-      g.fillStyle = on ? '#ffe94a' : 'rgba(255,255,255,.14)'; arrondi(g, x, y, (w || 1) * k - 4, k - 4, 6); g.fill();
-      g.strokeStyle = on ? '#fff' : 'rgba(255,255,255,.35)'; g.lineWidth = 1.5; g.stroke();
-      g.fillStyle = on ? '#111' : '#ddd'; g.font = `800 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(t, x + (w || 1) * k / 2 - 2, y + k / 2 - 2); g.textBaseline = 'top';
+    const k = Math.max(40, 46 * P), x0 = LARG - 24 - k * 7.2, y0 = HAUT - k * 2 - 70 * P;
+    g.fillStyle = 'rgba(8,6,14,.72)'; arrondi(g, x0 - 12, y0 - 12, k * 7.2 + 16, k * 2 + 24, 12); g.fill();
+    const touche = (x, y, on, t, w, c) => {
+      g.fillStyle = on ? (c || '#ffe94a') : 'rgba(255,255,255,.12)'; arrondi(g, x, y, (w || 1) * k - 6, k - 6, 8); g.fill();
+      g.strokeStyle = on ? '#fff' : (c || 'rgba(255,255,255,.45)'); g.lineWidth = on ? 3 : 2; g.stroke();
+      g.fillStyle = on ? '#111' : '#f2f2f2'; g.font = `800 ${Math.max(18, Math.round(22 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(t, x + (w || 1) * k / 2 - 3, y + k / 2 - 2); g.textBaseline = 'top';
     };
     touche(x0 + k, y0, inp & E.H, '↑'); touche(x0, y0 + k, inp & E.G, '←'); touche(x0 + k, y0 + k, inp & E.B, '↓'); touche(x0 + 2 * k, y0 + k, inp & E.D, '→');
-    touche(x0 + 3.4 * k, y0 + k, inp & E.SAUT, hud.nomSaut || 'saut', 3.2);
-    const etat = (bit, i) => touche(x0 + 3.4 * k + i * 0.8 * k, y0, inp & bit, (hud.touches && hud.touches[i]) || '', 0.8);
-    etat(E.S, 0); etat(E.L, 1); etat(E.Z, 2);
+    touche(x0 + 3.4 * k, y0 + k, inp & E.SAUT, hud.nomSaut || 'saut', 3.8);
+    const etat = (bit, i) => touche(x0 + 3.4 * k + i * 1.27 * k, y0, inp & bit, (hud.touches && hud.touches[i]) || '', 1.27, hud.coulEtats && hud.coulEtats[i]);
+    etat(E.S, 0); etat(E.L, 1); if (!hud.coulEtats || hud.coulEtats.length > 2) etat(E.Z, 2);
   }
   // panneau
   if (hud.panneau) {
