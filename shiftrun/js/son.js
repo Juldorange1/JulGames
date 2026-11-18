@@ -24,6 +24,8 @@ function demarrer() {
   const comp = ac.createDynamicsCompressor(); comp.threshold.value = -24; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
   busSons.connect(doux); doux.connect(comp); comp.connect(ac.destination);
 
+  // bruitages : fichiers CC0 (packs Kenney) ; tant qu'un fichier n'est pas chargé, le son fabriqué le remplace
+  for (const nom of NOMS.concat(['capa'])) fetch('sfx/' + nom + '.ogg').then(r => r.ok ? r.arrayBuffer() : null).then(b => b && ac.decodeAudioData(b)).then(t => { if (t) tampons[nom] = t; }).catch(() => {});
   if (voulu !== null) { const v = voulu; voulu = null; jouerMusique(v); }
   setInterval(mixer, 33);
 }
@@ -31,7 +33,7 @@ function volumes(s, m) {
   volSons = s; volMus = m;
   if (busSons) busSons.gain.value = s * FACT_SONS;
 }
-const DUREE_MAX = { mort: 0.45, boum: 0.5, casse: 0.35, fracas: 0.35, echec: 0.3, porte: 0.4, fin: 1.2, eclat: 0.8 };
+const DUREE_MAX = { mort: 0.6, boum: 0.6, casse: 0.45, fracas: 0.45, echec: 0.4, porte: 0.5, fin: 1.4, eclat: 1.0, capa: 0.6, tp: 0.6 };
 const derniers = {};
 // Bruitages originaux, fabriqués par le jeu (oscillateurs + bruit filtré, enveloppes douces) : aucun fichier extérieur
 let bruitBuf = null;
@@ -77,8 +79,8 @@ function synth(nom, vol, h) {
   return true;
 }
 function jouer(nom, vol, hauteur) {
-  if (synth(nom, vol, hauteur)) { return true; }                     // les bruitages du jeu sont maintenant tous originaux
-  if (!ac || !tampons[nom]) return false;
+  if (!ac) return false;
+  if (!tampons[nom]) return synth(nom, vol, hauteur);             // fichier pas encore chargé : son de secours
   const t = ac.currentTime;
   if (derniers[nom] && t - derniers[nom] < 0.05) return false;   // pas de doublons qui claquent
   derniers[nom] = t;
@@ -96,6 +98,7 @@ function jouer(nom, vol, hauteur) {
 const NOTES = [392, 523, 659, 784, 880, 587, 330, 466];
 function bloup(phase) {
   if (!ac) return;
+  if (tampons.change) { jouer('change', 0.35, (NOTES[phase] || 523) / 523); return; }
   const t = ac.currentTime, f = NOTES[phase] || 523;
   if (derniers.bloup && t - derniers.bloup < 0.04) return;
   derniers.bloup = t;

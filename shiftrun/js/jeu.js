@@ -187,13 +187,13 @@ function lancerNiveau(idx) {
   S.cumul.rejeux++;
 }
 function regarder(idx, cle) {
-  const id = LISTE[idx].id, p = cle === 'record' ? S.il[id] : cle === 'humain' ? HUM[id] : PARF[id];
-  const fz = cle === 'parfait-eclat' ? (p && p.fe) : (p && p.f);
+  const id = LISTE[idx].id, p = cle === 'record' ? S.il[id] : cle.startsWith('humain') ? HUM[id] : PARF[id];
+  const fz = cle.endsWith('-eclat') ? (p && p.fe) : (p && p.f);
   if (!fz) return;
   const c = charger(idx);
   const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'humain' ? 'le bot humain' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'humain' ? 'le bot humain' : cle === 'humain-eclat' ? 'le bot humain avec l’éclat ◆' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(musiqueNiveau(idx));
 }
@@ -977,7 +977,7 @@ function statsHTML() {
     <div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>`;
 }
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
-let nivEntrainement = false, nivBot = false, botEclat = false;      // onglets de l'écran des niveaux
+let nivEntrainement = false, nivBot = false, botEclat = false, botHumain = false;      // onglets de l'écran des niveaux
 function drapeauxNiveau() {
   const n = J.n, out = [];
   for (let x = 0; x < n.w; x++) for (let y = 0; y < n.h; y++) if (n.g[y * n.w + x] === M.DRAPEAU) out.push([x, y]);
@@ -1266,6 +1266,14 @@ function medaille(id, t) {
 }
 function badge(m) { return m ? `<span class="med" style="--c:${MEDAILLES[m].c}">${tr(MEDAILLES[m].nom)}</span>` : ''; }
 
+/* ---------- Son : un seul bouton coupe tout, et le rallumer rend les mêmes volumes ---------- */
+function appliquerSon() {
+  const c = !!S.reglages.coupe;
+  SON.volumes(c ? 0 : S.reglages.sons, c ? 0 : S.reglages.musique);
+  const b = document.getElementById('btnSon');
+  if (b) { b.textContent = c ? '🔇' : '🔊'; b.classList.toggle('coupe', c); b.title = tr(c ? 'Remettre le son' : 'Couper le son'); }
+}
+function couperSon() { S.reglages.coupe = !S.reglages.coupe; appliquerSon(); sauver(); SON.demarrer(); }
 /* ---------- Boucle ---------- */
 let derniere = 0, acc = 0;
 // le jeu tourne 21 % plus lentement que le temps réel (les chronos comptent le temps du jeu)
@@ -1537,7 +1545,7 @@ function niveaux() {
   if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
   let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement || nivBot ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini ' + (nivBot ? 'choisi' : '') + '" data-a="mode-bot">🤖 ' + tr('Bot parfait') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
     + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p><div class="onglets"><button class="btn mini" data-a="entr-defi" data-c="semaine">🎯 📅 ' + tr('Défi de la semaine') + '</button><button class="btn mini" data-a="entr-defi" data-c="mois">🎯 🗓 ' + tr('Défi du mois') + '</button></div>' : '')
-    + (nivBot ? '<p class="note">' + tr('Choisis un niveau pour regarder le robot le finir en temps Parfait.') + '</p><div class="onglets"><button class="btn mini ' + (botEclat === false ? 'choisi' : '') + '" data-a="bot-sans">' + tr('Sans l’éclat') + '</button><button class="btn mini ' + (botEclat === true ? 'choisi' : '') + '" data-a="bot-avec">◆ ' + tr('Avec l’éclat') + '</button><button class="btn mini ' + (botEclat === 'humain' ? 'choisi' : '') + '" data-a="bot-humain">🧑 ' + tr('Bot humain (reproductible)') + '</button></div>' + (botEclat === 'humain' ? '<p class="note">' + tr('Il va le plus vite possible en restant reproductible : chaque touche est tenue au moins 0,2 s, sans astuce à l’image près.') + '</p>' : '') : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
+    + (nivBot ? '<p class="note">' + tr('Choisis un niveau pour regarder le robot le finir en temps Parfait.') + '</p><div class="onglets"><button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">' + (botEclat ? '☑' : '☐') + ' ◆ ' + tr('Avec l’éclat') + '</button><button class="btn mini ' + (botHumain ? 'choisi' : '') + '" data-a="bot-humain">' + (botHumain ? '☑' : '☐') + ' 🧑 ' + tr('Bot humain (reproductible)') + '</button></div>' + (botHumain ? '<p class="note">' + tr('Il va le plus vite possible en restant reproductible : chaque touche est tenue au moins 0,2 s, sans astuce à l’image près.') + '</p>' : '') : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
   }).join('') + '</div><div class="zones une">';
@@ -1549,7 +1557,7 @@ function niveaux() {
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
-      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? (botEclat === 'humain' ? 'voir-humain' : botEclat && PARF[nv.id] && PARF[nv.id].fe ? 'voir-parfait-eclat' : 'voir-parfait') : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && (botEclat === 'humain' ? HUM[nv.id] : PARF[nv.id])) ? '' : 'disabled'}>
+      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ((botHumain ? 'voir-humain' : 'voir-parfait') + (botEclat && (botHumain ? HUM : PARF)[nv.id] && (botHumain ? HUM : PARF)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && (botHumain ? HUM[nv.id] : PARF[nv.id])) ? '' : 'disabled'}>
         <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
@@ -1623,6 +1631,7 @@ function reglages() {
   let h = `<h2>${tr('Réglages')}</h2><div class="onglets">${PAGES.map((p, i) => `<button class="btn mini ${i === reglPage ? 'choisi' : ''}" data-a="regl-page" data-i="${i}" ${i === reglPage ? 'autofocus' : ''}>${p}</button>`).join('')}</div>`;
   if (reglPage === 0) h += `<div class="regl">
    <label>${tr('Langue')} <select data-r="langue">${Object.entries(window.Langue.LANGUES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('')}</select></label>
+   <button class="btn" data-a="couper-son">${S.reglages.coupe ? '🔇 ' + tr('Remettre le son') : '🔊 ' + tr('Couper le son')}</button>
    <label>${tr('Bruitages')} <input type="range" min="0" max="1" step="0.05" value="${r.sons}" data-r="sons"></label>
    <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique"></label>
    <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option><option value="parfait">${tr('Le Parfait')}</option></select></label>
@@ -1835,11 +1844,10 @@ function barreRejeu() {
   barreEtat = etat;
   if (!on) { barre.className = ''; barre.innerHTML = ''; return; }
   barre.className = 'visible';
-  const kb = (t) => `<kbd>${t}</kbd>`;                       // raccourcis : chiffres pour la vitesse, Échap pour quitter
   const foc = document.activeElement && barre.contains(document.activeElement) ? document.activeElement.dataset.r + (document.activeElement.dataset.v || '') : null;
-  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 3 s</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="avant5">3 s ⏩</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')} ${kb('.')}</button>` +
-    VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')} ${kb(v === 1 ? '0' : String(Math.round(v * 10)))}</button>`).join('') +
-    `<button class="btn mini" data-r="quitter">✕ ${kb(tr('Échap'))}</button><span>${tr('Flèches : choisir · Espace ou Entrée : valider')}</span>`;
+  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 3 s</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="avant5">3 s ⏩</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')}</button><button class="btn mini" data-r="quitter">✕ ${tr('Quitter')}</button><div class="rl"></div>` +
+    VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('') +
+    `<div class="rl"></div><span>${tr('Flèches : choisir · Espace ou Entrée : valider')}</span>`;
   const b0 = foc ? [...barre.querySelectorAll('[data-r]')].find(x => x.dataset.r + (x.dataset.v || '') === foc) : null;
   (b0 || barre.querySelector('[data-r="pause"]')).focus();          // un bouton est toujours choisi
 }
@@ -1922,10 +1930,11 @@ function action(a, el) {
     case 'entrainement': case 'mode-entrainement': nivEntrainement = true; nivBot = false; J = null; ecran = 'menu'; niveaux(); break;
     case 'mode-normal': nivEntrainement = false; nivBot = false; niveaux(); break;
     case 'mode-bot': nivBot = true; nivEntrainement = false; niveaux(); break;
-    case 'bot-sans': botEclat = false; niveaux(); break;
-    case 'bot-avec': botEclat = true; niveaux(); break;
-    case 'bot-humain': botEclat = 'humain'; niveaux(); break;
+    case 'couper-son': couperSon(); reglages(); break;
+    case 'bot-avec': botEclat = !botEclat; niveaux(); break;            // deux cases indépendantes : éclat et humain
+    case 'bot-humain': botHumain = !botHumain; niveaux(); break;
     case 'voir-humain': regarder(i, 'humain'); break;
+    case 'voir-humain-eclat': regarder(i, 'humain-eclat'); break;
     case 'entrainer': lancerNiveau(i); J.entrainement = true; lancerFantomeEntr(0); break;
     case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
@@ -1997,7 +2006,8 @@ ui.addEventListener('input', ev => {
   const el = ev.target, k = el.dataset.r;
   if (!k) return;
   S.reglages[k] = el.type === 'checkbox' ? el.checked : (el.type === 'range' ? +el.value : el.value);
-  SON.volumes(S.reglages.sons, S.reglages.musique);
+  if (k === 'sons' || k === 'musique') S.reglages.coupe = false;          // bouger un volume rallume le son
+  appliquerSon();
   sauver();
   if (k === 'langue') { window.Langue.choisir(el.value); reglages(); }
   if (k === 'tactile') majTactile();
@@ -2025,23 +2035,27 @@ addEventListener('keydown', ev => {
   if (enJeu && J && J.mode === 'fantome') {
     // la barre du rejeu se pilote comme les menus : les touches de déplacement choisissent un bouton, Espace / Entrée l'activent
     const bs = [...barre.querySelectorAll('[data-r]:not([disabled])')];
-    const dir = { ArrowLeft: -1, KeyA: -1, ArrowUp: -1, KeyW: -1, ArrowRight: 1, KeyD: 1, ArrowDown: 1, KeyS: 1 }[ev.code];
-    if (dir || ev.code === 'Tab') {
+    const dir = { ArrowLeft: -1, KeyA: -1, ArrowRight: 1, KeyD: 1 }[ev.code], vert = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1 }[ev.code];
+    if (dir || vert || ev.code === 'Tab') {
       ev.preventDefault();
       const now = performance.now();
       if (ev.repeat && now - (barre.der || 0) < 190) return;
       barre.der = now;
-      const d = ev.code === 'Tab' ? (ev.shiftKey ? -1 : 1) : dir, k = bs.indexOf(document.activeElement);
-      const b = bs[k < 0 ? 0 : (k + d + bs.length) % bs.length]; if (b) { b.focus(); SON.bruitMenu('menu'); } return;
+      const k = bs.indexOf(document.activeElement);
+      let b;
+      if (vert) {                                     // haut / bas : le bouton de la rangée d'au-dessus / d'en dessous le plus proche
+        const a = (bs[k] || bs[0]).getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+        const rangs = bs.map(x => { const r = x.getBoundingClientRect(); return { x, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; }).filter(o => vert > 0 ? o.cy > ay + 4 : o.cy < ay - 4);
+        if (rangs.length) { const ry = vert > 0 ? Math.min(...rangs.map(o => o.cy)) : Math.max(...rangs.map(o => o.cy)); b = rangs.filter(o => Math.abs(o.cy - ry) < 6).sort((p, q) => Math.abs(p.cx - ax) - Math.abs(q.cx - ax))[0].x; }
+      } else { const d = ev.code === 'Tab' ? (ev.shiftKey ? -1 : 1) : dir; b = bs[k < 0 ? 0 : (k + d + bs.length) % bs.length]; }
+      if (b) { b.focus(); SON.bruitMenu('menu'); } return;
     }
     if (ev.code === 'Space' || ev.code === 'Enter' || ev.code === 'NumpadEnter') {
       ev.preventDefault(); if (ev.repeat) return;
       if (barre.contains(document.activeElement)) document.activeElement.click(); else rejeu('pause');
       return;
     }
-    if (/^Digit[0-9]$/.test(ev.code) || /^Numpad[0-9]$/.test(ev.code)) { const k = +ev.code.slice(-1); if (k !== 1) { ev.preventDefault(); rejeu('v', k === 0 ? 1 : k / 10); return; } }
     if (ev.code === 'Escape' && !ev.repeat) { ev.preventDefault(); rejeu('quitter'); return; }
-    if (ev.code === 'Period' || ev.code === 'NumpadDecimal') { ev.preventDefault(); if (!J.pauseRejeu) rejeu('pause'); rejeu('image'); return; }
     return;
   }
   if (enJeu && J && J.entrainement && (ev.code === 'PageUp' || ev.code === 'PageDown')) {
@@ -2253,9 +2267,11 @@ function tactiles() {
 R.init(document.getElementById('jeu'));
 R.accessibilite(S.reglages);
 appliquerApparence();
-SON.volumes(S.reglages.sons, S.reglages.musique);
+appliquerSon();
+document.getElementById('btnSon').addEventListener('click', ev => { ev.stopPropagation(); couperSon(); ev.currentTarget.blur(); });
 tactiles();
 accueil();
+SON.demarrer();                                         // la musique du menu démarre tout de suite (sinon au premier geste)
 requestAnimationFrame(boucle);
 window.Jeu = { SUCCES, RANGS, LISTE, S, DEFIS, defiDuJour, cleJour, get J() { return J; }, lancerNiveau, regarder, lancerCourse, pas, action };
 if (MUET) console.log('Phase : son coupé (?muet)');

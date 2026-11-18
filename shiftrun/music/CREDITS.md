@@ -8,7 +8,7 @@ on remercie quand même les auteurs.
 
 | Fichier | Morceau | Auteur | Source |
 |---|---|---|---|
-| `menu.mp3` | Title Screen (5 Chiptunes Action) | Juhani Junkala (SubspaceAudio) | https://opengameart.org/content/5-chiptunes-action |
+| `menu.mp3` | Town Theme RPG (calme) | cynicmusic | https://opengameart.org/content/town-theme-rpg |
 | `zone1.ogg` | Stage 1 (Chiptune Adventures) | Juhani Junkala | https://opengameart.org/content/4-chiptunes-adventure |
 | `zone2.ogg` | Stage 2 (Chiptune Adventures) | Juhani Junkala | https://opengameart.org/content/4-chiptunes-adventure |
 | `zone3.mp3` | Level 1 (5 Chiptunes Action) | Juhani Junkala | https://opengameart.org/content/5-chiptunes-action |
@@ -84,3 +84,9 @@ on remercie quand même les auteurs.
 
 Tous tirés de **The Essential Retro Video Game Sound Effects Collection [512 sounds]** de Juhani Junkala —
 https://opengameart.org/content/512-sound-effects-8-bit-style (CC0).
+
+
+## Bruitages (`sfx/`)
+
+Tous les bruitages viennent des packs gratuits de Kenney (licence CC0, https://kenney.nl) :
+Digital Audio, Interface Sounds, Impact Sounds. Ils sont renommés d'après leur usage dans le jeu.
