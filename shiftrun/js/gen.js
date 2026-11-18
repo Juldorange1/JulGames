@@ -956,7 +956,7 @@ SALLES.inversee = { phases: [S], f(s, rng, d) {
 } };
 // Broyeur : un mur de scies se met en marche et pousse jusqu'au bout de la salle (le « boss » de fin de zone)
 SALLES.broyeur = { phases: [S], f(s, rng, d) {
-  const Lg = 34 + Math.round(d * 8);
+  const Lg = 50 + Math.round(d * 12);                       // longue poursuite
   s.couloir(0, Lg, 11);
   s.p(2, 19, '_');
   for (let x = 8; x < Lg - 4; x += 6) {
@@ -1318,7 +1318,56 @@ function essai(type, graine, d, glace, brut, avecVariations, phases) {
   return g.carte();
 }
 
-const Gen = { vertical, SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+// Le Sommet : un long parcours qui enchaîne de grands passages vers la droite et des puits (surtout en montée,
+// parfois en descente), avec drapeaux et pièges partout. k : numéro du niveau (0 à 5).
+function sommet(graine, etats, k, d) {
+  const rng = hasard(graine * 17 + 5), rngV = hasard(graine * 29 + 3);
+  const plan = ['couloir'], nPuits = 2 + (k >= 3 ? 1 : 0);
+  for (let i = 0; i < nPuits; i++) { plan.push(i === 1 && k % 2 === 0 ? 'bas' : 'haut'); plan.push('couloir'); }
+  const types = sallesPour(etats).filter(t => !t.endsWith('*') && !VERTICALES.includes(t) && !SALLES[t].decale);
+  const pieces = [], compte = {}, recents = [];
+  plan.forEach((t, ip) => {
+    if (t === 'couloir') {                               // passage vers la droite : de vraies salles, un drapeau toutes les deux
+      const g = new Grille(HAUT);
+      salle(g, 0).couloir(1, 4); let x = 5;
+      const nb = 3 + Math.floor(rng() * 2) + (k >= 4 ? 1 : 0);
+      for (let i = 0; i < nb; i++) {
+        const t2 = choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
+        const x0 = x; x = poser(g, x, t2, rng, d + (rng() - 0.5) * 0.08, { varier: true, rngV });
+        if (i % 2 === 1 || i === 0) salle(g, x0).p(1, 19, '!');
+      }
+      salle(g, x).couloir(0, 4); x += 5;
+      const l = g.l.map(r => r.slice(0, x));
+      for (let y = 14; y <= 19; y++) l[y][0] = '.';
+      pieces.push({ l, w: x, h: HAUT, entree: 19, sortie: 19 });
+    } else {                                             // un puits : on le gravit (ou on y plonge), puis on ressort à droite
+      const m = 40 + Math.floor(rng() * 15) + k * 5;
+      const l = vertical(graine * 7 + ip * 131, t, m, etats).carte.map(r => r.split(''));
+      const H = l.length, Wd = l[0].length;
+      for (const r of l) for (let x = 0; x < Wd; x++) if (r[x] === '@' || r[x] === 'G') r[x] = '.';
+      const entree = t === 'haut' ? H - 4 : 6, sortie = t === 'haut' ? 6 : H - 3;
+      for (let y = entree - 3; y <= entree; y++) { l[y][0] = '.'; l[y][1] = '.'; }       // ouverture à gauche (arrivée)
+      for (let y = sortie - 3; y <= sortie; y++) { l[y][Wd - 1] = '.'; l[y][Wd - 2] = '.'; }   // ouverture à droite (sortie)
+      if (t === 'haut') for (let x = Math.floor(Wd / 2) - 2; x < Wd; x++) l[sortie + 1][x] = '#';   // palier de sortie
+      else for (let x = Wd - 6; x < Wd; x++) l[sortie + 1][x] = '#';
+      l[entree + 1][0] = '#'; l[entree + 1][1] = '#';
+      pieces.push({ l, w: Wd, h: H, entree, sortie });
+    }
+  });
+  // assemblage : chaque morceau commence à la hauteur où le précédent se termine
+  let Y = 0, haut0 = Infinity, bas0 = -Infinity;
+  const pos = pieces.map(pc => { const top = Y - pc.entree; Y = top + pc.sortie; haut0 = Math.min(haut0, top); bas0 = Math.max(bas0, top + pc.h); return top; });
+  const W = pieces.reduce((t, pc) => t + pc.w, 0) + 2, H = bas0 - haut0 + 2;
+  const l = []; for (let y = 0; y < H; y++) l.push(new Array(W).fill('#'));
+  let X = 1;
+  pieces.forEach((pc, i) => { const oy = pos[i] - haut0 + 1; for (let y = 0; y < pc.h; y++) for (let x = 0; x < pc.w; x++) if (oy + y > 0 && oy + y < H - 1) l[oy + y][X + x] = pc.l[y][x]; X += pc.w; });
+  // départ au début du premier passage, arrivée au bout du dernier
+  const y0 = pos[0] - haut0 + 1 + 19, yN = pos[pos.length - 1] - haut0 + 1 + 19;
+  l[y0][3] = '@'; l[y0][1] = '#'; for (let y = y0 - 5; y <= y0; y++) l[y][1] = '#';
+  l[yN][X - 3] = 'G'; for (let y = 0; y < H; y++) { l[y][0] = '#'; l[y][W - 1] = '#'; } for (let y = yN - 5; y <= yN; y++) l[y][X - 1] = '#';
+  return { carte: l.map(r => r.join('')), etats };
+}
+const Gen = { vertical, sommet, SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);

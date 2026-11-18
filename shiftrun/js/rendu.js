@@ -1301,8 +1301,10 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = '#5a5e68'; for (let yy = p.y * T; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
     const gr = g.createLinearGradient(a, 0, c2, 0); gr.addColorStop(0, '#9aa2b0'); gr.addColorStop(0.5, '#dfe5ee'); gr.addColorStop(1, '#6a7280');
     g.fillStyle = gr; g.fillRect(a + tr, b, c2 - a, d2 - b);
-    g.fillStyle = '#3a3e48'; g.fillRect(a + tr, d2 - 3, c2 - a, 3);
-    g.fillStyle = '#ffd84a'; for (let k = 0; k < T; k += 6) g.fillRect(a + tr + k, d2 - 3, 3, 3);
+    // dessous hérissé de pointes rouges (dans le bloc : la hitbox ne change pas) : on ne le touche pas par en dessous
+    g.fillStyle = '#7a1018'; g.fillRect(a + tr, d2 - 6, c2 - a, 1.5);
+    g.fillStyle = '#ff4a5a'; for (let k = 0; k < 4; k++) { const px = a + tr + k * 4; g.beginPath(); g.moveTo(px, d2 - 5); g.lineTo(px + 4, d2 - 5); g.lineTo(px + 2, d2); g.fill(); }
+    g.fillStyle = '#ffd0d4'; for (let k = 0; k < 4; k++) g.fillRect(a + tr + k * 4 + 1.5, d2 - 4.5, 0.8, 2);
     g.fillStyle = '#2a2c34'; for (const [u, w2] of [[3, 3], [T - 5, 3]]) g.fillRect(a + tr + u, b + w2, 2, 2);
     if (cyc >= 72 && cyc < 76 && p.lg > 0) for (let k = 0; k < 3; k++) part(a + Math.random() * T, d2, (Math.random() - 0.5) * 2.5, -Math.random() * 1.2, 20, 'rgba(210,200,180,.6)', 1.8, 0.05);
   }
@@ -1391,6 +1393,12 @@ function fleches(g, e, ox, vw) {
   for (const f of niv.fleches) {
     if (f.x * T < ox - 400 || f.x * T > ox + vw + 400) continue;
     for (const [ax, ay] of M.flechesEn(niv, e.temps, f)) {
+      const parcouru = Math.abs(ax - (f.x * T + T / 2)) + Math.abs(ay - (f.y * T + T / 2));
+      if (f.portee - parcouru < (f.vit || 4) * 1.5) {                // arrivée sur le mur : la flèche se brise
+        g.save(); g.translate(ax, ay); g.rotate(Math.atan2(f.dy, f.dx));
+        g.fillStyle = '#e8d2a6'; g.save(); g.rotate(0.6); g.fillRect(-6, -1, 6, 2); g.restore(); g.save(); g.rotate(-0.8); g.fillRect(-1, -1, 6, 2); g.restore();
+        g.fillStyle = '#d0d4dc'; g.fillRect(4, -1, 3, 2); g.restore(); continue;
+      }
       g.save(); g.translate(ax, ay); g.rotate(Math.atan2(f.dy, f.dx));
       g.fillStyle = '#e8d2a6'; g.fillRect(-8, -1, 13, 2);
       g.fillStyle = '#d0d4dc'; g.beginPath(); g.moveTo(8, 0); g.lineTo(4, -2.5); g.lineTo(4, 2.5); g.fill();

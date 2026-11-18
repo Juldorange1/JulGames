@@ -168,6 +168,7 @@ function lecteur(cle) {
   const l = liste(cle);
   const a = [new Audio(l[0]), new Audio(l[0])];
   for (const x of a) { x.preload = 'auto'; x.volume = 0; }
+  for (const x of a) { try { x.preservesPitch = true; x.playbackRate = tempos[cle] || 1; } catch (e) { /* */ } }
   const lec = { a, i: 0, gain: 0, cible: 0, trans: null, ancien: null, liste: l, piste: 0, suivante: null };
   preparerSuivante(lec);
   return (lecteurs[cle] = lec);
@@ -191,7 +192,10 @@ function jouerMusique(cle) {
 function attenuer(oui) { baisseCible = oui ? 0.4 : 1; }
 // fin de niveau proche : la musique accélère un peu et monte doucement (0 = normal, 1 = tout près de l'arrivée)
 let intens = 0;
-function intensite(k) { intens = Math.max(0, Math.min(1, k || 0)); for (const c in lecteurs) for (const au of lecteurs[c].a) { try { au.preservesPitch = true; au.playbackRate = 1 + intens * 0.06; } catch (e) { /* lecteur sans vitesse */ } } }
+// tempo propre à chaque musique de niveau (plus rapide pour les niveaux courts et durs), sans changer la hauteur des notes
+const tempos = {};
+function tempoMusique(cle, v) { tempos[cle] = v; intensite(intens); }
+function intensite(k) { intens = Math.max(0, Math.min(1, k || 0)); for (const c in lecteurs) for (const au of lecteurs[c].a) { try { au.preservesPitch = true; au.playbackRate = (tempos[c] || 1) + intens * 0.06; } catch (e) { /* lecteur sans vitesse */ } } }
 // appelé 30 fois par seconde : rapproche doucement chaque volume de sa cible
 function mixer() {
   const pasF = 1 / (FONDU * 30);
@@ -226,5 +230,5 @@ function mixer() {
   }
 }
 
-racine.Son = { intensite, demarrer, evenements, volumes, jouerMusique, attenuer, jouer, bruitMenu };
+racine.Son = { tempoMusique, intensite, demarrer, evenements, volumes, jouerMusique, attenuer, jouer, bruitMenu };
 })(window);

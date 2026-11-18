@@ -133,14 +133,13 @@ const TUTO = {
     'Bravo ! Chaque niveau te donne ses propres transformations : lis les panneaux du début. Bonne course !']
 };
 
-// zone 9, le Sommet : de grands niveaux verticaux, en montée et en descente (façon Celeste)
+// zone 9, le Sommet : de longs parcours qui enchaînent passages vers la droite, grandes montées et parfois des descentes
 const SOMMET = ['Premier à-pic', 'Cheminée des vents', 'Chute libre', 'Arête', 'Grand gouffre', 'Le Sommet'];
-ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'glacier', phases: [S, L, Z, P], niveaux: SOMMET.map((nom, k) => {
-  const sens = k === 2 ? 'bas' : 'haut', metres = 100 + k * 30;            // surtout des montées, de plus en plus longues
-  const etats = Gen.etatsAuHasard(Gen.hasard(9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0)), undefined, 3);
-  const v = Gen.vertical(7300 + k * 41 + (DECALE['9-' + (k + 1)] || 0), sens, metres, etats);
-  const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]);
-  return { id: '9-' + (k + 1), nom, phases: etats.slice(), etats, capacites: true, panneaux: [], carte: v.carte, suite: [sens + ' ' + metres + ' m'], d: 0.9 + k * 0.05 };
+ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'orage', phases: [S, L, Z, P], niveaux: SOMMET.map((nom, k) => {
+  let g0 = 9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0), etats = Gen.etatsAuHasard(Gen.hasard(g0), undefined, 3);
+  while (etats.includes(8)) etats = Gen.etatsAuHasard(Gen.hasard(g0 += 1000), undefined, 3);   // pas de Glace au Sommet
+  const v = Gen.sommet(7300 + k * 41 + (DECALE['9-' + (k + 1)] || 0), etats, k, 0.85 + k * 0.05);
+  return { id: '9-' + (k + 1), nom, phases: etats.slice(), etats, capacites: true, panneaux: [], carte: v.carte, suite: ['sommet'], d: 0.85 + k * 0.05 };
 }) });
 const Niveaux = { TUTO, ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;

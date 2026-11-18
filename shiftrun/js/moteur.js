@@ -63,7 +63,7 @@ const K = {
   glCourse: 4.3, glAcc: 0.12, glFrein: 0.025, maCourse: 3.8, maSaut: 6.6,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
+  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 2.15, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.2, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 3.0, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -126,8 +126,9 @@ function recharger(n, c) {
     if (!libre(x, y - 1) && libre(x, y + 1)) dy = 1;
     else if (libre(x - 1, y)) dx = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1;
     if (!dx && !dy) continue;
-    let k = 1;
-    while (k < 40 && libre(x + dx * k, y + dy * k)) k++;
+    let k = 1;                                          // la flèche se brise sur le premier mur ou la première grille
+    const arret = (xx, yy) => !libre(xx, yy) || g[yy * w + xx] === GRILLE || g[yy * w + xx] === TAMIS;
+    while (k < 40 && !arret(x + dx * k, y + dy * k)) k++;
     const hs = (x * 73856093 ^ y * 19349663) >>> 0;
     const per = 54 + hs % 70, vit = 3 + ((hs >> 8) % 5) * 0.6, rafale = 1 + ((hs >> 12) % 3);
     fleches.push({ x, y, dx, dy, portee: (k - 1) * T + T / 2, dec: (hs >> 4) % per, per, vit, rafale });
@@ -1295,7 +1296,7 @@ function pas(n, e, inp) {
       const gch = e.x + W - r[0], dte = r[2] - e.x, hau = e.y + H - r[1], bas = r[3] - e.y, m = Math.min(gch, dte, hau, bas);
       let nx = e.x, ny = e.y;
       if (m === hau) { ny = r[1] - H; if (e.vy > 0) e.vy = 0; e.sol = true; e.att = 0; }
-      else if (m === bas) { ny = r[3]; if (e.vy < 1) e.vy = 1; }
+      else if (m === bas) { mourir(e); break; }                 // le dessous du pilon est hérissé de pointes
       else if (m === gch) nx = r[0] - W; else nx = r[2];
       if (!boiteLibre(n, e, nx, ny)) { mourir(e); break; }
       e.x = nx; e.y = ny;

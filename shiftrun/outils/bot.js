@@ -21,6 +21,7 @@ for (const a of args) {
   else if (a === '--trace') opt.trace = true;
   else if (a === '--remplacer') opt.remplacer = true;
   else if (a === '--fusion') {}
+  else if (a === '--humain') { opt.humain = true; opt.pasK = 12; opt.affiner = 0; opt.danger = 160; }   // bot « humain » : chaque touche tenue au moins 0,2 s, pas d'astuce à l'image près
   else if (a.startsWith('--affiner=')) opt.affiner = +a.split('=')[1];
   else if (a.startsWith('--danger=')) opt.danger = +a.split('=')[1];
   else ids.push(a);
@@ -374,8 +375,8 @@ function chercherEclat(def, r0) {
 }
 module.exports = { chercher, chercherEclat, opt, champ, lire };
 if (require.main === module) {
-const fichier = path.join(__dirname, '..', 'js', 'parfaits.js');
-const dossier = path.join(__dirname, 'parfaits');
+const fichier = path.join(__dirname, '..', 'js', opt.humain ? 'humains.js' : 'parfaits.js');
+const dossier = path.join(__dirname, opt.humain ? 'humains' : 'parfaits');
 if (!fs.existsSync(dossier)) fs.mkdirSync(dossier);
 function fusionner() {
   const PARFAITS = {};
@@ -384,9 +385,10 @@ function fusionner() {
     if (d.te !== undefined && (d.t === undefined || d.te < d.t)) { d.t = d.te; d.f = d.fe; }   // le parcours avec l'éclat peut être le plus rapide
     PARFAITS[f.slice(0, -5)] = d.te !== undefined ? { t: d.t, f: d.f, te: d.te, fe: d.fe } : { t: d.t, f: d.f };
   }
-  const corps = '/* Généré par outils/bot.js : temps « Parfait » (en images à 60 par seconde) et fantôme du robot. */\n' +
-    '(function (r) {\nconst PARFAITS = ' + JSON.stringify(PARFAITS, null, 0).replace(/\},"/g, '},\n"') + ';\n' +
-    "if (typeof module !== 'undefined' && module.exports) module.exports = PARFAITS; else r.PARFAITS = PARFAITS;\n" +
+  const nomV = opt.humain ? 'HUMAINS' : 'PARFAITS';
+  const corps = '/* Généré par outils/bot.js' + (opt.humain ? ' --humain : parcours reproductibles du bot « humain »' : ' : temps « Parfait » (en images à 60 par seconde) et fantôme du robot') + '. */\n' +
+    '(function (r) {\nconst ' + nomV + ' = ' + JSON.stringify(PARFAITS, null, 0).replace(/\},"/g, '},\n"') + ';\n' +
+    "if (typeof module !== 'undefined' && module.exports) module.exports = " + nomV + "; else r." + nomV + " = " + nomV + ";\n" +
     "})(typeof window !== 'undefined' ? window : globalThis);\n";
   fs.writeFileSync(fichier, corps);
 }
@@ -417,7 +419,8 @@ for (const def of cibles) {
     let d = null; try { d = JSON.parse(fs.readFileSync(path.join(dossier, def.id + '.json'), 'utf8')); } catch (err) { d = null; }
     if (d && d.h === h && d.t !== undefined && (!opt.eclat || !M.charger(def).aEclat || d.te !== undefined)) { console.log(def.id.padEnd(5) + ' inchangé'); continue; }
   }
-  const r = chercher(def, false);
+  let r = chercher(def, false);
+  if (!r.ok && opt.humain) { const k0 = opt.pasK; opt.pasK = 8; r = chercher(def, false); opt.pasK = k0; }   // passage trop serré : touches un peu plus courtes
   let ligne = def.id.padEnd(5) + ' ' + (def.nom || '').padEnd(26);
   if (!r.ok) { echecs++; ligne += ' ÉCHEC (bloqué à ~' + r.meilleur + ' cases du but)'; }
   else {

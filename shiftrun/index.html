@@ -114,6 +114,7 @@ h3 { margin: 20px 0 8px; font-size: clamp(20px, 1vw + 12px, 28px); } h3 small { 
 .btn small { display: block; font-size: max(16px, .72em); font-weight: 500; color: #a99fbd; margin-top: 2px; }
 .btn:hover:not([disabled]), .btn:focus { border-color: #ffe94a; background: rgba(52, 42, 76, .95); transform: translateX(3px); }
 .btn[disabled] { opacity: .4; }
+.btn.pauvre { opacity: .55; filter: grayscale(.7); }   /* accessible, mais rien à acheter */
 .rose { color: #ff8ae0; }
 .skins { display: grid; width: min(980px, 100%); align-self: center; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-bottom: 10px; }
 .persow { display: flex; flex-direction: column; gap: 4px; } .persow .btn.carte { width: 100%; }
@@ -209,18 +210,19 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=40"></script>
-<script src="js/calibrage.js?v=40"></script>
-<script src="js/compat.js?v=40"></script>
-<script src="js/gen.js?v=40"></script>
-<script src="js/niveaux.js?v=40"></script>
-<script src="js/parfaits.js?v=40"></script>
-<script src="js/paysages.js?v=40"></script>
-<script src="js/rendu.js?v=40"></script>
-<script src="js/compositeur.js?v=40"></script>
-<script src="js/son.js?v=40"></script>
-<script src="js/langues.js?v=40"></script>
-<script src="js/jeu.js?v=40"></script>
-<script src="js/vitrine.js?v=40"></script>
+<script src="js/moteur.js?v=41"></script>
+<script src="js/calibrage.js?v=41"></script>
+<script src="js/compat.js?v=41"></script>
+<script src="js/gen.js?v=41"></script>
+<script src="js/niveaux.js?v=41"></script>
+<script src="js/parfaits.js?v=41"></script>
+<script src="js/humains.js?v=41"></script>
+<script src="js/paysages.js?v=41"></script>
+<script src="js/rendu.js?v=41"></script>
+<script src="js/compositeur.js?v=41"></script>
+<script src="js/son.js?v=41"></script>
+<script src="js/langues.js?v=41"></script>
+<script src="js/jeu.js?v=41"></script>
+<script src="js/vitrine.js?v=41"></script>
 </body>
 </html>
