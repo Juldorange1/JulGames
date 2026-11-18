@@ -34,6 +34,7 @@ const derVue = { ox: 0, oy: 0, z: 2 };
 let transi = 0, transiC = '#fff';               // nouvelle région : un voile de sa couleur qui s'efface
 // case de la carte sous un point de l'écran (souris de l'éditeur)
 function versCase(sx, sy) { const rc = cv.getBoundingClientRect(); return [Math.floor((derVue.ox + (sx - rc.left) / derVue.z) / T), Math.floor((derVue.oy + (sy - rc.top) / derVue.z) / T)]; }
+let camNeuve = true;
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
 let ACCES = { daltonien: false, sansFlash: false };
 function accessibilite(r) { ACCES = { daltonien: !!r.daltonien, sansFlash: !!r.sansFlash }; }
@@ -508,7 +509,7 @@ function suivre(e, hud, vw, vh) {
   cam.avance += (visee - cam.avance) * 0.03;
   const tx = e.x + PW / 2 + cam.avance;
   const ty = e.y + PH / 2 - 14 + Math.max(0, Math.min(36, e.vy * 5));
-  if (!hud || hud.recadrer) { cam.x = tx; cam.y = ty; cam.vx = cam.vy = 0; }
+  if ((hud && hud.recadrer) || (!hud && camNeuve)) { cam.x = tx; cam.y = ty; cam.vx = cam.vy = 0; camNeuve = false; }   // fond du menu : suivi amorti aussi
   // ressort amorti (pas de saut brusque, même après un téléporteur ou une mort)
   const raideur = 0.045, amorti = 0.72;
   const dx = tx - cam.x, dy = ty - cam.y;
@@ -1873,5 +1874,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { versCase, vue: () => derVue, init, choisirApparence, apercu, apercuAnime, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { recadrerMenu: () => { camNeuve = true; }, versCase, vue: () => derVue, init, choisirApparence, apercu, apercuAnime, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

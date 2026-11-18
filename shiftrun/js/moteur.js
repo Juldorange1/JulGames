@@ -60,13 +60,13 @@ const K = {
   platVit: 1.1, platLarg: 3, platEp: 5, scieVit: 1.5, scieRayon: 7, laserEp: 4, champiRayon: 6.5, champiForce: 7.6,
   ennemiRayon: 6.5,
   // glace, magma
-  glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 4.1, maSaut: 6.9,
+  glCourse: 4.3, glAcc: 0.12, glFrein: 0.025, maCourse: 3.8, maSaut: 6.6,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 14, envol: 5.4, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 8.2,
+  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
   // plume, caoutchouc, métal, ombre
-  plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
-  meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
+  plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.2, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
+  meCourse: 3.0, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
 };
 
 /* ---------- Chargement d'un niveau ---------- */
@@ -122,7 +122,9 @@ function recharger(n, c) {
     if (g[i] !== ARBALETE) continue;
     const x = i % w, y = Math.floor(i / w);
     let dx = 0, dy = 0;
-    if (libre(x - 1, y)) dx = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1;
+    // accrochée au plafond : elle tire vers le bas (sinon ses flèches longeraient le plafond sans jamais rien menacer)
+    if (!libre(x, y - 1) && libre(x, y + 1)) dy = 1;
+    else if (libre(x - 1, y)) dx = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1;
     if (!dx && !dy) continue;
     let k = 1;
     while (k < 40 && libre(x + dx * k, y + dy * k)) k++;
@@ -977,6 +979,10 @@ function pas(n, e, inp) {
 
   // zone inversée : tout y tombe vers le haut (quel que soit l'état)
   if (milieu === APESANTEUR) { e.vy = Math.max(-K.apesMax, e.vy - K.apesanteur - (e.vy > 0 ? 0.5 : 0)); e.sol = false; e.att = 0; e.plat = -1; }
+  // collé au plafond par une zone inversée ou un vent vers le haut : sauter repousse vers le bas (on n'y reste jamais coincé)
+  if ((milieu === APESANTEUR || milieu === VENT_H) && e.tampon > 0 && plein(n, e, Math.floor((e.x + W / 2) / T), Math.floor((e.y - 2) / T))) {
+    e.vy = milieu === APESANTEUR ? 7 : 5.5; e.tampon = 0; e.ev |= EV.SAUT;
+  }
   // broyeur : une fois passé son départ, un mur de scies avance et poursuit le joueur jusqu'à sa fin
   if (n.broyeurs.length && e.demarre) {
     if (e.broy < 0) { for (let k = 0; k < n.broyeurs.length; k++) { const b = n.broyeurs[k]; if (cx > b.x0 + 3 && cx < b.x1 && (!e.cp || e.cp.tx < b.x0)) { e.broy = k; e.broyX = b.x0 * T; e.ev |= EV.BOUM; e.evX = b.x0; e.evY = cy; break; } } }

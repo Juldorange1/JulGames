@@ -1392,7 +1392,7 @@ function fondMenu(dt) {
     const ent = M.decompresser(PARF[L.id].f); while (ent.length && !ent[0]) ent.shift();
     menuE = M.nouvelEtat(n);
     menuNiv = { L, n, ent, i: 0, acc: 0, prec: M.cloner(menuE) };
-    R.preparer(n, L.zone.theme);
+    R.preparer(n, L.zone.theme); R.recadrerMenu();
   }
   const mn = menuNiv;
   mn.acc += Math.min(dt, 0.1) * 60 * 0.1;
@@ -1402,7 +1402,7 @@ function fondMenu(dt) {
     if (menuE.fini || mn.i > mn.ent.length + 90) { menuNiv = null; return; }
   }
   let e = menuE;                                        // position adoucie entre deux images du moteur
-  if (mn.prec && Math.abs(mn.prec.x - menuE.x) < 40 && Math.abs(mn.prec.y - menuE.y) < 40) { e = M.cloner(menuE); e.x = mn.prec.x + (menuE.x - mn.prec.x) * mn.acc; e.y = mn.prec.y + (menuE.y - mn.prec.y) * mn.acc; }
+  if (mn.prec && Math.abs(mn.prec.x - menuE.x) < 40 && Math.abs(mn.prec.y - menuE.y) < 40) { e = M.cloner(menuE); e.x = mn.prec.x + (menuE.x - mn.prec.x) * mn.acc; e.y = mn.prec.y + (menuE.y - mn.prec.y) * mn.acc; e.vx = mn.prec.vx + (menuE.vx - mn.prec.vx) * mn.acc; e.vy = mn.prec.vy + (menuE.vy - mn.prec.vy) * mn.acc; }
   R.dessiner(e, null, null, dt);
 }
 
