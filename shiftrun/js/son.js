@@ -9,6 +9,9 @@ const NOMS = ['saut', 'rebond', 'mur', 'atterrit', 'change', 'mort', 'casse', 'b
   'tp', 'echec', 'fracas', 'ressort', 'fleche', 'bouton', 'porte', 'menu', 'valider'];
 const PISTES = { 0: 'menu.mp3', 1: 'zone1.ogg', 2: 'zone2.ogg', 3: 'zone3.mp3', 4: 'zone4.mp3', 5: 'zone5.mp3', 6: 'zone6.ogg',
   7: 'zone7.mp3', 8: 'zone8.ogg', infini: 'infini.ogg', defi: 'defi.mp3', fin: 'fin.mp3' };
+// chaque niveau a sa propre musique (clé « n1 » à « n54 », voir music/CREDITS.md)
+const NIVEAUX_MUS = ['n01.ogg', 'n02.ogg', 'n03.mp3', 'n04.mp3', 'n05.mp3', 'n06.mp3', 'n07.ogg', 'n08.ogg', 'n09.ogg', 'n10.ogg', 'n11.ogg', 'n12.ogg', 'n13.ogg', 'n14.ogg', 'n15.ogg', 'n16.mp3', 'n17.mp3', 'n18.ogg', 'n19.ogg', 'n20.ogg', 'n21.ogg', 'n22.ogg', 'n23.mp3', 'n24.ogg', 'n25.mp3', 'n26.mp3', 'n27.ogg', 'n28.ogg', 'n29.ogg', 'n30.ogg', 'n31.mp3', 'n32.ogg', 'n33.ogg', 'n34.mp3', 'n35.mp3', 'n36.ogg', 'n37.mp3', 'n38.ogg', 'n39.mp3', 'n40.mp3', 'n41.ogg', 'n42.ogg', 'n43.mp3', 'n44.ogg', 'n45.ogg', 'n46.ogg', 'n47.ogg', 'n48.ogg', 'n49.mp3', 'n50.mp3', 'n51.ogg', 'n52.ogg', 'n53.mp3', 'n54.mp3'];
+NIVEAUX_MUS.forEach((f, i) => { PISTES['n' + (i + 1)] = 'niveaux/' + f; });
 
 function demarrer() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
@@ -146,7 +149,7 @@ let voulu = null, baisse = 1, baisseCible = 1;
 function liste(cle) {
   const f = 'music/' + (PISTES[cle] || PISTES[0]);
   const k = typeof cle === 'number' ? cle : ({ infini: 20, defi: 30, fin: 40 })[cle] || 50;
-  if (cle === 'fin') return [f];
+  if (cle === 'fin' || /^n\d+$/.test(cle)) return [f];          // la musique d'un niveau s'enchaîne sur elle-même
   if (cle === 0) return [f, { g: 900, h: 'calme' }, { g: 901, h: 'calme' }];
   const n = cle === 'infini' ? 5 : 3;
   const l = [f];

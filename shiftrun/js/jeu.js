@@ -169,12 +169,14 @@ function fantomePour(id) {
   const n = M.charger(LISTE[parId[id]].def);
   return { n, e: M.nouvelEtat(n), ent, i: 0 };
 }
+// chaque niveau a sa musique à lui (54 morceaux)
+const musiqueNiveau = (idx) => 'n' + (idx % 54 + 1);
 function lancerNiveau(idx) {
   const c = charger(idx);
   J = Object.assign(c, { mode: 'niveau', idx, fantome: fantomePour(LISTE[idx].id) });
   S.essais++;
   ecran = 'jeu'; cacherUI();
-  SON.jouerMusique(LISTE[idx].zi + 1);
+  SON.jouerMusique(musiqueNiveau(idx));
   S.cumul.rejeux++;
 }
 function regarder(idx, cle) {
@@ -186,7 +188,7 @@ function regarder(idx, cle) {
   while (ent.length && !ent[0]) ent.shift();
   J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
-  SON.jouerMusique(LISTE[idx].zi + 1);
+  SON.jouerMusique(musiqueNiveau(idx));
 }
 function lancerCourse(cat) {
   const c = charger(0);
@@ -520,7 +522,7 @@ function regarderEntrees(idx, ent, nom) {
   while (ent.length && !ent[0]) ent.shift();
   J = Object.assign(c, { mode: 'fantome', vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: nom });
   ecran = 'jeu'; cacherUI();
-  SON.jouerMusique(LISTE[idx].zi + 1);
+  SON.jouerMusique(musiqueNiveau(idx));
 }
 /* ---------- Didacticiel ---------- */
 function lancerTuto() {
@@ -903,13 +905,13 @@ function finInfini() {
 function recommencer() {
   if (!J) return;
   if (J.mode === 'infini') { lancerInfini(J.imode); return; }
-  if (J.mode === 'defi' && J.entrainement) { allerDrapeau(J.drapeauDepart || 0); return; }
+  if (J.mode === 'defi' && J.entrainement) { allerDrapeau(drapeauActif()); return; }
   if (J.mode === 'defi') { lancerDefiLong(J.periode); return; }
   if (J.mode === 'survie') { lancerSurvie(); return; }
   if (J.mode === 'special') { lancerSpecial(J.sp.id); return; }
   if (J.mode === 'tuto') { lancerTuto(); return; }
   if (J.mode === 'perso') { lancerPerso(J.L.def, J.depuisEditeur); return; }
-  if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(J.drapeauDepart || 0); return; }
+  if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(drapeauActif()); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
   else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat');
   else if (J.mode === 'course') {
@@ -973,6 +975,8 @@ function drapeauxNiveau() {
   if (n.h > n.w * 1.5) { const monte = n.dep.y > n.h * M.T / 2; out.sort((a, b) => monte ? b[1] - a[1] : a[1] - b[1]); }   // niveaux verticaux : dans l'ordre de la montée
   return out;
 }
+// le drapeau où l'on réapparaîtrait (0 = départ)
+function drapeauActif() { const e = J.e; if (!e || !e.cp) return J.drapeauDepart || 0; const k = drapeauxNiveau().findIndex(([x, y]) => x === e.cp.tx && y === e.cp.ty); return k < 0 ? (J.drapeauDepart || 0) : k + 1; }
 function allerDrapeau(k) {
   const fl = drapeauxNiveau();
   const e = M.nouvelEtat(J.n);
@@ -1006,6 +1010,7 @@ function lancerFantomeEntr(k) {
     e.mortT = 0; e.fini = false;
   }
   J.fantome = { n: B.n, e, ent: B.ent, i, entr: true };
+  J.attenteG = true;                                     // il ne repart qu'à notre prochaine touche
 }
 /* ---------- Temps à chaque drapeau, comparés au record ---------- */
 function noterDrapeau() {
@@ -1139,12 +1144,15 @@ function pas() {
   if (J.mode === 'defi' && J.limite && !J.entrainement && J.e.temps >= J.limite) { finDefi(); return; }
   if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini' && J.mode !== 'expedition') J.entrees.push(inp);
   if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini) S.tempsJeu = (S.tempsJeu || 0) + 1;
-  if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
+  if (J.attenteG && (inp & ~(J.inpAv || 0))) J.attenteG = false;   // entraînement : une nouvelle touche relance le robot
+  J.inpAv = inp;
+  if (J.fantome && J.e.demarre && !J.attenteG) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
   if (!avant && J.e.demarre) recadrer = false;
   const ev = J.e.ev;
   if (J.mode === 'niveau' && J.entrainement && (ev & (M.EV.DRAPEAU | M.EV.INVINCIBLE))) {   // arrivé à un drapeau (ou reparti de lui) : le robot repart de là aussi
     const k = J.e.cp ? drapeauxNiveau().findIndex(([x, y]) => x === J.e.cp.tx && y === J.e.cp.ty) + 1 : 0;
     lancerFantomeEntr(Math.max(0, k));
+    if (!(ev & M.EV.INVINCIBLE)) J.attenteG = false;              // simple passage d'un drapeau en courant : il part avec nous
   }
   if (ev & M.EV.CAPA) J.capas = (J.capas || 0) + 1;
   if (J.mode === 'niveau' && !(J.e.temps % 12)) aidePieges();
@@ -1172,8 +1180,8 @@ function terminer() {
     ecran = 'fin'; SON.attenuer(true);
     S.cumul.entr++;
     const neufs = verifierSucces();
-    montrer(`<div class="fin"><div class="nomniv">🎯 ${tr('Entraînement')} · ${tr(J.type.nom)}</div><div class="temps">${R.chrono(t0Entr())}</div>
-      <div class="lignes"><div class="gris">${tr('Depuis le drapeau {0} · pas de record en entraînement', J.drapeauDepart || 0)}</div>${neufs}</div>${statsHTML()}
+    montrer(`<div class="fin"><div class="nomniv">🎯 ${tr('Entraînement')} · ${tr(J.type.nom)}</div><div class="temps">🏁 ${tr('Arrivée !')}</div>
+      <div class="lignes"><div class="gris">${tr('Depuis le drapeau {0} · rien n’est compté en entraînement', J.drapeauDepart || 0)}</div>${neufs}</div>${statsHTML()}
       <div class="menu ligne"><button class="btn" data-a="recommencer" autofocus>${tr('Recommencer')}</button><button class="btn" data-a="defi-${J.periode}">${tr('Jouer pour de vrai')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
     return;
   }
@@ -1186,8 +1194,8 @@ function terminer() {
     ecran = 'fin'; SON.attenuer(true);
     S.cumul.entr++;
     const neufs = verifierSucces();
-    montrer(`<div class="fin"><div class="nomniv">🎯 ${tr('Entraînement')} · ${id} ${tr(J.L.def.nom)}</div><div class="temps">${R.chrono(t - (J.segT || 0))}</div>
-      <div class="lignes"><div class="gris">${tr('Depuis le drapeau {0} · pas de record en entraînement', J.drapeauDepart || 0)}</div>${neufs}</div>${statsHTML()}
+    montrer(`<div class="fin"><div class="nomniv">🎯 ${tr('Entraînement')} · ${id} ${tr(J.L.def.nom)}</div><div class="temps">🏁 ${tr('Arrivée !')}</div>
+      <div class="lignes"><div class="gris">${tr('Depuis le drapeau {0} · rien n’est compté en entraînement', J.drapeauDepart || 0)}</div>${neufs}</div>${statsHTML()}
       <div class="menu ligne"><button class="btn" data-a="recommencer" autofocus>${tr('Recommencer')}</button><button class="btn" data-a="jouer" data-i="${J.idx}">${tr('Jouer pour de vrai')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button></div></div>`, 'fin');
     return;
   }
@@ -1227,7 +1235,7 @@ function terminer() {
     J.course.eclats = eclats + (J.e.eclat ? 1 : 0);
     const c = charger(suivant, { demarre: true });
     Object.assign(J, c, { idx: suivant });
-    SON.jouerMusique(LISTE[suivant].zi + 1);
+    SON.jouerMusique(musiqueNiveau(suivant));
   }
 }
 
@@ -1291,8 +1299,8 @@ function dessiner(dt) {
     hud.lignes.push({ t: tr(ty.but), c: '#bbb' });
     if (J.finT > 0) { hud.message = tr('Fin : {0}', tr('Salles : {0}', J.salle)); hud.messageC = '#ff9ae6'; }
     if (J.entrainement) {
-      hud.chrono = Math.max(0, e.temps - (J.segT || 0)); hud.couleurChrono = null;
-      hud.titre = '🎯 ' + tr('Entraînement') + '  ·  ' + hud.titre;
+      hud.texteCentre = '🎯 ' + tr('Entraînement'); hud.sousChrono = null; hud.couleurChrono = null;
+      hud.titre = tr(ty.nom);
       hud.lignes = [{ t: tr('Pause : choisir un drapeau · Page préc. / suiv. : drapeau précédent / suivant'), c: '#ffd84a' }];
     }
   } else if (J.mode === 'expedition') {
@@ -1313,8 +1321,8 @@ function dessiner(dt) {
     hud.lignes.push({ t: tr('Une seule vie'), c: '#ff8a8a' });
     if (J.finT > 0) { hud.message = tr('Salles franchies : {0}', J.salle); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'niveau' && J.entrainement) {
-    hud.chrono = Math.max(0, e.temps - (J.segT || 0));
-    hud.titre = '🎯 ' + tr('Entraînement') + '  ·  ' + hud.titre;
+    hud.texteCentre = '🎯 ' + tr('Entraînement');                     // pas de chrono en entraînement
+    if (J.attenteG && J.fantome && J.e.demarre) hud.attente = tr('Appuie sur une touche : le robot repart avec toi');
     hud.lignes.push({ t: tr('Pause : choisir un drapeau · Page préc. / suiv. : drapeau précédent / suivant'), c: '#ffd84a' });
   } else if (J.mode === 'special') {
     hud.chrono = e.temps;
@@ -1367,7 +1375,7 @@ function dessiner(dt) {
     }
     if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', tr(S.reglages.fantome === 'parfait' ? 'Parfait' : 'record')), c: '#888' });
   }
-  if (!e.demarre) hud.attente = tr('Bouge pour lancer le chrono');
+  if (!e.demarre) hud.attente = J.entrainement ? tr('Bouge pour commencer : le robot part avec toi') : tr('Bouge pour lancer le chrono');
   if (S.reglages.entrees) { hud.entrees = J.inp || 0; hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]); }
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
@@ -1801,9 +1809,12 @@ function barreRejeu() {
   barreEtat = etat;
   if (!on) { barre.className = ''; barre.innerHTML = ''; return; }
   barre.className = 'visible';
-  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 3 s</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="avant5">3 s ⏩</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')}</button>` +
-    VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('') +
-    `<button class="btn mini" data-r="quitter">✕</button><span>${tr('Espace : pause · ← → : 3 s · ↑ ↓ ou 2 à 9 et 0 : vitesse · . : image suivante')}</span>`;
+  const kb = (t) => `<kbd>${t}</kbd>`;                       // chaque bouton montre sa touche
+  const foc = document.activeElement && barre.contains(document.activeElement) ? document.activeElement.dataset.r + (document.activeElement.dataset.v || '') : null;
+  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 3 s ${kb('←')}</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'} ${kb(tr('Espace'))}</button><button class="btn mini" data-r="avant5">3 s ⏩ ${kb('→')}</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')} ${kb('.')}</button>` +
+    VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')} ${kb(v === 1 ? '0' : String(Math.round(v * 10)))}</button>`).join('') +
+    `<button class="btn mini" data-r="quitter">✕ ${kb(tr('Échap'))}</button><span>${tr('↑ ↓ : vitesse · Tab : choisir un bouton, Entrée : l’activer')}</span>`;
+  if (foc) { const b = [...barre.querySelectorAll('[data-r]')].find(x => x.dataset.r + (x.dataset.v || '') === foc); if (b) b.focus(); }
 }
 // aller à une image précise du rejeu (on resimule depuis le début : c'est instantané)
 function allerA(cible) {
@@ -1989,6 +2000,13 @@ addEventListener('keydown', ev => {
     if (/^Digit[0-9]$/.test(ev.code) || /^Numpad[0-9]$/.test(ev.code)) { const k = +ev.code.slice(-1); if (k !== 1) { ev.preventDefault(); rejeu('v', k === 0 ? 1 : k / 10); return; } }
     if (ev.code === 'ArrowRight') { ev.preventDefault(); rejeu('avant5'); return; }
     if (ev.code === 'ArrowLeft') { ev.preventDefault(); rejeu('arriere5'); return; }
+    if (ev.code === 'Tab') {                                   // parcourir les boutons de la barre au clavier
+      ev.preventDefault();
+      const bs = [...barre.querySelectorAll('[data-r]:not([disabled])')], k = bs.indexOf(document.activeElement);
+      const b = bs[(k < 0 ? (ev.shiftKey ? bs.length - 1 : 0) : k + (ev.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (b) b.focus(); return;
+    }
+    if ((ev.code === 'Enter' || ev.code === 'NumpadEnter') && barre.contains(document.activeElement)) { ev.preventDefault(); document.activeElement.click(); return; }
+    if (ev.code === 'Escape' && !ev.repeat) { ev.preventDefault(); rejeu('quitter'); return; }
     if (ev.code === 'Period' || ev.code === 'NumpadDecimal') { ev.preventDefault(); if (!J.pauseRejeu) rejeu('pause'); rejeu('image'); return; }
   }
   if (enJeu && J && J.entrainement && (ev.code === 'PageUp' || ev.code === 'PageDown')) {
