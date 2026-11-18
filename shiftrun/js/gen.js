@@ -1332,7 +1332,8 @@ function sommet(graine, etats, k, d) {
       salle(g, 0).couloir(1, 4); let x = 5;
       const nb = 3 + Math.floor(rng() * 2) + (k >= 4 ? 1 : 0);
       for (let i = 0; i < nb; i++) {
-        const t2 = choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
+        const alc = ip === 2 && i === 1 ? ALCOVES.filter(a => compatible(a, etats)) : [];   // l'éclat, au milieu du niveau
+        const t2 = alc.length ? alc[Math.floor(rng() * alc.length)] : choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
         const x0 = x; x = poser(g, x, t2, rng, d + (rng() - 0.5) * 0.08, { varier: true, rngV });
         if (i % 2 === 1 || i === 0) salle(g, x0).p(1, 19, '!');
       }
