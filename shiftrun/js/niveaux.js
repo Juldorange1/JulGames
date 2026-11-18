@@ -134,7 +134,7 @@ const TUTO = {
 };
 
 // zone 9, le Sommet : de longs parcours qui enchaînent passages vers la droite, grandes montées et parfois des descentes
-const SOMMET = ['Premier à-pic', 'Cheminée des vents', 'Chute libre', 'Arête', 'Grand gouffre', 'Le Sommet'];
+const SOMMET = ['Premier à-pic', 'Les lacets', 'Chute libre', 'Arête', 'Grand gouffre', 'Le Sommet'];
 ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'orage', phases: [S, L, Z, P], niveaux: SOMMET.map((nom, k) => {
   let g0 = 9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0), etats = Gen.etatsAuHasard(Gen.hasard(g0), undefined, 3);
   while (etats.includes(8)) etats = Gen.etatsAuHasard(Gen.hasard(g0 += 1000), undefined, 3);   // pas de Glace au Sommet

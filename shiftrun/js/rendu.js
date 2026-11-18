@@ -1238,6 +1238,8 @@ function competences(g, e) {
   }
 }
 // champignons, barrières d'état, plateformes mobiles, scies, lasers
+// temps du dessin : entre deux images du moteur (les objets lents glissent sans saccade)
+const tD = e => e.tR !== undefined ? e.tR : e.temps;
 function mobiles(g, e, ox, vw, vis) {
   const tt = temps;
   for (const [x, y] of dyn.champi) {
@@ -1278,14 +1280,14 @@ function mobiles(g, e, ox, vw, vis) {
   }
   if (niv.plates) for (const p of niv.plates) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
-    const [px, py] = M.plateEn(p, e.temps), lg = M.K.platLarg * T, ep = M.K.platEp;
+    const [px, py] = M.plateEn(p, tD(e)), lg = M.K.platLarg * T, ep = M.K.platEp;
     g.fillStyle = '#3a3e4a'; g.fillRect(px, py, lg, ep);
     g.fillStyle = '#c8cedc'; g.fillRect(px, py, lg, 2);
     g.fillStyle = '#ffd84a'; for (let k = 4; k < lg - 2; k += 8) g.fillRect(px + k, py + 2.5, 4, 1.5);
   }
   if (niv.scies) for (const sc of niv.scies) {
     if (sc.x * T < ox - 600 || sc.x * T > ox + vw + 600) continue;
-    const [cx2, cy2] = M.scieEn(sc, e.temps), r = M.K.scieRayon;     // dents comprises dans le cercle de la hitbox
+    const [cx2, cy2] = M.scieEn(sc, tD(e)), r = M.K.scieRayon;     // dents comprises dans le cercle de la hitbox
     g.save(); g.translate(cx2, cy2); g.rotate(tt * 14);
     g.fillStyle = '#c9ced8'; g.beginPath();
     for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const rr = i % 2 ? r - 2 : r; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
@@ -1296,7 +1298,7 @@ function mobiles(g, e, ox, vw, vis) {
   }
   if (niv.pilons) for (const p of niv.pilons) {            // pilon : chaîne + bloc d'acier = sa hitbox ; il tremble avant de tomber
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
-    const [a, b, c2, d2] = M.pilonRect(p, e.temps), cyc = ((e.temps + p.dec) % p.per + p.per) % p.per;
+    const [a, b, c2, d2] = M.pilonRect(p, tD(e)), cyc = ((e.temps + p.dec) % p.per + p.per) % p.per;
     const tr = cyc > 38 && cyc < 60 ? Math.sin(tt * 70) * 0.8 : 0;
     g.fillStyle = '#5a5e68'; for (let yy = p.y * T; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
     const gr = g.createLinearGradient(a, 0, c2, 0); gr.addColorStop(0, '#9aa2b0'); gr.addColorStop(0.5, '#dfe5ee'); gr.addColorStop(1, '#6a7280');
@@ -1312,7 +1314,7 @@ function mobiles(g, e, ox, vw, vis) {
     if (o.x * T < ox - 600 || o.x * T > ox + vw + 600) continue;
     const cx0 = o.x * T + T / 2, cy0 = o.y * T + T / 2, r = M.K.scieRayon;
     g.strokeStyle = 'rgba(200,210,230,.18)'; g.lineWidth = 1; g.setLineDash([3, 4]); g.beginPath(); g.arc(cx0, cy0, M.K.orbR, 0, 7); g.stroke(); g.setLineDash([]);
-    const ps = M.orbiteEn(o, e.temps);
+    const ps = M.orbiteEn(o, tD(e));
     g.strokeStyle = '#4a4e5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(ps[0][0], ps[0][1]); g.lineTo(ps[1][0], ps[1][1]); g.stroke();
     g.fillStyle = '#2a2c34'; g.beginPath(); g.arc(cx0, cy0, 4, 0, 7); g.fill(); g.fillStyle = '#8a90a0'; g.beginPath(); g.arc(cx0, cy0, 2, 0, 7); g.fill();
     for (const [sx, sy] of ps) {
@@ -1368,7 +1370,7 @@ function ennemis(g, e, ox, vw) {
   if (!niv.ennemis || !niv.ennemis.length) return;
   for (const en of niv.ennemis) {
     if (en.x * T < ox - 500 || en.x * T > ox + vw + 500) continue;
-    const [ex, ey] = M.ennemiEn(en, e.temps), cx2 = ex + 6, cy2 = ey + 6;
+    const [ex, ey] = M.ennemiEn(en, tD(e)), cx2 = ex + 6, cy2 = ey + 6;
     const RE = M.K.ennemiRayon;                     // piquants compris dans le cercle de la hitbox
     g.save(); g.translate(cx2, cy2);
     g.rotate(en.hor ? (ex / 6) : 0);
@@ -1392,7 +1394,7 @@ function fleches(g, e, ox, vw) {
   g.save();
   for (const f of niv.fleches) {
     if (f.x * T < ox - 400 || f.x * T > ox + vw + 400) continue;
-    for (const [ax, ay] of M.flechesEn(niv, e.temps, f)) {
+    for (const [ax, ay] of M.flechesEn(niv, tD(e), f)) {
       const parcouru = Math.abs(ax - (f.x * T + T / 2)) + Math.abs(ay - (f.y * T + T / 2));
       if (f.portee - parcouru < (f.vit || 4) * 1.5) {                // arrivée sur le mur : la flèche se brise
         g.save(); g.translate(ax, ay); g.rotate(Math.atan2(f.dy, f.dx));
@@ -1540,6 +1542,11 @@ function couleurContour(c, defaut, g, x, y) {
 }
 function aura(g, cx, cy, a) {
   if (!a || a === 'rien') return;
+  g.save(); g.translate(cx, cy); g.scale(0.68, 0.68); g.translate(-cx, -cy);   // discrète : elle ne doit pas gêner la vue
+  auraPleine(g, cx, cy, a);
+  g.restore();
+}
+function auraPleine(g, cx, cy, a) {
   const t = temps, C = { douce: '255,255,255', glace: '150,230,255', rose: '255,110,210', toxique: '120,255,90', feu: '255,120,40', ombre: '60,20,120', doree: '255,210,70',
     electrique: '120,200,255', pulsar: '255,80,255', etoilee: '200,180,255', divine: '255,250,200', neant: '0,0,0', arcenciel: null }[a];
   const r = 15 + (a === 'pulsar' ? 4 * Math.sin(t * 6) : 0) + (a === 'divine' ? 3 : 0);
@@ -1586,24 +1593,24 @@ function trainee(e, tr2) {
     notes: ['#ffe94a', 3, -0.02, false, 'note'], pixels: ['#4ab8ff', 2, 0], etincelles: ['#ffd34d', 1.6, 0.05, true], coeurs: ['#ff4a8a', 3, -0.02, false, 'coeur'], etoiles: ['#fff6c0', 3.2, 0, true, 'etoile'],
     eclairs: ['#bfe8ff', 3.5, 0, true, 'eclair'], flammes: [null, 4.2, -0.07, true, 'flamme', 26], ombre: [null, 5, -0.01, false, 'fumee', 40], arcenciel: [hsl, 2.6, 0, true, 'scintille', 34] }[tr2];
   if (!P2) return;
-  part(x, y, -e.vx * 0.15 + (Math.random() - 0.5) * 0.5, -e.vy * 0.1 + (Math.random() - 0.5) * 0.5, P2[5] || 28, P2[0] || '#fff', P2[1], P2[2], !!P2[3], P2[4]);
-  if (tr2 === 'flammes' && Math.random() < 0.4) part(x, y, (Math.random() - 0.5) * 1.2, -0.6 - Math.random(), 22, '#ffd060', 1.2, -0.02, true);   // étincelles
+  part(x, y, -e.vx * 0.15 + (Math.random() - 0.5) * 0.5, -e.vy * 0.1 + (Math.random() - 0.5) * 0.5, Math.round((P2[5] || 28) * 0.7), P2[0] || '#fff', P2[1] * 0.65, P2[2], !!P2[3], P2[4]);   // petite et brève : elle ne gêne pas
+  if (tr2 === 'flammes' && Math.random() < 0.4) part(x, y, (Math.random() - 0.5) * 1.2, -0.6 - Math.random(), 15, '#ffd060', 0.8, -0.02, true);   // étincelles
 }
 // le ruban des traînées les plus chères : il suit le personnage et s'efface en 0,4 s
 function dessinerRuban(g, tr2) {
   if (tr2 !== 'arcenciel' && tr2 !== 'ombre') { ruban = []; return; }
-  ruban = ruban.filter(p => temps - p[2] < 0.5);
+  ruban = ruban.filter(p => temps - p[2] < 0.35);
   if (ruban.length < 2) return;
   g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
   if (tr2 === 'arcenciel') g.globalCompositeOperation = 'lighter';
   for (let i = 1; i < ruban.length; i++) {
-    const [x0, y0] = ruban[i - 1], [x1, y1, t1] = ruban[i], k = 1 - (temps - t1) / 0.5;
+    const [x0, y0] = ruban[i - 1], [x1, y1, t1] = ruban[i], k = 1 - (temps - t1) / 0.35;
     if (tr2 === 'arcenciel') {
-      g.strokeStyle = `hsla(${(t1 * 240 + i * 8) % 360},95%,62%,${0.55 * k})`; g.lineWidth = 7 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-      g.strokeStyle = `rgba(255,255,255,${0.6 * k})`; g.lineWidth = 1.6 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `hsla(${(t1 * 240 + i * 8) % 360},95%,62%,${0.55 * k})`; g.lineWidth = 4 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(255,255,255,${0.6 * k})`; g.lineWidth = 1 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     } else {
-      g.strokeStyle = `rgba(120,60,220,${0.35 * k})`; g.lineWidth = 11 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-      g.strokeStyle = `rgba(10,2,24,${0.8 * k})`; g.lineWidth = 7 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(120,60,220,${0.35 * k})`; g.lineWidth = 6 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(10,2,24,${0.8 * k})`; g.lineWidth = 4 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     }
   }
   g.restore();

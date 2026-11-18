@@ -1307,6 +1307,55 @@ function vertical(graine, sens, metres, etats) {
   return { carte: l.map(r => r.join('')), etats: etats || etatsAuHasard(rng) };
 }
 
+// Les montées et descentes du Sommet : un puits étroit en lacets. Chaque étage (5 rangées) a son trou d'un côté,
+// puis de l'autre : on traverse chaque étage en évitant un piège (laser, scie, pilon, arbalète, pics). En montée,
+// un ressort sous chaque trou ; en descente, on se laisse tomber.
+function lacets(graine, sens, metres, etats) {
+  const rng = hasard(graine * 151 + 11), W = 18, nE = Math.max(4, 2 * Math.round(metres / 10));   // nombre pair d'étages
+  const Hh = (sens === 'bas' ? 9 : 10) + 5 * nE, l = [];
+  for (let y = 0; y < Hh; y++) l.push(new Array(W).fill('#'));
+  const c = (xa, ya, xb, yb, ch = '.') => { for (let y = Math.max(1, ya); y <= Math.min(Hh - 2, yb); y++) for (let x = Math.max(1, xa); x <= Math.min(W - 2, xb); x++) l[y][x] = ch; };
+  const p = (x, y, ch) => { if (y > 0 && y < Hh - 1 && x >= 0 && x < W) l[y][x] = ch; };
+  c(2, 1, W - 3, Hh - 2);
+  // planchers : en montée de bas en haut (le dernier, rangée 7, troué à gauche) ; en descente de haut en bas
+  const pl = [];
+  if (sens === 'bas') for (let j = 0; j <= nE; j++) pl.push({ y: 7 + 5 * j, trou: j === nE ? null : (j % 2 === 0 ? 'd' : 'g') });
+  else for (let j = 0; j <= nE; j++) pl.push({ y: Hh - 3 - 5 * j, trou: j === 0 ? null : (j % 2 === 1 ? 'd' : 'g') });
+  for (const f of pl) { c(2, f.y, W - 3, f.y, '#'); if (f.trou === 'd') c(W - 6, f.y, W - 4, f.y, '.'); else if (f.trou === 'g') c(3, f.y, 5, f.y, '.'); }
+  c(2, Hh - 2, W - 3, Hh - 2, '#');
+  // chaque étage : un piège au milieu, entre l'arrivée et le trou suivant
+  let dernier = -1;
+  for (let j = 0; j < nE; j++) {
+    const sol = sens === 'bas' ? pl[j + 1].y : pl[j].y, haut = sol - 4;              // rangées libres : haut..sol-1
+    if (sens !== 'bas') { const tr = pl[j + 1].trou; p(tr === 'd' ? W - 5 : 4, sol - 1, 's'); }     // le ressort sous le trou du dessus
+    if (j === 0 && sens !== 'bas') continue;                                          // le premier étage reste calme
+    let t; do t = Math.floor(rng() * 6); while (t === dernier); dernier = t;
+    const mx = 7 + Math.floor(rng() * (W - 15));
+    if (t === 0) p(rng() < 0.5 ? 1 : W - 2, sol - 1, 'L');                            // laser au ras du sol : on attend qu'il s'éteigne
+    else if (t === 1) p(mx, haut, 'z');                                               // scie qui monte et descend
+    else if (t === 2) { p(mx, haut, 'K'); p(mx + 2, haut, 'K'); }                     // pilons qui s'abattent
+    else if (t === 3) p(rng() < 0.5 ? 1 : W - 2, sol - 2, 'F');                       // arbalète dans la paroi
+    else if (t === 4) { p(mx, sol - 1, '^'); p(mx + 1, sol - 1, '^'); }               // pics à sauter
+    else { p(mx, sol - 1, '^'); p(rng() < 0.5 ? 1 : W - 2, sol - 3, 'L'); }          // pics et laser en hauteur
+  }
+  // départ et arrivée (le Sommet les remplace par ses ouvertures)
+  if (sens === 'bas') { p(4, 6, '@'); p(W - 5, Hh - 3, 'G'); }
+  else { p(4, Hh - 4, '@'); p(W - 5, 6, 'G'); }
+  for (let y0 = 12; y0 < Hh - 10; y0 += 15) {                                          // drapeaux environ tous les trois étages
+    let best = null;
+    for (let y = y0; y < y0 + 15 && y < Hh - 2; y++) for (let x = 3; x < W - 3; x++) {
+      if (l[y][x] !== '.' || l[y + 1][x] !== '#' || l[y - 1][x] !== '.' || l[y][x - 1] === '^' || l[y][x + 1] === '^' || l[y][x - 1] === 's' || l[y][x + 1] === 's') continue;
+      if ('LF'.includes(l[y][1]) || 'LF'.includes(l[y][W - 2]) || 'LF'.includes(l[y - 1][1]) || 'LF'.includes(l[y - 1][W - 2])) continue;   // pas dans un tir
+      if ([1, 2, 3, 4].some(d => y - d > 0 && [x - 1, x, x + 1].some(xx => 'Kz'.includes(l[y - d][xx])))) continue;                       // ni sous un pilon ou une scie
+      const sc = Math.abs(y - (y0 + 7)) * 2 + Math.abs(x - W / 2);
+      if (!best || sc < best[2]) best = [x, y, sc];
+    }
+    if (best) l[best[1]][best[0]] = '!';
+  }
+  elaguerDrapeaux(l, sens);
+  return { carte: l.map(r => r.join('')), etats: etats || etatsAuHasard(rng) };
+}
+
 // pour les tests : une seule salle entre un départ et une arrivée
 function essai(type, graine, d, glace, brut, avecVariations, phases) {
   const dec = (SALLES[type] && SALLES[type].decale) || 0, oy = dec < 0 ? -dec : 0;
@@ -1322,8 +1371,10 @@ function essai(type, graine, d, glace, brut, avecVariations, phases) {
 // parfois en descente), avec drapeaux et pièges partout. k : numéro du niveau (0 à 5).
 function sommet(graine, etats, k, d) {
   const rng = hasard(graine * 17 + 5), rngV = hasard(graine * 29 + 3);
-  const plan = ['couloir'], nPuits = 2 + (k >= 3 ? 1 : 0);
-  for (let i = 0; i < nPuits; i++) { plan.push(i === 1 && k % 2 === 0 ? 'bas' : 'haut'); plan.push('couloir'); }
+  // les puits de chaque niveau, accordés à son nom : à-pic, lacets, chute libre, arête, gouffre, sommet
+  const PUITS = [['haut', 'bas'], ['haut', 'haut'], ['bas', 'bas', 'bas'], ['haut', 'bas', 'haut', 'bas'], ['bas', 'bas', 'haut'], ['haut', 'haut', 'bas', 'haut']];
+  const plan = ['couloir'];
+  for (const t of PUITS[k] || PUITS[0]) { plan.push(t); plan.push('couloir'); }
   const types = sallesPour(etats).filter(t => !t.endsWith('*') && !VERTICALES.includes(t) && !SALLES[t].decale);
   const pieces = [], compte = {}, recents = [];
   plan.forEach((t, ip) => {
@@ -1342,8 +1393,8 @@ function sommet(graine, etats, k, d) {
       for (let y = 14; y <= 19; y++) l[y][0] = '.';
       pieces.push({ l, w: x, h: HAUT, entree: 19, sortie: 19 });
     } else {                                             // un puits : on le gravit (ou on y plonge), puis on ressort à droite
-      const m = 40 + Math.floor(rng() * 15) + k * 5;
-      const l = vertical(graine * 7 + ip * 131, t, m, etats).carte.map(r => r.split(''));
+      const m = 26 + Math.floor(rng() * 10) + k * 4;
+      const l = lacets(graine * 7 + ip * 131, t, m, etats).carte.map(r => r.split(''));
       const H = l.length, Wd = l[0].length;
       for (const r of l) for (let x = 0; x < Wd; x++) if (r[x] === '@' || r[x] === 'G') r[x] = '.';
       const entree = t === 'haut' ? H - 4 : 6, sortie = t === 'haut' ? 6 : H - 3;
@@ -1368,7 +1419,7 @@ function sommet(graine, etats, k, d) {
   l[yN][X - 3] = 'G'; for (let y = 0; y < H; y++) { l[y][0] = '#'; l[y][W - 1] = '#'; } for (let y = yN - 5; y <= yN; y++) l[y][X - 1] = '#';
   return { carte: l.map(r => r.join('')), etats };
 }
-const Gen = { vertical, sommet, SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
+const Gen = { vertical, lacets, sommet, SALLES, ZONES_SALLES, TOUS, VARIABLES, TOUS_ETATS, STABLES, ALCOVES, COMPAT, compatible, etatsAuHasard, sallesPour, calibre, niveau, Infini, essai, defi, hasard, HAUT, THEMES_INF };
 if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 else racine.Gen = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);

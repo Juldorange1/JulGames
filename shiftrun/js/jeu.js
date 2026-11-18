@@ -749,8 +749,10 @@ function majSurvie() {
     if (m.invisible) continue;
     if (Math.abs(cx - pcx) > 20 || Math.abs(cy - pcy) > 20) continue;
     if (!M.polyCercle(M.formeJoueur(e), cx, cy, m.r)) continue;
-    // écraser est plus facile : il suffit de toucher la moitié haute de l'ennemi sans être en train de monter vite
-    if (e.vy > -1.5 && pcy < cy + m.r * 0.25 && m.type !== 'herisse') {
+    // écraser : il faut lui tomber dessus (en l'air, en descente, les pieds encore au-dessus de son centre juste avant)
+    const piedsAv = J.ePrec ? Math.max(...M.formeJoueur(J.ePrec).filter((_, i) => i % 2 === 1)) : Infinity;
+    const tombe = J.ePrec ? !J.ePrec.sol && J.ePrec.vy > 0 : !e.sol && e.vy > 0;
+    if (tombe && piedsAv <= cy - m.r * 0.2 + Math.max(0, m.vy) && m.type !== 'herisse') {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
@@ -1297,7 +1299,10 @@ function dessiner(dt) {
   let e = J.e;
   if (J.ePrec && J.e.mortT === 0 && J.ePrec.mortT === 0) {                 // toujours interpolé : fluide malgré le ralenti
     const a = Math.max(0, Math.min(1, acc * 60)), p = J.ePrec;
-    if (Math.abs(p.x - e.x) < 40 && Math.abs(p.y - e.y) < 40) { e = M.cloner(J.e); e.x = p.x + (J.e.x - p.x) * a; e.y = p.y + (J.e.y - p.y) * a; }
+    e = M.cloner(J.e);
+    if (Math.abs(p.x - e.x) < 40 && Math.abs(p.y - e.y) < 40) { e.x = p.x + (J.e.x - p.x) * a; e.y = p.y + (J.e.y - p.y) * a; }
+    if (J.e.temps - p.temps === 1) e.tR = p.temps + a;                                      // plateformes, scies, ennemis : à mi-chemin aussi
+    if (p.broy >= 0 && J.e.broy >= 0 && Math.abs(J.e.broyX - p.broyX) < 40) e.broyX = p.broyX + (J.e.broyX - p.broyX) * a;
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
   const hud = { brouillard: effet('brouillard'), nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
@@ -1424,7 +1429,7 @@ function fondMenu(dt) {
     if (menuE.fini || mn.i > mn.ent.length + 90) { menuNiv = null; return; }
   }
   let e = menuE;                                        // position adoucie entre deux images du moteur
-  if (mn.prec && Math.abs(mn.prec.x - menuE.x) < 40 && Math.abs(mn.prec.y - menuE.y) < 40) { e = M.cloner(menuE); e.x = mn.prec.x + (menuE.x - mn.prec.x) * mn.acc; e.y = mn.prec.y + (menuE.y - mn.prec.y) * mn.acc; e.vx = mn.prec.vx + (menuE.vx - mn.prec.vx) * mn.acc; e.vy = mn.prec.vy + (menuE.vy - mn.prec.vy) * mn.acc; }
+  if (mn.prec && Math.abs(mn.prec.x - menuE.x) < 40 && Math.abs(mn.prec.y - menuE.y) < 40) { e = M.cloner(menuE); e.x = mn.prec.x + (menuE.x - mn.prec.x) * mn.acc; e.y = mn.prec.y + (menuE.y - mn.prec.y) * mn.acc; e.vx = mn.prec.vx + (menuE.vx - mn.prec.vx) * mn.acc; e.vy = mn.prec.vy + (menuE.vy - mn.prec.vy) * mn.acc; if (menuE.temps - mn.prec.temps === 1) e.tR = mn.prec.temps + mn.acc; }
   R.dessiner(e, null, null, dt);
 }
 
