@@ -60,10 +60,10 @@ const K = {
   platVit: 1.1, platLarg: 3, platEp: 5, scieVit: 1.5, scieRayon: 7, laserEp: 4, champiRayon: 6.5, champiForce: 7.6,
   ennemiRayon: 6.5,
   // glace, magma
-  glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 3.0, maSaut: 6.0,
+  glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 4.1, maSaut: 6.9,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 14, envol: 5.4, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
+  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 14, envol: 5.4, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 8.2,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -700,7 +700,11 @@ function capacite(n, e, h, v) {
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
       if (tuile(n, tx, ty) === FRAGILE && !casse(e, tx * 1024 + ty) && Math.hypot(tx * T + T / 2 - cxp, ty * T + T / 2 - cyp) <= r * T) { e.casses = e.casses.concat(tx * 1024 + ty); e.ev |= EV.CASSE; }
     }
-    e.vy = Math.min(e.vy, -5.5); e.sol = false; e.plat = -1; e.ev |= EV.BOUM; e.evX = cxp; e.evY = cyp;
+    // le souffle de l'explosion te propulse fort dans la direction tenue (vers le haut sans direction)
+    let dx = h, dy = v; if (!dx && !dy) dy = -1;
+    const kk = Math.hypot(dx, dy);
+    e.vx = dx / kk * K.explosionF; e.vy = dy / kk * K.explosionF - (dy <= 0 ? 1 : 0);
+    e.sol = false; e.plat = -1; e.att = 0; e.ev |= EV.BOUM; e.evX = cxp; e.evY = cyp;
   }
 }
 // projectiles des compétences (jets du liquide, perle de l'ombre)

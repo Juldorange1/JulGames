@@ -27,6 +27,8 @@ if (!S.defis) S.defis = {};
 if (!S.succes) S.succes = {};
 S.reglages = Object.assign({ sons: 0.5, musique: 0.5, fantome: 'record', entrees: true, tremble: true, langue: window.Langue.detecter(), tactile: 'auto' }, S.reglages);
 if (!S.medV2) { for (const id in S.il) if (S.il[id] && S.il[id].mMax === 4) S.il[id].mMax = 6; S.medV2 = 1; }   // Platine et Diamant ajoutés : le Parfait passe de 4 à 6
+// vitesse réduite, invincibilité et charges infinies n'existent plus (le mode Entraînement les remplace)
+S.reglages.vitesse = 1; S.reglages.invincible = false; S.reglages.chargesInf = false;
 if (!S.reglages.entreesV2) { S.reglages.entrees = true; S.reglages.entreesV2 = 1; }   // les touches affichées sont maintenant visibles par défaut (désactivables)
 window.Langue.choisir(S.reglages.langue);
 if (!S.touches) S.touches = JSON.parse(JSON.stringify(TOUCHES_DEF));
@@ -212,7 +214,7 @@ function lancerInfini(mode) {
 /* ---------- Éditeur de niveaux (entièrement au clavier, souris possible) et partage par code ---------- */
 const ED_CATS = [
   ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['|', 'Plateforme en rythme', '🎵'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
-  ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '💎'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
+  ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '◆'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
   ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾'], ['S', 'Sauteur', '🐸'], ['I', 'Volant', '🦇'], ['_', 'Broyeur (début puis fin)', '🪚']]],
   ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨'], [',', 'Zone inversée', '🔃']]],
   ['🚀', 'Mouvement', [['s', 'Ressort', '🪀'], ['U', 'Champignon', '🍄'], ['(', 'Tremplin ←', '↖'], [')', 'Tremplin →', '↗'], ['M', 'Plateforme ↔', '↔'], ['N', 'Plateforme ↕', '↕'], ['H', 'Saut +', '⏫'], ['h', 'Saut −', '⏬'],
@@ -233,6 +235,19 @@ function nouvelleCarte() {
   l[19][3] = '@'; l[19][85] = 'G';
   return l;
 }
+// une carte de l'éditeur est toujours valable : un seul départ @ et une seule arrivée G (les autres sont effacés), et un départ quelque part
+function nettoyerCarte(l) {
+  let dep = false, but = false;
+  for (const r of l) for (let i = 0; i < r.length; i++) {
+    if (r[i] === '@') { if (dep) r[i] = '.'; dep = true; }
+    if (r[i] === 'G') { if (but) r[i] = '.'; but = true; }
+  }
+  if (!dep) {
+    outer: for (let x = 1; x < l[0].length - 1; x++) for (let y = l.length - 2; y > 0; y--) if (l[y][x] === '.' && M.estDur(M.CH[l[y + 1][x]])) { l[y][x] = '@'; break outer; }
+    if (!l.some(r => r.includes('@'))) { const y = l.length - 2; l[y][1] = '@'; }
+  }
+  return l;
+}
 function codeNiveau(nom, etats, l) {               // nom|états|lignes compressées (répétitions), en base 64
   const sur = (c) => c === '/' ? '¤' : c === '|' ? '¦' : c;          // « / » et « | » servent de séparateurs dans le code
   const rle = l.map(r => { let o = '', i = 0; while (i < r.length) { let j = i; while (j < r.length && r[j] === r[i]) j++; o += (j - i > 1 ? (j - i) : '') + sur(r[i]); i = j; } return o; }).join('/');
@@ -248,17 +263,19 @@ function lireCode(code) {
     return { nom, etats, l };
   } catch (err) { return null; }
 }
+let edSuppr = -1;                                         // niveau dont la suppression attend une confirmation
 function editeurMenu() {
   J = null; ecran = 'menu';
   let h = `<h2>🛠 ${tr('Éditeur de niveaux')}</h2><p class="note">${tr('Crée tes propres niveaux, teste-les, puis partage leur code : un ami le colle ici pour y jouer.')}</p>
     <div class="grille"><button class="btn carte" data-a="ed-nouveau" autofocus><b>＋ ${tr('Nouveau niveau')}</b><small>${tr('une carte vide avec un départ et une arrivée')}</small></button>
     <button class="btn carte" data-a="ed-importer"><b>📥 ${tr('Jouer un code')}</b><small>${tr('colle le code d’un niveau partagé')}</small></button>`;
-  S.persos.forEach((p, i) => { h += `<button class="btn carte" data-a="ed-ouvrir" data-i="${i}"><b>✏ ${p.nom}</b><small>${p.etats.map(e => tr(M.NOMS_PHASES[e])).join(' · ')}</small></button>`; });
+  S.persos.forEach((p, i) => { h += `<div class="persow"><button class="btn carte" data-a="ed-ouvrir" data-i="${i}"><b>✏ ${p.nom}</b><small>${p.etats.map(e => tr(M.NOMS_PHASES[e])).join(' · ')}</small></button><button class="btn mini ${edSuppr === i ? 'danger' : ''}" data-a="ed-suppr" data-i="${i}">${edSuppr === i ? '⚠ ' + tr('Confirmer la suppression') : '🗑 ' + tr('Supprimer')}</button></div>`; });
   h += `</div><div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`;
   montrer(h, 'large');
 }
 function ouvrirEditeur(i) {
   const p = i == null ? { nom: tr('Mon niveau') + ' ' + (S.persos.length + 1), etats: [0, 1, 2], l: nouvelleCarte() } : { nom: S.persos[i].nom, etats: S.persos[i].etats.slice(), l: S.persos[i].carte.map(r => r.split('')) };
+  nettoyerCarte(p.l);
   ED = { idx: i, nom: p.nom, etats: p.etats, l: p.l, cx: 3, cy: 18, pal: 0, cat: 0, outil: 'pinceau', annul: [], refaire: [], grille: true, vx: 3 * M.T, vy: 18 * M.T, debut: null, souris: 0 };
   majEditeur();
   ecran = 'editeur'; cacherUI(); panneauEditeur();
@@ -283,7 +300,7 @@ function panneauEditeur() {
     <div class="edl"><button class="edb" data-ed="taille" data-v="0,-2">− ${tr('Hauteur')}</button><button class="edb" data-ed="taille" data-v="0,2">+ ${tr('Hauteur')}</button></div>
     <div class="edl"><button class="edb" data-ed="tester">▶ ${tr('Tester')}</button><button class="edb" data-ed="ici">▶ ${tr('Tester d’ici')}</button></div>
     <div class="edl"><button class="edb" data-ed="sauver">💾 ${tr('Enregistrer')}</button><button class="edb" data-ed="code">📋 ${tr('Code')}</button><button class="edb" data-ed="quitter">✖ ${tr('Quitter')}</button></div>
-    <div class="edaide">${tr('Clic gauche : poser · clic droit : effacer')}<br>${tr('Molette : défiler (Maj : de haut en bas)')}<br>${tr('Ctrl + Z / Y : annuler, rétablir')}<br>${tr('Clavier : flèches, Espace, Q / E, Tab')}</div>`;
+    <div class="edaide">${tr('Clic gauche : poser · clic droit : effacer')}<br>${tr('Molette : monter / descendre (Maj : gauche / droite)')}<br>${tr('Flèches ou ZQSD : bouger (tenir = plus vite, Maj = 5 cases)')}<br>${tr('Ctrl + Z / Y : annuler, rétablir')}<br>${tr('Clavier : flèches, Espace, Q / E, Tab')}</div>`;
   const nomIn = edPanel.querySelector('#edNom');
   nomIn.addEventListener('input', () => { ED.nom = nomIn.value || tr('Mon niveau'); });
   nomIn.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.code === 'Enter' || ev.code === 'Escape') nomIn.blur(); });
@@ -340,7 +357,7 @@ function majEditeur() {
   const carte = ED.l.map(r => r.join(''));
   const def = { id: 'perso', nom: ED.nom, etats: ED.etats, phases: ED.etats.slice(), carte, panneaux: [] };
   let n;
-  try { n = M.charger(def); } catch (err) { const c2 = carte.slice(); c2[19] = c2[19].slice(0, 3) + '@' + c2[19].slice(4); def.carte = c2; n = M.charger(def); }
+  try { n = M.charger(def); } catch (err) { def.carte = nettoyerCarte(ED.l.map(r => r.slice())).map(r => r.join('')); n = M.charger(def); }
   const e = M.nouvelEtat(n); e.mortT = 1;
   R.preparer(n, 'carriere');
   J = { mode: 'editeur', n, e, entrees: [], L: { id: 'perso', def, zi: 0 }, salle: 0, finT: 0 };
@@ -351,6 +368,8 @@ function sauverPerso() {
   sauver(); message = '💾 ' + tr('Niveau enregistré'); messageT = 80;
 }
 function testerPerso(ici) {
+  if (!ED.l.some(r => r.includes('G'))) { message = tr('Il manque l’arrivée 🏁 : pose-la avant de tester'); messageT = 120; return; }
+  if (!ici && !ED.l.some(r => r.includes('@'))) { message = tr('Il manque le départ @'); messageT = 120; return; }
   sauverPerso();
   let carte = ED.l.map(r => r.join(''));
   if (ici) {                                        // départ provisoire à l'endroit du curseur
@@ -391,7 +410,8 @@ function toucheEditeur(ev) {
   if (ev.ctrlKey && c === 'KeyY') { refaireEd(); return; }
   const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1] }[c];
   if (mv) {
-    ED.cx = Math.max(1, Math.min(w - 2, ED.cx + mv[0] * (ev.shiftKey ? 5 : 1))); ED.cy = Math.max(1, Math.min(h - 2, ED.cy + mv[1] * (ev.shiftKey ? 5 : 1)));
+    const pas = ev.shiftKey ? 5 : ev.repeat ? 2 : 1;                 // touche tenue : le curseur file, Maj : 5 cases d'un coup
+    ED.cx = Math.max(1, Math.min(w - 2, ED.cx + mv[0] * pas)); ED.cy = Math.max(1, Math.min(h - 2, ED.cy + mv[1] * pas));
     ED.vx = ED.cx * M.T; ED.vy = ED.cy * M.T;
     if (ED.peint) poser(); return;
   }
@@ -473,7 +493,8 @@ addEventListener('keyup', ev => { if (ev.code === 'Space' || ev.code === 'Enter'
     if (!actif()) return;
     ev.preventDefault();
     const d = ev.deltaY + ev.deltaX;
-    if (ev.shiftKey) ED.vy += d * 0.6; else ED.vx += d * 0.8;
+    if (ev.shiftKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) ED.vx += d * 0.8; else ED.vy += ev.deltaY * 0.6;
+    ED.cx = Math.max(1, Math.min(ED.l[0].length - 2, Math.round(ED.vx / M.T))); ED.cy = Math.max(1, Math.min(ED.l.length - 2, Math.round(ED.vy / M.T)));
     ED.vx = Math.max(0, Math.min(ED.l[0].length * M.T, ED.vx)); ED.vy = Math.max(0, Math.min(ED.l.length * M.T, ED.vy));
   }, { passive: false });
 })();
@@ -635,7 +656,7 @@ const ENNEMIS = {
 };
 function nouveauMonstre(type, x, y) {
   return { type, r: ENNEMIS[type].r, x, y, vx: 0, vy: 0, dir: hasardJ() < 0.5 ? -1 : 1, sol: false, t: 0, pv: type === 'lourd' ? 2 : 1,
-    vit: Math.min(1.7, 0.62 + J.vague * 0.02) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
+    vit: Math.min(1.45, 0.55 + J.vague * 0.015) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
     elite: J.vague >= 12 && hasardJ() < 0.2 && type !== 'petit' };
 }
 function majSurvie() {
@@ -652,7 +673,7 @@ function majSurvie() {
     const nm = nouveauMonstre(pr2.type, pr2.x, pr2.y);
     if (nm.elite) { nm.pv++; nm.vit *= 1.15; }                   // élite : plus résistant, un peu plus vif
     J.monstres.push(nm);
-    J.spawnT = Math.max(30, Math.round(170 * Math.pow(0.95, J.vague)));
+    J.spawnT = Math.max(48, Math.round(200 * Math.pow(0.962, J.vague)));   // un peu plus facile : les ennemis arrivent moins vite
   }
   J.maxEnnemis = Math.max(J.maxEnnemis, J.monstres.length);
   const dur = (px, py) => M.plein(n, FAUX, Math.floor(px / T2), Math.floor(py / T2));
@@ -719,7 +740,8 @@ function majSurvie() {
     if (m.invisible) continue;
     if (Math.abs(cx - pcx) > 20 || Math.abs(cy - pcy) > 20) continue;
     if (!M.polyCercle(M.formeJoueur(e), cx, cy, m.r)) continue;
-    if (e.vy > 0.5 && e.y + 12 <= cy + 1 && m.type !== 'herisse') {
+    // écraser est plus facile : il suffit de toucher la moitié haute de l'ennemi sans être en train de monter vite
+    if (e.vy > -1.5 && pcy < cy + m.r * 0.25 && m.type !== 'herisse') {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
@@ -956,6 +978,34 @@ function allerDrapeau(k) {
   const e = M.nouvelEtat(J.n);
   if (k > 0 && fl[k - 1]) { const [tx, ty] = fl[k - 1]; e.cp = { x: tx * M.T + (M.T - M.W) / 2, y: (ty + 1) * M.T - M.H, tx, ty }; e.x = e.cp.x; e.y = e.cp.y; }
   J.e = e; J.drapeauDepart = k; J.segT = 0; J.stats = null; recadrer = true;
+  if (J.mode === 'niveau' && J.entrainement) lancerFantomeEntr(k);
+}
+// entraînement : le fantôme du robot (son Parfait) repart du même drapeau que toi, où qu'il ait été à ce moment-là
+function lancerFantomeEntr(k) {
+  const p = PARF[J.L.id];
+  if (!p || !p.f) { J.fantome = null; return; }
+  const fl = drapeauxNiveau();
+  if (!J.botDrap) {                                     // une seule fois : on rejoue le Parfait et on note chaque drapeau
+    const ent = M.decompresser(p.f); while (ent.length && !ent[0]) ent.shift();
+    const n = M.charger(LISTE[J.idx].def), e = M.nouvelEtat(n), pris = new Map(), pres = new Map();
+    for (let i = 0; i < ent.length + 60 && !e.fini; i++) {
+      M.pas(n, e, ent[i] || 0);
+      if (e.cp) { const c = e.cp.tx + ',' + e.cp.ty; if (!pris.has(c)) pris.set(c, i + 1); }
+      fl.forEach(([fx, fy]) => { const c = fx + ',' + fy, d = Math.hypot(e.x - fx * M.T, e.y - fy * M.T); if (!pres.has(c) || d < pres.get(c)[0]) pres.set(c, [d, i + 1]); });
+    }
+    J.botDrap = { ent, n, pris, pres };
+  }
+  const B = J.botDrap, e = M.nouvelEtat(B.n);
+  let i = 0;
+  if (k > 0 && fl[k - 1]) {
+    const [fx, fy] = fl[k - 1], c = fx + ',' + fy;
+    i = B.pris.get(c) || (B.pres.get(c) || [0, 0])[1];
+    for (let j = 0; j < i; j++) M.pas(B.n, e, B.ent[j] || 0);
+    const x0 = fx * M.T + (M.T - M.W) / 2, y0 = (fy + 1) * M.T - M.H;
+    if (Math.hypot(e.x - x0, e.y - y0) > 24) { e.x = x0; e.y = y0; e.vx = 0; e.vy = 0; }    // il n'était pas passé par là : on l'y place
+    e.mortT = 0; e.fini = false;
+  }
+  J.fantome = { n: B.n, e, ent: B.ent, i, entr: true };
 }
 /* ---------- Temps à chaque drapeau, comparés au record ---------- */
 function noterDrapeau() {
@@ -1092,6 +1142,10 @@ function pas() {
   if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
   if (!avant && J.e.demarre) recadrer = false;
   const ev = J.e.ev;
+  if (J.mode === 'niveau' && J.entrainement && (ev & (M.EV.DRAPEAU | M.EV.INVINCIBLE))) {   // arrivé à un drapeau (ou reparti de lui) : le robot repart de là aussi
+    const k = J.e.cp ? drapeauxNiveau().findIndex(([x, y]) => x === J.e.cp.tx && y === J.e.cp.ty) + 1 : 0;
+    lancerFantomeEntr(Math.max(0, k));
+  }
   if (ev & M.EV.CAPA) J.capas = (J.capas || 0) + 1;
   if (J.mode === 'niveau' && !(J.e.temps % 12)) aidePieges();
   if (J.mode === 'niveau' && !(J.e.temps % 30)) SON.intensite(J.n.w ? Math.max(0, (J.e.x / M.T / J.n.w - 0.7) / 0.3) : 0);
@@ -1320,6 +1374,7 @@ function dessiner(dt) {
   for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); const pe = m ? J.n.emplacements[+m[1] - 1] : -1; hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) + (NIV.CAPA[pe] && J.n.capacites ? '   ↻ ' + tr(NIV.CAPA[pe][0]) + ' : ' + tr(NIV.CAPA[pe][1]) : '') : tr(pn.texte); } break; }
   if (assiste() && J.mode !== 'fantome') hud.lignes.push({ t: '♿ ' + tr('Assistance'), c: '#7dd3ff' });
   if (messageT > 0) { hud.message = tr(message); hud.messageC = J.couleurMsg || '#ff9ae6'; if (messageT === 1) J.couleurMsg = null; }
+  if (J.fantome && J.fantome.entr) hud.fantomeFort = true;
   R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
   if (window.VITRINE_DESSUS) window.VITRINE_DESSUS();
 }
@@ -1356,6 +1411,10 @@ const ui = document.getElementById('ui');
 function montrer(html, classe) {
   ui.className = 'visible ' + (classe || '');
   ui.innerHTML = '<div class="cadre">' + html + '</div>';
+  // le symbole des éclats ◆ est toujours le même : rose
+  const tw = document.createTreeWalker(ui, NodeFilter.SHOW_TEXT), lst = [];
+  while (tw.nextNode()) if (tw.currentNode.nodeValue.includes('◆') && !(tw.currentNode.parentNode.classList && (tw.currentNode.parentNode.classList.contains('eclat-s') || tw.currentNode.parentNode.classList.contains('ecl')))) lst.push(tw.currentNode);
+  for (const t of lst) { const f = document.createDocumentFragment(); t.nodeValue.split('◆').forEach((m, i) => { if (i) { const sp = document.createElement('span'); sp.className = 'eclat-s'; sp.textContent = '◆'; f.appendChild(sp); } if (m) f.appendChild(document.createTextNode(m)); }); t.parentNode.replaceChild(f, t); }
   ajuster();
   const b = ui.querySelector('[autofocus]') || ui.querySelector('.btn:not([disabled])');
   if (b) b.focus();
@@ -1502,7 +1561,7 @@ function aide() {
     ['🏁 ' + tr('Le but'), `<p>${tr('Va le plus vite possible jusqu’au portail. Le chrono démarre au premier geste et se compte à l’image près. Tomber ou toucher des pics te renvoie au dernier drapeau ; avant le premier drapeau, tout recommence à zéro.')}</p>
       <p>${tr('Chaque niveau cache un éclat ◆ très difficile à atteindre. Les éclats achètent des apparences dans la boutique.')}</p>`],
     ['🔄 ' + tr('Transformations'), `<p>${tr('Chaque niveau te donne 3 états parmi ces 10, sur les touches {0} : les panneaux du début disent lesquels. Réappuie sur la touche de l’état où tu es pour utiliser sa compétence (elle coûte une charge). Une barrière de couleur ne laisse passer que l’état de sa couleur.', [k('solide'), k('liquide'), k('gaz')].map(x => x.split(' / ')[0]).join(' '))}</p>
-      <p>${tr('Changer d’état coûte une charge (2 au maximum, ◆ bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>`],
+      <p>${tr('Changer d’état coûte une charge (2 au maximum, ● bleus en bas). Elles reviennent en touchant le sol ou un cristal.')}</p>`],
     ['① ' + tr('États 1 à 5'), `<div class="etats">${[0, 1, 2, 3, 4].map(p => etatAide(p)).join('')}</div>`],
     ['② ' + tr('États 6 à 10'), `<div class="etats">${[5, 6, 7, 8, 9].map(p => etatAide(p)).join('')}</div>`],
     ['⚠ ' + tr('Pièges et objets'), `<p>${tr('Pièges : flèches tirées à intervalles réguliers, sols cassants, sols rebondissants, boutons qui ouvrent des portes. Chaque niveau cache un éclat ◆ très difficile à atteindre.')}</p>
@@ -1544,13 +1603,10 @@ function reglages() {
    <label>${tr('Afficher les touches à l’écran')} <input type="checkbox" data-r="entrees" ${r.entrees ? 'checked' : ''}></label>
    <label>${tr('Plein écran')} <input type="checkbox" data-r="pleinEcran" ${document.fullscreenElement ? 'checked' : ''}></label></div>`;
   else if (reglPage === 1) h += `<div class="regl">
-   <label>${tr('Vitesse du jeu')} <select data-r="vitesse"><option value="1">100 %</option><option value="0.85">85 %</option><option value="0.7">70 %</option><option value="0.55">55 %</option></select></label>
-   <label>${tr('Assistance : invincible')} <input type="checkbox" data-r="invincible" ${r.invincible ? 'checked' : ''}></label>
-   <label>${tr('Assistance : charges infinies')} <input type="checkbox" data-r="chargesInf" ${r.chargesInf ? 'checked' : ''}></label>
    <label>${tr('Mode daltonien (symboles sur les barrières)')} <input type="checkbox" data-r="daltonien" ${r.daltonien ? 'checked' : ''}></label>
    <label>${tr('Tremblements de l’écran')} <input type="checkbox" data-r="tremble" ${r.tremble ? 'checked' : ''}></label>
    <label>${tr('Réduire les flashs')} <input type="checkbox" data-r="sansFlash" ${r.sansFlash ? 'checked' : ''}></label></div>
-   <p class="note">${tr('Avec une assistance ou une vitesse réduite, tes temps ne comptent pas pour les records, les médailles ni les succès.')}</p>`;
+   <p class="note">${tr('Pour ralentir le jeu ou t’exercer sur un passage, utilise le mode Entraînement.')}</p>`;
   else if (reglPage === 2) {
     h += `<h3>${tr('Touches')} <small>${tr('(clique puis appuie sur la nouvelle touche)')}</small></h3><div class="touches">`;
     for (const a in TOUCHES_DEF) {
@@ -1623,13 +1679,13 @@ const BONUS = [['vie', '❤', 'Une vie de plus', 'Tu pourras tomber une fois de 
   ['saut', '🦘', 'Sauts plus hauts pendant 5 salles', 'Chaque saut monte nettement plus haut, comme la flèche verte.'],
   ['ralenti', '🐢', 'Temps ralenti pendant 5 salles', 'Tout le jeu va un peu moins vite : plus de temps pour réagir.'],
   ['bouclier', '🛡', 'Invincible pendant 2 salles', 'Rien ne peut te faire tomber pendant les 2 prochaines salles.'],
-  ['tresor', '💎', '3 éclats ◆ tout de suite', 'Trois éclats pour la boutique, gagnés immédiatement.']];
+  ['tresor', '🧩', '20 fragments tout de suite', 'Vingt fragments 🧩 pour les améliorations de l’expédition, gagnés immédiatement.']];
 // améliorations définitives de l'Expédition, payées en fragments (gagnés à chaque expédition, plus on va loin, plus il y en a)
 const serieP = (b, k, n) => Array.from({ length: n }, (_, i) => Math.round(b * Math.pow(k, i) / 10) * 10);
 const AMELIOS = [
   ['depart', '🚀', 'Partir plus loin : 10 salles de plus, plus dures mais qui rapportent plus', serieP(300, 1.8, 8)],
   ['profond', '💎', 'Les salles après la 30e rapportent 20 % de plus', serieP(500, 2, 6)],
-  ['gain', '💰', 'Fragments et éclats : +15 %', serieP(100, 1.7, 10)],
+  ['gain', '💰', 'Fragments : +15 %', serieP(100, 1.7, 10)],
   ['vie', '❤', 'Une vie de plus au départ', serieP(200, 3.5, 3)],
   ['bouclier', '🛡', 'Invincible pendant la première salle (une de plus par niveau)', serieP(150, 3, 3)],
   ['choix', '🎲', 'Un bonus de plus à choisir', serieP(800, 6, 2)],
@@ -1685,7 +1741,7 @@ function prendreBonus(id) {
   else if (id === 'saut') J.sautJusque = J.salle + 5;
   else if (id === 'ralenti') J.ralenti = J.salle + 5;
   else if (id === 'bouclier') J.bouclier = J.salle + 2;
-  else if (id === 'tresor') gagnerBonus(3);
+  else if (id === 'tresor') expe().frag += 20;
   J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 8;
   ecran = 'jeu'; cacherUI();
 }
@@ -1697,7 +1753,7 @@ function finExpedition() {
   let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * (i > 30 ? 1 + niv_am('profond') * 0.2 : 1);   // plus la salle est loin, plus elle rapporte
   frag = Math.round(frag * k);
   expe().frag += frag;
-  const gain = gagnerBonus(Math.round((gainTemps(t) + Math.floor(n * n / 150)) * k));
+  const gain = gagnerBonus(gainTemps(t));               // éclats ◆ : au même rythme que tous les modes (rien ne l'augmente)
   majSerie(); sauver();
   ecran = 'fin'; SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')}</div><div class="temps">${tr('Salles franchies : {0}', n)}</div>
@@ -1830,7 +1886,7 @@ function action(a, el) {
     case 'mode-bot': nivBot = true; nivEntrainement = false; niveaux(); break;
     case 'bot-sans': botEclat = false; niveaux(); break;
     case 'bot-avec': botEclat = true; niveaux(); break;
-    case 'entrainer': lancerNiveau(i); J.entrainement = true; break;
+    case 'entrainer': lancerNiveau(i); J.entrainement = true; lancerFantomeEntr(0); break;
     case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
@@ -1840,8 +1896,9 @@ function action(a, el) {
     case 'classement': classementMondial(i); break;
     case 'fantome-mondial': { const en = CLASSEMENT[+el.dataset.k]; if (en && en.fantome) regarderEntrees(i, M.decompresser(en.fantome), en.nom); break; }
     case 'editeur': editeurMenu(); break;
-    case 'ed-nouveau': ouvrirEditeur(null); break;
-    case 'ed-ouvrir': ouvrirEditeur(i); break;
+    case 'ed-nouveau': edSuppr = -1; ouvrirEditeur(null); break;
+    case 'ed-suppr': if (edSuppr === i) { S.persos.splice(i, 1); edSuppr = -1; sauver(); } else edSuppr = i; editeurMenu(); { const b = ui.querySelector(`[data-a="ed-suppr"][data-i="${Math.min(i, S.persos.length - 1)}"]`); if (b) b.focus(); } break;
+    case 'ed-ouvrir': edSuppr = -1; ouvrirEditeur(i); break;
     case 'ed-importer': importerCode(); break;
     case 'ed-retour': ecran = 'editeur'; cacherUI(); majEditeur(); panneauEditeur(); break;
     case 'ed-copier': { const ta = ui.querySelector('textarea.code'); if (ta) copierCode(ta.value); if (ta) { ta.select(); } break; }
@@ -1849,6 +1906,7 @@ function action(a, el) {
     case 'ed-jouer-code': case 'ed-garder-code': {
       const ta = document.getElementById('codeIn'), r = ta && lireCode(ta.value);
       if (!r) { ta && (ta.style.borderColor = '#ff5a6e'); break; }
+      nettoyerCarte(r.l);
       const def = { id: 'perso', nom: r.nom, etats: r.etats, phases: r.etats.slice(), carte: r.l.map(x => x.join('')), panneaux: [] };
       if (a === 'ed-garder-code') { S.persos.push({ nom: r.nom, etats: r.etats, carte: def.carte }); sauver(); editeurMenu(); }
       else lancerPerso(def, false);
@@ -2016,7 +2074,8 @@ addEventListener('blur', () => tenues.clear());
 
 // le curseur de la souris disparaît après 2,5 s d'immobilité et revient dès qu'on la bouge
 let curseurT = 0;
-addEventListener('mousemove', () => { document.body.classList.remove('sanscurseur'); clearTimeout(curseurT); curseurT = setTimeout(() => document.body.classList.add('sanscurseur'), 2500); });
+addEventListener('pointerdown', (ev) => { if (ev.pointerType !== 'mouse') { clearTimeout(curseurT); document.body.classList.remove('sanscurseur'); return; } if (document.body.classList.contains('sanscurseur')) { document.body.classList.remove('sanscurseur'); clearTimeout(curseurT); curseurT = setTimeout(() => document.body.classList.add('sanscurseur'), 2500); } }, true);
+addEventListener('pointermove', (ev) => { if (ev.pointerType !== 'mouse') return; document.body.classList.remove('sanscurseur'); clearTimeout(curseurT); curseurT = setTimeout(() => document.body.classList.add('sanscurseur'), 2500); });
 // la manette partout hors de la course : menus, réglages, rejeux, éditeur (elle « appuie » sur les touches du clavier)
 function toucheVirtuelle(code, o) {
   o = o || {};

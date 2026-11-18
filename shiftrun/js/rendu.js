@@ -616,7 +616,7 @@ function dessiner(e, fantome, hud, dt) {
     g.fillStyle = 'rgba(255,233,74,.18)'; g.fillRect(cx3 * T, cy3 * T, T, T);
     g.fillStyle = '#fff'; g.font = '700 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(hud.curseur[2], cx3 * T + T / 2, cy3 * T - 6); g.textBaseline = 'top';
   }
-  if (fantome && !fantome.fini) joueur(g, fantome, 0.32, true);
+  if (fantome && !fantome.fini) joueur(g, fantome, hud && hud.fantomeFort ? 0.62 : 0.32, true);   // en entraînement, le robot se voit mieux
   competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
   eauDessus(g, vis);
@@ -1807,7 +1807,7 @@ function interfaceJeu(g, e, hud) {
       const plein = i < e.charges;
       g.fillStyle = plein ? '#7dfcff' : 'rgba(255,255,255,.12)';
       g.beginPath(); const px = cxh + i * 18 * P + 6, py = by + taille / 2;
-      g.moveTo(px, py - 8 * P); g.lineTo(px + 6 * P, py); g.lineTo(px, py + 8 * P); g.lineTo(px - 6 * P, py); g.fill();
+      g.arc(px, py, 6.5 * P, 0, 7); g.fill();      // charges : des ronds bleus (le losange ◆ est réservé aux éclats, toujours roses)
     }
     if (hud.echec > 0) { g.fillStyle = `rgba(255,60,80,${hud.echec / 20})`; g.fillRect(cxh - 4, by + taille / 2 - 12 * P, 40 * P, 24 * P); }
   }
@@ -1825,7 +1825,7 @@ function interfaceJeu(g, e, hud) {
   // éclat
   if (n && n.aEclat) {
     g.font = `700 ${Math.max(16, Math.round(18 * P))}px sans-serif`; g.textAlign = 'right';
-    g.fillStyle = e.eclat ? '#ff7ae0' : 'rgba(255,255,255,.2)'; g.fillText('◆', LARG - 16, HAUT - 40 * P);
+    g.fillStyle = e.eclat ? '#ff7ae0' : 'rgba(255,122,224,.35)'; g.fillText('◆', LARG - 16, HAUT - 40 * P);
   }
   // entrées affichées
   if (hud.entrees != null) {                                       // grandes touches : déplacements, saut, transformations

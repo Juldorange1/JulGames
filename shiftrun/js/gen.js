@@ -44,6 +44,22 @@ Grille.prototype.met = function (x, y, c) {
 };
 Grille.prototype.carte = function () { return this.l.map(r => r.join('')); };
 
+// un drapeau ne sert que si l'on peut mourir avant le suivant : sinon on l'enlève
+const MORTEL = new Set(['^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_']);
+function elaguerDrapeaux(l, sens) {            // l : tableau de rangées (tableaux de caractères) ; sens : 'haut', 'bas' ou rien (vers la droite)
+  const H = l.length, W = l[0].length, fl = [];
+  let but = null;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (l[y][x] === '!') fl.push([x, y]); if (l[y][x] === 'G') but = [x, y]; }
+  const cle = sens === 'haut' ? (p) => -p[1] : sens === 'bas' ? (p) => p[1] : (p) => p[0];
+  fl.sort((a, b) => cle(a) - cle(b));
+  for (let i = 0; i < fl.length; i++) {
+    const a = fl[i], b = fl[i + 1] || but || (sens ? [a[0], sens === 'haut' ? 0 : H - 1] : [W - 1, a[1]]);
+    let danger = false;
+    if (sens) { const y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]); for (let y = y0; y <= y1 && !danger; y++) for (let x = 0; x < W; x++) if (MORTEL.has(l[y][x])) { danger = true; break; } }
+    else { const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]); for (let x = x0; x <= x1 && !danger; x++) for (let y = 0; y < H; y++) if (MORTEL.has(l[y][x])) { danger = true; break; } }
+    if (!danger) l[a[1]][a[0]] = '.';
+  }
+}
 // outils relatifs au début d'une salle
 function salle(g, x0, dy) {
   dy = dy || 0;                                          // décalage vertical du couloir (niveaux qui montent et descendent)
@@ -1088,6 +1104,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   }
   x = fin(g, x, oy);
   for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
+  elaguerDrapeaux(g.l);
   return { carte: g.carte(), suite };
 }
 
@@ -1162,6 +1179,7 @@ function defi(cle, opts) {
   }
   x = fin(g, x);
   for (let y = 0; y < HAUT; y++) g.l[y][x - 1] = '#';
+  elaguerDrapeaux(g.l);
   return { carte: g.carte(), suite, pieces, etats, theme: THEMES_INF[cle % THEMES_INF.length] };
 }
 
@@ -1214,6 +1232,7 @@ function vertical(graine, sens, metres, etats) {
     }
     if (best) l[best[1]][best[0]] = '!';
   }
+  elaguerDrapeaux(l, sens);
   return { carte: l.map(r => r.join('')), etats: etats || etatsAuHasard(rng) };
 }
 

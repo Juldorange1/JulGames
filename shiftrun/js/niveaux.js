@@ -72,7 +72,7 @@ const CAPA = {
   [ME]: ['Marteau', 'écrasement immédiat qui brise les blocs fêlés'],
   [OM]: ['Perle', 'lance une perle, tu te téléportes où elle s’arrête'],
   [GL]: ['Bloc de glace', 'pose un bloc de glace sous tes pieds pour un moment'],
-  [MA]: ['Explosion', 'brise les blocs fêlés autour de toi et te soulève']
+  [MA]: ['Explosion', 'brise les blocs fêlés tout autour et te propulse fort dans la direction tenue']
 };
 // chaque zone met un état en vedette ; les 4 états de chaque niveau sont tirés avec une graine fixe
 function etatsDuNiveau(zi, k) {
