@@ -619,6 +619,8 @@ const D = {
   'Fragments et éclats : +15 %': ['Fragments and shards: +15 %', 'Fragmentos y esquirlas: +15 %', 'Fragmente und Splitter: +15 %', 'Frammenti e schegge: +15 %', 'Fragmentos e estilhaços: +15 %'],
   'Revoir': ['Watch again', 'Volver a ver', 'Nochmal ansehen', 'Rivedi', 'Rever'],
   'Espace : pause · ← → : 3 s · ↑ ↓ ou 2 à 9 et 0 : vitesse · . : image suivante': ['Space: pause · ← →: 3 s · ↑ ↓ or 2 to 9 and 0: speed · .: next frame', 'Espacio: pausa · ← →: 3 s · ↑ ↓ o 2 a 9 y 0: velocidad · .: imagen siguiente', 'Leertaste: Pause · ← →: 3 s · ↑ ↓ oder 2 bis 9 und 0: Tempo · .: nächstes Bild', 'Spazio: pausa · ← →: 3 s · ↑ ↓ o da 2 a 9 e 0: velocità · .: fotogramma successivo', 'Espaço: pausa · ← →: 3 s · ↑ ↓ ou 2 a 9 e 0: velocidade · .: imagem seguinte'],
+  'Vitesse du jeu :': ['Game speed:', 'Velocidad del juego:', 'Spieltempo:', 'Velocità di gioco:', 'Velocidade do jogo:'],
+  'Un bonus toutes les 6 salles au lieu de 8': ['A bonus every 6 rooms instead of 8', 'Un bonus cada 6 salas en vez de 8', 'Ein Bonus alle 6 statt 8 Räume', 'Un bonus ogni 6 stanze invece di 8', 'Um bónus a cada 6 salas em vez de 8'],
   'Menu': ['Menu', 'Menú', 'Menü', 'Menu', 'Menu'],
   'Reprendre': ['Resume', 'Continuar', 'Fortsetzen', 'Riprendi', 'Continuar'],
   'Quitter': ['Quit', 'Salir', 'Beenden', 'Esci', 'Sair'],

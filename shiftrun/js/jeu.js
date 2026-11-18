@@ -947,6 +947,7 @@ let nivEntrainement = false, nivBot = false, botEclat = false;      // onglets d
 function drapeauxNiveau() {
   const n = J.n, out = [];
   for (let x = 0; x < n.w; x++) for (let y = 0; y < n.h; y++) if (n.g[y * n.w + x] === M.DRAPEAU) out.push([x, y]);
+  if (n.h > n.w * 1.5) { const monte = n.dep.y > n.h * M.T / 2; out.sort((a, b) => monte ? b[1] - a[1] : a[1] - b[1]); }   // niveaux verticaux : dans l'ordre de la montée
   return out;
 }
 function allerDrapeau(k) {
@@ -1184,7 +1185,7 @@ function boucle(t) {
   requestAnimationFrame(boucle);
   const dt = Math.min(0.1, (t - (derniere || t)) / 1000);
   derniere = t;
-  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (effet('rapide') ? 1.5 : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
+  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (effet('rapide') ? 1.5 : 1) * (J && J.entrainement && J.mode !== 'fantome' ? (+S.vitEntr || 1) : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
   barreRejeu();
   let k = 0;
   while (acc >= 1 / 60 && k < 6) { if (J) J.ePrec = M.cloner(J.e); pas(); acc -= 1 / 60; k++; }
@@ -1602,7 +1603,7 @@ const AMELIOS = [
   ['vie', '❤', 'Une vie de plus au départ', serieP(200, 3.5, 3)],
   ['bouclier', '🛡', 'Invincible pendant la première salle (une de plus par niveau)', serieP(150, 3, 3)],
   ['choix', '🎲', 'Un bonus de plus à choisir', serieP(800, 6, 2)],
-  ['souvent', '⏱', 'Un bonus toutes les 4 salles au lieu de 5', [3000]]];
+  ['souvent', '⏱', 'Un bonus toutes les 6 salles au lieu de 8', [3000]]];
 function expe() { if (!S.exp) S.exp = { frag: 0, am: {} }; return S.exp; }
 const niv_am = (id) => expe().am[id] || 0;
 function expeditionMenu() {
@@ -1629,7 +1630,7 @@ function lancerExpedition() {
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, (x) => monde.theme(x));
   recadrer = true;
-  const pas5 = 5 - niv_am('souvent');
+  const pas5 = 8 - niv_am('souvent') * 2;                                            // un bonus toutes les 8 salles (6 avec l'amélioration)
   J = { mode: 'expedition', monde, n, e, entrees: [], L: { id: 'exp', def, zi: 0 }, salle: 0, base, finT: 0, vies: 3 + niv_am('vie'), prochainChoix: pas5, pasChoix: pas5, bonusPris: [],
     bouclier: niv_am('bouclier') || undefined };
   S.essais++;
@@ -1655,7 +1656,7 @@ function prendreBonus(id) {
   else if (id === 'ralenti') J.ralenti = J.salle + 5;
   else if (id === 'bouclier') J.bouclier = J.salle + 2;
   else if (id === 'tresor') gagnerBonus(3);
-  J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 5;
+  J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 8;
   ecran = 'jeu'; cacherUI();
 }
 function finExpedition() {
@@ -1767,6 +1768,7 @@ function pause() {
   montrer(`<div class="fin"><div class="nomniv">${tr('Pause')}</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
+    ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
     <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
@@ -1800,6 +1802,7 @@ function action(a, el) {
     case 'bot-avec': botEclat = true; niveaux(); break;
     case 'entrainer': lancerNiveau(i); J.entrainement = true; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
+    case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;
     case 'tuto': lancerTuto(); break;
@@ -1947,17 +1950,25 @@ function naviguer([dx, dy]) {
   if (!liste.includes(cur)) { liste[0].focus(); return; }
   const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
   let best = null, bs = Infinity;
-  for (const b of liste) {
-    if (b === cur) continue;
-    const r = b.getBoundingClientRect(), bx = r.left + r.width / 2, by = r.top + r.height / 2;
-    const prim = dx ? (bx - ax) * dx : (by - ay) * dy;
-    if (prim <= 4) continue;
-    const sec = dx ? Math.abs(by - ay) : Math.abs(bx - ax);
-    const sc = prim + sec * 2.2;
-    if (sc < bs) { bs = sc; best = b; }
+  for (let passe = 0; passe < 2 && !best; passe++) {
+    for (const b of liste) {
+      if (b === cur) continue;
+      const r = b.getBoundingClientRect(), bx = r.left + r.width / 2, by = r.top + r.height / 2;
+      // le bord de départ du voisin doit être au-delà du nôtre dans la direction voulue
+      const prim = dx > 0 ? r.left - a.right : dx < 0 ? a.left - r.right : dy > 0 ? r.top - a.bottom : a.top - r.bottom;
+      if (prim < -4 || (dx ? (bx - ax) * dx : (by - ay) * dy) <= 4) continue;
+      // 1er passage : seulement ce qui chevauche notre rangée (ou colonne) ; 2e : le plus proche dans un cône de 45°
+      const chev = dx ? Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top) : Math.min(a.right, r.right) - Math.max(a.left, r.left);
+      const sec = dx ? Math.abs(by - ay) : Math.abs(bx - ax);
+      if (passe === 0 && chev <= 2) continue;
+      if (passe === 1 && sec > Math.max(prim, 0) + 40) continue;
+      const sc = Math.max(prim, 0) + sec * (passe ? 1.5 : 0.3);
+      if (sc < bs) { bs = sc; best = b; }
+    }
   }
-  if (!best) {                                           // au bord : on repart de l'autre côté
-    const ord = liste.slice().sort((p, q) => { const r1 = p.getBoundingClientRect(), r2 = q.getBoundingClientRect(); return dy ? (r1.top - r2.top) * dy : (r1.left - r2.left) * dx; });
+  if (!best) {                                           // au bord : on repart de l'autre côté, dans la même rangée (ou colonne)
+    const meme = liste.filter(b => { const r = b.getBoundingClientRect(); return dx ? Math.min(a.bottom, r.bottom) - Math.max(a.top, r.top) > 2 : Math.min(a.right, r.right) - Math.max(a.left, r.left) > 2; });
+    const ord = (meme.length > 1 ? meme : liste).slice().sort((p, q) => { const r1 = p.getBoundingClientRect(), r2 = q.getBoundingClientRect(); return dy ? (r1.top - r2.top) * dy : (r1.left - r2.left) * dx; });
     best = ord[0] === cur ? null : ord[0];
   }
   if (best) { best.focus(); best.scrollIntoView && best.scrollIntoView({ block: 'nearest' }); SON.bruitMenu('menu'); }
@@ -1965,6 +1976,9 @@ function naviguer([dx, dy]) {
 addEventListener('keyup', ev => { tenues.delete(ev.code); });
 addEventListener('blur', () => tenues.clear());
 
+// le curseur de la souris disparaît après 2,5 s d'immobilité et revient dès qu'on la bouge
+let curseurT = 0;
+addEventListener('mousemove', () => { document.body.classList.remove('sanscurseur'); clearTimeout(curseurT); curseurT = setTimeout(() => document.body.classList.add('sanscurseur'), 2500); });
 // la manette partout hors de la course : menus, réglages, rejeux, éditeur (elle « appuie » sur les touches du clavier)
 function toucheVirtuelle(code, o) {
   o = o || {};

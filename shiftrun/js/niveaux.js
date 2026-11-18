@@ -136,7 +136,7 @@ const TUTO = {
 // zone 9, le Sommet : de grands niveaux verticaux, en montée et en descente (façon Celeste)
 const SOMMET = ['Premier à-pic', 'Cheminée des vents', 'Chute libre', 'Arête', 'Grand gouffre', 'Le Sommet'];
 ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'glacier', phases: [S, L, Z, P], niveaux: SOMMET.map((nom, k) => {
-  const sens = k % 3 === 2 || k === 4 ? 'bas' : 'haut', metres = 60 + k * 18;
+  const sens = k === 2 ? 'bas' : 'haut', metres = 100 + k * 30;            // surtout des montées, de plus en plus longues
   const etats = Gen.etatsAuHasard(Gen.hasard(9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0)), undefined, 3);
   const v = Gen.vertical(7300 + k * 41 + (DECALE['9-' + (k + 1)] || 0), sens, metres, etats);
   const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]);

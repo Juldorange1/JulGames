@@ -1194,6 +1194,16 @@ function vertical(graine, sens, metres, etats) {
   if (sens === 'bas') c(Wd - 8, debutY + 1, Wd - 6, debutY + 1, '.');          // le trou pour commencer à descendre
   if (sens === 'bas') { c(2, Hh - 3, Wd - 3, Hh - 3, '.'); l[Hh - 3][Math.floor(Wd / 2)] = 'G'; }
   else { c(2, debutY + 1, Wd - 3, debutY + 1, '#'); l[finY][Math.floor(Wd / 2)] = 'G'; c(Math.floor(Wd / 2) - 2, finY + 1, Math.floor(Wd / 2) + 2, finY + 1, '#'); }
+  // drapeaux (points de sauvegarde) environ tous les 20 mètres, sur un endroit où l'on tient debout
+  for (let y0 = 14; y0 < Hh - 14; y0 += 20) {
+    let best = null;
+    for (let y = y0; y < y0 + 20 && y < Hh - 2; y++) for (let x = 3; x < Wd - 3; x++) {
+      if (l[y][x] !== '.' || l[y + 1][x] !== '#' || l[y - 1][x] !== '.' || l[y][x - 1] === '^' || l[y][x + 1] === '^') continue;
+      const sc = Math.abs(x - Wd / 2) + Math.abs(y - (y0 + 10));
+      if (!best || sc < best[2]) best = [x, y, sc];
+    }
+    if (best) l[best[1]][best[0]] = '!';
+  }
   return { carte: l.map(r => r.join('')), etats: etats || etatsAuHasard(rng) };
 }
 
