@@ -1097,6 +1097,7 @@ function Infini(graine, mode, opts) {
   this.prec = null;
   this.themes.push({ x: 0, theme: THEMES_INF[0] });
   this.etats = this.opts.etats || etatsAuHasard(this.rng);
+  if (this.opts.depart) { this.i = this.opts.depart; this.themes[0].theme = THEMES_INF[Math.floor(this.i / 6) % THEMES_INF.length]; }
   this.types = sallesPour(this.etats).filter(t => !t.endsWith('*'));
 }
 Infini.prototype.difficulte = function (i) {

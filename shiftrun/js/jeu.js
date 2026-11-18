@@ -182,7 +182,7 @@ function regarder(idx, cle) {
   const c = charger(idx);
   const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(LISTE[idx].zi + 1);
 }
@@ -1225,7 +1225,7 @@ function dessiner(dt) {
     if (J.finT > 0) { hud.message = tr('Fin : {0}', tr('Salles : {0}', J.salle)); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'expedition') {
     hud.chrono = e.temps; hud.titre = '🎲 ' + tr('Expédition');
-    hud.texteCentre = tr('Salle {0}', J.salle + 1);
+    hud.texteCentre = tr('Salle {0}', J.salle + (J.base || 0) + 1);
     hud.sousChrono = '❤'.repeat(Math.max(0, J.vies)) + (S.expedition ? '   ·   ' + tr('record : {0} salles', S.expedition.salles) : '');
     const actifs = [[J.chargesJusque, '⚡'], [J.sautJusque, '🦘'], [J.ralenti, '🐢'], [J.bouclier, '🛡']].filter(b => b[0] && J.salle < b[0]).map(b => b[1] + ' ' + (b[0] - J.salle));
     if (actifs.length) hud.lignes.push({ t: actifs.join('   '), c: '#9ff' });
@@ -1587,12 +1587,22 @@ function aidePieges() {
   }
 }
 // mode Expédition : des salles sans fin, 3 vies, et toutes les 5 salles un bonus à choisir parmi 3
-const BONUS = [['vie', '❤', 'Une vie de plus'], ['charges', '⚡', 'Charges infinies pendant 5 salles'], ['saut', '🦘', 'Sauts plus hauts pendant 5 salles'],
-  ['ralenti', '🐢', 'Temps ralenti pendant 5 salles'], ['bouclier', '🛡', 'Invincible pendant 2 salles'], ['tresor', '💎', '3 éclats ◆ tout de suite']];
+const BONUS = [['vie', '❤', 'Une vie de plus', 'Tu pourras tomber une fois de plus avant la fin de l’expédition.'],
+  ['charges', '⚡', 'Charges infinies pendant 5 salles', 'Tu peux changer de transformation autant que tu veux, sans attendre de recharge.'],
+  ['saut', '🦘', 'Sauts plus hauts pendant 5 salles', 'Chaque saut monte nettement plus haut, comme la flèche verte.'],
+  ['ralenti', '🐢', 'Temps ralenti pendant 5 salles', 'Tout le jeu va un peu moins vite : plus de temps pour réagir.'],
+  ['bouclier', '🛡', 'Invincible pendant 2 salles', 'Rien ne peut te faire tomber pendant les 2 prochaines salles.'],
+  ['tresor', '💎', '3 éclats ◆ tout de suite', 'Trois éclats pour la boutique, gagnés immédiatement.']];
 // améliorations définitives de l'Expédition, payées en fragments (gagnés à chaque expédition, plus on va loin, plus il y en a)
-const AMELIOS = [['vie', '❤', 'Une vie de plus au départ', [30, 80, 160]], ['bouclier', '🛡', 'Invincible pendant la première salle (une de plus par niveau)', [25, 60, 120]],
-  ['charges', '⚡', 'Charges infinies pendant les 2 premières salles (2 de plus par niveau)', [40, 100]], ['choix', '🎲', 'Un bonus de plus à choisir', [120]],
-  ['souvent', '⏱', 'Un bonus toutes les 4 salles au lieu de 5', [150]], ['gain', '💰', 'Fragments et éclats : +25 %', [50, 100, 200, 400]]];
+const serieP = (b, k, n) => Array.from({ length: n }, (_, i) => Math.round(b * Math.pow(k, i) / 10) * 10);
+const AMELIOS = [
+  ['depart', '🚀', 'Partir plus loin : 10 salles de plus, plus dures mais qui rapportent plus', serieP(300, 1.8, 8)],
+  ['profond', '💎', 'Les salles après la 30e rapportent 20 % de plus', serieP(500, 2, 6)],
+  ['gain', '💰', 'Fragments et éclats : +15 %', serieP(100, 1.7, 10)],
+  ['vie', '❤', 'Une vie de plus au départ', serieP(200, 3.5, 3)],
+  ['bouclier', '🛡', 'Invincible pendant la première salle (une de plus par niveau)', serieP(150, 3, 3)],
+  ['choix', '🎲', 'Un bonus de plus à choisir', serieP(800, 6, 2)],
+  ['souvent', '⏱', 'Un bonus toutes les 4 salles au lieu de 5', [3000]]];
 function expe() { if (!S.exp) S.exp = { frag: 0, am: {} }; return S.exp; }
 const niv_am = (id) => expe().am[id] || 0;
 function expeditionMenu() {
@@ -1613,14 +1623,15 @@ function acheterAmelio(id) {
 }
 function lancerExpedition() {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-  const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.08, 0.008] });     // la difficulté monte très lentement
+  const base = niv_am('depart') * 10;                                                   // départ plus loin : plus dur, mais chaque salle rapporte plus
+  const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.08, 0.008], depart: base });     // la difficulté monte très lentement
   const def = { id: 'exp', nom: 'Expédition', phases: monde.etats.slice(), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, (x) => monde.theme(x));
   recadrer = true;
   const pas5 = 5 - niv_am('souvent');
-  J = { mode: 'expedition', monde, n, e, entrees: [], L: { id: 'exp', def, zi: 0 }, salle: 0, finT: 0, vies: 3 + niv_am('vie'), prochainChoix: pas5, pasChoix: pas5, bonusPris: [],
-    bouclier: niv_am('bouclier') || undefined, chargesJusque: niv_am('charges') * 2 || undefined };
+  J = { mode: 'expedition', monde, n, e, entrees: [], L: { id: 'exp', def, zi: 0 }, salle: 0, base, finT: 0, vies: 3 + niv_am('vie'), prochainChoix: pas5, pasChoix: pas5, bonusPris: [],
+    bouclier: niv_am('bouclier') || undefined };
   S.essais++;
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
@@ -1628,11 +1639,16 @@ function lancerExpedition() {
 function choixBonus() {
   ecran = 'choix'; SON.attenuer(true);
   const l = BONUS.slice(); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
-  montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')} · ${tr('Salle {0}', J.salle)}</div><div class="temps">${tr('Choisis un bonus')}</div>
-    <div class="grille">${l.slice(0, 3 + niv_am('choix')).map((b, k) => `<button class="btn carte" data-a="bonus" data-c="${b[0]}" ${k === 0 ? 'autofocus' : ''}><b>${b[1]} ${tr(b[2])}</b></button>`).join('')}</div>
+  montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')} · ${tr('Salle {0}', J.salle + (J.base || 0))}</div><div class="temps">${tr('Choisis un bonus')}</div>
+    <div class="grille">${l.slice(0, 3 + niv_am('choix')).map((b, k) => `<button class="btn carte bonus-choix" data-a="bonus" data-c="${b[0]}" disabled ${k === 0 ? 'autofocus' : ''}><b>${b[1]} ${tr(b[2])}</b><small>${tr(b[3])}</small></button>`).join('')}</div>
     <div class="lignes"><div>${'❤'.repeat(Math.max(0, J.vies))} · ${tr('Bonus pris : {0}', J.bonusPris.length)}</div></div></div>`, 'fin');
+  debloquerBonus();
+}
+function debloquerBonus() {
+  setTimeout(() => { if (ecran !== 'choix') return; ui.querySelectorAll('.bonus-choix').forEach(b => { b.disabled = false; }); const p = ui.querySelector('.bonus-choix'); if (p) p.focus(); }, 450);
 }
 function prendreBonus(id) {
+  if (ecran !== 'choix') return;
   if (id === 'vie') J.vies++;
   else if (id === 'charges') J.chargesJusque = J.salle + 5;
   else if (id === 'saut') J.sautJusque = J.salle + 5;
@@ -1643,11 +1659,11 @@ function prendreBonus(id) {
   ecran = 'jeu'; cacherUI();
 }
 function finExpedition() {
-  const n = J.salle, t = J.e.temps, ancien = S.expedition;
+  const n = J.salle + (J.base || 0), t = J.e.temps, ancien = S.expedition;
   const record = !ancien || n > ancien.salles;
   if (record && !assiste()) S.expedition = { salles: n, t };
-  const k = 1 + niv_am('gain') * 0.25;
-  let frag = 0; for (let i = 1; i <= n; i++) frag += 1 + Math.floor(i / 8);            // plus la salle est loin, plus elle rapporte
+  const k = 1 + niv_am('gain') * 0.15;
+  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * (i > 30 ? 1 + niv_am('profond') * 0.2 : 1);   // plus la salle est loin, plus elle rapporte
   frag = Math.round(frag * k);
   expe().frag += frag;
   const gain = gagnerBonus(Math.round((gainTemps(t) + Math.floor(n * n / 150)) * k));
@@ -1686,7 +1702,7 @@ function finNiveau(t, avant, record) {
     </div></div>`, 'fin');
 }
 // barre du rejeu : pause, image par image, ralenti
-const VITESSES = [0.1, 0.25, 0.5, 0.75, 1, 2];
+const VITESSES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
 const barre = document.createElement('div');
 barre.id = 'rejeu';
 document.body.appendChild(barre);
@@ -1698,9 +1714,9 @@ function barreRejeu() {
   barreEtat = etat;
   if (!on) { barre.className = ''; barre.innerHTML = ''; return; }
   barre.className = 'visible';
-  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 5 s</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="avant5">5 s ⏩</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')}</button>` +
+  barre.innerHTML = `<button class="btn mini" data-r="arriere5">⏪ 3 s</button><button class="btn mini" data-r="pause">${J.pauseRejeu ? '▶' : '⏸'}</button><button class="btn mini" data-r="avant5">3 s ⏩</button><button class="btn mini" data-r="image" ${J.pauseRejeu ? '' : 'disabled'}>⏭ ${tr('image')}</button>` +
     VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('') +
-    `<button class="btn mini" data-r="quitter">✕</button><span>${tr('Espace : pause · ← → : 5 s · ↑ ↓ : vitesse · . : image suivante')}</span>`;
+    `<button class="btn mini" data-r="quitter">✕</button><span>${tr('Espace : pause · ← → : 3 s · ↑ ↓ ou 2 à 9 et 0 : vitesse · . : image suivante')}</span>`;
 }
 // aller à une image précise du rejeu (on resimule depuis le début : c'est instantané)
 function allerA(cible) {
@@ -1711,7 +1727,7 @@ function allerA(cible) {
 }
 function rejeu(a, v) {
   if (!J || J.mode !== 'fantome') return;
-  if (a === 'avant5' || a === 'arriere5') { allerA(J.ri + (a === 'avant5' ? 300 : -300)); barreRejeu(); return; }
+  if (a === 'avant5' || a === 'arriere5') { allerA(J.ri + (a === 'avant5' ? 180 : -180)); barreRejeu(); return; }
   if (a === 'pause') J.pauseRejeu = !J.pauseRejeu;
   else if (a === 'image' && J.pauseRejeu) pas();
   else if (a === 'v') J.vitesse = v;
@@ -1725,7 +1741,7 @@ function finFantome() {
   ecran = 'fin';
   montrer(`<div class="fin"><div class="nomniv">${LISTE[idx].id} ${tr(LISTE[idx].def.nom)}</div><div class="temps">${R.chrono(J.e.temps)}</div>
     <div class="lignes"><div>${tr('Rejeu : {0}', tr(J.quoi))}</div></div>${statsHTML()}
-    <div class="menu ligne"><button class="btn" data-a="jouer" data-i="${idx}" autofocus>${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button></div></div>`, 'fin');
+    <div class="menu ligne"><button class="btn" data-a="revoir" data-i="${idx}" autofocus>🔁 ${tr('Revoir')}</button><button class="btn" data-a="jouer" data-i="${idx}">${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux" data-garde="1">${tr('Niveaux')}</button></div></div>`, 'fin');
 }
 function finCourse() {
   const cat = J.cat, tot = J.course.total, pb = S.course[cat];
@@ -1810,6 +1826,7 @@ function action(a, el) {
     case 'cat': boutiqueCat = el.dataset.c; boutique(); break;
     case 'reglages': reglages(); break;
     case 'jouer': lancerNiveau(i); break;
+    case 'revoir': { const c = J && J.cleRejeu, v = J && J.vitesse; regarder(i, c || 'parfait'); if (J && v) J.vitesse = v; break; }
     case 'voir-parfait': regarder(i, 'parfait'); break;
     case 'voir-parfait-eclat': regarder(i, 'parfait-eclat'); break;
     case 'voir-record': regarder(i, 'record'); break;
@@ -1877,6 +1894,7 @@ addEventListener('keydown', ev => {
     if (ev.code === 'Space') { ev.preventDefault(); if (!ev.repeat) rejeu('pause'); return; }
     if (ev.code === 'ArrowUp') { ev.preventDefault(); rejeu('plus'); return; }
     if (ev.code === 'ArrowDown') { ev.preventDefault(); rejeu('moins'); return; }
+    if (/^Digit[0-9]$/.test(ev.code) || /^Numpad[0-9]$/.test(ev.code)) { const k = +ev.code.slice(-1); if (k !== 1) { ev.preventDefault(); rejeu('v', k === 0 ? 1 : k / 10); return; } }
     if (ev.code === 'ArrowRight') { ev.preventDefault(); rejeu('avant5'); return; }
     if (ev.code === 'ArrowLeft') { ev.preventDefault(); rejeu('arriere5'); return; }
     if (ev.code === 'Period' || ev.code === 'NumpadDecimal') { ev.preventDefault(); if (!J.pauseRejeu) rejeu('pause'); rejeu('image'); return; }
