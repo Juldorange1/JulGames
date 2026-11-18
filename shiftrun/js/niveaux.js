@@ -67,7 +67,7 @@ const CAPA = {
   [L]: ['Torrent', 'jaillis comme un jet d’eau dans la direction tenue : éteint le feu, actionne boutons et interrupteurs'],
   [Z]: ['Souffle', 'grosse poussée à l’opposé de la direction tenue'],
   [P]: ['Éclair enchaîné', 'un nouvel éclair dans une autre direction'],
-  [PL]: ['Suspension', 'immobile en l’air un moment, te rend une charge'],
+  [PL]: ['Envol', 'grand battement d’ailes vers le haut (deux avant de toucher le sol), te rend une charge'],
   [CA]: ['Dash', 'élan horizontal qui rebondit sur les murs'],
   [ME]: ['Marteau', 'écrasement immédiat qui brise les blocs fêlés'],
   [OM]: ['Perle', 'lance une perle, tu te téléportes où elle s’arrête'],

@@ -97,7 +97,7 @@ body.sanscurseur, body.sanscurseur * { cursor: none !important; }
 #ui.visible:not(.accueil) { background: rgba(8, 6, 14, .72); backdrop-filter: blur(3px); }
 #ui.large { justify-content: flex-start; padding-top: 28px; }
 #ui.fin { background: rgba(8, 6, 14, .6); }
-#ui.accueil { background: radial-gradient(ellipse at center, rgba(8,6,14,.78) 0%, rgba(8,6,14,.5) 60%, rgba(8,6,14,.35) 100%); backdrop-filter: blur(2px) saturate(.8); }
+#ui.accueil { background: radial-gradient(ellipse at center, rgba(8,6,14,.55) 0%, rgba(8,6,14,.3) 60%, rgba(8,6,14,.12) 100%); }   /* on voit bien le robot jouer derrière */
 h1 { font-size: clamp(60px, 10vw, 150px); margin: 0; letter-spacing: .18em; font-weight: 700; line-height: 1;
   background: linear-gradient(90deg, #d9c6a5, #4fb8ff, #ffd9b0, #ffe94a); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 4px 18px rgba(0,0,0,.6)); }
@@ -117,7 +117,10 @@ h3 { margin: 20px 0 8px; font-size: clamp(20px, 1vw + 12px, 28px); } h3 small { 
 .skin { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 10px; }
 .skin .ap { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid #201430; }
 .skin small { font-size: 16px; opacity: .85; }
-.skin canvas.apercu { width: 56px; height: 56px; background: radial-gradient(circle, rgba(255,255,255,.08), rgba(0,0,0,0)); border-radius: 10px; }
+.skin canvas.apercu { width: 64px; height: 64px; background: radial-gradient(circle, rgba(255,255,255,.08), rgba(0,0,0,0)); border-radius: 10px; }
+.skin canvas.apercu.large { width: 128px; }
+.skin:disabled { opacity: 1; } .skin:disabled b, .skin:disabled small { opacity: .55; }   /* on voit bien l'aperçu même sans assez d'éclats */
+.skins:has(canvas.large) { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .skin.porte { border-color: #ff8ae0; box-shadow: 0 0 12px rgba(255,138,224,.45); }
 .etn i { font-style: normal; font-size: .9em; margin-left: 3px; }
 .btn.gros { font-size: 22px; padding: 14px 18px; text-align: center; }
@@ -202,17 +205,18 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=38"></script>
-<script src="js/calibrage.js?v=38"></script>
-<script src="js/compat.js?v=38"></script>
-<script src="js/gen.js?v=38"></script>
-<script src="js/niveaux.js?v=38"></script>
-<script src="js/parfaits.js?v=38"></script>
-<script src="js/rendu.js?v=38"></script>
-<script src="js/compositeur.js?v=38"></script>
-<script src="js/son.js?v=38"></script>
-<script src="js/langues.js?v=38"></script>
-<script src="js/jeu.js?v=38"></script>
-<script src="js/vitrine.js?v=38"></script>
+<script src="js/moteur.js?v=39"></script>
+<script src="js/calibrage.js?v=39"></script>
+<script src="js/compat.js?v=39"></script>
+<script src="js/gen.js?v=39"></script>
+<script src="js/niveaux.js?v=39"></script>
+<script src="js/parfaits.js?v=39"></script>
+<script src="js/paysages.js?v=39"></script>
+<script src="js/rendu.js?v=39"></script>
+<script src="js/compositeur.js?v=39"></script>
+<script src="js/son.js?v=39"></script>
+<script src="js/langues.js?v=39"></script>
+<script src="js/jeu.js?v=39"></script>
+<script src="js/vitrine.js?v=39"></script>
 </body>
 </html>

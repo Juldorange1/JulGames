@@ -105,7 +105,7 @@ const COMPAT = {
   "lasersCroises": [0,1,4,5,6,8,9],
   "leviers": [0,1,8],
   "machines": [0,1,4,5,6,8,9],
-  "minuterie": [0,1,5,6,8],
+  "minuterie": [0,1,4,5,8],
   "montee": [0,1,4,5,8,9],
   "murLiquide": [0,1,4,5,6,8,9],
   "murets": [0,1,4,5,8,9],

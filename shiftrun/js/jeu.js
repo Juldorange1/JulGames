@@ -844,7 +844,7 @@ function finDefi() {
   montrer(`<div class="fin"><div class="nomniv">${titreD}</div><div class="temps">${texteScore(type, res)}</div>
     <div class="lignes">${record ? '<div class="vert">' + tr(ancien ? 'Meilleur résultat du jour !' : 'Premier résultat du jour') + '</div>' : `<div>${tr('Ton meilleur du jour : {0}', '<b>' + texteScore(type, ancien) + '</b>')}</div>`}
     <div class="gris">${type.score !== 'temps' ? R.chrono(t) + ' · ' : ''}${tr('Chutes : {0}', J.e.morts)} · ${tr('Défis relevés : {0} · un nouveau défi demain', jours)}</div>${gainD ? `<div class="rose">+${gainD} ◆ ${tr('pour la boutique')}</div>` : ''}${verifierSucces({ mode: 'defi' })}</div>${statsHTML()}
-    <div class="menu ligne"><button class="btn" data-a="${J.periode === 'jour' ? 'defi' : 'defi-' + J.periode}" autofocus>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
+    <div class="menu ligne"><button class="btn" data-a="${J.periode === 'jour' ? 'defi' : 'defi-' + J.periode}" autofocus>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>${J.periode !== 'jour' ? `<button class="btn" data-a="entr-defi" data-c="${J.periode}">🎯 ${tr('Entraînement')}</button>` : ''}
     <button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
 }
 function avancerMonde() {
@@ -881,6 +881,7 @@ function finInfini() {
 function recommencer() {
   if (!J) return;
   if (J.mode === 'infini') { lancerInfini(J.imode); return; }
+  if (J.mode === 'defi' && J.entrainement) { allerDrapeau(J.drapeauDepart || 0); return; }
   if (J.mode === 'defi') { lancerDefiLong(J.periode); return; }
   if (J.mode === 'survie') { lancerSurvie(); return; }
   if (J.mode === 'special') { lancerSpecial(J.sp.id); return; }
@@ -1085,7 +1086,7 @@ function pas() {
   }
   if (J.monde) avancerMonde();
   if (J.mode === 'expedition' && J.e.ev & M.EV.MORT && J.vies > 0) { message = '❤ ' + tr('Plus que {0} vie(s)', J.vies); messageT = 90; }
-  if (J.mode === 'defi' && J.limite && J.e.temps >= J.limite) { finDefi(); return; }
+  if (J.mode === 'defi' && J.limite && !J.entrainement && J.e.temps >= J.limite) { finDefi(); return; }
   if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini' && J.mode !== 'expedition') J.entrees.push(inp);
   if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini) S.tempsJeu = (S.tempsJeu || 0) + 1;
   if (J.fantome && J.e.demarre) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
@@ -1100,7 +1101,7 @@ function pas() {
   // mort avant le premier drapeau : on repart vraiment de zéro, chrono compris
   if (J.e.mortT === 1 && !unevie) {
     if (!J.e.cp && J.mode === 'niveau' && !J.entrainement) { lancerNiveau(J.idx); message = 'Retour au départ : chrono remis à zéro'; messageT = 80; return; }
-    if (!J.e.cp && J.mode === 'defi') { lancerDefiLong(J.periode, 'Retour au départ : chrono remis à zéro'); return; }
+    if (!J.e.cp && J.mode === 'defi' && !J.entrainement) { lancerDefiLong(J.periode, 'Retour au départ : chrono remis à zéro'); return; }
     if (J.entrainement) J.segT = J.e.temps + 20;
   }
   if (J.e.fini) {
@@ -1110,8 +1111,18 @@ function pas() {
   }
 }
 
+function t0Entr() { return J.e.temps - (J.segT || 0); }
 function terminer() {
   if (J.mode === 'fantome') { finFantome(); return; }
+  if (J.mode === 'defi' && J.entrainement) {                 // entraînement sur un défi : rien n'est compté
+    ecran = 'fin'; SON.attenuer(true);
+    S.cumul.entr++;
+    const neufs = verifierSucces();
+    montrer(`<div class="fin"><div class="nomniv">🎯 ${tr('Entraînement')} · ${tr(J.type.nom)}</div><div class="temps">${R.chrono(t0Entr())}</div>
+      <div class="lignes"><div class="gris">${tr('Depuis le drapeau {0} · pas de record en entraînement', J.drapeauDepart || 0)}</div>${neufs}</div>${statsHTML()}
+      <div class="menu ligne"><button class="btn" data-a="recommencer" autofocus>${tr('Recommencer')}</button><button class="btn" data-a="defi-${J.periode}">${tr('Jouer pour de vrai')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
+    return;
+  }
   if (J.mode === 'defi') { finDefi(); return; }
   if (J.mode === 'special') { finSpecial(); return; }
   if (J.mode === 'tuto') { finTuto(); return; }
@@ -1195,6 +1206,7 @@ function boucle(t) {
 function dessiner(dt) {
   if (edPanel.style.display === 'block' && !(J && J.mode === 'editeur' && ecran === 'editeur')) edPanel.style.display = 'none';
   if (!J) { fondMenu(dt); return; }
+  menuNiv = null;                                       // au retour au menu, un nouveau niveau en fond
   if (J.mode === 'editeur' && ED) {
     const pal = PALETTE[ED.pal];
     J.e.x = ED.vx; J.e.y = ED.vy;
@@ -1224,6 +1236,11 @@ function dessiner(dt) {
     if (b) { hud.lignes.push({ t: tr(J.periode === 'jour' ? 'Meilleur du jour  {0}' : 'Ton meilleur  {0}', texteScore(ty, b)), c: '#ff9ae6' }); if (ty.score === 'temps' && e.temps > b.t) hud.couleurChrono = '#ffb0b0'; }
     hud.lignes.push({ t: tr(ty.but), c: '#bbb' });
     if (J.finT > 0) { hud.message = tr('Fin : {0}', tr('Salles : {0}', J.salle)); hud.messageC = '#ff9ae6'; }
+    if (J.entrainement) {
+      hud.chrono = Math.max(0, e.temps - (J.segT || 0)); hud.couleurChrono = null;
+      hud.titre = '🎯 ' + tr('Entraînement') + '  ·  ' + hud.titre;
+      hud.lignes = [{ t: tr('Pause : choisir un drapeau · Page préc. / suiv. : drapeau précédent / suivant'), c: '#ffd84a' }];
+    }
   } else if (J.mode === 'expedition') {
     hud.chrono = e.temps; hud.titre = '🎲 ' + tr('Expédition');
     hud.texteCentre = tr('Salle {0}', J.salle + (J.base || 0) + 1);
@@ -1310,20 +1327,28 @@ function dessiner(dt) {
 /* ---------- Fond animé des menus ---------- */
 let menuNiv = null, menuE = null, menuT = 0;
 // fond du menu : un lent travelling sur un niveau tranquille, sans personnage, sans secousse ni éclair
+// derrière le menu : le robot joue le Parfait d'un niveau au hasard, au ralenti (×0,1)
 function fondMenu(dt) {
   menuT += dt;
   if (!menuNiv) {
-    const L = LISTE[Math.floor(Math.random() * 18)];
-    menuNiv = { L, n: M.charger(L.def) };
-    menuE = M.nouvelEtat(menuNiv.n);
-    menuE.mortT = 1;                                   // le personnage n'est pas dessiné
-    menuE.x = 20 * M.T; menuE.y = 15 * M.T;
-    R.preparer(menuNiv.n, L.zone.theme);
+    const ids = LISTE.map((l, i) => i).filter(i => PARF[LISTE[i].id] && PARF[LISTE[i].id].f);
+    if (!ids.length) return;
+    const L = LISTE[ids[Math.floor(Math.random() * ids.length)]], n = M.charger(L.def);
+    const ent = M.decompresser(PARF[L.id].f); while (ent.length && !ent[0]) ent.shift();
+    menuE = M.nouvelEtat(n);
+    menuNiv = { L, n, ent, i: 0, acc: 0, prec: M.cloner(menuE) };
+    R.preparer(n, L.zone.theme);
   }
-  menuE.x += 22 * dt;                                  // environ une case et demie par seconde
-  menuE.vx = 0; menuE.vy = 0;
-  if (menuE.x > (menuNiv.n.w - 30) * M.T) { menuNiv = null; return; }
-  R.dessiner(menuE, null, null, dt);
+  const mn = menuNiv;
+  mn.acc += Math.min(dt, 0.1) * 60 * 0.1;
+  while (mn.acc >= 1) {
+    mn.acc -= 1; mn.prec = M.cloner(menuE);
+    M.pas(mn.n, menuE, mn.ent[mn.i++] || 0); R.evenements(menuE, mn.n);
+    if (menuE.fini || mn.i > mn.ent.length + 90) { menuNiv = null; return; }
+  }
+  let e = menuE;                                        // position adoucie entre deux images du moteur
+  if (mn.prec && Math.abs(mn.prec.x - menuE.x) < 40 && Math.abs(mn.prec.y - menuE.y) < 40) { e = M.cloner(menuE); e.x = mn.prec.x + (menuE.x - mn.prec.x) * mn.acc; e.y = mn.prec.y + (menuE.y - mn.prec.y) * mn.acc; }
+  R.dessiner(e, null, null, dt);
 }
 
 /* ---------- Interface (menus en HTML) ---------- */
@@ -1396,16 +1421,21 @@ function boutique() {
   C.liste.forEach(([id, nom], k) => {
     const a = possede(boutiqueCat, id), porte = S.app.equipe[boutiqueCat] === id, prix = PRIX[k];
     h += `<button class="btn skin ${porte ? 'porte' : ''}" data-a="app" data-c="${boutiqueCat}" data-s="${id}" ${!a && eclatsDispo() < prix ? 'disabled' : ''}>
-      <canvas class="apercu" width="64" height="64" data-c="${boutiqueCat}" data-s="${id}"></canvas>
+      <canvas class="apercu ${boutiqueCat === 'trainee' || boutiqueCat === 'aura' ? 'large' : ''}" width="${boutiqueCat === 'trainee' || boutiqueCat === 'aura' ? 168 : 84}" height="84" data-c="${boutiqueCat}" data-s="${id}"></canvas>
       <b>${tr(nom)}</b><small>${porte ? tr(k === 0 ? 'porté' : 'porté · cliquer pour enlever') : a ? tr('à toi') : prix + ' ◆'}</small></button>`;
   });
   h += `</div><div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`;
   montrer(h, 'large');
-  // aperçus : le personnage dessiné avec cet objet (et le reste de ce qui est porté)
-  ui.querySelectorAll('canvas.apercu').forEach(cv => {
-    const eq = Object.assign({}, S.app.equipe); eq[cv.dataset.c] = cv.dataset.s;
-    R.apercu(cv, eq);
-  });
+  // aperçus animés : le personnage avec cet objet (et le reste de ce qui est porté) ; il court pour montrer les traînées
+  const cvs = [...ui.querySelectorAll('canvas.apercu')];
+  let der = performance.now();
+  const anime = (t) => {
+    if (!cvs.length || !cvs[0].isConnected) return;
+    const dt = Math.min(0.05, Math.max(0, (t - der) / 1000)); der = t;
+    for (const cv of cvs) { const eq = Object.assign({}, S.app.equipe); eq[cv.dataset.c] = cv.dataset.s; R.apercuAnime(cv, eq, dt, cv.dataset.c === 'trainee' || cv.dataset.c === 'aura'); }
+    requestAnimationFrame(anime);
+  };
+  requestAnimationFrame(anime);
 }
 function choisirApp(cat, id) {
   const k = CATS[cat].liste.findIndex(x => x[0] === id); if (k < 0) return;
@@ -1420,7 +1450,7 @@ let nivZone = -1;
 function niveaux() {
   if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
   let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement || nivBot ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini ' + (nivBot ? 'choisi' : '') + '" data-a="mode-bot">🤖 ' + tr('Bot parfait') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
-    + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p>' : '')
+    + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p><div class="onglets"><button class="btn mini" data-a="entr-defi" data-c="semaine">🎯 📅 ' + tr('Défi de la semaine') + '</button><button class="btn mini" data-a="entr-defi" data-c="mois">🎯 🗓 ' + tr('Défi du mois') + '</button></div>' : '')
     + (nivBot ? '<p class="note">' + tr('Choisis un niveau pour regarder le robot le finir en temps Parfait.') + '</p><div class="onglets"><button class="btn mini ' + (botEclat ? '' : 'choisi') + '" data-a="bot-sans">' + tr('Sans l’éclat') + '</button><button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">◆ ' + tr('Avec l’éclat') + '</button></div>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
@@ -1801,6 +1831,7 @@ function action(a, el) {
     case 'bot-sans': botEclat = false; niveaux(); break;
     case 'bot-avec': botEclat = true; niveaux(); break;
     case 'entrainer': lancerNiveau(i); J.entrainement = true; break;
+    case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
@@ -1924,6 +1955,12 @@ addEventListener('keydown', ev => {
     if (ecran === 'fin') { action('niveaux'); return; }
   }
   if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini' || J.mode === 'defi') && !ev.repeat) { action('recommencer'); return; }
+  // une touche tenue dans un menu : on attend 0,4 s, puis on avance doucement (5 fois par seconde), jamais au rythme du clavier
+  if (/^(Arrow|Key[WASD]$)/.test(ev.code) && ecran !== 'editeur') {
+    const now = performance.now();
+    if (!ev.repeat) { menuRep.debut = now; menuRep.der = now; }
+    else { if (now - menuRep.debut < 400 || now - menuRep.der < 190) { ev.preventDefault(); return; } menuRep.der = now; }
+  }
   const dirs = { ArrowDown: [0, 1], KeyS: [0, 1], ArrowUp: [0, -1], KeyW: [0, -1], ArrowRight: [1, 0], KeyD: [1, 0], ArrowLeft: [-1, 0], KeyA: [-1, 0] };
   const el = document.activeElement;
   // curseurs et listes : gauche/droite changent la valeur, haut/bas changent de ligne
@@ -1941,6 +1978,7 @@ addEventListener('keydown', ev => {
     else if (el.type === 'checkbox') { ev.preventDefault(); el.checked = !el.checked; el.dispatchEvent(new Event('input', { bubbles: true })); }
   }
 });
+const menuRep = { debut: 0, der: 0 };
 // navigation dans l'espace : on va au bouton le plus proche dans la direction choisie (grilles, onglets, listes)
 function focusables() { return [...ui.querySelectorAll('.btn:not([disabled]), select, input')].filter(x => x.offsetParent !== null); }
 function naviguer([dx, dy]) {
@@ -2014,8 +2052,8 @@ setInterval(() => {
   // directions, avec répétition quand on les tient (curseur de l'éditeur, listes)
   const dir = b & 51;
   const fl = (bits) => { if (bits & 1) toucheVirtuelle('ArrowDown', { repet: bits === -1 }); if (bits & 2) toucheVirtuelle('ArrowUp'); if (bits & 16) toucheVirtuelle('ArrowRight'); if (bits & 32) toucheVirtuelle('ArrowLeft'); };
-  if (pr & 51) { fl(pr & 51); manetteRep = dir; manetteRepT = Date.now() + 330; }
-  else if (dir && dir === manetteRep && Date.now() > manetteRepT) { fl(dir); manetteRepT = Date.now() + (ecran === 'editeur' ? 70 : 120); }
+  if (pr & 51) { fl(pr & 51); manetteRep = dir; manetteRepT = Date.now() + 400; }
+  else if (dir && dir === manetteRep && Date.now() > manetteRepT) { fl(dir); manetteRepT = Date.now() + (ecran === 'editeur' ? 70 : 190); }
   else if (!dir) manetteRep = 0;
   if (ecran === 'editeur' && ED) {
     // A poser (maintenu = peindre) · B effacer · X / Y case suivante / précédente · LB / RB catégorie · LT / RT annuler / rétablir · Select tester · Start quitter

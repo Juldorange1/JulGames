@@ -441,9 +441,27 @@ function rebondiCase(g, px, py) {
 }
 
 /* ---------- Particules ---------- */
-function part(x, y, vx, vy, vie, c, taille, grav, lum) {
+function part(x, y, vx, vy, vie, c, taille, grav, lum, forme) {
   if (parts.length > 700) parts.shift();
-  parts.push({ x, y, vx, vy, vie, max: vie, c, t: taille || 2, g: grav === undefined ? 0.1 : grav, lum: !!lum });
+  parts.push({ x, y, vx, vy, vie, max: vie, c, t: taille || 2, g: grav === undefined ? 0.1 : grav, lum: !!lum, f: forme || 0, a: Math.random() * 6.3 });
+}
+// une particule avec sa forme (traînées de la boutique : cœurs, étoiles, notes, feuilles, flocons, flammes…)
+function dessinerPart(g, p) {
+  const k = p.vie / p.max, s = p.t;
+  g.fillStyle = p.c;
+  switch (p.f) {
+    case 'coeur': g.beginPath(); g.arc(p.x - s * 0.3, p.y - s * 0.15, s * 0.36, 0, 7); g.arc(p.x + s * 0.3, p.y - s * 0.15, s * 0.36, 0, 7); g.fill(); g.beginPath(); g.moveTo(p.x - s * 0.64, p.y); g.lineTo(p.x, p.y + s * 0.7); g.lineTo(p.x + s * 0.64, p.y); g.fill(); return;
+    case 'etoile': { const r1 = s * (0.8 + 0.4 * Math.sin(p.vie * 0.5)); g.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + p.a, r = i % 2 ? r1 * 0.28 : r1; g.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); } g.fill(); return; }
+    case 'note': g.beginPath(); g.ellipse(p.x, p.y, s * 0.4, s * 0.3, -0.4, 0, 7); g.fill(); g.fillRect(p.x + s * 0.28, p.y - s * 1.1, s * 0.16, s * 1.1); g.fillRect(p.x + s * 0.28, p.y - s * 1.1, s * 0.5, s * 0.2); return;
+    case 'feuille': g.save(); g.translate(p.x, p.y); g.rotate(p.a + p.vie * 0.08); g.beginPath(); g.ellipse(0, 0, s * 0.7, s * 0.3, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(0,60,0,.4)'; g.fillRect(-s * 0.6, -0.15, s * 1.2, 0.3); g.restore(); return;
+    case 'flocon': g.strokeStyle = p.c; g.lineWidth = 0.5; g.beginPath(); for (let i = 0; i < 3; i++) { const a = p.a + i * Math.PI / 3; g.moveTo(p.x - Math.cos(a) * s * 0.7, p.y - Math.sin(a) * s * 0.7); g.lineTo(p.x + Math.cos(a) * s * 0.7, p.y + Math.sin(a) * s * 0.7); } g.stroke(); return;
+    case 'bulle': g.strokeStyle = p.c; g.lineWidth = 0.6; g.beginPath(); g.arc(p.x, p.y, s * 0.6, 0, 7); g.stroke(); g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(p.x - s * 0.3, p.y - s * 0.35, s * 0.2, s * 0.2); return;
+    case 'eclair': g.strokeStyle = p.c; g.lineWidth = 0.7; g.beginPath(); g.moveTo(p.x, p.y - s); g.lineTo(p.x - s * 0.4, p.y); g.lineTo(p.x + s * 0.3, p.y); g.lineTo(p.x - s * 0.1, p.y + s); g.stroke(); return;
+    case 'flamme': { const r = s * (0.4 + 0.8 * k), gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); gr.addColorStop(0, k > 0.6 ? 'rgba(255,250,200,.95)' : 'rgba(255,200,80,.9)'); gr.addColorStop(0.5, `rgba(255,${(90 + 80 * k) | 0},20,.7)`); gr.addColorStop(1, 'rgba(200,30,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill(); return; }
+    case 'fumee': { const r = s * (1.6 - k), gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); gr.addColorStop(0, 'rgba(20,4,40,.75)'); gr.addColorStop(0.6, 'rgba(70,20,130,.35)'); gr.addColorStop(1, 'rgba(120,60,220,0)'); g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill(); return; }
+    case 'scintille': { const r = s * (0.5 + 0.5 * Math.abs(Math.sin(p.vie * 0.4 + p.a))); g.fillRect(p.x - r, p.y - 0.25, r * 2, 0.5); g.fillRect(p.x - 0.25, p.y - r, 0.5, r * 2); g.beginPath(); g.arc(p.x, p.y, 0.6, 0, 7); g.fill(); return; }
+    default: g.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+  }
 }
 function eclats(x, y, n, c, force, grav, lum) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, f = Math.random() * (force || 2); part(x, y, Math.cos(a) * f, Math.sin(a) * f, 20 + Math.random() * 25, c, 1.5 + Math.random() * 2, grav, lum); }
@@ -604,7 +622,7 @@ function dessiner(e, fantome, hud, dt) {
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
   {
-    const sombre = hud && hud.brouillard ? 0.93 : (th.nuit || 0.38);
+    const sombre = hud && hud.brouillard ? 0.93 : (th.nuit || 0.38) * 0.75;      // le paysage du fond reste visible
     if (!ombreCv || ombreCv.width !== Math.ceil(vw) || ombreCv.height !== Math.ceil(vh)) { ombreCv = document.createElement('canvas'); ombreCv.width = Math.ceil(vw); ombreCv.height = Math.ceil(vh); }
     const o = ombreCv.getContext('2d');
     o.globalCompositeOperation = 'source-over';
@@ -644,12 +662,14 @@ function dessiner(e, fantome, hud, dt) {
     if (p.vie <= 0) { parts.splice(i, 1); continue; }
     if (!p.lum) continue;
     g.globalAlpha = Math.min(1, p.vie / p.max * 1.5);
+    if (p.f) { dessinerPart(g, p); continue; }
     g.fillStyle = p.c; g.beginPath(); g.arc(p.x, p.y, p.t * 0.6, 0, 6.3); g.fill();
   }
   g.globalCompositeOperation = 'source-over';
   for (const p of parts) {
     if (p.lum) continue;
     g.globalAlpha = Math.min(1, p.vie / p.max * 1.5);
+    if (p.f) { dessinerPart(g, p); continue; }
     g.fillStyle = p.c; g.fillRect(p.x - p.t / 2, p.y - p.t / 2, p.t, p.t);
   }
   g.globalAlpha = 1;
@@ -682,6 +702,15 @@ function dessiner(e, fantome, hud, dt) {
 /* ---------- Arrière-plan en couches (parallaxe) ---------- */
 const couches = new Map();
 function arrierePlan(g, ox, oy, z, enJeu) {
+  // un vrai paysage peint (js/paysages.js), en plusieurs plans qui défilent
+  const P = racine.Paysages, cle = Object.keys(THEMES).find(k => THEMES[k] === th);
+  if (P && cle) {
+    const vh = HAUT / z, fy = niv ? Math.max(0, Math.min(1, oy / Math.max(1, niv.h * T - vh))) : 0.5;
+    if (P.dessiner(g, cle, ox * z, fy, LARG, HAUT, temps)) {
+      if (enJeu && th.style === 'cristal' && temps % 5.3 < 0.08) { flash = Math.max(flash, 0.1); flashC = '#e6dcff'; }
+      return;
+    }
+  }
   const gr = g.createLinearGradient(0, 0, 0, HAUT);
   gr.addColorStop(0, th.ciel[0]); gr.addColorStop(1, th.ciel[1]);
   g.fillStyle = gr; g.fillRect(0, 0, LARG, HAUT);
@@ -1201,7 +1230,11 @@ function competences(g, e) {
   }
   if (e.tirs && e.tirs.length) for (const t of e.tirs) { if (t[5] > 0) continue; g.fillStyle = '#9fe0ff'; g.beginPath(); g.arc(t[0], t[1], 2.4, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillRect(t[0] - 0.6, t[1] - 1.4, 1.2, 1.2); }
   if (e.perle) { const [px, py] = e.perle; g.fillStyle = '#2a1050'; g.beginPath(); g.arc(px, py, 3.5, 0, 7); g.fill(); g.strokeStyle = '#c8a8ff'; g.lineWidth = 1; g.stroke(); }
-  if (e.hover > 0) { g.strokeStyle = `rgba(241,236,255,${0.4 + 0.3 * Math.sin(temps * 12)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(e.x + PW / 2, e.y + PH / 2, 10, -Math.PI / 2, -Math.PI / 2 + (e.hover / M.K.hover) * Math.PI * 2); g.stroke(); }
+  if (e.hover > 0) {                                                // envol : deux ailes de lumière qui se referment
+    const k = e.hover / M.K.hover, cx = e.x + PW / 2, cy = e.y + PH / 2 + 2;
+    g.fillStyle = `rgba(241,236,255,${0.55 * k})`;
+    for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo(cx + sg * 16, cy - 14 * k, cx + sg * 20, cy + 4 - 10 * k); g.quadraticCurveTo(cx + sg * 10, cy + 2, cx, cy + 4); g.fill(); }
+  }
 }
 // champignons, barrières d'état, plateformes mobiles, scies, lasers
 function mobiles(g, e, ox, vw, vis) {
@@ -1413,6 +1446,7 @@ function joueur(g, e, alpha, fantome) {
   if (e.sol) { g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x + 1, y + PH, PW - 2, 1); }
   const ph = e.phase, m = MATIERE[ph];
   const haut = m[0], bas = m[1];
+  if (!fantome) dessinerRuban(g, APPARENCE.trainee);
   aura(g, x + PW / 2, y + PH / 2, APPARENCE.aura);
   trainee(e, APPARENCE.trainee);
   // la forme de l'état (goutte, balle, losange…) : exactement la hitbox du moteur
@@ -1423,7 +1457,10 @@ function joueur(g, e, alpha, fantome) {
     for (let i = 0; i < fo.length; i += 2) { const px = x + fo[i], py = y + fo[i + 1]; g.lineTo(cx2 + (px - cx2) * k, cy2 + (py - cy2) * k); }
     g.closePath();
   };
-  chemin(1); g.fillStyle = couleurContour(APPARENCE.contour, m[2]); g.fill();     // contour (couleur de l'apparence)
+  chemin(1); g.fillStyle = couleurContour(APPARENCE.contour, m[2], g, x, y);     // contour (couleur de l'apparence)
+  const lueurC = { neon: '#ff4aff', feu: '#ff7a20', galaxie: '#9a6aff', arcenciel: `hsl(${(temps * 140) % 360},95%,60%)` }[APPARENCE.contour];
+  if (lueurC) { g.shadowColor = lueurC; g.shadowBlur = 7; }
+  g.fill(); g.shadowBlur = 0;
   const gr = g.createLinearGradient(0, y, 0, y + PH); gr.addColorStop(0, haut); gr.addColorStop(1, bas);
   chemin(0.84); g.fillStyle = gr; g.fill();
   g.save(); chemin(0.84); g.clip();
@@ -1473,8 +1510,17 @@ function joueur(g, e, alpha, fantome) {
   g.globalAlpha = 1;
 }
 // couleur du contour selon l'apparence (les animées changent avec le temps)
-function couleurContour(c, defaut) {
+function couleurContour(c, defaut, g, x, y) {
   const t = temps;
+  if (g) switch (c) {
+    case 'argent': case 'or': {                                     // métal poli : un reflet passe lentement
+      const gr = g.createLinearGradient(x, y, x + PW, y + PH), k = (t * 0.6) % 1.6 - 0.3;
+      const C = c === 'or' ? ['#8a5a10', '#ffe27a', '#fff8d8'] : ['#6a7684', '#dfe6ee', '#ffffff'];
+      gr.addColorStop(0, C[0]); gr.addColorStop(Math.max(0, Math.min(1, k)), C[2]); gr.addColorStop(Math.max(0, Math.min(1, k + 0.15)), C[1]); gr.addColorStop(1, C[0]); return gr;
+    }
+    case 'galaxie': { const gr = g.createRadialGradient(x + PW / 2 + Math.cos(t) * 3, y + PH / 2 + Math.sin(t) * 3, 0, x + PW / 2, y + PH / 2, PW * 0.8); gr.addColorStop(0, '#ffb0f0'); gr.addColorStop(0.35, '#8a4aff'); gr.addColorStop(0.7, '#2a1070'); gr.addColorStop(1, '#05021a'); return gr; }
+    case 'arcenciel': if (g.createConicGradient) { const gr = g.createConicGradient(t * 2, x + PW / 2, y + PH / 2); for (let k = 0; k <= 6; k++) gr.addColorStop(k / 6, `hsl(${k * 60},95%,62%)`); return gr; } break;
+  }
   switch (c) {
     case 'blanc': return '#ffffff'; case 'noir': return '#0a0a0e'; case 'rose': return '#ff4ab8'; case 'cyan': return '#2ae0ff'; case 'vert': return '#3ae06a';
     case 'rouge': return '#ff2a3a'; case 'violet': return '#9a4aff'; case 'argent': return '#cfd6e0'; case 'or': return '#ffcc2a';
@@ -1487,26 +1533,71 @@ function aura(g, cx, cy, a) {
   if (!a || a === 'rien') return;
   const t = temps, C = { douce: '255,255,255', glace: '150,230,255', rose: '255,110,210', toxique: '120,255,90', feu: '255,120,40', ombre: '60,20,120', doree: '255,210,70',
     electrique: '120,200,255', pulsar: '255,80,255', etoilee: '200,180,255', divine: '255,250,200', neant: '0,0,0', arcenciel: null }[a];
-  const r = 15 + (a === 'pulsar' ? 4 * Math.sin(t * 6) : 0);
+  const r = 15 + (a === 'pulsar' ? 4 * Math.sin(t * 6) : 0) + (a === 'divine' ? 3 : 0);
   const col = C || `${Math.round(127 + 127 * Math.sin(t * 3))},${Math.round(127 + 127 * Math.sin(t * 3 + 2))},${Math.round(127 + 127 * Math.sin(t * 3 + 4))}`;
   const gr = g.createRadialGradient(cx, cy, 4, cx, cy, r);
   gr.addColorStop(0, `rgba(${col},${a === 'neant' ? 0.6 : 0.45})`); gr.addColorStop(1, `rgba(${col},0)`);
   g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
   if (a === 'electrique' && Math.random() < 0.3) { g.strokeStyle = 'rgba(200,240,255,.8)'; g.lineWidth = 1; g.beginPath(); let px = cx + (Math.random() - 0.5) * 20, py = cy + (Math.random() - 0.5) * 20; g.moveTo(px, py); for (let k = 0; k < 3; k++) { px += (Math.random() - 0.5) * 8; py += (Math.random() - 0.5) * 8; g.lineTo(px, py); } g.stroke(); }
-  if (a === 'etoilee' || a === 'divine') for (let k = 0; k < 4; k++) { const an = t * 2 + k * 1.57; g.fillStyle = a === 'divine' ? '#fff8c0' : '#e0d0ff'; g.fillRect(cx + Math.cos(an) * 11, cy + Math.sin(an) * 11, 1.5, 1.5); }
+  if (a === 'etoilee') for (let k = 0; k < 5; k++) {                     // petites étoiles en orbite qui scintillent
+    const an = t * 1.4 + k * 1.2566, rr = 11 + Math.sin(t * 2 + k) * 1.5, px = cx + Math.cos(an) * rr, py = cy + Math.sin(an) * rr * 0.75, s2 = 1 + Math.abs(Math.sin(t * 4 + k)) * 1.4;
+    g.fillStyle = '#efe4ff'; g.fillRect(px - s2, py - 0.25, s2 * 2, 0.5); g.fillRect(px - 0.25, py - s2, 0.5, s2 * 2);
+  }
+  if (a === 'divine') {                                               // rayons dorés qui tournent doucement
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 8; k++) { const an = t * 0.5 + k * Math.PI / 4, l = 17 + 3 * Math.sin(t * 2 + k); const gr = g.createLinearGradient(cx, cy, cx + Math.cos(an) * l, cy + Math.sin(an) * l); gr.addColorStop(0, 'rgba(255,240,170,.45)'); gr.addColorStop(1, 'rgba(255,240,170,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(an - 0.09) * l, cy + Math.sin(an - 0.09) * l); g.lineTo(cx + Math.cos(an + 0.09) * l, cy + Math.sin(an + 0.09) * l); g.fill(); }
+    g.restore();
+  }
+  if (a === 'neant') {                                                // horizon du néant : anneau violet, poussière aspirée
+    g.strokeStyle = `rgba(150,90,255,${0.55 + 0.2 * Math.sin(t * 3)})`; g.lineWidth = 0.8; g.beginPath(); g.arc(cx, cy, 12, 0, 7); g.stroke();
+    for (let k = 0; k < 6; k++) { const p = (t * 0.6 + k / 6) % 1, an = k * 1.05 + p * 2.5, rr = 16 * (1 - p); g.fillStyle = `rgba(190,150,255,${p})`; g.fillRect(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr, 0.9, 0.9); }
+  }
+  if (a === 'arcenciel' && g.createConicGradient) {                   // anneau prismatique qui tourne
+    const gr = g.createConicGradient(-t * 1.5, cx, cy); for (let k = 0; k <= 6; k++) gr.addColorStop(k / 6, `hsla(${k * 60},95%,65%,.7)`);
+    g.strokeStyle = gr; g.lineWidth = 1.4; g.beginPath(); g.arc(cx, cy, 12.5, 0, 7); g.stroke();
+  }
 }
-let derniereTrainee = 0;
+let derniereTrainee = 0, ruban = [];
+// traînées de la boutique : des particules qui ont leur forme ; les plus chères laissent un ruban continu
 function trainee(e, tr2) {
-  if (!tr2 || tr2 === 'rien' || Math.abs(e.vx) + Math.abs(e.vy) < 1.2) return;
+  if (!tr2 || tr2 === 'rien') return;
+  const cx = e.x + PW / 2, cy = e.y + PH / 2;
+  if (tr2 === 'arcenciel' || tr2 === 'ombre') {                         // ruban continu (prismatique ou d'ombre)
+    const d = ruban.length ? ruban[ruban.length - 1] : null;
+    if (d && (Math.abs(d[0] - cx) > 40 || Math.abs(d[1] - cy) > 40)) ruban = [];
+    if (!d || Math.hypot(d[0] - cx, d[1] - cy) > 0.3) ruban.push([cx, cy, temps]);
+  }
+  if (Math.abs(e.vx) + Math.abs(e.vy) < 1.2) return;
   if (temps - derniereTrainee < 0.03) return;
   derniereTrainee = temps;
-  const x = e.x + PW / 2 - Math.sign(e.vx) * 5 + (Math.random() - 0.5) * 4, y = e.y + PH / 2 + (Math.random() - 0.5) * 4;
-  const hsl = `hsl(${(temps * 200) % 360},95%,60%)`;
-  const P2 = { poussiere: ['rgba(220,200,170,.6)', 2, 0.02], bulles: ['rgba(170,230,255,.7)', 2.5, -0.03], feuilles: ['#6ad04a', 2.5, 0.03], neige: ['#ffffff', 2, 0.01],
-    notes: ['#ffe94a', 2.5, -0.02], pixels: ['#4ab8ff', 2, 0], etincelles: ['#ffd34d', 1.6, 0.05], coeurs: ['#ff4a8a', 2.5, -0.02], etoiles: ['#fff6c0', 2, 0],
-    eclairs: ['#bfe8ff', 1.5, 0], flammes: ['#ff7a2a', 2.6, -0.06], ombre: ['rgba(40,10,80,.7)', 3.5, 0], arcenciel: [hsl, 2.5, 0] }[tr2];
+  const x = cx - Math.sign(e.vx) * 5 + (Math.random() - 0.5) * 4, y = cy + (Math.random() - 0.5) * 4;
+  const hsl = `hsl(${(temps * 200) % 360},95%,65%)`;
+  // [couleur, taille, gravité, lumineuse, forme, vie]
+  const P2 = { poussiere: ['rgba(220,200,170,.6)', 2, 0.02], bulles: ['rgba(170,230,255,.85)', 3, -0.03, false, 'bulle'], feuilles: ['#6ad04a', 3.2, 0.03, false, 'feuille'], neige: ['#ffffff', 3, 0.01, false, 'flocon'],
+    notes: ['#ffe94a', 3, -0.02, false, 'note'], pixels: ['#4ab8ff', 2, 0], etincelles: ['#ffd34d', 1.6, 0.05, true], coeurs: ['#ff4a8a', 3, -0.02, false, 'coeur'], etoiles: ['#fff6c0', 3.2, 0, true, 'etoile'],
+    eclairs: ['#bfe8ff', 3.5, 0, true, 'eclair'], flammes: [null, 4.2, -0.07, true, 'flamme', 26], ombre: [null, 5, -0.01, false, 'fumee', 40], arcenciel: [hsl, 2.6, 0, true, 'scintille', 34] }[tr2];
   if (!P2) return;
-  part(x, y, -e.vx * 0.15 + (Math.random() - 0.5) * 0.5, -e.vy * 0.1 + (Math.random() - 0.5) * 0.5, 28, P2[0], P2[1], P2[2], tr2 === 'etincelles' || tr2 === 'eclairs' || tr2 === 'flammes' || tr2 === 'arcenciel');
+  part(x, y, -e.vx * 0.15 + (Math.random() - 0.5) * 0.5, -e.vy * 0.1 + (Math.random() - 0.5) * 0.5, P2[5] || 28, P2[0] || '#fff', P2[1], P2[2], !!P2[3], P2[4]);
+  if (tr2 === 'flammes' && Math.random() < 0.4) part(x, y, (Math.random() - 0.5) * 1.2, -0.6 - Math.random(), 22, '#ffd060', 1.2, -0.02, true);   // étincelles
+}
+// le ruban des traînées les plus chères : il suit le personnage et s'efface en 0,4 s
+function dessinerRuban(g, tr2) {
+  if (tr2 !== 'arcenciel' && tr2 !== 'ombre') { ruban = []; return; }
+  ruban = ruban.filter(p => temps - p[2] < 0.5);
+  if (ruban.length < 2) return;
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  if (tr2 === 'arcenciel') g.globalCompositeOperation = 'lighter';
+  for (let i = 1; i < ruban.length; i++) {
+    const [x0, y0] = ruban[i - 1], [x1, y1, t1] = ruban[i], k = 1 - (temps - t1) / 0.5;
+    if (tr2 === 'arcenciel') {
+      g.strokeStyle = `hsla(${(t1 * 240 + i * 8) % 360},95%,62%,${0.55 * k})`; g.lineWidth = 7 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(255,255,255,${0.6 * k})`; g.lineWidth = 1.6 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    } else {
+      g.strokeStyle = `rgba(120,60,220,${0.35 * k})`; g.lineWidth = 11 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(10,2,24,${0.8 * k})`; g.lineWidth = 7 * k; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+    }
+  }
+  g.restore();
 }
 function yeuxStyle(g, x, y, face, c, st) {
   const f = face > 0 ? 1 : 0;
@@ -1526,6 +1617,27 @@ function yeuxStyle(g, x, y, face, c, st) {
     case 'flamme': g.fillStyle = `hsl(${30 + 15 * Math.sin(temps * 10)},100%,60%)`; for (const ox of [-2, 2]) { g.beginPath(); g.moveTo(x + ox - 1.3, y + 1.5); g.quadraticCurveTo(x + ox, y - 3, x + ox + 1.3, y + 1.5); g.fill(); } return;
     default: yeux(g, x, y, face, c);
   }
+}
+// aperçu animé de la boutique : le personnage court d'un bord à l'autre (traînées, auras et contours visibles)
+const apercus = new WeakMap();
+function apercuAnime(cv, eq, dt, bouge) {
+  let st = apercus.get(cv); if (!st) { st = { parts: [], t: Math.random() * 6, der: 0, ruban: [], px: null }; apercus.set(cv, st); }
+  st.t += dt;
+  const g = cv.getContext('2d'), sc = cv.height / 22, wu = cv.width / sc;
+  const sP = parts, sA = APPARENCE, sT = temps, sD = derniereTrainee, sR = ruban;
+  parts = st.parts; APPARENCE = Object.assign({}, APPARENCE, eq); temps = st.t; derniereTrainee = st.der; ruban = st.ruban;
+  // il traverse l'aperçu en courant (comme en jeu), avec de petits bonds
+  const x = bouge ? ((st.t * 46) % (wu + 30)) - 15 - PW / 2 : wu / 2 - PW / 2, y = 6 - (bouge ? Math.abs(Math.sin(st.t * 5)) * 3 : 0);
+  const e = { x, y, vx: bouge ? 3.4 : 0, vy: 0, phase: 0, face: 1, sol: !bouge, invT: 0, gaz: 0, mortT: 0 };
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.save(); g.scale(sc, sc);
+  for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.x += p.vx; p.y += p.vy; p.vy += p.g; p.vx *= 0.97; p.vie--; if (p.vie <= 0) parts.splice(i, 1); }
+  for (const p of parts) { g.globalAlpha = Math.min(1, p.vie / p.max * 1.5); if (p.f) dessinerPart(g, p); else { g.fillStyle = p.c; g.fillRect(p.x - p.t / 2, p.y - p.t / 2, p.t, p.t); } }
+  g.globalAlpha = 1;
+  joueur(g, e, 1, false);
+  g.restore();
+  st.der = derniereTrainee; st.ruban = ruban;
+  parts = sP; APPARENCE = sA; temps = sT; derniereTrainee = sD; ruban = sR;
 }
 // aperçu de la boutique : le personnage (solide) avec ces apparences, en grand
 function apercu(cv, eq) {
@@ -1563,11 +1675,18 @@ function accessoire(g, e, x, y) {
   const cx2 = x + PW / 2;
   switch (a) {
     case 'chapeau': g.fillStyle = '#1e1612'; g.fillRect(x, y, PW, 3); g.fillStyle = '#c0392b'; g.fillRect(x, y + 2, PW, 1); break;
-    case 'couronne': g.fillStyle = '#ffd84a'; g.beginPath(); g.moveTo(x + 1, y + 3.5); g.lineTo(x + 1, y); g.lineTo(x + 3.5, y + 2); g.lineTo(cx2, y); g.lineTo(x + PW - 3.5, y + 2); g.lineTo(x + PW - 1, y); g.lineTo(x + PW - 1, y + 3.5); g.fill(); break;
+    case 'couronne': {                                               // couronne d'or ciselée, rubis et saphirs, reflet qui passe
+      const gr = g.createLinearGradient(x, y, x + PW, y + 4); gr.addColorStop(0, '#9a6a10'); gr.addColorStop(0.5, '#ffe680'); gr.addColorStop(1, '#b07a14');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x + 1, y + 4); g.lineTo(x + 1, y + 0.5); g.lineTo(x + 3.3, y + 2.2); g.lineTo(cx2, y - 0.2); g.lineTo(x + PW - 3.3, y + 2.2); g.lineTo(x + PW - 1, y + 0.5); g.lineTo(x + PW - 1, y + 4); g.fill();
+      g.fillStyle = '#7a4a08'; g.fillRect(x + 1, y + 3.3, PW - 2, 0.7);
+      g.fillStyle = '#ff2a5a'; g.beginPath(); g.arc(cx2, y + 2.4, 0.9, 0, 7); g.fill(); g.fillStyle = '#3a8aff'; g.fillRect(x + 2.6, y + 2.6, 1.1, 1.1); g.fillRect(x + PW - 3.7, y + 2.6, 1.1, 1.1);
+      const k = (temps * 0.7) % 2; if (k < 1) { g.fillStyle = `rgba(255,255,255,${0.8 * Math.sin(k * Math.PI)})`; g.fillRect(x + 1 + k * (PW - 3), y + 0.8, 0.8, 2.6); }
+      break;
+    }
     case 'echarpe': g.fillStyle = '#e74c3c'; g.fillRect(x, y + 8, PW, 2); g.fillRect(e.face > 0 ? x + 1 : x + PW - 3, y + 9, 2, 3); break;
     case 'lunettes': g.fillStyle = '#111'; g.fillRect(cx2 - 5 + e.face, y + 3.5, 4.5, 3); g.fillRect(cx2 + 0.5 + e.face, y + 3.5, 4.5, 3); break;
     case 'cornes': g.fillStyle = '#f5ead0'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 3, y); g.lineTo(x, y + 3); g.fill(); g.beginPath(); g.moveTo(x + PW, y); g.lineTo(x + PW - 3, y); g.lineTo(x + PW, y + 3); g.fill(); break;
-    case 'aureole': g.fillStyle = `rgba(255,246,160,${0.7 + 0.3 * Math.sin(temps * 4)})`; g.fillRect(x + 2, y, PW - 4, 1.5); break;
+    case 'aureole': { g.save(); g.shadowColor = '#fff6a0'; g.shadowBlur = 5; g.strokeStyle = `rgba(255,246,170,${0.75 + 0.25 * Math.sin(temps * 3)})`; g.lineWidth = 1; g.beginPath(); g.ellipse(cx2, y + 1.2, 4.2, 1, 0, 0, 7); g.stroke(); g.restore(); break; }
     case 'antenne': g.fillStyle = '#ff4a5a'; g.fillRect(cx2 - 1, y, 2, 2); g.fillStyle = '#ccc'; g.fillRect(cx2 - 0.5, y + 2, 1, 1.5); break;
     case 'noeud': g.fillStyle = '#ff6ad5'; g.beginPath(); g.moveTo(x + PW - 4, y + 2); g.lineTo(x + PW - 1, y); g.lineTo(x + PW - 1, y + 4); g.fill(); g.beginPath(); g.moveTo(x + PW - 4, y + 2); g.lineTo(x + PW - 7, y); g.lineTo(x + PW - 7, y + 4); g.fill(); break;
     case 'masque': g.fillStyle = 'rgba(20,20,30,.85)'; g.fillRect(x, y + 3, PW, 3.5); break;
@@ -1578,7 +1697,13 @@ function accessoire(g, e, x, y) {
     case 'oreilles': g.fillStyle = '#f0b0c0'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4, y); g.lineTo(x + 1, y + 4); g.fill(); g.beginPath(); g.moveTo(x + PW, y); g.lineTo(x + PW - 4, y); g.lineTo(x + PW - 1, y + 4); g.fill(); break;
     case 'crete': g.fillStyle = '#ff3a6a'; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(cx2 - 4 + k * 3, y + 3); g.lineTo(cx2 - 2.5 + k * 3, y); g.lineTo(cx2 - 1 + k * 3, y + 3); g.fill(); } break;
     case 'plume': g.strokeStyle = '#7dffb0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx2, y + 3); g.quadraticCurveTo(cx2 + 4, y, cx2 + 5, y + 0.5); g.stroke(); break;
-    case 'diademe': g.fillStyle = '#c0f0ff'; g.fillRect(x + 1, y + 1.5, PW - 2, 1.2); g.fillStyle = '#ff6ad5'; g.beginPath(); g.arc(cx2, y + 2, 1.6, 0, 7); g.fill(); break;
+    case 'diademe': {                                                // fin diadème d'argent, pierre rose taillée qui scintille
+      g.strokeStyle = '#e8f6ff'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(x + 1, y + 2.6); g.quadraticCurveTo(cx2, y + 0.4, x + PW - 1, y + 2.6); g.stroke();
+      g.fillStyle = '#ff6ad5'; g.beginPath(); g.moveTo(cx2, y + 0.2); g.lineTo(cx2 + 1.3, y + 1.6); g.lineTo(cx2, y + 3); g.lineTo(cx2 - 1.3, y + 1.6); g.fill();
+      g.fillStyle = '#ffd0f4'; g.fillRect(cx2 - 0.5, y + 0.9, 0.6, 0.6);
+      const k = Math.max(0, Math.sin(temps * 2.3)); if (k > 0.7) { g.fillStyle = `rgba(255,255,255,${(k - 0.7) * 3})`; g.fillRect(cx2 - 2.2, y + 1.45, 4.4, 0.3); g.fillRect(cx2 - 0.15, y - 0.6, 0.3, 4.4); }
+      break;
+    }
     case 'flammes': for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#ffd040' : '#ff6a14'; const h2 = 2 + 1.5 * Math.abs(Math.sin(temps * 9 + k)); g.fillRect(x + 1 + k * 2.6, y, 2, h2); } break;
   }
 }
@@ -1748,5 +1873,5 @@ function couper(g, texte, max) {
   return out;
 }
 
-racine.Rendu = { versCase, vue: () => derVue, init, choisirApparence, apercu, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
+racine.Rendu = { versCase, vue: () => derVue, init, choisirApparence, apercu, apercuAnime, accessibilite, SYMBOLES, preparer, etendre, dessiner, evenements, chrono, ecart, THEMES, COUL_PHASE, redim };
 })(window);

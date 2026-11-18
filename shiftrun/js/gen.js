@@ -816,16 +816,26 @@ SALLES.lacetsBas = { phases: [S], f(s, rng, d) {
   s.couloir(22, 24);
   return 25;
 } };
-// Clé : la clé attend en haut d'une colonne de pics ; la porte dorée barre le couloir plus loin
+// Clé : la clé attend en haut d'une colonne de pics ; il faut ensuite la porter tout le long d'un couloir piégé
+// jusqu'à la porte dorée (tomber fait perdre la clé : on la reprend depuis le dernier drapeau)
 SALLES.cle = { phases: [S], f(s, rng, d) {
-  s.couloir(0, 22, 9);
+  const Lg = 38 + Math.round(d * 10);
+  s.couloir(0, Lg, 9);
   s.r(6, 14, 8, 19); s.p(5, 19, '^'); s.p(9, 19, '^'); s.n(3, 16, 2, '-');       // un pilier entouré de pics, une marche fine
   s.p(7, 13, '+');                                                               // la clé en haut du pilier
   if (d > 0.6) s.n(6, 9, 3, '^');
-  if (d > 0.5) s.p(13, 9, 'F');
-  s.r(18, 9, 18, 19, 'd');                                                      // la porte dorée
-  s.couloir(23, 25);
-  return 26;
+  let x = 13, der = -1;
+  while (x < Lg - 7) {                                                          // le long trajet avec la clé
+    let k = ent(rng, 0, 3); if (k === der) k = (k + 1) % 4; der = k;
+    if (k === 0) { s.c(x, 20, x + 2, 21); s.n(x, 22, 3, '^'); x += 7; }                   // fosse à pics
+    else if (k === 1) { s.n(x, 19, 2, '^'); s.n(x + 1, 9, 2, '^'); x += 6; }               // pics au sol et au plafond
+    else if (k === 2) { s.r(x, 17, x + 1, 19); s.n(x, 16, 2, '^'); s.n(x - 1, 13, 1, '-'); x += 6; }   // bloc hérissé à enjamber
+    else { s.p(x + 2, 19, 'S'); x += 7; }                                                  // une boule qui bondit
+    if (d > 0.5 && rng() < 0.35) s.p(x - 2, 9, 'F');
+  }
+  s.r(Lg - 2, 9, Lg - 2, 19, 'd');                                              // la porte dorée, tout au bout
+  s.couloir(Lg + 1, Lg + 3);
+  return Lg + 4;
 } };
 // Rythme : une fosse à pics qu'on traverse sur des plateformes qui apparaissent et disparaissent en cadence
 SALLES.rythme = { phases: [S], f(s, rng, d) {
@@ -837,7 +847,7 @@ SALLES.rythme = { phases: [S], f(s, rng, d) {
 } };
 // Minuterie : un bouton bleu ouvre la porte bleue quelques secondes ; il faut filer, sans heurter les menaces
 SALLES.minuterie = { phases: [S], f(s, rng, d) {
-  const Lg = 20 + Math.round(d * 6);
+  const Lg = 32 + Math.round(d * 5);                                            // la porte est loin du bouton : il faut tout faire d'une traite
   s.couloir(0, Lg, 13);
   s.p(3, 19, '/');
   for (let x = 7; x < Lg - 4; x += 5) { if ((x / 5) % 2 < 1) s.n(x, 19, 2, '^'); else s.p(x, 13, 'L'); }

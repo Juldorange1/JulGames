@@ -63,7 +63,7 @@ const K = {
   glCourse: 4.6, glAcc: 0.12, glFrein: 0.025, maCourse: 3.0, maSaut: 6.0,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 200, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 45, hoverRecharge: 30, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
+  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 1.75, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 6.4, feuEteint: 150, hover: 14, envol: 5.4, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 2.2,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.0, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 2.6, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -148,10 +148,17 @@ function recharger(n, c) {
     const t = g[i];
     if (t !== ENNEMI_H && t !== ENNEMI_V && t !== SAUTEUR && t !== VOLANT) continue;
     const x = i % w, y = Math.floor(i / w), hor = t !== ENNEMI_V;
+    const sorte = t === SAUTEUR ? 1 : t === VOLANT ? 2 : 0;
     let a = 0, b = 0;
-    while (a < 30 && passeE(hor ? x - a - 1 : x, hor ? y : y - a - 1)) a++;
-    while (b < 30 && passeE(hor ? x + b + 1 : x, hor ? y : y + b + 1)) b++;
-    ennemis.push({ x, y, hor, min: -a * T, max: b * T, dec: (x * 13 + y * 7) % 200, sorte: t === SAUTEUR ? 1 : t === VOLANT ? 2 : 0 });
+    while (a < 200 && passeE(hor ? x - a - 1 : x, hor ? y : y - a - 1)) a++;      // d'un vrai mur à l'autre (jamais de demi-tour dans le vide)
+    while (b < 200 && passeE(hor ? x + b + 1 : x, hor ? y : y + b + 1)) b++;
+    // place libre au-dessus et en dessous de chaque case du trajet : le bond (ou le vol) ne rentre jamais dans un mur
+    const hh = [], hb = [];
+    if (sorte) for (let cx = x - a; cx <= x + b; cx++) {
+      let k = 0; while (k < 3 && passeE(cx, y - k - 1)) k++; hh.push(k * T + 1);
+      let j = 0; while (j < 3 && passeE(cx, y + j + 1)) j++; hb.push(j * T + 1);
+    }
+    ennemis.push({ x, y, hor, min: -a * T, max: b * T, dec: (x * 13 + y * 7) % 200, sorte, x0: x - a, hh, hb });
   }
   // plateformes mobiles (3 cases de large) et scies : aller-retour d'un mur à l'autre, selon le temps seulement
   const plates = [], scies = [];
@@ -260,7 +267,7 @@ function Etat() {
   this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.phase = 0; this.plat = -1; this.champCd = 0; this.charges = 0; this.gaz = 0; this.dash = 0; this.cdP = 0;
   this.att = 0; this.slam = false; this.slamAt = 0; this.coyote = 0; this.tampon = 0; this.verrou = 0; this.jetCd = 0; this.jetSide = 0;
   this.tpCd = 0; this.sol = true; this.face = 1; this.mortT = 0; this.immun = 0; this.dansEau = false; this.porte = 0; this.tremCd = 0; this.invT = 0;
-  this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = false; this.dashCA = 0; this.glaces = []; this.torrent = 0; this.tdx = 0; this.tdy = 0; this.eteints = [];
+  this.capCd = 0; this.grap = null; this.grapT = 0; this.tirs = []; this.perle = null; this.hover = 0; this.hoverUse = 0; this.dashCA = 0; this.glaces = []; this.torrent = 0; this.tdx = 0; this.tdy = 0; this.eteints = [];
   this.cles = []; this.clesCp = []; this.minut = 0; this.broy = -1; this.broyX = 0;
 }
 function nouvelEtat(n) {
@@ -274,7 +281,7 @@ function placer(e, n) {
   e.x = d.x; e.y = d.y; e.vx = 0; e.vy = 0; e.phase = n.base; e.plat = -1; e.champCd = 0; e.charges = K.charges; e.gaz = 0; e.dash = 0; e.cdP = 0;
   e.att = 0; e.slam = false; e.slamAt = 0; e.coyote = 0; e.tampon = 0; e.verrou = 0; e.jetCd = 0; e.jetSide = 0;
   e.tpCd = 0; e.sol = true; e.face = 1; e.mortT = 0; e.immun = 0; e.cristaux = []; e.craque = []; e.orbes = []; e.dansEau = false; e.porte = 0; e.ban = -1; e.bonus = 1; e.tremCd = 0;
-  e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = false; e.dashCA = 0; e.glaces = []; e.torrent = 0; e.eteints = [];
+  e.capCd = 0; e.grap = null; e.grapT = 0; e.tirs = []; e.perle = null; e.hover = 0; e.hoverUse = 0; e.dashCA = 0; e.glaces = []; e.torrent = 0; e.eteints = [];
   e.cles = e.clesCp || []; e.minut = 0; e.broy = -1; e.broyX = 0;
 }
 // les listes ne sont jamais modifiées sur place : la copie peut les partager
@@ -320,8 +327,13 @@ function ennemiEn(en, temps) {
   const L = en.max - en.min;
   if (L <= 0) return [en.x * T + 2, en.y * T + 2];
   const d = ((temps + en.dec) * K.ennemiVit) % (2 * L), o = en.min + (d < L ? d : 2 * L - d);
-  if (en.sorte === 1) { const k = ((temps + en.dec) % 50) / 50; return [en.x * T + 2 + o, en.y * T + 2 - 34 * 4 * k * (1 - k)]; }     // bonds réguliers
-  if (en.sorte === 2) return [en.x * T + 2 + o, en.y * T + 2 + Math.sin((temps + en.dec) * 0.06) * 18];                         // vol en vague
+  if (en.sorte) {
+    const px = en.x * T + 2 + o, c0 = Math.floor((px - 0.5) / T) - en.x0, c1 = Math.floor((px + 12.5) / T) - en.x0;
+    const haut = Math.min(en.hh[c0] ?? 0, en.hh[c1] ?? 0), bas = Math.min(en.hb[c0] ?? 0, en.hb[c1] ?? 0);   // plafond et sol sous le corps
+    if (en.sorte === 1) { const k = ((temps + en.dec) % 50) / 50; return [px, en.y * T + 2 - Math.min(34 * 4 * k * (1 - k), haut)]; }     // bonds réguliers
+    const dv = Math.sin((temps + en.dec) * 0.06) * 18;                                                                                 // vol en vague
+    return [px, en.y * T + 2 + Math.max(-haut, Math.min(bas, dv))];
+  }
   return en.hor ? [en.x * T + 2 + o, en.y * T + 2] : [en.x * T + 2, en.y * T + 2 + o];
 }
 // plateforme mobile / scie : position (coin haut-gauche de la plateforme, centre de la scie) à un instant
@@ -662,9 +674,12 @@ function capacite(n, e, h, v) {
   } else if (ph === P) {                              // éclair enchaîné dans une nouvelle direction
     if (!payer()) return;
     changer(n, e, P, h, v);
-  } else if (ph === PL) {                             // suspension : immobile en l'air, recharge une charge
-    if (e.sol || e.hoverUse) { e.ev |= EV.ECHEC; return; }
-    e.hover = K.hover; e.hoverUse = true; e.capCd = K.capCd; e.ev |= EV.CAPA;
+  } else if (ph === PL) {                             // envol : grand battement d'ailes vers le haut (2 avant de toucher le sol), rend une charge
+    if (e.hoverUse >= K.envols) { e.ev |= EV.ECHEC; return; }
+    e.hoverUse++; e.hover = K.hover; e.capCd = K.capCd; e.ev |= EV.CAPA | EV.SAUT;
+    e.vy = -K.envol; if (h) e.vx = h * Math.max(Math.abs(e.vx), K.envolVx);
+    e.sol = false; e.plat = -1; e.att = 0; e.tampon = 0; e.coyote = 0;
+    if (e.charges < K.charges) { e.charges++; e.ev |= EV.CRISTAL; e.evX = Math.floor(cxp / T); e.evY = Math.floor(cyp / T); }
   } else if (ph === CA) {                             // dash rebondissant
     if (!payer()) return;
     e.dashCA = K.dashCAt; e.vx = (h || e.face) * K.dashCA; e.vy = 0;
@@ -931,11 +946,7 @@ function pas(n, e, inp) {
       e.grap = null;
     } else { e.vx = dx / d * K.grapVit; e.vy = dy / d * K.grapVit; }
   }
-  if (e.hover > 0) {
-    e.vx = 0; e.vy = 0;
-    if (--e.hover === K.hover - K.hoverRecharge && e.charges < K.charges) { e.charges++; e.ev |= EV.CRISTAL; e.evX = Math.floor((e.x + W / 2) / T); e.evY = Math.floor((e.y + H / 2) / T); }
-    if (e.tampon > 0) { e.hover = 0; }
-  }
+  if (e.hover > 0) e.hover--;                          // l'envol : simple trace visuelle
   if (e.dashCA > 0) { e.dashCA--; e.vy = 0; }
   if (e.torrent > 0) {                                // le torrent pousse droit devant et noie ce qu'il traverse
     e.torrent--; e.vx = e.tdx * K.torrentVit; e.vy = e.tdy * K.torrentVit;
@@ -947,7 +958,7 @@ function pas(n, e, inp) {
     }
     if (e.torrent === 0) { e.vx *= 0.6; e.vy = Math.min(e.vy, 0) * 0.5; }
   }
-  if (e.sol || e.att) e.hoverUse = false;
+  if (e.sol || e.att) e.hoverUse = 0;
   if (e.tirs.length || e.perle || e.glaces.length) projectiles(n, e);
 
   // vent

@@ -243,7 +243,7 @@ function chercher(def, avecEclat, cfg) {
           const ee = nd.e;
           if (a.etat === ee.phase) {                     // même état : sa compétence
             if (ee.capCd > 0 || !n.capacites) continue;
-            if (ee.phase === M.PL) { if (ee.sol || ee.hoverUse) continue; }
+            if (ee.phase === M.PL) { if (ee.hoverUse >= M.K.envols) continue; }
             else if (ee.charges <= 0) continue;
           } else if (ee.charges <= 0 || (a.etat === ee.ban && ee.temps < ee.banT)) continue;
         }
@@ -275,7 +275,7 @@ function chercher(def, avecEclat, cfg) {
       const e = nd.e;
       // clé numérique (bien plus rapide qu'un texte) : position et vitesse arrondies + tout ce qui change la suite
       const k1 = (Math.round(e.x / 3) + 2048) + 4096 * (Math.round(e.y / 3) + 512) + 4194304 * ((Math.round(e.vx * 1.5) + 64) + 128 * (Math.round(e.vy * 1.5) + 64));
-      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, Math.ceil(e.hover / 8)) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hoverUse ? 1 : 0) + 65536 * Math.min(15, e.capCd) + 1048576 * Math.min(15, e.torrent) + 16777216 * Math.min(7, e.eteints.length) + 134217728 * Math.min(3, e.cles.length) + 536870912 * (e.minut > e.temps ? 1 + Math.min(6, (e.minut - e.temps) >> 5) : 0) + 4294967296 * (e.broy + 1);
+      const k3 = (e.grap ? 1 : 0) + 2 * Math.min(7, e.tirs.length) + 16 * (e.perle ? 1 : 0) + 32 * Math.min(7, e.hoverUse) + 256 * Math.min(15, e.dashCA) + 4096 * Math.min(7, e.glaces.length) + 32768 * (e.hover > 0 ? 1 : 0) + 65536 * Math.min(15, e.capCd) + 1048576 * Math.min(15, e.torrent) + 16777216 * Math.min(7, e.eteints.length) + 134217728 * Math.min(3, e.cles.length) + 536870912 * (e.minut > e.temps ? 1 + Math.min(6, (e.minut - e.temps) >> 5) : 0) + 4294967296 * (e.broy + 1);
       const k2 = (e.phase % 8) + 8 * e.charges + 32 * e.att + 128 * (e.phase >= 8 ? 1 : 0) + 256 * (e.gaz > 0 ? Math.round(e.gaz / 15) + 1 : 0) + 4096 * (e.eclat ? 1 : 0) +
         8192 * (e.slam ? 1 : 0) + 16384 * e.bascule + 32768 * Math.min(63, e.casses.length) + 2097152 * Math.min(15, e.boutons.length) +
         33554432 * Math.min(63, e.craque.length) + 2147483648 * ((e.temps < e.banT ? e.ban + 1 : 0) + 16 * (e.temps < e.bonusT ? (e.bonus > 1 ? 1 : 2) : 0) + 64 * (e.plat + 1));
