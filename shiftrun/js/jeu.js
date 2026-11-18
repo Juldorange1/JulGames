@@ -712,11 +712,17 @@ function majSurvie() {
       const voulu = m.type === 'archer' && Math.abs(best) < 7 * T2 ? -Math.sign(best) : Math.sign(best);   // l'archer garde ses distances
       if (voulu && voulu !== m.dir && Math.abs(best) > 2 * T2) { m.dir = voulu; m.garde = 70; }
     }
-    if (m.type === 'fonceur') {                                      // fonce quand il est à la hauteur du joueur
-      if (m.charge > 0) m.charge--;
-      else if (Math.abs(pcy - cy) < 18 && Math.abs(pcx - cx) < 200 && m.sol) { m.charge = 40; m.dir = Math.sign(pcx - cx) || m.dir; }
+    if (m.type === 'fonceur') {                                      // fonce quand il voit le joueur à sa hauteur, après un préavis
+      if (m.prep > 0) { if (--m.prep === 0) m.charge = 40; }
+      else if (m.charge > 0) m.charge--;
+      else if (Math.abs(pcy - cy) < 18 && Math.abs(pcx - cx) < 200 && m.sol) {
+        const sens = Math.sign(pcx - cx) || m.dir; let libre = true;       // pas de mur entre lui et le joueur
+        for (let xx = cx; Math.abs(xx - cx) < Math.abs(pcx - cx); xx += sens * 4) if (dur(xx, cy)) { libre = false; break; }
+        if (libre) { m.prep = 24; m.dir = sens; }
+      }
+      if (m.charge > 0 && (dur(cx + m.dir * (m.r + 6), m.y + 1) || dur(cx + m.dir * (m.r + 6), m.y + d2 - 1))) m.charge = 0;   // il freine avant le mur
     }
-    m.vx = m.type === 'tireur' && m.sol ? 0 : m.dir * m.vit * (m.charge > 0 ? 2.6 : 1);
+    m.vx = (m.type === 'tireur' && m.sol) || m.prep > 0 ? 0 : m.dir * m.vit * (m.charge > 0 ? 2.6 : 1);
     m.vy = Math.min(8, m.vy + 0.45);
     if (m.type === 'sauteur' && m.sol && m.t % 70 === 0) m.vy = -6.6;
     if (m.type === 'rebond' && m.sol) m.vy = -5.8;                 // rebondit sans arrêt
@@ -1711,10 +1717,10 @@ function aidePieges() {
 }
 // mode Expédition : des salles sans fin, 3 vies, et toutes les 5 salles un bonus à choisir parmi 3
 const BONUS = [['vie', '❤', 'Une vie de plus', 'Tu pourras tomber une fois de plus avant la fin de l’expédition.'],
-  ['charges', '⚡', 'Charges infinies pendant 5 salles', 'Tu peux changer de transformation autant que tu veux, sans attendre de recharge.'],
-  ['saut', '🦘', 'Sauts plus hauts pendant 5 salles', 'Chaque saut monte nettement plus haut, comme la flèche verte.'],
-  ['ralenti', '🐢', 'Temps ralenti pendant 5 salles', 'Tout le jeu va un peu moins vite : plus de temps pour réagir.'],
-  ['tresor', '🧩', '20 fragments tout de suite', 'Vingt fragments 🧩 pour les améliorations de l’expédition, gagnés immédiatement.']];
+  ['charges', '⚡', 'Charges infinies pendant 8 salles', 'Tu peux changer de transformation autant que tu veux, sans attendre de recharge.'],
+  ['saut', '🦘', 'Sauts plus hauts pendant 8 salles', 'Chaque saut monte nettement plus haut, comme la flèche verte.'],
+  ['ralenti', '🐢', 'Temps ralenti pendant 8 salles', 'Tout le jeu va un peu moins vite : plus de temps pour réagir.'],
+  ['tresor', '🧩', 'Quelques fragments tout de suite', '5 fragments 🧩, plus un pour deux salles déjà franchies : peu au début, davantage quand on est loin.']];
 // améliorations définitives de l'Expédition, payées en fragments (gagnés à chaque expédition, plus on va loin, plus il y en a)
 const serieP = (b, k, n) => Array.from({ length: n }, (_, i) => Math.round(b * Math.pow(k, i) / 10) * 10);
 const AMELIOS = [
@@ -1750,6 +1756,7 @@ function acheterAmelio(id) {
   const a = AMELIOS.find(x => x[0] === id), x = expe(), nv = niv_am(id);
   if (!a || nv >= a[3].length || x.frag < a[3][nv]) return;
   x.frag -= a[3][nv]; x.am[id] = nv + 1; sauver(); expeditionMenu();
+  const b = ui.querySelector(`[data-a="exp-ach"][data-c="${id}"]:not([disabled])`); if (b) b.focus();   // on reste sur l'achat
 }
 function lancerExpedition() {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
@@ -1780,11 +1787,11 @@ function debloquerBonus() {
 function prendreBonus(id) {
   if (ecran !== 'choix') return;
   if (id === 'vie') J.vies++;
-  else if (id === 'charges') J.chargesJusque = J.salle + 5;
-  else if (id === 'saut') J.sautJusque = J.salle + 5;
-  else if (id === 'ralenti') J.ralenti = J.salle + 5;
+  else if (id === 'charges') J.chargesJusque = J.salle + 8;            // 8 salles : ils aident à aller plus loin, donc à gagner plus
+  else if (id === 'saut') J.sautJusque = J.salle + 8;
+  else if (id === 'ralenti') J.ralenti = J.salle + 8;
   else if (id === 'bouclier') J.bouclier = J.salle + 2;
-  else if (id === 'tresor') expe().frag += 20;
+  else if (id === 'tresor') expe().frag += 5 + Math.floor((J.salle + (J.base || 0)) / 2);   // peu au début : survivre rapporte autant
   J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 8;
   ecran = 'jeu'; cacherUI();
 }
@@ -2113,7 +2120,7 @@ function naviguer([dx, dy]) {
   if (!liste.includes(cur)) { liste[0].focus(); return; }
   const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
   let best = null, bs = Infinity;
-  for (let passe = 0; passe < 2 && !best; passe++) {
+  for (let passe = 0; passe < 3 && !best; passe++) {            // 3e passage : n'importe quel bouton dans cette direction (rien d'inaccessible)
     for (const b of liste) {
       if (b === cur) continue;
       const r = b.getBoundingClientRect(), bx = r.left + r.width / 2, by = r.top + r.height / 2;

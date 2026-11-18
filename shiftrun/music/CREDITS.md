@@ -8,7 +8,7 @@ on remercie quand même les auteurs.
 
 | Fichier | Morceau | Auteur | Source |
 |---|---|---|---|
-| `menu.mp3` | Town Theme RPG (calme) | cynicmusic | https://opengameart.org/content/town-theme-rpg |
+| `menu.mp3` | Hella Bumps (menu music) | cynicmusic | https://opengameart.org/content/hella-bumps-menu-music |
 | `zone1.ogg` | Stage 1 (Chiptune Adventures) | Juhani Junkala | https://opengameart.org/content/4-chiptunes-adventure |
 | `zone2.ogg` | Stage 2 (Chiptune Adventures) | Juhani Junkala | https://opengameart.org/content/4-chiptunes-adventure |
 | `zone3.mp3` | Level 1 (5 Chiptunes Action) | Juhani Junkala | https://opengameart.org/content/5-chiptunes-action |

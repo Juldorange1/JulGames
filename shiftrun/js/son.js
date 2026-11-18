@@ -98,7 +98,7 @@ function jouer(nom, vol, hauteur) {
 const NOTES = [392, 523, 659, 784, 880, 587, 330, 466];
 function bloup(phase) {
   if (!ac) return;
-  if (tampons.change) { jouer('change', 0.35, (NOTES[phase] || 523) / 523); return; }
+  if (tampons.change) { jouer('change', 0.3, 0.92 + ((NOTES[phase] || 523) - 330) / 2200); return; }   // à peine plus aigu selon l'état
   const t = ac.currentTime, f = NOTES[phase] || 523;
   if (derniers.bloup && t - derniers.bloup < 0.04) return;
   derniers.bloup = t;
@@ -111,7 +111,7 @@ function evenements(ev, phase) {
   if (!ac || !ev) return;
   const EV = racine.Moteur.EV;
   if (ev & EV.MORT) jouer('mort', 0.3, 0.9);
-  if (ev & EV.SAUT) jouer('saut', 0.35);
+  if (ev & EV.SAUT) jouer('saut', 0.3);
   if (ev & EV.REBOND) jouer('rebond', 0.35);
   if (ev & EV.MUR) jouer('mur', 0.35);
   if (ev & EV.ATTERRIT) jouer('atterrit', 0.18);

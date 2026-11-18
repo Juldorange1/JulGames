@@ -592,6 +592,7 @@ function dessiner(e, fantome, hud, dt) {
       g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 3, cy2 - ri + 3.5); g.lineTo(cx2 - 3, cy2 - ri + 1); g.lineTo(cx2 - 1.5, cy2 - ri + 2.4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 1.5, cy2 - ri + 2.4); g.lineTo(cx2 + 3, cy2 - ri + 1); g.lineTo(cx2 + 3, cy2 - ri + 3.5); g.fill(); }
     if (m.type === 'bombe') { g.fillStyle = m.meche && Math.floor(m.meche / 6) % 2 ? '#ff3a3a' : '#ffd34d'; g.fillRect(cx2 - 1, cy2 - ri, 2, 2.5);
       if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(tt)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
+    if (m.type === 'fonceur' && m.prep > 0) { g.strokeStyle = `rgba(255,74,224,${0.25 + 0.25 * Math.sin(m.prep)})`; g.lineWidth = 2; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(cx2, cy2); g.lineTo(cx2 + m.dir * 90, cy2); g.stroke(); g.setLineDash([]); }   // préavis : sa trajectoire
     if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.35)'; g.fillRect(cx2 - m.dir * (r + 9), cy2 - 2, 8, 4); }
     g.globalAlpha = 1;
   }
@@ -1300,13 +1301,17 @@ function mobiles(g, e, ox, vw, vis) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
     const [a, b, c2, d2] = M.pilonRect(p, tD(e)), cyc = ((e.temps + p.dec) % p.per + p.per) % p.per;
     const tr = cyc > 38 && cyc < 60 ? Math.sin(tt * 70) * 0.8 : 0;
-    g.fillStyle = '#5a5e68'; for (let yy = p.y * T; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
+    const y0 = (p.ancre !== undefined ? p.ancre : p.y) * T;                        // chaîne accrochée au plafond
+    g.fillStyle = '#3a3e48'; g.fillRect(p.x * T + 4, y0, 8, 2);
+    g.fillStyle = '#5a5e68'; for (let yy = y0 + 2; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
     const gr = g.createLinearGradient(a, 0, c2, 0); gr.addColorStop(0, '#9aa2b0'); gr.addColorStop(0.5, '#dfe5ee'); gr.addColorStop(1, '#6a7280');
     g.fillStyle = gr; g.fillRect(a + tr, b, c2 - a, d2 - b);
     // dessous hérissé de pointes rouges (dans le bloc : la hitbox ne change pas) : on ne le touche pas par en dessous
-    g.fillStyle = '#7a1018'; g.fillRect(a + tr, d2 - 6, c2 - a, 1.5);
-    g.fillStyle = '#ff4a5a'; for (let k = 0; k < 4; k++) { const px = a + tr + k * 4; g.beginPath(); g.moveTo(px, d2 - 5); g.lineTo(px + 4, d2 - 5); g.lineTo(px + 2, d2); g.fill(); }
-    g.fillStyle = '#ffd0d4'; for (let k = 0; k < 4; k++) g.fillRect(a + tr + k * 4 + 1.5, d2 - 4.5, 0.8, 2);
+    // pointes seulement au milieu du dessous (= la zone qui tue), les bords restent lisses
+    const pb = M.PILON_BORD, lp = (c2 - a - 2 * pb) / 3;
+    g.fillStyle = '#7a1018'; g.fillRect(a + tr + pb, d2 - 6, c2 - a - 2 * pb, 1.5);
+    g.fillStyle = '#ff4a5a'; for (let k = 0; k < 3; k++) { const px = a + tr + pb + k * lp; g.beginPath(); g.moveTo(px, d2 - 5); g.lineTo(px + lp, d2 - 5); g.lineTo(px + lp / 2, d2); g.fill(); }
+    g.fillStyle = '#ffd0d4'; for (let k = 0; k < 3; k++) g.fillRect(a + tr + pb + k * lp + lp / 2 - 0.4, d2 - 4.5, 0.8, 2);
     g.fillStyle = '#2a2c34'; for (const [u, w2] of [[3, 3], [T - 5, 3]]) g.fillRect(a + tr + u, b + w2, 2, 2);
     if (cyc >= 72 && cyc < 76 && p.lg > 0) for (let k = 0; k < 3; k++) part(a + Math.random() * T, d2, (Math.random() - 0.5) * 2.5, -Math.random() * 1.2, 20, 'rgba(210,200,180,.6)', 1.8, 0.05);
   }

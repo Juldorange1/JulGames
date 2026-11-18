@@ -146,7 +146,8 @@ function recharger(n, c) {
   }
   // ennemis : ils patrouillent d'un mur à l'autre (horizontalement ou verticalement), selon le temps seulement
   const ennemis = [];
-  const passeE = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]) && g[y * w + x] !== PICS;
+  // les ennemis passent au-dessus des pics (ils sont hérissés eux aussi), mais grilles et tamis sont des murs pour eux
+  const passeE = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]) && g[y * w + x] !== GRILLE && g[y * w + x] !== TAMIS;
   for (let i = 0; i < w * h; i++) {
     const t = g[i];
     if (t !== ENNEMI_H && t !== ENNEMI_V && t !== SAUTEUR && t !== VOLANT) continue;
@@ -230,7 +231,12 @@ function recharger(n, c) {
     const t = g[i];
     if (t !== PILON && t !== ORBITE && t !== GEYSER && t !== BRULEUR) continue;
     const x = i % w, y = Math.floor(i / w), hs = (x * 19349663 ^ y * 83492791) >>> 0;
-    if (t === PILON) { let k = 0; while (k < 30 && libre(x, y + k + 1) && g[(y + k + 1) * w + x] !== PICS) k++; pilons.push({ x, y, lg: k * T, per: 150 + hs % 50, dec: hs % 200 }); }
+    if (t === PILON) {
+      let k = 0; while (k < 30 && libre(x, y + k + 1) && g[(y + k + 1) * w + x] !== PICS) k++;
+      let a = 0; while (a < 12 && y - a - 1 > 0 && libre(x, y - a - 1)) a++;      // la chaîne monte jusqu'au plafond
+      if (a >= 12) { g[(y - 1) * w + x] = MUR; a = 0; }                            // pas de plafond : un bloc d'attache
+      pilons.push({ x, y, lg: k * T, per: 150 + hs % 50, dec: hs % 200, ancre: y - a });
+    }
     else if (t === ORBITE) orbites.push({ x, y, sens: (x + y) % 2 ? 1 : -1, dec: hs % 400 });
     else if (t === GEYSER) { let k = 0; while (k < K.geyserH && libre(x, y - k - 1)) k++; geysers.push({ x, y, lg: k, per: 150 + hs % 40, dec: hs % 190 }); }
     else {
@@ -358,6 +364,7 @@ function laserRect(l) {
   if (l.dx) { const x0 = l.dx > 0 ? (l.x + 1) * T : l.x * T - l.lg; return [x0, cy - ep, x0 + l.lg, cy + ep]; }
   const y0 = l.dy > 0 ? (l.y + 1) * T : l.y * T - l.lg; return [cx - ep, y0, cx + ep, y0 + l.lg];
 }
+const PILON_BORD = 3;                                    // les pointes du pilon : sous le bloc, sauf 3 px de chaque côté
 // pilon : décalage vers le bas (0 = au plafond) ; attente, chute rapide, écrasement, remontée lente
 function pilonEn(p, temps) {
   const k = ((temps + p.dec) % p.per + p.per) % p.per, L2 = p.lg;
@@ -1296,7 +1303,15 @@ function pas(n, e, inp) {
       const gch = e.x + W - r[0], dte = r[2] - e.x, hau = e.y + H - r[1], bas = r[3] - e.y, m = Math.min(gch, dte, hau, bas);
       let nx = e.x, ny = e.y;
       if (m === hau) { ny = r[1] - H; if (e.vy > 0) e.vy = 0; e.sol = true; e.att = 0; }
-      else if (m === bas) { mourir(e); break; }                 // le dessous du pilon est hérissé de pointes
+      else if (m === bas) {
+        // seules les pointes du milieu du dessous tuent, et seulement quand il s'abat
+        const k = ((e.temps + p.dec) % p.per + p.per) % p.per;
+        if (k >= 60 && k < 74 && e.x + W > r[0] + PILON_BORD && e.x < r[2] - PILON_BORD) { mourir(e); break; }
+        const cx = e.x + W / 2, gauche = cx < r[0] + T / 2;                         // sinon il pousse sur le côté (ou vers le bas)
+        nx = gauche ? r[0] - W : r[2];
+        if (!boiteLibre(n, e, nx, ny)) { nx = e.x; ny = r[3]; if (!boiteLibre(n, e, nx, ny)) continue; }
+        e.x = nx; e.y = ny; continue;
+      }
       else if (m === gch) nx = r[0] - W; else nx = r[2];
       if (!boiteLibre(n, e, nx, ny)) { mourir(e); break; }
       e.x = nx; e.y = ny;
@@ -1361,7 +1376,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, PILON_BORD, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;
