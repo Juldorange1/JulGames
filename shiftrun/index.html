@@ -29,9 +29,6 @@ html, body, canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3
 #rejeu.visible { display: flex; }
 #rejeu kbd { font: inherit; font-size: 16px; opacity: .75; border: 1px solid rgba(255,255,255,.35); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 #rejeu span { font-size: 16px; opacity: .7; margin-left: 6px; }
-#btnSon { position: fixed; right: 10px; top: 42px; z-index: 6; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); background: rgba(8,6,14,.65); color: #fff; font-size: 22px; cursor: pointer; padding: 0; line-height: 1; }
-#btnSon:hover { background: rgba(40,30,70,.85); }
-#btnSon.coupe { opacity: .8; border-color: #ff7a9a; }
 #rejeu .rl { flex-basis: 100%; height: 0; }
 .btn.jouer { display: block; width: min(980px, 100%); text-align: center; font-size: clamp(26px, 2.2vw + 12px, 44px); padding: .45em 1em; border-color: #ffe94a; margin-bottom: 14px; }
 .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr)); gap: 12px; width: min(980px, 100%); }
@@ -204,7 +201,6 @@ html, body, canvas { touch-action: none; }
 <body>
 <canvas id="jeu"></canvas>
 <div id="ui"></div>
-<button id="btnSon" title="Son">🔊</button>
 <div id="tactile">
   <div id="joyZone"><div id="joyBase"><div id="joyBouton"></div></div></div>
   <button data-b="16" class="t-saut">⤒</button>
@@ -215,19 +211,19 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=44"></script>
-<script src="js/calibrage.js?v=44"></script>
-<script src="js/compat.js?v=44"></script>
-<script src="js/gen.js?v=44"></script>
-<script src="js/niveaux.js?v=44"></script>
-<script src="js/parfaits.js?v=44"></script>
-<script src="js/humains.js?v=44"></script>
-<script src="js/paysages.js?v=44"></script>
-<script src="js/rendu.js?v=44"></script>
-<script src="js/compositeur.js?v=44"></script>
-<script src="js/son.js?v=44"></script>
-<script src="js/langues.js?v=44"></script>
-<script src="js/jeu.js?v=44"></script>
-<script src="js/vitrine.js?v=44"></script>
+<script src="js/moteur.js?v=45"></script>
+<script src="js/calibrage.js?v=45"></script>
+<script src="js/compat.js?v=45"></script>
+<script src="js/gen.js?v=45"></script>
+<script src="js/niveaux.js?v=45"></script>
+<script src="js/parfaits.js?v=45"></script>
+<script src="js/humains.js?v=45"></script>
+<script src="js/paysages.js?v=45"></script>
+<script src="js/rendu.js?v=45"></script>
+<script src="js/compositeur.js?v=45"></script>
+<script src="js/son.js?v=45"></script>
+<script src="js/langues.js?v=45"></script>
+<script src="js/jeu.js?v=45"></script>
+<script src="js/vitrine.js?v=45"></script>
 </body>
 </html>

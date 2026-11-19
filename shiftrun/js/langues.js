@@ -100,6 +100,7 @@ const D = {
   'Nouveau record de course !': ['New run record!', '¡Nuevo récord de carrera!', 'Neuer Laufrekord!', 'Nuovo record di corsa!', 'Novo recorde de corrida!'],
   '{0} sur ton record': ['{0} vs your best', '{0} respecto a tu récord', '{0} zum Rekord', '{0} rispetto al record', '{0} face ao recorde'],
   'Recommencer la course': ['Restart the run', 'Reiniciar la carrera', 'Lauf neu starten', 'Ricomincia la corsa', 'Recomeçar a corrida'],
+  'Repartir du point de sauvegarde': ['Restart from the checkpoint', 'Volver al punto de control', 'Vom Kontrollpunkt neu starten', 'Riparti dal checkpoint', 'Recomeçar do ponto de controle'],
   'Recommencer le niveau': ['Restart the level', 'Reiniciar el nivel', 'Level neu starten', 'Ricomincia il livello', 'Recomeçar o nível'],
   'Espace': ['Space', 'Espacio', 'Leertaste', 'Spazio', 'Espaço'],
   'Échap': ['Esc', 'Esc', 'Esc', 'Esc', 'Esc'],

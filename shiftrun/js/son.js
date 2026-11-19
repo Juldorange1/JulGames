@@ -33,7 +33,7 @@ function volumes(s, m) {
   volSons = s; volMus = m;
   if (busSons) busSons.gain.value = s * FACT_SONS;
 }
-const DUREE_MAX = { mort: 0.6, boum: 0.6, casse: 0.45, fracas: 0.45, echec: 0.4, porte: 0.5, fin: 1.4, eclat: 1.0, capa: 0.6, tp: 0.6 };
+const DUREE_MAX = { mort: 0.6, boum: 0.6, casse: 0.45, fracas: 0.45, echec: 0.4, porte: 0.5, fin: 1.4, eclat: 1.0, capa: 0.34, tp: 0.6, change: 0.14 };
 const derniers = {};
 // Bruitages originaux, fabriqués par le jeu (oscillateurs + bruit filtré, enveloppes douces) : aucun fichier extérieur
 let bruitBuf = null;
@@ -98,7 +98,7 @@ function jouer(nom, vol, hauteur) {
 const NOTES = [392, 523, 659, 784, 880, 587, 330, 466];
 function bloup(phase) {
   if (!ac) return;
-  if (tampons.change) { jouer('change', 0.3, 0.92 + ((NOTES[phase] || 523) - 330) / 2200); return; }   // à peine plus aigu selon l'état
+  if (tampons.change) { jouer('change', 0.38, 0.92 + ((NOTES[phase] || 523) - 330) / 2200); return; }   // à peine plus aigu selon l'état
   const t = ac.currentTime, f = NOTES[phase] || 523;
   if (derniers.bloup && t - derniers.bloup < 0.04) return;
   derniers.bloup = t;

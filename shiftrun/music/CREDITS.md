@@ -82,11 +82,6 @@ on remercie quand même les auteurs.
 
 ## Bruitages (`sfx/`)
 
-Tous tirés de **The Essential Retro Video Game Sound Effects Collection [512 sounds]** de Juhani Junkala —
-https://opengameart.org/content/512-sound-effects-8-bit-style (CC0).
-
-
-## Bruitages (`sfx/`)
-
 Tous les bruitages viennent des packs gratuits de Kenney (licence CC0, https://kenney.nl) :
-Digital Audio, Interface Sounds, Impact Sounds. Ils sont renommés d'après leur usage dans le jeu.
+Digital Audio, Interface Sounds, Impact Sounds, Music Jingles (transformation = première note d'un jingle de
+steel drum, compétence = début d'un jingle pizzicato). Ils sont renommés d'après leur usage dans le jeu.

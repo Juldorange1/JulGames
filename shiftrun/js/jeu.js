@@ -1636,8 +1636,8 @@ function reglages() {
   const PAGES = ['⚙ ' + tr('Général'), '♿ ' + tr('Accessibilité'), '⌨ ' + tr('Clavier'), '🎮 ' + tr('Manette')];
   let h = `<h2>${tr('Réglages')}</h2><div class="onglets">${PAGES.map((p, i) => `<button class="btn mini ${i === reglPage ? 'choisi' : ''}" data-a="regl-page" data-i="${i}" ${i === reglPage ? 'autofocus' : ''}>${p}</button>`).join('')}</div>`;
   if (reglPage === 0) h += `<div class="regl">
-   <label>${tr('Langue')} <select data-r="langue">${Object.entries(window.Langue.LANGUES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('')}</select></label>
    <button class="btn" data-a="couper-son">${S.reglages.coupe ? '🔇 ' + tr('Remettre le son') : '🔊 ' + tr('Couper le son')}</button>
+   <label>${tr('Langue')} <select data-r="langue">${Object.entries(window.Langue.LANGUES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('')}</select></label>
    <label>${tr('Bruitages')} <input type="range" min="0" max="1" step="0.05" value="${r.sons}" data-r="sons"></label>
    <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique"></label>
    <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option><option value="parfait">${tr('Le Parfait')}</option></select></label>
@@ -1906,7 +1906,7 @@ function pause() {
   SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">${tr('Pause')}</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
-    <button class="btn" data-a="rejouer">${tr(J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
+    <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
@@ -1981,9 +1981,10 @@ function action(a, el) {
     case 'course-any': lancerCourse('any'); break;
     case 'course-cent': lancerCourse('cent'); break;
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
-    case 'rejouer': if (J && J.mode === 'expedition') lancerExpedition(); else if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
+    case 'rejouer': if (J && J.entrainement && (J.mode === 'niveau' || J.mode === 'defi')) { if (ecran === 'fin') allerDrapeau(J.drapeauDepart || 0); else allerDrapeau(drapeauActif()); ecran = 'jeu'; cacherUI(); } else if (J && J.mode === 'expedition') lancerExpedition(); else if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':
       if (ecran === 'jeu') recommencer();
+      else if (ecran === 'fin' && J && J.entrainement && (J.mode === 'niveau' || J.mode === 'defi')) { allerDrapeau(J.drapeauDepart || 0); ecran = 'jeu'; cacherUI(); }
       else if (ecran === 'fin' && J && J.mode === 'niveau') lancerNiveau(J.idx);
       else if (ecran === 'fin' && J && J.mode === 'infini') lancerInfini(J.imode);
       else if (ecran === 'fin' && J && J.mode === 'defi') lancerDefiLong(J.periode);
@@ -2275,7 +2276,7 @@ R.init(document.getElementById('jeu'));
 R.accessibilite(S.reglages);
 appliquerApparence();
 appliquerSon();
-document.getElementById('btnSon').addEventListener('click', ev => { ev.stopPropagation(); couperSon(); ev.currentTarget.blur(); });
+
 tactiles();
 accueil();
 SON.demarrer();                                         // la musique du menu démarre tout de suite (sinon au premier geste)
