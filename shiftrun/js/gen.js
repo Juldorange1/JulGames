@@ -45,7 +45,7 @@ Grille.prototype.met = function (x, y, c) {
 Grille.prototype.carte = function () { return this.l.map(r => r.join('')); };
 
 // un drapeau ne sert que si l'on peut mourir avant le suivant : sinon on l'enlève
-const MORTEL = new Set(['^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_']);
+const MORTEL = new Set(['1', '2', '3', '4', '5', '^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_']);
 function elaguerDrapeaux(l, sens) {            // l : tableau de rangées (tableaux de caractères) ; sens : 'haut', 'bas' ou rien (vers la droite)
   const H = l.length, W = l[0].length, fl = [];
   let but = null;
@@ -1043,26 +1043,88 @@ function calibre(type, d) {
 /* ---------- Variations : 0 à 3 ajouts tirés au hasard sur chaque salle (des milliers de combinaisons) ----------
    On ne touche qu'aux couloirs plats (sol plein en 20, plafond plein en 13, vide entre) et aux fosses, pour rester
    franchissable (vérifié par outils/test-salles.js --varier). */
-const VARIATIONS = ['cristal', 'arbalete', 'ennemi', 'pics', 'glace', 'arbalete', 'ennemi', 'pics', 'laser', 'scie', 'champi'];
+const VARIATIONS = ['cristal', 'arbalete', 'ennemi', 'pics', 'glace', 'laser', 'scie', 'champi',
+  'bloc', 'stalactite', 'borne', 'laserDiag', 'balai', 'scieBlocs', 'pilon', 'bruleur', 'orbite', 'plateforme', 'blocFosse',
+  'blocLibre', 'blocLibre', 'scieLibre', 'laserCoin'];
+// chaque niveau a son style : quelques ajouts favoris (bien plus fréquents chez lui) et un peu plus ou moins d'ajouts
+function styleNiveau(rng) {
+  const poids = VARIATIONS.map(() => 0.5 + rng());
+  for (let k = 0; k < 4; k++) poids[Math.floor(rng() * poids.length)] += 4 + rng() * 4;
+  return { poids, plus: rng() * 1.5 };
+}
+function tirerVariation(rng, style) {
+  if (!style) return VARIATIONS[Math.floor(rng() * VARIATIONS.length)];
+  let tot = 0; for (const p of style.poids) tot += p;
+  let v = rng() * tot;
+  for (let i = 0; i < VARIATIONS.length; i++) { v -= style.poids[i]; if (v < 0) return VARIATIONS[i]; }
+  return VARIATIONS[VARIATIONS.length - 1];
+}
 function varier(g, x0, x1, rng, d, ctx) {
   const dy = (ctx && ctx.dy) || 0, gm = g;
   g = { met: (x, y, c) => gm.met(x, y + dy, c), l: gm.l };
   const L = (x, y) => (gm.l[y + dy] && gm.l[y + dy][x]) || '#';
   const plat = (x) => L(x, 20) === '#' && L(x, 13) === '#' && L(x, 12) === '#' && [14, 15, 16, 17, 18, 19].every(y => L(x, y) === '.');
+  const plats = (a, b) => { for (let x = a; x <= b; x++) if (!plat(x)) return false; return true; };
   const fosse = (x) => L(x, 20) === '.' && L(x, 23) === '^' && L(x, 16) === '.';
-  const k = Math.floor(rng() * (1.6 + d * 2.2));
+  const trou = (x) => { if (![14, 15, 16, 17, 18, 19, 20].every(y => L(x, y) === '.')) return false; for (let y = 21; y < 34; y++) { const c = L(x, y); if (c === '^') return true; if (c !== '.') return false; } return false; };
+  const fosses = (a, b) => { for (let x = a; x <= b; x++) if (!trou(x)) return false; return true; };
+  const style = ctx && ctx.style;
+  const k = Math.floor(rng() * (1.6 + d * 2.2 + (style ? style.plus : 0))) + (style ? 2 : 0);
   const faits = [];
   for (let i = 0; i < k; i++) {
-    const v = VARIATIONS[Math.floor(rng() * VARIATIONS.length)];
-    for (let essai = 0; essai < 12; essai++) {
+    const v = tirerVariation(rng, style);
+    for (let essai = 0; essai < 24; essai++) {
       const x = x0 + 2 + Math.floor(rng() * Math.max(1, x1 - x0 - 4));
       if (faits.some(f => Math.abs(f - x) < 4)) continue;
-      if ((v === 'orbe' || v === 'cristal') && fosse(x) && L(x, 15) === '.') { g.met(x, 15, v === 'orbe' ? 'O' : '*'); faits.push(x); break; }
-      if (v === 'arbalete' && plat(x) && plat(x - 1) && plat(x + 1)) { g.met(x, 13, 'F'); faits.push(x); break; }
-      if (v === 'laser' && plat(x) && plat(x - 1) && plat(x + 1)) { g.met(x, 13, 'L'); faits.push(x); break; }
-      if (v === 'scie' && plat(x) && plat(x - 1) && plat(x + 1)) { g.met(x, 13, 'z'); faits.push(x); break; }
-      if (v === 'champi' && fosse(x) && L(x, 19) === '.') { g.met(x, 19, 'U'); faits.push(x); break; }
-      if (v === 'pics' && plat(x) && plat(x + 1) && plat(x - 1) && plat(x + 2)) { g.met(x, 14, '^'); g.met(x + 1, 14, '^'); faits.push(x); break; }
+      if ((v === 'orbe' || v === 'cristal') && (fosse(x) || trou(x)) && L(x, 15) === '.') { g.met(x, 15, v === 'orbe' ? 'O' : '*'); faits.push(x); break; }
+      if (v === 'arbalete' && plats(x - 1, x + 1)) { g.met(x, 13, 'F'); faits.push(x); break; }
+      if (v === 'laser' && plats(x - 1, x + 1)) { g.met(x, 13, 'L'); faits.push(x); break; }
+      if (v === 'scie' && plats(x - 1, x + 1)) { g.met(x, 13, 'z'); faits.push(x); break; }
+      if (v === 'champi' && (fosse(x) || trou(x)) && L(x, 19) === '.') { g.met(x, 19, 'U'); faits.push(x); break; }
+      if (v === 'pics' && plats(x - 1, x + 2)) { g.met(x, 14, '^'); g.met(x + 1, 14, '^'); faits.push(x); break; }
+      // un bloc de mur posé en plein milieu du couloir (seul, double ou en L)
+      if (v === 'bloc' && plats(x - 2, x + 2)) {
+        const f = Math.floor(rng() * 4), yb = 16 + Math.floor(rng() * 2);
+        g.met(x, yb, '#'); if (f >= 1) g.met(x + 1, yb, '#'); if (f === 2) g.met(x, yb - 1, '#'); if (f === 3) g.met(x + 1, yb + 1, '#');
+        faits.push(x); break;
+      }
+      // une colonne qui descend du plafond (on passe dessous) ou une borne au sol (on saute par-dessus)
+      if (v === 'stalactite' && plats(x - 2, x + 2)) { const hb = 2 + Math.floor(rng() * 2); for (let y = 14; y < 14 + hb; y++) g.met(x, y, '#'); if (rng() < 0.4) g.met(x, 14 + hb, '^'); faits.push(x); break; }
+      if (v === 'borne' && plats(x - 2, x + 2)) { g.met(x, 19, '#'); if (rng() < 0.5) g.met(x + 1, 19, '#'); faits.push(x); break; }
+      // laser qui tire en diagonale depuis le plafond, ou qui balaie le couloir
+      if (v === 'laserDiag' && plats(x - 1, x + 1)) {
+        const sd = rng() < 0.5 ? 1 : -1;
+        if ([1, 2, 3].every(k2 => L(x + sd * k2, 13 + k2) === '.')) { g.met(x, 13, sd > 0 ? '1' : '2'); faits.push(x, x + sd * 3); break; }
+      }
+      if (v === 'balai' && plats(x - 2, x + 2)) { g.met(x, 13, '5'); faits.push(x, x - 3, x + 3); break; }
+      // une scie qui fait son trajet entre deux blocs
+      if (v === 'scieBlocs' && plats(x - 3, x + 3)) {
+        const lg = 2 + Math.floor(rng() * 2), yb = 16 + Math.floor(rng() * 2);
+        g.met(x - lg, yb, '#'); g.met(x + lg, yb, '#'); g.met(x, yb, 'Z'); faits.push(x - lg, x, x + lg); break;
+      }
+      if (v === 'pilon' && plats(x - 1, x + 1)) { g.met(x, 14, 'K'); faits.push(x); break; }
+      if (v === 'bruleur' && plats(x - 1, x + 1)) { g.met(x, 20, 't'); faits.push(x); break; }
+      if (v === 'orbite' && plats(x - 2, x + 2)) { g.met(x, 16, 'C'); faits.push(x, x - 2, x + 2); break; }
+      // au-dessus d'une fosse : une plateforme mobile en plus, ou un bloc suspendu à contourner
+      if (v === 'plateforme' && fosses(x - 1, x + 3)) { g.met(x, 18, 'M'); faits.push(x, x + 2); break; }
+      if (v === 'blocFosse' && fosses(x - 1, x + 1)) { g.met(x, 16, '#'); faits.push(x); break; }
+      // n'importe où dans la salle, en plein vide : un bloc, une scie qui se promène, un laser en biais depuis un mur
+      if (v === 'blocLibre' || v === 'scieLibre' || v === 'laserCoin') {
+        const vide = (a, b, c2, d2) => { for (let yy = b; yy <= d2; yy++) for (let xx = a; xx <= c2; xx++) if (L(xx, yy) !== '.') return false; return true; };
+        const ys = []; for (let y = 3; y < 38; y++) ys.push(y);
+        for (let k2 = ys.length - 1; k2 > 0; k2--) { const j2 = Math.floor(rng() * (k2 + 1)); [ys[k2], ys[j2]] = [ys[j2], ys[k2]]; }
+        let ok = false;
+        for (const y of ys) {
+          if (v === 'blocLibre' && vide(x - 2, y - 2, x + 2, y + 2)) { g.met(x, y, '#'); if (rng() < 0.4 && vide(x - 2, y - 2, x + 3, y + 2)) g.met(x + 1, y, '#'); ok = true; break; }
+          if (v === 'scieLibre' && vide(x - 3, y - 2, x + 3, y + 2)) { g.met(x, y, rng() < 0.5 ? 'Z' : 'z'); ok = true; break; }
+          if (v === 'laserCoin' && L(x, y) === '#' && L(x, y - 1) === '#' && L(x, y + 1) === '.') {
+            const sd = rng() < 0.5 ? 1 : -1;
+            if ([1, 2, 3, 4].every(k2 => L(x + sd * k2, y + k2) === '.' && L(x + sd * k2, y + k2 - 1) === '.')) { g.met(x, y, sd > 0 ? '1' : '2'); ok = true; break; }
+          }
+        }
+        if (ok) { faits.push(x); break; }
+        continue;
+      }
       if (v === 'ennemi' || v === 'glace') {
         if (!plat(x)) continue;                        // ne jamais écraser un objet de la salle (interrupteur, ressort…)
         let a = x, b = x;
@@ -1097,8 +1159,9 @@ const ZONES_SALLES = [
 ];
 
 // tirage pondéré : jamais une salle vue parmi les 3 dernières, et moins souvent une salle déjà beaucoup vue
-function choisir(rng, liste, nouv, recents, compte) {
-  const poids = liste.map(t => (recents.includes(t) ? 0 : (nouv.includes(t) ? 2.5 : 1) / (1 + ((compte && compte[t]) || 0) * 0.7)));
+const DEJA = {};                 // salles déjà posées dans les niveaux précédents (les niveaux sont construits dans l'ordre)
+function choisir(rng, liste, nouv, recents, compte, deja) {
+  const poids = liste.map(t => (recents.includes(t) ? 0 : (nouv.includes(t) ? 2.5 : 1) / (1 + ((compte && compte[t]) || 0) * 0.7) / (1 + ((deja && deja[t]) || 0) * 0.25)));
   if (poids.every(p => p === 0)) return liste[Math.floor(rng() * liste.length)];
   let tot = poids.reduce((a, b) => a + b, 0), r = rng() * tot;
   for (let i = 0; i < liste.length; i++) { r -= poids[i]; if (r < 0) return liste[i]; }
@@ -1137,7 +1200,7 @@ function etatsAuHasard(rng, impose, nb) {
 }
 const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
-  const rng = hasard(graine), rngV = hasard(graine * 7 + 3);
+  const rng = hasard(graine), rngV = hasard(graine * 7 + 3), style = styleNiveau(hasard(graine * 13 + 11));
   const g = new Grille(HAUT + DESC);
   let oy = rng() < 0.5 ? 0 : PALIER;                     // hauteur du couloir (0, 10 ou 20 rangées plus bas)
   let x = debut(g, panneaux || [], oy);
@@ -1158,18 +1221,18 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
     let liste = types;
     if (i % 2 === 1 && autres.length) { const l2 = parEtat[autres[(i >> 1) % autres.length]]; if (l2 && l2.length) liste = l2; }
     else if (i % 4 === 2 && verticales.length) liste = verticales;
-    let t = (imposees && imposees[i]) || choisir(rng, liste, nouv, suite.slice(-3), compte);
+    let t = (imposees && imposees[i]) || choisir(rng, liste, nouv, suite, compte, DEJA);
     // de temps en temps (et souvent dès le départ), le couloir descend, remonte ou repart vers la gauche
     if (!(imposees && imposees[i]) && (i === 0 ? rng() < 0.55 : i % 5 === 3)) {
       const bas = oy + PALIER <= DESC ? descentes : [], haut = oy - PALIER >= 0 ? montees : [];
       const choix = (i === 0 && bas.length) ? bas : bas.concat(haut);
       if (choix.length) t = choix[Math.floor(rng() * choix.length)];
     }
-    compte[t] = (compte[t] || 0) + 1;
+    compte[t] = (compte[t] || 0) + 1; DEJA[t] = (DEJA[t] || 0) + 1;
     suite.push(t);
     if (i === Math.floor(nb / 2) && alcoves.length) x = poser(g, x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, { dy: oy });
     const glace = t.endsWith('*'), x0 = x, oy0 = oy, nom = glace ? t.slice(0, -1) : t;
-    x = poser(g, x, nom, rng, d + (rng() - 0.5) * 0.08, { glace, varier: !SALLES[nom].decale, rngV, dy: oy });
+    x = poser(g, x, nom, rng, d + (rng() - 0.5) * 0.08, { glace, varier: !SALLES[nom].decale, rngV, dy: oy, style });
     oy += SALLES[nom].decale || 0;
     if (i > 0 && i % 2 === 0) salle(g, x0, oy0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
   }
@@ -1370,7 +1433,7 @@ function essai(type, graine, d, glace, brut, avecVariations, phases) {
 // Le Sommet : un long parcours qui enchaîne de grands passages vers la droite et des puits (surtout en montée,
 // parfois en descente), avec drapeaux et pièges partout. k : numéro du niveau (0 à 5).
 function sommet(graine, etats, k, d) {
-  const rng = hasard(graine * 17 + 5), rngV = hasard(graine * 29 + 3);
+  const rng = hasard(graine * 17 + 5), rngV = hasard(graine * 29 + 3), style = styleNiveau(hasard(graine * 13 + 11));
   // les puits de chaque niveau, accordés à son nom : à-pic, lacets, chute libre, arête, gouffre, sommet
   const PUITS = [['haut', 'bas'], ['haut', 'haut'], ['bas', 'bas', 'bas'], ['haut', 'bas', 'haut', 'bas'], ['bas', 'bas', 'haut'], ['haut', 'haut', 'bas', 'haut']];
   const plan = ['couloir'];
@@ -1385,7 +1448,7 @@ function sommet(graine, etats, k, d) {
       for (let i = 0; i < nb; i++) {
         const alc = ip === 2 && i === 1 ? ALCOVES.filter(a => compatible(a, etats)) : [];   // l'éclat, au milieu du niveau
         const t2 = alc.length ? alc[Math.floor(rng() * alc.length)] : choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
-        const x0 = x; x = poser(g, x, t2, rng, d + (rng() - 0.5) * 0.08, { varier: true, rngV });
+        const x0 = x; x = poser(g, x, t2, rng, d + (rng() - 0.5) * 0.08, { varier: true, rngV, style });
         if (i % 2 === 1 || i === 0) salle(g, x0).p(1, 19, '!');
       }
       salle(g, x).couloir(0, 4); x += 5;

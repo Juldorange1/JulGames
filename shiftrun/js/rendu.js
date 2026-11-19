@@ -421,6 +421,8 @@ function laserCase(g, x, y, px, py) {
   g.fillStyle = '#16171c'; g.fillRect(px + 3, py + 3, T - 6, T - 6);
   if (!l) return;
   g.fillStyle = '#ff3a5a';
+  if (l.balai) { g.beginPath(); g.arc(px + T / 2, py + T / 2, 3, 0, 7); g.fill(); return; }        // balayeur : œil rond qui pivote
+  if (l.dx && l.dy) { g.fillRect(l.dx > 0 ? px + T - 4 : px, l.dy > 0 ? py + T - 4 : py, 4, 4); return; }   // en diagonale : buse dans l'angle
   if (l.dx) g.fillRect(l.dx > 0 ? px + T - 3 : px, py + 6, 3, 4); else g.fillRect(px + 6, l.dy > 0 ? py + T - 3 : py, 4, 3);
 }
 function bruleurCase(g, x, y, px, py) {               // bec de brûleur : bloc de fonte avec une buse
@@ -1279,6 +1281,15 @@ function mobiles(g, e, ox, vw, vis) {
     g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
     if (ACCES.daltonien && (y % 2 === 0)) { g.font = '10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(SYMBOLES[ph], px + T / 2, py + T / 2 + 0.5); g.textBaseline = 'top'; }
   }
+  // trajets des plateformes et des scies qui ne vont pas tout droit : un fin pointillé pour les anticiper
+  g.save(); g.setLineDash([2, 4]); g.lineWidth = 1;
+  for (const [l2, coul, dx2, dy2] of [[niv.plates, 'rgba(255,216,74,.28)', M.K.platLarg * T / 2, M.K.platEp / 2], [niv.scies, 'rgba(255,120,120,.3)', T / 2, T / 2]]) if (l2) for (const o of l2) {
+    if (!o.tr || o.tr.pts.length < 3 || o.x * T < ox - 600 || o.x * T > ox + vw + 600) continue;
+    g.strokeStyle = coul; g.beginPath();
+    for (const q of o.tr.pts) g.lineTo(o.x * T + q[0] + dx2, o.y * T + q[1] + dy2);
+    g.closePath(); g.stroke();
+  }
+  g.restore();
   if (niv.plates) for (const p of niv.plates) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
     const [px, py] = M.plateEn(p, tD(e)), lg = M.K.platLarg * T, ep = M.K.platEp;
@@ -1359,6 +1370,13 @@ function mobiles(g, e, ox, vw, vis) {
     if (l.x * T < ox - 600 || l.x * T > ox + vw + 600) continue;
     const etat = M.laserEtat(l, e.temps);
     if (!etat) continue;
+    if (l.seg || l.balai) {                           // en biais : le même polygone que la hitbox
+      const sg = M.laserSeg(niv, l, tD(e)), po = M.laserPoly(sg);
+      if (etat === 1) { if (Math.floor(tt * 16) % 2) { g.strokeStyle = 'rgba(255,80,110,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(sg[0], sg[1]); g.lineTo(sg[2], sg[3]); g.stroke(); } continue; }
+      g.fillStyle = '#ff2a55'; g.beginPath(); for (let k = 0; k < 8; k += 2) g.lineTo(po[k], po[k + 1]); g.closePath(); g.fill();
+      g.strokeStyle = '#ffd6e0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(sg[0], sg[1]); g.lineTo(sg[2], sg[3]); g.stroke();
+      continue;
+    }
     const [a, b, c2, d2] = M.laserRect(l);
     if (etat === 1) {                                 // préavis : fin trait clignotant, inoffensif
       if (Math.floor(tt * 16) % 2) { g.fillStyle = 'rgba(255,80,110,.5)'; g.fillRect((a + c2) / 2 - 0.5, (b + d2) / 2 - 0.5, l.dx ? c2 - a : 1, l.dy ? d2 - b : 1); }

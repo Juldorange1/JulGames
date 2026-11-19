@@ -34,7 +34,7 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D,
   'K': PILON, 'C': ORBITE, 'g': GEYSER, 't': BRULEUR, 'u': EAU, 'y': EAU,
   'J': LEVIER, 'T': GRILLE_LEV, ':': PLAQUE0, ';': PLAQUE1, '&': PLAQUE2, 'S': SAUTEUR, 'I': VOLANT,
-  '+': CLE, 'd': PORTE_CLE, '|': RYTHME, '/': MINUTEUR, '"': PORTE_MIN, ',': APESANTEUR, '_': BROYEUR };   // u / y : eau avec un courant vers la gauche / la droite
+  '1': LASER, '2': LASER, '3': LASER, '4': LASER, '5': LASER, '+': CLE, 'd': PORTE_CLE, '|': RYTHME, '/': MINUTEUR, '"': PORTE_MIN, ',': APESANTEUR, '_': BROYEUR };   // u / y : eau avec un courant vers la gauche / la droite
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -89,7 +89,7 @@ function recharger(n, c) {
   for (const l of c) w = Math.max(w, l.length);
   const g = new Uint8Array(w * h);
   let aEclat = false;
-  const panneaux = [], sorties = [], courants = new Map();
+  const panneaux = [], sorties = [], courants = new Map(), laserDir = new Map();
   for (let y = 0; y < h; y++) {
     const l = c[y];
     for (let x = 0; x < w; x++) {
@@ -98,6 +98,7 @@ function recharger(n, c) {
       if (t === undefined) throw new Error('Caractère inconnu « ' + ch + ' » dans ' + n.def.id + ' (' + x + ',' + y + ')');
       g[y * w + x] = t;
       if (ch === 'u' || ch === 'y') courants.set(y * w + x, ch === 'y' ? 1 : -1);
+      if (ch >= '1' && ch <= '5') laserDir.set(y * w + x, ch);
       if (ch === '@' && !n.dep) n.dep = { x: x * T + (T - W) / 2, y: (y + 1) * T - H };
       if (t === PANNEAU) panneaux.push({ x, y, texte: (n.def.panneaux || [])[panneaux.length] || '' });
       if (t === TP1S || t === TP2S) sorties.push({ x, y, t });
@@ -115,6 +116,8 @@ function recharger(n, c) {
     if (!best) for (const s of sorties) if (s.t === cherche && (!best || Math.abs(s.x - x) < Math.abs(best.x - x))) best = s;
     if (best) tp.set(i, best);
   }
+  let gn = 2166136261;                                // graine propre au niveau : trajets et cadences changent d'un niveau à l'autre
+  for (const c of String(n.def.id || '') + ':' + h) gn = Math.imul(gn ^ c.charCodeAt(0), 16777619) >>> 0;
   // arbalètes : tirent vers le côté libre, à intervalles fixes (décalés selon la position)
   const fleches = [];
   const libre = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !estDur(g[y * w + x]);
@@ -177,21 +180,33 @@ function recharger(n, c) {
     if (hor) { while (a < 40 && libreL(x - a - 1, y)) a++; while (b < 40 && libreL(x + lg + b, y)) b++; }
     else { while (a < 40 && libreL(x, y - a - 1)) a++; while (b < 40 && libreL(x, y + b + 1)) b++; }
     const o = { x, y, hor, min: -a * T, max: b * T, dec: (x * 29 + y * 11) % 300 };
+    o.tr = trajet(g, w, h, o, plat, ((x * 2654435761) ^ (y * 40503) ^ gn) >>> 0);
     (plat ? plates : scies).push(o);
   }
   // lasers : un rayon vers le côté libre, allumé par moments (avec un préavis)
   const lasers = [];
   for (let i = 0; i < w * h; i++) {
     if (g[i] !== LASER) continue;
-    const x = i % w, y = Math.floor(i / w);
+    const x = i % w, y = Math.floor(i / w), ld = laserDir.get(i);
     let dx = 0, dy = 0;
-    if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x - 1, y)) dx = -1;
+    const DIAG = { '1': [1, 1], '2': [-1, 1], '3': [1, -1], '4': [-1, -1] };
+    if (DIAG[ld] && libre(x + DIAG[ld][0], y + DIAG[ld][1])) [dx, dy] = DIAG[ld];
+    else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x - 1, y)) dx = -1;
     if (!dx && !dy) continue;
     let k = 1;
     while (k < 40 && libre(x + dx * k, y + dy * k)) k++;
     const hs = (x * 19349663 ^ y * 83492791) >>> 0;
     const per = 110 + hs % 80, on = 40 + (hs >> 7) % 30;
-    lasers.push({ x, y, dx, dy, lg: (k - 1) * T, per, on, dec: (hs >> 3) % per });
+    const la = { x, y, dx, dy, lg: (k - 1) * T, per, on, dec: (hs >> 3) % per };
+    const cx = x * T + T / 2, cy = y * T + T / 2;
+    if (dx && dy) {                                     // en diagonale : de l'angle du bloc jusqu'au premier obstacle
+      const u = Math.SQRT1_2, d0 = T / 2 * Math.SQRT2, d1 = (k - 0.5) * T * Math.SQRT2;
+      la.seg = [cx + dx * u * d0, cy + dy * u * d0, cx + dx * u * d1, cy + dy * u * d1]; la.lg = d1 - d0;
+    }
+    if (ld === '5') {                                   // balayeur : le rayon pivote lentement d'un côté à l'autre
+      la.balai = { a0: Math.atan2(dy, dx), amp: 0.45 + ((hs >>> 9) % 4) * 0.1, per: 170 + (hs >>> 11) % 90 };   // allumé par moments, comme les autres
+    }
+    lasers.push(la);
   }
   const leviersDe = new Map();
   {
@@ -345,6 +360,108 @@ function ennemiEn(en, temps) {
   }
   return en.hor ? [en.x * T + 2 + o, en.y * T + 2] : [en.x * T + 2, en.y * T + 2 + o];
 }
+// trajets variés des plateformes et des scies : plusieurs segments dans tous les sens (angles quelconques),
+// chacun à sa vitesse, avec parfois des arrêts ; ils passent toujours par les deux bouts du trajet d'origine.
+function trajet(g, w, h, o, plat, graine) {
+  let a = graine || 1;
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const sorte = Math.floor(rnd() * 6);
+  if (sorte === 0) return null;                          // le bon vieil aller-retour
+  const dur = (t2) => estDur(t2) || (plat && t2 === PICS);
+  const bx = o.x * T, by = o.y * T;
+  const libreA = (ox, oy) => {                           // la plateforme (ou la scie) entière tient-elle là ?
+    const x0 = plat ? bx + ox : bx + T / 2 + ox - K.scieRayon, y0 = plat ? by + oy : by + T / 2 + oy - K.scieRayon;
+    const x1 = plat ? x0 + K.platLarg * T : x0 + 2 * K.scieRayon, y1 = plat ? y0 + K.platEp : y0 + 2 * K.scieRayon;
+    if (x0 < 0 || y0 < 0 || x1 > w * T || y1 > h * T) return false;
+    for (let ty = Math.floor(y0 / T); ty <= Math.floor((y1 - 0.01) / T); ty++) for (let tx = Math.floor(x0 / T); tx <= Math.floor((x1 - 0.01) / T); tx++) if (dur(g[ty * w + tx])) return false;
+    return true;
+  };
+  const segOk = (p, q) => { const n2 = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 3)); for (let i = 0; i <= n2; i++) if (!libreA(p[0] + (q[0] - p[0]) * i / n2, p[1] + (q[1] - p[1]) * i / n2)) return false; return true; };
+  const ax = (v) => o.hor ? [v, 0] : [0, v], A = ax(o.min), B = ax(o.max), L2 = o.max - o.min;
+  const perp = (pt, d) => o.hor ? [pt[0], pt[1] + d] : [pt[0] + d, pt[1]];
+  const essais = (f) => { for (let k = 0; k < 12; k++) { const r2 = f(k); if (r2) return r2; } return null; };
+  // aux deux bouts, l'objet est souvent dans une encoche : il en sort d'abord dans l'axe, puis prend son biais
+  const e3 = Math.min(1.5 * T, L2 / 4), sortie = (p) => p === A ? ax(o.min + e3) : ax(o.max - e3);
+  const dehors = (p) => o.hor ? p[1] !== 0 : p[0] !== 0;
+  const entrees = (pts) => { const q = []; for (let i = 0; i < pts.length; i++) { const p = pts[i], nx = pts[(i + 1) % pts.length], pv = pts[(i - 1 + pts.length) % pts.length];
+    if ((p === A || p === B) && dehors(pv)) q.push(sortie(p)); q.push(p); if ((p === A || p === B) && dehors(nx)) q.push(sortie(p)); } return q; };
+  const ferme = (pts) => { for (let i = 0; i < pts.length; i++) if (!segOk(pts[i], pts[(i + 1) % pts.length])) return false; return true; };
+  let pts = null;
+  if (L2 < T) {                                          // coincé : un petit trajet libre autour de sa place (triangle)
+    pts = essais(k => { const d = (2 + (k % 3)) * T * (rnd() < 0.5 ? 1 : -1), e2 = (1 + rnd() * 2) * T * (rnd() < 0.5 ? 1 : -1); const p = [[0, 0], [d, e2], [-d * 0.5, e2 * 1.3]]; return ferme(p) ? p : null; });
+  } else if (sorte === 1) {                              // aller-retour à deux vitesses, avec arrêts
+    pts = [A, B];
+  } else if (sorte === 2 || sorte === 3) {               // losange ou arc : on s'écarte de l'axe au milieu (angle quelconque)
+    pts = essais(k => {
+      const d = (1 + rnd() * 2.5) * T * (k & 1 ? 1 : -1) / (1 + (k >> 2) * 0.6), d2 = (k & 2 ? -d : d) * (0.6 + rnd() * 0.8), m = o.min + L2 * (0.25 + rnd() * 0.5);
+      const p = sorte === 2 ? [A, perp(ax(m), d), B, perp(ax(o.min + L2 - (m - o.min)), d2)] : [A, perp(ax(m), d), B];
+      const p2 = L2 >= 3 * T ? entrees(p) : p; return ferme(p2) ? p2 : null;
+    });
+  } else if (sorte === 4) {                              // zigzag : plusieurs segments d'angles différents, retour tout droit
+    pts = essais(k => {
+      const nb = 2 + Math.floor(rnd() * 3), p = [A];
+      for (let j = 1; j <= nb; j++) p.push(perp(ax(o.min + L2 * j / (nb + 1)), (k & 2 ? 1 : j % 2 ? 1 : -1) * (k & 1 ? -1 : 1) * (0.6 + rnd() * 1.8) * T / (1 + (k >> 2) * 0.6)));
+      p.push(B);
+      const p2 = L2 >= 3 * T ? entrees(p) : p; return ferme(p2) ? p2 : null;
+    });
+  } else {                                               // boucle : on fait le tour d'un rectangle ou d'un trapèze
+    pts = essais(k => {
+      const d = (1 + rnd() * 2) * T * (k & 1 ? 1 : -1) / (1 + (k >> 1) * 0.4), dec2 = (rnd() - 0.5) * L2 * 0.4;
+      const p = [A, B, perp(ax(o.max - Math.max(0, dec2)), d), perp(ax(o.min + Math.max(0, -dec2)), d)];
+      const p2 = L2 >= 3 * T ? entrees(p) : p; return ferme(p2) ? p2 : null;
+    });
+  }
+  if (!pts) { if (L2 < T) return null; pts = [A, B]; }
+  const vit = plat ? K.platVit : K.scieVit, durs = [], arrets = [];
+  let P2 = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const q = pts[(i + 1) % pts.length], lg = Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]);
+    const dd = Math.max(8, Math.round(lg / (vit * (0.55 + rnd() * 1.1))));
+    const ar = rnd() < 0.35 ? 8 + Math.floor(rnd() * 22) : 0;
+    arrets.push(ar); durs.push(dd); P2 += ar + dd;
+  }
+  return { pts, durs, arrets, P: P2 };
+}
+// position sur le trajet (départ et arrivée de chaque segment en douceur)
+function surTrajet(tr, temps) {
+  let u = ((temps % tr.P) + tr.P) % tr.P;
+  for (let i = 0; i < tr.pts.length; i++) {
+    const p = tr.pts[i];
+    if (u < tr.arrets[i]) return p;
+    u -= tr.arrets[i];
+    if (u < tr.durs[i]) { const q = tr.pts[(i + 1) % tr.pts.length], k = u / tr.durs[i], s2 = k * k * (3 - 2 * k); return [p[0] + (q[0] - p[0]) * s2, p[1] + (q[1] - p[1]) * s2]; }
+    u -= tr.durs[i];
+  }
+  return tr.pts[0];
+}
+// rayon d'un laser qui balaie : jusqu'au premier bloc (parcours case par case)
+function rayon(n, x0, y0, ux, uy, max) {
+  let tx = Math.floor(x0 / T), ty = Math.floor(y0 / T);
+  const sx = ux > 0 ? 1 : -1, sy = uy > 0 ? 1 : -1;
+  let tMx = ux ? ((ux > 0 ? (tx + 1) * T : tx * T) - x0) / ux : Infinity, tMy = uy ? ((uy > 0 ? (ty + 1) * T : ty * T) - y0) / uy : Infinity;
+  const dX = ux ? T / Math.abs(ux) : Infinity, dY = uy ? T / Math.abs(uy) : Infinity;
+  for (let k = 0; k < 120; k++) {
+    let t;
+    if (tMx < tMy) { t = tMx; tMx += dX; tx += sx; } else { t = tMy; tMy += dY; ty += sy; }
+    if (t >= max) return max;
+    if (estDur(tuile(n, tx, ty))) return t;
+  }
+  return max;
+}
+// segment du rayon (centre du trait, d'un bout à l'autre)
+function laserSeg(n, l, temps) {
+  if (l.seg) return l.seg;
+  if (!l.balai) { const r2 = laserRect(l); return l.dx ? [r2[0], (r2[1] + r2[3]) / 2, r2[2], (r2[1] + r2[3]) / 2] : [(r2[0] + r2[2]) / 2, r2[1], (r2[0] + r2[2]) / 2, r2[3]]; }
+  const a = l.balai.a0 + l.balai.amp * Math.sin((temps + l.dec) * 2 * Math.PI / l.balai.per), ux = Math.cos(a), uy = Math.sin(a);
+  const cx = l.x * T + T / 2, cy = l.y * T + T / 2, d0 = T / 2 / Math.max(Math.abs(ux), Math.abs(uy));
+  const d1 = rayon(n, cx, cy, ux, uy, 40 * T);
+  return [cx + ux * d0, cy + uy * d0, cx + ux * d1, cy + uy * d1];
+}
+// le rayon épais en polygone (4 coins) : c'est sa hitbox et son dessin
+function laserPoly(sg) {
+  const dx = sg[2] - sg[0], dy = sg[3] - sg[1], L3 = Math.hypot(dx, dy) || 1, hw = K.laserEp / 2, nx = -dy / L3 * hw, ny = dx / L3 * hw;
+  return [sg[0] + nx, sg[1] + ny, sg[2] + nx, sg[3] + ny, sg[2] - nx, sg[3] - ny, sg[0] - nx, sg[1] - ny];
+}
 // plateforme mobile / scie : position (coin haut-gauche de la plateforme, centre de la scie) à un instant
 function allerRetour(o, temps, vit) {
   const L2 = o.max - o.min;
@@ -352,8 +469,14 @@ function allerRetour(o, temps, vit) {
   const d = ((temps + o.dec) * vit) % (2 * L2);
   return o.min + (d < L2 ? d : 2 * L2 - d);
 }
-function plateEn(p, temps) { const o = allerRetour(p, temps, K.platVit); return p.hor ? [p.x * T + o, p.y * T] : [p.x * T, p.y * T + o]; }
-function scieEn(s2, temps) { const o = allerRetour(s2, temps, K.scieVit); return s2.hor ? [s2.x * T + T / 2 + o, s2.y * T + T / 2] : [s2.x * T + T / 2, s2.y * T + T / 2 + o]; }
+function plateEn(p, temps) {
+  if (p.tr) { const q = surTrajet(p.tr, temps + p.dec); return [p.x * T + q[0], p.y * T + q[1]]; }
+  const o = allerRetour(p, temps, K.platVit); return p.hor ? [p.x * T + o, p.y * T] : [p.x * T, p.y * T + o];
+}
+function scieEn(s2, temps) {
+  if (s2.tr) { const q = surTrajet(s2.tr, temps + s2.dec); return [s2.x * T + T / 2 + q[0], s2.y * T + T / 2 + q[1]]; }
+  const o = allerRetour(s2, temps, K.scieVit); return s2.hor ? [s2.x * T + T / 2 + o, s2.y * T + T / 2] : [s2.x * T + T / 2, s2.y * T + T / 2 + o];
+}
 // laser : 0 éteint, 1 préavis (inoffensif), 2 allumé
 function laserEtat(l, temps) {
   const k = ((temps + l.dec) % l.per + l.per) % l.per;
@@ -1289,6 +1412,12 @@ function pas(n, e, inp) {
     for (const la of n.lasers) {
       if (Math.abs(la.x * T - px) > 48 * T) continue;
       if (laserEtat(la, e.temps) !== 2) continue;
+      if (la.seg || la.balai) {                                    // en biais : le rayon épais exact
+        const sg = laserSeg(n, la, e.temps);
+        if (Math.max(sg[0], sg[2]) + 3 < e.x || Math.min(sg[0], sg[2]) - 3 > e.x + W || Math.max(sg[1], sg[3]) + 3 < e.y || Math.min(sg[1], sg[3]) - 3 > e.y + H) continue;
+        if (rectPoly(e, laserPoly(sg))) { mourir(e); break; }
+        continue;
+      }
       const r = laserRect(la);
       if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
     }
@@ -1376,7 +1505,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, PILON_BORD, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, PILON_BORD, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, laserSeg, laserPoly, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;

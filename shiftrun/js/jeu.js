@@ -220,296 +220,6 @@ function lancerInfini(mode) {
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
 }
-/* ---------- Éditeur de niveaux (entièrement au clavier, souris possible) et partage par code ---------- */
-const ED_CATS = [
-  ['🧱', 'Terrain', [['#', 'Mur', '🧱'], ['.', 'Vide', '⬛'], ['-', 'Plateforme fine', '➖'], ['|', 'Plateforme en rythme', '🎵'], ['x', 'Bloc fêlé', '🪨'], ['c', 'Sol cassant', '🟫'], ['b', 'Sol rebondissant', '🟩'], ['i', 'Glace', '🧊'], ['[', 'Tapis ←', '⏪'], [']', 'Tapis →', '⏩']]],
-  ['🏁', 'Parcours', [['@', 'Départ', '🙂'], ['G', 'Arrivée', '🏁'], ['!', 'Drapeau', '🚩'], ['e', 'Éclat ◆', '◆'], ['*', 'Cristal', '🔷'], ['O', 'Orbe', '🟡'], ['$', 'Pièce', '🪙']]],
-  ['⚠', 'Dangers', [['^', 'Pics', '🔺'], ['f', 'Feu', '🔥'], ['L', 'Laser', '🔴'], ['F', 'Arbalète', '🏹'], ['Z', 'Scie ↔', '⚙'], ['z', 'Scie ↕', '⚙'], ['C', 'Scies en orbite', '🌀'], ['K', 'Pilon', '🔨'], ['t', 'Brûleur', '♨'], ['E', 'Ennemi ↔', '👾'], ['Y', 'Ennemi ↕', '👾'], ['S', 'Sauteur', '🐸'], ['I', 'Volant', '🦇'], ['_', 'Broyeur (début puis fin)', '🪚']]],
-  ['🌊', 'Eau et air', [['w', 'Eau', '💧'], ['u', 'Courant ←', '⬅'], ['y', 'Courant →', '➡'], ['g', 'Geyser', '⛲'], ['>', 'Vent →', '💨'], ['<', 'Vent ←', '💨'], ['A', 'Vent ↑', '💨'], ['V', 'Vent ↓', '💨'], [',', 'Zone inversée', '🔃']]],
-  ['🚀', 'Mouvement', [['s', 'Ressort', '🪀'], ['U', 'Champignon', '🍄'], ['(', 'Tremplin ←', '↖'], [')', 'Tremplin →', '↗'], ['M', 'Plateforme ↔', '↔'], ['N', 'Plateforme ↕', '↕'], ['H', 'Saut +', '⏫'], ['h', 'Saut −', '⏬'],
-    ['P', 'Téléporteur 1', '🟣'], ['p', 'Sortie 1', '⭕'], ['Q', 'Téléporteur 2', '🔵'], ['q', 'Sortie 2', '🔘'], ['{', 'Haut bouclé', '⤒'], ['}', 'Bas bouclé', '⤓'], ['W', 'Bord gauche bouclé', '⇤'], ['X', 'Bord droit bouclé', '⇥']]],
-  ['🔀', 'Mécanismes', [['o', 'Bouton', '🔘'], ['D', 'Porte', '🚪'], ['k', 'Interrupteur', '🎚'], ['R', 'Bloc rouge', '🟥'], ['B', 'Bloc bleu', '🟦'], ['J', 'Levier', '🕹'], ['T', 'Grille à leviers', '🚧'],
-    ['+', 'Clé', '🔑'], ['d', 'Porte dorée', '🚪'], ['/', 'Minuterie', '⏱'], ['"', 'Porte à minuterie', '🟦'],
-    [':', 'Plaque → transformation 1', '1️⃣'], [';', 'Plaque → transformation 2', '2️⃣'], ['&', 'Plaque → transformation 3', '3️⃣']]],
-  ['🚧', 'Barrières', [['a', 'Barrière Solide', '🟨'], ['=', 'Barrière Liquide', '🟦'], ['~', 'Barrière Gaz', '⬜'], ['r', 'Barrière Plasma', '🟧'], ['l', 'Barrière Plume', '🟪'], ['n', 'Barrière Caoutchouc', '🩷'],
-    ['m', 'Barrière Métal', '⬛'], ['%', 'Barrière Ombre', '🟫'], ['j', 'Barrière Glace', '🩵'], ['v', 'Barrière Magma', '🟥']]]
-];
-const PALETTE = ED_CATS.flatMap(c => c[2]);
-if (!S.persos) S.persos = [];
-let ED = null;
-function nouvelleCarte() {
-  const l = [];
-  for (let y = 0; y < 26; y++) l.push(new Array(90).fill('#'));
-  for (let y = 13; y <= 19; y++) for (let x = 1; x < 89; x++) l[y][x] = '.';
-  l[19][3] = '@'; l[19][85] = 'G';
-  return l;
-}
-// une carte de l'éditeur est toujours valable : un seul départ @ et une seule arrivée G (les autres sont effacés), et un départ quelque part
-function nettoyerCarte(l) {
-  let dep = false, but = false;
-  for (const r of l) for (let i = 0; i < r.length; i++) {
-    if (r[i] === '@') { if (dep) r[i] = '.'; dep = true; }
-    if (r[i] === 'G') { if (but) r[i] = '.'; but = true; }
-  }
-  if (!dep) {
-    outer: for (let x = 1; x < l[0].length - 1; x++) for (let y = l.length - 2; y > 0; y--) if (l[y][x] === '.' && M.estDur(M.CH[l[y + 1][x]])) { l[y][x] = '@'; break outer; }
-    if (!l.some(r => r.includes('@'))) { const y = l.length - 2; l[y][1] = '@'; }
-  }
-  return l;
-}
-function codeNiveau(nom, etats, l) {               // nom|états|lignes compressées (répétitions), en base 64
-  const sur = (c) => c === '/' ? '¤' : c === '|' ? '¦' : c;          // « / » et « | » servent de séparateurs dans le code
-  const rle = l.map(r => { let o = '', i = 0; while (i < r.length) { let j = i; while (j < r.length && r[j] === r[i]) j++; o += (j - i > 1 ? (j - i) : '') + sur(r[i]); i = j; } return o; }).join('/');
-  return 'SR1:' + btoa(unescape(encodeURIComponent(nom + '|' + etats.join(',') + '|' + rle)));
-}
-function lireCode(code) {
-  try {
-    const t = decodeURIComponent(escape(atob(code.trim().replace(/^SR1:/, ''))));
-    const [nom, et, rle] = t.split('|');
-    const l = rle.split('/').map(r => { const o = []; const re = /(\d*)(\D)/g; let m; while ((m = re.exec(r))) for (let k = 0; k < (m[1] ? +m[1] : 1); k++) o.push(m[2] === '¤' ? '/' : m[2] === '¦' ? '|' : m[2]); return o; });
-    const etats = et.split(',').map(Number).filter(x => x >= 0 && x < 10);
-    if (!l.length || !etats.length) return null;
-    return { nom, etats, l };
-  } catch (err) { return null; }
-}
-let edSuppr = -1;                                         // niveau dont la suppression attend une confirmation
-function editeurMenu() {
-  J = null; ecran = 'menu';
-  let h = `<h2>🛠 ${tr('Éditeur de niveaux')}</h2><p class="note">${tr('Crée tes propres niveaux, teste-les, puis partage leur code : un ami le colle ici pour y jouer.')}</p>
-    <div class="grille"><button class="btn carte" data-a="ed-nouveau" autofocus><b>＋ ${tr('Nouveau niveau')}</b><small>${tr('une carte vide avec un départ et une arrivée')}</small></button>
-    <button class="btn carte" data-a="ed-importer"><b>📥 ${tr('Jouer un code')}</b><small>${tr('colle le code d’un niveau partagé')}</small></button>`;
-  S.persos.forEach((p, i) => { h += `<div class="persow"><button class="btn carte" data-a="ed-ouvrir" data-i="${i}"><b>✏ ${p.nom}</b><small>${p.etats.map(e => tr(M.NOMS_PHASES[e])).join(' · ')}</small></button><button class="btn mini ${edSuppr === i ? 'danger' : ''}" data-a="ed-suppr" data-i="${i}">${edSuppr === i ? '⚠ ' + tr('Confirmer la suppression') : '🗑 ' + tr('Supprimer')}</button></div>`; });
-  h += `</div><div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`;
-  montrer(h, 'large');
-}
-function ouvrirEditeur(i) {
-  const p = i == null ? { nom: tr('Mon niveau') + ' ' + (S.persos.length + 1), etats: [0, 1, 2], l: nouvelleCarte() } : { nom: S.persos[i].nom, etats: S.persos[i].etats.slice(), l: S.persos[i].carte.map(r => r.split('')) };
-  nettoyerCarte(p.l);
-  ED = { idx: i, nom: p.nom, etats: p.etats, l: p.l, cx: 3, cy: 18, pal: 0, cat: 0, outil: 'pinceau', annul: [], refaire: [], grille: true, vx: 3 * M.T, vy: 18 * M.T, debut: null, souris: 0 };
-  majEditeur();
-  ecran = 'editeur'; cacherUI(); panneauEditeur();
-}
-/* ----- panneau latéral de l'éditeur (souris ou clavier) ----- */
-const edPanel = document.createElement('div');
-edPanel.id = 'edPanel';
-document.body.appendChild(edPanel);
-function panneauEditeur() {
-  if (!ED) return;
-  const w = ED.l[0].length, h = ED.l.length;
-  const outil = (id, ic, nom, k) => `<button class="edb${ED.outil === id ? ' on' : ''}" data-ed="outil" data-v="${id}" title="${k}">${ic} ${tr(nom)}</button>`;
-  edPanel.innerHTML = `<input id="edNom" value="${ED.nom.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}" maxlength="40" aria-label="${tr('Nom du niveau')}">
-    <div class="edl">${ED.etats.map((e2, k) => `<button class="edb" data-ed="etat" data-v="${k}" style="border-color:${R.COUL_PHASE[e2]}">${k + 1} · ${tr(M.NOMS_PHASES[e2])}</button>`).join('')}</div>
-    <div class="edl">${outil('pinceau', '🖌', 'Pinceau', 'B')}${outil('rect', '▭', 'Rectangle', 'R')}${outil('pipette', '💉', 'Pipette', 'I')}</div>
-    <div class="edl"><button class="edb" data-ed="annuler" ${ED.annul.length ? '' : 'disabled'}>↶ ${tr('Annuler')}</button><button class="edb" data-ed="refaire" ${ED.refaire.length ? '' : 'disabled'}>↷ ${tr('Rétablir')}</button><button class="edb${ED.grille ? ' on' : ''}" data-ed="grille">▦ ${tr('Grille')}</button></div>
-    <div class="edcats">${ED_CATS.map((c, k) => `<button class="edb${ED.cat === k ? ' on' : ''}" data-ed="cat" data-v="${k}" title="${tr(c[1])}">${c[0]}</button>`).join('')}</div>
-    <div class="edtitre">${ED_CATS[ED.cat][0]} ${tr(ED_CATS[ED.cat][1])}</div>
-    <div class="edcases">${ED_CATS[ED.cat][2].map(c => { const k = PALETTE.indexOf(c); return `<button class="edb edcase${k === ED.pal ? ' on' : ''}" data-ed="case" data-v="${k}"><span>${c[2]}</span>${tr(c[1])}</button>`; }).join('')}</div>
-    <div class="edtitre">${tr('Taille')} : ${w} × ${h}</div>
-    <div class="edl"><button class="edb" data-ed="taille" data-v="-10,0">− ${tr('Largeur')}</button><button class="edb" data-ed="taille" data-v="10,0">+ ${tr('Largeur')}</button></div>
-    <div class="edl"><button class="edb" data-ed="taille" data-v="0,-2">− ${tr('Hauteur')}</button><button class="edb" data-ed="taille" data-v="0,2">+ ${tr('Hauteur')}</button></div>
-    <div class="edl"><button class="edb" data-ed="tester">▶ ${tr('Tester')}</button><button class="edb" data-ed="ici">▶ ${tr('Tester d’ici')}</button></div>
-    <div class="edl"><button class="edb" data-ed="sauver">💾 ${tr('Enregistrer')}</button><button class="edb" data-ed="code">📋 ${tr('Code')}</button><button class="edb" data-ed="quitter">✖ ${tr('Quitter')}</button></div>
-    <div class="edaide">${tr('Clic gauche : poser · clic droit : effacer')}<br>${tr('Molette : monter / descendre (Maj : gauche / droite)')}<br>${tr('Flèches ou ZQSD : bouger (tenir = plus vite, Maj = 5 cases)')}<br>${tr('Ctrl + Z / Y : annuler, rétablir')}<br>${tr('Clavier : flèches, Espace, Q / E, Tab')}</div>`;
-  const nomIn = edPanel.querySelector('#edNom');
-  nomIn.addEventListener('input', () => { ED.nom = nomIn.value || tr('Mon niveau'); });
-  nomIn.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.code === 'Enter' || ev.code === 'Escape') nomIn.blur(); });
-}
-edPanel.addEventListener('mousedown', ev => { if (ev.target.tagName !== 'INPUT') ev.preventDefault(); });   // le panneau ne vole pas le clavier
-edPanel.addEventListener('click', ev => {
-  const b = ev.target.closest('[data-ed]');
-  if (!b || !ED) return;
-  const a = b.dataset.ed, v = b.dataset.v;
-  if (a === 'outil') { ED.outil = v; ED.debut = null; }
-  else if (a === 'case') { ED.pal = +v; if (ED.outil === 'pipette') ED.outil = 'pinceau'; }
-  else if (a === 'cat') ED.cat = +v;
-  else if (a === 'etat') { changerEtat(+v); return; }
-  else if (a === 'annuler') { annulerEd(); return; }
-  else if (a === 'refaire') { refaireEd(); return; }
-  else if (a === 'grille') ED.grille = !ED.grille;
-  else if (a === 'taille') { const [dw, dh] = v.split(',').map(Number); tailleEd(dw, dh); return; }
-  else if (a === 'tester') { testerPerso(); return; }
-  else if (a === 'ici') { testerPerso(true); return; }
-  else if (a === 'sauver') sauverPerso();
-  else if (a === 'code') copierCode(codeNiveau(ED.nom, ED.etats, ED.l));
-  else if (a === 'quitter') { sauverPerso(); editeurMenu(); return; }
-  panneauEditeur();
-});
-function instantane() {
-  ED.annul.push(ED.l.map(r => r.join('')));
-  if (ED.annul.length > 150) ED.annul.shift();
-  ED.refaire = [];
-}
-function annulerEd() { if (!ED.annul.length) return; ED.refaire.push(ED.l.map(r => r.join(''))); ED.l = ED.annul.pop().map(r => r.split('')); bornerCurseur(); majEditeur(); panneauEditeur(); }
-function refaireEd() { if (!ED.refaire.length) return; ED.annul.push(ED.l.map(r => r.join(''))); ED.l = ED.refaire.pop().map(r => r.split('')); bornerCurseur(); majEditeur(); panneauEditeur(); }
-function bornerCurseur() { const w = ED.l[0].length, h = ED.l.length; ED.cx = Math.max(1, Math.min(w - 2, ED.cx)); ED.cy = Math.max(1, Math.min(h - 2, ED.cy)); }
-function changerEtat(k) {
-  ED.etats[k] = (ED.etats[k] + 1) % 10;
-  while (ED.etats.filter(x => x === ED.etats[k]).length > 1) ED.etats[k] = (ED.etats[k] + 1) % 10;
-  majEditeur(); panneauEditeur();
-}
-// agrandir / rétrécir : la largeur à droite (avant le bord), la hauteur en haut (tout descend)
-function tailleEd(dw, dh) {
-  const l = ED.l, w = l[0].length, h = l.length;
-  if (w + dw < 20 || w + dw > 400 || h + dh < 12 || h + dh > 80) return;
-  instantane();
-  if (dw > 0) for (const r of l) r.splice(w - 1, 0, ...new Array(dw).fill('#'));
-  if (dw < 0) for (const r of l) r.splice(w - 1 + dw, -dw);
-  const w2 = l[0].length;
-  if (dh > 0) for (let k = 0; k < dh; k++) l.splice(1, 0, new Array(w2).fill('#'));
-  if (dh < 0) l.splice(1, -dh);
-  for (const r of l) { r[0] = '#'; r[r.length - 1] = '#'; }
-  l[0].fill('#'); l[l.length - 1].fill('#');
-  if (dh) { ED.cy += dh; ED.vy += dh * M.T; }
-  bornerCurseur(); majEditeur(); panneauEditeur();
-}
-function majEditeur() {
-  const carte = ED.l.map(r => r.join(''));
-  const def = { id: 'perso', nom: ED.nom, etats: ED.etats, phases: ED.etats.slice(), carte, panneaux: [] };
-  let n;
-  try { n = M.charger(def); } catch (err) { def.carte = nettoyerCarte(ED.l.map(r => r.slice())).map(r => r.join('')); n = M.charger(def); }
-  const e = M.nouvelEtat(n); e.mortT = 1;
-  R.preparer(n, 'carriere');
-  J = { mode: 'editeur', n, e, entrees: [], L: { id: 'perso', def, zi: 0 }, salle: 0, finT: 0 };
-}
-function sauverPerso() {
-  const p = { nom: ED.nom, etats: ED.etats.slice(), carte: ED.l.map(r => r.join('')) };
-  if (ED.idx == null) { S.persos.push(p); ED.idx = S.persos.length - 1; } else S.persos[ED.idx] = p;
-  sauver(); message = '💾 ' + tr('Niveau enregistré'); messageT = 80;
-}
-function testerPerso(ici) {
-  if (!ED.l.some(r => r.includes('G'))) { message = tr('Il manque l’arrivée 🏁 : pose-la avant de tester'); messageT = 120; return; }
-  if (!ici && !ED.l.some(r => r.includes('@'))) { message = tr('Il manque le départ @'); messageT = 120; return; }
-  sauverPerso();
-  let carte = ED.l.map(r => r.join(''));
-  if (ici) {                                        // départ provisoire à l'endroit du curseur
-    if (M.estDur(M.CH[ED.l[ED.cy][ED.cx]])) { message = tr('Place le curseur sur une case libre'); messageT = 90; return; }
-    carte = ED.l.map((r, y) => r.map((c, x) => (x === ED.cx && y === ED.cy) ? '@' : c === '@' ? '.' : c).join(''));
-  }
-  const def = { id: 'perso', nom: ED.nom, etats: ED.etats, phases: ED.etats.slice(), carte, panneaux: [] };
-  lancerPerso(def, true);
-}
-function lancerPerso(def, depuisEditeur) {
-  let n;
-  try { n = M.charger(def); } catch (err) { message = tr('Il manque le départ @'); messageT = 90; return; }
-  const e = M.nouvelEtat(n);
-  R.preparer(n, 'carriere');
-  recadrer = true;
-  J = { mode: 'perso', depuisEditeur, n, e, entrees: [], L: { id: 'perso', def, zi: 0 }, salle: 0, finT: 0 };
-  ecran = 'jeu'; cacherUI();
-  SON.jouerMusique(2);
-}
-function finPerso() {
-  ecran = 'fin'; SON.attenuer(true);
-  const def = J.L.def, code = codeNiveau(def.nom, def.etats, def.carte.map(r => r.split('')));
-  montrer(`<div class="fin"><div class="nomniv">🛠 ${def.nom}</div><div class="temps">${R.chrono(J.e.temps)}</div>${statsHTML()}
-    <div class="lignes"><div>${tr('Code à partager :')}</div><textarea class="code" readonly>${code}</textarea></div>
-    <div class="menu ligne">${J.depuisEditeur ? `<button class="btn" data-a="ed-retour" autofocus>${tr('Retour à l’éditeur')}</button>` : ''}<button class="btn" data-a="ed-copier">📋 ${tr('Copier le code')}</button><button class="btn" data-a="perso-rejouer" ${J.depuisEditeur ? '' : 'autofocus'}>${tr('Recommencer')}</button><button class="btn" data-a="editeur">${tr('Éditeur')}</button></div></div>`, 'fin');
-}
-function importerCode() {
-  J = null; ecran = 'menu';
-  montrer(`<h2>📥 ${tr('Jouer un code')}</h2><p class="note">${tr('Colle ici le code d’un niveau (Ctrl + V), puis Entrée.')}</p>
-    <textarea class="code" id="codeIn" placeholder="SR1:..."></textarea>
-    <div class="menu ligne"><button class="btn" data-a="ed-jouer-code">▶ ${tr('Jouer')}</button><button class="btn" data-a="ed-garder-code">💾 ${tr('Garder dans mes niveaux')}</button><button class="btn" data-a="editeur">${tr('Retour')}</button></div>`, 'large');
-  const ta = document.getElementById('codeIn'); if (ta) ta.focus();
-}
-// commandes de l'éditeur au clavier
-function toucheEditeur(ev) {
-  const l = ED.l, h = l.length, w = l[0].length, c = ev.code;
-  if (ev.ctrlKey && c === 'KeyZ') { if (ev.shiftKey) refaireEd(); else annulerEd(); return; }
-  if (ev.ctrlKey && c === 'KeyY') { refaireEd(); return; }
-  const mv = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1] }[c];
-  if (mv) {
-    const pas = ev.shiftKey ? 5 : ev.repeat ? 2 : 1;                 // touche tenue : le curseur file, Maj : 5 cases d'un coup
-    ED.cx = Math.max(1, Math.min(w - 2, ED.cx + mv[0] * pas)); ED.cy = Math.max(1, Math.min(h - 2, ED.cy + mv[1] * pas));
-    ED.vx = ED.cx * M.T; ED.vy = ED.cy * M.T;
-    if (ED.peint) poser(); return;
-  }
-  if (c === 'Space' || c === 'Enter') {
-    if (ev.repeat) return;
-    if (ED.outil === 'pipette') { pipette(ED.cx, ED.cy); return; }
-    if (ED.outil === 'rect') { if (!ED.debut) ED.debut = [ED.cx, ED.cy]; else { remplir(ED.debut, [ED.cx, ED.cy], PALETTE[ED.pal][0]); ED.debut = null; panneauEditeur(); } return; }
-    instantane(); ED.peint = true; poser(); return;
-  }
-  if (c === 'Backspace' || c === 'Delete') { instantane(); poser('.'); return; }
-  if (c === 'KeyQ' || c === 'PageUp') { ED.pal = (ED.pal - 1 + PALETTE.length) % PALETTE.length; ED.cat = catDe(ED.pal); panneauEditeur(); return; }
-  if (c === 'KeyE' || c === 'PageDown') { ED.pal = (ED.pal + 1) % PALETTE.length; ED.cat = catDe(ED.pal); panneauEditeur(); return; }
-  if (c === 'Tab') { ED.cat = (ED.cat + (ev.shiftKey ? ED_CATS.length - 1 : 1)) % ED_CATS.length; ED.pal = PALETTE.indexOf(ED_CATS[ED.cat][2][0]); panneauEditeur(); return; }
-  if (c === 'Digit1' || c === 'Digit2' || c === 'Digit3') { changerEtat(+c.slice(-1) - 1); return; }
-  if (c === 'KeyB') { ED.outil = 'pinceau'; ED.debut = null; panneauEditeur(); return; }
-  if (c === 'KeyR') { ED.outil = 'rect'; ED.debut = null; panneauEditeur(); return; }
-  if (c === 'KeyI') { pipette(ED.cx, ED.cy); return; }
-  if (c === 'KeyG') { ED.grille = !ED.grille; panneauEditeur(); return; }
-  if (c === 'KeyX') { tailleEd(ev.shiftKey ? -10 : 10, 0); return; }
-  if (c === 'KeyH') { tailleEd(0, ev.shiftKey ? -2 : 2); return; }
-  if (c === 'KeyT') { testerPerso(ev.shiftKey); return; }
-  if (c === 'KeyF') { sauverPerso(); return; }
-  if (c === 'KeyC') { copierCode(codeNiveau(ED.nom, ED.etats, l)); return; }
-  if (c === 'KeyN') { const ni = edPanel.querySelector('#edNom'); if (ni) { ni.focus(); ni.select(); } return; }
-  if (c === 'Escape') { if (ED.debut) { ED.debut = null; return; } sauverPerso(); editeurMenu(); return; }
-}
-const catDe = (k) => Math.max(0, ED_CATS.findIndex(c => c[2].includes(PALETTE[k])));
-function poserEn(x, y, ch) {
-  if (x < 1 || y < 1 || x > ED.l[0].length - 2 || y > ED.l.length - 2) return;
-  if (ch === '@' || ch === 'G') for (const r of ED.l) for (let i = 0; i < r.length; i++) if (r[i] === ch) r[i] = '.';     // un seul départ et une seule arrivée
-  ED.l[y][x] = ch;
-}
-function poser(ch) { poserEn(ED.cx, ED.cy, ch || PALETTE[ED.pal][0]); majEditeur(); }
-function remplir(a, b, ch) {
-  instantane();
-  const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
-  if (ch === '@' || ch === 'G') poserEn(b[0], b[1], ch);
-  else for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) poserEn(x, y, ch);
-  majEditeur();
-}
-function pipette(x, y) {
-  const ch = ED.l[y] && ED.l[y][x], k = PALETTE.findIndex(p2 => p2[0] === ch);
-  if (k >= 0) { ED.pal = k; ED.cat = catDe(k); }
-  if (ED.outil === 'pipette') ED.outil = 'pinceau';
-  panneauEditeur();
-}
-addEventListener('keyup', ev => { if (ev.code === 'Space' || ev.code === 'Enter') { if (ED) ED.peint = false; } });
-// souris : clic gauche = outil, clic droit = effacer, glisser = peindre, molette ou clic du milieu = défiler
-(function () {
-  const cvs = document.getElementById('jeu');
-  const actif = () => ED && ecran === 'editeur' && J && J.mode === 'editeur';
-  const versCase = (ev) => { const [x, y] = R.versCase(ev.clientX, ev.clientY); return [Math.max(1, Math.min(ED.l[0].length - 2, x)), Math.max(1, Math.min(ED.l.length - 2, y))]; };
-  cvs.addEventListener('contextmenu', ev => { if (actif()) ev.preventDefault(); });
-  cvs.addEventListener('mousedown', ev => {
-    if (!actif()) return;
-    ev.preventDefault();
-    const [x, y] = versCase(ev); ED.cx = x; ED.cy = y;
-    if (ev.button === 2) { instantane(); ED.souris = 2; poser('.'); return; }
-    if (ev.button === 1) { ED.souris = 3; ED.glisse = [ev.clientX, ev.clientY, ED.vx, ED.vy]; return; }
-    if (ED.outil === 'pipette') { pipette(x, y); return; }
-    if (ED.outil === 'rect') { ED.debut = [x, y]; ED.souris = 4; return; }
-    instantane(); ED.souris = 1; poser();
-  });
-  addEventListener('mousemove', ev => {
-    if (!actif()) return;
-    if (ED.souris === 3) { const z = R.vue().z; ED.vx = ED.glisse[2] - (ev.clientX - ED.glisse[0]) / z; ED.vy = ED.glisse[3] - (ev.clientY - ED.glisse[1]) / z; return; }
-    if (ev.target !== cvs && !ED.souris) return;
-    const [x, y] = versCase(ev);
-    if (x === ED.cx && y === ED.cy) return;
-    ED.cx = x; ED.cy = y;
-    if (ED.souris === 1) poser(); else if (ED.souris === 2) poser('.');
-  });
-  addEventListener('mouseup', () => {
-    if (!ED) return;
-    if (ED.souris === 4 && ED.debut && actif()) { remplir(ED.debut, [ED.cx, ED.cy], PALETTE[ED.pal][0]); ED.debut = null; }
-    if (ED.souris) { ED.souris = 0; panneauEditeur(); }
-  });
-  cvs.addEventListener('wheel', ev => {
-    if (!actif()) return;
-    ev.preventDefault();
-    const d = ev.deltaY + ev.deltaX;
-    if (ev.shiftKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) ED.vx += d * 0.8; else ED.vy += ev.deltaY * 0.6;
-    ED.cx = Math.max(1, Math.min(ED.l[0].length - 2, Math.round(ED.vx / M.T))); ED.cy = Math.max(1, Math.min(ED.l.length - 2, Math.round(ED.vy / M.T)));
-    ED.vx = Math.max(0, Math.min(ED.l[0].length * M.T, ED.vx)); ED.vy = Math.max(0, Math.min(ED.l.length * M.T, ED.vy));
-  }, { passive: false });
-})();
-function copierCode(code) {
-  try { navigator.clipboard.writeText(code); message = '📋 ' + tr('Code copié'); messageT = 80; } catch (err) { message = code; messageT = 200; }
-}
 /* ---------- Classement mondial (programme Steam) : les meilleurs temps et leurs fantômes ---------- */
 let CLASSEMENT = [];
 function classementMondial(idx) {
@@ -925,7 +635,6 @@ function recommencer() {
   if (J.mode === 'survie') { lancerSurvie(); return; }
   if (J.mode === 'special') { lancerSpecial(J.sp.id); return; }
   if (J.mode === 'tuto') { lancerTuto(); return; }
-  if (J.mode === 'perso') { lancerPerso(J.L.def, J.depuisEditeur); return; }
   if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(drapeauActif()); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
   else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat');
@@ -1004,11 +713,11 @@ function allerDrapeau(k) {
   const e = M.nouvelEtat(J.n);
   if (k > 0 && fl[k - 1]) { const [tx, ty] = fl[k - 1]; e.cp = { x: tx * M.T + (M.T - M.W) / 2, y: (ty + 1) * M.T - M.H, tx, ty }; e.x = e.cp.x; e.y = e.cp.y; }
   J.e = e; J.drapeauDepart = k; J.segT = 0; J.stats = null; recadrer = true;
-  if (J.mode === 'niveau' && J.entrainement) lancerFantomeEntr(k);
+  if (J.mode === 'niveau' && J.entrainement) { lancerFantomeEntr(k); calerSurFantome(); }
 }
 // entraînement : le fantôme du robot (son Parfait) repart du même drapeau que toi, où qu'il ait été à ce moment-là
 function lancerFantomeEntr(k) {
-  const p = PARF[J.L.id];
+  const p = (S.fantEntr === 'humain' ? HUM : PARF)[J.L.id];
   if (!p || !p.f) { J.fantome = null; return; }
   const fl = drapeauxNiveau();
   if (!J.botDrap) {                                     // une seule fois : on rejoue le Parfait et on note chaque drapeau
@@ -1033,6 +742,11 @@ function lancerFantomeEntr(k) {
   }
   J.fantome = { n: B.n, e, ent: B.ent, i, entr: true };
   J.attenteG = true;                                     // il ne repart qu'à notre prochaine touche
+}
+// on repart d'un drapeau : plateformes, scies, lasers… sont exactement là où le robot les a trouvés à ce drapeau
+function calerSurFantome() {
+  if (!J.fantome || !J.fantome.entr) return;
+  J.e.temps = J.fantome.e.temps; J.segT = J.e.temps; J.ePrec = null;
 }
 /* ---------- Temps à chaque drapeau, comparés au record ---------- */
 function noterDrapeau() {
@@ -1148,10 +862,11 @@ function pas() {
     if (S.reglages.chargesInf || (J.chargesJusque && J.salle < J.chargesJusque)) J.e.charges = M.K.charges;
     if (J.sautJusque && J.salle < J.sautJusque) J.e.bonus = Math.max(J.e.bonus, 1.2);
   }
+  const fige = J.mode === 'niveau' && J.entrainement && J.attenteG && J.fantome && J.e.demarre && J.e.mortT === 0 && !(inp & ~(J.inpAv || 0));
+  if (fige) { J.inpAv = inp; J.e.ev = 0; return; }
   M.pas(J.n, J.e, inp);
   compterStats(J.e, x0, y0);
   if (J.mode !== 'fantome') noterDrapeau();
-  if (J.mode === 'editeur') return;
   if (J.mode === 'survie') majSurvie();
   if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
   if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
@@ -1174,7 +889,8 @@ function pas() {
   if (J.mode === 'niveau' && J.entrainement && (ev & (M.EV.DRAPEAU | M.EV.INVINCIBLE))) {   // arrivé à un drapeau (ou reparti de lui) : le robot repart de là aussi
     const k = J.e.cp ? drapeauxNiveau().findIndex(([x, y]) => x === J.e.cp.tx && y === J.e.cp.ty) + 1 : 0;
     lancerFantomeEntr(Math.max(0, k));
-    if (!(ev & M.EV.INVINCIBLE)) J.attenteG = false;              // simple passage d'un drapeau en courant : il part avec nous
+    if (ev & M.EV.INVINCIBLE) calerSurFantome();               // réapparition : le monde repart du même instant que le robot
+    else J.attenteG = false;              // simple passage d'un drapeau en courant : il part avec nous
   }
   if (ev & M.EV.CAPA) J.capas = (J.capas || 0) + 1;
   if (J.mode === 'niveau' && !(J.e.temps % 12)) aidePieges();
@@ -1210,7 +926,6 @@ function terminer() {
   if (J.mode === 'defi') { finDefi(); return; }
   if (J.mode === 'special') { finSpecial(); return; }
   if (J.mode === 'tuto') { finTuto(); return; }
-  if (J.mode === 'perso') { finPerso(); return; }
   const id = J.L.id, t = J.e.temps;
   if (J.mode === 'niveau' && J.entrainement) {
     ecran = 'fin'; SON.attenuer(true);
@@ -1288,7 +1003,7 @@ function boucle(t) {
   requestAnimationFrame(boucle);
   const dt = Math.min(0.1, (t - (derniere || t)) / 1000);
   derniere = t;
-  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (effet('rapide') ? 1.5 : 1) * (J && J.entrainement && J.mode !== 'fantome' ? (+S.vitEntr || 1) : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
+  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (effet('rapide') ? 1.5 : 1) * (J && J.entrainement && J.mode !== 'fantome' && !(J.e && J.e.mortT > 0) ? (+S.vitEntr || 1) : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
   barreRejeu();
   let k = 0;
   while (acc >= 1 / 60 && k < 6) { if (J) J.ePrec = M.cloner(J.e); pas(); acc -= 1 / 60; k++; }
@@ -1296,19 +1011,8 @@ function boucle(t) {
   dessiner(dt);
 }
 function dessiner(dt) {
-  if (edPanel.style.display === 'block' && !(J && J.mode === 'editeur' && ecran === 'editeur')) edPanel.style.display = 'none';
   if (!J) { fondMenu(dt); return; }
   menuNiv = null;                                       // au retour au menu, un nouveau niveau en fond
-  if (J.mode === 'editeur' && ED) {
-    const pal = PALETTE[ED.pal];
-    J.e.x = ED.vx; J.e.y = ED.vy;
-    if (edPanel.style.display !== 'block') { edPanel.style.display = 'block'; panneauEditeur(); }
-    const sel = ED.debut ? [Math.min(ED.debut[0], ED.cx), Math.min(ED.debut[1], ED.cy), Math.max(ED.debut[0], ED.cx), Math.max(ED.debut[1], ED.cy)] : null;
-    R.dessiner(J.e, null, { recadrer: false, curseur: [ED.cx, ED.cy, pal[0]], grille: ED.grille, selection: sel, texteCentre: pal[2] + ' ' + tr(pal[1]),
-      titre: ED.nom, lignes: [{ t: ED.etats.map((p, k) => (k + 1) + ' ' + tr(M.NOMS_PHASES[p])).join('   '), c: '#ffe94a' }], droite: [], touches: [], message: messageT > 0 ? message : null }, dt);
-    if (messageT > 0) messageT--;
-    return;
-  }
   // au ralenti, on dessine entre deux images du moteur : le mouvement reste fluide (pas de saccade ni de tremblement)
   let e = J.e;
   if (J.ePrec && J.e.mortT === 0 && J.ePrec.mortT === 0) {                 // toujours interpolé : fluide malgré le ralenti
@@ -1499,7 +1203,6 @@ function accueil() {
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
-    ${carte('editeur', '🛠 ' + tr('Éditeur de niveaux'), tr('crée, teste et partage tes niveaux par un code'))}
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
     ${carte('aide', '❓ ' + tr('Comment jouer'), tr('les états, les pièges, les touches'))}
@@ -1908,6 +1611,7 @@ function pause() {
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
+    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux"><button class="btn mini ${S.fantEntr !== 'humain' ? 'choisi' : ''}" data-a="fant-entr" data-v="parfait">${tr('Parfait (TAS)')}</button><button class="btn mini ${S.fantEntr === 'humain' ? 'choisi' : ''}" data-a="fant-entr" data-v="humain">${tr('Bot humain')}</button></div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
     <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
@@ -1945,29 +1649,13 @@ function action(a, el) {
     case 'entrainer': lancerNiveau(i); J.entrainement = true; lancerFantomeEntr(0); break;
     case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
+    case 'fant-entr': S.fantEntr = el.dataset.v; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); break;
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;
     case 'tuto': lancerTuto(); break;
     case 'classement': classementMondial(i); break;
     case 'fantome-mondial': { const en = CLASSEMENT[+el.dataset.k]; if (en && en.fantome) regarderEntrees(i, M.decompresser(en.fantome), en.nom); break; }
-    case 'editeur': editeurMenu(); break;
-    case 'ed-nouveau': edSuppr = -1; ouvrirEditeur(null); break;
-    case 'ed-suppr': if (edSuppr === i) { S.persos.splice(i, 1); edSuppr = -1; sauver(); } else edSuppr = i; editeurMenu(); { const b = ui.querySelector(`[data-a="ed-suppr"][data-i="${Math.min(i, S.persos.length - 1)}"]`); if (b) b.focus(); } break;
-    case 'ed-ouvrir': edSuppr = -1; ouvrirEditeur(i); break;
-    case 'ed-importer': importerCode(); break;
-    case 'ed-retour': ecran = 'editeur'; cacherUI(); majEditeur(); panneauEditeur(); break;
-    case 'ed-copier': { const ta = ui.querySelector('textarea.code'); if (ta) copierCode(ta.value); if (ta) { ta.select(); } break; }
-    case 'perso-rejouer': lancerPerso(J.L.def, J.depuisEditeur); break;
-    case 'ed-jouer-code': case 'ed-garder-code': {
-      const ta = document.getElementById('codeIn'), r = ta && lireCode(ta.value);
-      if (!r) { ta && (ta.style.borderColor = '#ff5a6e'); break; }
-      nettoyerCarte(r.l);
-      const def = { id: 'perso', nom: r.nom, etats: r.etats, phases: r.etats.slice(), carte: r.l.map(x => x.join('')), panneaux: [] };
-      if (a === 'ed-garder-code') { S.persos.push({ nom: r.nom, etats: r.etats, carte: def.carte }); sauver(); editeurMenu(); }
-      else lancerPerso(def, false);
-      break;
-    }
     case 'special': lancerSpecial(el.dataset.s); break;
 
     case 'app': choisirApp(el.dataset.c, el.dataset.s); break;
@@ -2037,8 +1725,6 @@ addEventListener('keydown', ev => {
     return;
   }
   SON.demarrer();
-  if (ecran === 'editeur' && ED) { if (ev.target && ev.target.tagName === 'INPUT') return; ev.preventDefault(); toucheEditeur(ev); return; }
-  if (ev.target && ev.target.tagName === 'TEXTAREA') { if (ev.code === 'Enter') { ev.preventDefault(); action('ed-jouer-code'); } else if (ev.code === 'Escape') action('editeur'); return; }
   const enJeu = ecran === 'jeu';
   if (enJeu && J && J.mode === 'fantome') {
     // la barre du rejeu se pilote comme les menus : les touches de déplacement choisissent un bouton, Espace / Entrée l'activent
@@ -2089,7 +1775,7 @@ addEventListener('keydown', ev => {
   }
   if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini' || J.mode === 'defi') && !ev.repeat) { action('recommencer'); return; }
   // une touche tenue dans un menu : on attend 0,4 s, puis on avance doucement (5 fois par seconde), jamais au rythme du clavier
-  if (/^(Arrow|Key[WASD]$)/.test(ev.code) && ecran !== 'editeur') {
+  if (/^(Arrow|Key[WASD]$)/.test(ev.code)) {
     const now = performance.now();
     if (!ev.repeat) { menuRep.debut = now; menuRep.der = now; }
     else { if (now - menuRep.debut < 400 || now - menuRep.der < 190) { ev.preventDefault(); return; } menuRep.der = now; }
@@ -2187,22 +1873,8 @@ setInterval(() => {
   const dir = b & 51;
   const fl = (bits) => { if (bits & 1) toucheVirtuelle('ArrowDown', { repet: bits === -1 }); if (bits & 2) toucheVirtuelle('ArrowUp'); if (bits & 16) toucheVirtuelle('ArrowRight'); if (bits & 32) toucheVirtuelle('ArrowLeft'); };
   if (pr & 51) { fl(pr & 51); manetteRep = dir; manetteRepT = Date.now() + 400; }
-  else if (dir && dir === manetteRep && Date.now() > manetteRepT) { fl(dir); manetteRepT = Date.now() + (ecran === 'editeur' ? 70 : 190); }
+  else if (dir && dir === manetteRep && Date.now() > manetteRepT) { fl(dir); manetteRepT = Date.now() + 190; }
   else if (!dir) manetteRep = 0;
-  if (ecran === 'editeur' && ED) {
-    // A poser (maintenu = peindre) · B effacer · X / Y case suivante / précédente · LB / RB catégorie · LT / RT annuler / rétablir · Select tester · Start quitter
-    if (pr & 4) toucheVirtuelle('Space'); if (lache & 4) toucheVirtuelle('Space', { haut: true });
-    if (pr & 8) toucheVirtuelle('Backspace');
-    if (pr & 64) toucheVirtuelle('KeyE');
-    if (pr & 128) toucheVirtuelle('KeyQ');
-    if (pr & 256) toucheVirtuelle('Tab', { maj: true });
-    if (pr & 512) toucheVirtuelle('Tab');
-    if (pr & 1024) toucheVirtuelle('KeyZ', { ctrl: true });
-    if (pr & 2048) toucheVirtuelle('KeyY', { ctrl: true });
-    if (pr & 4096) toucheVirtuelle('KeyT');
-    if (pr & 8192) toucheVirtuelle('Escape');
-    return;
-  }
   if (rejeuEnCours) {                                     // rejeu : A pause, ↑ ↓ vitesse, ← → ±5 s, B quitter
     if (pr & 4) toucheVirtuelle('Space');
     if (pr & 8) toucheVirtuelle('Escape');
