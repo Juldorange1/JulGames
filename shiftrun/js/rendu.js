@@ -628,7 +628,7 @@ function dessiner(e, fantome, hud, dt) {
   {
     // nuit noire : tout est sombre, sauf un éclair de temps en temps (adouci si « réduire les flashs »)
     const nuitT = hud && hud.nuit >= 0 ? hud.nuit % 200 : -1, eclair = nuitT >= 0 && nuitT < 26 ? (1 - nuitT / 26) * (ACCES && ACCES.sansFlash ? 0.35 : 0.85) : 0;
-    const sombre = hud && hud.brouillard ? 0.93 : nuitT >= 0 ? 0.97 - eclair : (th.nuit || 0.38) * 0.75;      // le paysage du fond reste visible
+    const sombre = hud && hud.brouillardFort ? 0.985 : hud && hud.brouillard ? 0.93 : nuitT >= 0 ? 0.97 - eclair : (th.nuit || 0.38) * 0.75;      // le paysage du fond reste visible
     if (!ombreCv || ombreCv.width !== Math.ceil(vw) || ombreCv.height !== Math.ceil(vh)) { ombreCv = document.createElement('canvas'); ombreCv.width = Math.ceil(vw); ombreCv.height = Math.ceil(vh); }
     const o = ombreCv.getContext('2d');
     o.globalCompositeOperation = 'source-over';
@@ -642,7 +642,7 @@ function dessiner(e, fantome, hud, dt) {
       l.addColorStop(0, `rgba(0,0,0,${f})`); l.addColorStop(0.6, `rgba(0,0,0,${f * 0.45})`); l.addColorStop(1, 'rgba(0,0,0,0)');
       o.fillStyle = l; o.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
-    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillard ? 85 : nuitT >= 0 ? 105 : 120) : 260, 1);
+    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillardFort ? 52 : hud.brouillard ? 85 : nuitT >= 0 ? 105 : 120) : 260, 1);
     for (const [x, y, c, r] of dyn.lumieres) if (vis(x, y)) trou(x * T + 8, y * T + 8, r * 2.2 * (0.92 + 0.08 * Math.sin(temps * 5 + x)), 0.95);
     g.drawImage(ombreCv, ox, oy, vw, vh);
   }

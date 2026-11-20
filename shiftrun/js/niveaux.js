@@ -89,6 +89,75 @@ for (let zi = 0; zi < 8; zi++) for (let k = 0; k < 6; k++) if ((zi > 0 || k >= 4
 function effetDe(zi, k) { const i = AVEC_EFFET.indexOf(zi * 6 + k); return i < 0 ? undefined : EFFETS_NIV[i % EFFETS_NIV.length]; }
 // vue : certains niveaux sont vus de plus près, d'autres d'un peu plus loin
 function zoomDe(zi, k) { if (zi === 0 && k < 3) return 1; const v = ((zi * 6 + k) * 53 + 7) % 3; return v === 0 ? 1.2 : v === 1 ? 0.86 : 1; }
+// panneaux d'aide des premiers niveaux : chaque obstacle est expliqué juste avant sa première salle (dans deux niveaux au plus)
+const AIDES = [
+  ['x', 'Sol fêlé : en solide, en l’air, appuie sur Bas pour le briser (fracas). Saute juste après pour rebondir.'],
+  ['s', 'Ressort : marche dessus, il te lance très haut.'],
+  ['c', 'Sol cassant : il cède peu après ton passage. Ne t’arrête pas dessus.'],
+  ['b', 'Sol rebondissant : il te relance. Lâche Espace pour rebondir moins haut.'],
+  ['F', 'Arbalète : elle tire à intervalles réguliers. Passe juste après une flèche.'],
+  ['O', 'Orbe jaune : appuie sur saut en la touchant pour sauter en plein air.'],
+  ['()', 'Tremplin vert : il te projette loin sur le côté.'],
+  ['kRB', 'Interrupteur : touche-le pour échanger les blocs rouges et bleus.'],
+  ['Hh', 'Flèche verte : sauts plus hauts un moment. Flèche orange : sauts plus courts.'],
+  ['EY', 'Ennemi : il fait des allers-retours. Évite-le ou passe au bon moment.'],
+  ['S', 'Sauteur : il bondit sur place. Passe quand il est en l’air.'],
+  ['I', 'Volant : il plane dans les airs. Ne le touche pas.'],
+  ['L12345', 'Laser : il s’allume par moments. Un clignotement prévient juste avant.'],
+  ['K', 'Pilon : un bloc d’acier tombe du plafond. Passe juste après sa chute.'],
+  ['zZ', 'Scie : elle balaie le passage. Passe juste derrière elle.'],
+  ['C', 'Orbite : des scies tournent autour d’un pivot. Passe quand elles sont de l’autre côté.'],
+  ['t', 'Brûleur : il crache des flammes par moments. Attends qu’il s’éteigne.'],
+  ['f', 'Feu : il tue le solide. Le liquide qui le touche devient gaz.'],
+  ['g', 'Geyser : une colonne d’eau jaillit par moments et projette tout en haut.'],
+  ['U', 'Champignon : il te renvoie au loin.'],
+  ['MN', 'Plateforme mobile : saute dessus, elle te porte.'],
+  ['|', 'Plateformes en rythme : elles apparaissent et disparaissent en cadence.'],
+  ['wuy', 'Eau : on y nage. Le courant pousse dans un sens.'],
+  ['[]', 'Tapis roulant : il t’emporte. Saute depuis le tapis pour garder l’élan.'],
+  ['i', 'Glace : on y glisse. Freine tôt.'],
+  ['=~%arlnmjv', 'Barrière de couleur : seul l’état de sa couleur la traverse. Change d’état juste avant.'],
+  ['789', 'Cristal barré : cet état est interdit quelques secondes. Passe autrement.'],
+  [':;&', 'Plaque : elle te transforme tout de suite, sans dépenser de charge.'],
+  ['PQ', 'Téléporteur : il t’envoie à la sortie de même couleur, en gardant ta vitesse.'],
+  ['><AV', 'Vent : il te pousse dans le sens des flèches.'],
+  ['{}WX', 'Bord bouclé : sortir d’un côté fait revenir de l’autre.'],
+  ['oD', 'Bouton : il ouvre la porte qui le suit.'],
+  ['+d', 'Clé : ramasse-la pour ouvrir la porte à serrure plus loin.'],
+  ['JT', 'Levier : il ouvre et ferme les grilles.'],
+  ['/"', 'Minuteur : il ouvre la porte un court moment. Dépêche-toi.'],
+  [',', 'Zone sans pesanteur : tu flottes, chaque saut te pousse.'],
+  ['_', 'Broyeur : un mur de scies te poursuit. Ne ralentis pas.'],
+  ['!', 'Drapeau : point de sauvegarde. Si tu tombes, tu repars du dernier drapeau touché.'],
+  ['^', 'Pics : le moindre contact est mortel. Prends ton élan avant de sauter.'],
+  ['e', 'Cristal rose ◆ : il est au bout d’un long chemin secret. Le prendre donne le temps « avec l’éclat ».']];
+const dejaAide = {};
+function aides(r, pan) {
+  const l = r.carte.map(x => x.split('')), H = l.length, faits = new Set(), poses = [];
+  // les panneaux du départ, dans l'ordre
+  const dep = []; for (let y = 0; y < H; y++) for (let x = 0; x < 40 && x < l[y].length; x++) if (l[y][x] === '?') dep.push([x, y]);
+  dep.sort((a, b) => a[0] - b[0]).forEach(([x, y], i) => poses.push({ x, y, t: pan[i] || '' }));
+  const b = r.bornes || [];
+  if (r.secret) {                                     // l'entrée du chemin secret de l'éclat a son panneau
+    const y = r.secret.y, cx = [r.secret.x - 2, r.secret.x + 3, r.secret.x - 3].find(x => l[y][x] === '.' && l[y + 1][x] === '#');
+    if (cx !== undefined) { l[y][cx] = '?'; faits.add('e'); poses.push({ x: cx, y, t: 'Chemin secret : grimpe dans ce puits. Tout en haut, une longue galerie cache le cristal rose ◆.' }); }
+  }
+  for (let i = 0; i < b.length; i++) {
+    const [x0, dy] = b[i], x1 = i + 1 < b.length ? b[i + 1][0] : r.fin;
+    const vus = new Set();
+    for (let x = x0; x < x1; x++) for (let y = 0; y < H; y++) vus.add(l[y][x]);
+    const a = AIDES.find(([cs]) => !faits.has(cs) && (dejaAide[cs] || 0) < 2 && [...cs].some(c => vus.has(c)));
+    if (!a) continue;
+    const y = 19 + dy;
+    const cx = [x0 + 2, x0 + 3, x0 + 1, x0 + 4].find(x => l[y] && l[y][x] === '.' && l[y + 1] && l[y + 1][x] === '#' && l[y][x - 1] !== '?' && l[y][x + 1] !== '?');
+    if (cx === undefined) continue;
+    l[y][cx] = '?'; faits.add(a[0]); dejaAide[a[0]] = (dejaAide[a[0]] || 0) + 1; poses.push({ x: cx, y, t: a[1] });
+  }
+  // le moteur lit les panneaux rangée par rangée, de gauche à droite
+  poses.sort((p, q) => p.y - q.y || p.x - q.x);
+  r.carte = l.map(x => x.join(''));
+  pan.length = 0; poses.forEach(p => pan.push(p.t));
+}
 const ZONES = DEF.map((z, zi) => ({
   id: zi + 1, nom: z.nom, theme: z.theme, phases: [S, L, Z, P],
   niveaux: z.niveaux.map((nom, k) => {
@@ -99,6 +168,7 @@ const ZONES = DEF.map((z, zi) => ({
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
     if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';        // le « boss » de la zone : le broyeur, juste avant l'arrivée
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
+    if (zi <= 1) aides(r, pan);                                // premiers niveaux : un panneau avant chaque obstacle nouveau
     const effet = effetDe(zi, k), zoom = zoomDe(zi, k);
     return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d, effet, zoom };
   })

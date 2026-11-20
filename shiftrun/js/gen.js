@@ -1198,6 +1198,83 @@ function etatsAuHasard(rng, impose, nb) {
   }
   return nb < 3 ? [S, L] : [S, L, Z];
 }
+/* Chemin secret de l'éclat ◆ : un puits part du plafond du couloir, monte jusqu'à une longue galerie cachée tout en haut
+   du niveau (au-dessus de plusieurs salles), pleine de pièges, avec l'éclat au milieu ; elle retombe dans le couloir
+   plusieurs salles plus loin. La grille gagne 16 rangées en haut pour elle. Sans place pour lui, l'ancien détour reste. */
+const HAUT_SECRET = 16;
+const INTERDIT_SECRET = new Set(['+', 'd', 'o', 'D', 'J', 'T', 'k', 'R', 'B', '/', '"', 'P', 'Q', 'p', 'q', 'G', '@', '_']);
+function cheminSecret(g, bornes, rng, etats) {
+  const ok = COMPAT.alcove0 ? COMPAT.alcove0.some(x => etats.includes(x)) : etats.includes(S);
+  if (!ok || bornes.length < 5) return null;
+  const Hs = HAUT_SECRET, W = g.w;
+  const rows = []; for (let y = 0; y < Hs; y++) { const r = []; for (let x = 0; x < W; x++) r.push('#'); rows.push(r); }
+  const l = rows.concat(g.l), H = l.length;
+  const B = bornes.map(([x, dy, nom]) => [x, dy + Hs, nom]);
+  // colonne de puits possible : couloir libre au sol, et roche pleine entre son plafond et la galerie (murs compris)
+  const puits = (c, dy, haut) => {
+    const y = 19 + dy;
+    for (const x of [c, c + 1]) if (!l[y] || l[y][x] !== '.' || l[y + 1][x] !== '#') return -1;
+    let yc = y; while (yc > 0 && l[yc][c] === '.' && l[yc][c + 1] === '.') yc--;
+    if (l[yc][c] !== '#' || l[yc][c + 1] !== '#') return -1;
+    for (let yy = haut; yy <= yc; yy++) for (const x of [c - 1, c, c + 1, c + 2]) if (l[yy][x] !== '#') return -1;
+    return yc;
+  };
+  const cands = [];
+  for (let i = 1; i < B.length - 2; i++) for (let j = i + 2; j < B.length; j++) {
+    const xa = B[i][0], xb = B[j][0], lg = xb - xa;
+    if (lg < 60) continue;
+    if (lg > 150) break;
+    let bon = true;
+    for (let x = xa; x < xb + 5 && bon; x++) for (let y = Hs; y < H; y++) if (INTERDIT_SECRET.has(l[y][x])) { bon = false; break; }
+    if (!bon) continue;
+    const ce = [xa + 2, xa + 3, xa + 1, xa + 4].find(c => puits(c, B[i][1], 9) >= 0);
+    const cx = [xb + 2, xb + 3, xb + 1, xb + 4].find(c => puits(c, B[j][1], 9) >= 0);
+    if (ce === undefined || cx === undefined) continue;
+    cands.push({ ce, dyE: B[i][1], cx, dyS: B[j][1], lg });
+  }
+  if (!cands.length) return null;
+  cands.sort((a, b) => (a.dyE - b.dyE) || (b.lg - a.lg));          // un puits pas trop haut, une galerie longue
+  const k = cands[Math.floor(rng() * Math.min(3, cands.length))];
+  // on enlève l'éclat de l'ancien détour (sa galerie reste, sans récompense)
+  for (let y = Hs; y < H; y++) for (let x = 0; x < W; x++) if (l[y][x] === 'e') l[y][x] = '.';
+  g.l = l; g.h = H;
+  const s = salle(g, 0, -2);            // rangées du détour : galerie 4 à 10, sol 11  →  ici 2 à 8, sol 9
+  // montée : puits de 2 cases, marches fines toutes les 3 rangées (on les traverse par-dessous)
+  const ycE = puits(k.ce, k.dyE, 9), ySol = 19 + k.dyE;
+  for (let y = 9; y <= ycE; y++) { l[y][k.ce] = '.'; l[y][k.ce + 1] = '.'; }
+  for (let y = ySol - 3; y >= 9; y -= 3) { l[y][k.ce] = '-'; l[y][k.ce + 1] = '-'; }
+  l[9][k.ce] = '-'; l[9][k.ce + 1] = '-';
+  // descente : un trou dans le sol de la galerie jusqu'au plafond du couloir
+  const ycS = puits(k.cx, k.dyS, 9);
+  for (let y = 9; y <= ycS; y++) { l[y][k.cx] = '.'; l[y][k.cx + 1] = '.'; }
+  // la galerie et ses pièges, par tronçons (les mêmes que ceux du détour, faisables par les mêmes états)
+  s.c(k.ce - 1, 4, k.cx + 2, 10);
+  const x0 = k.ce + 4, x1 = k.cx - 3, V = [0, 2, 3, 4, 5, 7, 1];
+  let v = Math.floor(rng() * V.length), xs = x0;
+  const tron = [];
+  while (xs + 14 <= x1) {
+    const lgT = Math.min(x1 - xs, 18 + Math.floor(rng() * 6)), a = xs, b = xs + lgT, t = V[v++ % V.length];
+    if (t === 0) for (let x = a; x < b - 1; x += 4) s.n(x, 10, 2, '^');
+    else if (t === 1) {
+      s.c(a, 11, b, 11); s.n(a, 12, b - a + 1, '^');
+      for (let x = a + 7; x < b; x += 8) s.r(x, 9, x, 11);
+      for (let x = a; x < b - 2; x += 8) s.p(x, 9, 'M');
+    }
+    else if (t === 2) for (let x = a; x < b; x += 4) s.p(x, 3, 'L');
+    else if (t === 3) for (let x = a; x < b; x += 4) s.p(x, 4, 'K');
+    else if (t === 4) for (let x = a + 2; x < b - 2; x += 7) s.p(x, 7, 'C');
+    else if (t === 5) for (let x = a; x < b; x += 3) s.p(x, ((x - a) / 3) % 2 ? 11 : 3, 't');
+    else { for (let x = a; x < b - 4; x += 7) { s.p(x, 10, '#'); s.p(x + 3, 10, 'E'); } for (let x = a + 5; x < b; x += 9) s.p(x, 4, 'Y'); }
+    tron.push([a, b, t]);
+    xs = b + 3;
+  }
+  if (!tron.length) { const m = Math.floor((x0 + x1) / 2); s.p(m, 7, 'e'); }
+  else {
+    const [a, b, t] = tron[Math.floor(tron.length / 2)], m = Math.floor((a + b) / 2);
+    s.p(m, t === 2 || t === 3 ? 9 : t === 4 ? 9 : 6, 'e');
+  }
+  return { x: k.ce, y: ySol, sortie: k.cx, ySortie: 19 + k.dyS };
+}
 const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3), style = styleNiveau(hasard(graine * 13 + 11));
@@ -1211,7 +1288,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   // de préférence une cachette faisable avec l'état de départ du niveau (sans dépendre d'un changement d'état)
   let alcoves = ALCOVES.filter(a => compatible(a, et0) && (COMPAT[a] || []).includes(et0[0]));
   if (!alcoves.length) alcoves = ALCOVES.filter(a => compatible(a, et0));
-  const suite = [], compte = {};
+  const suite = [], compte = {}, bornes = [];            // bornes : début de chaque salle [x, décalage, nom]
   // une salle sur deux exige une des autres transformations, à tour de rôle : le Parfait doit toutes les jouer ;
   // une salle sur quatre fait monter, descendre ou revenir vers la gauche
   const autres = et0.slice(1), parEtat = {};
@@ -1233,13 +1310,15 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
     if (i === Math.floor(nb / 2) && alcoves.length) x = poser(g, x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, { dy: oy });
     const glace = t.endsWith('*'), x0 = x, oy0 = oy, nom = glace ? t.slice(0, -1) : t;
     x = poser(g, x, nom, rng, d + (rng() - 0.5) * 0.08, { glace, varier: !SALLES[nom].decale, rngV, dy: oy, style });
+    bornes.push([x0, oy0, nom]);
     oy += SALLES[nom].decale || 0;
     if (i > 0 && i % 2 === 0) salle(g, x0, oy0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
   }
   x = fin(g, x, oy);
   for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
   elaguerDrapeaux(g.l);
-  return { carte: g.carte(), suite };
+  const secret = cheminSecret(g, bornes, hasard(graine * 17 + 5), etats || [S, L, Z]);
+  return { carte: g.carte(), suite, bornes: secret ? bornes.map(([bx, dy, nm]) => [bx, dy + HAUT_SECRET, nm]) : bornes, fin: x, secret };
 }
 
 /* ---------- Mode infini ---------- */

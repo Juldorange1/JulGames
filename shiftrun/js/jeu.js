@@ -164,14 +164,14 @@ function charger(idx, opts) {
 }
 function fantomePour(id) {
   const choix = S.reglages.fantome;
-  let s = null;
+  let s = null, ecl = false;
   if (choix === 'record' && S.il[id] && S.il[id].f) s = S.il[id].f;
-  else if (choix === 'parfait' && PARF[id]) s = PARF[id].f;
+  else if (BOTS[choix] && BOTS[choix][id]) { const p = BOTS[choix][id]; ecl = !!(S.reglages.fantEclat && p.fe); s = ecl ? p.fe : p.f; }
   if (!s) return null;
   const ent = M.decompresser(s);
   while (ent.length && !ent[0]) ent.shift();
   const n = M.charger(LISTE[parId[id]].def);
-  return { n, e: M.nouvelEtat(n), ent, i: 0 };
+  return { n, e: M.nouvelEtat(n), ent, i: 0, eclat: ecl };
 }
 // chaque niveau a sa musique à lui (54 morceaux)
 function musiqueNiveau(idx) {
@@ -196,7 +196,7 @@ function regarder(idx, cle) {
   const c = charger(idx);
   const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'facile' ? 'le bot facile' : cle === 'humain' ? 'le bot humain' : cle === 'humain-eclat' ? 'le bot humain avec l’éclat ◆' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'facile' ? 'le robot Difficile' : cle === 'facile-eclat' ? 'le robot Difficile avec l’éclat ◆' : cle === 'humain' ? 'le robot Professionnel' : cle === 'humain-eclat' ? 'le robot Professionnel avec l’éclat ◆' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(musiqueNiveau(idx));
 }
@@ -359,7 +359,7 @@ function lancerSurvie() {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, k = graine % 7;
   const THM = ['orage', 'chaufferie', 'usine', 'glacier', 'abysses', 'coeur', 'carriere', 'aqueduc'];
   const A = k < 4 ? ARENES[k] : { id: 'hasard', nom: 'Arène inconnue', theme: THM[graine % THM.length] };
-  const def = { id: 'survie', nom: 'Survivant', phases: [0, 5, 4], etats: [0, 5, 4], carte: k < 4 ? areneSurvie(A.id) : areneHasard(graine), panneaux: [] };
+  const def = { id: 'survie', nom: 'Survivant', phases: [0, 3, 4], etats: [0, 3, 4], carte: k < 4 ? areneSurvie(A.id) : areneHasard(graine), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, () => A.theme);
   recadrer = true;
@@ -474,7 +474,10 @@ function majSurvie() {
     // écraser : il faut lui tomber dessus (en l'air, en descente, les pieds encore au-dessus de son centre juste avant)
     const piedsAv = J.ePrec ? Math.max(...M.formeJoueur(J.ePrec).filter((_, i) => i % 2 === 1)) : Infinity;
     const tombe = J.ePrec ? !J.ePrec.sol && J.ePrec.vy > 0 : !e.sol && e.vy > 0;
-    if (tombe && piedsAv <= cy - m.r * 0.2 + Math.max(0, m.vy) && m.type !== 'herisse') {
+    if (e.phase === M.P && e.dash > 0 && m.type !== 'herisse') {       // l'éclair de plasma traverse et détruit l'ennemi
+      J.monstres.splice(k, 1); J.kills++; S.cumul.kills++; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
+      if (m.type === 'diviseur') for (const s2 of [-1, 1]) { const p2 = nouveauMonstre('petit', m.x + s2 * 6, m.y); p2.dir = s2; p2.vy = -4; J.monstres.push(p2); }
+    } else if (tombe && piedsAv <= cy - m.r * 0.2 + Math.max(0, m.vy) && m.type !== 'herisse') {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
@@ -542,12 +545,58 @@ function varianteDefi(per) {
   if (k % 3 === 1) return { type: 'bas', m: 250, nom: 'Abîme de 250 m', but: 'Une descente vertigineuse de 250 mètres.' };
   return { type: 'course', nom: 'Parcours', but: P.but };
 }
+// ce qui rend les défis de la semaine et du mois différents des niveaux : des règles poussées à l'extrême
+const TWISTS = {
+  lasers: ['🔴', 'Lasers partout', 'des lasers balayeurs pivotent au-dessus de tout le parcours'],
+  brouillardFort: ['🌫', 'Brouillard épais', 'on ne voit presque rien autour de soi'],
+  quatre: ['4️⃣', 'Quatre transformations', 'une quatrième transformation, sur sa propre touche'],
+  rebond: ['🏀', 'Rebonds ×2', 'ressorts, sols rebondissants, champignons et tremplins lancent deux fois plus haut'],
+  sauts: ['🦘', 'Sauts ×1,7', 'chaque saut monte bien plus haut'],
+  nuit: ['🌙', 'Nuit noire', 'presque rien n’est éclairé, des éclairs montrent le chemin'],
+  rapide: ['⏩', 'Vitesse ×1,5', 'tout va une fois et demie plus vite'],
+  unecharge: ['1️⃣', 'Une seule charge', 'une seule transformation entre deux recharges']
+};
+const ORDRE_TWISTS = ['lasers', 'quatre', 'rebond', 'brouillardFort', 'sauts', 'nuit', 'rapide', 'unecharge'];
+function twistsDefi(per) {
+  const cle = per === 'semaine' ? cleSemaine() : cleMois(), k = parseInt(cle.slice(1), 10), va = varianteDefi(per);
+  const ok = ORDRE_TWISTS.filter(t => va.type === 'course' || t !== 'lasers');
+  const a = ok[(k * 5 + (per === 'mois' ? 3 : 0)) % ok.length];
+  if (per === 'semaine') return [a];
+  const vision = ['brouillardFort', 'nuit'], vitesse = ['rapide'];
+  const b = ok.filter(t => t !== a && !(vision.includes(a) && vision.includes(t)) && !(vitesse.includes(a) && vitesse.includes(t)))[(k * 3 + 1) % (ok.length - 2)];
+  return [a, b];
+}
+function texteTwists(per) { return twistsDefi(per).map(t => TWISTS[t][0] + ' ' + tr(TWISTS[t][1])).join(' · '); }
+// lasers partout : un balayeur au plafond du couloir partout où il y a la place (loin des autres pièges)
+function ajouterLasers(carte) {
+  const l = carte.map(r => r.split('')), W = l[0].length, mortel = new Set(['1', '2', '3', '4', '5', '^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_', '@', 'G', '!', 'e', '?']);
+  let der = -99;
+  for (let x = 10; x < W - 10; x++) {
+    if (x - der < 6) continue;
+    if (l[13][x] !== '#' || l[20][x] === '.') continue;
+    let bon = true;
+    for (let y = 14; y <= 19 && bon; y++) if (l[y][x] !== '.') bon = false;
+    for (let xx = x - 2; xx <= x + 2 && bon; xx++) for (let y = 10; y <= 22; y++) if (mortel.has(l[y][xx])) { bon = false; break; }
+    if (!bon) continue;
+    l[13][x] = '5'; der = x;
+  }
+  return l.map(r => r.join(''));
+}
 function lancerDefiLong(per, msg) {
   const P = PERIODES[per], cle = per === 'semaine' ? cleSemaine() : cleMois();
   const graine = [...cle].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
-  const va = varianteDefi(per);
-  const r = va.type === 'course' ? Gen.defi(graine, { nb: P.nb, d: P.d }) : Gen.vertical(graine % 100000, va.type, va.m);
-  const def = { id: 'defi', nom: P.nom, phases: r.etats.slice(), etats: r.etats, carte: r.carte, panneaux: [] };
+  const va = varianteDefi(per), tw = twistsDefi(per);
+  let etats4 = null;
+  if (tw.includes('quatre')) {                         // quatre transformations : les salles s'en servent aussi
+    etats4 = Gen.etatsAuHasard(Gen.hasard(graine * 3 + 1), undefined, 4);
+  }
+  const r = va.type === 'course' ? Gen.defi(graine, { nb: P.nb, d: P.d, etats: etats4 || undefined }) : Gen.vertical(graine % 100000, va.type, va.m);
+  if (etats4 && r.etats.length < 4) { const reste = Gen.TOUS_ETATS.filter(x => !r.etats.includes(x)); r.etats = r.etats.concat([reste[graine % reste.length]]); }
+  if (tw.includes('lasers')) r.carte = ajouterLasers(r.carte);
+  const mods = { saut: tw.includes('sauts') ? 1.3 : 1, rebond: tw.includes('rebond') ? 1.41 : 1, uneCharge: tw.includes('unecharge') };
+  for (const t of tw) mods[t] = true;
+  const def = { id: 'defi', nom: P.nom, phases: r.etats.slice(), etats: r.etats, carte: r.carte, panneaux: [], mods };
+  if (!msg) msg = texteTwists(per);
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, (x) => Gen.THEMES_INF[(graine + Math.floor(x / 90)) % 8]);
   recadrer = true;
@@ -643,7 +692,7 @@ function recommencer() {
   if (J.mode === 'tuto') { lancerTuto(); return; }
   if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(drapeauActif()); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
-  else if (J.mode === 'fantome') regarder(J.idx, J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat');
+  else if (J.mode === 'fantome') regarder(J.idx, J.cleRejeu || (J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat'));
   else if (J.mode === 'course') {
     // en course, R ramène au dernier drapeau (le chrono continue)
     if (J.e.mortT === 0 && J.e.demarre) { J.e.mortT = 1; J.e.morts++; }
@@ -700,11 +749,11 @@ function statsHTML() {
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
 let nivEntrainement = false, nivBot = false, botEclat = false, botType = 'parfait';      // onglets de l'écran des niveaux
 // les trois robots : facile (faisable par un humain), humain (très dur), Parfait (le plus rapide possible, joué le plus simplement)
-const NOMS_BOT = { facile: '🙂 Facile', humain: '🧑 Humain (très dur)', parfait: '🤖 Parfait' };
+const NOMS_BOT = { facile: '🙂 Difficile', humain: '🧑 Professionnel', parfait: '🤖 Extrême' };
 const NOTES_BOT = {
-  facile: 'Bot facile : chaque touche est tenue au moins un tiers de seconde et il garde de la marge. Un humain peut le suivre.',
-  humain: 'Il va le plus vite possible en restant reproductible : chaque touche est tenue au moins 0,2 s, sans astuce à l’image près.',
-  parfait: 'Choisis un niveau pour regarder le robot le finir en temps Parfait. Parmi les façons d’y arriver, il prend la plus simple.' };
+  facile: 'Robot Difficile : chaque touche est tenue au moins une demi-seconde et il garde beaucoup de marge. Le plus simple à recopier.',
+  humain: 'Robot Professionnel : le plus vite possible en restant reproductible, chaque touche tenue au moins 0,2 s, sans astuce à l’image près.',
+  parfait: 'Robot Extrême : il finit en temps Parfait. Parmi les façons d’y arriver, il prend la plus simple.' };
 function boutonsBot(action, choisi) { return ['facile', 'humain', 'parfait'].map(t => `<button class="btn mini ${choisi === t ? 'choisi' : ''}" data-a="${action}" data-v="${t}">${tr(NOMS_BOT[t])}</button>`).join(''); }
 function drapeauxNiveau() {
   const n = J.n, out = [];
@@ -785,12 +834,14 @@ function allerDrapeau(k) {
 function lancerFantomeEntr(k) {
   const p = botDe(S.fantEntr)[J.L.id];
   if (!p || !p.f) { J.fantome = null; return; }
+  const eclE = !!(S.reglages.fantEclat && p.fe);
   const fl = drapeauxNiveau();
   if (!J.botDrap) {                                     // une seule fois : on rejoue le Parfait et on note chaque drapeau
-    const ent = M.decompresser(p.f); while (ent.length && !ent[0]) ent.shift();
+    const ent = M.decompresser(eclE ? p.fe : p.f); while (ent.length && !ent[0]) ent.shift();
     const n = M.charger(LISTE[J.idx].def), e = M.nouvelEtat(n), pris = new Map(), pres = new Map();
     for (let i = 0; i < ent.length + 60 && !e.fini; i++) {
       M.pas(n, e, ent[i] || 0);
+      if (eclE && e.fini && !e.eclat) e.fini = false;
       if (e.cp) { const c = e.cp.tx + ',' + e.cp.ty; if (!pris.has(c)) pris.set(c, i + 1); }
       fl.forEach(([fx, fy]) => { const c = fx + ',' + fy, d = Math.hypot(e.x - fx * M.T, e.y - fy * M.T); if (!pres.has(c) || d < pres.get(c)[0]) pres.set(c, [d, i + 1]); });
     }
@@ -806,7 +857,7 @@ function lancerFantomeEntr(k) {
     if (Math.hypot(e.x - x0, e.y - y0) > 24) { e.x = x0; e.y = y0; e.vx = 0; e.vy = 0; }    // il n'était pas passé par là : on l'y place
     e.mortT = 0; e.fini = false;
   }
-  J.fantome = { n: B.n, e, ent: B.ent, i, entr: true };
+  J.fantome = { n: B.n, e, ent: B.ent, i, entr: true, eclat: eclE };
   J.attenteG = true;                                     // il ne repart qu'à notre prochaine touche
 }
 // on repart d'un drapeau : plateformes, scies, lasers… sont exactement là où le robot les a trouvés à ce drapeau
@@ -931,6 +982,7 @@ function pas() {
   const fige = J.mode === 'niveau' && J.entrainement && J.attenteG && J.fantome && J.e.demarre && J.e.mortT === 0 && !(inp & ~(J.inpAv || 0));
   if (fige) { J.inpAv = inp; J.e.ev = 0; return; }
   M.pas(J.n, J.e, inp);
+  if (J.entrainement && (J.e.ev & M.EV.INVINCIBLE)) J.e.invT = 0;   // entraînement : aucune invincibilité en réapparaissant
   compterStats(J.e, x0, y0);
   if (J.mode !== 'fantome') noterDrapeau();
   if (J.mode === 'survie') majSurvie();
@@ -949,7 +1001,7 @@ function pas() {
   if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini) S.tempsJeu = (S.tempsJeu || 0) + 1;
   if (J.attenteG && (inp & ~(J.inpAv || 0))) J.attenteG = false;   // entraînement : une nouvelle touche relance le robot
   J.inpAv = inp;
-  if (J.fantome && J.e.demarre && !J.attenteG) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); }
+  if (J.fantome && J.e.demarre && !J.attenteG) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); if (f.eclat && f.e.fini && !f.e.eclat) f.e.fini = false; }
   if (!avant && J.e.demarre) recadrer = false;
   const ev = J.e.ev;
   if (J.mode === 'niveau' && J.entrainement && (ev & (M.EV.DRAPEAU | M.EV.INVINCIBLE))) {   // arrivé à un drapeau (ou reparti de lui) : le robot repart de là aussi
@@ -1089,7 +1141,7 @@ function dessiner(dt) {
     if (p.broy >= 0 && J.e.broy >= 0 && Math.abs(J.e.broyX - p.broyX) < 40) e.broyX = p.broyX + (J.e.broyX - p.broyX) * a;
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { brouillard: effet('brouillard'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { brouillard: effet('brouillard') || effet('brouillardFort'), brouillardFort: effet('brouillardFort'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -1176,7 +1228,7 @@ function dessiner(dt) {
       else hud.lignes.push({ t: tr('Parfait atteint !'), c: '#7dff9a' });
       if (il && il.t != null && e.temps > il.t) hud.couleurChrono = '#ffb0b0';
     }
-    if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', tr(S.reglages.fantome === 'parfait' ? 'Parfait' : 'record')), c: '#888' });
+    if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', BOTS[S.reglages.fantome] ? tr(NOMS_BOT[S.reglages.fantome]) + (J.fantome.eclat ? ' ◆' : '') : tr('record')), c: '#888' });
   }
   if (!e.demarre) hud.attente = J.entrainement ? tr('Bouge pour commencer : le robot part avec toi') : tr('Bouge pour lancer le chrono');
   if (S.reglages.entrees) { hud.entrees = J.inp || 0; hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]); }
@@ -1267,8 +1319,8 @@ function accueil() {
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
-    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
-    ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
+    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom) + ' · ' + texteTwists('semaine'), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
+    ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom) + ' · ' + texteTwists('mois'), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
     ${carte('aide', '❓ ' + tr('Comment jouer'), tr('les états, les pièges, les touches'))}
@@ -1320,7 +1372,7 @@ function niveaux() {
   if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
   let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement || nivBot ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini ' + (nivBot ? 'choisi' : '') + '" data-a="mode-bot">🤖 ' + tr('Regarder un robot') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
     + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p><div class="onglets"><button class="btn mini" data-a="entr-defi" data-c="semaine">🎯 📅 ' + tr('Défi de la semaine') + '</button><button class="btn mini" data-a="entr-defi" data-c="mois">🎯 🗓 ' + tr('Défi du mois') + '</button></div>' : '')
-    + (nivBot ? '<div class="onglets">' + boutonsBot('bot-type', botType) + (botType !== 'facile' ? '<button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">' + (botEclat ? '☑' : '☐') + ' ◆ ' + tr('Avec l’éclat') + '</button>' : '') + '</div><p class="note">' + tr(NOTES_BOT[botType]) + '</p>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
+    + (nivBot ? '<div class="onglets">' + boutonsBot('bot-type', botType) + (true ? '<button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">' + (botEclat ? '☑' : '☐') + ' ◆ ' + tr('Avec l’éclat') + '</button>' : '') + '</div><p class="note">' + tr(NOTES_BOT[botType]) + '</p>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
   }).join('') + '</div><div class="zones une">';
@@ -1332,7 +1384,7 @@ function niveaux() {
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
-      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botType !== 'facile' && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
+      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
         <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
@@ -1408,9 +1460,10 @@ function reglages() {
    <div class="son-bloc ${r.coupe ? 'coupe' : ''}"><div class="son-barres">
     <label>${tr('Bruitages')} <input type="range" min="0" max="1" step="0.05" value="${r.sons}" data-r="sons" ${r.coupe ? 'disabled' : ''}></label>
     <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique" ${r.coupe ? 'disabled' : ''}></label></div>
-    <button class="btn" data-a="couper-son">${r.coupe ? '🔇 ' + tr('Remettre le son') : '🔊 ' + tr('Couper le son')}</button></div>
+    <button class="btn mini son-btn" data-a="couper-son" title="${tr(r.coupe ? 'Remettre le son' : 'Couper le son')}" aria-label="${tr(r.coupe ? 'Remettre le son' : 'Couper le son')}">${r.coupe ? '🔇' : '🔊'}</button></div>
    <label>${tr('Langue')} <select data-r="langue">${Object.entries(window.Langue.LANGUES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('')}</select></label>
-   <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option><option value="parfait">${tr('Le Parfait')}</option></select></label>
+   <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option>${['facile', 'humain', 'parfait'].map(t => `<option value="${t}">${tr(NOMS_BOT[t])}</option>`).join('')}</select></label>
+   <label><span>${tr('Le fantôme prend l’éclat ◆ (cristal rose)')}</span> <input type="checkbox" data-r="fantEclat" ${r.fantEclat ? 'checked' : ''}></label>
    <label>${tr('Commandes tactiles')} <select data-r="tactile"><option value="auto">${tr('Auto')}</option><option value="oui">${tr('Toujours')}</option><option value="non">${tr('Jamais')}</option></select></label>
    <label>${tr('Afficher les touches à l’écran')} <input type="checkbox" data-r="entrees" ${r.entrees ? 'checked' : ''}></label>
    <label>${tr('Plein écran')} <input type="checkbox" data-r="pleinEcran" ${document.fullscreenElement ? 'checked' : ''}></label></div>`;
@@ -1447,13 +1500,12 @@ const EFFETS = { brouillard: ['🌫', 'Brouillard', 'on ne voit que tout près d
 // vitesse du jeu donnée par l'effet du niveau (le chrono compte les images : seul le temps réel change)
 function vitEffet() {
   if (!J || !J.L || !J.L.def || !J.e) return 1;
-  const f = J.L.def.effet;
-  if (f === 'rapide') return 1.5;
-  if (f === 'acceleration') return 1 + 0.6 * Math.max(0, Math.min(1, J.e.x / (J.n.w * M.T)));
-  if (f === 'pulsation') return 1.1 + 0.25 * Math.sin(J.e.temps * Math.PI * 2 / 240);
+  if (effet('rapide')) return 1.5;
+  if (effet('acceleration')) return 1 + 0.6 * Math.max(0, Math.min(1, J.e.x / (J.n.w * M.T)));
+  if (effet('pulsation')) return 1.1 + 0.25 * Math.sin(J.e.temps * Math.PI * 2 / 240);
   return 1;
 }
-const effet = (nom) => !!(J && J.L && J.L.def && J.L.def.effet === nom);
+const effet = (nom) => !!(J && J.L && J.L.def && (J.L.def.effet === nom || (J.L.def.mods && J.L.def.mods[nom] === true)));
 
 // 5 objectifs par niveau : finir, sans chute, médaille d'or, l'éclat ◆, sans aucune compétence
 const OBJECTIFS = [['Finir le niveau', '🏁'], ['Sans aucune chute', '💚'], ['Médaille d’or ou mieux', '🥇'], ['Prendre l’éclat ◆', '◆'], ['Sans utiliser de compétence', '🚫']];
@@ -1574,6 +1626,7 @@ function prendreBonus(id) {
   else if (id === 'bouclier') J.bouclier = J.salle + 2;
   else if (id === 'tresor') expe().frag += 5 + Math.floor((J.salle + (J.base || 0)) / 2);   // peu au début : survivre rapporte autant
   J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 8;
+  J.e.invT = Math.max(J.e.invT, M.K.invincible);              // comme à une réapparition : un instant d'invincibilité
   ecran = 'jeu'; cacherUI();
 }
 function finExpedition() {
@@ -1689,7 +1742,7 @@ function pause() {
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
-    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}</div>` : ''}
+    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}<button class="btn mini ${S.reglages.fantEclat ? 'choisi' : ''}" data-a="fant-eclat">${S.reglages.fantEclat ? '☑' : '☐'} ◆ ${tr('Avec l’éclat')}</button></div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
     <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
@@ -1723,12 +1776,14 @@ function action(a, el) {
     case 'bot-avec': botEclat = !botEclat; niveaux(); break;            // deux cases indépendantes : éclat et humain
     case 'bot-type': botType = el.dataset.v; niveaux(); break;
     case 'voir-facile': regarder(i, 'facile'); break;
+    case 'voir-facile-eclat': regarder(i, 'facile-eclat'); break;
     case 'voir-humain': regarder(i, 'humain'); break;
     case 'voir-humain-eclat': regarder(i, 'humain-eclat'); break;
     case 'entrainer': lancerNiveau(i); J.entrainement = true; doublerDrapeaux(); lancerFantomeEntr(0); break;
     case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; drapeauxNiveau(); doublerDrapeaux(); J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
     case 'fant-entr': S.fantEntr = el.dataset.v; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); break;
+    case 'fant-eclat': { S.reglages.fantEclat = !S.reglages.fantEclat; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); const b = ui.querySelector('[data-a=fant-eclat]'); if (b) b.focus(); break; }
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;

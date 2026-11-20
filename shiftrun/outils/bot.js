@@ -22,7 +22,7 @@ for (const a of args) {
   else if (a === '--remplacer') opt.remplacer = true;
   else if (a === '--fusion') {}
   else if (a === '--humain') { opt.humain = true; opt.pasK = 12; opt.affiner = 0; opt.danger = 160; }
-  else if (a === '--facile') { opt.humain = true; opt.facile = true; opt.pasK = 20; opt.affiner = 0; opt.danger = 260; }   // bot « facile » : touches tenues 1/3 s, grosse marge   // bot « humain » : chaque touche tenue au moins 0,2 s, pas d'astuce à l'image près
+  else if (a === '--facile') { opt.humain = true; opt.facile = true; opt.pasK = 30; opt.affiner = 0; opt.danger = 340; }   // bot « Difficile » : touches tenues 1/2 s, très grosse marge   // bot « humain » : chaque touche tenue au moins 0,2 s, pas d'astuce à l'image près
   else if (a.startsWith('--affiner=')) opt.affiner = +a.split('=')[1];
   else if (a.startsWith('--danger=')) opt.danger = +a.split('=')[1];
   else ids.push(a);
@@ -444,7 +444,7 @@ for (const def of cibles) {
   }
   let r = chercher(def, false);
   // passage trop serré : touches un peu plus courtes
-  if (opt.humain) for (const k of (opt.facile ? [14, 10, 8] : [8])) { if (r.ok) break; const k0 = opt.pasK; opt.pasK = k; r = chercher(def, false); opt.pasK = k0; }
+  if (opt.humain) for (const k of (opt.facile ? [24, 18, 14, 10] : [8])) { if (r.ok) break; const k0 = opt.pasK; opt.pasK = k; r = chercher(def, false); opt.pasK = k0; }
   let ligne = def.id.padEnd(5) + ' ' + (def.nom || '').padEnd(26);
   if (!r.ok) { echecs++; ligne += ' ÉCHEC (bloqué à ~' + r.meilleur + ' cases du but)'; }
   else {
@@ -452,7 +452,8 @@ for (const def of cibles) {
     if (opt.ecrire) enregistrer(def.id, { h, t: r.temps, f: M.compresser(r.entrees) });
   }
   if (opt.eclat && M.charger(def).aEclat) {
-    const r2 = chercherEclat(def, r);
+    let r2 = chercherEclat(def, r);
+    if (opt.humain) for (const k of (opt.facile ? [24, 18, 14, 10] : [8])) { if (r2.ok) break; const k0 = opt.pasK; opt.pasK = k; r2 = chercherEclat(def, r); opt.pasK = k0; }
     if (!r2.ok) { echecs++; ligne += ' | éclat : ÉCHEC'; }
     else {
       ligne += ' | éclat ' + (r2.temps / 60).toFixed(3) + ' s';

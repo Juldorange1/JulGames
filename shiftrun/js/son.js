@@ -192,7 +192,14 @@ function jouerMusique(cle) {
   const l = lecteur(cle);
   l.cible = 1;
 }
-function attenuer(oui) { baisseCible = oui ? 0.4 : 1; }
+let baisseMenu = 1, baisseFenetre = 1;
+function attenuer(oui) { baisseMenu = oui ? 0.25 : 1; baisseCible = Math.min(baisseMenu, baisseFenetre); }
+// la fenêtre du jeu n'est plus au premier plan (autre fenêtre, autre onglet) : le son baisse beaucoup
+function fenetre(active) { baisseFenetre = active ? 1 : 0.12; baisseCible = Math.min(baisseMenu, baisseFenetre); }
+if (typeof addEventListener === 'function' && typeof document !== 'undefined') {
+  addEventListener('blur', () => fenetre(false)); addEventListener('focus', () => fenetre(true));
+  document.addEventListener('visibilitychange', () => fenetre(!document.hidden));
+}
 // fin de niveau proche : la musique accélère un peu et monte doucement (0 = normal, 1 = tout près de l'arrivée)
 let intens = 0;
 // tempo propre à chaque musique de niveau (plus rapide pour les niveaux courts et durs), sans changer la hauteur des notes
@@ -233,5 +240,5 @@ function mixer() {
   }
 }
 
-racine.Son = { tempoMusique, intensite, demarrer, evenements, volumes, jouerMusique, attenuer, jouer, bruitMenu };
+racine.Son = { tempoMusique, intensite, demarrer, evenements, volumes, jouerMusique, attenuer, fenetre, jouer, bruitMenu };
 })(window);

@@ -76,8 +76,10 @@ function charger(def) {
   let phases = 0;
   for (const p of (def.phases || et)) phases |= 1 << p;
   const n = { def, phases, emplacements: et, base: et[0], capacites: def.capacites !== false };
-  n.uneCharge = def.effet === 'unecharge';
-  n.mulSautN = def.effet === 'grandsSauts' ? 1.22 : 1;            // effet de niveau : sauts géants
+  const mods = def.mods || {};                                       // modificateurs des défis de la semaine et du mois
+  n.uneCharge = def.effet === 'unecharge' || !!mods.uneCharge;
+  n.mulSautN = def.effet === 'grandsSauts' ? 1.22 : (mods.saut || 1);   // effet de niveau : sauts géants
+  n.mulRebond = mods.rebond || 1;                                    // rebonds ×2 : ressorts, sols rebondissants, champignons, tremplins
   n.horsEtats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !et.includes(p)).sort((a, b) => ((a * 7 + et.length * 3 + et[0]) % 10) - ((b * 7 + et.length * 3 + et[0]) % 10));
   recharger(n, def.carte);
   if (!n.dep) throw new Error('Pas de départ @ dans ' + def.id);
@@ -1165,7 +1167,7 @@ function pas(n, e, inp) {
   if (hitBas && e.phase !== Z && e.phase !== OM && vyPre > 1) {
     const sous = contact(n, e, 0);
     if (sous === REBONDI) {
-      e.vy = -Math.max(K.rebondMin, vyPre * 0.9 + (e.slam ? 2 : 0)); e.slam = false; e.att = 0;
+      e.vy = -Math.max(K.rebondMin * (n.mulRebond || 1), vyPre * 0.9 + (e.slam ? 2 : 0)); e.slam = false; e.att = 0;
       if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
       e.charges = K.charges; e.ev |= EV.BOND; e.evX = e.x + W / 2; e.evY = e.y + H;
     }
@@ -1284,8 +1286,8 @@ function pas(n, e, inp) {
     } else if (t === RESSORT) {
       if (!rectRect(e, bx + 1, by + 5, bx + T - 1, by + T) || e.vy < 0 || e.dansEau) continue;
       const fort = e.phase === S && (e.slam || e.slamAt > 0);
-      if (e.phase === Z) e.vy = -4.6;
-      else { e.vy = -(fort ? K.ressortFracas : K.ressort); if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; } }
+      if (e.phase === Z) e.vy = -4.6 * (n.mulRebond || 1);
+      else { e.vy = -(fort ? K.ressortFracas : K.ressort) * (n.mulRebond || 1); if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; } }
       e.slam = false; e.slamAt = 0; e.sol = false; e.att = 0; e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
     } else if (t === INTER) {
       const k = tx * 1024 + ty;
@@ -1293,7 +1295,7 @@ function pas(n, e, inp) {
     } else if (t === TREMP_G || t === TREMP_D) {            // tremplin latéral : projette sur le côté
       if (rectRect(e, bx + 2, by + 6, bx + 14, by + T) && e.tremCd <= 0) {
         const dir = t === TREMP_D ? 1 : -1;
-        e.vx = dir * K.tremplinVx; e.vy = -K.tremplinVy; e.att = 0; e.slam = false; e.sol = false; e.tremCd = 12;
+        e.vx = dir * K.tremplinVx; e.vy = -K.tremplinVy * (n.mulRebond || 1); e.att = 0; e.slam = false; e.sol = false; e.tremCd = 12;
         if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
         e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
       }
@@ -1339,7 +1341,7 @@ function pas(n, e, inp) {
       if (e.champCd <= 0 && rectCercle(e, ccx, ccy, K.champiRayon)) {
         let dx = e.x + W / 2 - ccx, dy = e.y + H / 2 - ccy;
         const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-        e.vx = dx * K.champiForce; e.vy = dy * K.champiForce - 1.4; e.champCd = 10; e.slam = false; e.att = 0; e.sol = false; e.plat = -1;
+        e.vx = dx * K.champiForce; e.vy = (dy * K.champiForce - 1.4) * (n.mulRebond || 1); e.champCd = 10; e.slam = false; e.att = 0; e.sol = false; e.plat = -1;
         if (e.phase === P) { e.phase = n.base; e.dash = 0; e.cdP = K.pRecharge; }
         e.charges = K.charges; e.ev |= EV.RESSORT; e.evX = tx; e.evY = ty;
       }
