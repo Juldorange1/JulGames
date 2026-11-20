@@ -77,6 +77,7 @@ function charger(def) {
   for (const p of (def.phases || et)) phases |= 1 << p;
   const n = { def, phases, emplacements: et, base: et[0], capacites: def.capacites !== false };
   n.uneCharge = def.effet === 'unecharge';
+  n.mulSautN = def.effet === 'grandsSauts' ? 1.22 : 1;            // effet de niveau : sauts géants
   n.horsEtats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(p => !et.includes(p)).sort((a, b) => ((a * 7 + et.length * 3 + et[0]) % 10) - ((b * 7 + et.length * 3 + et[0]) % 10));
   recharger(n, def.carte);
   if (!n.dep) throw new Error('Pas de départ @ dans ' + def.id);
@@ -740,7 +741,8 @@ function zonePics(n, tx, ty) {
   }
 }
 
-function mulSaut(e) { return e.temps < e.bonusT ? e.bonus : 1; }
+let mulNiv = 1;                                                    // multiplicateur de saut du niveau (fixé au début de chaque pas)
+function mulSaut(e) { return (e.temps < e.bonusT ? e.bonus : 1) * mulNiv; }
 function approche(v, c, d) { return v < c ? Math.min(c, v + d) : Math.max(c, v - d); }
 
 // devenir un état qui ne passe pas là où l'on se trouve : écrasé
@@ -874,6 +876,7 @@ function projectiles(n, e) {
 
 /* ---------- Un pas de simulation ---------- */
 function pas(n, e, inp) {
+  mulNiv = n.mulSautN || 1;
   e.ev = 0;
   if (e.fini) return;
   e.f++;

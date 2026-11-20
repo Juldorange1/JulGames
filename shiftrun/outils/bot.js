@@ -10,7 +10,7 @@ const NIV = require('../js/niveaux.js');
 const T = M.T;
 
 const args = process.argv.slice(2);
-const opt = { faisceau: 900, pasK: 4, eclat: false, ecrire: false, max: 15000, parCase: 3, danger: 96, affiner: 20000, verbeux: !!require.main && require.main.filename === __filename };
+const opt = { faisceau: 900, pasK: 4, eclat: false, ecrire: false, max: 15000, parCase: 3, danger: 96, affiner: 20000, simplifier: 8000, verbeux: !!require.main && require.main.filename === __filename };
 const ids = [];
 for (const a of args) {
   if (a.startsWith('--faisceau=')) opt.faisceau = +a.split('=')[1];
@@ -21,7 +21,8 @@ for (const a of args) {
   else if (a === '--trace') opt.trace = true;
   else if (a === '--remplacer') opt.remplacer = true;
   else if (a === '--fusion') {}
-  else if (a === '--humain') { opt.humain = true; opt.pasK = 12; opt.affiner = 0; opt.danger = 160; }   // bot « humain » : chaque touche tenue au moins 0,2 s, pas d'astuce à l'image près
+  else if (a === '--humain') { opt.humain = true; opt.pasK = 12; opt.affiner = 0; opt.danger = 160; }
+  else if (a === '--facile') { opt.humain = true; opt.facile = true; opt.pasK = 20; opt.affiner = 0; opt.danger = 260; }   // bot « facile » : touches tenues 1/3 s, grosse marge   // bot « humain » : chaque touche tenue au moins 0,2 s, pas d'astuce à l'image près
   else if (a.startsWith('--affiner=')) opt.affiner = +a.split('=')[1];
   else if (a.startsWith('--danger=')) opt.danger = +a.split('=')[1];
   else ids.push(a);
@@ -163,6 +164,26 @@ function affiner(n, entrees, A, avecEclat) {
       etats = instantanes(meilleur);
       sigs = etats; tpsRef = tps;
     }
+  }
+  // à temps égal, le plus simple : on fusionne les changements de touche tant que l'arrivée reste à la même image
+  if (opt.simplifier > 0) {
+    const changes = (ent) => { let c = 0; for (let k = 1; k < ent.length; k++) if (ent[k] !== ent[k - 1]) c++; return c; };
+    let nc = changes(meilleur);
+    const c0 = nc;
+    for (let it = 0; it < opt.simplifier; it++) {
+      const len = meilleur.length;
+      const i = 1 + Math.floor(alea() * (len - 1));
+      if (meilleur[i] === meilleur[i - 1]) continue;
+      const Lg = 1 + Math.floor(alea() * 10), cand = meilleur.slice();
+      let i0, fen;
+      if (alea() < 0.5) { for (let k = i; k < Math.min(len, i + Lg); k++) cand[k] = meilleur[i - 1]; i0 = i; fen = i + Lg; }       // la touche d'avant dure plus longtemps
+      else { i0 = Math.max(0, i - Lg); for (let k = i0; k < i; k++) cand[k] = meilleur[i]; fen = i; }                         // la touche d'après commence plus tôt
+      const c = changes(cand);
+      if (c >= nc) continue;
+      const t = finir(etats[i0] || M.nouvelEtat(n), cand, i0, tps + 1, Math.min(len, fen + 1));
+      if (t <= tps) { meilleur = cand; nc = c; etats = instantanes(meilleur); sigs = etats; }
+    }
+    if (opt.verbeux) console.log('   simplification : ' + c0 + ' → ' + nc + ' changements de touche');
   }
   if (opt.verbeux) console.log('   affinage : ' + (debut / 60).toFixed(3) + ' → ' + (tps / 60).toFixed(3) + ' s');
   return { entrees: meilleur, temps: tps };
@@ -375,8 +396,8 @@ function chercherEclat(def, r0) {
 }
 module.exports = { chercher, chercherEclat, opt, champ, lire };
 if (require.main === module) {
-const fichier = path.join(__dirname, '..', 'js', opt.humain ? 'humains.js' : 'parfaits.js');
-const dossier = path.join(__dirname, opt.humain ? 'humains' : 'parfaits');
+const fichier = path.join(__dirname, '..', 'js', opt.facile ? 'faciles.js' : opt.humain ? 'humains.js' : 'parfaits.js');
+const dossier = path.join(__dirname, opt.facile ? 'faciles' : opt.humain ? 'humains' : 'parfaits');
 if (!fs.existsSync(dossier)) fs.mkdirSync(dossier);
 function fusionner() {
   const PARFAITS = {};
@@ -385,8 +406,8 @@ function fusionner() {
     if (d.te !== undefined && (d.t === undefined || d.te < d.t)) { d.t = d.te; d.f = d.fe; }   // le parcours avec l'éclat peut être le plus rapide
     PARFAITS[f.slice(0, -5)] = d.te !== undefined ? { t: d.t, f: d.f, te: d.te, fe: d.fe } : { t: d.t, f: d.f };
   }
-  const nomV = opt.humain ? 'HUMAINS' : 'PARFAITS';
-  const corps = '/* Généré par outils/bot.js' + (opt.humain ? ' --humain : parcours reproductibles du bot « humain »' : ' : temps « Parfait » (en images à 60 par seconde) et fantôme du robot') + '. */\n' +
+  const nomV = opt.facile ? 'FACILES' : opt.humain ? 'HUMAINS' : 'PARFAITS';
+  const corps = '/* Généré par outils/bot.js' + (opt.facile ? ' --facile : parcours du bot « facile » (faisable par un humain)' : opt.humain ? ' --humain : parcours reproductibles du bot « humain »' : ' : temps « Parfait » (en images à 60 par seconde) et fantôme du robot') + '. */\n' +
     '(function (r) {\nconst ' + nomV + ' = ' + JSON.stringify(PARFAITS, null, 0).replace(/\},"/g, '},\n"') + ';\n' +
     "if (typeof module !== 'undefined' && module.exports) module.exports = " + nomV + "; else r." + nomV + " = " + nomV + ";\n" +
     "})(typeof window !== 'undefined' ? window : globalThis);\n";
@@ -394,7 +415,7 @@ function fusionner() {
 }
 const crypto = require('crypto');
 const EMPREINTE_MOTEUR = crypto.createHash('md5').update(fs.readFileSync(path.join(__dirname, '..', 'js', 'moteur.js'))).digest('hex').slice(0, 10);
-function empreinte(def) { return crypto.createHash('md5').update(EMPREINTE_MOTEUR + JSON.stringify(def.etats) + def.carte.join('\n')).digest('hex').slice(0, 12); }
+function empreinte(def) { return crypto.createHash('md5').update(EMPREINTE_MOTEUR + JSON.stringify(def.etats) + (def.effet || '') + def.carte.join('\n')).digest('hex').slice(0, 12); }
 function enregistrer(id, champs) {
   const f = path.join(dossier, id + '.json');
   let d = {}; try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (err) { d = {}; }
@@ -420,7 +441,8 @@ for (const def of cibles) {
     if (d && d.h === h && d.t !== undefined && (!opt.eclat || !M.charger(def).aEclat || d.te !== undefined)) { console.log(def.id.padEnd(5) + ' inchangé'); continue; }
   }
   let r = chercher(def, false);
-  if (!r.ok && opt.humain) { const k0 = opt.pasK; opt.pasK = 8; r = chercher(def, false); opt.pasK = k0; }   // passage trop serré : touches un peu plus courtes
+  // passage trop serré : touches un peu plus courtes
+  if (opt.humain) for (const k of (opt.facile ? [14, 10, 8] : [8])) { if (r.ok) break; const k0 = opt.pasK; opt.pasK = k; r = chercher(def, false); opt.pasK = k0; }
   let ligne = def.id.padEnd(5) + ' ' + (def.nom || '').padEnd(26);
   if (!r.ok) { echecs++; ligne += ' ÉCHEC (bloqué à ~' + r.meilleur + ' cases du but)'; }
   else {

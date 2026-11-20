@@ -3,7 +3,10 @@
 'use strict';
 const M = window.Moteur, NIV = window.Niveaux, R = window.Rendu, SON = window.Son, Gen = window.Gen, tr = window.Langue.t;
 const PARF = window.PARFAITS || {};
-const HUM = window.HUMAINS || {};                 // bot « humain » : plus lent, mais reproductible
+const HUM = window.HUMAINS || {};                 // bot « humain » : plus lent, mais reproductible (très dur pour un humain)
+const FAC = window.FACILES || {};                 // bot « facile » : touches tenues longtemps, faisable par un humain
+const BOTS = { facile: FAC, humain: HUM, parfait: PARF };
+const botDe = (t) => BOTS[t] || PARF;
 const MUET = /[?&]muet\b/.test(location.search);
 
 /* ---------- Liste des niveaux ---------- */
@@ -187,13 +190,13 @@ function lancerNiveau(idx) {
   S.cumul.rejeux++;
 }
 function regarder(idx, cle) {
-  const id = LISTE[idx].id, p = cle === 'record' ? S.il[id] : cle.startsWith('humain') ? HUM[id] : PARF[id];
+  const id = LISTE[idx].id, p = cle === 'record' ? S.il[id] : cle.startsWith('humain') ? HUM[id] : cle.startsWith('facile') ? FAC[id] : PARF[id];
   const fz = cle.endsWith('-eclat') ? (p && p.fe) : (p && p.f);
   if (!fz) return;
   const c = charger(idx);
   const ent = M.decompresser(fz);
   while (ent.length && !ent[0]) ent.shift();
-  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'humain' ? 'le bot humain' : cle === 'humain-eclat' ? 'le bot humain avec l’éclat ◆' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
+  J = Object.assign(c, { mode: 'fantome', cleRejeu: cle, vitesse: 1, pauseRejeu: false, idx, rejeu: ent, ri: 0, quoi: cle === 'record' ? 'ton record' : cle === 'facile' ? 'le bot facile' : cle === 'humain' ? 'le bot humain' : cle === 'humain-eclat' ? 'le bot humain avec l’éclat ◆' : cle === 'parfait-eclat' ? 'le Parfait avec l’éclat ◆' : 'le Parfait' });
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(musiqueNiveau(idx));
 }
@@ -360,7 +363,10 @@ function lancerSurvie() {
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, () => A.theme);
   recadrer = true;
-  J = { mode: 'survie', arene: A, n, e, entrees: [], L: { id: 'survie', def, zi: 0 }, salle: 0, finT: 0, monstres: [], balles: [], kills: 0, maxEnnemis: 0, spawnT: 180, vague: 0, alea: (Date.now() % 100000) + 1 };
+  // on commence à son record moins 15 ennemis écrasés, avec la difficulté qui va avec (vague = ennemis déjà apparus)
+  const depart = Math.max(0, ((S.survie && S.survie.kills) || 0) - 15);
+  J = { mode: 'survie', arene: A, n, e, entrees: [], L: { id: 'survie', def, zi: 0 }, salle: 0, finT: 0, monstres: [], balles: [], kills: depart, depart, maxEnnemis: 0, spawnT: 180, vague: depart, alea: (Date.now() % 100000) + 1 };
+  if (depart > 0) { message = tr('Départ à {0} ennemis écrasés (ton record − 15)', depart); messageT = 150; }
   S.essais++;
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
@@ -692,7 +698,14 @@ function statsHTML() {
     <div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>`;
 }
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
-let nivEntrainement = false, nivBot = false, botEclat = false, botHumain = false;      // onglets de l'écran des niveaux
+let nivEntrainement = false, nivBot = false, botEclat = false, botType = 'parfait';      // onglets de l'écran des niveaux
+// les trois robots : facile (faisable par un humain), humain (très dur), Parfait (le plus rapide possible, joué le plus simplement)
+const NOMS_BOT = { facile: '🙂 Facile', humain: '🧑 Humain (très dur)', parfait: '🤖 Parfait' };
+const NOTES_BOT = {
+  facile: 'Bot facile : chaque touche est tenue au moins un tiers de seconde et il garde de la marge. Un humain peut le suivre.',
+  humain: 'Il va le plus vite possible en restant reproductible : chaque touche est tenue au moins 0,2 s, sans astuce à l’image près.',
+  parfait: 'Choisis un niveau pour regarder le robot le finir en temps Parfait. Parmi les façons d’y arriver, il prend la plus simple.' };
+function boutonsBot(action, choisi) { return ['facile', 'humain', 'parfait'].map(t => `<button class="btn mini ${choisi === t ? 'choisi' : ''}" data-a="${action}" data-v="${t}">${tr(NOMS_BOT[t])}</button>`).join(''); }
 function drapeauxNiveau() {
   const n = J.n, out = [];
   for (let x = 0; x < n.w; x++) for (let y = 0; y < n.h; y++) if (n.g[y * n.w + x] === M.DRAPEAU) out.push([x, y]);
@@ -706,6 +719,59 @@ function drapeauxNiveau() {
   out.sort((a, b) => (n.ordreDrap[a[1] * n.w + a[0]] >>> 0) - (n.ordreDrap[b[1] * n.w + b[0]] >>> 0));
   return out;
 }
+// entraînement : deux fois plus de drapeaux. Un drapeau de plus au milieu de chaque tronçon, là où un robot
+// s'est tenu debout (niveaux) ou, sans robot (défis), sur une case où l'on tient debout à mi-chemin.
+function doublerDrapeaux() {
+  const n = J.n, w = n.w, g = n.g;
+  const debout = (tx, ty) => tx > 0 && ty > 1 && tx < w - 1 && ty < n.h - 1 && g[ty * w + tx] === M.VIDE && g[(ty - 1) * w + tx] === M.VIDE && g[(ty + 1) * w + tx] === M.MUR &&
+    ![g[ty * w + tx - 1], g[ty * w + tx + 1], g[(ty - 1) * w + tx - 1], g[(ty - 1) * w + tx + 1]].some(k => k === M.PICS || k === M.FEU || k === M.EAU);
+  const loinDe = (tx, ty, fl) => fl.every(([x, y]) => Math.abs(x - tx) + Math.abs(y - ty) > 4);
+  const fl = drapeauxNiveau(), ajout = [];
+  const src = J.mode === 'niveau' ? [HUM, PARF, FAC].map(b => b[J.L.id]).find(p => p && p.f) : null;
+  if (src) {
+    // on rejoue le robot sur le niveau d'origine et on note où il était à chaque image, et quand il a pris chaque drapeau
+    const nn = M.charger(J.L.def), e = M.nouvelEtat(nn), ent = M.decompresser(src.f), pos = [], prises = [0];
+    while (ent.length && !ent[0]) ent.shift();
+    let cp = null;
+    for (let i = 0; i < ent.length && !e.fini; i++) {
+      M.pas(nn, e, ent[i]);
+      pos.push(e.sol && e.vy >= 0 && e.mortT === 0 ? [Math.floor((e.x + M.W / 2) / M.T), Math.floor((e.y + M.H - 1) / M.T)] : null);
+      if (e.cp && e.cp !== cp) { cp = e.cp; prises.push(i); }
+    }
+    prises.push(pos.length - 1);
+    // autant de drapeaux en plus qu'il y en a déjà (au moins un) : chaque fois dans le tronçon le plus long à ce moment-là
+    const seg = [];
+    for (let k = 0; k + 1 < prises.length; k++) if (prises[k + 1] - prises[k] >= 80) seg.push({ a: prises[k], b: prises[k + 1], c: 0 });
+    for (let r = 0; r < Math.max(1, fl.length) && seg.length; r++) seg.reduce((x, y) => (y.b - y.a) / (y.c + 1) > (x.b - x.a) / (x.c + 1) ? y : x).c++;
+    for (const sg of seg) for (let j = 1; j <= sg.c; j++) {
+      const m = Math.round(sg.a + (sg.b - sg.a) * j / (sg.c + 1)), lim = (sg.b - sg.a) / (sg.c + 1) / 2.2;
+      for (let d = 0; d < lim; d++) {
+        const c = [m + d, m - d].map(i => pos[i]).find(q => q && debout(q[0], q[1]) && loinDe(q[0], q[1], fl.concat(ajout)));
+        if (c) { ajout.push(c); break; }
+      }
+    }
+  } else {
+    const dist = n.ordreDrap, cle = (x, y) => dist[y * w + x];
+    let but = 0;
+    for (let i = 0; i < w * n.h; i++) if (g[i] === M.BUT && dist[i] > but) but = dist[i];
+    const bornes = [0].concat(fl.map(([x, y]) => cle(x, y)), [but]);
+    for (let k = 0; k + 1 < bornes.length; k++) {
+      const a = bornes[k], b = bornes[k + 1], m = (a + b) / 2;
+      if (b - a < 40) continue;
+      let best = null, bd = 1e9;
+      for (let y = 1; y < n.h - 1; y++) for (let x = 1; x < w - 1; x++) {
+        const v = cle(x, y);
+        if (v < 0 || Math.abs(v - m) > (b - a) / 4 || Math.abs(v - m) >= bd || !debout(x, y) || !loinDe(x, y, fl.concat(ajout))) continue;
+        best = [x, y]; bd = Math.abs(v - m);
+      }
+      if (best) ajout.push(best);
+    }
+  }
+  if (!ajout.length) return;
+  for (const [x, y] of ajout) g[y * w + x] = M.DRAPEAU;
+  n.ordreDrap = null; J.botDrap = null;
+  R.etendre(n, 0);
+}
 // le drapeau où l'on réapparaîtrait (0 = départ)
 function drapeauActif() { const e = J.e; if (!e || !e.cp) return J.drapeauDepart || 0; const k = drapeauxNiveau().findIndex(([x, y]) => x === e.cp.tx && y === e.cp.ty); return k < 0 ? (J.drapeauDepart || 0) : k + 1; }
 function allerDrapeau(k) {
@@ -717,7 +783,7 @@ function allerDrapeau(k) {
 }
 // entraînement : le fantôme du robot (son Parfait) repart du même drapeau que toi, où qu'il ait été à ce moment-là
 function lancerFantomeEntr(k) {
-  const p = (S.fantEntr === 'humain' ? HUM : PARF)[J.L.id];
+  const p = botDe(S.fantEntr)[J.L.id];
   if (!p || !p.f) { J.fantome = null; return; }
   const fl = drapeauxNiveau();
   if (!J.botDrap) {                                     // une seule fois : on rejoue le Parfait et on note chaque drapeau
@@ -1003,7 +1069,7 @@ function boucle(t) {
   requestAnimationFrame(boucle);
   const dt = Math.min(0.1, (t - (derniere || t)) / 1000);
   derniere = t;
-  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * (effet('rapide') ? 1.5 : 1) * (J && J.entrainement && J.mode !== 'fantome' && !(J.e && J.e.mortT > 0) ? (+S.vitEntr || 1) : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
+  acc += dt * VITESSE_JEU * (+S.reglages.vitesse || 1) * vitEffet() * (J && J.entrainement && J.mode !== 'fantome' && !(J.e && J.e.mortT > 0) ? (+S.vitEntr || 1) : 1) * (J && J.ralenti && J.salle < J.ralenti ? 0.8 : 1) * (J && J.mode === 'fantome' ? (J.pauseRejeu ? 0 : J.vitesse || 1) : 1);
   barreRejeu();
   let k = 0;
   while (acc >= 1 / 60 && k < 6) { if (J) J.ePrec = M.cloner(J.e); pas(); acc -= 1 / 60; k++; }
@@ -1023,7 +1089,7 @@ function dessiner(dt) {
     if (p.broy >= 0 && J.e.broy >= 0 && Math.abs(J.e.broyX - p.broyX) < 40) e.broyX = p.broyX + (J.e.broyX - p.broyX) * a;
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { brouillard: effet('brouillard'), nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { brouillard: effet('brouillard'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -1252,9 +1318,9 @@ function choisirApp(cat, id) {
 let nivZone = -1;
 function niveaux() {
   if (nivZone < 0) { nivZone = 0; NIV.ZONES.forEach((z, zi) => { if (zoneDebloquee(zi) && z.niveaux.some(v => !(S.il[v.id] && S.il[v.id].t != null)) && nivZone === 0 && zi > 0) nivZone = zi; }); }
-  let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement || nivBot ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini ' + (nivBot ? 'choisi' : '') + '" data-a="mode-bot">🤖 ' + tr('Bot parfait') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
+  let h = '<h2>' + tr('Niveaux') + '</h2><div class="onglets"><button class="btn mini ' + (nivEntrainement || nivBot ? '' : 'choisi') + '" data-a="mode-normal">▶ ' + tr('Partie classique') + '</button><button class="btn mini ' + (nivEntrainement ? 'choisi' : '') + '" data-a="mode-entrainement">🎯 ' + tr('Entraînement') + '</button><button class="btn mini ' + (nivBot ? 'choisi' : '') + '" data-a="mode-bot">🤖 ' + tr('Regarder un robot') + '</button><button class="btn mini" data-a="tuto">🎓 ' + tr('Didacticiel') + '</button></div>'
     + (nivEntrainement ? '<p class="note">' + tr('Choisis un niveau, puis en pause choisis le drapeau d’où repartir. Rien n’est compté.') + '</p><div class="onglets"><button class="btn mini" data-a="entr-defi" data-c="semaine">🎯 📅 ' + tr('Défi de la semaine') + '</button><button class="btn mini" data-a="entr-defi" data-c="mois">🎯 🗓 ' + tr('Défi du mois') + '</button></div>' : '')
-    + (nivBot ? '<p class="note">' + tr('Choisis un niveau pour regarder le robot le finir en temps Parfait.') + '</p><div class="onglets"><button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">' + (botEclat ? '☑' : '☐') + ' ◆ ' + tr('Avec l’éclat') + '</button><button class="btn mini ' + (botHumain ? 'choisi' : '') + '" data-a="bot-humain">' + (botHumain ? '☑' : '☐') + ' 🧑 ' + tr('Bot humain (reproductible)') + '</button></div>' + (botHumain ? '<p class="note">' + tr('Il va le plus vite possible en restant reproductible : chaque touche est tenue au moins 0,2 s, sans astuce à l’image près.') + '</p>' : '') : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
+    + (nivBot ? '<div class="onglets">' + boutonsBot('bot-type', botType) + (botType !== 'facile' ? '<button class="btn mini ' + (botEclat ? 'choisi' : '') + '" data-a="bot-avec">' + (botEclat ? '☑' : '☐') + ' ◆ ' + tr('Avec l’éclat') + '</button>' : '') + '</div><p class="note">' + tr(NOTES_BOT[botType]) + '</p>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
   }).join('') + '</div><div class="zones une">';
@@ -1266,7 +1332,7 @@ function niveaux() {
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
-      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ((botHumain ? 'voir-humain' : 'voir-parfait') + (botEclat && (botHumain ? HUM : PARF)[nv.id] && (botHumain ? HUM : PARF)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && (botHumain ? HUM[nv.id] : PARF[nv.id])) ? '' : 'disabled'}>
+      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botType !== 'facile' && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
         <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
@@ -1339,10 +1405,11 @@ function reglages() {
   const PAGES = ['⚙ ' + tr('Général'), '♿ ' + tr('Accessibilité'), '⌨ ' + tr('Clavier'), '🎮 ' + tr('Manette')];
   let h = `<h2>${tr('Réglages')}</h2><div class="onglets">${PAGES.map((p, i) => `<button class="btn mini ${i === reglPage ? 'choisi' : ''}" data-a="regl-page" data-i="${i}" ${i === reglPage ? 'autofocus' : ''}>${p}</button>`).join('')}</div>`;
   if (reglPage === 0) h += `<div class="regl">
-   <button class="btn" data-a="couper-son">${S.reglages.coupe ? '🔇 ' + tr('Remettre le son') : '🔊 ' + tr('Couper le son')}</button>
+   <div class="son-bloc ${r.coupe ? 'coupe' : ''}"><div class="son-barres">
+    <label>${tr('Bruitages')} <input type="range" min="0" max="1" step="0.05" value="${r.sons}" data-r="sons" ${r.coupe ? 'disabled' : ''}></label>
+    <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique" ${r.coupe ? 'disabled' : ''}></label></div>
+    <button class="btn" data-a="couper-son">${r.coupe ? '🔇 ' + tr('Remettre le son') : '🔊 ' + tr('Couper le son')}</button></div>
    <label>${tr('Langue')} <select data-r="langue">${Object.entries(window.Langue.LANGUES).map(([c, n]) => `<option value="${c}">${n}</option>`).join('')}</select></label>
-   <label>${tr('Bruitages')} <input type="range" min="0" max="1" step="0.05" value="${r.sons}" data-r="sons"></label>
-   <label>${tr('Musique')} <input type="range" min="0" max="1" step="0.05" value="${r.musique}" data-r="musique"></label>
    <label>${tr('Fantôme en jeu')} <select data-r="fantome"><option value="aucun">${tr('Aucun')}</option><option value="record">${tr('Mon record')}</option><option value="parfait">${tr('Le Parfait')}</option></select></label>
    <label>${tr('Commandes tactiles')} <select data-r="tactile"><option value="auto">${tr('Auto')}</option><option value="oui">${tr('Toujours')}</option><option value="non">${tr('Jamais')}</option></select></label>
    <label>${tr('Afficher les touches à l’écran')} <input type="checkbox" data-r="entrees" ${r.entrees ? 'checked' : ''}></label>
@@ -1374,7 +1441,18 @@ function reglages() {
 // assistance active ou vitesse réduite : la partie ne compte pas pour les records
 function assiste() { const r = S.reglages; return !!(r.invincible || r.chargesInf || (r.vitesse && +r.vitesse < 1)); }
 // effets propres à certains niveaux (brouillard, une seule charge, vitesse ×1,5)
-const EFFETS = { brouillard: ['🌫', 'Brouillard', 'on ne voit que tout près de soi'], unecharge: ['1️⃣', 'Une seule charge', 'une seule transformation entre deux recharges'], rapide: ['⏩', 'Vitesse ×1,5', 'tout va une fois et demie plus vite'] };
+const EFFETS = { brouillard: ['🌫', 'Brouillard', 'on ne voit que tout près de soi'], unecharge: ['1️⃣', 'Une seule charge', 'une seule transformation entre deux recharges'], rapide: ['⏩', 'Vitesse ×1,5', 'tout va une fois et demie plus vite'],
+  nuit: ['🌙', 'Nuit noire', 'presque rien n’est éclairé, des éclairs montrent le chemin'], grandsSauts: ['🦘', 'Sauts géants', 'tous les sauts vont plus haut'],
+  acceleration: ['🚀', 'Accélération', 'le jeu va de plus en plus vite au fil du niveau'], pulsation: ['💓', 'Pulsation', 'le jeu accélère et ralentit en rythme'] };
+// vitesse du jeu donnée par l'effet du niveau (le chrono compte les images : seul le temps réel change)
+function vitEffet() {
+  if (!J || !J.L || !J.L.def || !J.e) return 1;
+  const f = J.L.def.effet;
+  if (f === 'rapide') return 1.5;
+  if (f === 'acceleration') return 1 + 0.6 * Math.max(0, Math.min(1, J.e.x / (J.n.w * M.T)));
+  if (f === 'pulsation') return 1.1 + 0.25 * Math.sin(J.e.temps * Math.PI * 2 / 240);
+  return 1;
+}
 const effet = (nom) => !!(J && J.L && J.L.def && J.L.def.effet === nom);
 
 // 5 objectifs par niveau : finir, sans chute, médaille d'or, l'éclat ◆, sans aucune compétence
@@ -1611,7 +1689,7 @@ function pause() {
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
-    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux"><button class="btn mini ${S.fantEntr !== 'humain' ? 'choisi' : ''}" data-a="fant-entr" data-v="parfait">${tr('Parfait (TAS)')}</button><button class="btn mini ${S.fantEntr === 'humain' ? 'choisi' : ''}" data-a="fant-entr" data-v="humain">${tr('Bot humain')}</button></div>` : ''}
+    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}</div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
     <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
@@ -1641,13 +1719,14 @@ function action(a, el) {
     case 'entrainement': case 'mode-entrainement': nivEntrainement = true; nivBot = false; J = null; ecran = 'menu'; niveaux(); break;
     case 'mode-normal': nivEntrainement = false; nivBot = false; niveaux(); break;
     case 'mode-bot': nivBot = true; nivEntrainement = false; niveaux(); break;
-    case 'couper-son': couperSon(); reglages(); break;
+    case 'couper-son': { couperSon(); reglages(); const bs = ui.querySelector('[data-a=couper-son]'); if (bs) bs.focus(); break; }
     case 'bot-avec': botEclat = !botEclat; niveaux(); break;            // deux cases indépendantes : éclat et humain
-    case 'bot-humain': botHumain = !botHumain; niveaux(); break;
+    case 'bot-type': botType = el.dataset.v; niveaux(); break;
+    case 'voir-facile': regarder(i, 'facile'); break;
     case 'voir-humain': regarder(i, 'humain'); break;
     case 'voir-humain-eclat': regarder(i, 'humain-eclat'); break;
-    case 'entrainer': lancerNiveau(i); J.entrainement = true; lancerFantomeEntr(0); break;
-    case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; J.drapeauDepart = 0; J.segT = 0; break;
+    case 'entrainer': lancerNiveau(i); J.entrainement = true; doublerDrapeaux(); lancerFantomeEntr(0); break;
+    case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; drapeauxNiveau(); doublerDrapeaux(); J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
     case 'fant-entr': S.fantEntr = el.dataset.v; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); break;
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;

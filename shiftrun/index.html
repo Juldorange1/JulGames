@@ -149,6 +149,9 @@ table.rec th { color: #a99fbd; font-weight: 600; }
 .regl label { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: rgba(255,255,255,.04); padding: 8px 12px; border-radius: 8px; }
 select, input[type=range] { font: inherit; accent-color: #ffe94a; }
 select:focus, input:focus { outline: 3px solid #ffe94a; outline-offset: 2px; }
+.son-bloc { display: flex; gap: 10px; align-items: stretch; } .son-barres { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.son-bloc > .btn { min-width: 9em; margin: 0; }
+.son-bloc.coupe .son-barres label { color: #777; } .son-bloc.coupe input[type=range] { filter: grayscale(1); opacity: .45; }
 input[type=range] { width: 220px; } input[type=checkbox] { width: 24px; height: 24px; }
 select { background: #221a33; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 3px 6px; }
 .touches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 18px; width: min(900px, 100%); }
@@ -197,19 +200,20 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=47"></script>
-<script src="js/calibrage.js?v=47"></script>
-<script src="js/compat.js?v=47"></script>
-<script src="js/gen.js?v=47"></script>
-<script src="js/niveaux.js?v=47"></script>
-<script src="js/parfaits.js?v=47"></script>
-<script src="js/humains.js?v=47"></script>
-<script src="js/paysages.js?v=47"></script>
-<script src="js/rendu.js?v=47"></script>
-<script src="js/compositeur.js?v=47"></script>
-<script src="js/son.js?v=47"></script>
-<script src="js/langues.js?v=47"></script>
-<script src="js/jeu.js?v=47"></script>
-<script src="js/vitrine.js?v=47"></script>
+<script src="js/moteur.js?v=48"></script>
+<script src="js/calibrage.js?v=48"></script>
+<script src="js/compat.js?v=48"></script>
+<script src="js/gen.js?v=48"></script>
+<script src="js/niveaux.js?v=48"></script>
+<script src="js/parfaits.js?v=48"></script>
+<script src="js/humains.js?v=48"></script>
+<script src="js/faciles.js?v=48"></script>
+<script src="js/paysages.js?v=48"></script>
+<script src="js/rendu.js?v=48"></script>
+<script src="js/compositeur.js?v=48"></script>
+<script src="js/son.js?v=48"></script>
+<script src="js/langues.js?v=48"></script>
+<script src="js/jeu.js?v=48"></script>
+<script src="js/vitrine.js?v=48"></script>
 </body>
 </html>

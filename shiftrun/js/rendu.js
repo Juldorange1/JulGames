@@ -529,7 +529,7 @@ function dessiner(e, fantome, hud, dt) {
   temps += dt || 1 / 60;
   const g = cx;
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const z = zoom();
+  const z = zoom() * (hud && hud.zoomNiv || 1);
   cam.z = z;
   const vw = LARG / z, vh = HAUT / z;
   if (niv) suivre(e, hud, vw, vh);
@@ -626,7 +626,9 @@ function dessiner(e, fantome, hud, dt) {
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
   {
-    const sombre = hud && hud.brouillard ? 0.93 : (th.nuit || 0.38) * 0.75;      // le paysage du fond reste visible
+    // nuit noire : tout est sombre, sauf un éclair de temps en temps (adouci si « réduire les flashs »)
+    const nuitT = hud && hud.nuit >= 0 ? hud.nuit % 200 : -1, eclair = nuitT >= 0 && nuitT < 26 ? (1 - nuitT / 26) * (ACCES && ACCES.sansFlash ? 0.35 : 0.85) : 0;
+    const sombre = hud && hud.brouillard ? 0.93 : nuitT >= 0 ? 0.97 - eclair : (th.nuit || 0.38) * 0.75;      // le paysage du fond reste visible
     if (!ombreCv || ombreCv.width !== Math.ceil(vw) || ombreCv.height !== Math.ceil(vh)) { ombreCv = document.createElement('canvas'); ombreCv.width = Math.ceil(vw); ombreCv.height = Math.ceil(vh); }
     const o = ombreCv.getContext('2d');
     o.globalCompositeOperation = 'source-over';
@@ -640,7 +642,7 @@ function dessiner(e, fantome, hud, dt) {
       l.addColorStop(0, `rgba(0,0,0,${f})`); l.addColorStop(0.6, `rgba(0,0,0,${f * 0.45})`); l.addColorStop(1, 'rgba(0,0,0,0)');
       o.fillStyle = l; o.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
-    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillard ? 85 : 120) : 260, 1);
+    if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillard ? 85 : nuitT >= 0 ? 105 : 120) : 260, 1);
     for (const [x, y, c, r] of dyn.lumieres) if (vis(x, y)) trou(x * T + 8, y * T + 8, r * 2.2 * (0.92 + 0.08 * Math.sin(temps * 5 + x)), 0.95);
     g.drawImage(ombreCv, ox, oy, vw, vh);
   }
@@ -1281,15 +1283,6 @@ function mobiles(g, e, ox, vw, vis) {
     g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
     if (ACCES.daltonien && (y % 2 === 0)) { g.font = '10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(SYMBOLES[ph], px + T / 2, py + T / 2 + 0.5); g.textBaseline = 'top'; }
   }
-  // trajets des plateformes et des scies qui ne vont pas tout droit : un fin pointillé pour les anticiper
-  g.save(); g.setLineDash([2, 4]); g.lineWidth = 1;
-  for (const [l2, coul, dx2, dy2] of [[niv.plates, 'rgba(255,216,74,.28)', M.K.platLarg * T / 2, M.K.platEp / 2], [niv.scies, 'rgba(255,120,120,.3)', T / 2, T / 2]]) if (l2) for (const o of l2) {
-    if (!o.tr || o.tr.pts.length < 3 || o.x * T < ox - 600 || o.x * T > ox + vw + 600) continue;
-    g.strokeStyle = coul; g.beginPath();
-    for (const q of o.tr.pts) g.lineTo(o.x * T + q[0] + dx2, o.y * T + q[1] + dy2);
-    g.closePath(); g.stroke();
-  }
-  g.restore();
   if (niv.plates) for (const p of niv.plates) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
     const [px, py] = M.plateEn(p, tD(e)), lg = M.K.platLarg * T, ep = M.K.platEp;
@@ -1326,10 +1319,9 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = '#2a2c34'; for (const [u, w2] of [[3, 3], [T - 5, 3]]) g.fillRect(a + tr + u, b + w2, 2, 2);
     if (cyc >= 72 && cyc < 76 && p.lg > 0) for (let k = 0; k < 3; k++) part(a + Math.random() * T, d2, (Math.random() - 0.5) * 2.5, -Math.random() * 1.2, 20, 'rgba(210,200,180,.6)', 1.8, 0.05);
   }
-  if (niv.orbites) for (const o of niv.orbites) {          // pivot + deux scies (cercle = hitbox), trajet en pointillé
+  if (niv.orbites) for (const o of niv.orbites) {          // pivot + deux scies (cercle = hitbox)
     if (o.x * T < ox - 600 || o.x * T > ox + vw + 600) continue;
     const cx0 = o.x * T + T / 2, cy0 = o.y * T + T / 2, r = M.K.scieRayon;
-    g.strokeStyle = 'rgba(200,210,230,.18)'; g.lineWidth = 1; g.setLineDash([3, 4]); g.beginPath(); g.arc(cx0, cy0, M.K.orbR, 0, 7); g.stroke(); g.setLineDash([]);
     const ps = M.orbiteEn(o, tD(e));
     g.strokeStyle = '#4a4e5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(ps[0][0], ps[0][1]); g.lineTo(ps[1][0], ps[1][1]); g.stroke();
     g.fillStyle = '#2a2c34'; g.beginPath(); g.arc(cx0, cy0, 4, 0, 7); g.fill(); g.fillStyle = '#8a90a0'; g.beginPath(); g.arc(cx0, cy0, 2, 0, 7); g.fill();

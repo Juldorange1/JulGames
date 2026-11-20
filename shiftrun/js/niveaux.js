@@ -82,6 +82,13 @@ function etatsDuNiveau(zi, k) {
 }
 // niveaux dont la graine a été décalée (si le robot n'y trouvait pas de chemin)
 const DECALE = { '1-3': 2, '7-2': 2, '1-1': 1, '6-4': 3, '2-2': 1, '5-1': 1, '5-3': 1, '2-3': 3, '4-4': 3, '6-2': 3, '7-6': 3 };
+// effets amusants : environ un niveau sur deux à partir de la fin de la zone 1, chacun à son tour (jamais deux fois le même d'affilée)
+const EFFETS_NIV = ['nuit', 'grandsSauts', 'rapide', 'acceleration', 'brouillard', 'pulsation', 'unecharge', 'nuit', 'grandsSauts', 'acceleration', 'pulsation', 'rapide'];
+const AVEC_EFFET = [];
+for (let zi = 0; zi < 8; zi++) for (let k = 0; k < 6; k++) if ((zi > 0 || k >= 4) && ((zi * 6 + k) * 37 + 11) % 100 < 55) AVEC_EFFET.push(zi * 6 + k);
+function effetDe(zi, k) { const i = AVEC_EFFET.indexOf(zi * 6 + k); return i < 0 ? undefined : EFFETS_NIV[i % EFFETS_NIV.length]; }
+// vue : certains niveaux sont vus de plus près, d'autres d'un peu plus loin
+function zoomDe(zi, k) { if (zi === 0 && k < 3) return 1; const v = ((zi * 6 + k) * 53 + 7) % 3; return v === 0 ? 1.2 : v === 1 ? 0.86 : 1; }
 const ZONES = DEF.map((z, zi) => ({
   id: zi + 1, nom: z.nom, theme: z.theme, phases: [S, L, Z, P],
   niveaux: z.niveaux.map((nom, k) => {
@@ -92,8 +99,8 @@ const ZONES = DEF.map((z, zi) => ({
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
     if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';        // le « boss » de la zone : le broyeur, juste avant l'arrivée
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
-    const effet = zi >= 1 && (k === 2 || (zi >= 4 && k === 4)) ? ['brouillard', 'unecharge', 'rapide'][(zi + k) % 3] : undefined;   // certains niveaux ont un effet
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d, effet };
+    const effet = effetDe(zi, k), zoom = zoomDe(zi, k);
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d, effet, zoom };
   })
 }));
 

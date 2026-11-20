@@ -10,7 +10,7 @@ const os = require('os');
 const path = require('path');
 const NIV = require('../js/niveaux.js');
 const args = process.argv.slice(2);
-const tout = args.includes('--tout'), humain = args.includes('--humain');
+const tout = args.includes('--tout'), facile = args.includes('--facile'), humain = facile || args.includes('--humain');
 const tw = args.find(a => a.startsWith('--travailleurs='));
 const N = tw ? +tw.split('=')[1] : Math.max(1, os.cpus().length - 1);
 const ids = args.filter(a => !a.startsWith('--'));
@@ -26,7 +26,7 @@ function suivant() {
   while (actifs < N && file.length) {
     const id = file.shift();
     actifs++;
-    const p = spawn(process.execPath, [bot, id, '--ecrire', '--remplacer'].concat(humain ? ['--humain', '--eclat'] : ['--eclat'], tout ? [] : ['--changes']), { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(process.execPath, [bot, id, '--ecrire', '--remplacer'].concat(facile ? ['--facile'] : humain ? ['--humain', '--eclat'] : ['--eclat'], tout ? [] : ['--changes']), { stdio: ['ignore', 'pipe', 'pipe'] });
     let sortie = '';
     p.stdout.on('data', d => { sortie += d; });
     p.stderr.on('data', d => { sortie += d; });
@@ -42,7 +42,7 @@ function suivant() {
   }
 }
 function terminer() {
-  execFileSync(process.execPath, [bot, '--fusion'].concat(humain ? ['--humain'] : []), { stdio: 'inherit' });
+  execFileSync(process.execPath, [bot, '--fusion'].concat(facile ? ['--facile'] : humain ? ['--humain'] : []), { stdio: 'inherit' });
   if (!humain) try { execFileSync(process.execPath, [path.join(__dirname, 'verifier-parfaits.js')], { stdio: 'inherit' }); } catch (e) { /* il signale lui-même */ }
   console.log('Fini en ' + ((Date.now() - t0) / 60000).toFixed(1) + ' min, ' + echecs + ' niveau(x) avec un échec.');
   process.exitCode = echecs ? 1 : 0;
