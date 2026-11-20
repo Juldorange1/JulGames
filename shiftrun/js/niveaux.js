@@ -129,19 +129,16 @@ const AIDES = [
   [',', 'Zone sans pesanteur : tu flottes, chaque saut te pousse.'],
   ['_', 'Broyeur : un mur de scies te poursuit. Ne ralentis pas.'],
   ['!', 'Drapeau : point de sauvegarde. Si tu tombes, tu repars du dernier drapeau touché.'],
-  ['^', 'Pics : le moindre contact est mortel. Prends ton élan avant de sauter.'],
-  ['e', 'Cristal rose ◆ : il est au bout d’un long chemin secret. Le prendre donne le temps « avec l’éclat ».']];
+  ['^', 'Pics : le moindre contact est mortel. Prends ton élan avant de sauter.']];
 const dejaAide = {};
+// plus aucun éclat ◆ (cristal rose) dans les niveaux classiques
+const sansEclat = (c) => c.map(r => r.replace(/e/g, '.'));
 function aides(r, pan) {
   const l = r.carte.map(x => x.split('')), H = l.length, faits = new Set(), poses = [];
   // les panneaux du départ, dans l'ordre
   const dep = []; for (let y = 0; y < H; y++) for (let x = 0; x < 40 && x < l[y].length; x++) if (l[y][x] === '?') dep.push([x, y]);
   dep.sort((a, b) => a[0] - b[0]).forEach(([x, y], i) => poses.push({ x, y, t: pan[i] || '' }));
   const b = r.bornes || [];
-  if (r.secret) {                                     // l'entrée du chemin secret de l'éclat a son panneau
-    const y = r.secret.y, cx = [r.secret.x - 2, r.secret.x + 3, r.secret.x - 3].find(x => l[y][x] === '.' && l[y + 1][x] === '#');
-    if (cx !== undefined) { l[y][cx] = '?'; faits.add('e'); poses.push({ x: cx, y, t: 'Chemin secret : grimpe dans ce puits. Tout en haut, une longue galerie cache le cristal rose ◆.' }); }
-  }
   for (let i = 0; i < b.length; i++) {
     const [x0, dy] = b[i], x1 = i + 1 < b.length ? b[i + 1][0] : r.fin;
     const vus = new Set();
@@ -170,7 +167,7 @@ const ZONES = DEF.map((z, zi) => ({
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
     if (zi <= 1) aides(r, pan);                                // premiers niveaux : un panneau avant chaque obstacle nouveau
     const effet = effetDe(zi, k), zoom = zoomDe(zi, k);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: r.carte, suite: r.suite, d, effet, zoom };
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: sansEclat(r.carte), suite: r.suite, d, effet, zoom };
   })
 }));
 
@@ -216,7 +213,7 @@ ZONES.push({ id: 9, nom: 'Le Sommet', theme: 'orage', phases: [S, L, Z, P], nive
   let g0 = 9100 + k * 17 + (DECALE['9-' + (k + 1)] || 0), etats = Gen.etatsAuHasard(Gen.hasard(g0), undefined, 3);
   while (etats.includes(8)) etats = Gen.etatsAuHasard(Gen.hasard(g0 += 1000), undefined, 3);   // pas de Glace au Sommet
   const v = Gen.sommet(7300 + k * 41 + (DECALE['9-' + (k + 1)] || 0), etats, k, 0.85 + k * 0.05);
-  return { id: '9-' + (k + 1), nom, phases: etats.slice(), etats, capacites: true, panneaux: [], carte: v.carte, suite: ['sommet'], d: 0.85 + k * 0.05 };
+  return { id: '9-' + (k + 1), nom, phases: etats.slice(), etats, capacites: true, panneaux: [], carte: sansEclat(v.carte), suite: ['sommet'], d: 0.85 + k * 0.05 };
 }) });
 const Niveaux = { TUTO, ZONES, S, L, Z, P, DESC, CAPA, VARIABLES: Gen.VARIABLES };
 if (typeof module !== 'undefined' && module.exports) module.exports = Niveaux;
