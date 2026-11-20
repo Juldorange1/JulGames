@@ -181,7 +181,8 @@ function affiner(n, entrees, A, avecEclat) {
       const c = changes(cand);
       if (c >= nc) continue;
       const t = finir(etats[i0] || M.nouvelEtat(n), cand, i0, tps + 1, Math.min(len, fen + 1));
-      if (t <= tps) { meilleur = cand; nc = c; etats = instantanes(meilleur); sigs = etats; }
+      // le raccourci « l'état rejoint la trajectoire » n'est qu'une ressemblance : on confirme en rejouant jusqu'au bout
+      if (t <= tps && finir(etats[i0] || M.nouvelEtat(n), cand, i0, tps + 1) <= tps) { meilleur = cand; nc = c; etats = instantanes(meilleur); sigs = etats; }
     }
     if (opt.verbeux) console.log('   simplification : ' + c0 + ' → ' + nc + ' changements de touche');
   }
