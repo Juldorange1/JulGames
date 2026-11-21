@@ -148,20 +148,24 @@ function bruitMenu(quoi) { jouer(quoi === 'valider' ? 'valider' : 'menu', 0.3); 
 const FONDU = 3;
 const lecteurs = {};          // cle -> { a: [Audio, Audio], i: lecteur actif, gain: 0..1, cible: 0..1 }
 let voulu = null, baisse = 1, baisseCible = 1;
-// chaque ambiance a une liste de morceaux : le fichier, puis des morceaux composés par le jeu (js/compositeur.js)
+// chaque ambiance a une liste de vrais morceaux (plus aucun morceau fabriqué par le jeu, jugés désagréables)
+const nv = (i) => 'music/' + PISTES['n' + ((((i - 1) % NIVEAUX_MUS.length) + NIVEAUX_MUS.length) % NIVEAUX_MUS.length + 1)];
+// Survivant : des morceaux riches (rock, orchestre), pas de bips 8-bit ; l'ordre change à chaque partie
+const SURVIE_MUS = [1, 2, 3, 4, 6, 7, 10, 14, 16, 17, 23, 31, 35, 37, 40, 43, 49, 53];
 function liste(cle) {
   const f = 'music/' + (PISTES[cle] || PISTES[0]);
-  const k = typeof cle === 'number' ? cle : ({ infini: 20, defi: 30, fin: 40 })[cle] || 50;
-  if (cle === 'fin') return [f];
-  if (/^n\d+$/.test(cle)) {                 // un niveau : sa musique, puis d'autres morceaux en fondu (moins répétitif)
-    const i = parseInt(cle.slice(1), 10), autre = 'music/' + PISTES['n' + (((i + 26) % NIVEAUX_MUS.length) + 1)];
-    return [f, { g: 3000 + i * 7, h: 'vif' }, autre, { g: 3500 + i * 11, h: 'vif' }];
+  if (cle === 'fin' || cle === 0) return [f];
+  if (cle === 'survie') {
+    const l = SURVIE_MUS.map(nv);
+    for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+    return l;
   }
-  if (cle === 0) return [f, { g: 900, h: 'calme' }, { g: 901, h: 'calme' }, { g: 902, h: 'calme' }, { g: 903, h: 'calme' }];
-  const n = cle === 'infini' ? 9 : 6;
-  const l = [f];
-  for (let i = 1; i <= n; i++) l.push({ g: k * 17 + i * 101, h: 'vif' });
-  return l;
+  if (/^n\d+$/.test(cle)) {                 // un niveau : sa musique, puis deux autres morceaux en fondu (moins répétitif)
+    const i = parseInt(cle.slice(1), 10);
+    return [f, nv(i + 18), nv(i + 37)];
+  }
+  const k = typeof cle === 'number' ? cle * 6 : ({ infini: 5, defi: 11 })[cle] || 0;
+  return [f, nv(k + 2), nv(k + 21), nv(k + 40)];
 }
 const composees = {};
 function url(item) {               // promesse de l'adresse d'un morceau
@@ -226,7 +230,9 @@ function mixer() {
     }
     if (x.paused && l.trans == null) x.play().catch(() => {});
     // fin de piste : l'autre lecteur repart du début et on passe de l'un à l'autre en fondu
-    if (l.trans == null && x.duration && x.currentTime > x.duration - FONDU - 0.2) {
+    // un morceau ne dure jamais plus de 1 min 30 quand il y en a d'autres après lui (moins long, moins répétitif)
+    const finP = l.liste.length > 1 ? Math.min(x.duration || 0, 90) : x.duration;
+    if (l.trans == null && finP && x.currentTime > finP - FONDU - 0.2) {
       const y = l.a[1 - l.i];
       if (l.suivante) {                          // morceau suivant de la liste (sinon le même recommence)
         if (!y.src.endsWith(l.suivante.u)) y.src = l.suivante.u;

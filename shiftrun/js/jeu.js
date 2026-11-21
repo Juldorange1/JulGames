@@ -398,7 +398,7 @@ function lancerSurvie() {
   if (depart > 0) { message = tr('Départ à {0} ennemis écrasés (ton record − 15)', depart); messageT = 150; }
   S.essais++;
   ecran = 'jeu'; cacherUI();
-  SON.jouerMusique('infini');
+  SON.jouerMusique('survie');
 }
 const FAUX = { phase: 0, bascule: 0, casses: [], boutons: [], craque: [], glaces: [] };
 function hasardJ() { J.alea = (J.alea * 16807) % 2147483647; return J.alea / 2147483647; }
@@ -408,10 +408,14 @@ const ENNEMIS = {
   tireur: { r: 6.5, vague: 10 }, rebond: { r: 5.5, vague: 12 }, fonceur: { r: 6, vague: 14 }, archer: { r: 6.5, vague: 16 }, lourd: { r: 8.5, vague: 18 },
   diviseur: { r: 7, vague: 20 }, invocateur: { r: 7.5, vague: 24 }, petit: { r: 4.5, vague: 999 }, fantome: { r: 6.5, vague: 22 }, bombe: { r: 6, vague: 27 }
 };
+const SEUIL_SURVIE = 20;                                  // au-delà, la difficulté monte bien plus doucement
+// temps entre deux ennemis (en images) : il raccourcit normalement jusqu'au 20e, puis environ quatre fois plus lentement
+const rythmeSurvie = (v) => v <= SEUIL_SURVIE ? Math.round(210 - v * 1.6) : Math.max(70, Math.round(210 - SEUIL_SURVIE * 1.6 - (v - SEUIL_SURVIE) * 0.4));
 function nouveauMonstre(type, x, y) {
   return { type, r: ENNEMIS[type].r, x, y, vx: 0, vy: 0, dir: hasardJ() < 0.5 ? -1 : 1, sol: false, t: 0, pv: type === 'lourd' ? 2 : 1,
-    vit: Math.min(1.35, 0.55 + J.vague * 0.01) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
-    elite: J.vague >= 20 && hasardJ() < 0.2 && type !== 'petit' };
+    // la vitesse monte jusqu'au 20e ennemi, puis ne bouge plus (ensuite, seuls le rythme d'arrivée et les nouveaux types changent)
+    vit: (0.55 + Math.min(J.vague, SEUIL_SURVIE) * 0.01) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
+    elite: false };
 }
 function majSurvie() {
   const e = J.e, n = J.n, T2 = M.T;
@@ -439,7 +443,7 @@ function majSurvie() {
     const nm = nouveauMonstre(pr2.type, pr2.x, pr2.y); if (pr2.sol) nm.sol = true;
     if (nm.elite) { nm.pv++; nm.vit *= 1.15; }                   // élite : plus résistant, un peu plus vif
     J.monstres.push(nm);
-    J.spawnT = Math.max(60, Math.round(210 - J.vague * 1.6));            // progression lente et régulière
+    J.spawnT = rythmeSurvie(J.vague);
   }
   J.maxEnnemis = Math.max(J.maxEnnemis, J.monstres.length);
 
@@ -701,7 +705,13 @@ function avancerMonde() {
   let k = 0;
   while (k < m.bornes.length && m.bornes[k] <= cx) k++;
   const salle = Math.max(0, k - 1);
-  if (salle > J.salle) J.salle = salle;
+  if (salle > J.salle) {
+    J.salle = salle;
+    if (J.mode === 'expedition') {                   // on montre les fragments gagnés à chaque salle franchie
+      const f = fragExpe(J.salle + (J.base || 0));
+      if (f > (J.fragVu || 0)) { J.fragPlus = f - (J.fragVu || 0); J.fragVu = f; J.fragT = 120; }
+    }
+  }
 }
 function finInfini() {
   const mode = J.imode, n = J.salle, t = J.e.temps, ancien = S.infini[mode];
@@ -1204,6 +1214,10 @@ function dessiner(dt) {
     hud.sousChrono = '❤'.repeat(Math.max(0, J.vies)) + (S.expedition ? '   ·   ' + tr('record : {0} salles', S.expedition.salles) : '');
     const actifs = [[J.chargesJusque, '⚡'], [J.sautJusque, '🦘'], [J.ralenti, '🐢'], [J.bouclier, '🛡']].filter(b => b[0] && J.salle < b[0]).map(b => b[1] + ' ' + (b[0] - J.salle));
     if (actifs.length) hud.lignes.push({ t: actifs.join('   '), c: '#9ff' });
+    // fragments gagnés pendant cette expédition ; « +N » bien visible juste après une salle franchie
+    const fr = (J.fragVu || 0) + (J.fragBonus || 0);
+    if (J.fragT > 0) J.fragT--;
+    hud.lignes.push(J.fragT > 0 ? { t: tr('Fragments gagnés : {0}', fr) + '   +' + J.fragPlus, c: '#ff9ae6' } : { t: tr('Fragments gagnés : {0}', fr), c: '#e0b8ff' });
     hud.lignes.push({ t: tr('Prochain bonus : salle {0}', J.prochainChoix), c: '#aaa' });
     if (J.finT > 0) { hud.message = tr('Salles franchies : {0}', J.salle); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'infini') {
@@ -1662,18 +1676,23 @@ function prendreBonus(id) {
   else if (id === 'saut') J.sautJusque = J.salle + 8;
   else if (id === 'ralenti') J.ralenti = J.salle + 8;
   else if (id === 'bouclier') J.bouclier = J.salle + 2;
-  else if (id === 'tresor') expe().frag += 5 + Math.floor((J.salle + (J.base || 0)) / 2);   // peu au début : survivre rapporte autant
+  else if (id === 'tresor') { const f = 5 + Math.floor((J.salle + (J.base || 0)) / 2); expe().frag += f; J.fragBonus = (J.fragBonus || 0) + f; J.fragPlus = f; J.fragT = 150; }   // peu au début : survivre rapporte autant
   J.bonusPris.push(id); J.prochainChoix += J.pasChoix || 8;
   J.e.invT = Math.max(J.e.invT, M.K.invincible);              // comme à une réapparition : un instant d'invincibilité
   ecran = 'jeu'; cacherUI();
+}
+// fragments gagnés en arrivant à la salle n (plus la salle est loin, plus elle rapporte)
+function fragExpe(n) {
+  const k = 1 + niv_am('gain') * 0.15;
+  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * (i > 30 ? 1 + niv_am('profond') * 0.2 : 1);
+  return Math.round(frag * k);
 }
 function finExpedition() {
   const n = J.salle + (J.base || 0), t = J.e.temps, ancien = S.expedition;
   const record = !ancien || n > ancien.salles;
   if (record && !assiste()) S.expedition = { salles: n, t };
   const k = 1 + niv_am('gain') * 0.15;
-  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * (i > 30 ? 1 + niv_am('profond') * 0.2 : 1);   // plus la salle est loin, plus elle rapporte
-  frag = Math.round(frag * k);
+  const frag = fragExpe(n);
   expe().frag += frag;
   const gain = gagnerBonus(gainTemps(t));               // éclats ◆ : au même rythme que tous les modes (rien ne l'augmente)
   majSerie(); sauver();

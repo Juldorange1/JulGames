@@ -44,6 +44,7 @@ let dyn = null;           // cases animées par type
 let ombreCv = null;
 let parts = [];
 let temps = 0;
+const porteVue = new Map();                               // portes à clé déjà vues s'ouvrir (pour ne jouer l'éclatement qu'une fois)
 
 function init(canvas) {
   cv = canvas; cx = cv.getContext('2d');
@@ -987,7 +988,7 @@ function casesAnimees(g, e, vis) {
   }
   // la clé qu'on porte : elle flotte au-dessus de la tête jusqu'à sa porte
   if (e.cles.length && dyn.porteCle.length) {
-    const portees = e.cles.filter(c => dyn.porteCle.some(([x, y]) => niv.porteCle.get(x * 1024 + y) === c && x * T > e.x - T));
+    const portees = e.cles.filter(c => c < M.CLE_OUV && e.cles.indexOf(c + M.CLE_OUV) < 0 && niv.portesCle.has(c));
     portees.forEach((c, i) => {
       const px = e.x + 6 + (i - (portees.length - 1) / 2) * 14, py = e.y - 12 + Math.sin(tt * 4) * 1.5;
       g.fillStyle = 'rgba(255,216,74,.22)'; g.beginPath(); g.arc(px, py, 9, 0, 7); g.fill();
@@ -996,8 +997,23 @@ function casesAnimees(g, e, vis) {
   }
   for (const [x, y] of dyn.porteCle) {                      // porte dorée à serrure
     if (!vis(x, y)) continue;
-    const c = niv.porteCle.get(x * 1024 + y), ouvert = c !== undefined && e.cles.indexOf(c) >= 0, px = x * T, py = y * T;
-    if (ouvert) { g.fillStyle = 'rgba(255,216,74,.12)'; g.fillRect(px + 2, py, T - 4, 2); continue; }
+    const c = niv.porteCle.get(x * 1024 + y), ouvert = c !== undefined && e.cles.indexOf(c + M.CLE_OUV) >= 0, px = x * T, py = y * T;
+    if (ouvert) {
+      // la porte vient de s'ouvrir : elle éclate en morceaux dorés (une seule fois), la clé vole dans la serrure
+      const cle = 'p' + x + ',' + y;
+      if (!porteVue.has(cle)) {
+        porteVue.set(cle, tt);
+        for (let k = 0; k < 7; k++) part(px + Math.random() * T, py + Math.random() * T, (Math.random() - 0.5) * 3.5, -Math.random() * 3, 40 + Math.random() * 25, k % 2 ? '#ffd84a' : '#d8a83a', 2.6, 0.12, true);
+      }
+      const age = tt - porteVue.get(cle);
+      if (age >= 0 && age < 0.6) { g.fillStyle = `rgba(255,240,170,${(0.6 - age) * 0.9})`; g.fillRect(px - 2 * age * 8, py, T + 4 * age * 8, T); }
+      const pc = niv.portesCle.get(c);                       // la clé tourne dans la serrure, au milieu de la porte, puis s'efface
+      if (pc && x === pc.x && y === Math.round((pc.y0 + pc.y1) / 2) && age >= 0 && age < 0.7) {
+        g.save(); g.globalAlpha = Math.min(1, (0.7 - age) * 3); g.translate(px + 8, py + 8); g.rotate(age * 4); dessinCle(0, 0, 1.6 - age); g.restore();
+      }
+      continue;
+    }
+    porteVue.delete('p' + x + ',' + y);
     g.fillStyle = '#5a4210'; g.fillRect(px, py, T, T); g.fillStyle = '#d8a83a'; g.fillRect(px + 1, py + 1, T - 2, T - 2);
     g.fillStyle = '#5a4210'; g.beginPath(); g.arc(px + 8, py + 6, 2.2, 0, 7); g.fill(); g.fillRect(px + 7, py + 7, 2, 5);
   }
@@ -1323,12 +1339,12 @@ function mobiles(g, e, ox, vw, vis) {
     g.fillStyle = '#5a5e68'; for (let yy = y0 + 2; yy < b; yy += 4) g.fillRect(p.x * T + 6.5, yy, 3, 2.5);
     const gr = g.createLinearGradient(a, 0, c2, 0); gr.addColorStop(0, '#9aa2b0'); gr.addColorStop(0.5, '#dfe5ee'); gr.addColorStop(1, '#6a7280');
     g.fillStyle = gr; g.fillRect(a + tr, b, c2 - a, d2 - b);
-    // dessous hérissé de pointes rouges (dans le bloc : la hitbox ne change pas) : on ne le touche pas par en dessous
-    // pointes seulement au milieu du dessous (= la zone qui tue), les bords restent lisses
-    const pb = M.PILON_BORD, lp = (c2 - a - 2 * pb) / 3;
-    g.fillStyle = '#7a1018'; g.fillRect(a + tr + pb, d2 - 6, c2 - a - 2 * pb, 1.5);
-    g.fillStyle = '#ff4a5a'; for (let k = 0; k < 3; k++) { const px = a + tr + pb + k * lp; g.beginPath(); g.moveTo(px, d2 - 5); g.lineTo(px + lp, d2 - 5); g.lineTo(px + lp / 2, d2); g.fill(); }
-    g.fillStyle = '#ffd0d4'; for (let k = 0; k < 3; k++) g.fillRect(a + tr + pb + k * lp + lp / 2 - 0.4, d2 - 4.5, 0.8, 2);
+    // dessous : 3 pointes rouges SOUS le bloc (= exactement la zone qui tue, à tout moment)
+    g.fillStyle = '#7a1018'; g.fillRect(a + tr, d2 - 1.5, c2 - a, 1.5);
+    for (const [x1, y1, x2, y2, x3, y3] of M.pilonPics(p, tD(e))) {
+      g.fillStyle = '#ff4a5a'; g.beginPath(); g.moveTo(x1 + tr, y1); g.lineTo(x2 + tr, y2); g.lineTo(x3 + tr, y3); g.fill();
+      g.fillStyle = '#ffd0d4'; g.fillRect(x3 + tr - 0.4, y1 + 0.5, 0.8, 2.5);
+    }
     g.fillStyle = '#2a2c34'; for (const [u, w2] of [[3, 3], [T - 5, 3]]) g.fillRect(a + tr + u, b + w2, 2, 2);
     if (cyc >= 72 && cyc < 76 && p.lg > 0) for (let k = 0; k < 3; k++) part(a + Math.random() * T, d2, (Math.random() - 0.5) * 2.5, -Math.random() * 1.2, 20, 'rgba(210,200,180,.6)', 1.8, 0.05);
   }

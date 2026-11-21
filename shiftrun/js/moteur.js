@@ -99,7 +99,12 @@ function recharger(n, c) {
       const ch = l[x] || '.';
       const t = CH[ch];
       if (t === undefined) throw new Error('Caractère inconnu « ' + ch + ' » dans ' + n.def.id + ' (' + x + ',' + y + ')');
-      g[y * w + x] = t;
+      g[y * w + x] = t === VOLANT ? VIDE : t;          // plus d'ennemis volants violets dans les niveaux (ni Expédition, ni défis)
+      // barrière de bannissement d'un état que le niveau n'a pas : elle vise un état qu'on a vraiment (jamais l'état de base)
+      if ((t === BAN_L || t === BAN_Z || t === BAN_P) && n.emplacements) {
+        const i = t === BAN_L ? 1 : t === BAN_Z ? 2 : 3, nb = n.emplacements.length - 1;
+        if (i > nb && nb > 0) g[y * w + x] = [BAN_L, BAN_Z, BAN_P][(i - 1) % nb];
+      }
       if (ch === 'u' || ch === 'y') courants.set(y * w + x, ch === 'y' ? 1 : -1);
       if (ch >= '1' && ch <= '5') laserDir.set(y * w + x, ch);
       if (ch === '@' && !n.dep) n.dep = { x: x * T + (T - W) / 2, y: (y + 1) * T - H };
@@ -224,7 +229,7 @@ function recharger(n, c) {
       if (grilles.indexOf(gi) === grilles.length - 1 || grilles[grilles.indexOf(gi) + 1] % w !== gx) prec = gx;
     }
   }
-  const porteCle = new Map(), rythme = new Map(), broyeurs = [];
+  const porteCle = new Map(), portesCle = new Map(), rythme = new Map(), broyeurs = [];
   {
     const cles = [];
     for (let i = 0; i < w * h; i++) if (g[i] === CLE) cles.push(i);
@@ -232,7 +237,12 @@ function recharger(n, c) {
       if (g[i] !== PORTE_CLE) continue;
       const x = i % w; let best = -1;
       for (const c of cles) { const cx2 = c % w; if (cx2 <= x && (best < 0 || cx2 > best % w)) best = c; }
-      if (best >= 0) porteCle.set(x * 1024 + Math.floor(i / w), (best % w) * 1024 + Math.floor(best / w));
+      if (best >= 0) {
+        const c = (best % w) * 1024 + Math.floor(best / w), y = Math.floor(i / w);
+        porteCle.set(x * 1024 + y, c);
+        const p = portesCle.get(c);
+        if (!p) portesCle.set(c, { x, y0: y, y1: y }); else { p.x = Math.min(p.x, x); p.y0 = Math.min(p.y0, y); p.y1 = Math.max(p.y1, y); }
+      }
     }
     for (let i = 0; i < w * h; i++) {                         // une rangée de plateformes en rythme bat ensemble
       if (g[i] !== RYTHME) continue;
@@ -254,7 +264,7 @@ function recharger(n, c) {
       let k = 0; while (k < 30 && libre(x, y + k + 1) && g[(y + k + 1) * w + x] !== PICS) k++;
       let a = 0; while (a < 12 && y - a - 1 > 0 && libre(x, y - a - 1)) a++;      // la chaîne monte jusqu'au plafond
       if (a >= 12) { g[(y - 1) * w + x] = MUR; a = 0; }                            // pas de plafond : un bloc d'attache
-      pilons.push({ x, y, lg: k * T, per: 150 + hs % 50, dec: hs % 200, ancre: y - a });
+      pilons.push({ x, y, lg: Math.max(0, k * T - PILON_PIC), per: 150 + hs % 50, dec: hs % 200, ancre: y - a });   // ses pointes, sous le bloc, touchent le sol
     }
     else if (t === ORBITE) orbites.push({ x, y, sens: (x + y) % 2 ? 1 : -1, dec: hs % 400 });
     else if (t === GEYSER) { let k = 0; while (k < K.geyserH && libre(x, y - k - 1)) k++; geysers.push({ x, y, lg: k, per: 150 + hs % 40, dec: hs % 190 }); }
@@ -278,7 +288,7 @@ function recharger(n, c) {
     const y = Math.floor(i / w);
     for (let x = i % w - 1; x >= 0; x--) if (g[y * w + x] === BOUCLE_G) { boucle.set(i, y * w + x); boucle.set(y * w + x, i); break; }
   }
-  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle, courants, pilons, orbites, geysers, bruleurs, leviersDe, porteCle, rythme, broyeurs });
+  Object.assign(n, { w, h, g, panneaux, tp, aEclat, fleches, porteDe, ennemis, plates, scies, lasers, boucle, courants, pilons, orbites, geysers, bruleurs, leviersDe, porteCle, portesCle, rythme, broyeurs });
   return n;
 }
 
@@ -491,7 +501,14 @@ function laserRect(l) {
   if (l.dx) { const x0 = l.dx > 0 ? (l.x + 1) * T : l.x * T - l.lg; return [x0, cy - ep, x0 + l.lg, cy + ep]; }
   const y0 = l.dy > 0 ? (l.y + 1) * T : l.y * T - l.lg; return [cx - ep, y0, cx + ep, y0 + l.lg];
 }
-const PILON_BORD = 3;                                    // les pointes du pilon : sous le bloc, sauf 3 px de chaque côté
+const CLE_OUV = 1 << 30;                                  // dans e.cles : c + CLE_OUV = la porte de la clé c est ouverte
+const PILON_BORD = 1, PILON_PIC = 5;                     // les pointes du pilon : 5 px SOUS le bloc (presque toute sa largeur) ; elles tuent toujours
+// les 3 pointes du dessous (triangles) = exactement ce qui est dessiné
+function pilonPics(p, temps) {
+  const r = pilonRect(p, temps), lp = (r[2] - r[0] - 2 * PILON_BORD) / 3, o = [];
+  for (let k = 0; k < 3; k++) { const px = r[0] + PILON_BORD + k * lp; o.push([px, r[3], px + lp, r[3], px + lp / 2, r[3] + PILON_PIC]); }
+  return o;
+}
 // pilon : décalage vers le bas (0 = au plafond) ; attente, chute rapide, écrasement, remontée lente
 function pilonEn(p, temps) {
   const k = ((temps + p.dec) % p.per + p.per) % p.per, L2 = p.lg;
@@ -639,7 +656,7 @@ function plein(n, e, tx, ty) {
     case FRAGILE: return !casse(e, tx * 1024 + ty);
     case LASER: case BRULEUR: return true;
     case GRILLE_LEV: return !grilleOuverte(n, e, tx, ty);
-    case PORTE_CLE: { const c = n.porteCle.get(tx * 1024 + ty); return c === undefined || e.cles.indexOf(c) < 0; }
+    case PORTE_CLE: { const c = n.porteCle.get(tx * 1024 + ty); return c === undefined || e.cles.indexOf(c + CLE_OUV) < 0; }
     case PORTE_MIN: return !(e.temps < e.minut);
     case GRILLE: case TAMIS: case PAROI: case BAR_S: case BAR_P: case BAR_PL: case BAR_CA: case BAR_ME: case BAR_GL: case BAR_MA: return e.phase !== BARRIERE[t];
     default: return false;
@@ -1428,20 +1445,33 @@ function pas(n, e, inp) {
       if (rectRect(e, r[0], r[1], r[2], r[3])) { mourir(e); break; }
     }
   }
+  // porte à clé : quand on arrive juste devant avec sa clé, la clé ouvre la porte (elle reste ouverte ensuite)
+  if (e.cles.length && n.portesCle.size) {
+    for (const c of e.cles) {
+      if (c >= CLE_OUV || e.cles.indexOf(c + CLE_OUV) >= 0) continue;
+      const p = n.portesCle.get(c);
+      if (!p) continue;
+      if (e.x + W >= p.x * T - 2 * T && e.x < p.x * T + T && e.y + H > (p.y0 - 2) * T && e.y < (p.y1 + 3) * T) {
+        e.cles = e.cles.concat(c + CLE_OUV); e.ev |= EV.BOUTON; e.evX = p.x; e.evY = Math.round((p.y0 + p.y1) / 2);
+      }
+    }
+  }
   // pilons qui écrasent
   if (n.pilons.length && e.mortT === 0) {
     for (const p of n.pilons) {
       if (Math.abs(p.x * T - e.x) > 3 * T) continue;
       const r = pilonRect(p, e.temps);
+      // ses pointes tuent dès qu'on les touche, quel que soit l'état
+      if (e.x + W > r[0] && e.x < r[2] && e.y < r[3] + PILON_PIC && e.y + H > r[3]) {
+        const f = formeJoueur(e);
+        if (pilonPics(p, e.temps).some(tri => polyPoly(f, tri))) { mourir(e); break; }
+      }
       if (!rectRect(e, r[0], r[1], r[2], r[3])) continue;
       // le pilon est un bloc : il pousse ; il ne tue que s'il écrase contre un mur ou le sol
       const gch = e.x + W - r[0], dte = r[2] - e.x, hau = e.y + H - r[1], bas = r[3] - e.y, m = Math.min(gch, dte, hau, bas);
       let nx = e.x, ny = e.y;
       if (m === hau) { ny = r[1] - H; if (e.vy > 0) e.vy = 0; e.sol = true; e.att = 0; }
       else if (m === bas) {
-        // seules les pointes du milieu du dessous tuent, et seulement quand il s'abat
-        const k = ((e.temps + p.dec) % p.per + p.per) % p.per;
-        if (k >= 60 && k < 74 && e.x + W > r[0] + PILON_BORD && e.x < r[2] - PILON_BORD) { mourir(e); break; }
         const cx = e.x + W / 2, gauche = cx < r[0] + T / 2;                         // sinon il pousse sur le côté (ou vers le bas)
         nx = gauche ? r[0] - W : r[2];
         if (!boiteLibre(n, e, nx, ny)) { nx = e.x; ny = r[3]; if (!boiteLibre(n, e, nx, ny)) continue; }
@@ -1511,7 +1541,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, pilonEn, pilonRect, PILON_BORD, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, laserSeg, laserPoly, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, CLE_OUV, pilonEn, pilonRect, PILON_BORD, PILON_PIC, pilonPics, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, laserSeg, laserPoly, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;
