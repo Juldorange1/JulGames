@@ -41,8 +41,8 @@ for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].sl
 if (!S.bonus) S.bonus = { eclats: 0, jours: {}, infini: {} };
 if (!S.skins) S.skins = { achats: ['base', 'rien'], corps: 'base', accessoire: 'rien', depense: 0 };
 // Apparences : 6 catégories équipées en même temps ; la forme et la couleur de l'état restent toujours reconnaissables.
-// Prix croissants : tout posséder demande environ 30 000 éclats, soit plus de 500 heures de jeu.
-const PRIX = [0, 25, 45, 70, 100, 140, 190, 250, 330, 430, 560, 720, 920, 1180];
+// Prix croissants, mais raisonnables : tout posséder demande environ 9 000 éclats.
+const PRIX = [0, 8, 14, 20, 30, 40, 55, 75, 100, 130, 170, 220, 280, 360];
 const CATS = {
   contour: { nom: 'Contour', icone: '◻', liste: [['base', 'Normal'], ['blanc', 'Blanc'], ['noir', 'Noir'], ['rose', 'Rose'], ['cyan', 'Cyan'], ['vert', 'Vert'], ['rouge', 'Rouge'], ['violet', 'Violet'], ['argent', 'Argent'], ['or', 'Or'], ['neon', 'Néon pulsant'], ['feu', 'Feu'], ['galaxie', 'Galaxie'], ['arcenciel', 'Arc-en-ciel']] },
   motif: { nom: 'Motif', icone: '▦', liste: [['rien', 'Aucun'], ['rayures', 'Rayures'], ['points', 'Points'], ['damier', 'Damier'], ['zigzag', 'Zigzag'], ['ecailles', 'Écailles'], ['coeurs', 'Cœurs'], ['etoiles', 'Étoiles'], ['facettes', 'Facettes'], ['circuit', 'Circuit'], ['lave', 'Lave'], ['brillant', 'Brillant'], ['nebuleuse', 'Nébuleuse'], ['arcenciel', 'Arc-en-ciel']] },
@@ -300,7 +300,11 @@ const ARENES = [
   { id: 'fosse', nom: 'La fosse', theme: 'orage' },
   { id: 'tours', nom: 'Les deux tours', theme: 'chaufferie' },
   { id: 'cage', nom: 'La cage', theme: 'usine' },
-  { id: 'ciel', nom: 'Le ciel ouvert', theme: 'glacier' }
+  { id: 'ciel', nom: 'Le ciel ouvert', theme: 'glacier' },
+  { id: 'geysers', nom: 'Les geysers', theme: 'aqueduc' },
+  { id: 'ressorts', nom: 'Les ressorts', theme: 'carriere' },
+  { id: 'tremplins', nom: 'Les tremplins', theme: 'coeur' },
+  { id: 'labo', nom: 'Le laboratoire', theme: 'abysses' }
 ];
 // arène générée : plateformes, trous qui renvoient en haut, bords qui renvoient de l'autre côté
 function areneHasard(graine) {
@@ -316,6 +320,13 @@ function areneHasard(graine) {
     while (x < Wd - 6) { const lg = 4 + Math.floor(rng() * 6); if (rng() < 0.7) c(x, y, x + lg, y, '#'); x += lg + 3 + Math.floor(rng() * 5); }
   }
   if (rng() < 0.4) { const a = 10 + Math.floor(rng() * 24); c(a, 11, a + 1, 19, '#'); }      // un pilier
+  // de temps en temps : geysers, ressorts, tremplins ou plaques qui transforment, posés sur le sol (jamais sous une plateforme)
+  const libreHaut = (x) => { for (let y = 10; y <= 18; y++) if (l[y][x] !== '.') return false; return true; };
+  const objets = ['g', 's', '()', ':;&'].filter(() => rng() < 0.45);
+  for (const o of objets) for (let k = 0; k < 2; k++) {
+    const x = 3 + Math.floor(rng() * (Wd - 6)), ch = o.length === 1 ? o : o[Math.floor(rng() * o.length)];
+    if (l[19][x] === '.' && l[20][x] === '#' && (ch !== 'g' || libreHaut(x)) && Math.abs(x - 22) > 3) l[19][x] = ch;
+  }
   const ya = 6 + Math.floor(rng() * 6); c(0, ya, 0, 19, 'W'); c(Wd - 1, ya, Wd - 1, 19, 'X');
   const x0 = 20 + Math.floor(rng() * 6); c(x0 - 1, sol === 1 ? 18 : 19, x0 + 1, sol === 1 ? 18 : 19, '.'); l[sol === 1 ? 17 : 19][x0] = '@';
   if (sol === 1) c(x0 - 2, 18, x0 + 2, 18, '#');
@@ -340,6 +351,24 @@ function areneSurvie(id) {
   } else if (id === 'ciel') {
     plates([[4, 9, 15], [16, 22, 12], [24, 30, 16], [34, 41, 11], [10, 14, 9], [28, 31, 8]]);
     trouBas(21, 23); cotes(6, 19);
+  } else if (id === 'geysers') {                       // des geysers qui projettent tout en haut, des plateformes hautes
+    plates([[2, 7, 11], [13, 19, 9], [26, 32, 9], [38, 43, 11], [17, 28, 15]]);
+    for (const x of [10, 35]) l[19][x] = 'g';
+    l[14][22] = 'g';                                    // un geyser sur la plateforme du milieu
+    cotes(6, 19);
+  } else if (id === 'ressorts') {                      // des ressorts au sol, des étages à atteindre d'un bond
+    plates([[3, 8, 14], [14, 20, 10], [25, 31, 10], [37, 42, 14], [18, 27, 15]]);
+    for (const x of [2, 11, 34, 43]) l[19][x] = 's';
+    trouBas(21, 23); cotes(8, 19);
+  } else if (id === 'tremplins') {                     // des tremplins qui projettent d'un bout à l'autre, deux piliers
+    plates([[4, 10, 13], [35, 41, 13], [17, 28, 11]]);
+    c(14, 16, 15, 19, '#'); c(30, 16, 31, 19, '#');
+    l[19][3] = ')'; l[19][12] = '('; l[19][33] = ')'; l[19][42] = '(';
+    cotes(6, 19);
+  } else if (id === 'labo') {                          // des plaques qui transforment en un autre état (sans charge)
+    plates([[3, 9, 15], [36, 42, 15], [14, 20, 11], [25, 31, 11], [19, 26, 16]]);
+    l[19][8] = ':'; l[19][37] = ';'; l[10][17] = '&'; l[10][28] = ':'; l[19][12] = 'g';
+    trouBas(29, 31); cotes(6, 19);
   } else {
     plates([[5, 12, 16], [33, 40, 16], [17, 28, 13], [3, 9, 10], [36, 42, 10], [19, 26, 9]]);
     trouBas(22, 24); cotes(14, 19);
@@ -350,16 +379,16 @@ function areneSurvie(id) {
 function choixSurvie() {
   J = null; ecran = 'menu';
   S.survieCartes = S.survieCartes || {};
-  montrer(`<h2>⚔ ${tr('Survivant')}</h2><p class="note">${tr('Des ennemis de plus en plus nombreux et de plus en plus variés. Saute-leur sur la tête (sauf les hérissés !). Les bords bleus te renvoient de l’autre côté.')}</p>
+  montrer(`<h2>⚔ ${tr('Survivant')}</h2><p class="note">${tr('Des ennemis de plus en plus nombreux et de plus en plus variés. Pour les écraser, il suffit que le bas de ton corps touche leur tête (sauf les hérissés !). Foncer sur eux en plasma te tue. Les bords bleus te renvoient de l’autre côté.')}</p>
     <div class="grille">${ARENES.map((a, k) => `<button class="btn carte" data-a="survie" data-i="${k}" ${k === 0 ? 'autofocus' : ''}><b>${tr(a.nom)}</b><small>${S.survieCartes[a.id] ? tr('record : {0}', R.chrono(S.survieCartes[a.id].t) + ' · ' + S.survieCartes[a.id].kills + ' ✖') : '—'}</small></button>`).join('')}</div>
     <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
 }
 function lancerSurvie() {
   // une arène au hasard à chaque partie : une des 4 dessinées, ou une arène générée (des milliers possibles)
-  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, k = graine % 7;
+  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, k = graine % (ARENES.length + 4);
   const THM = ['orage', 'chaufferie', 'usine', 'glacier', 'abysses', 'coeur', 'carriere', 'aqueduc'];
-  const A = k < 4 ? ARENES[k] : { id: 'hasard', nom: 'Arène inconnue', theme: THM[graine % THM.length] };
-  const def = { id: 'survie', nom: 'Survivant', phases: [0, 3, 4], etats: [0, 3, 4], carte: k < 4 ? areneSurvie(A.id) : areneHasard(graine), panneaux: [] };
+  const A = k < ARENES.length ? ARENES[k] : { id: 'hasard', nom: 'Arène inconnue', theme: THM[graine % THM.length] };
+  const def = { id: 'survie', nom: 'Survivant', phases: [0, 3, 4], etats: [0, 3, 4], carte: k < ARENES.length ? areneSurvie(A.id) : areneHasard(graine), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, () => A.theme);
   recadrer = true;
@@ -387,22 +416,33 @@ function nouveauMonstre(type, x, y) {
 function majSurvie() {
   const e = J.e, n = J.n, T2 = M.T;
   if (!e.demarre || J.finT > 0) return;
+  const dur = (px, py) => M.plein(n, FAUX, Math.floor(px / T2), Math.floor(py / T2));
+  const pcx = e.x + 6, pcy = e.y + 6;
   if (!J.prochain && J.spawnT <= 72) {                       // on annonce l'apparition à l'avance
     const types = Object.keys(ENNEMIS).filter(t => ENNEMIS[t].vague * 1.5 <= J.vague + 1);   // nouveaux ennemis plus espacés
-    const xs = [4, 13, 22, 31, 40];
-    J.prochain = { type: types[Math.floor(hasardJ() * types.length)], x: xs[Math.floor(hasardJ() * xs.length)] * T2 + 2, y: 6 * T2 + 2 };
+    const xs = [4, 13, 22, 31, 40], type = types[Math.floor(hasardJ() * types.length)], r = ENNEMIS[type].r;
+    if (type === 'volant' || type === 'fantome') J.prochain = { type, x: xs[Math.floor(hasardJ() * xs.length)] * T2 + 2, y: 6 * T2 + 2 };
+    else {
+      if (!J.sols) {                                         // toutes les cases où un ennemi peut tenir debout
+        J.sols = [];
+        for (let ty = 7; ty < n.h - 1; ty++) for (let tx = 2; tx < n.w - 2; tx++)
+          if (!dur(tx * T2 + 1, ty * T2 + 1) && !dur(tx * T2 + 1, (ty - 1) * T2 + 1) && !dur((tx + 1) * T2 + 1, ty * T2 + 1) && dur(tx * T2 + 1, (ty + 1) * T2 + 1) && dur((tx + 1) * T2 + 1, (ty + 1) * T2 + 1) && M.tuile(n, tx, ty) === M.VIDE) J.sols.push([tx, ty]);
+      }
+      const loin = J.sols.filter(([tx, ty]) => Math.hypot(tx * T2 - pcx, ty * T2 - pcy) > 9 * T2);
+      const l2 = loin.length ? loin : J.sols, [tx, ty] = l2[Math.floor(hasardJ() * l2.length)] || [22, 18];
+      J.prochain = { type, x: tx * T2 + T2 - r, y: (ty + 1) * T2 - 2 * r, sol: true };
+    }
   }
   if (--J.spawnT <= 0) {
     J.vague++;
     const pr2 = J.prochain || { type: 'marcheur', x: 22 * T2, y: 6 * T2 }; J.prochain = null;
-    const nm = nouveauMonstre(pr2.type, pr2.x, pr2.y);
+    const nm = nouveauMonstre(pr2.type, pr2.x, pr2.y); if (pr2.sol) nm.sol = true;
     if (nm.elite) { nm.pv++; nm.vit *= 1.15; }                   // élite : plus résistant, un peu plus vif
     J.monstres.push(nm);
     J.spawnT = Math.max(60, Math.round(210 - J.vague * 1.6));            // progression lente et régulière
   }
   J.maxEnnemis = Math.max(J.maxEnnemis, J.monstres.length);
-  const dur = (px, py) => M.plein(n, FAUX, Math.floor(px / T2), Math.floor(py / T2));
-  const pcx = e.x + 6, pcy = e.y + 6;
+
   const boucler = (m) => {
     const cx = m.x + m.r, cy = m.y + m.r, tx = Math.floor(cx / T2), ty = Math.floor(cy / T2), i = ty * n.w + tx, tt = M.tuile(n, tx, ty), j = n.boucle.get(i);
     if (j === undefined) return;
@@ -447,7 +487,7 @@ function majSurvie() {
       const dx = pcx - cx; J.balles.push([cx, cy - 4, Math.max(-3, Math.min(3, dx / 60)), -4.2, 260, 1]);
     }
     m.x += m.vx;
-    if (dur(m.vx > 0 ? m.x + d2 : m.x, m.y + 1) || dur(m.vx > 0 ? m.x + d2 : m.x, m.y + d2 - 1)) { m.x -= m.vx; m.dir *= -1; m.charge = 0; if (m.sol && hasardJ() < 0.4) m.vy = -6; }
+    if (dur(m.vx > 0 ? m.x + d2 : m.x, m.y + 1) || dur(m.vx > 0 ? m.x + d2 : m.x, m.y + d2 - 1)) { m.x -= m.vx; m.dir *= -1; m.charge = 0; m.garde = 40; }
     m.y += m.vy; m.sol = false;
     if (m.vy > 0 && (dur(m.x + 1, m.y + d2) || dur(m.x + d2 - 1, m.y + d2))) { m.y = Math.floor((m.y + d2) / T2) * T2 - d2; m.vy = 0; m.sol = true; }
     else if (m.vy < 0 && (dur(m.x + 1, m.y) || dur(m.x + d2 - 1, m.y))) { m.y = (Math.floor(m.y / T2) + 1) * T2; m.vy = 0; }
@@ -472,12 +512,11 @@ function majSurvie() {
     if (Math.abs(cx - pcx) > 20 || Math.abs(cy - pcy) > 20) continue;
     if (!M.polyCercle(M.formeJoueur(e), cx, cy, m.r)) continue;
     // écraser : il faut lui tomber dessus (en l'air, en descente, les pieds encore au-dessus de son centre juste avant)
-    const piedsAv = J.ePrec ? Math.max(...M.formeJoueur(J.ePrec).filter((_, i) => i % 2 === 1)) : Infinity;
-    const tombe = J.ePrec ? !J.ePrec.sol && J.ePrec.vy > 0 : !e.sol && e.vy > 0;
-    if (e.phase === M.P && e.dash > 0 && m.type !== 'herisse') {       // l'éclair de plasma traverse et détruit l'ennemi
-      J.monstres.splice(k, 1); J.kills++; S.cumul.kills++; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
-      if (m.type === 'diviseur') for (const s2 of [-1, 1]) { const p2 = nouveauMonstre('petit', m.x + s2 * 6, m.y); p2.dir = s2; p2.vy = -4; J.monstres.push(p2); }
-    } else if (tombe && piedsAv <= cy - m.r * 0.2 + Math.max(0, m.vy) && m.type !== 'herisse') {
+    // écraser : il suffit que le bas de notre corps touche le haut de sa tête (pas besoin de lui tomber dessus)
+    const pieds = (f) => Math.max(...M.formeJoueur(f).filter((_, i) => i % 2 === 1));
+    const piedsAv = Math.min(pieds(e), J.ePrec ? pieds(J.ePrec) : Infinity);
+    const foncePlasma = e.phase === M.P && e.dash > 0;               // foncer sur un ennemi en éclair de plasma : c'est nous qui y passons
+    if (!foncePlasma && piedsAv <= cy - m.r * 0.35 + Math.max(0, m.vy) && m.type !== 'herisse') {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
@@ -749,11 +788,11 @@ function statsHTML() {
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
 let nivEntrainement = false, nivBot = false, botEclat = false, botType = 'parfait';      // onglets de l'écran des niveaux
 // les trois robots : facile (faisable par un humain), humain (très dur), Parfait (le plus rapide possible, joué le plus simplement)
-const NOMS_BOT = { facile: '🙂 Difficile', humain: '🧑 Professionnel', parfait: '🤖 Extrême' };
+const NOMS_BOT = { facile: 'Difficile', humain: 'Professionnel', parfait: 'Parfait' };
 const NOTES_BOT = {
   facile: 'Robot Difficile : chaque touche est tenue au moins une demi-seconde et il garde beaucoup de marge. Le plus simple à recopier.',
   humain: 'Robot Professionnel : le plus vite possible en restant reproductible, chaque touche tenue au moins 0,2 s, sans astuce à l’image près.',
-  parfait: 'Robot Extrême : il finit en temps Parfait. Parmi les façons d’y arriver, il prend la plus simple.' };
+  parfait: 'Robot Parfait : il joue parfaitement et finit dans le meilleur temps possible. Parmi les façons d’y arriver, il prend la plus simple.' };
 function boutonsBot(action, choisi) { return ['facile', 'humain', 'parfait'].map(t => `<button class="btn mini ${choisi === t ? 'choisi' : ''}" data-a="${action}" data-v="${t}">${tr(NOMS_BOT[t])}</button>`).join(''); }
 function drapeauxNiveau() {
   const n = J.n, out = [];
@@ -1141,7 +1180,8 @@ function dessiner(dt) {
     if (p.broy >= 0 && J.e.broy >= 0 && Math.abs(J.e.broyX - p.broyX) < 40) e.broyX = p.broyX + (J.e.broyX - p.broyX) * a;
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { brouillard: effet('brouillard') || effet('brouillardFort'), brouillardFort: effet('brouillardFort'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [] };
+  const hud = { brouillard: effet('brouillard') || effet('brouillardFort'), brouillardFort: effet('brouillardFort'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [],
+    mots: { charges: tr('CHARGES'), recharge: tr('reviennent au sol'), rechargeCristal: tr('reviennent : cristal, ressort') } };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
     hud.titre = J.periode && J.periode !== 'jour' ? tr(ty.nom) : tr('Défi du jour · {0}', tr(ty.nom));
@@ -1191,7 +1231,7 @@ function dessiner(dt) {
     hud.titre = tr('Survivant') + ' · ' + tr(J.arene.nom);
     hud.sousChrono = S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : tr('Ennemis écrasés');
     hud.prochain = J.prochain && { x: J.prochain.x, y: J.prochain.y, r: ENNEMIS[J.prochain.type].r, t: J.spawnT };
-    hud.lignes.push({ t: tr('Saute-leur sur la tête !'), c: '#ffd84a' });
+    hud.lignes.push({ t: tr('Touche leur tête avec le bas de ton corps !'), c: '#ffd84a' });
     hud.monstres = J.monstres; hud.balles = J.balles;
     if (J.finT > 0) { hud.message = tr('Ennemis écrasés : {0}', J.kills); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'course') {
@@ -1318,7 +1358,7 @@ function accueil() {
     ${S.tutoVu ? '' : carte('tuto', '🎓 ' + tr('Didacticiel'), tr('5 minutes pour apprendre à jouer, une idée à la fois'), 'autofocus')}
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
-    ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : saute-leur sur la tête'))}
+    ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : touche-leur la tête avec le bas de ton corps'))}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom) + ' · ' + texteTwists('semaine'), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom) + ' · ' + texteTwists('mois'), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
@@ -1385,7 +1425,7 @@ function niveaux() {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
       h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
-        <span class="etat">${fait ? '✓' : (ok ? '●' : '🔒')}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
+        <span class="etat">${fait ? tr('FINI') : (ok ? tr('À FAIRE') : tr('FERMÉ'))}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -1903,7 +1943,7 @@ addEventListener('keydown', ev => {
   if (ev.code === 'Escape' && !ev.repeat) {
     if (ecran === 'pause') { action('pause'); return; }
     if (ui.querySelector('[data-a="accueil"]') && ecran !== 'fin') { action('accueil'); return; }
-    if (ecran === 'fin') { action('niveaux'); return; }
+    if (ecran === 'fin') { action(J && (J.mode === 'niveau' || J.mode === 'fantome') ? 'niveaux' : 'accueil'); return; }
   }
   if (ecran === 'fin' && S.touches.recommencer.includes(ev.code) && J && (J.mode === 'niveau' || J.mode === 'infini' || J.mode === 'defi') && !ev.repeat) { action('recommencer'); return; }
   // une touche tenue dans un menu : on attend 0,4 s, puis on avance doucement (5 fois par seconde), jamais au rythme du clavier

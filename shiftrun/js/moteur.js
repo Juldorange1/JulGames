@@ -132,11 +132,12 @@ function recharger(n, c) {
     if (!libre(x, y - 1) && libre(x, y + 1)) dy = 1;
     else if (libre(x - 1, y)) dx = -1; else if (libre(x + 1, y)) dx = 1; else if (libre(x, y + 1)) dy = 1; else if (libre(x, y - 1)) dy = -1;
     if (!dx && !dy) continue;
-    let k = 1;                                          // la flèche se brise sur le premier mur ou la première grille
-    const arret = (xx, yy) => !libre(xx, yy) || g[yy * w + xx] === GRILLE || g[yy * w + xx] === TAMIS;
+    let k = 1;                                          // la flèche se brise sur le premier mur ; elle passe à travers les grilles et les tamis (comme l'eau)
+    const arret = (xx, yy) => { if (xx < 0 || yy < 0 || xx >= w || yy >= h) return true; const t = g[yy * w + xx]; return t !== GRILLE && t !== TAMIS && estDur(t); };
     while (k < 40 && !arret(x + dx * k, y + dy * k)) k++;
     const hs = (x * 73856093 ^ y * 19349663) >>> 0;
-    const per = 54 + hs % 70, vit = 3 + ((hs >> 8) % 5) * 0.6, rafale = 1 + ((hs >> 12) % 3);
+    // trajectoires prévisibles : une flèche à la fois, toujours à la même vitesse, à l'un de trois rythmes réguliers
+    const per = [60, 80, 100][hs % 3], vit = 4, rafale = 1;
     fleches.push({ x, y, dx, dy, portee: (k - 1) * T + T / 2, dec: (hs >> 4) % per, per, vit, rafale });
   }
   // portes : chacune s'ouvre avec le bouton le plus proche à sa gauche

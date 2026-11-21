@@ -975,11 +975,24 @@ function casesAnimees(g, e, vis) {
     g.fillStyle = '#8b93a1'; for (let i = 0; i < 4; i++) g.fillRect(px + 1 + i * 4, py, 2, T);
     g.fillStyle = '#ffd84a'; g.fillRect(px, py + 7, T, 2);
   }
+  const dessinCle = (px, py, k) => {                        // la clé dorée (dessinée, pas un symbole du système)
+    g.save(); g.translate(px, py); g.scale(k, k);
+    g.fillStyle = '#ffd84a'; g.beginPath(); g.arc(-2, 0, 3, 0, 7); g.fill(); g.fillRect(0, -1, 6, 2); g.fillRect(3, 1, 1.5, 2); g.fillRect(5, 1, 1.5, 2);
+    g.fillStyle = '#3a2a08'; g.beginPath(); g.arc(-2, 0, 1.2, 0, 7); g.fill();
+    g.restore();
+  };
   for (const [x, y] of dyn.cle) {                           // clé dorée qui flotte (disparaît une fois prise)
     if (!vis(x, y) || e.cles.indexOf(x * 1024 + y) >= 0) continue;
-    const px = x * T + 8, py = y * T + 8 + Math.sin(tt * 3 + x) * 1.5;
-    g.fillStyle = '#ffd84a'; g.beginPath(); g.arc(px - 2, py, 3, 0, 7); g.fill(); g.fillRect(px, py - 1, 6, 2); g.fillRect(px + 3, py + 1, 1.5, 2); g.fillRect(px + 5, py + 1, 1.5, 2);
-    g.fillStyle = '#3a2a08'; g.beginPath(); g.arc(px - 2, py, 1.2, 0, 7); g.fill();
+    dessinCle(x * T + 8, y * T + 8 + Math.sin(tt * 3 + x) * 1.5, 1);
+  }
+  // la clé qu'on porte : elle flotte au-dessus de la tête jusqu'à sa porte
+  if (e.cles.length && dyn.porteCle.length) {
+    const portees = e.cles.filter(c => dyn.porteCle.some(([x, y]) => niv.porteCle.get(x * 1024 + y) === c && x * T > e.x - T));
+    portees.forEach((c, i) => {
+      const px = e.x + 6 + (i - (portees.length - 1) / 2) * 14, py = e.y - 12 + Math.sin(tt * 4) * 1.5;
+      g.fillStyle = 'rgba(255,216,74,.22)'; g.beginPath(); g.arc(px, py, 9, 0, 7); g.fill();
+      dessinCle(px + 1, py, 1.35);
+    });
   }
   for (const [x, y] of dyn.porteCle) {                      // porte dorée à serrure
     if (!vis(x, y)) continue;
@@ -1820,7 +1833,8 @@ function interfaceJeu(g, e, hud) {
     g.fillText(nomE, x + lg / 2, by + taille - Math.max(20, 18 * P));
     if (actif && hud.nomsCapas) {                    // la compétence : réappuyer sur la même touche
       g.font = `700 ${Math.max(16, Math.round(13 * P))}px "Chakra Petch", sans-serif`; g.fillStyle = e.capCd > 0 ? 'rgba(255,255,255,.4)' : '#ffe94a';
-      g.fillText('↻ ' + hud.nomsCapas[p], x + lg / 2, by - Math.max(22, 20 * P));
+      const cout = p === M.PL ? (M.K.envols - e.hoverUse) + ' / ' + M.K.envols : '1 charge';     // ce que coûte la compétence
+      g.fillText('↻ ' + hud.nomsCapas[p] + ' · ' + cout, x + lg / 2, by - Math.max(22, 20 * P));
     }
     if ((p === M.Z || p === M.OM) && e.phase === p) { g.fillStyle = '#ff9a40'; g.fillRect(x + 3, by + taille + 3, (lg - 6) * e.gaz / (p === M.Z ? M.K.zDuree : M.K.omDuree), 4); }
     if (banni) {                                  // état banni : grande croix rouge et temps restant
@@ -1832,15 +1846,25 @@ function interfaceJeu(g, e, hud) {
     }
   });
   g.globalAlpha = 1;
-  if (ph.length > 1) {
-    const cxh = bx + ph.length * (lg + 8) + 10;
+  if (ph.length > 1 || hud.nomsCapas) {
+    // charges : un vrai compteur, avec son nom et ce qui les rend (changer d'état et chaque compétence en coûtent une)
+    const cxh = bx + ph.length * (lg + 8) + 10, rr = Math.max(9, 9 * P), pas = rr * 2.6, lgB = Math.max(150, pas * M.K.charges + 20);
+    g.fillStyle = 'rgba(8,6,14,.6)'; arrondi(g, cxh - 6, by, lgB, taille, 8); g.fill();
+    g.textAlign = 'left'; g.font = `700 ${Math.max(16, Math.round(14 * P))}px "Chakra Petch", sans-serif`;
+    g.fillStyle = '#bfefff'; g.fillText((hud.mots && hud.mots.charges) || 'CHARGES', cxh + 2, by + 4 * P);
     for (let i = 0; i < M.K.charges; i++) {
-      const plein = i < e.charges;
+      const plein = i < e.charges, px = cxh + 2 + rr + i * pas, py = by + taille / 2 + 4 * P;
       g.fillStyle = plein ? '#7dfcff' : 'rgba(255,255,255,.12)';
-      g.beginPath(); const px = cxh + i * 18 * P + 6, py = by + taille / 2;
-      g.arc(px, py, 6.5 * P, 0, 7); g.fill();      // charges : des ronds bleus (le losange ◆ est réservé aux éclats, toujours roses)
+      g.beginPath(); g.arc(px, py, rr, 0, 7); g.fill();      // des ronds bleus (le losange ◆ est réservé aux éclats, toujours roses)
+      g.strokeStyle = plein ? '#ffffff' : 'rgba(125,252,255,.5)'; g.lineWidth = 2; g.stroke();
     }
-    if (hud.echec > 0) { g.fillStyle = `rgba(255,60,80,${hud.echec / 20})`; g.fillRect(cxh - 4, by + taille / 2 - 12 * P, 40 * P, 24 * P); }
+    const auSol = e.phase !== M.Z && e.phase !== M.P && e.phase !== M.OM;
+    if (e.charges < M.K.charges) {                    // comment elles reviennent
+      g.font = `600 ${Math.max(16, Math.round(12 * P))}px "Chakra Petch", sans-serif`; g.fillStyle = '#9fd8ff';
+      g.fillText((hud.mots && (auSol ? hud.mots.recharge : hud.mots.rechargeCristal)) || '', cxh + 2, by + taille - Math.max(18, 16 * P));
+    }
+    g.textAlign = 'center';
+    if (hud.echec > 0) { g.fillStyle = `rgba(255,60,80,${hud.echec / 20})`; arrondi(g, cxh - 6, by, lgB, taille, 8); g.fill(); }
   }
   // point de sauvegarde : lequel sur combien
   if (n && dyn.drapeau.length) {

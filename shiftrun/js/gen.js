@@ -1199,6 +1199,46 @@ function etatsAuHasard(rng, impose, nb) {
   return nb < 3 ? [S, L] : [S, L, Z];
 }
 const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
+// Clé : sa porte dorée n'est plus au bout de sa salle, mais plus loin, avec au moins deux drapeaux entre les deux
+// (il faut garder la clé longtemps). La porte remplit toute la hauteur du couloir, au début d'une salle suivante.
+function eloignerPortes(l, bornes, fin) {
+  const H = l.length, colA = (x, c) => { for (let y = 0; y < H; y++) if (l[y][x] === c) return true; return false; };
+  for (let i = 0; i < bornes.length; i++) {
+    if (bornes[i][2] !== 'cle') continue;
+    const x0 = bornes[i][0], x1 = i + 1 < bornes.length ? bornes[i + 1][0] : fin;
+    let kx = -1; const portes = [];
+    for (let xx = x0; xx < x1; xx++) for (let y = 0; y < H; y++) { if (l[y][xx] === '+') kx = xx; if (l[y][xx] === 'd') portes.push([xx, y]); }
+    if (kx < 0 || !portes.length) continue;
+    let cleSuiv = Infinity;                                  // une autre clé plus loin : la porte doit rester avant elle
+    for (let xx = x1; xx < fin && cleSuiv === Infinity; xx++) if (colA(xx, '+')) cleSuiv = xx;
+    const essai = (j) => {                                   // la porte au début de la salle j, si la place le permet
+      const bx = bornes[j][0], dy = bornes[j][1];
+      for (const px of [bx + 3, bx + 4, bx + 2, bx + 5, bx + 6]) {
+        if (px >= cleSuiv || colA(px, '!') || colA(px, '?')) continue;
+        const ys = 19 + dy;
+        if (!l[ys] || l[ys][px] !== '.' || l[ys + 1][px] !== '#') continue;
+        let yh = ys; while (yh > 0 && l[yh - 1][px] === '.') yh--;
+        if (l[yh - 1][px] !== '#' || ys - yh > 11) continue;
+        return [px, yh, ys, j];
+      }
+      return null;
+    };
+    const drapeauxAvant = (bx) => { let nd = 0; for (let xx = kx + 1; xx < bx; xx++) if (colA(xx, '!')) nd++; return nd; };
+    let pose = null;
+    for (let j = i + 1; j < bornes.length && !pose; j++) if (drapeauxAvant(bornes[j][0]) >= 2) pose = essai(j);
+    if (!pose) {                                              // clé trop près de la fin : la porte le plus loin possible, et des drapeaux en plus
+      for (let j = bornes.length - 1; j > i && !pose; j--) pose = essai(j);
+      if (!pose) continue;
+      for (let m = i + 1; m < pose[3] && drapeauxAvant(pose[0]) < 2; m++) {
+        const bx = bornes[m][0], ys = 19 + bornes[m][1];
+        let proche = false; for (let xx = bx - 4; xx <= bx + 4; xx++) if (colA(xx, '!')) proche = true;
+        if (!proche && l[ys] && l[ys][bx + 1] === '.' && l[ys + 1][bx + 1] === '#') l[ys][bx + 1] = '!';
+      }
+    }
+    for (const [px, py] of portes) l[py][px] = '.';
+    for (let y = pose[1]; y <= pose[2]; y++) l[y][pose[0]] = 'd';
+  }
+}
 function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   const rng = hasard(graine), rngV = hasard(graine * 7 + 3), style = styleNiveau(hasard(graine * 13 + 11));
   const g = new Grille(HAUT + DESC);
@@ -1242,6 +1282,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   x = fin(g, x, oy);
   for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
   elaguerDrapeaux(g.l);
+  eloignerPortes(g.l, bornes, x);
   return { carte: g.carte(), suite, bornes, fin: x };
 }
 

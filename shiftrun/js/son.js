@@ -152,9 +152,13 @@ let voulu = null, baisse = 1, baisseCible = 1;
 function liste(cle) {
   const f = 'music/' + (PISTES[cle] || PISTES[0]);
   const k = typeof cle === 'number' ? cle : ({ infini: 20, defi: 30, fin: 40 })[cle] || 50;
-  if (cle === 'fin' || /^n\d+$/.test(cle)) return [f];          // la musique d'un niveau s'enchaîne sur elle-même
-  if (cle === 0) return [f, { g: 900, h: 'calme' }, { g: 901, h: 'calme' }];
-  const n = cle === 'infini' ? 5 : 3;
+  if (cle === 'fin') return [f];
+  if (/^n\d+$/.test(cle)) {                 // un niveau : sa musique, puis d'autres morceaux en fondu (moins répétitif)
+    const i = parseInt(cle.slice(1), 10), autre = 'music/' + PISTES['n' + (((i + 26) % NIVEAUX_MUS.length) + 1)];
+    return [f, { g: 3000 + i * 7, h: 'vif' }, autre, { g: 3500 + i * 11, h: 'vif' }];
+  }
+  if (cle === 0) return [f, { g: 900, h: 'calme' }, { g: 901, h: 'calme' }, { g: 902, h: 'calme' }, { g: 903, h: 'calme' }];
+  const n = cle === 'infini' ? 9 : 6;
   const l = [f];
   for (let i = 1; i <= n; i++) l.push({ g: k * 17 + i * 101, h: 'vif' });
   return l;

@@ -7,18 +7,20 @@ function hasard(graine) {
   let a = graine >>> 0;
   return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const MODES = { mineur: [0, 2, 3, 5, 7, 8, 10], dorien: [0, 2, 3, 5, 7, 9, 10], majeur: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10] };
-const SUITES = [[0, 5, 3, 4], [0, 3, 4, 4], [0, 6, 5, 4], [0, 4, 5, 3], [0, 2, 3, 4], [5, 3, 0, 4], [0, 5, 6, 4], [0, 3, 6, 4]];
+const MODES = { mineur: [0, 2, 3, 5, 7, 8, 10], dorien: [0, 2, 3, 5, 7, 9, 10], majeur: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10],
+  phrygien: [0, 1, 3, 5, 7, 8, 10], lydien: [0, 2, 4, 6, 7, 9, 11], harmonique: [0, 2, 3, 5, 7, 8, 11] };
+const SUITES = [[0, 5, 3, 4], [0, 3, 4, 4], [0, 6, 5, 4], [0, 4, 5, 3], [0, 2, 3, 4], [5, 3, 0, 4], [0, 5, 6, 4], [0, 3, 6, 4],
+  [0, 0, 5, 6], [0, 1, 0, 6], [3, 4, 0, 0], [0, 6, 3, 4], [5, 6, 0, 0], [0, 4, 3, 1]];
 const freq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 // plan d'un morceau à partir de sa graine
 function plan(graine, humeur) {
   const r = hasard(graine * 7919 + 13);
-  const modes = humeur === 'calme' ? ['majeur', 'dorien'] : ['mineur', 'mineur', 'dorien', 'mineur', 'mixo'];      // plus sombre, plus tendu
+  const modes = humeur === 'calme' ? ['majeur', 'dorien', 'lydien', 'mixo'] : ['mineur', 'mineur', 'dorien', 'mixo', 'phrygien', 'harmonique'];      // plus sombre, plus tendu
   const mode = modes[Math.floor(r() * modes.length)];
   const gamme = MODES[mode];
   const tonique = 45 + Math.floor(r() * 10);
-  const tempo = humeur === 'calme' ? 92 + Math.floor(r() * 20) : 150 + Math.floor(r() * 26);
+  const tempo = humeur === 'calme' ? 84 + Math.floor(r() * 30) : 132 + Math.floor(r() * 44);
   const suiteA = SUITES[Math.floor(r() * SUITES.length)], suiteB = SUITES[Math.floor(r() * SUITES.length)];
   const note = (deg, oct) => tonique + 12 * (oct + Math.floor(deg / 7)) + gamme[((deg % 7) + 7) % 7];
   // motif mélodique de 2 mesures (16 croches), repris et varié
@@ -30,7 +32,7 @@ function plan(graine, humeur) {
     d = Math.max(0, Math.min(11, d));
     motif.push(d);
   }
-  const arpForme = [[0, 2, 4, 2], [0, 4, 2, 4], [0, 2, 4, 7], [4, 2, 0, 2]][Math.floor(r() * 4)];
+  const arpForme = [[0, 2, 4, 2], [0, 4, 2, 4], [0, 2, 4, 7], [4, 2, 0, 2], [0, 7, 4, 2], [0, 4, 7, 9], [2, 0, 4, 0]][Math.floor(r() * 7)];
   const batterie = humeur === 'calme' ? 0 : 2;
   return { r, gamme, tonique, tempo, suiteA, suiteB, note, motif, arpForme, batterie, ondeLead: r() < 0.5 ? 'square' : 'triangle', ondeArp: r() < 0.6 ? 'square' : 'sawtooth' };
 }
