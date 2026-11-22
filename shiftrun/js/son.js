@@ -167,13 +167,7 @@ function liste(cle) {
   const k = typeof cle === 'number' ? cle * 6 : ({ infini: 5, defi: 11 })[cle] || 0;
   return [f, nv(k + 2), nv(k + 21), nv(k + 40)];
 }
-const composees = {};
-function url(item) {               // promesse de l'adresse d'un morceau
-  if (typeof item === 'string') return Promise.resolve(item);
-  const c = item.g + item.h;
-  if (!composees[c]) composees[c] = racine.Compositeur ? racine.Compositeur.composer(item.g, item.h, item.h === 'calme' ? 24 : 40).catch(() => null) : Promise.resolve(null);
-  return composees[c];
-}
+function url(item) { return Promise.resolve(item); }   // promesse de l'adresse d'un morceau (toujours un vrai fichier)
 function lecteur(cle) {
   if (lecteurs[cle]) return lecteurs[cle];
   const l = liste(cle);

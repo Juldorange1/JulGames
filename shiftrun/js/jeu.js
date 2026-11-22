@@ -166,7 +166,7 @@ function fantomePour(id) {
   const choix = S.reglages.fantome;
   let s = null, ecl = false;
   if (choix === 'record' && S.il[id] && S.il[id].f) s = S.il[id].f;
-  else if (BOTS[choix] && BOTS[choix][id]) { const p = BOTS[choix][id]; ecl = !!(S.reglages.fantEclat && p.fe); s = ecl ? p.fe : p.f; }
+  else if (BOTS[choix] && BOTS[choix][id]) s = BOTS[choix][id].f;
   if (!s) return null;
   const ent = M.decompresser(s);
   while (ent.length && !ent[0]) ent.shift();
@@ -200,9 +200,23 @@ function regarder(idx, cle) {
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(musiqueNiveau(idx));
 }
+// speedrun : « any » = le jeu entier ; « z1 » à « z9 » = les 6 niveaux d'une zone d'affilée, un seul chrono
+function bornesCourse(cat) {
+  if (cat && cat[0] === 'z') { const zi = +cat.slice(1) - 1, l = LISTE.map((x, i) => [x, i]).filter(([x]) => x.zi === zi).map(([, i]) => i); return [l[0], l[l.length - 1]]; }
+  return [0, LISTE.length - 1];
+}
+function nomCourse(cat) { return cat && cat[0] === 'z' ? tr('Speedrun de la zone {0}', cat.slice(1)) : tr('Speedrun du jeu entier'); }
+function menuSpeedrun() {
+  J = null; ecran = 'menu';
+  const ligne = (cat, nom) => { const pb = S.course[cat], [a, b] = bornesCourse(cat); return `<button class="btn carte" data-a="course-${cat}"><b>${nom}</b><small>${b - a + 1} ${tr('niveaux')} · ${pb ? tr('record : {0}', R.chrono(pb.t)) : '—'}</small></button>`; };
+  montrer(`<h2>⏱ ${tr('Speedrun')}</h2><p class="note">${tr('Plusieurs niveaux d’affilée avec un seul chrono. Tomber te renvoie au dernier drapeau, le chrono continue.')}</p>
+    <div class="grille">${ligne('any', tr('Speedrun du jeu entier'))}${NIV.ZONES.map((z, zi) => ligne('z' + (zi + 1), tr('Zone {0}', zi + 1) + ' · ' + tr(z.nom))).join('')}</div>
+    <div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`, 'large');
+}
 function lancerCourse(cat) {
-  const c = charger(0);
-  J = Object.assign(c, { mode: 'course', cat, idx: 0, fantome: null, course: { splits: [], total: 0 } });
+  const [d0, d1] = bornesCourse(cat);
+  const c = charger(d0);
+  J = Object.assign(c, { mode: 'course', cat, idx: d0, fantome: null, course: { splits: [], total: 0, d0, d1 } });
   S.essais++;
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique(1);
@@ -427,9 +441,9 @@ function choixSurvie() {
     <div class="grille">${ARENES.map((a, k) => `<button class="btn carte" data-a="survie" data-i="${k}" ${k === 0 ? 'autofocus' : ''}><b>${tr(a.nom)}</b><small>${S.survieCartes[a.id] ? tr('record : {0}', R.chrono(S.survieCartes[a.id].t) + ' · ' + S.survieCartes[a.id].kills + ' ✖') : '—'}</small></button>`).join('')}</div>
     <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
 }
-function lancerSurvie() {
-  // une arène au hasard à chaque partie : une des 4 dessinées, ou une arène générée (des milliers possibles)
-  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, k = graine % (ARENES.length + 4);
+function lancerSurvie(graineImp, coop) {
+  // une arène au hasard à chaque partie : une des arènes dessinées, ou une arène générée (des milliers possibles)
+  const graine = graineImp != null ? graineImp : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0, k = graine % (ARENES.length + 4);
   const THM = ['orage', 'chaufferie', 'usine', 'glacier', 'abysses', 'coeur', 'carriere', 'aqueduc'];
   const A = k < ARENES.length ? ARENES[k] : { id: 'hasard', nom: 'Arène inconnue', theme: THM[graine % THM.length] };
   const def = { id: 'survie', nom: 'Survivant', phases: [0, 3, 4], etats: [0, 3, 4], carte: k < ARENES.length ? areneSurvie(A.id) : areneHasard(graine), panneaux: [] };
@@ -437,8 +451,8 @@ function lancerSurvie() {
   R.preparer(n, () => A.theme);
   recadrer = true;
   // on commence à son record moins 15 ennemis écrasés, avec la difficulté qui va avec (vague = ennemis déjà apparus)
-  const depart = Math.max(0, ((S.survie && S.survie.kills) || 0) - 15);
-  J = { mode: 'survie', arene: A, n, e, entrees: [], L: { id: 'survie', def, zi: 0 }, salle: 0, finT: 0, monstres: [], balles: [], kills: depart, depart, maxEnnemis: 0, spawnT: 180, vague: depart, alea: (Date.now() % 100000) + 1 };
+  const depart = coop ? 0 : Math.max(0, ((S.survie && S.survie.kills) || 0) - 15);
+  J = { mode: 'survie', arene: A, n, e, entrees: [], L: { id: 'survie', def, zi: 0 }, salle: 0, finT: 0, monstres: [], balles: [], kills: depart, depart, maxEnnemis: 0, spawnT: 180, vague: depart, alea: (Date.now() % 100000) + 1, coop: !!coop };
   if (depart > 0) { message = tr('Départ à {0} ennemis écrasés (ton record − 15)', depart); messageT = 150; }
   S.essais++;
   ecran = 'jeu'; cacherUI();
@@ -450,15 +464,18 @@ function hasardJ() { J.alea = (J.alea * 16807) % 2147483647; return J.alea / 214
 const ENNEMIS = {
   marcheur: { r: 6.5, vague: 0 }, sauteur: { r: 6.5, vague: 2 }, volant: { r: 6, vague: 5 }, herisse: { r: 6.5, vague: 8 },
   tireur: { r: 6.5, vague: 10 }, rebond: { r: 5.5, vague: 12 }, fonceur: { r: 6, vague: 14 }, archer: { r: 6.5, vague: 16 }, lourd: { r: 8.5, vague: 18 },
-  diviseur: { r: 7, vague: 20 }, invocateur: { r: 7.5, vague: 24 }, petit: { r: 4.5, vague: 999 }, fantome: { r: 6.5, vague: 22 }, bombe: { r: 6, vague: 27 }
+  diviseur: { r: 7, vague: 20 }, invocateur: { r: 7.5, vague: 24 }, petit: { r: 4.5, vague: 999 }, fantome: { r: 6.5, vague: 22 }, bombe: { r: 6, vague: 27 },
+  boss: { r: 14, vague: 999 }
 };
+// bonus du Survivant : ils apparaissent posés sur un sol, restent 10 s, et durent 8 s une fois pris
+const BONUS_S = { bouclier: 'Bouclier : le prochain ennemi touché ne te tue pas', lent: 'Ennemis ralentis', charges: 'Charges infinies', sauts: 'Sauts plus hauts' };
 const SEUIL_SURVIE = 20;                                  // au-delà, la difficulté monte bien plus doucement
 // temps entre deux ennemis (en images) : il raccourcit normalement jusqu'au 20e, puis environ quatre fois plus lentement
 const rythmeSurvie = (v) => v <= SEUIL_SURVIE ? Math.round(210 - v * 1.6) : Math.max(70, Math.round(210 - SEUIL_SURVIE * 1.6 - (v - SEUIL_SURVIE) * 0.4));
 function nouveauMonstre(type, x, y) {
-  return { type, r: ENNEMIS[type].r, x, y, vx: 0, vy: 0, dir: hasardJ() < 0.5 ? -1 : 1, sol: false, t: 0, pv: type === 'lourd' ? 2 : 1,
+  return { type, r: ENNEMIS[type].r, x, y, vx: 0, vy: 0, dir: hasardJ() < 0.5 ? -1 : 1, sol: false, t: 0, pv: type === 'boss' ? 5 : type === 'lourd' ? 2 : 1, pvMax: type === 'boss' ? 5 : 1,
     // la vitesse monte jusqu'au 20e ennemi, puis ne bouge plus (ensuite, seuls le rythme d'arrivée et les nouveaux types changent)
-    vit: (0.55 + Math.min(J.vague, SEUIL_SURVIE) * 0.01) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
+    vit: (0.55 + Math.min(J.vague, SEUIL_SURVIE) * 0.01) * (type === 'petit' ? 1.4 : type === 'lourd' ? 0.6 : type === 'boss' ? 0.5 : 1), charge: 0, meche: 0, invisible: false, garde: 0,
     elite: false };
 }
 function majSurvie() {
@@ -466,9 +483,13 @@ function majSurvie() {
   if (!e.demarre || J.finT > 0) return;
   const dur = (px, py) => M.plein(n, FAUX, Math.floor(px / T2), Math.floor(py / T2));
   const pcx = e.x + 6, pcy = e.y + 6;
+  if (J.prochainBoss == null) J.prochainBoss = (Math.floor(J.kills / 25) + 1) * 25;
+  const bossVient = J.kills >= J.prochainBoss && !J.monstres.some(m => m.type === 'boss');
+  if (bossVient && !J.prochain) { J.spawnT = Math.min(J.spawnT, 72); message = tr('Un boss arrive !'); messageT = 120; J.couleurMsg = '#ff6a6a'; }
   if (!J.prochain && J.spawnT <= 72) {                       // on annonce l'apparition à l'avance
     const types = Object.keys(ENNEMIS).filter(t => ENNEMIS[t].vague * 1.5 <= J.vague + 1);   // nouveaux ennemis plus espacés
-    const xs = [4, 13, 22, 31, 40], type = types[Math.floor(hasardJ() * types.length)], r = ENNEMIS[type].r;
+    const xs = [4, 13, 22, 31, 40], type = bossVient ? 'boss' : types[Math.floor(hasardJ() * types.length)], r = ENNEMIS[type].r;
+    if (bossVient) J.prochainBoss += 25;
     if (type === 'volant' || type === 'fantome') J.prochain = { type, x: xs[Math.floor(hasardJ() * xs.length)] * T2 + 2, y: 6 * T2 + 2 };
     else {
       if (!J.sols) {                                         // toutes les cases où un ennemi peut tenir debout
@@ -490,6 +511,32 @@ function majSurvie() {
     J.spawnT = rythmeSurvie(J.vague);
   }
   J.maxEnnemis = Math.max(J.maxEnnemis, J.monstres.length);
+  // bonus à ramasser : un toutes les 20 s environ, posé sur un sol loin du joueur ; il disparaît au bout de 10 s
+  J.bonusS = J.bonusS || [];
+  if (J.sols && J.sols.length && (J.bonusT = (J.bonusT || 900) - 1) <= 0) {
+    J.bonusT = 1000 + Math.floor(hasardJ() * 400);
+    const l2 = J.sols.filter(([tx, ty]) => Math.hypot(tx * T2 - pcx, ty * T2 - pcy) > 6 * T2), [tx, ty] = l2[Math.floor(hasardJ() * l2.length)] || J.sols[0];
+    const sortes = Object.keys(BONUS_S);
+    J.bonusS.push({ x: tx * T2 + T2, y: (ty + 1) * T2 - 7, sorte: sortes[Math.floor(hasardJ() * sortes.length)], vie: 600 });
+  }
+  J.bonusS = J.bonusS.filter(b => {
+    if (--b.vie <= 0) return false;
+    if (e.mortT === 0 && M.polyCercle(M.formeJoueur(e), b.x, b.y, 6)) {          // ramassé (cercle = son dessin)
+      appliquerBonusS(b.sorte, true); e.ev |= M.EV.BONUS; e.evX = Math.floor(b.x / T2); e.evY = Math.floor(b.y / T2);
+      return false;
+    }
+    if (J.coop && J.partenaire && J.partenaire.mortT === 0 && M.polyCercle(M.formeJoueur(J.partenaire), b.x, b.y, 6)) {   // ramassé par l'ami
+      if (b.sorte === 'lent') appliquerBonusS('lent', false);                  // ralentir les ennemis vaut pour les deux
+      EnLigne.envoyer({ t: 'bonus', sorte: b.sorte });
+      return false;
+    }
+    return true;
+  });
+  const A = J.actifs || {};
+  for (const k of ['lent', 'charges', 'sauts']) if (A[k] > 0) A[k]--;
+  if (A.charges > 0) e.charges = M.K.charges;
+  if (A.sauts > 0) { e.bonus = Math.max(e.bonus, 1.25); e.bonusT = e.temps + 2; }
+  const fLent = A.lent > 0 ? 0.5 : 1;
 
   const boucler = (m) => {
     const cx = m.x + m.r, cy = m.y + m.r, tx = Math.floor(cx / T2), ty = Math.floor(cy / T2), i = ty * n.w + tx, tt = M.tuile(n, tx, ty), j = n.boucle.get(i);
@@ -498,20 +545,23 @@ function majSurvie() {
     else if (tt === M.BOUCLE_D && m.vx > 0) m.x = (j % n.w) * T2 + 1;
     else if (tt === M.BOUCLE_G && m.vx < 0) m.x = (j % n.w + 1) * T2 - m.r * 2 - 1;
   };
+  const P2 = J.coop && J.partenaire && J.partenaire.mortT === 0 ? J.partenaire : null;
   for (const m of J.monstres) {
     m.t++;
     const d2 = m.r * 2, cx = m.x + m.r, cy = m.y + m.r;
+    let tcx = pcx, tcy = pcy;
+    if (P2) { const qx = P2.x + 6, qy = P2.y + 6; if (Math.hypot(qx - cx, qy - cy) < Math.hypot(tcx - cx, tcy - cy)) { tcx = qx; tcy = qy; } }
     if (m.type === 'volant' || m.type === 'fantome') {             // volent droit vers le joueur, à travers les murs
-      const dx = pcx - cx, dy = pcy - cy, dd = Math.hypot(dx, dy) || 1, v = m.type === 'fantome' ? 0.45 : 0.7;
+      const dx = tcx - cx, dy = tcy - cy, dd = Math.hypot(dx, dy) || 1, v = m.type === 'fantome' ? 0.45 : 0.7;
       m.vx = dx / dd * v; m.vy = dy / dd * v + Math.sin(m.t * 0.08) * 0.4;
-      m.x += m.vx; m.y += m.vy; m.dir = Math.sign(m.vx) || m.dir;
+      m.x += m.vx * fLent; m.y += m.vy * fLent; m.dir = Math.sign(m.vx) || m.dir;
       if (m.type === 'fantome') m.invisible = Math.floor(m.t / 90) % 2 === 1;
       continue;
     }
     // direction : le plus court chemin (en comptant les bords qui se renvoient) ; on ne change d'avis que si l'écart est net
     if (m.garde > 0) m.garde--;
     else if (m.t % 30 === 0 && m.type !== 'tireur') {
-      const dx = pcx - cx, lw = n.w * T2, viaBord = J.n.boucle.size ? (dx > 0 ? dx - lw : dx + lw) : Infinity;
+      const dx = tcx - cx, lw = n.w * T2, viaBord = J.n.boucle.size ? (dx > 0 ? dx - lw : dx + lw) : Infinity;
       const best = Math.abs(viaBord) + 4 * T2 < Math.abs(dx) ? viaBord : dx;
       const voulu = m.type === 'archer' && Math.abs(best) < 7 * T2 ? -Math.sign(best) : Math.sign(best);   // l'archer garde ses distances
       if (voulu && voulu !== m.dir && Math.abs(best) > 2 * T2) { m.dir = voulu; m.garde = 70; }
@@ -519,20 +569,24 @@ function majSurvie() {
     if (m.type === 'fonceur') {                                      // fonce quand il voit le joueur à sa hauteur, après un préavis
       if (m.prep > 0) { if (--m.prep === 0) m.charge = 40; }
       else if (m.charge > 0) m.charge--;
-      else if (Math.abs(pcy - cy) < 18 && Math.abs(pcx - cx) < 200 && m.sol) {
-        const sens = Math.sign(pcx - cx) || m.dir; let libre = true;       // pas de mur entre lui et le joueur
-        for (let xx = cx; Math.abs(xx - cx) < Math.abs(pcx - cx); xx += sens * 4) if (dur(xx, cy)) { libre = false; break; }
+      else if (Math.abs(tcy - cy) < 18 && Math.abs(tcx - cx) < 200 && m.sol) {
+        const sens = Math.sign(tcx - cx) || m.dir; let libre = true;       // pas de mur entre lui et le joueur
+        for (let xx = cx; Math.abs(xx - cx) < Math.abs(tcx - cx); xx += sens * 4) if (dur(xx, cy)) { libre = false; break; }
         if (libre) { m.prep = 24; m.dir = sens; }
       }
       if (m.charge > 0 && (dur(cx + m.dir * (m.r + 6), m.y + 1) || dur(cx + m.dir * (m.r + 6), m.y + d2 - 1))) m.charge = 0;   // il freine avant le mur
     }
-    m.vx = (m.type === 'tireur' && m.sol) || m.prep > 0 ? 0 : m.dir * m.vit * (m.charge > 0 ? 2.6 : 1);
-    m.vy = Math.min(8, m.vy + 0.45);
+    m.vx = ((m.type === 'tireur' && m.sol) || m.prep > 0 ? 0 : m.dir * m.vit * (m.charge > 0 ? 2.6 : 1)) * fLent;
+    m.vy = Math.min(8, m.vy + 0.45 * fLent);
+    if (m.type === 'boss') {                                         // le boss bondit lourdement et appelle des petits
+      if (m.sol && m.t % 150 === 0) m.vy = -7;
+      if (m.t % 300 === 150 && J.monstres.length < 40) for (const s2 of [-1, 1]) { const p2 = nouveauMonstre('petit', m.x + m.r + s2 * 10, m.y); p2.dir = s2; p2.vy = -3; J.monstres.push(p2); }
+    }
     if (m.type === 'sauteur' && m.sol && m.t % 70 === 0) m.vy = -6.6;
     if (m.type === 'rebond' && m.sol) m.vy = -5.8;                 // rebondit sans arrêt
     if (m.type === 'invocateur' && m.t % 240 === 120 && J.monstres.length < 40) { const p2 = nouveauMonstre('petit', m.x, m.y - 6); p2.vy = -3; J.monstres.push(p2); }
     if (m.type === 'archer' && m.sol && m.t % 130 === 0) {         // tir en cloche vers le joueur
-      const dx = pcx - cx; J.balles.push([cx, cy - 4, Math.max(-3, Math.min(3, dx / 60)), -4.2, 260, 1]);
+      const dx = tcx - cx; J.balles.push([cx, cy - 4, Math.max(-3, Math.min(3, dx / 60)), -4.2, 260, 1]);
     }
     m.x += m.vx;
     if (dur(m.vx > 0 ? m.x + d2 : m.x, m.y + 1) || dur(m.vx > 0 ? m.x + d2 : m.x, m.y + d2 - 1)) { m.x -= m.vx; m.dir *= -1; m.charge = 0; m.garde = 40; }
@@ -541,15 +595,16 @@ function majSurvie() {
     else if (m.vy < 0 && (dur(m.x + 1, m.y) || dur(m.x + d2 - 1, m.y))) { m.y = (Math.floor(m.y / T2) + 1) * T2; m.vy = 0; }
     boucler(m);
     if (m.type === 'tireur' && m.sol && m.t % 110 === 0) {          // tire vers le joueur
-      const dx = pcx - cx, dy = pcy - cy, dd = Math.hypot(dx, dy) || 1;
+      const dx = tcx - cx, dy = tcy - cy, dd = Math.hypot(dx, dy) || 1;
       J.balles.push([cx, cy, dx / dd * 2.0, dy / dd * 2.0, 240, 0]);
     }
     if (m.type === 'bombe') {                                        // mèche qui s'allume près du joueur, puis boum
-      if (!m.meche && Math.hypot(pcx - cx, pcy - cy) < 3 * T2) m.meche = 90;
-      if (m.meche && --m.meche === 0) { m.explose = true; if (Math.hypot(pcx - cx, pcy - cy) < 3 * T2 && !(e.invT > 0) && e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = pcx; e.evY = pcy; } }
+      if (!m.meche && Math.hypot(tcx - cx, tcy - cy) < 3 * T2) m.meche = 90;
+      if (m.meche && --m.meche === 0) { m.explose = true; if (Math.hypot(pcx - cx, pcy - cy) < 3 * T2 && !(e.invT > 0) && e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = pcx; e.evY = pcy; } if (P2 && Math.hypot(P2.x + 6 - cx, P2.y + 6 - cy) < 3 * T2) EnLigne.envoyer({ t: 'tue' }); }
     }
   }
   J.monstres = J.monstres.filter(m => !m.explose);
+  if (P2) contactAmi(P2);
   // balles des tireurs
   J.balles = J.balles.filter(b => { b[0] += b[2]; b[1] += b[3]; if (b[5]) b[3] += 0.12; b[4]--; return b[4] > 0 && !dur(b[0], b[1]); });
   if (e.mortT === 0) for (const b of J.balles) if (M.polyCercle(M.formeJoueur(e), b[0], b[1], 2.5) && !(e.invT > 0)) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = pcx; e.evY = pcy; break; }
@@ -571,9 +626,105 @@ function majSurvie() {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
+        if (m.type === 'boss') { J.bossVaincus = (J.bossVaincus || 0) + 1; message = tr('Boss vaincu !'); messageT = 100; J.couleurMsg = '#7dff9a'; J.bonusT = 1; }
         if (m.type === 'diviseur') for (const s2 of [-1, 1]) { const p2 = nouveauMonstre('petit', m.x + s2 * 6, m.y); p2.dir = s2; p2.vy = -4; J.monstres.push(p2); }
       }
+    } else if (!(e.invT > 0) && J.actifs && J.actifs.bouclier) {      // le bouclier se brise à la place du joueur
+      J.actifs.bouclier = 0; e.invT = 60; e.vy = -5; e.ev |= M.EV.CASSE; e.evX = pcx; e.evY = pcy;
+      message = tr('Bouclier brisé !'); messageT = 70; J.couleurMsg = '#ffd84a';
     } else if (!(e.invT > 0)) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = pcx; e.evY = pcy; break; }
+  }
+}
+/* ---------- Jeu en ligne à deux (Survivant, Expédition) ----------
+   Chacun fait tourner son propre personnage (aucun retard dans les commandes) et envoie sa position à l'autre.
+   Expédition : les deux générent les mêmes salles (même graine) ; si l'un meurt, l'autre aussi (chacun perd une vie).
+   Survivant : l'hôte fait vivre les ennemis et les bonus pour les deux et les envoie à l'invité ; une seule vie pour
+   les deux : si l'un meurt, la partie s'arrête pour les deux. */
+let enligneMode = 'survie', enligneOuvert = false;
+function appliquerBonusS(sorte, local) {
+  J.actifs = J.actifs || {};
+  if (sorte === 'bouclier') J.actifs.bouclier = 1; else J.actifs[sorte] = 480;
+  if (local) { message = tr(BONUS_S[sorte]); messageT = 90; J.couleurMsg = '#7ae8ff'; }
+}
+function texteEnLigne() {
+  const et = EnLigne.etat;
+  return et === 'creation' ? tr('Création de la salle…') : et === 'attente' ? tr('Salle {0} : donne ce code à ton ami et attends qu’il la rejoigne.', EnLigne.code)
+    : et === 'connecte' ? (EnLigne.role === 'hote' ? tr('Ton ami est là ! Choisis le mode et lance la partie.') : tr('Connecté ! Attends que ton ami lance la partie.'))
+    : et === 'recherche' ? tr('Recherche de la salle {0}…', EnLigne.code) : et === 'introuvable' ? tr('Salle introuvable : vérifie le code, et que ton ami a bien sa salle ouverte.')
+    : et === 'internet' ? tr('Connexion impossible : vérifie Internet.') : et === 'impossible' ? tr('Impossible de créer la salle pour le moment.')
+    : et === 'code' ? tr('Le code fait 4 lettres.') : et === 'parti' ? tr('Ton ami s’est déconnecté.') : '';
+}
+function menuEnLigne() {
+  J = null; ecran = 'menu'; enligneOuvert = true;
+  const co = EnLigne.actif(), hote = EnLigne.role === 'hote';
+  montrer(`<h2>🌐 ${tr('En ligne à deux')}</h2>
+    <p class="note">${tr('Jouez ensemble, chacun sur son ordinateur. Survivant : mêmes ennemis, une seule vie pour les deux. Expédition : les mêmes salles, et si l’un meurt, l’autre aussi.')}</p>
+    ${texteEnLigne() ? `<div class="lignes"><div class="${EnLigne.etat === 'connecte' ? 'vert' : ''}">${texteEnLigne()}</div></div>` : ''}
+    ${EnLigne.code && hote ? `<div class="temps">${EnLigne.code}</div>` : ''}
+    ${co && hote ? `<div class="menu ligne"><button class="btn ${enligneMode === 'survie' ? 'choisi' : ''}" data-a="el-mode" data-c="survie">⚔ ${tr('Survivant')}</button><button class="btn ${enligneMode === 'expedition' ? 'choisi' : ''}" data-a="el-mode" data-c="expedition">🎲 ${tr('Expédition')}</button></div>
+      <div class="menu ligne"><button class="btn" data-a="el-lancer" autofocus>▶ ${tr('Lancer la partie à deux')}</button></div>` : ''}
+    ${!EnLigne.role || EnLigne.etat === 'introuvable' || EnLigne.etat === 'internet' || EnLigne.etat === 'impossible' || EnLigne.etat === 'parti' || EnLigne.etat === 'code' ? `
+      <div class="menu ligne"><button class="btn" data-a="el-creer" ${co ? '' : 'autofocus'}>${tr('Créer une salle')}</button></div>
+      <div class="menu ligne"><input id="el-code" maxlength="4" placeholder="${tr('Code')}" autocomplete="off"><button class="btn" data-a="el-rejoindre">${tr('Rejoindre')}</button></div>` : ''}
+    <div class="menu ligne">${EnLigne.role ? `<button class="btn" data-a="el-quitter">${tr('Quitter la salle')}</button>` : ''}<button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
+  const champ = ui.querySelector('#el-code'); if (champ) champ.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') EnLigne.rejoindre(champ.value); });
+}
+EnLigne.surChange = () => {
+  if (ecran === 'menu' && enligneOuvert) menuEnLigne();
+  else if (EnLigne.etat === 'parti' && J && J.coop) { message = tr('Ton ami s’est déconnecté.'); messageT = 200; J.couleurMsg = '#ff8a8a'; J.coop = false; J.partenaire = null; }
+};
+EnLigne.surMessage = (d) => {
+  if (d.t === 'debut') { enligneOuvert = false; if (d.mode === 'survie') lancerSurvie(d.graine, true); else lancerExpedition(d.graine, true); return; }
+  if (!J || !J.coop) return;
+  if (d.t === 'e') {                                                 // la position de l'ami
+    if (!J.partenaire) J.partenaire = M.nouvelEtat(J.n);
+    const p = J.partenaire; J.partenairePrec = { x: p.x, y: p.y, phase: p.phase };
+    Object.assign(p, { x: d.x, y: d.y, phase: d.ph, face: d.f, vx: d.vx, vy: d.vy, sol: d.s, mortT: d.m, dash: d.d, temps: J.e.temps, demarre: true });
+  } else if (d.t === 'mort' || d.t === 'tue') J.mortForcee = true;
+  else if (d.t === 'fin') { if (J.mode === 'expedition' && J.finT === 0) { J.vies = 0; J.finT = 50; } }
+  else if (d.t === 's' && EnLigne.role === 'invite') { J.monstres = d.m; J.balles = d.b; J.bonusS = d.bo; J.kills = d.k; J.prochainBoss = d.pb; J.prochain = d.pr; J.vague = d.v; }
+  else if (d.t === 'bond') { J.e.vy = -6.6; J.e.sol = false; J.e.charges = M.K.charges; J.e.ev |= M.EV.BOND; }
+  else if (d.t === 'bonus') appliquerBonusS(d.sorte, true);
+};
+function demarrerEnLigne(mode) {
+  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  EnLigne.envoyer({ t: 'debut', mode, graine });
+  enligneOuvert = false;
+  if (mode === 'survie') lancerSurvie(graine, true); else lancerExpedition(graine, true);
+}
+// après chaque image : mort partagée, et on envoie sa position (et, pour l'hôte du Survivant, les ennemis)
+function apresPasEnLigne() {
+  const e = J.e;
+  if (J.mortForcee) { J.mortForcee = false; if (e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = e.x + 6; e.evY = e.y + 6; J.mortRecue = true; } }
+  else if ((e.ev & M.EV.MORT) && !J.mortRecue) EnLigne.envoyer({ t: 'mort' });
+  if (!(e.ev & M.EV.MORT)) J.mortRecue = false;
+  EnLigne.envoyer({ t: 'e', x: e.x, y: e.y, ph: e.phase, f: e.face, vx: e.vx, vy: e.vy, s: e.sol, m: e.mortT, d: e.dash });
+  if (J.mode === 'survie' && EnLigne.role === 'hote' && !(e.temps % 2)) {
+    EnLigne.envoyer({ t: 's', m: J.monstres, b: J.balles, bo: J.bonusS || [], k: J.kills, pb: J.prochainBoss, pr: J.prochain, v: J.vague });
+  }
+}
+// Survivant, chez l'invité : les ennemis viennent de l'hôte ; ici, seulement les effets des bonus pris
+function majSurvieInvite() {
+  const e = J.e, A = J.actifs || {};
+  for (const k of ['lent', 'charges', 'sauts']) if (A[k] > 0) A[k]--;
+  if (A.charges > 0) e.charges = M.K.charges;
+  if (A.sauts > 0) { e.bonus = Math.max(e.bonus, 1.25); e.bonusT = e.temps + 2; }
+}
+// Survivant, chez l'hôte : l'ami écrase les ennemis (par le bas de son corps) ou meurt en les touchant
+function contactAmi(P2) {
+  const pieds = (f) => Math.max(...M.formeJoueur(f).filter((_, i) => i % 2 === 1));
+  const prec = J.partenairePrec ? Object.assign(M.nouvelEtat(J.n), J.partenairePrec) : null;
+  const piedsAv = Math.min(pieds(P2), prec ? pieds(prec) : Infinity), qcx = P2.x + 6, qcy = P2.y + 6;
+  for (let k = J.monstres.length - 1; k >= 0; k--) {
+    const m = J.monstres[k], cx = m.x + m.r, cy = m.y + m.r;
+    if (m.invisible || Math.abs(cx - qcx) > 20 || Math.abs(cy - qcy) > 20) continue;
+    if (!M.polyCercle(M.formeJoueur(P2), cx, cy, m.r)) continue;
+    const plasma = P2.phase === M.P && P2.dash > 0;
+    const dessus = piedsAv <= cy - m.r * 0.35 + Math.abs(m.vy) + 3 || (qcy < cy - m.r * 0.4 && P2.vy >= m.vy);
+    if (!plasma && dessus && m.type !== 'herisse') {
+      EnLigne.envoyer({ t: 'bond' }); P2.vy = -6.6;
+      if (--m.pv <= 0) { J.monstres.splice(k, 1); J.kills++; if (m.type === 'boss') { J.bonusT = 1; message = tr('Boss vaincu !'); messageT = 100; J.couleurMsg = '#7dff9a'; } }
+    } else { EnLigne.envoyer({ t: 'tue' }); break; }
   }
 }
 function finSurvie() {
@@ -788,7 +939,7 @@ function recommencer() {
   if (J.mode === 'tuto') { lancerTuto(); return; }
   if (J.mode === 'niveau' && J.entrainement) { allerDrapeau(drapeauActif()); return; }
   if (J.mode === 'niveau') lancerNiveau(J.idx);
-  else if (J.mode === 'fantome') regarder(J.idx, J.cleRejeu || (J.quoi === 'ton record' ? 'record' : J.quoi === 'le Parfait' ? 'parfait' : 'parfait-eclat'));
+  else if (J.mode === 'fantome') regarder(J.idx, J.cleRejeu || (J.quoi === 'ton record' ? 'record' : 'parfait'));
   else if (J.mode === 'course') {
     // en course, R ramène au dernier drapeau (le chrono continue)
     if (J.e.mortT === 0 && J.e.demarre) { J.e.mortT = 1; J.e.morts++; }
@@ -826,7 +977,7 @@ function statsHTML() {
     dist: [tr('Distance'), m(st.dist)], deniv: [tr('Dénivelé'), m(Math.max(0, st.bas - st.haut))], sauts: [tr('Sauts'), st.sauts], murs: [tr('Sauts muraux'), st.murs],
     chg: [tr('Changements d’état'), st.chg], capas: [tr('Compétences'), st.capas || 0], reb: [tr('Rebonds et ressorts'), st.rebonds], air: [tr('Temps en l’air'), Math.round(st.air / tot * 100) + ' %'],
     immo: [tr('Temps immobile'), (st.immobile / 60).toFixed(1) + ' s'], drap: [tr('Drapeaux'), st.drapeaux], fracas: [tr('Fracas'), st.fracas], orbes: [tr('Cristaux et orbes'), st.cristaux + st.orbes],
-    eclat: [tr('Éclat ◆'), e.eclat ? '✔' : '✘'], kills: [tr('Ennemis écrasés'), J.kills || 0], kpm: [tr('Ennemis par minute'), ((J.kills || 0) / (sec / 60)).toFixed(1)],
+    kills: [tr('Ennemis écrasés'), J.kills || 0], kpm: [tr('Ennemis par minute'), ((J.kills || 0) / (sec / 60)).toFixed(1)],
     max: [tr('Le plus d’ennemis à la fois'), J.maxEnnemis || 0], salles: [tr('Salles'), J.salle || 0], vvert: [tr('Vitesse verticale'), (Math.max(0, st.bas - st.haut) / M.T / sec).toFixed(1) + ' m/s']
   };
   const plan = {
@@ -843,7 +994,7 @@ function statsHTML() {
     <div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>`;
 }
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
-let nivEntrainement = false, nivBot = false, botEclat = false, botType = 'parfait';      // onglets de l'écran des niveaux
+let nivEntrainement = false, nivBot = false, botType = 'parfait';      // onglets de l'écran des niveaux
 // les trois robots : facile (faisable par un humain), humain (très dur), Parfait (le plus rapide possible, joué le plus simplement)
 const NOMS_BOT = { facile: 'Difficile', humain: 'Professionnel', parfait: 'Parfait' };
 const NOTES_BOT = {
@@ -930,7 +1081,7 @@ function allerDrapeau(k) {
 function lancerFantomeEntr(k) {
   const p = botDe(S.fantEntr)[J.L.id];
   if (!p || !p.f) { J.fantome = null; return; }
-  const eclE = !!(S.reglages.fantEclat && p.fe);
+  const eclE = false;                                    // (plus d'éclat dans les niveaux)
   const fl = drapeauxNiveau();
   if (!J.botDrap) {                                     // une seule fois : on rejoue le Parfait et on note chaque drapeau
     const ent = M.decompresser(eclE ? p.fe : p.f); while (ent.length && !ent[0]) ent.shift();
@@ -1095,10 +1246,11 @@ function pas() {
   const fige = J.mode === 'niveau' && J.entrainement && J.attenteG && J.fantome && J.e.demarre && J.e.mortT === 0 && !(inp & ~(J.inpAv || 0));
   if (fige) { J.inpAv = inp; J.e.ev = 0; return; }
   M.pas(J.n, J.e, inp);
+  if (J.coop) apresPasEnLigne();
   if (J.entrainement && (J.e.ev & M.EV.INVINCIBLE)) J.e.invT = 0;   // entraînement : aucune invincibilité en réapparaissant
   compterStats(J.e, x0, y0);
   if (J.mode !== 'fantome') { noterDrapeau(); cristalDrapeau(); }
-  if (J.mode === 'survie') majSurvie();
+  if (J.mode === 'survie') { if (J.coop && EnLigne.role === 'invite') majSurvieInvite(); else majSurvie(); }
   if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
   if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
   if (J.mode === 'expedition' && J.salle >= J.prochainChoix && J.finT === 0) { choixBonus(); return; }
@@ -1119,6 +1271,10 @@ function pas() {
   const ev = J.e.ev;
   if (J.mode === 'niveau' && J.entrainement && (ev & (M.EV.DRAPEAU | M.EV.INVINCIBLE))) {   // arrivé à un drapeau (ou reparti de lui) : le robot repart de là aussi
     const k = J.e.cp ? drapeauxNiveau().findIndex(([x, y]) => x === J.e.cp.tx && y === J.e.cp.ty) + 1 : 0;
+    if (S.boucleEntr && (ev & M.EV.DRAPEAU) && k > (J.drapeauDepart || 0)) {
+      message = tr('Boucle : retour au drapeau {0}', J.drapeauDepart || 0); messageT = 70; J.couleurMsg = '#7ae8ff';
+      allerDrapeau(J.drapeauDepart || 0); return;
+    }
     lancerFantomeEntr(Math.max(0, k));
     if (ev & M.EV.INVINCIBLE) calerSurFantome();               // réapparition : le monde repart du même instant que le robot
     else J.attenteG = false;              // simple passage d'un drapeau en courant : il part avec nous
@@ -1136,9 +1292,7 @@ function pas() {
     if (J.entrainement) J.segT = J.e.temps + 20;
   }
   if (J.e.fini) {
-    if (J.mode === 'course' && J.cat === 'cent' && J.n.aEclat && !J.e.eclat) {
-      J.e.fini = false; message = 'Il te manque l’éclat ◆ de ce niveau !'; messageT = 60;
-    } else terminer();
+    terminer();
   }
 }
 
@@ -1158,6 +1312,10 @@ function terminer() {
   if (J.mode === 'special') { finSpecial(); return; }
   if (J.mode === 'tuto') { finTuto(); return; }
   const id = J.L.id, t = J.e.temps;
+  if (J.mode === 'niveau' && J.entrainement && S.boucleEntr) {     // boucle : le dernier passage recommence aussi
+    message = tr('Boucle : retour au drapeau {0}', J.drapeauDepart || 0); messageT = 70; J.couleurMsg = '#7ae8ff';
+    allerDrapeau(J.drapeauDepart || 0); return;
+  }
   if (J.mode === 'niveau' && J.entrainement) {
     ecran = 'fin'; SON.attenuer(true);
     S.cumul.entr++;
@@ -1180,7 +1338,6 @@ function terminer() {
     const avant = ancien.t;
     if (record) S.il[id] = Object.assign(ancien, { t, f: M.compresser(J.entrees), morts: J.e.morts });
     const avantE = eclatsGagnes();
-    if (J.e.eclat) S.il[id].eclat = true;
     S.il[id].mMax = Math.max(S.il[id].mMax || 0, medaille(id, t));
     S.il[id].fois = (S.il[id].fois || 0) + 1;
     J.gainE = eclatsGagnes() - avantE;
@@ -1198,9 +1355,7 @@ function terminer() {
     J.course.splits.push(t);
     J.course.total += t;
     const suivant = J.idx + 1;
-    if (suivant >= LISTE.length) { finCourse(); return; }
-    const eclats = J.course.eclats || 0;
-    J.course.eclats = eclats + (J.e.eclat ? 1 : 0);
+    if (suivant > (J.course.d1 != null ? J.course.d1 : LISTE.length - 1)) { finCourse(); return; }
     const c = charger(suivant, { demarre: true });
     Object.assign(J, c, { idx: suivant });
     SON.jouerMusique(musiqueNiveau(suivant));
@@ -1310,23 +1465,32 @@ function dessiner(dt) {
     hud.sousChrono = S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : tr('Ennemis écrasés');
     hud.prochain = J.prochain && { x: J.prochain.x, y: J.prochain.y, r: ENNEMIS[J.prochain.type].r, t: J.spawnT };
     hud.lignes.push({ t: tr('Touche leur tête avec le bas de ton corps !'), c: '#ffd84a' });
-    hud.monstres = J.monstres; hud.balles = J.balles;
+    hud.monstres = J.monstres; hud.balles = J.balles; hud.bonusS = J.bonusS;
+    const A = J.actifs || {}, act = [];
+    if (A.bouclier) act.push(tr('Bouclier'));
+    if (A.lent > 0) act.push(tr('Ennemis ralentis') + ' ' + Math.ceil(A.lent / 60) + ' s');
+    if (A.charges > 0) act.push(tr('Charges infinies') + ' ' + Math.ceil(A.charges / 60) + ' s');
+    if (A.sauts > 0) act.push(tr('Sauts plus hauts') + ' ' + Math.ceil(A.sauts / 60) + ' s');
+    if (act.length) hud.lignes.push({ t: act.join('   '), c: '#7ae8ff' });
+    const prB = J.prochainBoss || 25;
+    hud.lignes.push({ t: tr('Prochain boss : {0} ennemis écrasés', prB), c: '#ff9a9a' });
     if (J.finT > 0) { hud.message = tr('Ennemis écrasés : {0}', J.kills); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'course') {
     hud.chrono = J.course.total + e.temps;
-    hud.titre = tr(J.cat === 'cent' ? 'Course 100 %' : 'Course complète') + '  ·  ' + hud.titre;
+    const d0 = J.course.d0 || 0, d1 = J.course.d1 != null ? J.course.d1 : LISTE.length - 1;
+    hud.titre = nomCourse(J.cat) + '  ·  ' + hud.titre;
     const pb = S.course[J.cat];
     if (pb && pb.splits) {
-      let cumul = 0; for (let i = 0; i < J.idx; i++) cumul += pb.splits[i];
+      let cumul = 0; for (let i = 0; i < J.idx - d0; i++) cumul += pb.splits[i];
       const ec = J.course.total - cumul;
-      if (J.idx > 0) { hud.sousChrono = tr('{0} sur ton record', R.ecart(ec)); hud.sousCouleur = ec <= 0 ? '#7dff9a' : '#ff7a7a'; }
+      if (J.idx > d0) { hud.sousChrono = tr('{0} sur ton record', R.ecart(ec)); hud.sousCouleur = ec <= 0 ? '#7dff9a' : '#ff7a7a'; }
     }
-    for (let i = Math.max(0, J.idx - 2); i <= Math.min(LISTE.length - 1, J.idx + 3); i++) {
+    for (let i = Math.max(d0, J.idx - 2); i <= Math.min(d1, J.idx + 3); i++) {
       const fait = i < J.idx;
-      const tps = fait ? J.course.splits[i] : (i === J.idx ? e.temps : null);
+      const tps = fait ? J.course.splits[i - d0] : (i === J.idx ? e.temps : null);
       hud.droite.push({ t: LISTE[i].id + '  ' + (tps != null ? R.chrono(tps) : '—'), c: i === J.idx ? '#fff' : (fait ? '#9a9' : '#666'), gras: i === J.idx });
     }
-    hud.lignes.push({ t: tr('Niveau {0} / {1}', J.idx + 1, LISTE.length) });
+    hud.lignes.push({ t: tr('Niveau {0} / {1}', J.idx - d0 + 1, d1 - d0 + 1) });
   } else if (J.mode === 'fantome') {
     hud.chrono = e.temps;
     if (!window.VITRINE) {
@@ -1346,18 +1510,30 @@ function dessiner(dt) {
       else hud.lignes.push({ t: tr('Parfait atteint !'), c: '#7dff9a' });
       if (il && il.t != null && e.temps > il.t) hud.couleurChrono = '#ffb0b0';
     }
-    if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', BOTS[S.reglages.fantome] ? tr(NOMS_BOT[S.reglages.fantome]) + (J.fantome.eclat ? ' ◆' : '') : tr('record')), c: '#888' });
+    if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', BOTS[S.reglages.fantome] ? tr(NOMS_BOT[S.reglages.fantome]) : tr('record')), c: '#888' });
   }
   if (J.cristalT > 0) { J.cristalT--; hud.lignes.push({ t: '+1 ◆   ' + tr('Cristaux gagnés : {0}', J.cristalN), c: '#ff9ae6' }); }
   if (!e.demarre) hud.attente = J.entrainement ? tr('Bouge pour commencer : le robot part avec toi') : tr('Bouge pour lancer le chrono');
   if (S.reglages.entrees) { hud.entrees = J.inp || 0; hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]); }
+  // entraînement : les touches que le robot appuie en ce moment (pour voir exactement ce qu'il fait)
+  if (J.entrainement && S.touchesBot && J.fantome && J.fantome.ent) {
+    hud.entreesBot = J.attenteG ? 0 : (J.fantome.ent[Math.max(0, J.fantome.i - 1)] || 0); hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]);
+    hud.nomRobot = tr('Robot'); hud.nomToi = tr('Toi');
+  }
   // panneau proche
   const cxp = (e.x + M.W / 2) / M.T, cyp = (e.y + M.H / 2) / M.T;
   for (const pn of J.n.panneaux) if (Math.abs(pn.x + 0.5 - cxp) < 3 && Math.abs(pn.y + 0.5 - cyp) < 2.5) { { const m = /^\[([1-4])\] (.*)$/.exec(pn.texte); const pe = m ? J.n.emplacements[+m[1] - 1] : -1; hud.panneau = m ? touchePhase(+m[1] - 1) + ' · ' + tr(m[2]) + (NIV.CAPA[pe] && J.n.capacites ? '   ↻ ' + tr(NIV.CAPA[pe][0]) + ' : ' + tr(NIV.CAPA[pe][1]) : '') : tr(pn.texte); } break; }
   if (assiste() && J.mode !== 'fantome') hud.lignes.push({ t: '♿ ' + tr('Assistance'), c: '#7dd3ff' });
   if (messageT > 0) { hud.message = tr(message); hud.messageC = J.couleurMsg || '#ff9ae6'; if (messageT === 1) J.couleurMsg = null; }
   if (J.fantome && J.fantome.entr) hud.fantomeFort = true;
-  R.dessiner(e, J.fantome ? J.fantome.e : null, hud, dt);
+  if (window.Icones) {                                        // texte dessiné dans le jeu : pas d'emoji
+    const se = Icones.sansEmoji;
+    for (const k of ['titre', 'message', 'sousChrono', 'texteCentre', 'attente']) if (typeof hud[k] === 'string') hud[k] = se(hud[k]);
+    for (const l of hud.lignes || []) l.t = se(l.t);
+    for (const l of hud.droite || []) if (l && typeof l.t === 'string') l.t = se(l.t);
+  }
+  if (J.coop && J.partenaire && !J.fantome) hud.fantomeFort = true;
+  R.dessiner(e, J.fantome ? J.fantome.e : (J.coop ? J.partenaire : null), hud, dt);
   if (window.VITRINE_DESSUS) window.VITRINE_DESSUS();
 }
 
@@ -1397,6 +1573,7 @@ function montrer(html, classe) {
   const tw = document.createTreeWalker(ui, NodeFilter.SHOW_TEXT), lst = [];
   while (tw.nextNode()) if (tw.currentNode.nodeValue.includes('◆') && !(tw.currentNode.parentNode.classList && (tw.currentNode.parentNode.classList.contains('eclat-s') || tw.currentNode.parentNode.classList.contains('ecl')))) lst.push(tw.currentNode);
   for (const t of lst) { const f = document.createDocumentFragment(); t.nodeValue.split('◆').forEach((m, i) => { if (i) { const sp = document.createElement('span'); sp.className = 'eclat-s'; sp.textContent = '◆'; f.appendChild(sp); } if (m) f.appendChild(document.createTextNode(m)); }); t.parentNode.replaceChild(f, t); }
+  if (window.Icones) Icones.iconiser(ui);                     // symboles dessinés par le jeu à la place des emojis
   ajuster();
   const b = ui.querySelector('[autofocus]') || ui.querySelector('.btn:not([disabled])');
   if (b) b.focus();
@@ -1426,7 +1603,7 @@ function sommeMeilleurs() {
 function sommeParfaits() { let s = 0; for (const l of LISTE) { if (!PARF[l.id]) return null; s += PARF[l.id].t; } return s; }
 
 function accueil() {
-  J = null; ecran = 'menu'; SON.jouerMusique(0);
+  J = null; ecran = 'menu'; SON.jouerMusique(0); enligneOuvert = false;
   const faits = LISTE.filter(l => S.il[l.id] && S.il[l.id].t != null).length;
   const parfaits = LISTE.filter(l => medaille(l.id, S.il[l.id] && S.il[l.id].t) === MP).length;
   const nbSucces = nbRangs();
@@ -1438,8 +1615,11 @@ function accueil() {
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : touche-leur la tête avec le bas de ton corps'))}
-    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom) + ' · ' + texteTwists('semaine'), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
-    ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom) + ' · ' + texteTwists('mois'), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
+    ${carte('speedrun', '⏱ ' + tr('Speedrun'), tr('une zone ou le jeu entier d’affilée, un seul chrono'))}
+    ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : tr('Survivant ou Expédition avec un ami, chacun sur son ordinateur'))}
+    ${carte('defis', '📅 ' + tr('Défis'), tr('la semaine et le mois : des règles poussées à l’extrême'))}
+  </div>
+  <div class="grille petite">
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
     ${carte('aide', '❓ ' + tr('Comment jouer'), tr('les états, les pièges, les touches'))}
@@ -1448,6 +1628,14 @@ function accueil() {
 `, 'accueil');
 }
 
+function menuDefis() {
+  J = null; ecran = 'menu';
+  const carte = (a, titre, sous, attr) => `<button class="btn carte" data-a="${a}" ${attr || ''}><b>${titre}</b><small>${sous}</small></button>`;
+  montrer(`<h2>📅 ${tr('Défis')}</h2><div class="grille">
+    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine') + ' · ' + tr(varianteDefi('semaine').nom) + ' · ' + texteTwists('semaine'), S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but))}
+    ${carte('defi-mois', '🗓 ' + tr('Défi du mois') + ' · ' + tr(varianteDefi('mois').nom) + ' · ' + texteTwists('mois'), S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but))}
+  </div><div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`, 'large');
+}
 let boutiqueCat = 'contour';
 function boutique() {
   J = null; ecran = 'menu';
@@ -1501,10 +1689,10 @@ function niveaux() {
     const nFaits = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em></div>`;
     z.niveaux.forEach(nv => {
-      const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
+      const r = S.il[nv.id], m = medaille(nv.id, r && r.t);
       const fait = r && r.t != null;
-      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
-        ${fait ? `<span class="etat">${tr('FINI')}</span>` : ''}<b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''}${nv.meteo ? ` <span class="effet">${tr(METEO_NOMS[nv.meteo])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
+      h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
+        ${fait ? `<span class="etat">${tr('FINI')}</span>` : ''}<b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''}${nv.meteo ? ` <span class="effet">${tr(METEO_NOMS[nv.meteo])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span></small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -1709,9 +1897,9 @@ function acheterAmelio(id) {
   x.frag -= a[3][nv]; x.am[id] = nv + 1; sauver(); expeditionMenu();
   const b = ui.querySelector(`[data-a="exp-ach"][data-c="${id}"]:not([disabled])`); if (b) b.focus();   // on reste sur l'achat
 }
-function lancerExpedition() {
-  const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-  const base = niv_am('depart') * 10;                                                   // départ plus loin : plus dur, mais chaque salle rapporte plus
+function lancerExpedition(graineImp, coop) {
+  const graine = graineImp != null ? graineImp : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  const base = coop ? 0 : niv_am('depart') * 10;                                        // à deux : le même départ pour les deux                                                   // départ plus loin : plus dur, mais chaque salle rapporte plus
   const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.08, 0.008], depart: base });     // la difficulté monte très lentement
   const def = { id: 'exp', nom: 'Expédition', phases: monde.etats.slice(), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
@@ -1719,7 +1907,7 @@ function lancerExpedition() {
   recadrer = true;
   const pas5 = 8 - niv_am('souvent') * 2;                                            // un bonus toutes les 8 salles (6 avec l'amélioration)
   J = { mode: 'expedition', monde, n, e, entrees: [], L: { id: 'exp', def, zi: 0 }, salle: 0, base, finT: 0, vies: 3 + niv_am('vie'), prochainChoix: pas5, pasChoix: pas5, bonusPris: [],
-    bouclier: undefined };
+    bouclier: undefined, coop: !!coop };
   S.essais++;
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('infini');
@@ -1754,6 +1942,7 @@ function fragExpe(n) {
   return Math.round(frag * k);
 }
 function finExpedition() {
+  if (J.coop) EnLigne.envoyer({ t: 'fin' });                  // à deux : l'expédition s'arrête pour les deux
   const n = J.salle + (J.base || 0), t = J.e.temps, ancien = S.expedition;
   const record = !ancien || n > ancien.salles;
   if (record && !assiste()) S.expedition = { salles: n, t };
@@ -1782,7 +1971,7 @@ function finNiveau(t, avant, record) {
   }
   const ob = S.il[id].obj || 0, obCe = objectifsFaits(id, t);
   lignes += `<div class="objectifs">${OBJECTIFS.map((o, k) => `<span class="${(obCe & (1 << k)) ? 'ok' : (ob & (1 << k)) ? 'deja' : ''}">${o[1]} ${tr(o[0])}</span>`).join('')}</div>`;
-  lignes += `<div class="gris">${tr('Chutes : {0}', J.e.morts)}${J.n.aEclat ? ' · ' + (J.e.eclat ? tr('éclat ◆ pris') : tr('éclat pas pris')) : ''}</div>`;
+  lignes += `<div class="gris">${tr('Chutes : {0}', J.e.morts)}</div>`;
   if (J.gainE > 0) lignes += `<div class="rose">+${J.gainE} ◆ ${tr('pour la boutique')}</div>`;
   lignes += J.succesNeufs || '';
   const suiv = J.idx + 1 < LISTE.length && zoneDebloquee(LISTE[J.idx + 1].zi);
@@ -1792,6 +1981,7 @@ function finNiveau(t, avant, record) {
       <button class="btn" data-a="rejouer" ${suiv ? '' : 'autofocus'}>${tr('Recommencer')} <small>${nomTouche(S.touches.recommencer[0])}</small></button>
       ${suiv ? `<button class="btn" data-a="jouer" data-i="${J.idx + 1}" autofocus>${tr('Suivant')} <small>${tr('Entrée')}</small></button>` : ''}
       ${LB_PRET ? `<button class="btn" data-a="classement" data-i="${J.idx}">🌐 ${tr('Classement mondial')}</button>` : ''}
+      ${S.il[id] && S.il[id].f ? `<button class="btn" data-a="voir-record" data-i="${J.idx}">⏪ ${tr('Revoir mon record (ralenti, image par image)')}</button>` : ''}
       <button class="btn" data-a="niveaux">${tr('Niveaux')}</button>
     </div></div>`, 'fin');
 }
@@ -1813,6 +2003,7 @@ function barreRejeu() {
     VITESSES.map(v => `<button class="btn mini ${v === J.vitesse ? 'choisi' : ''}" data-r="v" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('') +
     `<div class="rl"></div><span>${tr('Flèches : choisir · Espace ou Entrée : valider')}</span>`;
   const b0 = foc ? [...barre.querySelectorAll('[data-r]')].find(x => x.dataset.r + (x.dataset.v || '') === foc) : null;
+  if (window.Icones) Icones.iconiser(barre);
   (b0 || barre.querySelector('[data-r="pause"]')).focus();          // un bouton est toujours choisi
 }
 // aller à une image précise du rejeu (on resimule depuis le début : c'est instantané)
@@ -1848,14 +2039,14 @@ function finCourse() {
   ecran = 'fin';
   let tab = '<table class="rec">';
   J.course.splits.forEach((s, i) => {
-    const d = pb && pb.splits ? s - pb.splits[i] : null;
-    tab += `<tr><td>${LISTE[i].id} ${tr(LISTE[i].def.nom)}</td><td>${R.chrono(s)}</td><td class="${d != null && d <= 0 ? 'vert' : 'rouge'}">${d != null ? R.ecart(d) : ''}</td></tr>`;
+    const d = pb && pb.splits ? s - pb.splits[i] : null, L2 = LISTE[(J.course.d0 || 0) + i];
+    tab += `<tr><td>${L2.id} ${tr(L2.def.nom)}</td><td>${R.chrono(s)}</td><td class="${d != null && d <= 0 ? 'vert' : 'rouge'}">${d != null ? R.ecart(d) : ''}</td></tr>`;
   });
   tab += '</table>';
-  montrer(`<div class="fin"><div class="nomniv">${tr(cat === 'cent' ? 'Course 100 %' : 'Course complète')}</div><div class="temps">${R.chrono(tot)}</div>
+  montrer(`<div class="fin"><div class="nomniv">${nomCourse(cat)}</div><div class="temps">${R.chrono(tot)}</div>
     <div class="lignes">${record ? '<div class="vert">' + tr('Nouveau record de course !') + '</div>' : `<div class="rouge">${tr('{0} sur ton record', R.ecart(tot - pb.t))}</div>`}</div>
     <div class="splits">${tab}</div>
-    <div class="menu ligne"><button class="btn" data-a="course-${cat}" autofocus>${tr('Recommencer la course')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin large');
+    <div class="menu ligne"><button class="btn" data-a="course-${cat}" autofocus>${tr('Recommencer la course')}</button><button class="btn" data-a="speedrun">${tr('Speedrun')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin large');
 }
 function pause() {
   if (ecran !== 'jeu') return;
@@ -1865,7 +2056,9 @@ function pause() {
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
     <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
-    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}</div>` : ''}
+    ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}</div>
+      <div class="drapeaux"><button class="btn mini ${S.boucleEntr ? 'choisi' : ''}" data-a="boucle-entr">${S.boucleEntr ? '☑' : '☐'} ${tr('Boucle sur un passage : retour au drapeau de départ dès le drapeau suivant')}</button>
+      <button class="btn mini ${S.touchesBot ? 'choisi' : ''}" data-a="touches-bot">${S.touchesBot ? '☑' : '☐'} ${tr('Voir les touches du robot')}</button></div>` : ''}
     ${J.entrainement ? `<div class="sous">${tr('Repartir du drapeau :')}</div><div class="drapeaux"><button class="btn mini" data-a="drapeau" data-i="0">${tr('Départ')}</button>${drapeauxNiveau().map((f, k) => `<button class="btn mini" data-a="drapeau" data-i="${k + 1}">⚑ ${k + 1}</button>`).join('')}</div>` : ''}
     <button class="btn" data-a="${J.mode === 'niveau' ? 'niveaux' : 'accueil'}">${tr('Quitter')}</button></div>
     <div class="note">🎮 ${['saut', 'solide', 'liquide', 'gaz', 'recommencer', 'pause'].map(a => tr(NOMS_ACTIONS[a]) + ' = ' + (NOMS_BOUTONS[S.manette[a]] || '#' + S.manette[a])).join(' · ')} · ${tr('bas : traverser les plateformes fines')}</div></div>`, 'fin');
@@ -1875,6 +2068,13 @@ function action(a, el) {
   SON.demarrer();
   SON.bruitMenu('valider');
   const i = el && el.dataset.i != null ? +el.dataset.i : null;
+  if (typeof a === 'string' && a.startsWith('course-')) { lancerCourse(a.slice(7)); return; }
+  // partie à deux : recommencer = l'hôte relance pour les deux ; l'invité attend
+  if (J && J.coop && ['rejouer', 'exp-partir', 'survie', 'recommencer'].includes(a)) {
+    if (EnLigne.role === 'hote' && EnLigne.actif()) demarrerEnLigne(J.mode === 'expedition' ? 'expedition' : 'survie');
+    else { message = tr('Attends que ton ami relance la partie.'); messageT = 120; }
+    return;
+  }
   switch (a) {
     case 'accueil': accueil(); break;
     case 'expedition': expeditionMenu(); break;
@@ -1896,17 +2096,15 @@ function action(a, el) {
     case 'mode-normal': nivEntrainement = false; nivBot = false; niveaux(); break;
     case 'mode-bot': nivBot = true; nivEntrainement = false; niveaux(); break;
     case 'couper-son': { couperSon(); reglages(); const bs = ui.querySelector('[data-a=couper-son]'); if (bs) bs.focus(); break; }
-    case 'bot-avec': botEclat = !botEclat; niveaux(); break;            // deux cases indépendantes : éclat et humain
     case 'bot-type': botType = el.dataset.v; niveaux(); break;
     case 'voir-facile': regarder(i, 'facile'); break;
-    case 'voir-facile-eclat': regarder(i, 'facile-eclat'); break;
     case 'voir-humain': regarder(i, 'humain'); break;
-    case 'voir-humain-eclat': regarder(i, 'humain-eclat'); break;
     case 'entrainer': lancerNiveau(i); J.entrainement = true; doublerDrapeaux(); lancerFantomeEntr(0); break;
     case 'entr-defi': lancerDefiLong(el.dataset.c); J.entrainement = true; drapeauxNiveau(); doublerDrapeaux(); J.drapeauDepart = 0; J.segT = 0; break;
     case 'drapeau': allerDrapeau(i); ecran = 'jeu'; cacherUI(); break;
+    case 'boucle-entr': S.boucleEntr = !S.boucleEntr; sauver(); ecran = 'jeu'; pause(); break;
+    case 'touches-bot': S.touchesBot = !S.touchesBot; sauver(); ecran = 'jeu'; pause(); break;
     case 'fant-entr': S.fantEntr = el.dataset.v; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); break;
-    case 'fant-eclat': { S.reglages.fantEclat = !S.reglages.fantEclat; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); const b = ui.querySelector('[data-a=fant-eclat]'); if (b) b.focus(); break; }
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
     case 'survie': lancerSurvie(); break;
@@ -1921,10 +2119,15 @@ function action(a, el) {
     case 'jouer': lancerNiveau(i); break;
     case 'revoir': { const c = J && J.cleRejeu, v = J && J.vitesse; regarder(i, c || 'parfait'); if (J && v) J.vitesse = v; break; }
     case 'voir-parfait': regarder(i, 'parfait'); break;
-    case 'voir-parfait-eclat': regarder(i, 'parfait-eclat'); break;
     case 'voir-record': regarder(i, 'record'); break;
-    case 'course-any': lancerCourse('any'); break;
-    case 'course-cent': lancerCourse('cent'); break;
+    case 'speedrun': menuSpeedrun(); break;
+    case 'enligne': menuEnLigne(); break;
+    case 'el-creer': EnLigne.heberger(); break;
+    case 'el-rejoindre': { const c = ui.querySelector('#el-code'); EnLigne.rejoindre(c ? c.value : ''); break; }
+    case 'el-quitter': EnLigne.fermer(); menuEnLigne(); break;
+    case 'el-mode': enligneMode = el.dataset.c; menuEnLigne(); break;
+    case 'el-lancer': demarrerEnLigne(enligneMode); break;
+    case 'defis': menuDefis(); break;
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
     case 'rejouer': if (J && J.entrainement && (J.mode === 'niveau' || J.mode === 'defi')) { if (ecran === 'fin') allerDrapeau(J.drapeauDepart || 0); else allerDrapeau(drapeauActif()); ecran = 'jeu'; cacherUI(); } else if (J && J.mode === 'expedition') lancerExpedition(); else if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':

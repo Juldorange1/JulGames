@@ -565,6 +565,7 @@ function meteo(g, type, ox, oy, vw, vh) {
 }
 function dessiner(e, fantome, hud, dt) {
   temps += dt || 1 / 60;
+  if (!(LARG >= 2 && HAUT >= 2)) return;                    // fenêtre cachée ou de taille nulle : rien à dessiner
   const g = cx;
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   const z = zoom() * (hud && hud.zoomNiv || 1);
@@ -597,7 +598,7 @@ function dessiner(e, fantome, hud, dt) {
     const C = { marcheur: ['#ff8a9a', '#c0304a', '#5a0a1a'], sauteur: ['#ffc080', '#d05a20', '#5a2008'], volant: ['#b8ecff', '#3a8ad0', '#0a2a50'], herisse: ['#f0f0f6', '#7a8296', '#2a2e3a'],
       tireur: ['#d4ffa0', '#4aa030', '#14380a'], fonceur: ['#ff8af0', '#a02090', '#40083a'], lourd: ['#e0b88a', '#7a5028', '#2a1808'], diviseur: ['#fff27a', '#c0a010', '#4a3a00'],
       petit: ['#fffac0', '#d0c040', '#4a4000'], fantome: ['#f4f0ff', '#8a7ac8', '#3a2a6a'], bombe: ['#6a6a76', '#202028', '#08080c'],
-      archer: ['#a0ffd8', '#2a9a70', '#0a3a28'], invocateur: ['#d0a0ff', '#6a2aa0', '#24083a'], rebond: ['#ffa0c0', '#e04a7a', '#4a0a20'] }[m.type] || ['#ff8a9a', '#c0304a', '#5a0a1a'];
+      archer: ['#a0ffd8', '#2a9a70', '#0a3a28'], invocateur: ['#d0a0ff', '#6a2aa0', '#24083a'], rebond: ['#ffa0c0', '#e04a7a', '#4a0a20'], boss: ['#ff9a6a', '#b02818', '#3a0804'] }[m.type] || ['#ff8a9a', '#c0304a', '#5a0a1a'];
     g.globalAlpha = m.invisible ? 0.15 : 1;
     const ri = m.type === 'herisse' ? r - 2.5 : r;
     if (m.type === 'herisse') {
@@ -630,11 +631,26 @@ function dessiner(e, fantome, hud, dt) {
     if (m.type === 'lourd' && m.pv > 1) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx2, cy2, ri - 1, 0, 7); g.stroke(); }
     if (m.elite) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.4; g.beginPath(); g.arc(cx2, cy2, ri - 0.8, 0, 7); g.stroke();       // élite : liseré et couronne dorés
       g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 3, cy2 - ri + 3.5); g.lineTo(cx2 - 3, cy2 - ri + 1); g.lineTo(cx2 - 1.5, cy2 - ri + 2.4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 1.5, cy2 - ri + 2.4); g.lineTo(cx2 + 3, cy2 - ri + 1); g.lineTo(cx2 + 3, cy2 - ri + 3.5); g.fill(); }
+    if (m.type === 'boss') {                                     // couronne dorée et points de vie restants (dans le rond)
+      g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 6, cy2 - ri + 6); g.lineTo(cx2 - 6, cy2 - ri + 1.5); g.lineTo(cx2 - 3, cy2 - ri + 4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 3, cy2 - ri + 4); g.lineTo(cx2 + 6, cy2 - ri + 1.5); g.lineTo(cx2 + 6, cy2 - ri + 6); g.fill();
+      for (let k = 0; k < (m.pvMax || 5); k++) { g.fillStyle = k < m.pv ? '#ffe94a' : 'rgba(0,0,0,.45)'; g.beginPath(); g.arc(cx2 + (k - ((m.pvMax || 5) - 1) / 2) * 4, cy2 + ri * 0.45, 1.5, 0, 7); g.fill(); }
+    }
     if (m.type === 'bombe') { g.fillStyle = m.meche && Math.floor(m.meche / 6) % 2 ? '#ff3a3a' : '#ffd34d'; g.fillRect(cx2 - 1, cy2 - ri, 2, 2.5);
       if (m.meche) { g.strokeStyle = `rgba(255,60,60,${0.3 + 0.3 * Math.sin(tt)})`; g.lineWidth = 1; g.beginPath(); g.arc(cx2, cy2, 3 * T, 0, 7); g.stroke(); } }
     if (m.type === 'fonceur' && m.prep > 0) { g.strokeStyle = `rgba(255,74,224,${0.25 + 0.25 * Math.sin(m.prep)})`; g.lineWidth = 2; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(cx2, cy2); g.lineTo(cx2 + m.dir * 90, cy2); g.stroke(); g.setLineDash([]); }   // préavis : sa trajectoire
     if (m.type === 'fonceur' && m.charge > 0) { g.fillStyle = 'rgba(255,74,224,.35)'; g.fillRect(cx2 - m.dir * (r + 9), cy2 - 2, 8, 4); }
     g.globalAlpha = 1;
+  }
+  if (hud && hud.bonusS) for (const b of hud.bonusS) {           // bonus du Survivant : une bulle de rayon 6 (sa zone de ramassage)
+    if (b.vie < 120 && Math.floor(b.vie / 8) % 2) continue;       // il clignote avant de disparaître
+    const by = b.y + Math.sin(temps * 3 + b.x) * 0;
+    g.fillStyle = 'rgba(122,232,255,.25)'; g.beginPath(); g.arc(b.x, by, 6, 0, 7); g.fill();
+    g.strokeStyle = '#7ae8ff'; g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = '#eafcff'; g.strokeStyle = '#eafcff'; g.lineWidth = 1.2;
+    if (b.sorte === 'bouclier') { g.beginPath(); g.moveTo(b.x, by - 3.5); g.lineTo(b.x + 3, by - 2.2); g.lineTo(b.x + 2.6, by + 1); g.lineTo(b.x, by + 3.5); g.lineTo(b.x - 2.6, by + 1); g.lineTo(b.x - 3, by - 2.2); g.closePath(); g.fill(); }
+    else if (b.sorte === 'lent') { g.beginPath(); g.arc(b.x, by, 3.2, 0, 7); g.stroke(); g.beginPath(); g.moveTo(b.x, by); g.lineTo(b.x, by - 2.4); g.moveTo(b.x, by); g.lineTo(b.x + 1.8, by); g.stroke(); }
+    else if (b.sorte === 'charges') { g.beginPath(); g.moveTo(b.x + 0.8, by - 4); g.lineTo(b.x - 2.5, by + 0.6); g.lineTo(b.x, by + 0.6); g.lineTo(b.x - 0.8, by + 4); g.lineTo(b.x + 2.5, by - 0.6); g.lineTo(b.x, by - 0.6); g.closePath(); g.fill(); }
+    else { g.beginPath(); g.moveTo(b.x, by - 3.8); g.lineTo(b.x + 3, by - 0.5); g.lineTo(b.x - 3, by - 0.5); g.closePath(); g.fill(); g.fillRect(b.x - 1, by - 0.5, 2, 3.8); }
   }
   if (hud && hud.prochain) {                                      // apparition annoncée : cercle qui se resserre et point d'exclamation
     const p2 = hud.prochain, cx2 = p2.x + p2.r, cy2 = p2.y + p2.r, k = Math.max(0, p2.t) / 72;
@@ -1950,12 +1966,17 @@ function interfaceJeu(g, e, hud) {
     g.fillStyle = e.eclat ? '#ff7ae0' : 'rgba(255,122,224,.35)'; g.fillText('◆', LARG - 16, HAUT - 40 * P);
   }
   // entrées affichées
-  if (hud.entrees != null) {                                       // grandes touches : déplacements, saut, transformations
-    const inp = hud.entrees, E = M.E;
-    const k = Math.max(40, 46 * P), x0 = LARG - 24 - k * 7.2, y0 = HAUT - k * 2 - 70 * P;
+  // grandes touches : déplacements, saut, transformations (les tiennes, et en entraînement celles du robot au-dessus)
+  const panneauTouches = (inp, rang, titre, allume) => {
+    const E = M.E;
+    const k = Math.max(40, 46 * P), x0 = LARG - 24 - k * 7.2, y0 = HAUT - k * 2 - 70 * P - rang * (k * 2 + 62 * P);
     g.fillStyle = 'rgba(8,6,14,.72)'; arrondi(g, x0 - 12, y0 - 12, k * 7.2 + 16, k * 2 + 24, 12); g.fill();
+    if (titre) {
+      g.font = `800 ${Math.max(16, Math.round(17 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'left'; g.textBaseline = 'bottom';
+      g.fillStyle = allume; g.fillText(titre, x0 - 8, y0 - 16); g.textBaseline = 'top';
+    }
     const touche = (x, y, on, t, w, c) => {
-      g.fillStyle = on ? (c || '#ffe94a') : 'rgba(255,255,255,.12)'; arrondi(g, x, y, (w || 1) * k - 6, k - 6, 8); g.fill();
+      g.fillStyle = on ? (allume || c || '#ffe94a') : 'rgba(255,255,255,.12)'; arrondi(g, x, y, (w || 1) * k - 6, k - 6, 8); g.fill();
       g.strokeStyle = on ? '#fff' : (c || 'rgba(255,255,255,.45)'); g.lineWidth = on ? 3 : 2; g.stroke();
       g.fillStyle = on ? '#111' : '#f2f2f2'; g.font = `800 ${Math.max(18, Math.round(22 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(t, x + (w || 1) * k / 2 - 3, y + k / 2 - 2); g.textBaseline = 'top';
@@ -1964,7 +1985,9 @@ function interfaceJeu(g, e, hud) {
     touche(x0 + 3.4 * k, y0 + k, inp & E.SAUT, hud.nomSaut || 'saut', 3.8);
     const etat = (bit, i) => touche(x0 + 3.4 * k + i * 1.27 * k, y0, inp & bit, (hud.touches && hud.touches[i]) || '', 1.27, hud.coulEtats && hud.coulEtats[i]);
     etat(E.S, 0); etat(E.L, 1); if (!hud.coulEtats || hud.coulEtats.length > 2) etat(E.Z, 2);
-  }
+  };
+  if (hud.entrees != null) panneauTouches(hud.entrees, 0, hud.entreesBot != null ? hud.nomToi : null, hud.entreesBot != null ? '#ffe94a' : null);
+  if (hud.entreesBot != null) panneauTouches(hud.entreesBot, hud.entrees != null ? 1 : 0, hud.nomRobot, '#7ae8ff');
   // panneau
   if (hud.panneau) {
     g.font = `600 ${Math.max(16, Math.round(16 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
