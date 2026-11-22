@@ -3,7 +3,7 @@
 'use strict';
 let ac = null, busSons = null, volSons = 0.6, volMus = 0.35;
 // tout est volontairement discret : le réglage à fond reste doux
-const FACT_SONS = 0.06, FACT_MUS = 0.1;
+const FACT_SONS = 0.075, FACT_MUS = 0.125;                 // +25 % (toujours discret)
 const tampons = {};
 const NOMS = ['saut', 'rebond', 'mur', 'atterrit', 'change', 'mort', 'casse', 'boum', 'cristal', 'fin', 'eclat', 'drapeau',
   'tp', 'echec', 'fracas', 'ressort', 'fleche', 'bouton', 'porte', 'menu', 'valider'];
@@ -195,9 +195,9 @@ function jouerMusique(cle) {
   l.cible = 1;
 }
 let baisseMenu = 1, baisseFenetre = 1;
-function attenuer(oui) { baisseMenu = oui ? 0.25 : 1; baisseCible = Math.min(baisseMenu, baisseFenetre); }
-// la fenêtre du jeu n'est plus au premier plan (autre fenêtre, autre onglet) : le son baisse beaucoup
-function fenetre(active) { baisseFenetre = active ? 1 : 0.12; baisseCible = Math.min(baisseMenu, baisseFenetre); }
+function attenuer(oui) { baisseMenu = oui ? 0.45 : 1; baisseCible = Math.min(baisseMenu, baisseFenetre); }
+// la fenêtre du jeu n'est plus au premier plan (autre fenêtre, autre onglet) : le son baisse un peu (on l'entend encore)
+function fenetre(active) { baisseFenetre = active ? 1 : 0.4; baisseCible = Math.min(baisseMenu, baisseFenetre); }
 if (typeof addEventListener === 'function' && typeof document !== 'undefined') {
   addEventListener('blur', () => fenetre(false)); addEventListener('focus', () => fenetre(true));
   document.addEventListener('visibilitychange', () => fenetre(!document.hidden));

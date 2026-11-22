@@ -998,7 +998,7 @@ function statsHTML() {
   const pref = st.parEtat.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
   return `<div class="stats grandes">${plan[0].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>
     <div class="parts">${pref.map(([v, i]) => `<span style="--c:${R.COUL_PHASE[i]};flex:${v}">${tr(M.NOMS_PHASES[i])} ${Math.round(v / tot * 100)} %</span>`).join('')}</div>
-    <div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>`;
+    <details class="plier"><summary class="btn mini">${tr('Plus de statistiques')}</summary><div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div></details>`;
 }
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
 let nivEntrainement = false, nivBot = false, botType = 'parfait';      // onglets de l'écran des niveaux
@@ -1474,6 +1474,7 @@ function dessiner(dt) {
     hud.lignes.push({ t: tr('Touche leur tête avec le bas de ton corps !'), c: '#ffd84a' });
     hud.monstres = J.monstres; hud.balles = J.balles; hud.bonusS = J.bonusS;
     const A = J.actifs || {}, act = [];
+    hud.actifs = A;                                                  // effets visibles sur le personnage
     if (A.bouclier) act.push(tr('Bouclier'));
     if (A.lent > 0) act.push(tr('Ennemis ralentis') + ' ' + Math.ceil(A.lent / 60) + ' s');
     if (A.charges > 0) act.push(tr('Charges infinies') + ' ' + Math.ceil(A.charges / 60) + ' s');
@@ -1700,7 +1701,7 @@ function niveaux() {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t);
       const fait = r && r.t != null;
       h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
-        ${fait ? `<span class="etat">${tr('FINI')}</span>` : ''}<b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''}${nv.meteo ? ` <span class="effet">${tr(METEO_NOMS[nv.meteo])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span></small></button></div>`;
+        ${fait ? `<span class="etat">${tr('FINI')}</span>` : ''}<b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) + ' ' + badge(m) : '—'}${nivBot ? ` <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span>` : ''}${r && r.obj ? ` <span class="etoiles" title="${tr('Objectifs')}">${etoiles(r.obj)}</span>` : ''} <span class="etn">${nv.etats.map(p => tr(M.NOMS_PHASES[p])).join(' · ')}${nv.effet ? ' · ' + tr(EFFETS[nv.effet][1]) : ''}${nv.meteo ? ' · ' + tr(METEO_NOMS[nv.meteo]) : ''}</span></small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';

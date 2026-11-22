@@ -593,6 +593,12 @@ function dessiner(e, fantome, hud, dt) {
   mobiles(g, e, ox, vw, vis);
   fleches(g, e, ox, vw);
   ennemis(g, e, ox, vw);
+  if (hud && hud.monstres && hud.actifs && hud.actifs.lent > 0) for (const m of hud.monstres) {   // ennemis ralentis : un anneau de givre
+    const fin = hud.actifs.lent < 120 && (temps * 6 | 0) % 2;
+    if (fin) continue;
+    g.strokeStyle = 'rgba(140,220,255,.85)'; g.lineWidth = 1.5; g.setLineDash([3, 2]);
+    g.beginPath(); g.arc(m.x + m.r, m.y + m.r, m.r + 2.5, 0, 7); g.stroke(); g.setLineDash([]);
+  }
   if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : chaque ennemi est un rond de rayon r (sa hitbox), détails dedans
     const r = m.r, cx2 = m.x + r, cy2 = m.y + r, tt = m.t;
     const C = { marcheur: ['#ff8a9a', '#c0304a', '#5a0a1a'], sauteur: ['#ffc080', '#d05a20', '#5a2008'], volant: ['#b8ecff', '#3a8ad0', '#0a2a50'], herisse: ['#f0f0f6', '#7a8296', '#2a2e3a'],
@@ -677,6 +683,7 @@ function dessiner(e, fantome, hud, dt) {
   if (fantome && !fantome.fini) joueur(g, fantome, hud && hud.fantomeFort ? 0.62 : 0.32, true);   // en entraînement, le robot se voit mieux
   competences(g, e);
   if (e.mortT === 0) joueur(g, e, 1, false);
+  if (e.mortT === 0 && hud && hud.actifs) effetsSurvie(g, e, hud.actifs);
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
   {
@@ -1555,6 +1562,31 @@ const MATIERE = {
   6: ['#e6edf6', '#6a7584', '#20262e', '#10161e'], 7: ['#6a4aa8', '#1a0838', '#0a0418', '#e0d0ff'],
   8: ['#ffffff', '#8fd8ff', '#2a6a8a', '#0a3a5a'], 9: ['#ffd070', '#e0401a', '#3a0a04', '#2a0800']
 };
+// Survivant : les bonus pris se voient sur le personnage (ils clignotent dans leurs 2 dernières secondes)
+function effetsSurvie(g, e, A) {
+  const cx = e.x + 6, cy = e.y + 6, tt = temps, cl = (n) => n > 0 && n < 120 && (tt * 6 | 0) % 2;
+  g.save();
+  if (A.bouclier) {                                               // bouclier : une bulle bleue autour du personnage
+    const p = 1 + Math.sin(tt * 4) * 0.06;
+    g.fillStyle = 'rgba(122,232,255,.14)'; g.strokeStyle = 'rgba(122,232,255,.9)'; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(cx, cy, 11 * p, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(cx - 4, cy - 5, 1.6, 0, 7); g.fill();
+  }
+  if (A.sauts > 0 && !cl(A.sauts)) {                              // sauts plus hauts : des flèches vertes qui montent sous les pieds
+    g.strokeStyle = '#7dff9a'; g.lineWidth = 2;
+    for (let k = 0; k < 2; k++) {
+      const o = ((tt * 14 + k * 6) % 12);
+      g.globalAlpha = 1 - o / 12;
+      g.beginPath(); g.moveTo(cx - 6, e.y + 20 - o); g.lineTo(cx, e.y + 15 - o); g.lineTo(cx + 6, e.y + 20 - o); g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  if (A.charges > 0 && !cl(A.charges)) {                          // charges infinies : trois étincelles dorées qui tournent
+    g.fillStyle = '#ffd84a';
+    for (let k = 0; k < 3; k++) { const a = tt * 3 + k * 2.094; g.beginPath(); g.arc(cx + Math.cos(a) * 14, cy + Math.sin(a) * 14, 2.2, 0, 7); g.fill(); }
+  }
+  g.restore();
+}
 function joueur(g, e, alpha, fantome) {
   const x = e.x, y = e.y;
   g.globalAlpha = alpha;

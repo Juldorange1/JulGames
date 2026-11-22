@@ -631,6 +631,7 @@ const D = {
   'niveaux': ['levels', 'niveles', 'Level', 'livelli', 'níveis'],
   'une zone ou le jeu entier d’affilée, un seul chrono': ['a zone or the whole game in a row, one timer', 'una zona o el juego entero seguidos, un solo cronómetro', 'eine Zone oder das ganze Spiel am Stück, eine Uhr', 'una zona o il gioco intero di fila, un solo cronometro', 'uma zona ou o jogo inteiro seguidos, um só cronómetro'],
   '{0} niveaux d’affilée, un seul chrono': ['{0} levels in a row, one timer', '{0} niveles seguidos, un solo cronómetro', '{0} Level am Stück, eine Uhr', '{0} livelli di fila, un solo cronometro', '{0} níveis seguidos, um só cronómetro'],
+  'Plus de statistiques': ['More statistics', 'Más estadísticas', 'Mehr Statistiken', 'Altre statistiche', 'Mais estatísticas'],
   'Orage': ['Storm', 'Tormenta', 'Gewitter', 'Temporale', 'Tempestade'],
   'Neige': ['Snow', 'Nieve', 'Schnee', 'Neve', 'Neve'],
   'Feux d’artifice': ['Fireworks', 'Fuegos artificiales', 'Feuerwerk', 'Fuochi d’artificio', 'Fogo de artifício'],

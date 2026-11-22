@@ -35,6 +35,7 @@ const D = {
   son: L('M4 9h3l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11'),
   lent: L('M4 17h16M6 17c0-5 3-8 7-8s6 3 6 8M19 12h2.5') + C(21, 11, 1, true),
   feu: P('M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z'),
+  calendrierMois: L('M4 6h16v14H4zM4 10h16M8 3v5M16 3v5') + C(9, 14, 1, true) + C(13, 14, 1, true) + C(9, 17, 1, true) + C(13, 17, 1, true),
   calendrier: L('M4 6h16v14H4zM4 10h16M8 3v5M16 3v5') + C(9, 14, 1, true) + C(13, 14, 1, true) + C(9, 17, 1, true),
   sac: L('M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2'),
   question: L('M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.3-1.5 2.4') + C(12, 18, 1.2, true),
@@ -72,11 +73,11 @@ const D = {
 };
 // couleur de chaque symbole (le texte juste à côté prend la même couleur)
 const COUL = {
-  frag: '#c89bff', robot: '#7ad8ff', pro: '#9ab8ff', facile: '#8dffb0', drapeau: '#ff6a7a', cible: '#ff7a5a', de: '#ffb35a',
-  globe: '#5ad0ff', saut: '#8dffb0', manette: '#b89bff', diplome: '#ffd84a', epees: '#ff8a8a', rapide: '#ffd84a', coupe: '#ffd84a',
-  acces: '#7ad8ff', eclair: '#ffe14a', roue: '#c8d0e0', etincelles: '#ffe98a', brume: '#b8c4d0', lune: '#ffe9a0', un: '#7ad8ff',
-  quatre: '#ff9ae6', chrono: '#ffd84a', muet: '#c8d0e0', son: '#8dffb0', lent: '#8dffb0', feu: '#ff8a3a', calendrier: '#ff9ae6',
-  sac: '#ff9ae6', question: '#7ad8ff', fusee: '#ff8a5a', yeux: '#ffffff', chapeau: '#c89bff', balle: '#ffa04a', carte: '#e8c88a',
+  frag: '#c89bff', robot: '#7ad8ff', pro: '#9ab8ff', facile: '#8dffb0', drapeau: '#ff6a7a', cible: '#ff7a5a', de: '#ff9f43',
+  globe: '#34d6c4', saut: '#8dffb0', manette: '#b89bff', diplome: '#d4f05a', epees: '#ff5c5c', rapide: '#ffd84a', coupe: '#ffd23f',
+  acces: '#7ad8ff', eclair: '#ffe14a', roue: '#c0c8d8', etincelles: '#ffe98a', brume: '#b8c4d0', lune: '#ffe9a0', un: '#7ad8ff',
+  quatre: '#ff9ae6', chrono: '#ffd84a', muet: '#c8d0e0', son: '#8dffb0', lent: '#8dffb0', feu: '#ff8a3a', calendrier: '#b98cff', calendrierMois: '#ec8cf0',
+  sac: '#5fe08a', question: '#6aa8ff', fusee: '#ff8a5a', yeux: '#ffffff', chapeau: '#c89bff', balle: '#ffa04a', carte: '#e8c88a',
   bouclier: '#7ae8ff', cadenas: '#ffc85a', boucle: '#7ad8ff', attention: '#ffd84a', marteau: '#e0a070', clavier: '#c8d0e0',
   medaille: '#ffd84a', interdit: '#ff6a6a', ampoule: '#ffe98a', gemme: '#ff9ae6', bourse: '#ffd84a', recul: '#7ad8ff', pause: '#c8d0e0',
   suivant: '#7ad8ff', goutte: '#5ab8ff', nuage: '#d8e4f0', plume: '#e0f0ff', flocon: '#bfe8ff', crane: '#e8e8e8', croix: '#ff7a7a',
@@ -87,7 +88,7 @@ const E = {
   '🧩': 'frag', '🤖': 'robot', '🧑': 'pro', '🙂': 'facile', '🏁': 'drapeau', '🎯': 'cible', '🎲': 'de', '🌐': 'globe', '🦘': 'saut',
   '🎮': 'manette', '🎓': 'diplome', '⚔': 'epees', '⏩': 'rapide', '🏆': 'coupe', '♿': 'acces', '⚡': 'eclair', '⚙': 'roue', '✨': 'etincelles',
   '🌫': 'brume', '🌙': 'lune', '1️⃣': 'un', '4️⃣': 'quatre', '⏱': 'chrono', '🔇': 'muet', '🔊': 'son', '🐢': 'lent', '🔥': 'feu',
-  '📅': 'calendrier', '🗓': 'calendrier', '🛍': 'sac', '❓': 'question', '🚀': 'fusee', '👀': 'yeux', '🎩': 'chapeau', '🔴': 'rouge',
+  '📅': 'calendrier', '🗓': 'calendrierMois', '🛍': 'sac', '❓': 'question', '🚀': 'fusee', '👀': 'yeux', '🎩': 'chapeau', '🔴': 'rouge',
   '🏀': 'balle', '🗺': 'carte', '🛡': 'bouclier', '🔒': 'cadenas', '🔄': 'boucle', '🔁': 'boucle', '⚠': 'attention', '🔨': 'marteau',
   '⌨': 'clavier', '💓': 'pouls', '💚': 'coeurVert', '❤': 'coeur', '🥇': 'medaille', '🚫': 'interdit', '💡': 'ampoule', '💎': 'gemme',
   '💰': 'bourse', '⏪': 'recul', '⏸': 'pause', '⏭': 'suivant', '💧': 'goutte', '☁': 'nuage', '🪶': 'plume', '❄': 'flocon', '☠': 'crane',
