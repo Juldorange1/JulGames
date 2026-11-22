@@ -585,6 +585,8 @@ const D = {
   'Temps ralenti pendant 8 salles': ['Slowed time for 8 rooms', 'Tiempo ralentizado durante 8 salas', 'Verlangsamte Zeit für 8 Räume', 'Tempo rallentato per 8 stanze', 'Tempo abrandado durante 8 salas'],
   'Invincible pendant 2 salles': ['Invincible for 2 rooms', 'Invencible durante 2 salas', 'Unverwundbar für 2 Räume', 'Invincibile per 2 stanze', 'Invencível durante 2 salas'],
   '3 éclats ◆ tout de suite': ['3 shards ◆ right now', '3 fragmentos ◆ ahora mismo', '3 Splitter ◆ sofort', '3 schegge ◆ subito', '3 fragmentos ◆ já'],
+  'Lave qui monte : grimpe vite, elle monte derrière toi.': ['Rising lava: climb fast, it rises behind you.', 'Lava que sube: trepa rápido, sube detrás de ti.', 'Steigende Lava: Kletter schnell, sie steigt hinter dir.', 'Lava che sale: arrampicati in fretta, sale dietro di te.', 'Lava que sobe: sobe depressa, ela sobe atrás de ti.'],
+  'Grande roue : ses plateformes tournent autour de l’axe. Monte dessus pour franchir la fosse.': ['Big wheel: its platforms turn around the axle. Ride them across the pit.', 'Noria: sus plataformas giran alrededor del eje. Súbete para cruzar el foso.', 'Riesenrad: seine Plattformen drehen sich um die Achse. Fahr mit über die Grube.', 'Ruota panoramica: le piattaforme girano attorno all’asse. Salici per superare la fossa.', 'Roda gigante: as plataformas giram à volta do eixo. Sobe para atravessar o fosso.'],
   'Orage': ['Storm', 'Tormenta', 'Gewitter', 'Temporale', 'Tempestade'],
   'Neige': ['Snow', 'Nieve', 'Schnee', 'Neve', 'Neve'],
   'Feux d’artifice': ['Fireworks', 'Fuegos artificiales', 'Feuerwerk', 'Fuochi d’artificio', 'Fogo de artifício'],

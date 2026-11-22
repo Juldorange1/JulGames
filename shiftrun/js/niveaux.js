@@ -130,6 +130,8 @@ const AIDES = [
   ['/"', 'Minuteur : il ouvre la porte un court moment. Dépêche-toi.'],
   [',', 'Zone sans pesanteur : tu flottes, chaque saut te pousse.'],
   ['_', 'Broyeur : un mur de scies te poursuit. Ne ralentis pas.'],
+  ['6', 'Lave qui monte : grimpe vite, elle monte derrière toi.'],
+  ['0', 'Grande roue : ses plateformes tournent autour de l’axe. Monte dessus pour franchir la fosse.'],
   ['!', 'Drapeau : point de sauvegarde. Si tu tombes, tu repars du dernier drapeau touché.'],
   ['^', 'Pics : le moindre contact est mortel. Prends ton élan avant de sauter.']];
 const dejaAide = {};
@@ -165,7 +167,8 @@ const ZONES = DEF.map((z, zi) => ({
     const etats = etatsDuNiveau(zi, k);
     const pan = etats.map((p, i) => '[' + (i + 1) + '] ' + DESC[p]).concat(z.intro[k] || []);
     const imp = (z.imposees[k] || []).filter(t => Gen.compatible(t, etats));
-    if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';        // le « boss » de la zone : le broyeur, juste avant l'arrivée
+    if (k === 5 && Gen.compatible('broyeur', etats)) imp[nb - 1] = 'broyeur';
+    if ((k === 1 || k === 4) && zi >= 1 && Gen.compatible('roue', etats) && !imp[4]) imp[4] = 'roue';   // la grande roue, dans deux niveaux par zone        // le « boss » de la zone : le broyeur, juste avant l'arrivée
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
     if (zi <= 1) aides(r, pan);                                // premiers niveaux : un panneau avant chaque obstacle nouveau
     const effet = effetDe(zi, k), zoom = zoomDe(zi, k);

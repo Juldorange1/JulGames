@@ -1082,7 +1082,15 @@ function casesAnimees(g, e, vis) {
     g.fillStyle = 'rgba(190,120,255,.16)'; g.fillRect(px, py, T, T);
     g.fillStyle = 'rgba(230,200,255,.55)'; const o = (tt * 30 + x * 7) % T; g.fillRect(px + 4 + (x % 3) * 3, py + T - o, 1.5, 3);
   }
-  if (niv.broyeurs && e.broy >= 0) {                        // broyeur : un mur de scies qui avance (tout ce qui est à sa gauche est perdu)
+  if (niv.broyeurs) for (let k = 0; k < niv.broyeurs.length; k++) {   // lave qui monte : sa surface (au repos tout en bas)
+    const b = niv.broyeurs[k];
+    if (!b.lave || (b.x1 + 1) * T < ox - 50 || b.x0 * T > ox + vw + 50) continue;
+    const surf = e.broy === k ? e.broyX : b.yBas, x0 = (b.x0 + 2) * T, x1 = (b.x0 + 11) * T, bas = b.yBas;
+    const gr = g.createLinearGradient(0, surf, 0, surf + 40); gr.addColorStop(0, '#ffb030'); gr.addColorStop(0.25, '#ff5a10'); gr.addColorStop(1, '#8a1a04');
+    g.fillStyle = gr; g.fillRect(x0, surf, x1 - x0, bas - surf);
+    g.fillStyle = '#ffe080'; for (let xx = x0; xx < x1; xx += 6) g.fillRect(xx, surf + Math.sin(tt * 5 + xx * 0.3) * 1.2, 3, 1.5);
+  }
+  if (niv.broyeurs && e.broy >= 0 && !niv.broyeurs[e.broy].lave) {   // broyeur : un mur de scies qui avance (tout ce qui est à sa gauche est perdu)
     const bx = e.broyX + 6, top = (cam.y - 400), bas = cam.y + 400;
     g.fillStyle = 'rgba(40,10,10,.85)'; g.fillRect(bx - 400, top, 400, bas - top);
     for (let yy = Math.floor(top / 12) * 12; yy < bas; yy += 12) {
@@ -1352,6 +1360,11 @@ function mobiles(g, e, ox, vw, vis) {
   }
   if (niv.plates) for (const p of niv.plates) {
     if (p.x * T < ox - 600 || p.x * T > ox + vw + 600) continue;
+    if (p.roue && p.roue.a0 === 0) {                        // grande roue : le moyeu (décor : on le traverse)
+      const { cx: hx, cy: hy } = p.roue;
+      g.strokeStyle = 'rgba(200,210,230,.25)'; g.lineWidth = 1; g.beginPath(); g.arc(hx, hy, p.roue.r, 0, 7); g.stroke();
+      g.fillStyle = '#5a6070'; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); g.fillStyle = '#ffd84a'; g.beginPath(); g.arc(hx, hy, 1.8, 0, 7); g.fill();
+    }
     const [px, py] = M.plateEn(p, tD(e)), lg = M.K.platLarg * T, ep = M.K.platEp;
     g.fillStyle = '#3a3e4a'; g.fillRect(px, py, lg, ep);
     g.fillStyle = '#c8cedc'; g.fillRect(px, py, lg, 2);

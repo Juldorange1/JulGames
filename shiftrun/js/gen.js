@@ -45,7 +45,7 @@ Grille.prototype.met = function (x, y, c) {
 Grille.prototype.carte = function () { return this.l.map(r => r.join('')); };
 
 // un drapeau ne sert que si l'on peut mourir avant le suivant : sinon on l'enlève
-const MORTEL = new Set(['1', '2', '3', '4', '5', '^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_']);
+const MORTEL = new Set(['1', '2', '3', '4', '5', '^', 'f', 'L', 'F', 'E', 'Y', 'S', 'I', 'Z', 'z', 'C', 'K', 't', '_', '6']);
 function elaguerDrapeaux(l, sens) {            // l : tableau de rangées (tableaux de caractères) ; sens : 'haut', 'bas' ou rien (vers la droite)
   const H = l.length, W = l[0].length, fl = [];
   let but = null;
@@ -1002,6 +1002,28 @@ SALLES.montee = { phases: [S], decale: -PALIER, f(s, rng, d) {
   if (d > 0.7) s.p(13, 3, 'L');
   return L + 1;
 } };
+// Lave qui monte : un grand puits à gravir pendant que la lave monte derrière soi ; on ressort par un couloir plus haut
+SALLES.laveMontee = { phases: [S], decale: -PALIER, f(s, rng, d) {
+  const L = 22;
+  s.couloir(0, 3); s.p(2, 19, '6');
+  s.c(4, 4, 12, 19); s.c(13, 4, L, 9);
+  const ys = [17, 14, 11, 8];
+  ys.forEach((y, i) => s.n(i % 2 ? 4 : 9, y, 4, '-'));
+  if (d > 0.4) s.p(d > 0.8 ? 12 : 4, 12, '^');
+  if (d > 0.7) s.p(8, 5, '^');
+  s.p(L - 1, 9, '6');
+  return L + 1;
+} };
+// Grande roue : une fosse à pics, que l'on traverse sur les plateformes d'une grande roue qui tourne
+SALLES.roue = { phases: [S], f(s, rng, d) {
+  const L = 22 + (d > 0.6 ? 4 : 0);
+  s.couloir(0, L, 7);
+  s.c(4, 20, L - 4, 22); s.n(4, 22, L - 7, '^');
+  s.p(Math.floor(L / 2), 14, '0');
+  if (d > 0.5) s.n(Math.floor(L / 2) - 1, 7, 3, '^');
+  s.couloir(L + 1, L + 2);
+  return L + 3;
+} };
 // Retour : le couloir est muré ; on plonge dans un boyau bas qui repart vers la GAUCHE, puis on retombe et on repart à droite
 SALLES.retour = { phases: [S], decale: PALIER, f(s, rng, d) {
   const L = 34;
@@ -1168,10 +1190,10 @@ function poser(g, x0, type, rng, d, ctx) {
 const ZONES_SALLES = [
   { types: ['trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort', 'cassant', 'fleches', 'rebond', 'bouton', 'orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut'], nouv: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut'] },
   { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'plafond', 'piliers', 'cheminee', 'fracas', 'ressort', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles'], nouv: ['murLiquide', 'grilles'] },
-  { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'piliers', 'cheminee', 'fracas', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent'], nouv: ['tamis', 'feu', 'vent'] },
+  { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'piliers', 'cheminee', 'fracas', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent', 'roue'], nouv: ['tamis', 'feu', 'vent', 'roue'] },
   { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'plafond', 'cheminee', 'cassant', 'fleches', 'rebond', 'bouton', 'murLiquide', 'grilles', 'tamis', 'feu', 'vent', 'eclair'], nouv: ['eclair'] },
   { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'cheminee', 'fracas', 'cassant', 'fleches', 'rebond', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau', 'bouton'], nouv: ['eau'] },
-  { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'plafond', 'piliers', 'grilles', 'feu', 'fleches', 'rebond', 'bouton', 'eclair', 'eau', 'tapis', 'teleport'], nouv: ['tapis', 'teleport'] },
+  { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'trous', 'plafond', 'piliers', 'grilles', 'feu', 'fleches', 'rebond', 'bouton', 'eclair', 'eau', 'tapis', 'teleport', 'roue'], nouv: ['tapis', 'teleport'] },
   { types: ['orbes', 'bascule', 'tremplins', 'ennemis', 'supersaut', 'banni', 'cheminee', 'fracas', 'cassant', 'fleches', 'murLiquide', 'tamis', 'vent', 'eclair', 'eau', 'glace', 'cheminee*', 'rebond'], nouv: ['glace', 'cheminee*'] },
   { types: Object.keys(SALLES).filter(t => t !== 'alcove'), nouv: [] }
 ];
@@ -1190,6 +1212,9 @@ function choisir(rng, liste, nouv, recents, compte, deja) {
 // salles jouables avec ces états variables (Solide et Liquide sont toujours là)
 // compatibilité mesurée par le robot (outils/compat.js) : avec quels états de base chaque salle est faisable
 const COMPAT = (typeof module !== 'undefined' && module.exports) ? (() => { try { return require('./compat.js'); } catch (e) { return {}; } })() : (racine.COMPAT || {});
+// nouvelles salles : faisables avec les mêmes états de base que la montée (plateformes, escalade)
+if (!COMPAT.roue) COMPAT.roue = [0, 1, 4, 5, 8, 9];
+if (!COMPAT.laveMontee) COMPAT.laveMontee = (COMPAT.montee || [0, 1, 4, 5, 8, 9]).slice();
 function compatible(t, etats) {
   const nom = t.replace('*', ''), sl = SALLES[nom];
   if (!sl || !(sl.req || []).every(r => etats.includes(r))) return false;
@@ -1264,7 +1289,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
   let oy = rng() < 0.5 ? 0 : PALIER;                     // hauteur du couloir (0, 10 ou 20 rangées plus bas)
   let x = debut(g, panneaux || [], oy);
   const types = sallesPour(etats || [S, L, Z]);
-  const descentes = ['chute', 'retour'].filter(t => compatible(t, etats || [S, L, Z])), montees = ['montee'].filter(t => compatible(t, etats || [S, L, Z]));
+  const descentes = ['chute', 'retour'].filter(t => compatible(t, etats || [S, L, Z])), montees = ['montee', 'montee', 'laveMontee'].filter(t => compatible(t, etats || [S, L, Z]));
   const nouv = types.filter(t => (SALLES[t.replace('*', '')].req || []).length > 0);
   const et0 = etats || [S, L, Z];
   // de préférence une cachette faisable avec l'état de départ du niveau (sans dépendre d'un changement d'état)

@@ -21,7 +21,7 @@ const VIDE = 0, MUR = 1, GRILLE = 2, TAMIS = 3, FRAGILE = 4, PICS = 5, FEU = 6, 
   BAR_S = 46, BAR_P = 47, BAR_PL = 48, BAR_CA = 49, BAR_ME = 50, PLAT_H = 51, PLAT_V = 52, SCIE_H = 53, SCIE_V = 54,
   LASER = 55, CHAMPI = 56, BOUCLE_H = 57, BOUCLE_B = 58, BAR_GL = 59, BAR_MA = 60, BOUCLE_G = 61, BOUCLE_D = 62,
   PILON = 63, ORBITE = 64, GEYSER = 65, BRULEUR = 66, LEVIER = 67, GRILLE_LEV = 68, PLAQUE0 = 69, PLAQUE1 = 70, PLAQUE2 = 71, SAUTEUR = 72, VOLANT = 73,
-  CLE = 74, PORTE_CLE = 75, RYTHME = 76, MINUTEUR = 77, PORTE_MIN = 78, APESANTEUR = 79, BROYEUR = 80;
+  CLE = 74, PORTE_CLE = 75, RYTHME = 76, MINUTEUR = 77, PORTE_MIN = 78, APESANTEUR = 79, BROYEUR = 80, LAVE = 81, ROUE = 82;
 // barrières d'état : seul cet état les traverse (grille = liquide, tamis = gaz, paroi = ombre, et les autres)
 const BARRIERE = { [GRILLE]: L, [TAMIS]: Z, [PAROI]: OM, [BAR_S]: S, [BAR_P]: P, [BAR_PL]: PL, [BAR_CA]: CA, [BAR_ME]: ME, [BAR_GL]: GL, [BAR_MA]: MA };
 const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS, 'x': FRAGILE, '^': PICS, 'f': FEU,
@@ -34,7 +34,7 @@ const CH = { '.': VIDE, ' ': VIDE, '@': VIDE, '#': MUR, '=': GRILLE, '~': TAMIS,
   'L': LASER, 'U': CHAMPI, '{': BOUCLE_H, '}': BOUCLE_B, 'j': BAR_GL, 'v': BAR_MA, 'W': BOUCLE_G, 'X': BOUCLE_D,
   'K': PILON, 'C': ORBITE, 'g': GEYSER, 't': BRULEUR, 'u': EAU, 'y': EAU,
   'J': LEVIER, 'T': GRILLE_LEV, ':': PLAQUE0, ';': PLAQUE1, '&': PLAQUE2, 'S': SAUTEUR, 'I': VOLANT,
-  '1': LASER, '2': LASER, '3': LASER, '4': LASER, '5': LASER, '+': CLE, 'd': PORTE_CLE, '|': RYTHME, '/': MINUTEUR, '"': PORTE_MIN, ',': APESANTEUR, '_': BROYEUR };   // u / y : eau avec un courant vers la gauche / la droite
+  '1': LASER, '2': LASER, '3': LASER, '4': LASER, '5': LASER, '+': CLE, 'd': PORTE_CLE, '|': RYTHME, '/': MINUTEUR, '"': PORTE_MIN, ',': APESANTEUR, '_': BROYEUR, '6': LAVE, '0': ROUE };   // u / y : eau avec un courant vers la gauche / la droite
 
 /* ---------- Réglages physiques (px et px/image) ---------- */
 const K = {
@@ -63,7 +63,7 @@ const K = {
   glCourse: 4.3, glAcc: 0.12, glFrein: 0.025, maCourse: 3.8, maSaut: 6.6,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 330, apesanteur: 0.95, apesMax: 5, broyeurVit: 2.3, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
+  rythmePer: 130, rythmeOn: 78, minuterie: 330, apesanteur: 0.95, apesMax: 5, broyeurVit: 2.3, laveVit: 0.55, roueR: 56, roueVit: 0.011, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.2, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 3.0, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -192,6 +192,11 @@ function recharger(n, c) {
     o.tr = trajet(g, w, h, o, plat, ((x * 2654435761) ^ (y * 40503) ^ gn) >>> 0);
     (plat ? plates : scies).push(o);
   }
+  for (let i = 0; i < w * h; i++) {
+    if (g[i] !== ROUE) continue;
+    const x = i % w, y = Math.floor(i / w), sens = (x + y) % 2 ? 1 : -1;
+    for (let k = 0; k < 4; k++) plates.push({ x, y, roue: { cx: x * T + T / 2, cy: y * T + T / 2, r: K.roueR, a0: k * Math.PI / 2, sens } });
+  }
   // lasers : un rayon vers le côté libre, allumé par moments (avec un préavis)
   const lasers = [];
   for (let i = 0; i < w * h; i++) {
@@ -250,9 +255,15 @@ function recharger(n, c) {
       const x = d0 % w, y = Math.floor(d0 / w);
       rythme.set(i, ((x * 19349663 ^ y * 83492791) >>> 0) % K.rythmePer);
     }
-    const marques = [];
-    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) if (g[y * w + x] === BROYEUR) { marques.push(x); break; }
+    const marques = [], laves = [];
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
+      if (g[y * w + x] === BROYEUR) { marques.push(x); break; }
+      if (g[y * w + x] === LAVE) { laves.push([x, y]); break; }
+    }
     for (let k = 0; k + 1 < marques.length; k += 2) broyeurs.push({ x0: marques[k], x1: marques[k + 1] });
+    // lave qui monte : du sol du départ jusqu'au sol de l'arrivée (elle s'arrête là)
+    for (let k = 0; k + 1 < laves.length; k += 2) broyeurs.push({ x0: laves[k][0], x1: laves[k + 1][0], lave: true, yBas: (laves[k][1] + 1) * T + 2, yHaut: (laves[k + 1][1] + 1) * T + 3 });
+    broyeurs.sort((a, b) => a.x0 - b.x0);
   }
   // pilons (tombent du plafond jusqu'au sol), scies en orbite, geysers (colonne qui projette), brûleurs (jet de flammes)
   const pilons = [], orbites = [], geysers = [], bruleurs = [];
@@ -487,6 +498,7 @@ function allerRetour(o, temps, vit) {
   return o.min + (d < L2 ? d : 2 * L2 - d);
 }
 function plateEn(p, temps) {
+  if (p.roue) { const a = p.roue.a0 + temps * K.roueVit * p.roue.sens; return [p.roue.cx + Math.cos(a) * p.roue.r - K.platLarg * T / 2, p.roue.cy + Math.sin(a) * p.roue.r]; }
   if (p.tr) { const q = surTrajet(p.tr, temps + p.dec); return [p.x * T + q[0], p.y * T + q[1]]; }
   const o = allerRetour(p, temps, K.platVit); return p.hor ? [p.x * T + o, p.y * T] : [p.x * T, p.y * T + o];
 }
@@ -1142,12 +1154,18 @@ function pas(n, e, inp) {
   }
   // broyeur : une fois passé son départ, un mur de scies avance et poursuit le joueur jusqu'à sa fin
   if (n.broyeurs.length && e.demarre) {
-    if (e.broy < 0) { for (let k = 0; k < n.broyeurs.length; k++) { const b = n.broyeurs[k]; if (cx > b.x0 + 3 && cx < b.x1 && (!e.cp || e.cp.tx < b.x0)) { e.broy = k; e.broyX = b.x0 * T; e.ev |= EV.BOUM; e.evX = b.x0; e.evY = cy; break; } } }
+    if (e.broy < 0) { for (let k = 0; k < n.broyeurs.length; k++) { const b = n.broyeurs[k]; if (cx > b.x0 + 3 && cx < b.x1 && (!e.cp || e.cp.tx < b.x0)) { e.broy = k; e.broyX = b.lave ? b.yBas : b.x0 * T; e.ev |= EV.BOUM; e.evX = b.x0; e.evY = cy; break; } } }
     if (e.broy >= 0) {
       const b = n.broyeurs[e.broy];
-      e.broyX = Math.min(b.x1 * T, e.broyX + K.broyeurVit);
-      if (cx > b.x1 + 1) e.broy = -1;
-      else if (e.x < e.broyX + 6 && e.mortT === 0) mourir(e, true);
+      if (b.lave) {                                       // lave : sa surface monte ; on meurt dès qu'on y touche
+        e.broyX = Math.max(b.yHaut, e.broyX - K.laveVit);
+        if (cx > b.x1 + 1) e.broy = -1;
+        else if (e.y + H > e.broyX && e.mortT === 0) mourir(e, true);
+      } else {
+        e.broyX = Math.min(b.x1 * T, e.broyX + K.broyeurVit);
+        if (cx > b.x1 + 1) e.broy = -1;
+        else if (e.x < e.broyX + 6 && e.mortT === 0) mourir(e, true);
+      }
     }
   }
   // courants d'eau : poussent sur le côté
@@ -1544,7 +1562,7 @@ const Moteur = { T, W, H, S, L, Z, P, PL, CA, ME, OM, GL, MA, NOMS_PHASES, E, EV
   VENT_D, VENT_G, VENT_H, VENT_B, TP1, TP1S, TP2, TP2S, ECLAT, PANNEAU,
   ARBALETE, CASSANT, REBONDI, BOUTON, PORTE, PIECE, ORBE, INTER, BLOC_R, BLOC_B, TREMP_G, TREMP_D, ENNEMI_H, ENNEMI_V,
   BAN_L, BAN_Z, BAN_P, SAUT_PLUS, SAUT_MOINS, PAROI, BAR_S, BAR_P, BAR_PL, BAR_CA, BAR_ME, PLAT_H, PLAT_V, SCIE_H, SCIE_V,
-  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, rythmeLa, CLE_OUV, pilonEn, pilonRect, PILON_BORD, PILON_PIC, pilonPics, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, laserSeg, laserPoly, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
+  LASER, CHAMPI, BOUCLE_H, BOUCLE_B, BOUCLE_G, BOUCLE_D, BAR_GL, BAR_MA, PILON, ORBITE, GEYSER, BRULEUR, LEVIER, GRILLE_LEV, PLAQUE0, PLAQUE1, PLAQUE2, SAUTEUR, VOLANT, grilleOuverte, plaqueEtat, CLE, PORTE_CLE, RYTHME, MINUTEUR, PORTE_MIN, APESANTEUR, BROYEUR, LAVE, ROUE, rythmeLa, CLE_OUV, pilonEn, pilonRect, PILON_BORD, PILON_PIC, pilonPics, orbiteEn, geyserEtat, geyserRect, bruleurEtat, bruleurRect, BARRIERE, FORMES, glaceEn, feuEteint, formeJoueur, polyCercle, polyPoly, estDur, flechesEn, effondre, ennemiEn, plateEn, scieEn, laserEtat, laserRect, laserSeg, laserPoly, PICS_TRI, FORME_CRISTAL, FORME_ECLAT,
   charger, recharger, nouvelEtat, cloner, pas, tuile, plein, casse, compresser, decompresser, sensPics, zonePics };
 if (typeof module !== 'undefined' && module.exports) module.exports = Moteur;
 else racine.Moteur = Moteur;
