@@ -2,7 +2,7 @@
 /* Colosses — boss uniques : chaque espèce a ses phrases d'entrée et son thème musical (quelques notes jouées à
    son arrivée, toujours les mêmes pour la reconnaître), et chaque boss lance une attaque finale spectaculaire,
    « Dernier souffle », quand sa vie tombe à zéro. Pendant ce dernier souffle il ne peut plus être blessé et
-   ne peut pas te tuer (tu restes au moins à 1 PV), mais chaque coup reçu compte pour les défis de maîtrise. */
+   peut t’achever : ses coups font leurs vrais dégâts. */
 
 const PHRASES_ESP = {
   bourreau: ['Ta tête roulera comme les autres.', 'La hache ne se trompe jamais deux fois.'],
@@ -136,9 +136,4 @@ majCombat = function (dt) {
     G.atkCourante = avant;
   }
 };
-// pendant le dernier souffle, le boss ne peut pas te tuer (mais le coup compte)
-const _blesserUniques = G.blesser;
-G.blesser = function (dmg, src) {
-  if (this.boss && this.boss.finale && this.p) dmg = Math.min(dmg, Math.max(0, this.p.hp - 1));
-  return _blesserUniques.call(this, dmg, src);
-};
+// le dernier souffle frappe pour de vrai : il peut t'achever (plus de limite à 1 PV)

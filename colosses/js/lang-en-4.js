@@ -19,7 +19,7 @@ LANG_EN.exact = {
 // morceaux de texte (du plus long au plus court) ; « # » = un nombre
 LANG_EN.frag = [
   ['Voici ce que tu vas découvrir dans cette salle. Le combat ne commence que quand tu entres.', 'Here is what you will discover in this room. The fight only starts when you enter.'],
-  ['Parfois, quand sa vie tombe à zéro, le colosse lance une dernière attaque spectaculaire, jamais deux fois la même. Il ne peut plus te tuer, mais chaque coup reçu compte pour les défis de maîtrise.', 'Sometimes, when its health drops to zero, the colossus unleashes one last spectacular attack, never the same twice. It can no longer kill you, but every hit you take counts for the mastery challenges.'],
+  ['Parfois, quand sa vie tombe à zéro, le colosse lance une dernière attaque spectaculaire, jamais deux fois la même. Attention : elle peut t’achever, esquive jusqu’au bout.', 'Sometimes, when its health drops to zero, the colossus unleashes one last spectacular attack, never the same twice. Careful: it can finish you off, keep dodging to the end.'],
   ['Après une mort, tu retrouves exactement le même colosse avec les mêmes armes. Bloqué ? ', 'After a death, you face exactly the same colossus with the same weapons. Stuck? '],
   [' puis « Passer ce boss » : le joker est commun aux 3 difficultés et revient après 3 boss vaincus.', ' then "Skip this boss": the joker is shared by all 3 difficulties and comes back after 3 bosses defeated.'],
   ['Déplace-toi avec ', 'Move with '], [', vise à la souris, maintiens ', ', aim with the mouse, hold '],
