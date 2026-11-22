@@ -31,6 +31,25 @@ const HORDE = {
   givre: { nom: 'Gardien du givre', desc: 'Avance entouré d\'un champ de givre qui te ralentit beaucoup.', parade: 'Reste hors de son cercle et tire de loin.', hp: 130, r: 18, vit: 70, cout: 4, des: 192, hue: 200, contact: .7 },
   spectre: { nom: 'Spectre', desc: 'Disparaît, réapparaît près de toi (l\'endroit est annoncé) et tire en éventail.', parade: 'Regarde la marque : tourne-lui le dos au bon moment.', hp: 40, r: 14, vit: 80, cout: 3, des: 204, hue: 276 }
 };
+Object.assign(HORDE, {
+  tourelle: { nom: 'Tourelle', desc: 'S\'installe à un endroit fixe ; elle s\'allume puis crache deux jets de balles en tournant.', parade: 'Reste hors de ses jets ; détruis-la pendant qu\'elle se recharge.', hp: 120, r: 16, vit: 90, cout: 3, des: 30, hue: 262 },
+  sniper: { nom: 'Tireur d\'élite', desc: 'S\'installe loin et vise longtemps (ligne rouge qui suit puis se fige) avant un tir très rapide.', parade: 'Quand la ligne se fige, fais un pas de côté.', hp: 50, r: 14, vit: 95, cout: 3, des: 66, hue: 5 },
+  pylone: { nom: 'Pylône', desc: 'Se plante dans l\'arène et libère un anneau électrique autour de lui (le cercle se remplit avant).', parade: 'Sors du cercle avant qu\'il soit plein ; frappe-le de loin.', hp: 140, r: 17, vit: 80, cout: 4, des: 114, hue: 55 },
+  brasier: { nom: 'Gardien du brasier', desc: 'Garde une zone en feu autour de lui et lance des boules de feu.', parade: 'N\'entre pas dans son feu : abats-le de loin.', hp: 150, r: 18, vit: 80, cout: 4, des: 174, hue: 18 }
+});
+// rôle : « chasse » (vient au contact), « distance » (attaque de loin), « zone » (s'installe à un endroit et le tient)
+const HORDE_ROLE = { rodeur: 'chasse', coureur: 'chasse', kamikaze: 'chasse', sauteur: 'chasse', brute: 'chasse', bouclier: 'chasse', essaim: 'chasse', foreur: 'chasse', semeur: 'chasse', givre: 'chasse',
+  tireur: 'distance', lanceur: 'distance', rayon: 'distance', empoisonneur: 'distance', chaman: 'distance', harponneur: 'distance', guerisseuse: 'distance', spectre: 'distance',
+  tourelle: 'zone', sniper: 'zone', pylone: 'zone', brasier: 'zone' };
+const HORDE_POIDS = { chasse: .45, distance: 1.4, zone: 1.6 };
+HORDE.rodeur.desc = 'Une bête qui court sur toi ; près de toi, elle se ramasse (un arc rouge s\'allume) puis bondit pour mordre.';
+HORDE.rodeur.parade = 'Quand l\'arc rouge s\'allume, recule ou pas de côté.';
+HORDE.coureur.desc = 'Très rapide, il zigzague ; près de toi, il lève ses lames (arc rouge) puis tranche en passant.';
+HORDE.bouclier.desc = 'Avance derrière un grand bouclier ; il le ramène en arrière (arc rouge) avant un coup qui repousse.';
+HORDE.essaim.desc = 'Quatre insectes qui tournent autour de toi ; chacun s\'immobilise et s\'allume avant de plonger.';
+HORDE.brute.desc = 'Lente et solide : elle charge en ligne droite (ligne annoncée) et frappe le sol devant elle (cercle annoncé).';
+HORDE.givre.desc = 'Avance dans un champ de givre qui te ralentit, et libère une onde glacée (le cercle s\'allume avant).';
+delete HORDE.givre.contact;
 const HORDE_THEMES = ['temple', 'ruines', 'metal', 'volcan', 'neant', 'glace', 'marais', 'cathedrale', 'celeste'];
 
 FORMATS.horde = {
@@ -38,9 +57,9 @@ FORMATS.horde = {
   score: r => Math.round((r.temps || 0) * 10) / 10, fmt: v => fmtTemps(v)
 };
 
-// force des armes contre une foule (dégâts par seconde mesurés par le robot : 8 ennemis autour du héros, partage compris)
+// force des armes contre une foule (dégâts par seconde mesurés par le robot : 8 ennemis autour du héros, sans aucune réduction)
 // 0 = non mesurable par le robot (armes à charger, à rythme) : comptée comme moyenne. Les spéciales sans dégâts aussi.
-const HORDE_MESURE = {"p":{"blaster":104,"pompe":123,"flammes":130,"arc":96,"epee":220,"mitra":133,"laser":118,"boomerang":108,"sniper":112,"orbes":106,"grenades":237,"foudre":197,"faux":327,"jumeaux":109,"shuriken":58,"roquettes":233,"fouet":106,"plasma":87,"aiguilles":113,"railgun":0,"pistolet":127,"rattrape":121,"echo":218,"meteorite":0,"jumelles":140,"ricochets":46,"gravite":173,"croix":125,"surchauffe":68,"iaido":0,"cryo":113,"harpon":87,"mortier":248,"hachettes":118,"chakram":110,"lucioles":102,"lameSpectrale":219,"prisme":109,"foreuse":159,"ronceLance":184,"pacte":138,"marteau":305,"glaive":91,"givreLance":105,"arbalete":117,"dagues":108,"sismique":60,"trident":120,"calice":81,"froleur":94,"couleuvrine":128,"bombeCollante":0,"helice":138,"focale":141,"toupie":136,"croissant":141,"acide":142,"tambour":6,"portee":48,"dosLame":144},"s":{"meteore":240,"tourelle":50,"devast":121,"nova":314,"missiles":82,"lames":88,"javelot":70,"trou":89,"miroir":0,"barrage":136,"gel":0,"clones":68,"lamesCiel":100,"onde":85,"satellite":90,"soin":0,"murForce":0,"supernova":286,"quatre":360,"renvoi":0,"arret":0,"blizzard":73,"colonne":92,"tempeteElec":100,"racines":0,"faille":130,"lumiereSacree":41,"ombres":118,"aimantSpe":0,"pluieMeteores":186,"volee":48,"repousse":89,"tornade":15,"mines":121,"lanceSoleil":77,"orage":71}};
+const HORDE_MESURE = {"p":{"blaster":104,"pompe":123,"flammes":130,"arc":107,"epee":392,"mitra":133,"laser":118,"boomerang":108,"sniper":112,"orbes":106,"grenades":321,"foudre":256,"faux":495,"jumeaux":109,"shuriken":59,"roquettes":338,"fouet":106,"plasma":87,"aiguilles":113,"railgun":0,"pistolet":127,"rattrape":121,"echo":386,"meteorite":0,"jumelles":140,"ricochets":46,"gravite":234,"croix":125,"surchauffe":68,"iaido":0,"cryo":113,"harpon":87,"mortier":336,"hachettes":118,"chakram":110,"lucioles":102,"lameSpectrale":389,"prisme":109,"foreuse":163,"ronceLance":216,"pacte":138,"marteau":413,"glaive":91,"givreLance":105,"arbalete":117,"dagues":120,"sismique":60,"trident":120,"calice":81,"froleur":94,"couleuvrine":128,"bombeCollante":0,"helice":138,"focale":141,"toupie":136,"croissant":141,"acide":142,"tambour":9,"portee":48,"dosLame":240},"s":{"meteore":325,"tourelle":50,"devast":121,"nova":570,"missiles":82,"lames":130,"javelot":70,"trou":120,"miroir":0,"barrage":203,"gel":0,"clones":68,"lamesCiel":102,"onde":115,"satellite":90,"soin":0,"murForce":0,"supernova":600,"quatre":467,"renvoi":0,"arret":0,"blizzard":110,"colonne":184,"tempeteElec":100,"racines":0,"faille":217,"lumiereSacree":75,"ombres":140,"aimantSpe":0,"pluieMeteores":270,"volee":48,"repousse":175,"tornade":20,"mines":146,"lanceSoleil":77,"orage":78}};
 function hordeForceArmes(ars) {
   try {
     const med = o => { const v = Object.values(o).filter(x => x > 20).sort((a, b) => a - b); return v[v.length >> 1] || 1; };
@@ -77,7 +96,7 @@ const Horde = {
   // l'ennemi n° k : le même pour tout le monde
   suivant(T) {
     const h = G.defi.h, r = RNG(hashStr('horde-v2:' + h.k)), dispo = Object.keys(HORDE).filter(t => HORDE[t].des <= T);
-    const t = r.weighted(dispo, x => 1 / Math.sqrt(HORDE[x].cout));
+    const t = r.weighted(dispo, x => HORDE_POIDS[HORDE_ROLE[x]] / Math.sqrt(HORDE[x].cout));
     return { t, elite: T > 200 && h.k % 6 === 5 && !HORDE[t].groupe, pt: this.point(r) };
   },
   point(r) {
@@ -89,8 +108,8 @@ const Horde = {
   },
   creer(type, x, y, elite, T) {
     const h = G.defi.h, D = HORDE[type], e = elite ? 1 : 0;
-    const hp = D.hp * (1 + .005 * T) * h.force * (e ? 2.6 : 1);
-    const m = { horde: true, type, x, y, r: D.r * (e ? 1.25 : 1), hp, hpMax: hp, vit: D.vit * (1 + Math.min(.3, .0008 * T)), spawn: .9, flash: 0, elite: !!elite,
+    const hp = D.hp * (1 + .005 * T) * (e ? 2.6 : 1);
+    const m = { horde: true, type, x, y, r: D.r * 1.3 * (e ? 1.25 : 1), hp, hpMax: hp, vit: D.vit * (1 + Math.min(.3, .0008 * T)), spawn: .9, flash: 0, elite: !!elite,
       idx: h.k * 4 + G.minions.length % 4, t: 0, face: G.p ? ang(x, y, G.p.x, G.p.y) : 0, cd: 1 + ((h.k * .37) % 1.2), ph: (h.k * 1.7) % TAU };
     if (type === 'foreur') { m.etat = 'sous'; m.et = 0; m.spawn = .3; }
     G.minions.push(m);
@@ -104,86 +123,61 @@ const Horde = {
     G.explo(m.x, m.y, m.r * (m.elite ? 3 : 2.2), hsl(D.hue, 90, 62));
     if (G.t - h.sonT > .07) { h.sonT = G.t; Son.play(m.elite || m.type === 'brute' ? 'explo' : 'touche'); }
   },
-  // ----- un ennemi : tous viennent t'attaquer -----
+  // ----- un ennemi : chaque attaque est préparée (on la voit venir), puis lancée -----
+  ancre(m) {
+    if (m.ancre) return m.ancre;
+    const r = RNG(hashStr('ancre:' + m.idx)), p = G.p; let best = null;
+    for (let i = 0; i < 12; i++) { const x = AR.x + 140 + r() * (AR.w - 280), y = AR.y + 120 + r() * (AR.h - 240), loin = !p || d2(x, y, p.x, p.y) > 280 * 280; if (!best || loin) best = { x, y }; if (loin) break; }
+    return (m.ancre = best);
+  },
   maj(m, dt) {
     if (m.spawn > 0) { m.spawn -= dt; return; }
     const D = HORDE[m.type], p = cible(), a = ang(m.x, m.y, p.x, p.y), dd = Math.sqrt(d2(m.x, m.y, p.x, p.y)), h = G.defi.h;
-    m.t += dt; m.flash = Math.max(0, m.flash - dt * 6);
+    m.t += dt; m.flash = Math.max(0, m.flash - dt * 6); if (m.frappe > 0) m.frappe -= dt; if (m.bash > 0) m.bash -= dt;
     const tourne = (ca, v) => { m.face += clamp(angDiff(m.face, ca), -v * dt, v * dt); }; // angDiff(a, b) = b − a
     const aller = (a0, v) => { m.x += Math.cos(a0) * v * dt; m.y += Math.sin(a0) * v * dt; };
-    // s'approche jusqu'à sa portée, puis tourne autour de toi en restant à portée
     const portee = (dist, v) => { const s = dd > dist + 30 ? 1 : dd < dist - 60 ? -.6 : 0; aller(a, v * s); aller(a + Math.PI / 2 * (m.idx % 2 ? 1 : -1), v * .4); };
-    switch (m.type) {
-      case 'rodeur': tourne(a, 4); aller(m.face, m.vit); break;
-      case 'coureur': tourne(a, 7); aller(m.face + Math.sin(m.t * 6 + m.ph) * .7 * Math.min(1, dd / 150), m.vit); break;
+    const prep = (dur, action, a0) => { m.prep = { t: 0, dur, action, a: a0 === undefined ? a : a0 }; if (G.t - (h.teleT || 0) > .12) { h.teleT = G.t; Son.play('tele'); } };
+    const poser = () => { const A = this.ancre(m); if (d2(m.x, m.y, A.x, A.y) > 14 * 14) { aller(ang(m.x, m.y, A.x, A.y), m.vit); m.face = ang(m.x, m.y, A.x, A.y); m.pose = false; return false; } m.pose = true; return true; };
+    // préparation : l'ennemi s'immobilise et s'illumine, l'attaque est montrée, puis elle part
+    if (m.prep) {
+      const P = m.prep; P.t += dt;
+      if (P.action === 'tir' && P.t < P.dur * .75) P.a += clamp(angDiff(P.a, a), -1.2 * dt, 1.2 * dt); // le tireur d'élite suit, puis fige sa visée
+      if (P.action !== 'salve') m.face = P.a;
+      if (P.t >= P.dur) { m.prep = null; this.agir(m, P, a); }
+      G.arene.contenir(m, m.r); return;
+    }
+    // élan (morsure, lames, coup de bouclier, plongeon) : on ne peut être touché que pendant l'élan
+    if (m.elan) { const E = m.elan; E.t += dt; aller(E.a, E.v); m.face = E.a; if (E.t >= E.dur) m.elan = null; }
+    else switch (m.type) {
+      case 'rodeur': tourne(a, 4); aller(m.face, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < m.r + 75) { m.cd = 1.3; prep(.38, 'morsure'); } break;
+      case 'coureur': tourne(a, 7); aller(m.face + Math.sin(m.t * 6 + m.ph) * .7 * Math.min(1, dd / 150), m.vit); m.cd -= dt; if (m.cd <= 0 && dd < m.r + 95) { m.cd = 1.1; prep(.28, 'taille'); } break;
       case 'tireur':
         tourne(a, 5); if (!(m.vise > 0)) portee(280, m.vit); m.cd -= dt;
         if (m.cd <= 0 && dd < 520) { m.cd = 2.1; m.vise = .45; m.viseA = a; }
-        if (m.vise > 0) { m.viseA += clamp(angDiff(m.viseA, a), -1.2 * dt, 1.2 * dt); m.vise -= dt; if (m.vise <= 0) EB(m.x, m.y, m.viseA, 300, { r: 7, src: 'invocation', col: hsl(D.hue, 95, 66), dmg: DMG(.75) }); }
+        if (m.vise > 0) { m.viseA += clamp(angDiff(m.viseA, a), -1.2 * dt, 1.2 * dt); m.vise -= dt; if (m.vise <= 0) EB(m.x, m.y, m.viseA, 300, { r: 8, src: 'invocation', col: hsl(D.hue, 95, 66), dmg: DMG(.75) }); }
         break;
       case 'kamikaze':
-        if (m.boom === undefined) { tourne(a, 6); aller(m.face, m.vit); if (dd < 72) { m.boom = 0; Son.play('tele'); } }
-        else { m.boom += dt; if (m.boom >= .75) { G.explo(m.x, m.y, 78, ROUGE); Son.play('explo'); if (G.p && d2(m.x, m.y, G.p.x, G.p.y) < (78 + G.p.hr) ** 2) G.blesser(DMG(1.1), 'invocation'); this.tuer(m, false); return; } }
-        break;
-      case 'brute':
-        if (m.charge) { const c = m.charge; c.t += dt; if (c.t >= .8 && c.t < 1.25) aller(c.a, 540); else if (c.t >= 1.25) { m.charge = null; m.cd = 4.2; } }
-        else { tourne(a, 2.5); aller(m.face, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 480) { m.charge = { a, t: 0 }; Son.play('tele'); } }
-        break;
-      case 'lanceur':
-        tourne(a, 4); portee(330, m.vit); m.cd -= dt;
-        if (m.cd <= 0 && dd < 560) { m.cd = 3.2; h.obus.push({ x: G.p.x, y: G.p.y, r: 62, t: 0, dur: 1.1, ox: m.x, oy: m.y }); }
-        break;
-      case 'bouclier':
-        tourne(a, 1.3); aller(a, m.vit); m.cd -= dt;
-        if (m.cd <= 0 && dd < m.r + 46 && Math.abs(angDiff(a, m.face)) < .9) { m.cd = 1.6; m.bash = .25; if (G.blesser(DMG(.6), 'invocation')) { G.p.vx += Math.cos(m.face) * 650; G.p.vy += Math.sin(m.face) * 650; } }
-        if (m.bash > 0) m.bash -= dt;
-        break;
-      case 'essaim':
-        if (m.plonge) { m.plonge.t += dt; aller(m.plonge.a, m.vit * 2.3); if (m.plonge.t > .55) { m.plonge = null; m.cd = 2.2 + (m.idx % 4) * .35; } }
-        else {
-          m.orb = (m.orb === undefined ? a + Math.PI : m.orb) + 1.5 * dt;
-          const tx = p.x + Math.cos(m.orb) * 125, ty = p.y + Math.sin(m.orb) * 125, at = ang(m.x, m.y, tx, ty);
-          aller(at, Math.min(m.vit, Math.sqrt(d2(m.x, m.y, tx, ty)) * 4)); m.face = at; m.cd -= dt;
-          if (m.cd <= 0) { m.plonge = { a, t: 0 }; m.face = a; }
-        }
-        break;
-      case 'foreur':
-        m.et += dt;
-        if (m.etat === 'sous') { aller(a, m.vit); m.face = a; m.sous = true; if (dd < 40 || m.et > 3.5) { m.etat = 'sort'; m.et = 0; Son.play('tele'); } }
-        else if (m.etat === 'sort') { m.sous = true; if (m.et >= .75) { m.etat = 'dehors'; m.et = 0; m.sous = false; G.explo(m.x, m.y, 70, '#c9a06a'); G.secoue(5); if (G.p && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (70 + G.p.hr) ** 2) G.blesser(DMG(1), 'invocation'); } }
-        else { tourne(a, 2); aller(m.face, 35); m.sous = false; if (m.et > 2.6) { m.etat = 'sous'; m.et = 0; } }
-        break;
-      case 'chaman': {
-        tourne(a, 3); portee(300, m.vit); m.cd -= dt;
-        if (m.cd <= 0) {
-          m.cd = 3;
-          const amis = G.minions.filter(o => o.horde && !o.dead && o !== m && o.spawn <= 0 && o.hp < o.hpMax * .9 && d2(o.x, o.y, m.x, m.y) < 240 * 240);
-          if (amis.length) { for (const o of amis) { o.hp = Math.min(o.hpMax, o.hp + o.hpMax * .25); h.rayons.push({ x1: m.x, y1: m.y, o, t: 0 }); } Son.play('soin'); }
-          else EB(m.x, m.y, a, 135, { r: 10, src: 'invocation', col: hsl(D.hue, 95, 65), dmg: DMG(.9), hom: 1.3, life: 5 });
-        }
-        break;
-      }
-      case 'semeur':
-        tourne(a, 3); aller(m.face, m.vit); m.cd -= dt;
-        if (m.cd <= 0) { m.cd = 1.6; if (h.mines.length < 16) h.mines.push({ x: m.x - Math.cos(m.face) * m.r, y: m.y - Math.sin(m.face) * m.r, t: 0, arme: .9, vie: 10, boom: -1 }); }
-        break;
-      case 'spectre':
-        if (m.saut) {
-          m.saut.t += dt; m.cache = true;
-          if (m.saut.t >= .6) { m.x = m.saut.x; m.y = m.saut.y; m.saut = null; m.cache = false; m.cd = 3.2; const a2 = ang(m.x, m.y, p.x, p.y); for (const s of [-.3, 0, .3]) EB(m.x, m.y, a2 + s, 220, { r: 7, src: 'invocation', col: hsl(D.hue, 95, 72), dmg: DMG(.7) }); }
-        } else {
-          tourne(a, 3); aller(m.face, m.vit); m.cd -= dt;
-          if (m.cd <= 0) { const k = (m.sauts = (m.sauts || 0) + 1), aa = m.idx * 2.4 + k * 2.1, x = clamp(p.x + Math.cos(aa) * 170, AR.x + 30, AR.x + AR.w - 30), y = clamp(p.y + Math.sin(aa) * 170, AR.y + 30, AR.y + AR.h - 30); m.saut = { x, y, t: 0 }; }
-        }
+        if (m.boom === undefined) { tourne(a, 6); aller(m.face, m.vit); if (dd < 78) { m.boom = 0; Son.play('tele'); } }
+        else { m.boom += dt; if (m.boom >= .75) { G.explo(m.x, m.y, 80, ROUGE); Son.play('explo'); if (G.p && d2(m.x, m.y, G.p.x, G.p.y) < (80 + G.p.hr) ** 2) G.blesser(DMG(1.1), 'invocation'); this.tuer(m, false); return; } }
         break;
       case 'sauteur':
         if (m.bond) {
           const b = m.bond; b.t += dt; const k = Math.min(1, b.t / b.dur);
           m.x = lerp(b.x0, b.x1, k); m.y = lerp(b.y0, b.y1, k); m.haut = Math.sin(k * Math.PI) * 70; m.cache = true;
-          if (k >= 1) { m.bond = null; m.cache = false; m.haut = 0; m.cd = 3.2; m.repos = .9; G.explo(m.x, m.y, 65, hsl(D.hue, 90, 62)); G.secoue(4); if (G.p && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (65 + G.p.hr) ** 2) G.blesser(DMG(1), 'invocation'); }
+          if (k >= 1) { m.bond = null; m.cache = false; m.haut = 0; m.cd = 3.2; m.repos = .9; G.explo(m.x, m.y, 68, hsl(D.hue, 90, 62)); G.secoue(4); if (G.p && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (68 + G.p.hr) ** 2) G.blesser(DMG(1), 'invocation'); }
         } else if (m.repos > 0) m.repos -= dt;
-        else { tourne(a, 4); aller(m.face, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 420) { m.bond = { x0: m.x, y0: m.y, x1: clamp(p.x, AR.x + 20, AR.x + AR.w - 20), y1: clamp(p.y, AR.y + 20, AR.y + AR.h - 20), t: 0, dur: .95 }; Son.play('tele'); } }
+        else { tourne(a, 4); aller(m.face, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 420) prep(.3, 'bond'); }
         break;
+      case 'brute':
+        if (m.charge) { const c = m.charge; c.t += dt; if (c.t >= .8 && !c.go) { c.go = true; m.frappe = .45; } if (c.t >= .8 && c.t < 1.25) aller(c.a, 540); else if (c.t >= 1.25) { m.charge = null; m.cd = 4.2; } }
+        else {
+          tourne(a, 2.5); aller(m.face, m.vit); m.cd -= dt; m.cd2 = (m.cd2 || 0) - dt;
+          if (m.cd2 <= 0 && dd < m.r + 70) { m.cd2 = 1.8; prep(.5, 'poing'); }
+          else if (m.cd <= 0 && dd < 480) { m.charge = { a, t: 0 }; Son.play('tele'); }
+        }
+        break;
+      case 'lanceur': tourne(a, 4); portee(330, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 560) { m.cd = 3.2; prep(.45, 'obus'); } break;
       case 'rayon':
         if (m.tir) {
           const T2 = m.tir; T2.t += dt;
@@ -193,10 +187,22 @@ const Horde = {
           m.face = T2.a;
         } else { tourne(a, 4); portee(330, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 600) { m.tir = { a, t: 0 }; Son.play('tele'); } }
         break;
-      case 'empoisonneur':
-        tourne(a, 4); portee(300, m.vit); m.cd -= dt;
-        if (m.cd <= 0 && dd < 560) { m.cd = 3.6; h.obus.push({ x: G.p.x, y: G.p.y, r: 70, t: 0, dur: .9, ox: m.x, oy: m.y, poison: true }); }
+      case 'bouclier': tourne(a, 1.3); aller(a, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < m.r + 65 && Math.abs(angDiff(m.face, a)) < .9) { m.cd = 1.6; prep(.42, 'bash'); } break;
+      case 'essaim': {
+        m.orb = (m.orb === undefined ? a + Math.PI : m.orb) + 1.5 * dt;
+        const tx = p.x + Math.cos(m.orb) * 130, ty = p.y + Math.sin(m.orb) * 130, at = ang(m.x, m.y, tx, ty);
+        aller(at, Math.min(m.vit, Math.sqrt(d2(m.x, m.y, tx, ty)) * 4)); m.face = at; m.cd -= dt;
+        if (m.cd <= 0) prep(.32, 'plonge');
         break;
+      }
+      case 'empoisonneur': tourne(a, 4); portee(300, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 560) { m.cd = 3.6; prep(.45, 'fiole'); } break;
+      case 'foreur':
+        m.et += dt;
+        if (m.etat === 'sous') { aller(a, m.vit); m.face = a; m.sous = true; if (dd < 40 || m.et > 3.5) { m.etat = 'sort'; m.et = 0; Son.play('tele'); } }
+        else if (m.etat === 'sort') { m.sous = true; if (m.et >= .75) { m.etat = 'dehors'; m.et = 0; m.sous = false; G.explo(m.x, m.y, 72, '#c9a06a'); G.secoue(5); if (G.p && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (72 + G.p.hr) ** 2) G.blesser(DMG(1), 'invocation'); } }
+        else { tourne(a, 2); aller(m.face, 35); m.sous = false; if (m.et > 2.6) { m.etat = 'sous'; m.et = 0; } }
+        break;
+      case 'chaman': tourne(a, 3); portee(300, m.vit); m.cd -= dt; if (m.cd <= 0) { m.cd = 3; prep(.5, 'sort'); } break;
       case 'harponneur':
         if (m.vise2 > 0) { m.vise2 -= dt; m.face = m.viseA; if (m.vise2 <= 0) h.crochets.push({ x: m.x, y: m.y, a: m.viseA, d: 0, m }); }
         else { tourne(a, 4); portee(300, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 520) { m.cd = 3.6; m.vise2 = .55; m.viseA = a; Son.play('tele'); } }
@@ -205,21 +211,71 @@ const Horde = {
         let al = m.soigne && !m.soigne.dead && !m.soigne.sous ? m.soigne : null;
         if (!al || (m.t % 2) < dt) { al = null; let best = 0; for (const o of G.minions) if (o.horde && !o.dead && o !== m && o.type !== 'guerisseuse' && !o.sous && o.spawn <= 0 && o.hpMax > best) { best = o.hpMax; al = o; } m.soigne = al; }
         if (al) {
-          const ap = ang(p.x, p.y, al.x, al.y), tx = al.x + Math.cos(ap) * 70, ty = al.y + Math.sin(ap) * 70;
+          const ap = ang(p.x, p.y, al.x, al.y), tx = al.x + Math.cos(ap) * 80, ty = al.y + Math.sin(ap) * 80;
           if (d2(m.x, m.y, tx, ty) > 100) aller(ang(m.x, m.y, tx, ty), m.vit);
           tourne(ang(m.x, m.y, al.x, al.y), 5);
           if (d2(m.x, m.y, al.x, al.y) < 260 * 260) al.hp = Math.min(al.hpMax, al.hp + al.hpMax * .09 * dt);
-        } else { tourne(a, 4); portee(260, m.vit); m.cd -= dt; if (m.cd <= 0) { m.cd = 2.2; EB(m.x, m.y, a, 200, { r: 7, src: 'invocation', col: hsl(D.hue, 95, 70), dmg: DMG(.6) }); } }
+        } else { tourne(a, 4); portee(260, m.vit); m.cd -= dt; if (m.cd <= 0) { m.cd = 2.2; prep(.35, 'trait'); } }
         break;
       }
-      case 'givre': tourne(a, 3); aller(m.face, m.vit); break;
+      case 'semeur':
+        tourne(a, 3); aller(m.face, m.vit); m.cd -= dt;
+        if (m.cd <= 0) { m.cd = 1.6; if (h.mines.length < 16) h.mines.push({ x: m.x - Math.cos(m.face) * m.r, y: m.y - Math.sin(m.face) * m.r, t: 0, arme: .9, vie: 10, boom: -1 }); }
+        break;
+      case 'givre': tourne(a, 3); aller(m.face, m.vit); m.cd -= dt; if (m.cd <= 0 && dd < 140) { m.cd = 3.4; prep(.65, 'givre'); } break;
+      case 'spectre':
+        if (m.saut) {
+          m.saut.t += dt; m.cache = true;
+          if (m.saut.t >= .6) { m.x = m.saut.x; m.y = m.saut.y; m.saut = null; m.cache = false; m.cd = 3.2; prep(.32, 'eventail'); }
+        } else {
+          tourne(a, 3); aller(m.face, m.vit); m.cd -= dt;
+          if (m.cd <= 0) { const k = (m.sauts = (m.sauts || 0) + 1), aa = m.idx * 2.4 + k * 2.1, x = clamp(p.x + Math.cos(aa) * 170, AR.x + 30, AR.x + AR.w - 30), y = clamp(p.y + Math.sin(aa) * 170, AR.y + 30, AR.y + AR.h - 30); m.saut = { x, y, t: 0 }; }
+        }
+        break;
+      // ----- gardiens de zone : ils vont à leur place et la tiennent -----
+      case 'tourelle':
+        if (!poser()) break;
+        if (m.salve > 0) { m.salve -= dt; m.a = (m.a || 0) + 1.7 * dt; m.face = m.a; m.st = (m.st || 0) - dt; if (m.st <= 0) { m.st = .14; for (const s2 of [0, Math.PI]) EB(m.x, m.y, m.a + s2, 170, { r: 7, src: 'invocation', col: hsl(D.hue, 95, 70), dmg: DMG(.6) }); } }
+        else { m.a = (m.a || 0) + .4 * dt; m.face = m.a; m.cd -= dt; if (m.cd <= 0) { m.cd = 3; prep(.6, 'salve', m.a); } }
+        break;
+      case 'sniper': if (!poser()) break; tourne(a, 3); m.cd -= dt; if (m.cd <= 0 && dd < 1200) { m.cd = 3.4; prep(1.3, 'tir'); } break;
+      case 'pylone': if (!poser()) break; m.cd -= dt; if (m.cd <= 0 && dd < 380) { m.cd = 3.8; prep(.95, 'anneau'); } break;
+      case 'brasier': if (!poser()) break; m.feu = Math.min(1, (m.feu || 0) + dt * .8); tourne(a, 3); m.cd -= dt; if (m.cd <= 0 && dd < 640) { m.cd = 2.6; prep(.45, 'boule'); } break;
     }
-    // contact (morsure, coup de lame, poing, dard…)
-    if (D.contact && !m.sous && G.p && G.p.hp > 0 && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (m.r + G.p.hr) ** 2) {
-      if (G.blesser(DMG(D.contact * (m.elite ? 1.3 : 1) * (m.charge && m.charge.t >= .8 ? 1.4 : 1)), 'invocation')) { const k = ang(m.x, m.y, G.p.x, G.p.y); G.p.vx += Math.cos(k) * 420; G.p.vy += Math.sin(k) * 420; m.x -= Math.cos(k) * 18; m.y -= Math.sin(k) * 18; m.mord = .2; }
+    // la frappe au contact ne compte que pendant une attaque (élan, charge) : jamais en marchant
+    if (D.contact && m.frappe > 0 && !m.sous && G.p && G.p.hp > 0 && G.p.saut <= 0 && d2(m.x, m.y, G.p.x, G.p.y) < (m.r + G.p.hr) ** 2) {
+      if (G.blesser(DMG(D.contact * (m.elite ? 1.3 : 1) * (m.charge ? 1.4 : 1)), 'invocation')) { const k = ang(m.x, m.y, G.p.x, G.p.y); G.p.vx += Math.cos(k) * (m.type === 'bouclier' ? 650 : 420); G.p.vy += Math.sin(k) * (m.type === 'bouclier' ? 650 : 420); m.mord = .2; }
+      m.frappe = 0; m.elan = null;
     }
     if (m.mord > 0) m.mord -= dt;
     G.arene.contenir(m, m.r);
+  },
+  // l'attaque préparée part
+  agir(m, P, a) {
+    const D = HORDE[m.type], h = G.defi.h, p = G.p;
+    switch (P.action) {
+      case 'morsure': m.elan = { a: P.a, t: 0, dur: .22, v: m.vit * 3.4 }; m.frappe = .26; break;
+      case 'taille': m.elan = { a: P.a, t: 0, dur: .24, v: m.vit * 2.4 }; m.frappe = .28; break;
+      case 'bash': m.elan = { a: P.a, t: 0, dur: .2, v: 480 }; m.frappe = .24; m.bash = .25; break;
+      case 'plonge': m.elan = { a: P.a, t: 0, dur: .5, v: m.vit * 2.3 }; m.frappe = .52; m.cd = 2.2 + (m.idx % 4) * .35; break;
+      case 'poing': { const x = m.x + Math.cos(P.a) * m.r * 1.2, y = m.y + Math.sin(P.a) * m.r * 1.2; G.explo(x, y, 70, hsl(D.hue, 80, 60)); G.secoue(5); if (p && p.saut <= 0 && d2(x, y, p.x, p.y) < (70 + p.hr) ** 2 && G.blesser(DMG(1.1), 'invocation')) { p.vx += Math.cos(P.a) * 600; p.vy += Math.sin(P.a) * 600; } break; }
+      case 'bond': if (p) m.bond = { x0: m.x, y0: m.y, x1: clamp(p.x, AR.x + 20, AR.x + AR.w - 20), y1: clamp(p.y, AR.y + 20, AR.y + AR.h - 20), t: 0, dur: .95 }; break;
+      case 'obus': if (p) h.obus.push({ x: p.x, y: p.y, r: 62, t: 0, dur: 1.1, ox: m.x, oy: m.y }); break;
+      case 'fiole': if (p) h.obus.push({ x: p.x, y: p.y, r: 70, t: 0, dur: .9, ox: m.x, oy: m.y, poison: true }); break;
+      case 'sort': {
+        const amis = G.minions.filter(o => o.horde && !o.dead && o !== m && o.spawn <= 0 && o.hp < o.hpMax * .9 && d2(o.x, o.y, m.x, m.y) < 240 * 240);
+        if (amis.length) { for (const o of amis) { o.hp = Math.min(o.hpMax, o.hp + o.hpMax * .25); h.rayons.push({ x1: m.x, y1: m.y, o, t: 0 }); } Son.play('soin'); }
+        else EB(m.x, m.y, a, 135, { r: 11, src: 'invocation', col: hsl(D.hue, 95, 65), dmg: DMG(.9), hom: 1.3, life: 5 });
+        break;
+      }
+      case 'trait': EB(m.x, m.y, a, 200, { r: 8, src: 'invocation', col: hsl(D.hue, 95, 70), dmg: DMG(.6) }); break;
+      case 'givre': G.explo(m.x, m.y, 118, '#cfefff'); if (p && p.saut <= 0 && d2(m.x, m.y, p.x, p.y) < (118 + p.hr) ** 2) G.blesser(DMG(.8), 'invocation'); break;
+      case 'eventail': for (const s2 of [-.3, 0, .3]) EB(m.x, m.y, a + s2, 220, { r: 8, src: 'invocation', col: hsl(D.hue, 95, 72), dmg: DMG(.7) }); break;
+      case 'salve': m.salve = 1.6; m.st = 0; break;
+      case 'tir': EB(m.x, m.y, P.a, 760, { r: 8, src: 'invocation', col: '#ff6a5a', dmg: DMG(1.3) }); G.secoue(3); break;
+      case 'anneau': G.fx.push({ kind: 'anneau', x: m.x, y: m.y, r0: m.r, r1: 175, t: 0, dur: .35, col: '#ffe14d' }); G.lumiere(m.x, m.y, 260, 'rgba(255,230,90,.8)', .3); if (p && p.saut <= 0 && d2(m.x, m.y, p.x, p.y) < (175 + p.hr) ** 2) G.blesser(DMG(1), 'invocation'); break;
+      case 'boule': EB(m.x, m.y, a, 240, { r: 12, src: 'invocation', col: '#ff8a3a', dmg: DMG(.9) }); break;
+    }
   },
   // ----- l'arrivée des ennemis : une menace qui monte avec le temps -----
   majFlux(dt) {
@@ -244,6 +300,8 @@ const Horde = {
       if (mi.vie <= 0) mi.fini = true;
     }
     h.mines = h.mines.filter(mi => !mi.fini);
+    // zone de feu du gardien du brasier (une fois allumée)
+    for (const m of vivants) if (m.type === 'brasier' && m.pose && m.feu >= 1 && p.saut <= 0 && d2(m.x, m.y, p.x, p.y) < (115 + p.hr) ** 2) { m.feuT = (m.feuT || 0) - dt; if (m.feuT <= 0) { m.feuT = .6; G.blesser(DMG(.35), 'invocation'); } }
     // flaques de poison
     for (const f of h.flaques) { f.t += dt; f.vie -= dt; f.tick -= dt; if (f.tick <= 0 && p.saut <= 0 && d2(f.x, f.y, p.x, p.y) < (f.r * .85 + p.hr) ** 2) { f.tick = .6; G.blesser(DMG(.3), 'invocation'); } }
     h.flaques = h.flaques.filter(f => f.vie > 0);
@@ -296,7 +354,7 @@ const _garderHorde = SurvieRun.garder;
 SurvieRun.garder = function () {
   if (!Horde.actif()) return _garderHorde.apply(this, arguments);
   const df = G.defi, h = df.h; if (G.finDefi || !G.p || G.p.hp <= 0) return;
-  const copie = o => { const r = {}; for (const k in o) { const v = o[k]; if (v === null || typeof v !== 'object') r[k] = v; else if (k === 'charge' || k === 'saut' || k === 'plonge' || k === 'bond' || k === 'tir') r[k] = Object.assign({}, v); } return r; };
+  const copie = o => { const r = {}; for (const k in o) { const v = o[k]; if (v === null || typeof v !== 'object') r[k] = v; else if (k === 'charge' || k === 'saut' || k === 'plonge' || k === 'bond' || k === 'tir' || k === 'prep' || k === 'elan' || k === 'ancre') r[k] = Object.assign({}, v); } return r; };
   Save.d.survieRun = { horde2: 1, temps: Horde.temps(), pv: G.p.hp, ars: Object.assign({}, df.boss[0].ars), tues: df.tues || 0, k: h.k, jauge: h.jauge, soinT: h.soinT, theme: df.theme,
     en: G.minions.filter(m => m.horde && !m.dead).slice(0, 30).map(copie), mines: h.mines.map(copie), obus: h.obus.map(copie), flaques: h.flaques.map(copie) };
   Save.write();
@@ -324,6 +382,15 @@ const _ciblesHorde = G.cibles;
 G.cibles = function () { const l = _ciblesHorde.apply(this, arguments); return Horde.actif() ? l.filter(m => !(m.horde && (m.sous || m.cache))) : l; };
 
 // ---------- dégâts : partagés quand un coup touche plusieurs ennemis au même instant ----------
+// en Survie, une arme (ou spéciale) bien plus forte que la moyenne contre une foule est réduite jusqu'à 1,3 fois la moyenne ;
+// les autres gardent 100 % de leurs dégâts (on ne retire rien aux autres pour compenser)
+function hordeReduction(o) {
+  if (typeof window !== 'undefined' && window.__hordeBrut) return 1;
+  const M = typeof HORDE_MESURE !== 'undefined' ? HORDE_MESURE : null, ars = G.ars; if (!M || !ars) return 1;
+  const med = l => { const v = Object.values(l).filter(x => x > 20).sort((a, b) => a - b); return v[v.length >> 1] || 1; };
+  const red = (c, id) => { const x = M[c][id]; return x > 20 ? Math.min(1, 1.3 * med(M[c]) / x) : 1; };
+  return o && o.spec ? red('s', ars.s) : o && o.prim ? red('p', ars.p) : red('p', ars.p);
+}
 const _coupsInstant = { t: -1, ordre: new Map() };
 function rangDansInstant(tg) {
   if (_coupsInstant.t !== G.t) { _coupsInstant.t = G.t; _coupsInstant.ordre.clear(); }
@@ -342,7 +409,7 @@ G.frappe = function (tg, dmg, o) {
     const dif = Math.abs(angDiff(vrai.face, ang(vrai.x, vrai.y, G.p.x, G.p.y))); // les coups viennent de toi : de face, le bouclier bloque
     if (dif < 1.05) { m *= .2; if (this.protegeT <= 0) { this.texte(vrai.x, vrai.y - vrai.r - 12, 'Bloqué', '#bfe0ff', 13); this.protegeT = .4; } }
   }
-  m /= 1 + .45 * (rangDansInstant(vrai) - 1);
+  m *= hordeReduction(o);
   const d = dmg * m;
   vrai.hp -= d; vrai.flash = 1; this.defi.degats = (this.defi.degats || 0) + d; this.degatsCombat = (this.degatsCombat || 0) + d;
   try { statPlus('degats', undefined, d); } catch (e) { }
@@ -383,6 +450,17 @@ function dessinerEnnemi(c, m, menu) {
     c.fillStyle = 'rgba(235,248,255,.7)'; for (let i = 0; i < 10; i++) { const a = i * TAU / 10 + t * .4, d = 60 + 70 * ((i * .37 + t * .1) % 1); c.fillRect(m.x + Math.cos(a) * d - 1, m.y + Math.sin(a) * d - 1, 2, 2); }
     c.restore();
   }
+  if (!menu && m.type === 'brasier' && m.pose) {
+    const k = Math.min(1, m.feu || 0), R0 = 115;
+    c.save(); c.globalAlpha = .35 + .45 * k;
+    const g = c.createRadialGradient(m.x, m.y, 10, m.x, m.y, R0); g.addColorStop(0, 'rgba(255,170,60,.28)'); g.addColorStop(.75, 'rgba(255,80,20,.22)'); g.addColorStop(1, 'rgba(255,60,10,.05)');
+    c.fillStyle = g; c.beginPath(); c.arc(m.x, m.y, R0 * (.4 + .6 * k), 0, TAU); c.fill();
+    c.strokeStyle = k >= 1 ? 'rgba(255,120,40,.9)' : 'rgba(255,200,120,.6)'; c.lineWidth = 2.5; c.setLineDash(k >= 1 ? [] : [8, 8]); c.beginPath(); c.arc(m.x, m.y, R0, 0, TAU); c.stroke(); c.setLineDash([]);
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 12; i++) { const a = i * TAU / 12 + t * .5, d = R0 * (.35 + .6 * ((i * .41 + t * .3) % 1)); c.drawImage(glow('rgba(255,150,50,.55)', 16), m.x + Math.cos(a) * d - 16, m.y + Math.sin(a) * d - 16); }
+    c.restore();
+  }
+  if (!menu && m.elan) { c.save(); c.globalAlpha = .25; c.fillStyle = hsl(h, 80, 60); for (let i = 1; i <= 3; i++) { c.beginPath(); c.arc(m.x - Math.cos(m.elan.a) * r * .7 * i, m.y - Math.sin(m.elan.a) * r * .7 * i, r * (1 - i * .18), 0, TAU); c.fill(); } c.restore(); }
   if (!menu) { const ho = m.haut || 0; c.fillStyle = `rgba(0,0,0,${.42 - Math.min(.25, ho / 300)})`; c.beginPath(); c.ellipse(m.x + 3, m.y + r * .8, r * 1.1 * (1 - ho / 200), r * .45 * (1 - ho / 200), 0, 0, TAU); c.fill(); }
   c.save();
   if (m.spawn > 0) {
@@ -563,9 +641,44 @@ function dessinerEnnemi(c, m, menu) {
       hOeil(c, r * .5, -r * .2, r * .1, 195); hOeil(c, r * .5, r * .2, r * .1, 195); hReflet(c, r);
       break;
     }
+    case 'tourelle': {
+      // socle octogonal ancré, tête tournante à deux canons, cœur qui chauffe avant la salve
+      hForme(c, () => { for (let i = 0; i < 8; i++) { const a = i * TAU / 8 + Math.PI / 8; c.lineTo(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05); } c.closePath(); });
+      c.fillStyle = '#2a2a34'; c.fill(); hContour(c, h, .9);
+      c.fillStyle = '#4a4a58'; for (let i = 0; i < 4; i++) { const a = i * TAU / 4 + Math.PI / 4; c.beginPath(); c.arc(Math.cos(a) * r * .8, Math.sin(a) * r * .8, r * .12, 0, TAU); c.fill(); }
+      for (const s2 of [0, Math.PI]) { c.save(); c.rotate(s2); c.fillStyle = '#1a1c22'; c.fillRect(r * .3, -r * .2, r * 1.15, r * .4); c.strokeStyle = 'rgba(0,0,0,.9)'; c.lineWidth = 2; c.strokeRect(r * .3, -r * .2, r * 1.15, r * .4); c.restore(); }
+      hForme(c, () => c.arc(0, 0, r * .58, 0, TAU)); c.fillStyle = peau; c.fill(); hContour(c, h, .8);
+      hOeil(c, 0, 0, r * (m.salve > 0 ? .3 : .16), h); break;
+    }
+    case 'sniper': {
+      // tireur couché sous une cape, long fusil à lunette (reflet)
+      hForme(c, () => c.ellipse(-r * .2, 0, r * 1.05, r * .8, 0, 0, TAU)); c.fillStyle = peau; c.fill(); hContour(c, h);
+      c.fillStyle = hsl(h, 30, 18); hForme(c, () => { c.moveTo(-r * 1.2, -r * .7); c.quadraticCurveTo(-r * .3, -r * 1.1, r * .3, -r * .5); c.lineTo(r * .3, r * .5); c.quadraticCurveTo(-r * .3, r * 1.1, -r * 1.2, r * .7); c.closePath(); }); c.fill();
+      c.fillStyle = '#1c1e24'; c.fillRect(r * .2, -r * .14, r * 2.1, r * .28); c.strokeStyle = 'rgba(0,0,0,.9)'; c.lineWidth = 1.5; c.strokeRect(r * .2, -r * .14, r * 2.1, r * .28);
+      c.fillStyle = '#3a3e48'; c.fillRect(r * .6, -r * .34, r * .6, r * .2);
+      hOeil(c, r * 1.2, -r * .24, r * .1, m.prep ? 0 : 200); break;
+    }
+    case 'pylone': {
+      // tour plantée : socle carré, quatre jambes, boule chargée d'éclairs
+      for (let i = 0; i < 4; i++) { const a = i * TAU / 4 + Math.PI / 4; patte(Math.cos(a) * r * .4, Math.sin(a) * r * .4, Math.cos(a) * r * 1.15, Math.sin(a) * r * 1.15, r * .2); }
+      hForme(c, () => c.rect(-r * .6, -r * .6, r * 1.2, r * 1.2)); c.fillStyle = '#3a3428'; c.fill(); hContour(c, h, .8);
+      hForme(c, () => c.arc(0, 0, r * .5, 0, TAU)); c.fillStyle = peau; c.fill(); hContour(c, h, .7);
+      c.globalCompositeOperation = 'lighter'; c.strokeStyle = 'rgba(255,240,140,.9)'; c.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) { const a = t * 7 + i * 2.1; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * r * .5 + Math.sin(t * 40 + i) * 3, Math.sin(a) * r * .5); c.lineTo(Math.cos(a + .3) * r * 1.1, Math.sin(a + .3) * r * 1.1); c.stroke(); }
+      c.globalCompositeOperation = 'source-over'; hOeil(c, 0, 0, r * .2, 55); break;
+    }
+    case 'brasier': {
+      // vasque de pierre pleine de flammes, deux bras de lave
+      for (const s2 of [-1, 1]) patte(0, s2 * r * .7, r * .5, s2 * r * 1.2, r * .24);
+      hForme(c, () => c.arc(0, 0, r, 0, TAU)); c.fillStyle = '#3a2a22'; c.fill(); hContour(c, h);
+      const gf = c.createRadialGradient(0, 0, 1, 0, 0, r * .8); gf.addColorStop(0, '#fff2b0'); gf.addColorStop(.4, '#ffaa30'); gf.addColorStop(1, '#a02a08'); c.fillStyle = gf; c.beginPath(); c.arc(0, 0, r * .75, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'lighter'; for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + t * 2, d = r * .35 * (1 + .3 * Math.sin(t * 9 + i)); c.drawImage(glow('rgba(255,180,60,.7)', r * .4), Math.cos(a) * d - r * .4, Math.sin(a) * d - r * .4); } c.globalCompositeOperation = 'source-over';
+      hOeil(c, r * .5, 0, r * .12, 40); break;
+    }
   }
   // élite : liseré doré et couronne
   if (m.elite) { c.strokeStyle = '#ffd36a'; c.lineWidth = 2.5; c.shadowColor = '#ffb020'; c.shadowBlur = 10; c.beginPath(); c.arc(0, 0, r * 1.3, 0, TAU); c.stroke(); c.shadowBlur = 0; c.fillStyle = '#ffd36a'; for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(-r * .2, i * r * .35 - r * .12); c.lineTo(-r * .75, i * r * .35); c.lineTo(-r * .2, i * r * .35 + r * .12); c.fill(); } }
+  if (m.prep) { const k = Math.min(1, m.prep.t / m.prep.dur); c.save(); c.globalAlpha *= .2 + .35 * k * (.6 + .4 * Math.sin(t * 30)); c.fillStyle = k > .7 ? '#ff5050' : '#ffd070'; c.beginPath(); c.arc(0, 0, r * 1.05, 0, TAU); c.fill(); c.restore(); }
   if (m.flash > 0 && !fl) { c.globalAlpha *= Math.min(1, m.flash) * .45; c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); }
   c.restore();
   if (menu) return;
@@ -574,6 +687,23 @@ function dessinerEnnemi(c, m, menu) {
   if (m.type === 'kamikaze' && m.boom !== undefined) { const k = Math.min(1, m.boom / .75); c.fillStyle = `rgba(255,40,80,${.12 + .18 * k})`; c.beginPath(); c.arc(m.x, m.y, 78, 0, TAU); c.fill(); c.strokeStyle = ROUGE; c.lineWidth = 2; c.beginPath(); c.arc(m.x, m.y, 78 * k, 0, TAU); c.stroke(); }
   if (m.type === 'brute' && m.charge && m.charge.t < .8) { const L = 540 * .45, a = m.charge.a, k = m.charge.t / .8; c.save(); c.strokeStyle = ROUGE; c.lineCap = 'round'; c.globalAlpha = .12 + .18 * k; c.lineWidth = r * 2; c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x + Math.cos(a) * L, m.y + Math.sin(a) * L); c.stroke(); c.globalAlpha = .5 + .4 * k; c.lineWidth = 2; c.setLineDash([8, 6]); c.stroke(); c.restore(); }
   if (m.type === 'spectre' && m.saut) { const k = m.saut.t / .6; c.strokeStyle = hsl(h, 90, 75, .85); c.lineWidth = 2; c.setLineDash([4, 5]); c.beginPath(); c.arc(m.saut.x, m.saut.y, r * (2.6 - 1.6 * k), 0, TAU); c.stroke(); c.setLineDash([]); hOeil(c, m.saut.x, m.saut.y, 3, h); }
+  if (m.prep) {
+    const P = m.prep, k = Math.min(1, P.t / P.dur), rouge = k > .7, col = rouge ? 'rgba(255,60,80,' : 'rgba(255,190,90,';
+    c.save();
+    // cercle qui se resserre autour de l'ennemi : l'attaque part quand il touche le corps
+    c.strokeStyle = col + (.45 + .5 * k) + ')'; c.lineWidth = 2.5; c.beginPath(); c.arc(m.x, m.y, r * (2.4 - 1.2 * k), 0, TAU); c.stroke();
+    const portees = { morsure: m.r + 75, taille: m.r + 95, bash: m.r + 65, plonge: 140 };
+    if (portees[P.action]) { // coup au corps à corps : un arc rouge montre où il va frapper
+      const L = portees[P.action]; c.fillStyle = col + (.12 + .22 * k) + ')'; c.beginPath(); c.moveTo(m.x, m.y); c.arc(m.x, m.y, L, P.a - .55, P.a + .55); c.closePath(); c.fill();
+      c.strokeStyle = col + (.6 + .3 * k) + ')'; c.lineWidth = 2; c.beginPath(); c.arc(m.x, m.y, L, P.a - .55, P.a + .55); c.stroke();
+    }
+    if (P.action === 'poing') { const x = m.x + Math.cos(P.a) * m.r * 1.2, y = m.y + Math.sin(P.a) * m.r * 1.2; c.fillStyle = col + (.12 + .2 * k) + ')'; c.beginPath(); c.arc(x, y, 70, 0, TAU); c.fill(); c.strokeStyle = col + '.85)'; c.beginPath(); c.arc(x, y, 70 * k, 0, TAU); c.stroke(); c.beginPath(); c.arc(x, y, 70, 0, TAU); c.stroke(); }
+    if (P.action === 'givre' || P.action === 'anneau') { const R1 = P.action === 'givre' ? 118 : 175; c.fillStyle = (P.action === 'givre' ? 'rgba(170,220,255,' : 'rgba(255,230,90,') + (.08 + .16 * k) + ')'; c.beginPath(); c.arc(m.x, m.y, R1, 0, TAU); c.fill(); c.strokeStyle = col + '.85)'; c.beginPath(); c.arc(m.x, m.y, R1, 0, TAU); c.stroke(); c.beginPath(); c.arc(m.x, m.y, R1 * k, 0, TAU); c.stroke(); }
+    if (P.action === 'tir') { const fige = P.t >= P.dur * .75; c.strokeStyle = fige ? 'rgba(255,50,60,.95)' : 'rgba(255,90,90,.45)'; c.lineWidth = fige ? 3 : 1.5; c.setLineDash(fige ? [] : [8, 8]); c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x + Math.cos(P.a) * 1400, m.y + Math.sin(P.a) * 1400); c.stroke(); c.setLineDash([]); }
+    if (P.action === 'salve') { c.globalCompositeOperation = 'lighter'; c.drawImage(glow(hsl(h, 100, 65, .6 * k), r * 2.4), m.x - r * 2.4, m.y - r * 2.4); for (const s2 of [0, Math.PI]) { c.strokeStyle = col + (.3 + .4 * k) + ')'; c.lineWidth = 2; c.setLineDash([6, 8]); c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(m.x + Math.cos(P.a + s2) * 300, m.y + Math.sin(P.a + s2) * 300); c.stroke(); c.setLineDash([]); } }
+    if (P.action === 'obus' || P.action === 'fiole' || P.action === 'boule' || P.action === 'trait' || P.action === 'sort' || P.action === 'eventail' || P.action === 'bond') { c.globalCompositeOperation = 'lighter'; c.drawImage(glow((rouge ? 'rgba(255,90,90,' : 'rgba(255,210,120,') + (.5 + .4 * k) + ')', r * 1.1), m.x + Math.cos(P.a) * r - r * 1.1, m.y + Math.sin(P.a) * r - r * 1.1); }
+    c.restore();
+  }
   if (m.type === 'sauteur' && m.bond) { const b = m.bond, k = Math.min(1, b.t / b.dur); c.fillStyle = `rgba(255,60,120,${.1 + .18 * k})`; c.beginPath(); c.arc(b.x1, b.y1, 65, 0, TAU); c.fill(); c.strokeStyle = ROUGE; c.lineWidth = 2; c.beginPath(); c.arc(b.x1, b.y1, 65, 0, TAU); c.stroke(); c.beginPath(); c.arc(b.x1, b.y1, 65 * k, 0, TAU); c.stroke(); }
   if (m.type === 'rayon' && m.tir) {
     const T2 = m.tir, ex = m.x + Math.cos(T2.a) * 900, ey = m.y + Math.sin(T2.a) * 900;
@@ -650,7 +780,7 @@ dessinerHUD = function (c) {
     c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(bx - 2, by - 2, bw + 4, 10);
     const g = c.createLinearGradient(bx, 0, bx + bw, 0); g.addColorStop(0, '#ffcf6a'); g.addColorStop(1, '#ff5a3a');
     c.fillStyle = g; c.fillRect(bx, by, bw * k, 6);
-    c.font = `700 14px ${POLICE}`; c.lineWidth = 3;
+    c.font = `700 17px ${POLICE}`; c.lineWidth = 3;
     const sous = 'Menace ' + niv + ' · ' + n + ' ' + (n > 1 ? 'ennemis' : 'ennemi');
     c.strokeText(sous, x, by + 20); c.fillStyle = '#efe6d2'; c.fillText(sous, x, by + 20);
     c.restore();

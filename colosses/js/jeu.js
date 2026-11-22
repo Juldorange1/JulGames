@@ -260,7 +260,7 @@ const G = {
     if (this.rel('epines')) dmg *= 1.2;
     if (p.hp - dmg <= 0 && this.rel('second') && !this.sal.second) { this.sal.second = true; dmg = p.hp - 1; p.iframe = 1.6; this.annonce('Second souffle !', '#ff8fb0', 1.4); }
     // la vie se compte en entiers : un coup de 99,6 faisait afficher -100 et laissait en vie avec 0,4 PV
-    dmg = Math.round(dmg); dmg = this.boss && this.boss.finale ? Math.min(dmg, Math.max(0, Math.ceil(p.hp) - 1)) : Math.max(1, dmg);
+    dmg = Math.round(dmg); dmg = Math.max(1, dmg); // le dernier souffle peut achever
     p.hp = Math.ceil(p.hp); const perdu = Math.min(dmg, p.hp);
     p.hp -= dmg; p.iframe = Math.max(p.iframe, .8); p.rouge = .35; this.coupsPris++; statPlus('coups');
     if (this.coupsSrc) this.coupsSrc[src || 'contact'] = (this.coupsSrc[src || 'contact'] || 0) + dmg;
