@@ -87,10 +87,12 @@ function etendre(n, ancienW) {
 }
 const tuileR = (x, y) => (x < 0 || x >= niv.w || y < 0) ? M.MUR : (y >= niv.h ? M.VIDE : niv.g[y * niv.w + x]);
 const solideR = (k) => M.estDur(k);
+// une case de pics accrochée à rien (aucun bloc autour) : on la montre comme une lame de scie (même forme, même zone mortelle)
+const picFlottant = (x, y) => !solideR(tuileR(x, y + 1)) && !solideR(tuileR(x, y - 1)) && !solideR(tuileR(x - 1, y)) && !solideR(tuileR(x + 1, y));
 function scanner() {
   const n = niv;
   dyn = { fragile: [], cristal: [], feu: [], eau: [], vent: [], ressort: [], but: [], drapeau: [], tapis: [], tp: [], eclat: [],
-    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [], levier: [], grilleL: [], plaque: [], cle: [], porteCle: [], rythme: [], minuteur: [], porteMin: [], apes: [] };
+    panneau: [], cassant: [], porte: [], bouton: [], rebondi: [], piece: [], orbe: [], inter: [], bloc: [], tremp: [], ban: [], bonus: [], champi: [], barriere: [], boucle: [], boucleH: [], lumieres: [], levier: [], grilleL: [], plaque: [], cle: [], porteCle: [], rythme: [], minuteur: [], porteMin: [], apes: [], picsFlot: [] };
   for (let y = 0; y < n.h; y++) for (let x = 0; x < n.w; x++) {
     const k = n.g[y * n.w + x];
     // l'eau remplit aussi les cases non pleines qu'elle entoure (pics, orbes, cristaux… sous l'eau : pas de trou)
@@ -98,6 +100,7 @@ function scanner() {
     switch (k) {
       case M.TAPIS_G: case M.TAPIS_D: dyn.tapis.push([x, y, k === M.TAPIS_G ? -1 : 1]); break;
       case M.FRAGILE: dyn.fragile.push([x, y]); break;
+      case M.PICS: if (picFlottant(x, y)) dyn.picsFlot.push([x, y]); break;
       case M.CRISTAL: dyn.cristal.push([x, y]); dyn.lumieres.push([x, y, '120,250,255', 40]); break;
       case M.FEU: dyn.feu.push([x, y]); dyn.lumieres.push([x, y, '255,150,60', 56]); break;
       case M.EAU: dyn.eau.push([x, y, tuileR(x, y - 1) !== M.EAU && !solideR(tuileR(x, y - 1))]); break;
@@ -155,7 +158,7 @@ function morceau(k) {
         case M.GLACE: glaceCase(g, x, y, px, py); break;
         case M.GRILLE: grilleCase(g, px, py); break;
         case M.TAMIS: tamisCase(g, px, py); break;
-        case M.PICS: picsCase(g, x, y, px, py); break;
+        case M.PICS: if (!picFlottant(x, y)) picsCase(g, x, y, px, py); break;   // les lames flottantes sont animées à part
         case M.PLATE: g.fillStyle = th.ombre; g.fillRect(px, py, T, 5); g.fillStyle = th.bord; g.fillRect(px, py, T, 2); break;
         case M.TAPIS_G: case M.TAPIS_D: tapisCase(g, px, py); break;
         case M.PANNEAU: panneauCase(g, px, py); break;
@@ -385,6 +388,21 @@ function picsCase(g, x, y, px, py) {
   }
   g.restore();
 }
+// lame de scie flottante : exactement les 3 triangles des pics (sa zone mortelle), en acier de scie, avec un reflet qui court sur les dents
+function lameCase(g, x, y, tt) {
+  const dir = M.sensPics(niv, x, y);
+  g.save(); g.translate(x * T + T / 2, y * T + T / 2); g.rotate([0, Math.PI, Math.PI / 2, -Math.PI / 2][dir]);
+  const vibre = Math.sin(tt * 60 + x) * 0.25;
+  for (let i = 0; i < 3; i++) {
+    const bx = -8 + i * 5.33;
+    g.fillStyle = '#c9ced8'; g.beginPath(); g.moveTo(bx, 8); g.lineTo(bx + 2.66, -4); g.lineTo(bx + 5.33, 8); g.closePath(); g.fill();
+    g.fillStyle = '#6a707c'; g.beginPath(); g.moveTo(bx + 1.4, 8); g.lineTo(bx + 2.66, 2 + vibre); g.lineTo(bx + 3.9, 8); g.closePath(); g.fill();
+    const k = ((tt * 3 + x * 0.37 + y * 0.21) % 1.2) * 3 - i;            // reflet qui passe de dent en dent
+    if (k > 0 && k < 1) { g.fillStyle = `rgba(255,255,255,${0.75 * Math.sin(k * Math.PI)})`; g.beginPath(); g.moveTo(bx + 1, 6); g.lineTo(bx + 2.66, -2.5); g.lineTo(bx + 3, 6); g.closePath(); g.fill(); }
+  }
+  g.fillStyle = '#2a2c34'; g.fillRect(-8, 7, 16, 1);                    // le dos de la lame (dans la zone des triangles)
+  g.restore();
+}
 function tapisCase(g, px, py) {
   g.fillStyle = '#1d2024'; g.fillRect(px, py, T, T);
   g.fillStyle = '#3a4047'; g.fillRect(px, py + 3, T, T - 6);
@@ -530,21 +548,21 @@ function suivre(e, hud, vw, vh) {
 function meteo(g, type, ox, oy, vw, vh) {
   const t = temps;
   if (type === 'orage') {                                  // pluie battante + éclairs au loin (adoucis si « réduire les flashs »)
-    g.strokeStyle = 'rgba(170,200,255,.35)'; g.lineWidth = 1;
+    g.strokeStyle = 'rgba(170,200,255,.13)'; g.lineWidth = 0.7;
     g.beginPath();
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 50; i++) {
       const sx = ((i * 97.3 + t * 40) % (vw + 60)) - 30, sy = ((i * 53.7 + t * 520) % (vh + 40)) - 20;
-      g.moveTo(ox + sx, oy + sy); g.lineTo(ox + sx - 3, oy + sy + 11);
+      g.moveTo(ox + sx, oy + sy); g.lineTo(ox + sx - 2, oy + sy + 8);
     }
     g.stroke();
     const c = t % 7;
     if (c < 0.35) {
-      const f = (c < 0.08 || (c > 0.16 && c < 0.24) ? 0.22 : 0.08) * (ACCES && ACCES.sansFlash ? 0.3 : 1);
+      const f = (c < 0.08 || (c > 0.16 && c < 0.24) ? 0.09 : 0.03) * (ACCES && ACCES.sansFlash ? 0.3 : 1);
       g.fillStyle = `rgba(220,230,255,${f})`; g.fillRect(ox, oy, vw, vh);
     }
   } else if (type === 'neige') {                           // gros flocons qui tombent en ondulant
-    g.fillStyle = 'rgba(255,255,255,.75)';
-    for (let i = 0; i < 70; i++) {
+    g.fillStyle = 'rgba(255,255,255,.35)';
+    for (let i = 0; i < 40; i++) {
       const sp = 18 + (i % 5) * 7, sx = ((i * 71.9 + Math.sin(t * 0.8 + i) * 14) % vw + vw) % vw, sy = ((i * 37.1 + t * sp) % (vh + 10)) - 5;
       g.beginPath(); g.arc(ox + sx, oy + sy, 0.8 + (i % 3) * 0.5, 0, 7); g.fill();
     }
@@ -554,7 +572,7 @@ function meteo(g, type, ox, oy, vw, vh) {
       const per = 2.6 + k * 0.7, c = (t + k * 1.3) % per, n = Math.floor((t + k * 1.3) / per);
       if (c > 1.6) continue;
       const bx = ox + vw * (0.15 + ((n * 37 + k * 23) % 70) / 100), by = oy + vh * (0.12 + ((n * 13 + k * 7) % 25) / 100);
-      const coul = ['255,120,160', '120,220,255', '255,220,90', '160,255,140'][(n + k) % 4], r = 8 + c * 34, a = Math.max(0, 1 - c / 1.6);
+      const coul = ['255,120,160', '120,220,255', '255,220,90', '160,255,140'][(n + k) % 4], r = 8 + c * 34, a = 0.45 * Math.max(0, 1 - c / 1.6);
       for (let i = 0; i < 16; i++) {
         const an = i / 16 * Math.PI * 2;
         g.fillStyle = `rgba(${coul},${a})`; g.beginPath(); g.arc(bx + Math.cos(an) * r, by + Math.sin(an) * r + c * c * 6, 1.4, 0, 7); g.fill();
@@ -979,21 +997,21 @@ function objetsFond(g, ox, oy, z) {
 }
 // particules d'ambiance dessinées dans le monde
 function ambiance(g, ox, oy, vw, vh) {
-  const n = 75;
+  const n = 38;                                            // discret : quelques particules seulement
   g.save();
   for (let i = 0; i < n; i++) {
     const s = alea(i * 3.7), s2 = alea(i * 9.1);
     let x = ox + ((s * vw * 1.2 + temps * 8 * (s2 - 0.5)) % vw + vw) % vw;
     let y = oy + ((s2 * vh) % vh);
     switch (th.amb) {
-      case 'poussiere': g.fillStyle = 'rgba(255,220,170,.25)'; y = oy + ((s2 * vh + Math.sin(temps + i) * 6) % vh); g.fillRect(x, y, 1.2, 1.2); break;
-      case 'gouttes': g.fillStyle = 'rgba(160,220,255,.35)'; y = oy + ((s2 * vh + temps * 90 * (0.6 + s)) % vh); g.fillRect(x, y, 1, 4); break;
-      case 'braises': g.fillStyle = `rgba(255,${120 + s * 80 | 0},40,.6)`; y = oy + vh - ((s2 * vh + temps * 30 * (0.5 + s)) % vh); x += Math.sin(temps * 2 + i) * 4; g.fillRect(x, y, 1.6, 1.6); break;
-      case 'pluie': g.strokeStyle = 'rgba(190,180,255,.25)'; y = oy + ((s2 * vh + temps * 320 * (0.7 + s * 0.5)) % vh); g.beginPath(); g.moveTo(x, y); g.lineTo(x - 3, y + 10); g.stroke(); break;
-      case 'bulles': g.strokeStyle = 'rgba(160,255,240,.35)'; y = oy + vh - ((s2 * vh + temps * 25 * (0.5 + s)) % vh); g.beginPath(); g.arc(x + Math.sin(temps * 2 + i) * 3, y, 1 + s * 2, 0, 7); g.stroke(); break;
-      case 'etincelles': if (s < 0.3) { g.fillStyle = 'rgba(255,210,90,.7)'; y = oy + ((s2 * vh + temps * 60) % vh); g.fillRect(x, y, 1.2, 2); } break;
-      case 'neige': g.fillStyle = 'rgba(255,255,255,.7)'; y = oy + ((s2 * vh + temps * 30 * (0.4 + s)) % vh); x += Math.sin(temps + i) * 6; g.fillRect(x, y, 1.6, 1.6); break;
-      case 'eclats': g.fillStyle = `rgba(255,120,220,${0.2 + 0.2 * Math.sin(temps * 3 + i)})`; g.fillRect(x, y + Math.sin(temps + i) * 5, 1.6, 1.6); break;
+      case 'poussiere': g.fillStyle = 'rgba(255,220,170,.14)'; y = oy + ((s2 * vh + Math.sin(temps + i) * 6) % vh); g.fillRect(x, y, 1.2, 1.2); break;
+      case 'gouttes': g.fillStyle = 'rgba(160,220,255,.16)'; y = oy + ((s2 * vh + temps * 90 * (0.6 + s)) % vh); g.fillRect(x, y, 1, 4); break;
+      case 'braises': g.fillStyle = `rgba(255,${120 + s * 80 | 0},40,.3)`; y = oy + vh - ((s2 * vh + temps * 30 * (0.5 + s)) % vh); x += Math.sin(temps * 2 + i) * 4; g.fillRect(x, y, 1.6, 1.6); break;
+      case 'pluie': g.strokeStyle = 'rgba(190,180,255,.1)'; g.lineWidth = 0.7; y = oy + ((s2 * vh + temps * 320 * (0.7 + s * 0.5)) % vh); g.beginPath(); g.moveTo(x, y); g.lineTo(x - 1.5, y + 7); g.stroke(); break;
+      case 'bulles': g.fillStyle = 'rgba(160,255,240,.1)'; y = oy + vh - ((s2 * vh + temps * 25 * (0.5 + s)) % vh); g.beginPath(); g.arc(x + Math.sin(temps * 2 + i) * 3, y, 0.6 + s, 0, 7); g.fill(); break;
+      case 'etincelles': if (s < 0.3) { g.fillStyle = 'rgba(255,210,90,.3)'; y = oy + ((s2 * vh + temps * 60) % vh); g.fillRect(x, y, 1.2, 2); } break;
+      case 'neige': g.fillStyle = 'rgba(255,255,255,.3)'; y = oy + ((s2 * vh + temps * 30 * (0.4 + s)) % vh); x += Math.sin(temps + i) * 6; g.fillRect(x, y, 1.6, 1.6); break;
+      case 'eclats': g.fillStyle = `rgba(255,120,220,${0.1 + 0.08 * Math.sin(temps * 3 + i)})`; g.fillRect(x, y + Math.sin(temps + i) * 5, 1.6, 1.6); break;
     }
   }
   g.restore();
@@ -1002,6 +1020,7 @@ function ambiance(g, ox, oy, vw, vh) {
 /* ---------- Cases animées ---------- */
 function casesAnimees(g, e, vis) {
   const tt = temps, ox = derVue.ox, vw = LARG / derVue.z;
+  for (const [x, y] of dyn.picsFlot) if (vis(x, y)) lameCase(g, x, y, tt);
   for (const [x, y] of dyn.fragile) {
     if (!vis(x, y) || M.casse(e, x * 1024 + y)) continue;
     const px = x * T, py = y * T;

@@ -646,7 +646,28 @@ function majSurvie() {
    Expédition : les deux générent les mêmes salles (même graine) ; si l'un meurt, l'autre aussi (chacun perd une vie).
    Survivant : l'hôte fait vivre les ennemis et les bonus pour les deux et les envoie à l'invité ; une seule vie pour
    les deux : si l'un meurt, la partie s'arrête pour les deux. */
-let enligneMode = 'survie', enligneOuvert = false;
+let enligneMode = 'survie', enligneOuvert = false, enligneNiv = '0';
+// course à deux : les deux jouent le même niveau (ou le défi de la semaine / du mois) ; le plus rapide gagne
+function choixNiveauDuel() {
+  const opt = (v, t) => `<option value="${v}" ${String(enligneNiv) === String(v) ? 'selected' : ''}>${t}</option>`;
+  return `<select id="el-niv">${opt('semaine', tr('Défi de la semaine'))}${opt('mois', tr('Défi du mois'))}${NIV.ZONES.map((z, zi) =>
+    `<optgroup label="${zi + 1}. ${tr(z.nom)}">${LISTE.map((l, i) => [l, i]).filter(([l]) => l.zi === zi).map(([l, i]) => opt(i, l.id + ' ' + tr(l.def.nom))).join('')}</optgroup>`).join('')}</select>`;
+}
+function nomDuel(niv) { return niv === 'semaine' ? tr('Défi de la semaine') : niv === 'mois' ? tr('Défi du mois') : LISTE[+niv].id + ' ' + tr(LISTE[+niv].def.nom); }
+function lancerDuel(niv) {
+  if (niv === 'semaine' || niv === 'mois') lancerDefiLong(niv); else lancerNiveau(+niv);
+  J.coop = true; J.fantome = null; J.duel = { niv: String(niv), moi: null, ami: null };
+}
+function finDuel() {
+  const D = J.duel;
+  if (D.moi == null) { D.moi = J.e.temps; EnLigne.envoyer({ t: 'arrivee', temps: D.moi }); }
+  ecran = 'fin'; SON.attenuer(true);
+  const verdict = D.ami == null ? `<div class="gris">${tr('Ton ami est encore en course…')}</div>`
+    : D.moi < D.ami ? `<div class="vert">${tr('Tu gagnes !')}</div>` : D.moi > D.ami ? `<div class="rouge">${tr('Ton ami gagne !')}</div>` : `<div>${tr('Égalité !')}</div>`;
+  montrer(`<div class="fin"><div class="nomniv">${tr('Course à deux')} · ${nomDuel(D.niv)}</div><div class="temps">${R.chrono(D.moi)}</div>
+    <div class="lignes">${verdict}<div>${tr('Toi')} : <b>${R.chrono(D.moi)}</b></div><div>${tr('Ton ami')} : <b>${D.ami == null ? '…' : R.chrono(D.ami)}</b></div></div>
+    <div class="menu ligne"><button class="btn" data-a="rejouer" autofocus>${tr('Revanche')}</button><button class="btn" data-a="enligne">${tr('En ligne à deux')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin');
+}
 function appliquerBonusS(sorte, local) {
   J.actifs = J.actifs || {};
   if (sorte === 'bouclier') J.actifs.bouclier = 1; else J.actifs[sorte] = 480;
@@ -664,23 +685,25 @@ function menuEnLigne() {
   J = null; ecran = 'menu'; enligneOuvert = true;
   const co = EnLigne.actif(), hote = EnLigne.role === 'hote';
   montrer(`<h2>🌐 ${tr('En ligne à deux')}</h2>
-    <p class="note">${tr('Jouez ensemble, chacun sur son ordinateur. Survivant : mêmes ennemis, une seule vie pour les deux. Expédition : les mêmes salles, et si l’un meurt, l’autre aussi.')}</p>
+    <p class="note">${tr('Jouez ensemble, chacun sur son ordinateur. Survivant : mêmes ennemis, une seule vie pour les deux. Expédition : les mêmes salles, et si l’un meurt, l’autre aussi.') + ' ' + tr('Course : le même niveau pour les deux, le plus rapide gagne.')}</p>
     ${texteEnLigne() ? `<div class="lignes"><div class="${EnLigne.etat === 'connecte' ? 'vert' : ''}">${texteEnLigne()}</div></div>` : ''}
     ${EnLigne.code && hote ? `<div class="temps">${EnLigne.code}</div>` : ''}
-    ${co && hote ? `<div class="menu ligne"><button class="btn ${enligneMode === 'survie' ? 'choisi' : ''}" data-a="el-mode" data-c="survie">⚔ ${tr('Survivant')}</button><button class="btn ${enligneMode === 'expedition' ? 'choisi' : ''}" data-a="el-mode" data-c="expedition">🎲 ${tr('Expédition')}</button></div>
+    ${co && hote ? `<div class="menu ligne"><button class="btn ${enligneMode === 'survie' ? 'choisi' : ''}" data-a="el-mode" data-c="survie">⚔ ${tr('Survivant')}</button><button class="btn ${enligneMode === 'expedition' ? 'choisi' : ''}" data-a="el-mode" data-c="expedition">🎲 ${tr('Expédition')}</button><button class="btn ${enligneMode === 'duel' ? 'choisi' : ''}" data-a="el-mode" data-c="duel">⏱ ${tr('Course')}</button></div>
+      ${enligneMode === 'duel' ? `<p class="note">${tr('Le même niveau pour les deux : le plus rapide gagne.')}</p><div class="menu ligne">${choixNiveauDuel()}</div>` : ''}
       <div class="menu ligne"><button class="btn" data-a="el-lancer" autofocus>▶ ${tr('Lancer la partie à deux')}</button></div>` : ''}
     ${!EnLigne.role || EnLigne.etat === 'introuvable' || EnLigne.etat === 'internet' || EnLigne.etat === 'impossible' || EnLigne.etat === 'parti' || EnLigne.etat === 'code' ? `
       <div class="menu ligne"><button class="btn" data-a="el-creer" ${co ? '' : 'autofocus'}>${tr('Créer une salle')}</button></div>
       <div class="menu ligne"><input id="el-code" maxlength="4" placeholder="${tr('Code')}" autocomplete="off"><button class="btn" data-a="el-rejoindre">${tr('Rejoindre')}</button></div>` : ''}
     <div class="menu ligne">${EnLigne.role ? `<button class="btn" data-a="el-quitter">${tr('Quitter la salle')}</button>` : ''}<button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
   const champ = ui.querySelector('#el-code'); if (champ) champ.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') EnLigne.rejoindre(champ.value); });
+  const sel = ui.querySelector('#el-niv'); if (sel) { sel.addEventListener('keydown', (ev) => ev.stopPropagation()); sel.addEventListener('change', () => { enligneNiv = sel.value; }); }
 }
 EnLigne.surChange = () => {
   if (ecran === 'menu' && enligneOuvert) menuEnLigne();
   else if (EnLigne.etat === 'parti' && J && J.coop) { message = tr('Ton ami s’est déconnecté.'); messageT = 200; J.couleurMsg = '#ff8a8a'; J.coop = false; J.partenaire = null; }
 };
 EnLigne.surMessage = (d) => {
-  if (d.t === 'debut') { enligneOuvert = false; if (d.mode === 'survie') lancerSurvie(d.graine, true); else lancerExpedition(d.graine, true); return; }
+  if (d.t === 'debut') { enligneOuvert = false; if (d.mode === 'duel') lancerDuel(d.niv); else if (d.mode === 'survie') lancerSurvie(d.graine, true); else lancerExpedition(d.graine, true); return; }
   if (!J || !J.coop) return;
   if (d.t === 'e') {                                                 // la position de l'ami
     if (!J.partenaire) J.partenaire = M.nouvelEtat(J.n);
@@ -691,18 +714,23 @@ EnLigne.surMessage = (d) => {
   else if (d.t === 's' && EnLigne.role === 'invite') { J.monstres = d.m; J.balles = d.b; J.bonusS = d.bo; J.kills = d.k; J.prochainBoss = d.pb; J.prochain = d.pr; J.vague = d.v; }
   else if (d.t === 'bond') { J.e.vy = -6.6; J.e.sol = false; J.e.charges = M.K.charges; J.e.ev |= M.EV.BOND; }
   else if (d.t === 'bonus') appliquerBonusS(d.sorte, true);
+  else if (d.t === 'arrivee' && J.duel) {
+    J.duel.ami = d.temps;
+    if (ecran === 'fin') finDuel(); else { message = tr('Ton ami est arrivé en {0} !', R.chrono(d.temps)); messageT = 150; J.couleurMsg = '#ffd84a'; }
+  }
 };
 function demarrerEnLigne(mode) {
   const graine = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-  EnLigne.envoyer({ t: 'debut', mode, graine });
+  EnLigne.envoyer({ t: 'debut', mode, graine, niv: enligneNiv });
   enligneOuvert = false;
-  if (mode === 'survie') lancerSurvie(graine, true); else lancerExpedition(graine, true);
+  if (mode === 'duel') lancerDuel(enligneNiv); else if (mode === 'survie') lancerSurvie(graine, true); else lancerExpedition(graine, true);
 }
 // après chaque image : mort partagée, et on envoie sa position (et, pour l'hôte du Survivant, les ennemis)
 function apresPasEnLigne() {
   const e = J.e;
-  if (J.mortForcee) { J.mortForcee = false; if (e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = e.x + 6; e.evY = e.y + 6; J.mortRecue = true; } }
-  else if ((e.ev & M.EV.MORT) && !J.mortRecue) EnLigne.envoyer({ t: 'mort' });
+  if (J.duel) J.mortForcee = false;
+  else if (J.mortForcee) { J.mortForcee = false; if (e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = e.x + 6; e.evY = e.y + 6; J.mortRecue = true; } }
+  else if ((e.ev & M.EV.MORT) && !J.mortRecue && !J.duel) EnLigne.envoyer({ t: 'mort' });
   if (!(e.ev & M.EV.MORT)) J.mortRecue = false;
   EnLigne.envoyer({ t: 'e', x: e.x, y: e.y, ph: e.phase, f: e.face, vx: e.vx, vy: e.vy, s: e.sol, m: e.mortT, d: e.dash });
   if (J.mode === 'survie' && EnLigne.role === 'hote' && !(e.temps % 2)) {
@@ -1305,6 +1333,7 @@ function pas() {
 
 function t0Entr() { return J.e.temps - (J.segT || 0); }
 function terminer() {
+  if (J.duel) { finDuel(); return; }
   if (J.mode === 'fantome') { finFantome(); return; }
   if (J.mode === 'defi' && J.entrainement) {                 // entraînement sur un défi : rien n'est compté
     ecran = 'fin'; SON.attenuer(true);
@@ -1541,6 +1570,7 @@ function dessiner(dt) {
     for (const l of hud.droite || []) if (l && typeof l.t === 'string') l.t = se(l.t);
   }
   if (J.coop && J.partenaire && !J.fantome) hud.fantomeFort = true;
+  if (J.duel) hud.lignes.push({ t: J.duel.ami != null ? tr('Ton ami est arrivé en {0} !', R.chrono(J.duel.ami)) : tr('Course à deux : ton ami court aussi (le fantôme)'), c: '#ffd84a' });
   R.dessiner(e, J.fantome ? J.fantome.e : (J.coop ? J.partenaire : null), hud, dt);
   if (window.VITRINE_DESSUS) window.VITRINE_DESSUS();
 }
@@ -1623,7 +1653,7 @@ function accueil() {
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : touche-leur la tête avec le bas de ton corps'))}
-    ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : tr('Survivant ou Expédition avec un ami, chacun sur son ordinateur'))}
+    ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : tr('Survivant, Expédition ou course sur un niveau, chacun sur son ordinateur'))}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), tr(varianteDefi('semaine').nom) + ' · ' + (S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but)))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), tr(varianteDefi('mois').nom) + ' · ' + (S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but)))}
   </div>
@@ -2080,7 +2110,7 @@ function action(a, el) {
   if (typeof a === 'string' && a.startsWith('course-')) { lancerCourse(a.slice(7)); return; }
   // partie à deux : recommencer = l'hôte relance pour les deux ; l'invité attend
   if (J && J.coop && ['rejouer', 'exp-partir', 'survie', 'recommencer'].includes(a)) {
-    if (EnLigne.role === 'hote' && EnLigne.actif()) demarrerEnLigne(J.mode === 'expedition' ? 'expedition' : 'survie');
+    if (EnLigne.role === 'hote' && EnLigne.actif()) { if (J.duel) enligneNiv = J.duel.niv; demarrerEnLigne(J.duel ? 'duel' : J.mode === 'expedition' ? 'expedition' : 'survie'); }
     else { message = tr('Attends que ton ami relance la partie.'); messageT = 120; }
     return;
   }
