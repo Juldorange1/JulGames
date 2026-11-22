@@ -92,7 +92,7 @@ function actions(n) {
 
 // Affinage : mutations locales de la suite d'entrées, gardées seulement si l'arrivée est plus rapide.
 function affiner(n, entrees, A, avecEclat) {
-  let graine = 12345;
+  let graine = opt.graine || 12345;
   const alea = () => { graine = (graine * 1103515245 + 12345) & 0x7fffffff; return graine / 0x7fffffff; };
   const instantanes = (ent) => {
     const etats = [];
@@ -396,7 +396,7 @@ function chercherEclat(def, r0) {
   if (opt.affiner > 0) { const A = actions(n); const rr = affiner(n, tout, A, true); tout = rr.entrees; temps = rr.temps; }
   return { ok: true, temps, entrees: tout };
 }
-module.exports = { chercher, chercherEclat, opt, champ, lire };
+module.exports = { chercher, chercherEclat, opt, champ, lire, actions, affiner };
 if (require.main === module) {
 const fichier = path.join(__dirname, '..', 'js', opt.facile ? 'faciles.js' : opt.humain ? 'humains.js' : 'parfaits.js');
 const dossier = path.join(__dirname, opt.facile ? 'faciles' : opt.humain ? 'humains' : 'parfaits');

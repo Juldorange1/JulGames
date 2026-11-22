@@ -26,7 +26,7 @@ function suivant() {
   while (actifs < N && file.length) {
     const id = file.shift();
     actifs++;
-    const p = spawn(process.execPath, [bot, id, '--ecrire', '--remplacer'].concat(facile ? ['--facile', '--eclat'] : humain ? ['--humain', '--eclat'] : ['--eclat'], tout ? [] : ['--changes']), { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(process.execPath, [bot, id, '--ecrire', '--remplacer'].concat(facile ? ['--facile', '--eclat'] : humain ? ['--humain', '--eclat'] : ['--eclat'], tout ? [] : ['--changes'], args.filter(a => a.startsWith('--faisceau=') || a.startsWith('--affiner='))), { stdio: ['ignore', 'pipe', 'pipe'] });
     let sortie = '';
     p.stdout.on('data', d => { sortie += d; });
     p.stderr.on('data', d => { sortie += d; });
