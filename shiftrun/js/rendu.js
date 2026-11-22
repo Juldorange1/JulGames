@@ -994,7 +994,7 @@ function ambiance(g, ox, oy, vw, vh) {
 
 /* ---------- Cases animées ---------- */
 function casesAnimees(g, e, vis) {
-  const tt = temps;
+  const tt = temps, ox = derVue.ox, vw = LARG / derVue.z;
   for (const [x, y] of dyn.fragile) {
     if (!vis(x, y) || M.casse(e, x * 1024 + y)) continue;
     const px = x * T, py = y * T;

@@ -213,8 +213,14 @@ function menuSpeedrun() {
     <div class="grille">${ligne('any', tr('Speedrun du jeu entier'))}${NIV.ZONES.map((z, zi) => ligne('z' + (zi + 1), tr('Zone {0}', zi + 1) + ' · ' + tr(z.nom))).join('')}</div>
     <div class="menu ligne"><button class="btn" data-a="accueil" autofocus>${tr('Retour')}</button></div>`, 'large');
 }
+// bouton « niveau » qui enchaîne plusieurs niveaux d'affilée (menu des niveaux)
+function boutonCourse(cat, nom, ferme, cls) {
+  const pb = S.course[cat], [a, b] = bornesCourse(cat);
+  return `<button class="btn niv course ${cls}" data-a="course-${cat}" ${ferme ? 'disabled' : ''}><b>⏱ ${nom}</b> ${tr('{0} niveaux d’affilée, un seul chrono', b - a + 1)}<small>${tr('Record')} : ${pb ? R.chrono(pb.t) : '—'}</small></button>`;
+}
 function lancerCourse(cat) {
   const [d0, d1] = bornesCourse(cat);
+  if (cat && cat[0] === 'z') nivZone = +cat.slice(1) - 1;
   const c = charger(d0);
   J = Object.assign(c, { mode: 'course', cat, idx: d0, fantome: null, course: { splits: [], total: 0, d0, d1 } });
   S.essais++;
@@ -980,14 +986,15 @@ function statsHTML() {
     kills: [tr('Ennemis écrasés'), J.kills || 0], kpm: [tr('Ennemis par minute'), ((J.kills || 0) / (sec / 60)).toFixed(1)],
     max: [tr('Le plus d’ennemis à la fois'), J.maxEnnemis || 0], salles: [tr('Salles'), J.salle || 0], vvert: [tr('Vitesse verticale'), (Math.max(0, st.bas - st.haut) / M.T / sec).toFixed(1) + ' m/s']
   };
-  const plan = {
-    fantome: [['vmoy', 'vmax', 'chg', 'capas'], ['dist', 'sauts', 'murs', 'air', 'immo', 'drap', 'reb', 'orbes', 'eclat']],
-    niveau: [['chutes', 'vmoy', 'eclat', 'chg'], ['vmax', 'dist', 'sauts', 'murs', 'capas', 'air', 'immo', 'drap', 'reb', 'orbes']],
+  let plan = {
+    fantome: [['vmoy', 'vmax', 'chg', 'capas'], ['dist', 'sauts', 'murs', 'air', 'immo', 'drap', 'reb', 'orbes']],
+    niveau: [['chutes', 'vmoy', 'dist', 'chg'], ['vmax', 'sauts', 'murs', 'capas', 'air', 'immo', 'drap', 'reb', 'orbes']],
     defi: [['chutes', 'vmoy', 'dist', 'drap'], ['vmax', 'sauts', 'murs', 'chg', 'capas', 'air', 'immo', 'reb', 'orbes']],
     infini: [['salles', 'dist', 'vmoy', 'chg'], ['vmax', 'sauts', 'murs', 'capas', 'air', 'immo', 'reb', 'orbes']],
     survie: [['kills', 'kpm', 'max', 'sauts'], ['dist', 'vmoy', 'vmax', 'chg', 'capas', 'air', 'immo', 'reb']],
     special: [['deniv', 'vvert', 'chutes', 'vmoy'], ['dist', 'vmax', 'sauts', 'murs', 'chg', 'capas', 'air', 'immo', 'reb']]
   }[J.mode] || [['chutes', 'vmoy', 'dist', 'chg'], ['vmax', 'sauts', 'murs', 'capas', 'air', 'immo']];
+  plan = plan.map(l => l.filter(k => V[k]));                            // jamais une statistique qui n'existe plus
   const pref = st.parEtat.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
   return `<div class="stats grandes">${plan[0].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>
     <div class="parts">${pref.map(([v, i]) => `<span style="--c:${R.COUL_PHASE[i]};flex:${v}">${tr(M.NOMS_PHASES[i])} ${Math.round(v / tot * 100)} %</span>`).join('')}</div>
@@ -1615,9 +1622,9 @@ function accueil() {
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
     ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : touche-leur la tête avec le bas de ton corps'))}
-    ${carte('speedrun', '⏱ ' + tr('Speedrun'), tr('une zone ou le jeu entier d’affilée, un seul chrono'))}
     ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : tr('Survivant ou Expédition avec un ami, chacun sur son ordinateur'))}
-    ${carte('defis', '📅 ' + tr('Défis'), tr('la semaine et le mois : des règles poussées à l’extrême'))}
+    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), tr(varianteDefi('semaine').nom) + ' · ' + (S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but)))}
+    ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), tr(varianteDefi('mois').nom) + ' · ' + (S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but)))}
   </div>
   <div class="grille petite">
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
@@ -1682,12 +1689,13 @@ function niveaux() {
     + (nivBot ? '<div class="onglets">' + boutonsBot('bot-type', botType)  + '</div><p class="note">' + tr(NOTES_BOT[botType]) + '</p>' : '') + '<div class="onglets">' + NIV.ZONES.map((z, i) => {
     const nF = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     return `<button class="btn mini ${i === nivZone ? 'choisi' : ''}" data-a="niv-zone" data-i="${i}">${zoneDebloquee(i) ? '' : '🔒 '}${i + 1}. ${tr(z.nom)} <small>${nF}/${z.niveaux.length}</small></button>`;
-  }).join('') + '</div><div class="zones une">';
+  }).join('') + '</div>' + (nivEntrainement || nivBot ? '' : boutonCourse('any', tr('Speedrun du jeu entier'), !zoneDebloquee(NIV.ZONES.length - 1), 'tout')) + '<div class="zones une">';
   NIV.ZONES.forEach((z, zi) => {
     if (zi !== nivZone) return;
     const ok = zoneDebloquee(zi), th = R.THEMES[z.theme];
     const nFaits = z.niveaux.filter(v => S.il[v.id] && S.il[v.id].t != null).length;
     h += `<div class="zone ${ok ? '' : 'ferme'} ${nFaits === z.niveaux.length ? 'complete' : ''}" style="--a:${th.accent};--f:${th.ciel[0]}"><div class="znom">${zi + 1}. ${tr(z.nom)} <em>${nFaits} / ${z.niveaux.length} ✓</em></div>`;
+    if (!nivEntrainement && !nivBot) h += boutonCourse('z' + (zi + 1), tr('Speedrun de la zone {0}', zi + 1), !ok, '');
     z.niveaux.forEach(nv => {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t);
       const fait = r && r.t != null;
@@ -2046,7 +2054,7 @@ function finCourse() {
   montrer(`<div class="fin"><div class="nomniv">${nomCourse(cat)}</div><div class="temps">${R.chrono(tot)}</div>
     <div class="lignes">${record ? '<div class="vert">' + tr('Nouveau record de course !') + '</div>' : `<div class="rouge">${tr('{0} sur ton record', R.ecart(tot - pb.t))}</div>`}</div>
     <div class="splits">${tab}</div>
-    <div class="menu ligne"><button class="btn" data-a="course-${cat}" autofocus>${tr('Recommencer la course')}</button><button class="btn" data-a="speedrun">${tr('Speedrun')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin large');
+    <div class="menu ligne"><button class="btn" data-a="course-${cat}" autofocus>${tr('Recommencer la course')}</button><button class="btn" data-a="niveaux">${tr('Niveaux')}</button><button class="btn" data-a="accueil">${tr('Menu')}</button></div></div>`, 'fin large');
 }
 function pause() {
   if (ecran !== 'jeu') return;
@@ -2120,7 +2128,7 @@ function action(a, el) {
     case 'revoir': { const c = J && J.cleRejeu, v = J && J.vitesse; regarder(i, c || 'parfait'); if (J && v) J.vitesse = v; break; }
     case 'voir-parfait': regarder(i, 'parfait'); break;
     case 'voir-record': regarder(i, 'record'); break;
-    case 'speedrun': menuSpeedrun(); break;
+    case 'speedrun': niveaux(); break;
     case 'enligne': menuEnLigne(); break;
     case 'el-creer': EnLigne.heberger(); break;
     case 'el-rejoindre': { const c = ui.querySelector('#el-code'); EnLigne.rejoindre(c ? c.value : ''); break; }

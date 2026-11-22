@@ -70,6 +70,18 @@ const D = {
   coche: L('M5 12.5l4.5 4.5L19 7'),
   carreau: L('M5 5h14v14H5z'), grilleI: L('M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16')
 };
+// couleur de chaque symbole (le texte juste à côté prend la même couleur)
+const COUL = {
+  frag: '#c89bff', robot: '#7ad8ff', pro: '#9ab8ff', facile: '#8dffb0', drapeau: '#ff6a7a', cible: '#ff7a5a', de: '#ffb35a',
+  globe: '#5ad0ff', saut: '#8dffb0', manette: '#b89bff', diplome: '#ffd84a', epees: '#ff8a8a', rapide: '#ffd84a', coupe: '#ffd84a',
+  acces: '#7ad8ff', eclair: '#ffe14a', roue: '#c8d0e0', etincelles: '#ffe98a', brume: '#b8c4d0', lune: '#ffe9a0', un: '#7ad8ff',
+  quatre: '#ff9ae6', chrono: '#ffd84a', muet: '#c8d0e0', son: '#8dffb0', lent: '#8dffb0', feu: '#ff8a3a', calendrier: '#ff9ae6',
+  sac: '#ff9ae6', question: '#7ad8ff', fusee: '#ff8a5a', yeux: '#ffffff', chapeau: '#c89bff', balle: '#ffa04a', carte: '#e8c88a',
+  bouclier: '#7ae8ff', cadenas: '#ffc85a', boucle: '#7ad8ff', attention: '#ffd84a', marteau: '#e0a070', clavier: '#c8d0e0',
+  medaille: '#ffd84a', interdit: '#ff6a6a', ampoule: '#ffe98a', gemme: '#ff9ae6', bourse: '#ffd84a', recul: '#7ad8ff', pause: '#c8d0e0',
+  suivant: '#7ad8ff', goutte: '#5ab8ff', nuage: '#d8e4f0', plume: '#e0f0ff', flocon: '#bfe8ff', crane: '#e8e8e8', croix: '#ff7a7a',
+  coche: '#7dff9a', carreau: '#c8d0e0', grilleI: '#c8d0e0'
+};
 // emoji -> dessin
 const E = {
   '🧩': 'frag', '🤖': 'robot', '🧑': 'pro', '🙂': 'facile', '🏁': 'drapeau', '🎯': 'cible', '🎲': 'de', '🌐': 'globe', '🦘': 'saut',
@@ -83,13 +95,20 @@ const E = {
 };
 const cles = Object.keys(E).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 const RE = new RegExp('(' + cles.join('|') + ')\\ufe0f?', 'gu');
-const svg = (nom) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${D[nom]}</svg>`;
+const svg = (nom) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${COUL[nom] ? ` style="color:${COUL[nom]}"` : ''}>${D[nom]}</svg>`;
+const TITRES = { B: 1, H2: 1, H3: 1 };
 // remplace les emojis des textes d'un élément par les dessins (sans toucher aux attributs)
 function iconiser(racineEl) {
   if (!racineEl || typeof document === 'undefined') return;
   const w = document.createTreeWalker(racineEl, NodeFilter.SHOW_TEXT), aFaire = [];
   for (let n = w.nextNode(); n; n = w.nextNode()) { RE.lastIndex = 0; if (RE.test(n.nodeValue)) aFaire.push(n); }
   for (const n of aFaire) {
+    // un titre qui commence par un symbole prend sa couleur (ex. « ⚔ Survivant »)
+    const par = n.parentNode;
+    if (par && TITRES[par.tagName] && par.firstChild === n && !par.style.color) {
+      RE.lastIndex = 0; const m = RE.exec(n.nodeValue.trimStart());
+      if (m && m.index === 0) { const nom = E[m[1]]; if (COUL[nom]) par.style.color = COUL[nom]; }
+    }
     const s = document.createElement('span');
     s.innerHTML = n.nodeValue.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]).replace(RE, (m, e) => svg(E[e.replace('️', '')] || E[e]));
     n.parentNode.replaceChild(s, n);

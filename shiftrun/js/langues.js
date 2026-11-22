@@ -630,6 +630,7 @@ const D = {
   'la semaine et le mois : des règles poussées à l’extrême': ['weekly and monthly: rules pushed to the extreme', 'semanal y mensual: reglas llevadas al extremo', 'Woche und Monat: Regeln bis zum Äußersten', 'settimanale e mensile: regole spinte all’estremo', 'semanal e mensal: regras levadas ao extremo'],
   'niveaux': ['levels', 'niveles', 'Level', 'livelli', 'níveis'],
   'une zone ou le jeu entier d’affilée, un seul chrono': ['a zone or the whole game in a row, one timer', 'una zona o el juego entero seguidos, un solo cronómetro', 'eine Zone oder das ganze Spiel am Stück, eine Uhr', 'una zona o il gioco intero di fila, un solo cronometro', 'uma zona ou o jogo inteiro seguidos, um só cronómetro'],
+  '{0} niveaux d’affilée, un seul chrono': ['{0} levels in a row, one timer', '{0} niveles seguidos, un solo cronómetro', '{0} Level am Stück, eine Uhr', '{0} livelli di fila, un solo cronometro', '{0} níveis seguidos, um só cronómetro'],
   'Orage': ['Storm', 'Tormenta', 'Gewitter', 'Temporale', 'Tempestade'],
   'Neige': ['Snow', 'Nieve', 'Schnee', 'Neve', 'Neve'],
   'Feux d’artifice': ['Fireworks', 'Fuegos artificiales', 'Feuerwerk', 'Fuochi d’artificio', 'Fogo de artifício'],

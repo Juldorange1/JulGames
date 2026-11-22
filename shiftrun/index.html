@@ -70,7 +70,10 @@ details.plier { width: min(900px, 100%); margin-top: 12px; text-align: center; }
 .onglets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
 .zones.une { display: block; width: min(1500px, 100%); }
 .zones.une .zone { display: grid; grid-template-columns: 1fr 1fr; }
-.zones.une .znom, .zones.une .verrou { grid-column: 1 / -1; }
+.zones.une .znom, .zones.une .verrou, .zones.une .course { grid-column: 1 / -1; }
+.btn.niv.course { border-color: #ffd84a; background: linear-gradient(90deg, rgba(255,216,74,.18), rgba(255,216,74,.04)); }
+.btn.niv.course b { color: #ffd84a; }
+.btn.niv.course.tout { display: block; width: min(1500px, 100%); margin: 0 auto 10px; }
 .nivw { display: flex; gap: 4px; align-items: stretch; }
 .nivw .niv { flex: 1; }
 .nivw .voirp { padding: 4px 10px; }
@@ -199,22 +202,22 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=54"></script>
-<script src="js/calibrage.js?v=54"></script>
-<script src="js/equilibre.js?v=54"></script>
-<script src="js/compat.js?v=54"></script>
-<script src="js/gen.js?v=54"></script>
-<script src="js/niveaux.js?v=54"></script>
-<script src="js/parfaits.js?v=54"></script>
-<script src="js/humains.js?v=54"></script>
-<script src="js/faciles.js?v=54"></script>
-<script src="js/paysages.js?v=54"></script>
-<script src="js/rendu.js?v=54"></script>
-<script src="js/icones.js?v=54"></script>
-<script src="js/son.js?v=54"></script>
-<script src="js/langues.js?v=54"></script>
-<script src="js/enligne.js?v=54"></script>
-<script src="js/jeu.js?v=54"></script>
-<script src="js/vitrine.js?v=54"></script>
+<script src="js/moteur.js?v=56"></script>
+<script src="js/calibrage.js?v=56"></script>
+<script src="js/equilibre.js?v=56"></script>
+<script src="js/compat.js?v=56"></script>
+<script src="js/gen.js?v=56"></script>
+<script src="js/niveaux.js?v=56"></script>
+<script src="js/parfaits.js?v=56"></script>
+<script src="js/humains.js?v=56"></script>
+<script src="js/faciles.js?v=56"></script>
+<script src="js/paysages.js?v=56"></script>
+<script src="js/rendu.js?v=56"></script>
+<script src="js/icones.js?v=56"></script>
+<script src="js/son.js?v=56"></script>
+<script src="js/langues.js?v=56"></script>
+<script src="js/enligne.js?v=56"></script>
+<script src="js/jeu.js?v=56"></script>
+<script src="js/vitrine.js?v=56"></script>
 </body>
 </html>
