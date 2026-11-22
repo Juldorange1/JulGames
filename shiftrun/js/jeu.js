@@ -41,8 +41,8 @@ for (const k in TOUCHES_DEF) if (!S.touches[k]) S.touches[k] = TOUCHES_DEF[k].sl
 if (!S.bonus) S.bonus = { eclats: 0, jours: {}, infini: {} };
 if (!S.skins) S.skins = { achats: ['base', 'rien'], corps: 'base', accessoire: 'rien', depense: 0 };
 // Apparences : 6 catégories équipées en même temps ; la forme et la couleur de l'état restent toujours reconnaissables.
-// Prix croissants, mais raisonnables : tout posséder demande environ 9 000 éclats.
-const PRIX = [0, 8, 14, 20, 30, 40, 55, 75, 100, 130, 170, 220, 280, 360];
+// Prix croissants : un peu plus chers depuis que chaque drapeau rapporte un cristal ◆ (environ 18 000 pour tout posséder).
+const PRIX = [0, 15, 25, 40, 60, 80, 110, 150, 200, 260, 340, 440, 560, 720];
 const CATS = {
   contour: { nom: 'Contour', icone: '◻', liste: [['base', 'Normal'], ['blanc', 'Blanc'], ['noir', 'Noir'], ['rose', 'Rose'], ['cyan', 'Cyan'], ['vert', 'Vert'], ['rouge', 'Rouge'], ['violet', 'Violet'], ['argent', 'Argent'], ['or', 'Or'], ['neon', 'Néon pulsant'], ['feu', 'Feu'], ['galaxie', 'Galaxie'], ['arcenciel', 'Arc-en-ciel']] },
   motif: { nom: 'Motif', icone: '▦', liste: [['rien', 'Aucun'], ['rayures', 'Rayures'], ['points', 'Points'], ['damier', 'Damier'], ['zigzag', 'Zigzag'], ['ecailles', 'Écailles'], ['coeurs', 'Cœurs'], ['etoiles', 'Étoiles'], ['facettes', 'Facettes'], ['circuit', 'Circuit'], ['lave', 'Lave'], ['brillant', 'Brillant'], ['nebuleuse', 'Nébuleuse'], ['arcenciel', 'Arc-en-ciel']] },
@@ -304,28 +304,37 @@ const ARENES = [
   { id: 'geysers', nom: 'Les geysers', theme: 'aqueduc' },
   { id: 'ressorts', nom: 'Les ressorts', theme: 'carriere' },
   { id: 'tremplins', nom: 'Les tremplins', theme: 'coeur' },
-  { id: 'labo', nom: 'Le laboratoire', theme: 'abysses' }
+  { id: 'labo', nom: 'Le laboratoire', theme: 'abysses' },
+  { id: 'escalier', nom: 'Le grand escalier', theme: 'carriere' },
+  { id: 'pont', nom: 'Le pont suspendu', theme: 'orage' },
+  { id: 'pyramide', nom: 'La pyramide', theme: 'chaufferie' },
+  { id: 'puits', nom: 'Les deux puits', theme: 'abysses' },
+  { id: 'colonnes', nom: 'Les colonnes', theme: 'usine' },
+  { id: 'jardin', nom: 'Le jardin suspendu', theme: 'glacier' }
 ];
+// toutes les arènes ont la même richesse : au moins 4 plateformes, des bords qui renvoient de l'autre côté,
+// et au moins deux sortes d'objets (geysers g, ressorts s, tremplins ( ), plaques qui transforment : ; &)
 // arène générée : plateformes, trous qui renvoient en haut, bords qui renvoient de l'autre côté
 function areneHasard(graine) {
   const rng = Gen.hasard(graine), Wd = 46, l = [];
   for (let y = 0; y < Gen.HAUT; y++) l.push(new Array(Wd).fill('#'));
   const c = (xa, ya, xb, yb, ch) => { for (let y = ya; y <= yb; y++) for (let x = Math.max(1, xa); x <= Math.min(Wd - 2, xb); x++) l[y][x] = ch; };
   c(1, 6, Wd - 2, 19, '.');
-  const sol = rng() < 0.5 ? 0 : 2;                    // le plus souvent un vrai sol ; au plus un petit trou qui renvoie en haut
+  const sol = 2;                                      // toujours un petit trou qui renvoie en haut (comme les arènes dessinées)
   if (sol === 2) { const a = 15 + Math.floor(rng() * 12); c(a, 20, a + 2, 20, '}'); c(a, 5, a + 2, 5, '{'); }
   // étages de plateformes, jamais trop haut pour être atteints
   for (const y of [16, 13, 10]) {
     let x = 2 + Math.floor(rng() * 4);
-    while (x < Wd - 6) { const lg = 4 + Math.floor(rng() * 6); if (rng() < 0.7) c(x, y, x + lg, y, '#'); x += lg + 3 + Math.floor(rng() * 5); }
+    while (x < Wd - 6) { const lg = 4 + Math.floor(rng() * 6); if (rng() < 0.8) c(x, y, x + lg, y, '#'); x += lg + 3 + Math.floor(rng() * 5); }
   }
-  if (rng() < 0.4) { const a = 10 + Math.floor(rng() * 24); c(a, 11, a + 1, 19, '#'); }      // un pilier
+  { let a = 6 + Math.floor(rng() * 32); if (Math.abs(a - 22) < 4) a += 8; c(a, 14, a + 1, 19, '#'); }      // toujours un pilier
   // de temps en temps : geysers, ressorts, tremplins ou plaques qui transforment, posés sur le sol (jamais sous une plateforme)
-  const libreHaut = (x) => { for (let y = 10; y <= 18; y++) if (l[y][x] !== '.') return false; return true; };
-  const objets = ['g', 's', '()', ':;&'].filter(() => rng() < 0.45);
-  for (const o of objets) for (let k = 0; k < 2; k++) {
+  const libreHaut = (x) => { for (let y = 14; y <= 18; y++) if (l[y][x] !== '.') return false; return true; };
+  const tous = ['g', 's', '()', ':;&'], objets = [];
+  while (objets.length < 2) { const o = tous[Math.floor(rng() * 4)]; if (!objets.includes(o)) objets.push(o); }   // toujours deux sortes d'objets
+  for (const o of objets) for (let k = 0, mis = 0; k < 80 && mis < 3; k++) {          // 3 de chaque sorte
     const x = 3 + Math.floor(rng() * (Wd - 6)), ch = o.length === 1 ? o : o[Math.floor(rng() * o.length)];
-    if (l[19][x] === '.' && l[20][x] === '#' && (ch !== 'g' || libreHaut(x)) && Math.abs(x - 22) > 3) l[19][x] = ch;
+    if (l[19][x] === '.' && l[20][x] === '#' && l[19][x - 1] === '.' && l[19][x + 1] === '.' && (ch !== 'g' || libreHaut(x)) && Math.abs(x - 22) > 4) { l[19][x] = ch; mis++; }
   }
   const ya = 6 + Math.floor(rng() * 6); c(0, ya, 0, 19, 'W'); c(Wd - 1, ya, Wd - 1, 19, 'X');
   const x0 = 20 + Math.floor(rng() * 6); c(x0 - 1, sol === 1 ? 18 : 19, x0 + 1, sol === 1 ? 18 : 19, '.'); l[sol === 1 ? 17 : 19][x0] = '@';
@@ -340,17 +349,49 @@ function areneSurvie(id) {
   const plates = (lst) => { for (const [a, b, y] of lst) c(a, y, b, y, '#'); };
   const trouBas = (a, b) => { c(a, 20, b, 20, '}'); c(a, 5, b, 5, '{'); };
   const cotes = (ya, yb) => { c(0, ya, 0, yb, 'W'); c(Wd - 1, ya, Wd - 1, yb, 'X'); };
+  const pose = (lst) => { for (const [x, y, ch] of lst) if (l[y][x] === '.' && l[y + 1][x] === '#') l[y][x] = ch; };   // un objet posé sur un sol
   if (id === 'tours') {
     plates([[8, 12, 16], [33, 37, 16], [19, 26, 12], [8, 12, 9], [33, 37, 9]]);
     c(14, 10, 15, 19, '#'); c(30, 10, 31, 19, '#');                 // deux tours
     trouBas(19, 26); cotes(6, 19);
+    pose([[3, 19, ')'], [42, 19, '('], [10, 15, 's'], [35, 15, 's']]);
   } else if (id === 'cage') {
     c(1, 6, Wd - 2, 19, '.');
     for (let y = 9; y <= 17; y += 4) for (let x = 4; x < Wd - 6; x += 9) c(x + (y % 8 ? 4 : 0), y, x + (y % 8 ? 7 : 3), y, '#');
     trouBas(20, 25); cotes(6, 19);
+    pose([[3, 19, ':'], [42, 19, ';'], [16, 19, 'g'], [31, 19, 'g']]);
   } else if (id === 'ciel') {
     plates([[4, 9, 15], [16, 22, 12], [24, 30, 16], [34, 41, 11], [10, 14, 9], [28, 31, 8]]);
     trouBas(21, 23); cotes(6, 19);
+    pose([[12, 19, 's'], [32, 19, 's'], [2, 19, ')'], [43, 19, '(']]);
+  } else if (id === 'escalier') {                      // marches de chaque côté qui montent vers le centre
+    plates([[2, 6, 17], [7, 10, 15], [11, 14, 13], [15, 18, 11], [27, 30, 11], [31, 34, 13], [35, 38, 15], [39, 43, 17], [20, 25, 8]]);
+    trouBas(21, 24); cotes(6, 19);
+    pose([[17, 19, 'g'], [28, 19, 'g'], [8, 19, ')'], [37, 19, '(']]);
+  } else if (id === 'pont') {                          // un long pont au milieu, un vide en dessous qui renvoie en haut
+    plates([[6, 39, 13], [2, 5, 16], [40, 43, 16], [12, 17, 9], [28, 33, 9]]);
+    for (const x of [10, 35]) l[13][x] = '.';
+    trouBas(15, 30); cotes(6, 19);
+    pose([[3, 19, 's'], [42, 19, 's'], [8, 12, ':'], [37, 12, '&']]);
+  } else if (id === 'pyramide') {                      // une pyramide de blocs au centre
+    c(14, 17, 31, 19, '#'); c(17, 15, 28, 16, '#'); c(20, 13, 25, 14, '#');
+    plates([[3, 8, 14], [37, 42, 14], [8, 12, 10], [33, 37, 10]]);
+    cotes(6, 19);
+    pose([[6, 19, ')'], [39, 19, '('], [24, 12, 'g'], [11, 19, ';'], [34, 19, ':']]);
+  } else if (id === 'puits') {                         // deux puits qui renvoient en haut, trois îlots
+    trouBas(9, 12); trouBas(33, 36);
+    plates([[14, 31, 15], [3, 8, 12], [37, 42, 12], [18, 27, 10]]);
+    cotes(6, 19);
+    pose([[4, 19, 'g'], [41, 19, 'g'], [16, 19, 's'], [29, 19, 's']]);
+  } else if (id === 'colonnes') {                      // une forêt de colonnes basses, des geysers dessus
+    for (const x of [6, 13, 31, 38]) c(x, 15, x + 1, 19, '#');
+    plates([[2, 9, 11], [36, 43, 11], [15, 30, 12], [19, 26, 8]]);
+    trouBas(20, 25); cotes(6, 19);
+    pose([[6, 14, 'g'], [39, 14, 'g'], [10, 19, '&'], [35, 19, ':']]);
+  } else if (id === 'jardin') {                        // plein de petites plateformes éparpillées
+    plates([[3, 5, 16], [9, 12, 14], [16, 18, 17], [27, 29, 17], [33, 36, 14], [40, 42, 16], [6, 9, 10], [14, 17, 11], [28, 31, 11], [36, 39, 10], [20, 25, 13]]);
+    trouBas(21, 24); cotes(6, 19);
+    pose([[2, 19, 's'], [43, 19, 's'], [13, 19, ')'], [32, 19, '('], [10, 13, ';']]);
   } else if (id === 'geysers') {                       // des geysers qui projettent tout en haut, des plateformes hautes
     plates([[2, 7, 11], [13, 19, 9], [26, 32, 9], [38, 43, 11], [17, 28, 15]]);
     for (const x of [10, 35]) l[19][x] = 'g';
@@ -372,8 +413,11 @@ function areneSurvie(id) {
   } else {
     plates([[5, 12, 16], [33, 40, 16], [17, 28, 13], [3, 9, 10], [36, 42, 10], [19, 26, 9]]);
     trouBas(22, 24); cotes(14, 19);
+    pose([[14, 19, 'g'], [31, 19, 'g'], [3, 19, ')'], [42, 19, '(']]);
   }
-  l[19][id === 'ciel' || id === 'fosse' ? 19 : 22] = '@';
+  if (id === 'pyramide') l[12][22] = '@';                // départ au sommet de la pyramide
+  else if (id === 'pont') l[12][22] = '@';               // départ sur le pont
+  else l[19][id === 'ciel' || id === 'fosse' ? 19 : 22] = '@';
   return l.map(r => r.join(''));
 }
 function choixSurvie() {
@@ -520,7 +564,10 @@ function majSurvie() {
     const pieds = (f) => Math.max(...M.formeJoueur(f).filter((_, i) => i % 2 === 1));
     const piedsAv = Math.min(pieds(e), J.ePrec ? pieds(J.ePrec) : Infinity);
     const foncePlasma = e.phase === M.P && e.dash > 0;               // foncer sur un ennemi en éclair de plasma : c'est nous qui y passons
-    if (!foncePlasma && piedsAv <= cy - m.r * 0.35 + Math.max(0, m.vy) && m.type !== 'herisse') {
+    // l'ennemi a bougé cette image (en sautant, il monte vers nos pieds) : on compare aussi avec sa position d'avant ;
+    // et si on est au-dessus de lui en descendant plus vite que lui, c'est nous qui l'écrasons
+    const dessus = piedsAv <= cy - m.r * 0.35 + Math.abs(m.vy) + 1 || (pcy < cy - m.r * 0.4 && e.vy >= m.vy);
+    if (!foncePlasma && dessus && m.type !== 'herisse') {
       e.vy = -6.6; e.sol = false; e.charges = M.K.charges; e.ev |= M.EV.BOND; e.evX = cx; e.evY = cy;
       if (--m.pv <= 0) {
         J.monstres.splice(k, 1); J.kills++; S.cumul.kills++;
@@ -909,10 +956,27 @@ function lancerFantomeEntr(k) {
   J.fantome = { n: B.n, e, ent: B.ent, i, entr: true, eclat: eclE };
   J.attenteG = true;                                     // il ne repart qu'à notre prochaine touche
 }
-// on repart d'un drapeau : plateformes, scies, lasers… sont exactement là où le robot les a trouvés à ce drapeau
+// on repart d'un drapeau : plateformes, scies, lasers… sont exactement là où le robot les a trouvés à ce drapeau,
+// et on repart exactement comme lui : même transformation, même position, même élan (vitesse), mêmes charges
 function calerSurFantome() {
   if (!J.fantome || !J.fantome.entr) return;
-  J.e.temps = J.fantome.e.temps; J.segT = J.e.temps; J.ePrec = null;
+  const a = J.e, c = M.cloner(J.fantome.e);
+  c.morts = a.morts; c.cp = a.cp || c.cp; c.cpN = a.cpN; c.demarre = a.demarre; c.mortT = 0; c.invT = 0; c.fini = false; c.ev = 0;
+  c.inpPrev = J.inpAv || 0;                                      // les touches déjà tenues ne comptent pas comme de nouveaux appuis
+  J.e = c; J.segT = c.temps; J.ePrec = null; recadrer = true;
+}
+/* ---------- Cristaux ◆ gagnés à chaque nouveau drapeau atteint (pas besoin de finir le niveau) ----------
+   1 par drapeau ; en entraînement, 1 tous les 2 drapeaux. Chaque drapeau ne paie qu'une fois par essai. */
+function cristalDrapeau() {
+  const e = J.e;
+  if (!(e.ev & M.EV.DRAPEAU) || !e.cp || J.mode === 'tuto') return;
+  J.drPayes = J.drPayes || {};
+  const c = e.cp.tx + ',' + e.cp.ty;
+  if (J.drPayes[c]) return;
+  J.drPayes[c] = 1;
+  if (J.entrainement) { J.demiCristal = (J.demiCristal || 0) + 1; if (J.demiCristal < 2) return; J.demiCristal = 0; }
+  gagnerBonus(1); J.cristalT = 90; J.cristalN = (J.cristalN || 0) + 1;
+  if (!(J.drSauve > 0)) { J.drSauve = 1; setTimeout(() => { if (J) J.drSauve = 0; sauver(); }, 4000); }
 }
 /* ---------- Temps à chaque drapeau, comparés au record ---------- */
 function noterDrapeau() {
@@ -1033,7 +1097,7 @@ function pas() {
   M.pas(J.n, J.e, inp);
   if (J.entrainement && (J.e.ev & M.EV.INVINCIBLE)) J.e.invT = 0;   // entraînement : aucune invincibilité en réapparaissant
   compterStats(J.e, x0, y0);
-  if (J.mode !== 'fantome') noterDrapeau();
+  if (J.mode !== 'fantome') { noterDrapeau(); cristalDrapeau(); }
   if (J.mode === 'survie') majSurvie();
   if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
   if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
@@ -1190,7 +1254,7 @@ function dessiner(dt) {
     if (p.broy >= 0 && J.e.broy >= 0 && Math.abs(J.e.broyX - p.broyX) < 40) e.broyX = p.broyX + (J.e.broyX - p.broyX) * a;
   }
   const eVrai = J.e, id = J.L.id, il = S.il[id], p = PARF[id];
-  const hud = { brouillard: effet('brouillard') || effet('brouillardFort'), brouillardFort: effet('brouillardFort'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [],
+  const hud = { meteo: J.L && J.L.def && J.L.def.meteo, brouillard: effet('brouillard') || effet('brouillardFort'), brouillardFort: effet('brouillardFort'), nuit: effet('nuit') ? J.e.temps : -1, zoomNiv: (J.L && J.L.def && J.L.def.zoom) || 1, nomSaut: nomSautHUD(), tactile: tactileVoulu(), titre: J.L.id + '  ' + tr(J.L.def.nom), nomsPhases: M.NOMS_PHASES.map(n => tr(n)), touches: nomsEtatsHUD(), nomsCapas: J.n && J.n.capacites ? M.NOMS_PHASES.map((_, p) => NIV.CAPA[p] ? tr(NIV.CAPA[p][0]) : '') : null, echec, recadrer, tremble: S.reglages.tremble, lignes: [], droite: [],
     mots: { charges: tr('CHARGES'), recharge: tr('reviennent au sol'), rechargeCristal: tr('reviennent : cristal, ressort') } };
   if (J.mode === 'defi') {
     const ty = J.type, b = S.defis[J.cle] && S.defis[J.cle].type === ty.id ? S.defis[J.cle] : null;
@@ -1284,6 +1348,7 @@ function dessiner(dt) {
     }
     if (J.fantome) hud.lignes.push({ t: tr('Fantôme : {0}', BOTS[S.reglages.fantome] ? tr(NOMS_BOT[S.reglages.fantome]) + (J.fantome.eclat ? ' ◆' : '') : tr('record')), c: '#888' });
   }
+  if (J.cristalT > 0) { J.cristalT--; hud.lignes.push({ t: '+1 ◆   ' + tr('Cristaux gagnés : {0}', J.cristalN), c: '#ff9ae6' }); }
   if (!e.demarre) hud.attente = J.entrainement ? tr('Bouge pour commencer : le robot part avec toi') : tr('Bouge pour lancer le chrono');
   if (S.reglages.entrees) { hud.entrees = J.inp || 0; hud.coulEtats = J.n.emplacements.map(p => R.COUL_PHASE[p]); }
   // panneau proche
@@ -1439,7 +1504,7 @@ function niveaux() {
       const r = S.il[nv.id], m = medaille(nv.id, r && r.t), aE = M.charger(nv).aEclat;
       const fait = r && r.t != null;
       h += `<div class="nivw"><button class="btn niv ${fait ? 'fait' : 'afaire'}" data-a="${nivBot ? ('voir-' + botType + (botEclat && botDe(botType)[nv.id] && botDe(botType)[nv.id].fe ? '-eclat' : '')) : nivEntrainement ? 'entrainer' : 'jouer'}" data-i="${parId[nv.id]}" ${ok || (nivBot && botDe(botType)[nv.id]) ? '' : 'disabled'}>
-        <span class="etat">${fait ? tr('FINI') : (ok ? tr('À FAIRE') : tr('FERMÉ'))}</span><b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
+        ${fait ? `<span class="etat">${tr('FINI')}</span>` : ''}<b>${nv.id}</b> ${tr(nv.nom)}<small>${r && r.t != null ? R.chrono(r.t) : '—'} ${badge(m)} <span class="parf">${tr('Parfait')} ${PARF[nv.id] ? R.chrono(PARF[nv.id].t) : '—'}</span> <span class="etoiles" title="${tr('Objectifs')}">${etoiles((r && r.obj) || 0)}</span>${nv.effet ? ` <span class="effet">${EFFETS[nv.effet][0]} ${tr(EFFETS[nv.effet][1])}</span>` : ''}${nv.meteo ? ` <span class="effet">${tr(METEO_NOMS[nv.meteo])}</span>` : ''} <span class="etn">${nv.etats.map(p => `<i style="color:${R.COUL_PHASE[p]}">${tr(M.NOMS_PHASES[p])}</i>`).join(' ')}</span> ${aE ? `<span class="ecl ${r && r.eclat ? 'oui' : ''}">◆</span>` : ''}</small></button></div>`;
     });
     if (!ok) h += '<div class="verrou">' + tr('Finis la zone précédente') + '</div>';
     h += '</div>';
@@ -1557,6 +1622,7 @@ function vitEffet() {
   if (effet('pulsation')) return 1.1 + 0.25 * Math.sin(J.e.temps * Math.PI * 2 / 240);
   return 1;
 }
+const METEO_NOMS = { orage: 'Orage', neige: 'Neige', feux: 'Feux d’artifice' };
 const effet = (nom) => !!(J && J.L && J.L.def && (J.L.def.effet === nom || (J.L.def.mods && J.L.def.mods[nom] === true)));
 
 // 5 objectifs par niveau : finir, sans chute, médaille d'or, battre le robot Professionnel, sans aucune compétence

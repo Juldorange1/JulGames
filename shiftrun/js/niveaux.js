@@ -87,6 +87,9 @@ const EFFETS_NIV = ['nuit', 'grandsSauts', 'rapide', 'acceleration', 'brouillard
 const AVEC_EFFET = [];
 for (let zi = 0; zi < 8; zi++) for (let k = 0; k < 6; k++) if ((zi > 0 || k >= 4) && ((zi * 6 + k) * 37 + 11) % 100 < 55) AVEC_EFFET.push(zi * 6 + k);
 function effetDe(zi, k) { const i = AVEC_EFFET.indexOf(zi * 6 + k); return i < 0 ? undefined : EFFETS_NIV[i % EFFETS_NIV.length]; }
+// effets spectaculaires, seulement visuels (orage, neige, feux d'artifice) : sur la plupart des niveaux qui n'ont pas d'autre effet
+const METEOS = ['orage', 'neige', 'feux'];
+function meteoDe(zi, k) { const i = zi * 6 + k; if (i < 2 || AVEC_EFFET.includes(i) || (i * 29 + 5) % 100 >= 75) return undefined; return METEOS[(i * 7) % 3]; }
 // vue : certains niveaux sont vus de plus près, d'autres d'un peu plus loin
 function zoomDe(zi, k) { if (zi === 0 && k < 3) return 1; const v = ((zi * 6 + k) * 53 + 7) % 3; return v === 0 ? 1.2 : v === 1 ? 0.86 : 1; }
 // panneaux d'aide des premiers niveaux : chaque obstacle est expliqué juste avant sa première salle (dans deux niveaux au plus)
@@ -166,7 +169,7 @@ const ZONES = DEF.map((z, zi) => ({
     const r = Gen.niveau(zi + 1, 1000 + zi * 97 + k * 13 + (DECALE[(zi + 1) + '-' + (k + 1)] || 0), d, nb, pan, imp.some(Boolean) ? imp : null, etats);
     if (zi <= 1) aides(r, pan);                                // premiers niveaux : un panneau avant chaque obstacle nouveau
     const effet = effetDe(zi, k), zoom = zoomDe(zi, k);
-    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: sansEclat(r.carte), suite: r.suite, d, effet, zoom };
+    return { id: (zi + 1) + '-' + (k + 1), nom, phases: etats.slice(), etats, capacites: !(zi === 0 && k < 3), panneaux: pan, carte: sansEclat(r.carte), suite: r.suite, d, effet, zoom, meteo: meteoDe(zi, k) };
   })
 }));
 

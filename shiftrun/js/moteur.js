@@ -63,7 +63,7 @@ const K = {
   glCourse: 4.3, glAcc: 0.12, glFrein: 0.025, maCourse: 3.8, maSaut: 6.6,
   // compétences (réappuyer sur l'état actuel)
   capCd: 10, grapPortee: 7, grapVit: 7.5, grapDuree: 30, tirVit: 7, tirVie: 40, souffle: 8.5, marteau: 12, dashCA: 9, dashCAt: 10,
-  rythmePer: 130, rythmeOn: 78, minuterie: 240, apesanteur: 0.95, apesMax: 5, broyeurVit: 2.15, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
+  rythmePer: 130, rythmeOn: 78, minuterie: 330, apesanteur: 0.95, apesMax: 5, broyeurVit: 2.3, orbR: 34, orbVit: 0.034, geyserH: 7, geyserVit: 6.8, bruLg: 4, bruEp: 10, courant: 0.2, courantMax: 3.4, torrentT: 11, torrentVit: 7, feuEteint: 150, hover: 14, envol: 5.0, envols: 2, envolVx: 4.6, perleVx: 5.5, perleVy: -3.5, perleVie: 60, glaceVie: 150, explosion: 3.2, explosionF: 7.6,
   // plume, caoutchouc, métal, ombre
   plCourse: 3.2, plChute: 1.25, plSaut: 4.6, caCourse: 3.2, caRebond: 0.88, caPousse: 2.4, caMur: 0.85,
   meCourse: 3.0, meSaut: 6.4, meMonte: 0.6, meChute: 0.95, meChuteMax: 11, omDuree: 90, omVit: 2.8
@@ -379,8 +379,10 @@ function ennemiEn(en, temps) {
 function trajet(g, w, h, o, plat, graine) {
   let a = graine || 1;
   const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const sorte = Math.floor(rnd() * 6);
-  if (sorte === 0) return null;                          // le bon vieil aller-retour
+  // la moitié des pièges mobiles font un simple aller-retour ; les autres ont un trajet spécial (mais toujours régulier)
+  const sorte = Math.floor(rnd() * 8);
+  if (sorte < 4) return null;                            // le bon vieil aller-retour
+  const sorte2 = sorte - 3;                              // 1 à 4 : deux vitesses, losange/arc, zigzag, boucle
   const dur = (t2) => estDur(t2) || (plat && t2 === PICS);
   const bx = o.x * T, by = o.y * T;
   const libreA = (ox, oy) => {                           // la plateforme (ou la scie) entière tient-elle là ?
@@ -403,15 +405,16 @@ function trajet(g, w, h, o, plat, graine) {
   let pts = null;
   if (L2 < T) {                                          // coincé : un petit trajet libre autour de sa place (triangle)
     pts = essais(k => { const d = (2 + (k % 3)) * T * (rnd() < 0.5 ? 1 : -1), e2 = (1 + rnd() * 2) * T * (rnd() < 0.5 ? 1 : -1); const p = [[0, 0], [d, e2], [-d * 0.5, e2 * 1.3]]; return ferme(p) ? p : null; });
-  } else if (sorte === 1) {                              // aller-retour à deux vitesses, avec arrêts
+  } else if (sorte2 === 1) {                             // aller-retour avec arrêts aux deux bouts
     pts = [A, B];
-  } else if (sorte === 2 || sorte === 3) {               // losange ou arc : on s'écarte de l'axe au milieu (angle quelconque)
+  } else if (sorte2 === 2) {                             // losange ou arc : on s'écarte de l'axe au milieu (angle quelconque)
+    const sorte = rnd() < 0.5 ? 2 : 3;
     pts = essais(k => {
       const d = (1 + rnd() * 2.5) * T * (k & 1 ? 1 : -1) / (1 + (k >> 2) * 0.6), d2 = (k & 2 ? -d : d) * (0.6 + rnd() * 0.8), m = o.min + L2 * (0.25 + rnd() * 0.5);
       const p = sorte === 2 ? [A, perp(ax(m), d), B, perp(ax(o.min + L2 - (m - o.min)), d2)] : [A, perp(ax(m), d), B];
       const p2 = L2 >= 3 * T ? entrees(p) : p; return ferme(p2) ? p2 : null;
     });
-  } else if (sorte === 4) {                              // zigzag : plusieurs segments d'angles différents, retour tout droit
+  } else if (sorte2 === 3) {                             // zigzag : plusieurs segments d'angles différents, retour tout droit
     pts = essais(k => {
       const nb = 2 + Math.floor(rnd() * 3), p = [A];
       for (let j = 1; j <= nb; j++) p.push(perp(ax(o.min + L2 * j / (nb + 1)), (k & 2 ? 1 : j % 2 ? 1 : -1) * (k & 1 ? -1 : 1) * (0.6 + rnd() * 1.8) * T / (1 + (k >> 2) * 0.6)));
@@ -426,13 +429,13 @@ function trajet(g, w, h, o, plat, graine) {
     });
   }
   if (!pts) { if (L2 < T) return null; pts = [A, B]; }
-  const vit = plat ? K.platVit : K.scieVit, durs = [], arrets = [];
+  // trajectoire prévisible : toujours la même vitesse ; des arrêts, s'il y en a, tous de la même durée
+  const vit = plat ? K.platVit : K.scieVit, durs = [], arrets = [], arret = sorte2 === 1 || rnd() < 0.4 ? 20 : 0;
   let P2 = 0;
   for (let i = 0; i < pts.length; i++) {
     const q = pts[(i + 1) % pts.length], lg = Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1]);
-    const dd = Math.max(8, Math.round(lg / (vit * (0.55 + rnd() * 1.1))));
-    const ar = rnd() < 0.35 ? 8 + Math.floor(rnd() * 22) : 0;
-    arrets.push(ar); durs.push(dd); P2 += ar + dd;
+    const dd = Math.max(8, Math.round(lg / vit));
+    arrets.push(arret); durs.push(dd); P2 += arret + dd;
   }
   return { pts, durs, arrets, P: P2 };
 }

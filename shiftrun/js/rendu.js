@@ -526,6 +526,43 @@ function suivre(e, hud, vw, vh) {
 }
 
 /* ---------- Dessin d'une image ---------- */
+// effets spectaculaires des niveaux (purement visuels : rien ne change dans le jeu)
+function meteo(g, type, ox, oy, vw, vh) {
+  const t = temps;
+  if (type === 'orage') {                                  // pluie battante + éclairs au loin (adoucis si « réduire les flashs »)
+    g.strokeStyle = 'rgba(170,200,255,.35)'; g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 0; i < 90; i++) {
+      const sx = ((i * 97.3 + t * 40) % (vw + 60)) - 30, sy = ((i * 53.7 + t * 520) % (vh + 40)) - 20;
+      g.moveTo(ox + sx, oy + sy); g.lineTo(ox + sx - 3, oy + sy + 11);
+    }
+    g.stroke();
+    const c = t % 7;
+    if (c < 0.35) {
+      const f = (c < 0.08 || (c > 0.16 && c < 0.24) ? 0.22 : 0.08) * (ACCES && ACCES.sansFlash ? 0.3 : 1);
+      g.fillStyle = `rgba(220,230,255,${f})`; g.fillRect(ox, oy, vw, vh);
+    }
+  } else if (type === 'neige') {                           // gros flocons qui tombent en ondulant
+    g.fillStyle = 'rgba(255,255,255,.75)';
+    for (let i = 0; i < 70; i++) {
+      const sp = 18 + (i % 5) * 7, sx = ((i * 71.9 + Math.sin(t * 0.8 + i) * 14) % vw + vw) % vw, sy = ((i * 37.1 + t * sp) % (vh + 10)) - 5;
+      g.beginPath(); g.arc(ox + sx, oy + sy, 0.8 + (i % 3) * 0.5, 0, 7); g.fill();
+    }
+  } else if (type === 'feux') {                            // feux d'artifice dans le ciel, en haut de l'écran
+    g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 3; k++) {
+      const per = 2.6 + k * 0.7, c = (t + k * 1.3) % per, n = Math.floor((t + k * 1.3) / per);
+      if (c > 1.6) continue;
+      const bx = ox + vw * (0.15 + ((n * 37 + k * 23) % 70) / 100), by = oy + vh * (0.12 + ((n * 13 + k * 7) % 25) / 100);
+      const coul = ['255,120,160', '120,220,255', '255,220,90', '160,255,140'][(n + k) % 4], r = 8 + c * 34, a = Math.max(0, 1 - c / 1.6);
+      for (let i = 0; i < 16; i++) {
+        const an = i / 16 * Math.PI * 2;
+        g.fillStyle = `rgba(${coul},${a})`; g.beginPath(); g.arc(bx + Math.cos(an) * r, by + Math.sin(an) * r + c * c * 6, 1.4, 0, 7); g.fill();
+      }
+    }
+    g.globalCompositeOperation = 'source-over';
+  }
+}
 function dessiner(e, fantome, hud, dt) {
   temps += dt || 1 / 60;
   const g = cx;
@@ -681,6 +718,7 @@ function dessiner(e, fantome, hud, dt) {
   }
   g.globalAlpha = 1;
   ambiance(g, ox, oy, vw, vh);
+  if (hud && hud.meteo) meteo(g, hud.meteo, ox, oy, vw, vh);
   g.restore();
 
   // lignes de vitesse quand on file très vite
@@ -990,9 +1028,9 @@ function casesAnimees(g, e, vis) {
   if (e.cles.length && dyn.porteCle.length) {
     const portees = e.cles.filter(c => c < M.CLE_OUV && e.cles.indexOf(c + M.CLE_OUV) < 0 && niv.portesCle.has(c));
     portees.forEach((c, i) => {
-      const px = e.x + 6 + (i - (portees.length - 1) / 2) * 14, py = e.y - 12 + Math.sin(tt * 4) * 1.5;
-      g.fillStyle = 'rgba(255,216,74,.22)'; g.beginPath(); g.arc(px, py, 9, 0, 7); g.fill();
-      dessinCle(px + 1, py, 1.35);
+      const px = e.x + 6 + (i - (portees.length - 1) / 2) * 10, py = e.y - 8 + Math.sin(tt * 4) * 1;
+      g.fillStyle = 'rgba(255,216,74,.18)'; g.beginPath(); g.arc(px, py, 5.5, 0, 7); g.fill();
+      dessinCle(px + 1, py, 0.85);
     });
   }
   for (const [x, y] of dyn.porteCle) {                      // porte dorée à serrure

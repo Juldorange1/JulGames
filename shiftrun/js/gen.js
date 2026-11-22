@@ -338,14 +338,21 @@ const SALLES = {
   } },
   // Bouton au fond d'un creux : il ouvre la porte un peu plus loin
   bouton: { phases: [S], f(s, rng, d) {
-    const a = ent(rng, 3, 6), lc = 5 + Math.round(d * 3);
-    s.couloir(0, a + lc + 8);
+    // le bouton est au fond d'une fosse ; sa porte est loin, au bout d'un long couloir piégé
+    const a = ent(rng, 3, 6), lc = 5 + Math.round(d * 3), L2 = 18 + Math.round(d * 12), fin = a + lc + 4 + L2;
+    s.couloir(0, fin + 6);
     s.c(a, 20, a + lc, 21); s.p(a + lc - 1, 21, 'o');
     if (d > 0.5) s.p(a + 1, 21, '^');
     if (d > 0.9) s.p(a + lc - 3, 21, '^');
-    s.col(a + lc + 4, 14, 19, 'D');
-    s.couloir(a + lc + 9, a + lc + 10);
-    return a + lc + 11;
+    for (let x = a + lc + 4, k = 0; x < fin - 3; x += 5, k++) {
+      const t = (k + ent(rng, 0, 2)) % 3;
+      if (t === 0) s.n(x, 19, 2, '^');
+      else if (t === 1) { s.r(x, 17, x, 19); s.p(x, 16, '^'); }
+      else s.p(x + 1, 14, 'F');
+    }
+    s.col(fin, 14, 19, 'D');
+    s.couloir(fin + 5, fin + 6);
+    return fin + 7;
   } },
   // Orbes de saut au-dessus d'une grande fosse : appuyer sur saut en les touchant
   orbes: { phases: [S], f(s, rng, d) {
@@ -934,10 +941,15 @@ SALLES.rythme = { phases: [S], f(s, rng, d) {
 } };
 // Minuterie : un bouton bleu ouvre la porte bleue quelques secondes ; il faut filer, sans heurter les menaces
 SALLES.minuterie = { phases: [S], f(s, rng, d) {
-  const Lg = 32 + Math.round(d * 5);                                            // la porte est loin du bouton : il faut tout faire d'une traite
+  const Lg = 46 + Math.round(d * 12);                                           // la porte est très loin du bouton : il faut tout faire d'une traite
   s.couloir(0, Lg, 13);
   s.p(3, 19, '/');
-  for (let x = 7; x < Lg - 4; x += 5) { if ((x / 5) % 2 < 1) s.n(x, 19, 2, '^'); else s.p(x, 13, 'L'); }
+  for (let x = 7, k = 0; x < Lg - 4; x += 5, k++) {
+    const t = (k + ent(rng, 0, 3)) % 4;
+    if (t === 0) s.n(x, 19, 2, '^'); else if (t === 1) s.p(x, 13, 'L');
+    else if (t === 2) { s.c(x, 20, x + 2, 21); s.n(x, 22, 3, '^'); }
+    else { s.r(x, 17, x, 19); s.p(x, 16, '^'); }
+  }
   s.r(Lg - 2, 14, Lg - 2, 19, '"');
   s.couloir(Lg + 1, Lg + 2);
   return Lg + 3;
@@ -956,11 +968,12 @@ SALLES.inversee = { phases: [S], f(s, rng, d) {
 } };
 // Broyeur : un mur de scies se met en marche et pousse jusqu'au bout de la salle (le « boss » de fin de zone)
 SALLES.broyeur = { phases: [S], f(s, rng, d) {
-  const Lg = 50 + Math.round(d * 12);                       // longue poursuite
+  const Lg = 80 + Math.round(d * 24);                       // très longue poursuite
   s.couloir(0, Lg, 11);
   s.p(2, 19, '_');
-  for (let x = 8; x < Lg - 4; x += 6) {
-    const k = Math.floor(rng() * 4);
+  for (let x = 8; x < Lg - 4; x += 5) {
+    const k = Math.floor(rng() * 5);
+    if (k === 4) { s.n(x, 19, 2, '^'); continue; }
     if (k === 0) { s.c(x, 20, x + 2, 21); s.n(x, 22, 3, '^'); }
     else if (k === 1) s.r(x, 11, x + 2, 16);
     else if (k === 2) s.r(x + 1, 17, x + 1, 19);
@@ -1033,6 +1046,11 @@ function fin(g, x0, dy) {
 // Calibrage mesuré par outils/difficulte.js : pour chaque type de salle, la difficulté demandée est convertie en
 // réglage interne, afin que toutes les salles d'une même difficulté soient aussi dures les unes que les autres.
 const CAL = (typeof module !== 'undefined' && module.exports) ? (() => { try { return require('./calibrage.js'); } catch (e) { return {}; } })() : (racine.CALIBRAGE || {});
+// équilibre (outils/equilibre.js) : une salle n'est pas aussi dure selon les transformations dont dispose le joueur ;
+// petit décalage de difficulté mesuré pour chaque paire (type de salle | transformations du niveau)
+const EQUI = (typeof process !== 'undefined' && process.env && process.env.SHIFTRUN_SANS_EQUILIBRE) ? {} :
+  (typeof module !== 'undefined' && module.exports) ? (() => { try { return require('./equilibre.js'); } catch (e) { return {}; } })() : (racine.EQUILIBRE || {});
+function equi(t, etats) { return (etats && EQUI[t + '|' + etats.slice().sort((a, b) => a - b).join(',')]) || 0; }
 function calibre(type, d) {
   const c = CAL[type];
   if (!c || !c.length) return d;
@@ -1201,6 +1219,7 @@ function etatsAuHasard(rng, impose, nb) {
 const VERTICALES = ['gouffre', 'tour', 'puits', 'lacets', 'lacetsBas', 'ascenseur', 'cheminee', 'geysers', 'leviers', 'inversee', 'cle'];
 // Clé : sa porte dorée n'est plus au bout de sa salle, mais plus loin, avec au moins deux drapeaux entre les deux
 // (il faut garder la clé longtemps). La porte remplit toute la hauteur du couloir, au début d'une salle suivante.
+const DRAP_CLE = 3;                                         // drapeaux au moins entre une clé et sa porte
 function eloignerPortes(l, bornes, fin) {
   const H = l.length, colA = (x, c) => { for (let y = 0; y < H; y++) if (l[y][x] === c) return true; return false; };
   for (let i = 0; i < bornes.length; i++) {
@@ -1225,11 +1244,11 @@ function eloignerPortes(l, bornes, fin) {
     };
     const drapeauxAvant = (bx) => { let nd = 0; for (let xx = kx + 1; xx < bx; xx++) if (colA(xx, '!')) nd++; return nd; };
     let pose = null;
-    for (let j = i + 1; j < bornes.length && !pose; j++) if (drapeauxAvant(bornes[j][0]) >= 2) pose = essai(j);
+    for (let j = i + 1; j < bornes.length && !pose; j++) if (drapeauxAvant(bornes[j][0]) >= DRAP_CLE) pose = essai(j);
     if (!pose) {                                              // clé trop près de la fin : la porte le plus loin possible, et des drapeaux en plus
       for (let j = bornes.length - 1; j > i && !pose; j--) pose = essai(j);
       if (!pose) continue;
-      for (let m = i + 1; m < pose[3] && drapeauxAvant(pose[0]) < 2; m++) {
+      for (let m = i + 1; m < pose[3] && drapeauxAvant(pose[0]) < DRAP_CLE; m++) {
         const bx = bornes[m][0], ys = 19 + bornes[m][1];
         let proche = false; for (let xx = bx - 4; xx <= bx + 4; xx++) if (colA(xx, '!')) proche = true;
         if (!proche && l[ys] && l[ys][bx + 1] === '.' && l[ys + 1][bx + 1] === '#') l[ys][bx + 1] = '!';
@@ -1274,7 +1293,7 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
     // dans une grille jetable, pour que le reste du niveau ne change pas
     if (i === Math.floor(nb / 2) && alcoves.length) poser(new Grille(HAUT + DESC), x, alcoves[Math.floor(rng() * alcoves.length)], rng, d, { dy: oy });
     const glace = t.endsWith('*'), x0 = x, oy0 = oy, nom = glace ? t.slice(0, -1) : t;
-    x = poser(g, x, nom, rng, d + (rng() - 0.5) * 0.08, { glace, varier: !SALLES[nom].decale, rngV, dy: oy, style });
+    x = poser(g, x, nom, rng, Math.max(0, d + (rng() - 0.5) * 0.08 + equi(t, et0)), { glace, varier: !SALLES[nom].decale, rngV, dy: oy, style });
     bornes.push([x0, oy0, nom]);
     oy += SALLES[nom].decale || 0;
     if (i > 0 && i % 2 === 0) salle(g, x0, oy0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
@@ -1319,7 +1338,7 @@ Infini.prototype.ajouter = function (k) {
     this.bornes.push(this.x);
     const glace = this.themes[this.themes.length - 1].theme === 'glacier' && t === 'cheminee';
     const x0 = this.x;
-    this.x = poser(this.g, this.x, t, this.rng, this.difficulte(i), { glace, varier: true });
+    this.x = poser(this.g, this.x, t, this.rng, Math.max(0, this.difficulte(i) + equi(t, this.etats)), { glace, varier: true });
     if (this.opts.drapeaux && i > 0) salle(this.g, x0).p(1, 19, '!');
   }
   this.g.elargir(this.x + 1);
@@ -1346,7 +1365,7 @@ function defi(cle, opts) {
     const t = choisir(rng, liste, [], suite.slice(-3), compte);
     compte[t] = (compte[t] || 0) + 1; suite.push(t);
     const x0 = x;
-    x = poser(g, x, t, rng, (opts.d || 0.75) + rng() * 0.3, { varier: true });
+    x = poser(g, x, t, rng, Math.max(0, (opts.d || 0.75) + rng() * 0.3 + equi(t, etats)), { varier: true });
     if (opts.drapeaux !== false && i > 0 && i % 2 === 0) salle(g, x0).p(1, 19, '!');
     if (opts.pieces) {               // des pièces dans chaque salle, certaines bien cachées en hauteur
       for (let k = 0; k < 4; k++) for (let essai = 0; essai < 30; essai++) {
@@ -1491,7 +1510,7 @@ function sommet(graine, etats, k, d) {
       const nb = 3 + Math.floor(rng() * 2) + (k >= 4 ? 1 : 0);
       for (let i = 0; i < nb; i++) {
         const t2 = choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
-        const x0 = x; x = poser(g, x, t2, rng, d + (rng() - 0.5) * 0.08, { varier: true, rngV, style });
+        const x0 = x; x = poser(g, x, t2, rng, Math.max(0, d + (rng() - 0.5) * 0.08 + equi(t2, etats)), { varier: true, rngV, style });
         if (i % 2 === 1 || i === 0) salle(g, x0).p(1, 19, '!');
       }
       salle(g, x).couloir(0, 4); x += 5;
