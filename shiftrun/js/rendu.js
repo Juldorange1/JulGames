@@ -36,8 +36,8 @@ let transi = 0, transiC = '#fff';               // nouvelle région : un voile d
 function versCase(sx, sy) { const rc = cv.getBoundingClientRect(); return [Math.floor((derVue.ox + (sx - rc.left) / derVue.z) / T), Math.floor((derVue.oy + (sy - rc.top) / derVue.z) / T)]; }
 let camNeuve = true;
 let cam = { x: 0, y: 0, z: 2, vx: 0, vy: 0, avance: 0 }, tremble = 0, flash = 0, flashC = '#fff';
-let ACCES = { daltonien: false, sansFlash: false };
-function accessibilite(r) { ACCES = { daltonien: !!r.daltonien, sansFlash: !!r.sansFlash }; }
+let ACCES = { daltonien: false, sansFlash: false, contraste: false };
+function accessibilite(r) { ACCES = { daltonien: !!r.daltonien, sansFlash: !!r.sansFlash, contraste: !!r.contraste }; }
 // un symbole par état (mode daltonien) : la barrière se reconnaît sans les couleurs
 const SYMBOLES = ['■', '💧', '☁', '⚡', '🪶', '●', '⚙', '◆', '❄', '🔥'];
 let dyn = null;           // cases animées par type
@@ -233,6 +233,105 @@ function ombreLumiere(g, e) {
   g.save(); g.translate(px + ux * 7, py + uy * 7); g.rotate(Math.atan2(uy, ux));
   const o = g.createLinearGradient(0, 0, 16, 0); o.addColorStop(0, `rgba(0,0,0,${(0.3 * Math.min(1, bf * 1.6)).toFixed(3)})`); o.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = o; g.beginPath(); g.ellipse(6, 0, 11, 5, 0, 0, 7); g.fill();
+  g.restore();
+}
+// traces de pas : discrètes, elles s'effacent en 3 s (plus visibles dans la neige)
+let traces = [], derTrace = -99, derTemps = -1;
+function tracesPas(g, e) {
+  if (e.temps !== derTemps) {                                    // une fois par image du jeu (pas par image affichée)
+    if (e.temps < derTemps) traces = [];
+    derTemps = e.temps;
+    if (!e.sol) vyAvant = e.vy;
+    if (e.sol && e.mortT === 0 && Math.abs(e.vx) > 1 && e.temps - derTrace >= 9) {
+      derTrace = e.temps;
+      const sous = tuileR(Math.floor((e.x + PW / 2) / T), Math.floor((e.y + PH + 1) / T));
+      if (sous === M.MUR || sous === M.GLACE) traces.push({ x: e.x + PW / 2 + (traces.length % 2 ? 2 : -2), y: e.y + PH, t: e.temps });
+      if (traces.length > 40) traces.shift();
+    }
+  }
+  const neige = th.style === 'neige', vie = 180;
+  for (const p of traces) {
+    const age = e.temps - p.t; if (age > vie || age < 0) continue;
+    g.fillStyle = neige ? `rgba(40,70,110,${(0.4 * (1 - age / vie)).toFixed(3)})` : `rgba(0,0,0,${(0.22 * (1 - age / vie)).toFixed(3)})`;
+    g.beginPath(); g.ellipse(p.x, p.y - 0.6, 2.2, 0.9, 0, 0, 7); g.fill();
+  }
+}
+// touffes d'herbe (ou d'algues) sur les sols des thèmes verts : elles s'écartent quand on passe et ondulent doucement
+function herbes(g, e, ox, oy, vw, vh) {
+  if (!th.tapis) return;
+  const x0 = Math.max(0, Math.floor(ox / T)), x1 = Math.min(niv.w - 1, Math.ceil((ox + vw) / T)), y0 = Math.max(1, Math.floor(oy / T)), y1 = Math.min(niv.h - 1, Math.ceil((oy + vh) / T));
+  const px = e.x + PW / 2, py = e.y + PH, algue = th.amb === 'bulles';
+  g.strokeStyle = th.tapis; g.lineWidth = 1; g.lineCap = 'round';
+  g.beginPath();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (tuileR(x, y) !== M.MUR || tuileR(x, y - 1) !== M.VIDE) continue;
+    const h = (x * 73856093 ^ y * 19349663) >>> 0; if (h % 3) continue;                  // une case sur trois
+    const bx = x * T + 3 + (h >> 4) % 9, by = y * T;
+    const dx = bx - px, proche = Math.abs(dx) < 14 && Math.abs(by - py) < 8 && e.mortT === 0;
+    const vent = Math.sin(temps * (algue ? 1.6 : 2.2) + x * 0.7) * (algue ? 2 : 0.8);
+    const pousse = proche ? Math.sign(dx || 1) * (14 - Math.abs(dx)) * 0.35 : 0;
+    for (let k = 0; k < 3; k++) {
+      const hb = (algue ? 5 : 3) + ((h >> (k * 3)) & 3), xb = bx + (k - 1) * 1.6;
+      g.moveTo(xb, by); g.quadraticCurveTo(xb + (vent + pousse) * 0.5, by - hb * 0.6, xb + vent + pousse + (k - 1) * 0.6, by - hb);
+    }
+  }
+  g.stroke();
+}
+// contrastes forts : chaque piège mortel est entouré d'un halo vif qui pulse (le dessin et la zone mortelle ne changent pas)
+function contrastePieges(g, e, ox, oy, vw, vh) {
+  const tt = tD(e), L = [];
+  const x0 = Math.max(0, Math.floor(ox / T)), x1 = Math.min(niv.w - 1, Math.ceil((ox + vw) / T)), y0 = Math.max(0, Math.floor(oy / T)), y1 = Math.min(niv.h - 1, Math.ceil((oy + vh) / T));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const k = tuileR(x, y); if (k === M.PICS || k === M.FEU || k === M.LAVE) L.push([x * T + T / 2, y * T + T / 2, 13]); }
+  const dans = (x) => x > ox - 40 && x < ox + vw + 40;
+  if (niv.scies) for (const sc of niv.scies) { const [sx, sy] = M.scieEn(sc, tt); if (dans(sx)) L.push([sx, sy, 20]); }
+  if (niv.orbites) for (const o of niv.orbites) for (const [sx, sy] of M.orbiteEn(o, tt)) if (dans(sx)) L.push([sx, sy, 20]);
+  if (niv.ennemis) for (const en of niv.ennemis) { const [ex, ey] = M.ennemiEn(en, tt); if (dans(ex)) L.push([ex + 6, ey + 6, 18]); }
+  if (niv.lasers) for (const l of niv.lasers) if (dans(l.x * T) && M.laserEtat(l, tt) === 2) { const r = M.laserRect(l); L.push([(r[0] + r[2]) / 2, (r[1] + r[3]) / 2, 16 + Math.max(r[2] - r[0], r[3] - r[1]) / 2]); }
+  if (niv.bruleurs) for (const b of niv.bruleurs) if (dans(b.x * T) && M.bruleurEtat(b, tt) === 2) { const r = M.bruleurRect(b); L.push([(r[0] + r[2]) / 2, (r[1] + r[3]) / 2, 14 + Math.max(r[2] - r[0], r[3] - r[1]) / 2]); }
+  if (niv.fleches) for (const f of niv.fleches) if (dans(f.x * T)) for (const [ax, ay] of M.flechesEn(niv, tt, f)) L.push([ax, ay, 10]);
+  if (!L.length) return;
+  const a = 0.38 + 0.12 * Math.sin(temps * 5);
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const [x, y, r] of L) {
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(255,40,200,${a.toFixed(3)})`); gr.addColorStop(0.6, `rgba(255,40,120,${(a * 0.5).toFixed(3)})`); gr.addColorStop(1, 'rgba(255,40,120,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.restore();
+}
+// entraînement : le chemin exact du robot (un fil), un point avec sa nouvelle forme à chaque transformation,
+// et un petit point jaune exactement là où il appuie sur « sauter »
+function trajetRobot(g, tj, ox, vw) {
+  const x0 = ox - 40, x1 = ox + vw + 40, P = tj.pts;
+  g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
+  g.strokeStyle = 'rgba(10,8,16,.55)'; g.lineWidth = 2.6;
+  for (const passe of [0, 1]) {
+    if (passe) { g.strokeStyle = 'rgba(122,232,255,.85)'; g.lineWidth = 1.1; }
+    g.beginPath(); let ouvert = false;
+    for (let i = 0; i < P.length; i += 2) {
+      const x = P[i], y = P[i + 1], dedans = x > x0 && x < x1;
+      if (!dedans) { ouvert = false; continue; }
+      if (!ouvert || (i >= 2 && Math.hypot(x - P[i - 2], y - P[i - 1]) > 40)) { g.moveTo(x, y); ouvert = true; } else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  for (let i = 0; i < tj.sauts.length; i += 2) {
+    const x = tj.sauts[i], y = tj.sauts[i + 1]; if (x < x0 || x > x1) continue;
+    g.fillStyle = '#1a1408'; g.beginPath(); g.arc(x, y, 2.1, 0, 7); g.fill();
+    g.fillStyle = '#ffe94a'; g.beginPath(); g.arc(x, y, 1.4, 0, 7); g.fill();
+  }
+  for (const c of tj.chg) {
+    if (c.x < x0 || c.x > x1) continue;
+    const col = COUL_PHASE[c.phase] || '#fff';
+    g.fillStyle = col; g.strokeStyle = '#fff'; g.lineWidth = 0.9;
+    g.beginPath(); g.arc(c.x, c.y, 2.4, 0, 7); g.fill(); g.stroke();
+    // la petite image de la transformation, juste au-dessus du point
+    const p = c.poly; let cx = 0, cy = 0; for (let k = 0; k < p.length; k += 2) { cx += p[k]; cy += p[k + 1]; } cx /= p.length / 2; cy /= p.length / 2;
+    g.save(); g.translate(c.x, c.y - 11); g.scale(0.62, 0.62);
+    g.beginPath(); for (let k = 0; k < p.length; k += 2) { const X = p[k] - cx, Y = p[k + 1] - cy; if (k) g.lineTo(X, Y); else g.moveTo(X, Y); } g.closePath();
+    g.fillStyle = col; g.fill(); g.strokeStyle = 'rgba(10,8,16,.9)'; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+  }
   g.restore();
 }
 // ombre au sol sous un personnage ou un ennemi : plus il est haut, plus elle est petite et pâle
@@ -559,6 +658,7 @@ function dessinerPart(g, p) {
 function eclats(x, y, n, c, force, grav, lum) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, f = Math.random() * (force || 2); part(x, y, Math.cos(a) * f, Math.sin(a) * f, 20 + Math.random() * 25, c, 1.5 + Math.random() * 2, grav, lum); }
 }
+let vyAvant = 0;                     // la vitesse de chute juste avant d'atterrir (pour la poussière)
 function evenements(e) {
   const ev = e.ev, cxp = e.x + PW / 2, cyp = e.y + PH / 2;
   if (!ev) return;
@@ -567,7 +667,18 @@ function evenements(e) {
   if (ev & EV.SAUT) eclats(cxp, e.y + PH, 7, 'rgba(255,255,255,.6)', 1.2, 0.04);
   if (ev & EV.REBOND) { eclats(cxp, e.y + PH, 20, '#fff', 2.8, 0.05, true); tremble = 3; }
   if (ev & EV.MUR) eclats(e.evX < 0 ? e.x + PW : e.x, cyp, 7, 'rgba(255,255,255,.6)', 1.3, 0.05);
-  if (ev & EV.ATTERRIT) eclats(cxp, e.y + PH, 5, 'rgba(255,255,255,.35)', 0.9, 0.05);
+  if (ev & EV.ATTERRIT) {
+    eclats(cxp, e.y + PH, 5, 'rgba(255,255,255,.35)', 0.9, 0.05);
+    const fort = Math.min(1, Math.max(0, (vyAvant - 4) / 4));                  // tombé de haut : un petit nuage de chaque côté
+    if (fort > 0) {
+      for (const s of [-1, 1]) for (let k = 0; k < 3 + fort * 4; k++) part(cxp + s * 4, e.y + PH - 1, s * (0.6 + Math.random() * 1.4), -0.2 - Math.random() * 0.5, 26, 'rgba(220,205,180,.45)', 2 + Math.random() * 1.5, 0.01);
+      const tx = Math.floor(cxp / T);                                         // la poussière tombe du plafond juste au-dessus
+      for (let y = Math.floor(e.y / T) - 1; y > Math.floor(e.y / T) - 7 && y >= 0; y--) if (solideR(tuileR(tx, y))) {
+        for (let k = 0; k < 2 + fort * 4; k++) part(tx * T + Math.random() * T, (y + 1) * T + 1, (Math.random() - 0.5) * 0.2, 0.1, 50 + Math.random() * 30, 'rgba(200,190,170,.55)', 1 + Math.random(), 0.03);
+        break;
+      }
+    }
+  }
   if (ev & EV.CHANGE) { eclats(cxp, cyp, 18, COUL_PHASE[e.phase], 2.4, 0, true); }
   if (ev & EV.CASSE) { eclats(e.evX * T + 8, e.evY * T + 8, 20, th.motif, 3.2); tremble = Math.max(tremble, 4); }
   if (ev & (EV.RESSORT | EV.BOND)) eclats(cxp, e.y + PH, 12, '#b6ff9a', 2.2, 0.05, true);
@@ -697,6 +808,8 @@ function dessiner(e, fantome, hud, dt) {
       archer: ['#a0ffd8', '#2a9a70', '#0a3a28'], invocateur: ['#d0a0ff', '#6a2aa0', '#24083a'], rebond: ['#ffa0c0', '#e04a7a', '#4a0a20'], boss: ['#ff9a6a', '#b02818', '#3a0804'] }[m.type] || ['#ff8a9a', '#c0304a', '#5a0a1a'];
     g.globalAlpha = m.invisible ? 0.15 : 1;
     const ri = m.type === 'herisse' ? r - 2.5 : r;
+    if (m.type === 'boss' && m.sorte && m.sorte !== 'geant') C.splice(0, 3, ...({ canon: ['#d8f0b0', '#5a7a30', '#1a2a08'], charge: ['#ff8ab8', '#a01050', '#3a0418'], spectre: ['#ece6ff', '#7060c0', '#201848'], marteau: ['#a8d8ff', '#2a60b0', '#081a3a'] }[m.sorte]));
+    if (m.type === 'boss' && m.sorte === 'spectre') g.globalAlpha = 0.82;
     if (m.type === 'herisse') {
       g.fillStyle = '#f4eef2';
       for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 + tt * 0.05; g.beginPath(); g.moveTo(cx2 + Math.cos(a) * r, cy2 + Math.sin(a) * r); g.lineTo(cx2 + Math.cos(a + 0.3) * ri, cy2 + Math.sin(a + 0.3) * ri); g.lineTo(cx2 + Math.cos(a - 0.3) * ri, cy2 + Math.sin(a - 0.3) * ri); g.fill(); }
@@ -727,6 +840,11 @@ function dessiner(e, fantome, hud, dt) {
     if (m.type === 'lourd' && m.pv > 1) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx2, cy2, ri - 1, 0, 7); g.stroke(); }
     if (m.elite) { g.strokeStyle = '#ffd34d'; g.lineWidth = 1.4; g.beginPath(); g.arc(cx2, cy2, ri - 0.8, 0, 7); g.stroke();       // élite : liseré et couronne dorés
       g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 3, cy2 - ri + 3.5); g.lineTo(cx2 - 3, cy2 - ri + 1); g.lineTo(cx2 - 1.5, cy2 - ri + 2.4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 1.5, cy2 - ri + 2.4); g.lineTo(cx2 + 3, cy2 - ri + 1); g.lineTo(cx2 + 3, cy2 - ri + 3.5); g.fill(); }
+    if (m.type === 'boss' && m.sorte === 'canon') { g.fillStyle = C[2]; g.fillRect(cx2 + (m.dir > 0 ? ri * 0.25 : -ri * 0.25 - 8), cy2 + 1, 8, 4.5); g.fillStyle = '#ffd34d'; g.fillRect(cx2 + (m.dir > 0 ? ri * 0.25 + 6 : -ri * 0.25 - 8), cy2 + 1, 2, 4.5); }
+    if (m.type === 'boss' && m.sorte === 'charge') { g.fillStyle = '#f4ead8'; for (const s2 of [-1, 1]) { g.beginPath(); g.moveTo(cx2 + s2 * ri * 0.55, cy2 - ri * 0.55); g.lineTo(cx2 + s2 * ri * 0.86, cy2 - ri * 0.2); g.lineTo(cx2 + s2 * ri * 0.4, cy2 - ri * 0.35); g.fill(); } }
+    if (m.type === 'boss' && m.sorte === 'charge' && m.prep > 0) { g.strokeStyle = `rgba(255,74,150,${0.3 + 0.3 * Math.sin(m.prep)})`; g.lineWidth = 3; g.setLineDash([5, 4]); g.beginPath(); g.moveTo(cx2, cy2); g.lineTo(cx2 + m.dir * 160, cy2); g.stroke(); g.setLineDash([]); }
+    if (m.type === 'boss' && m.sorte === 'spectre') { g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(cx2, cy2, ri * (0.55 + k * 0.12), tt * 0.04 + k, tt * 0.04 + k + 1.4); g.stroke(); } }
+    if (m.type === 'boss' && m.sorte === 'marteau') { g.fillStyle = C[2]; g.fillRect(cx2 - ri * 0.55, cy2 + ri * 0.15, ri * 1.1, 3); g.fillRect(cx2 - 1.5, cy2 + ri * 0.15, 3, ri * 0.6); }
     if (m.type === 'boss') {                                     // couronne dorée et points de vie restants (dans le rond)
       g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(cx2 - 6, cy2 - ri + 6); g.lineTo(cx2 - 6, cy2 - ri + 1.5); g.lineTo(cx2 - 3, cy2 - ri + 4); g.lineTo(cx2, cy2 - ri + 0.8); g.lineTo(cx2 + 3, cy2 - ri + 4); g.lineTo(cx2 + 6, cy2 - ri + 1.5); g.lineTo(cx2 + 6, cy2 - ri + 6); g.fill();
       for (let k = 0; k < (m.pvMax || 5); k++) { g.fillStyle = k < m.pv ? '#ffe94a' : 'rgba(0,0,0,.45)'; g.beginPath(); g.arc(cx2 + (k - ((m.pvMax || 5) - 1) / 2) * 4, cy2 + ri * 0.45, 1.5, 0, 7); g.fill(); }
@@ -747,6 +865,20 @@ function dessiner(e, fantome, hud, dt) {
     else if (b.sorte === 'lent') { g.beginPath(); g.arc(b.x, by, 3.2, 0, 7); g.stroke(); g.beginPath(); g.moveTo(b.x, by); g.lineTo(b.x, by - 2.4); g.moveTo(b.x, by); g.lineTo(b.x + 1.8, by); g.stroke(); }
     else if (b.sorte === 'charges') { g.beginPath(); g.moveTo(b.x + 0.8, by - 4); g.lineTo(b.x - 2.5, by + 0.6); g.lineTo(b.x, by + 0.6); g.lineTo(b.x - 0.8, by + 4); g.lineTo(b.x + 2.5, by - 0.6); g.lineTo(b.x, by - 0.6); g.closePath(); g.fill(); }
     else { g.beginPath(); g.moveTo(b.x, by - 3.8); g.lineTo(b.x + 3, by - 0.5); g.lineTo(b.x - 3, by - 0.5); g.closePath(); g.fill(); g.fillRect(b.x - 1, by - 0.5, 2, 3.8); }
+  }
+  if (hud && hud.areneEv) {                                       // Survivant : un bout d'arène qui va casser ou apparaître (ou revenir)
+    const a = hud.areneEv, cl = Math.floor(temps * 8) % 2;
+    if (a.etape === 'annonce' || a.t < 120) for (const [x, y] of a.cases) {
+      const px = x * T, py = y * T;
+      if (a.sorte === 'casse' && a.etape === 'annonce') {          // fissures qui clignotent
+        g.strokeStyle = cl ? '#ff5a4a' : '#ffd0a0'; g.lineWidth = 1.2;
+        g.beginPath(); g.moveTo(px + 2, py + 3); g.lineTo(px + 7, py + 8); g.lineTo(px + 5, py + 12); g.lineTo(px + 11, py + 15); g.moveTo(px + 7, py + 8); g.lineTo(px + 13, py + 5); g.stroke();
+      } else {                                                      // contour en pointillés : quelque chose va être là (ou partir)
+        g.strokeStyle = cl ? 'rgba(255,233,74,.95)' : 'rgba(255,255,255,.6)'; g.lineWidth = 1.2; g.setLineDash([3, 2]);
+        g.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1); g.setLineDash([]);
+        if (a.etape === 'annonce') { g.fillStyle = 'rgba(255,233,74,.12)'; g.fillRect(px, py, T, T); }
+      }
+    }
   }
   if (hud && hud.prochain) {                                      // apparition annoncée : cercle qui se resserre et point d'exclamation
     const p2 = hud.prochain, cx2 = p2.x + p2.r, cy2 = p2.y + p2.r, k = Math.max(0, p2.t) / 72;
@@ -770,6 +902,9 @@ function dessiner(e, fantome, hud, dt) {
     g.fillStyle = 'rgba(255,233,74,.18)'; g.fillRect(cx3 * T, cy3 * T, T, T);
     g.fillStyle = '#fff'; g.font = '700 10px "Chakra Petch", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(hud.curseur[2], cx3 * T + T / 2, cy3 * T - 6); g.textBaseline = 'top';
   }
+  if (hud && niv) { tracesPas(g, e); herbes(g, e, ox, oy, vw, vh); }
+  if (hud && niv && ACCES.contraste) contrastePieges(g, e, ox, oy, vw, vh);
+  if (hud && hud.trajet) trajetRobot(g, hud.trajet, ox, vw);
   if (fantome && !fantome.fini) joueur(g, fantome, hud && hud.fantomeFort ? 0.62 : 0.32, true);   // en entraînement, le robot se voit mieux
   competences(g, e);
   if (e.mortT === 0) { ombreSol(g, e.x + 6, e.y + 12, 7); ombreLumiere(g, e); joueur(g, e, 1, false); }
@@ -2133,6 +2268,21 @@ function interfaceJeu(g, e, hud) {
   if (hud.message) {
     g.font = `800 ${Math.round(22 * P)}px "Chakra Petch", sans-serif`; g.textAlign = 'center';
     g.fillStyle = hud.messageC || '#fff'; g.fillText(hud.message, LARG / 2, HAUT * 0.3);
+  }
+  const posees = [];
+  if (hud.bulles) for (const b of hud.bulles) {                  // messages rapides à deux : une bulle au-dessus du joueur
+    g.save(); g.globalAlpha = b.a;
+    g.font = `700 ${Math.max(16, Math.round(17 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const w = g.measureText(b.t).width + 22, h = Math.max(30, 32 * P);
+    const sx = Math.max(w / 2 + 8, Math.min(LARG - w / 2 - 8, (b.x - derVue.ox) * derVue.z));
+    let sy = Math.max(h + 8, (b.y - derVue.oy) * derVue.z - 16 * P);
+    while (posees.some(([x2, y2, w2]) => Math.abs(x2 - sx) < (w + w2) / 2 + 4 && Math.abs(y2 - sy) < h + 6)) sy -= h + 8;   // deux bulles proches : l'une au-dessus de l'autre
+    posees.push([sx, sy, w]);
+    g.fillStyle = 'rgba(12,10,20,.88)'; arrondi(g, sx - w / 2, sy - h - 8, w, h, 10); g.fill();
+    g.beginPath(); g.moveTo(sx - 7, sy - 9); g.lineTo(sx + 7, sy - 9); g.lineTo(sx, sy); g.closePath(); g.fill();
+    g.strokeStyle = b.c; g.lineWidth = 2; arrondi(g, sx - w / 2, sy - h - 8, w, h, 10); g.stroke();
+    g.fillStyle = b.c; g.fillText(b.t, sx, sy - h / 2 - 8);
+    g.restore(); g.textBaseline = 'top';
   }
   if (hud.attente) {
     g.font = `600 ${Math.max(16, Math.round(15 * P))}px "Chakra Petch", sans-serif`; g.textAlign = 'center';

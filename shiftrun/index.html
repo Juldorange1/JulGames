@@ -130,6 +130,24 @@ h3 { margin: 20px 0 8px; font-size: clamp(20px, 1vw + 12px, 28px); } h3 small { 
 .niv b { color: var(--a); margin-right: 4px; }
 .propo { border: 2px solid #ffd84a; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; background: rgba(255,216,74,.08); text-align: center; }
 .propo b { font-size: 20px; }
+.chat { margin-top: 12px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 8px; text-align: center; }
+.chat-btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.chat-recu { font-size: 18px; color: #ffd84a; margin-bottom: 6px; }
+.confettis { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
+.confettis i { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; opacity: 0; animation: confetti 2s ease-in forwards; }
+.confettis i.etoile { width: 12px; height: 12px; border-radius: 0; clip-path: polygon(50% 0, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0 50%, 39% 38%); }
+@keyframes confetti { 0% { opacity: 1; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(85vh) rotate(540deg); } }
+.med.victoire-m1, .med.victoire-m2, .med.victoire-m3 { display: inline-block; animation: medPop .6s ease-out; }
+.med.victoire-m4, .med.victoire-m5 { display: inline-block; animation: medPop .6s ease-out, medBrille 1.2s ease-in-out .6s 2; }
+.med.victoire-m6 { display: inline-block; animation: medPop .7s ease-out, medArc 2s linear .7s 2; }
+@keyframes medPop { 0% { transform: scale(.3); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes medBrille { 50% { filter: brightness(1.8) drop-shadow(0 0 10px #fff); } }
+@keyframes medArc { 0% { filter: hue-rotate(0) drop-shadow(0 0 8px #ff6ad5); } 100% { filter: hue-rotate(360deg) drop-shadow(0 0 8px #ff6ad5); } }
+@media (prefers-reduced-motion: reduce) { .confettis { display: none; } }
+.classement { max-width: 520px; margin: 0 auto 10px; font-size: 18px; }
+.classement > div { display: flex; gap: 10px; padding: 4px 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.classement span { margin-left: auto; }
+.classement .jaune { color: #ffd84a; }
 .amis { display: flex; flex-direction: column; gap: 6px; width: min(760px, 100%); margin: 0 auto 8px; }
 .ami { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.05); }
 .ami span { flex: 1; text-align: left; } .ami small { display: block; color: #aab; font-size: 16px; }
@@ -210,22 +228,22 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=62"></script>
-<script src="js/calibrage.js?v=62"></script>
-<script src="js/equilibre.js?v=62"></script>
-<script src="js/compat.js?v=62"></script>
-<script src="js/gen.js?v=62"></script>
-<script src="js/niveaux.js?v=62"></script>
-<script src="js/parfaits.js?v=62"></script>
-<script src="js/humains.js?v=62"></script>
-<script src="js/faciles.js?v=62"></script>
-<script src="js/paysages.js?v=62"></script>
-<script src="js/rendu.js?v=62"></script>
-<script src="js/icones.js?v=62"></script>
-<script src="js/son.js?v=62"></script>
-<script src="js/langues.js?v=62"></script>
-<script src="js/enligne.js?v=62"></script>
-<script src="js/jeu.js?v=62"></script>
-<script src="js/vitrine.js?v=62"></script>
+<script src="js/moteur.js?v=63"></script>
+<script src="js/calibrage.js?v=63"></script>
+<script src="js/equilibre.js?v=63"></script>
+<script src="js/compat.js?v=63"></script>
+<script src="js/gen.js?v=63"></script>
+<script src="js/niveaux.js?v=63"></script>
+<script src="js/parfaits.js?v=63"></script>
+<script src="js/humains.js?v=63"></script>
+<script src="js/faciles.js?v=63"></script>
+<script src="js/paysages.js?v=63"></script>
+<script src="js/rendu.js?v=63"></script>
+<script src="js/icones.js?v=63"></script>
+<script src="js/son.js?v=63"></script>
+<script src="js/langues.js?v=63"></script>
+<script src="js/enligne.js?v=63"></script>
+<script src="js/jeu.js?v=63"></script>
+<script src="js/vitrine.js?v=63"></script>
 </body>
 </html>
