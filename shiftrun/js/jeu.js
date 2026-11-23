@@ -762,12 +762,17 @@ function accueilDuo() {
     <div class="menu ligne">${estAmi ? `<span class="vert">${tr('{0} est dans tes amis', a.nom)}</span>` : `<button class="btn" data-a="el-ajouter">${tr('Ajouter {0} en ami', a.nom)}</button>`}<button class="btn" data-a="el-quitter">${tr('Quitter la partie à deux')}</button></div>`, 'large');
   insererPropo();
 }
+let courseZone = -1;                                 // -1 : les défis
 function menuCourseDuo() {
   J = null; ecran = 'menu'; ecranDuo = true;
-  montrer(`<h2>⏱ ${tr('Course à deux')}</h2><p class="note">${tr('Le même niveau pour les deux : le plus rapide gagne. Une course ne rapporte pas de cristaux.')}</p>
-    <div class="menu ligne">${choixNiveauDuel()}</div>
-    <div class="menu ligne"><button class="btn" data-a="el-prop-duel">${tr('Proposer cette course')}</button><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
-  const sel = ui.querySelector('#el-niv'); if (sel) { sel.focus(); sel.addEventListener('input', () => { enligneNiv = sel.value; }); }
+  const onglets = `<button class="btn mini ${courseZone < 0 ? 'choisi' : ''}" data-a="el-czone" data-i="-1" ${courseZone < 0 ? 'autofocus' : ''}>${tr('Défis')}</button>` +
+    NIV.ZONES.map((z, zi) => `<button class="btn mini ${courseZone === zi ? 'choisi' : ''}" data-a="el-czone" data-i="${zi}" ${courseZone === zi ? 'autofocus' : ''}>${zi + 1}. ${tr(z.nom)}</button>`).join('');
+  const choix = courseZone < 0 ? [['semaine', '📅 ' + tr('Défi de la semaine')], ['mois', '🗓 ' + tr('Défi du mois')]]
+    : LISTE.map((l, i) => [l, i]).filter(([l]) => l.zi === courseZone).map(([l, i]) => [String(i), '<b>' + l.id + '</b> ' + tr(l.def.nom)]);
+  montrer(`<h2>⏱ ${tr('Course à deux')}</h2><p class="note">${tr('Choisis le niveau : ton ami reçoit la proposition. Le plus rapide gagne. Une course ne rapporte pas de cristaux.')}</p>
+    <div class="onglets">${onglets}</div>
+    <div class="grille">${choix.map(([v, t]) => `<button class="btn carte" data-a="el-prop-duel" data-c="${v}">${t}</button>`).join('')}</div>
+    <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
   insererPropo();
 }
 function appliquerBonusS(sorte, local) {
@@ -1073,6 +1078,9 @@ function avancerMonde() {
   if (salle > J.salle) {
     J.salle = salle;
     if (J.mode === 'expedition' && !J.coop) {        // on montre les fragments gagnés à chaque salle franchie (pas à deux)
+      const nv = niv_am('serie');                      // « Sans chute » : la série de salles franchies sans tomber
+      for (let s2 = (J.salleAv || 0) + 1; s2 <= J.salle; s2++) { J.sansChute = (J.sansChute || 0) + 1; if (nv) { J.multS = J.multS || {}; J.multS[s2 + (J.base || 0)] = 1 + Math.min(nv * 0.1, J.sansChute * 0.02 * nv); } }
+      J.salleAv = J.salle;
       const f = fragExpe(J.salle + (J.base || 0));
       if (f > (J.fragVu || 0)) { J.fragPlus = f - (J.fragVu || 0); J.fragVu = f; J.fragT = 120; }
     }
@@ -1400,10 +1408,10 @@ function succesEcran() {
 }
 /* ---------- Pas de simulation ---------- */
 function pas() {
-  if (ecran !== 'jeu' || !J) return;
+  if (!J || !(ecran === 'jeu' || (ecran === 'pause' && J.coop))) return;      // à deux, la pause n'arrête pas la partie
   let inp;
   if (J.mode === 'fantome') { inp = J.rejeu[J.ri++] || 0; if (J.ri > J.rejeu.length + 90) { finFantome(); return; } }
-  else inp = lireEntrees();
+  else inp = ecran === 'pause' ? 0 : lireEntrees();
   J.inp = inp;
   const avant = J.e.demarre, x0 = J.e.x, y0 = J.e.y;
   if (J.mode !== 'fantome') {
@@ -1419,6 +1427,7 @@ function pas() {
   compterStats(J.e, x0, y0);
   if (J.mode !== 'fantome') { noterDrapeau(); cristalDrapeau(); }
   if (J.mode === 'survie') { if (J.coop && EnLigne.role === 'invite') majSurvieInvite(); else majSurvie(); }
+  if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT)) J.sansChute = 0;
   if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
   if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
   if (J.mode === 'expedition' && J.salle >= J.prochainChoix && J.finT === 0) { choixBonus(); return; }
@@ -1633,7 +1642,7 @@ function dessiner(dt) {
     hud.titre = tr('Survivant') + ' · ' + tr(J.arene.nom);
     hud.sousChrono = S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : tr('Ennemis écrasés');
     hud.prochain = J.prochain && { x: J.prochain.x, y: J.prochain.y, r: ENNEMIS[J.prochain.type].r, t: J.spawnT };
-    hud.lignes.push({ t: tr('Touche leur tête avec le bas de ton corps !'), c: '#ffd84a' });
+    if (e.temps < 900) hud.lignes.push({ t: tr('Touche leur tête avec le bas de ton corps !'), c: '#ffd84a' });   // le conseil, seulement au début
     hud.monstres = J.monstres; hud.balles = J.balles; hud.bonusS = J.bonusS;
     const A = J.actifs || {}, act = [];
     hud.actifs = A;                                                  // effets visibles sur le personnage
@@ -1780,23 +1789,23 @@ function accueil() {
   const faits = LISTE.filter(l => S.il[l.id] && S.il[l.id].t != null).length;
   const parfaits = LISTE.filter(l => medaille(l.id, S.il[l.id] && S.il[l.id].t) === MP).length;
   const nbSucces = nbRangs();
-  const carte = (a, titre, sous, attr) => `<button class="btn carte" data-a="${a}" ${attr || ''}><b>${titre}</b><small>${sous}</small></button>`;
+  const carte = (a, titre, sous, attr) => `<button class="btn carte" data-a="${a}" ${attr || ''}><b>${titre}</b>${sous ? `<small>${sous}</small>` : ''}</button>`;
   montrer(`
-  <div class="titre"><h1>SHIFTRUN</h1><p>${tr('Un jeu fait pour le speedrun : change de forme pour aller plus vite.')}</p>${serieActuelle() ? `<p class="serie">🔥 ${tr('Série : {0} jours de suite', serieActuelle())}</p>` : ''}</div>
+  <div class="titre"><h1>SHIFTRUN</h1>${serieActuelle() ? `<p class="serie">🔥 ${tr('Série : {0} jours de suite', serieActuelle())}</p>` : ''}</div>
   <div class="grille">
     ${S.tutoVu ? '' : carte('tuto', '🎓 ' + tr('Didacticiel'), tr('5 minutes pour apprendre à jouer, une idée à la fois'), 'autofocus')}
-    ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length) + ' · ' + tr('Parfaits : {0}', parfaits) + ' · ' + tr('entraînement'), 'autofocus')}
+    ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
-    ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖ ' + tr('ennemis écrasés')) : tr('des ennemis de plus en plus nombreux : touche-leur la tête avec le bas de ton corps'))}
-    ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : tr('Survivant, Expédition ou course sur un niveau, chacun sur son ordinateur'))}
-    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), tr(varianteDefi('semaine').nom) + ' · ' + (S.defis[cleSemaine()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : tr(varianteDefi('semaine').but)))}
-    ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), tr(varianteDefi('mois').nom) + ' · ' + (S.defis[cleMois()] ? tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : tr(varianteDefi('mois').but)))}
+    ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : '')}
+    ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : '')}
+    ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), tr(varianteDefi('semaine').nom) + (S.defis[cleSemaine()] ? ' · ' + tr('ton meilleur : {0}', R.chrono(S.defis[cleSemaine()].t)) : ''))}
+    ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), tr(varianteDefi('mois').nom) + (S.defis[cleMois()] ? ' · ' + tr('ton meilleur : {0}', R.chrono(S.defis[cleMois()].t)) : ''))}
   </div>
   <div class="grille petite">
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
-    ${carte('aide', '❓ ' + tr('Comment jouer'), tr('les états, les pièges, les touches'))}
-    ${carte('reglages', '⚙ ' + tr('Réglages'), tr('langue, son, touches'))}
+    ${carte('aide', '❓ ' + tr('Comment jouer'), '')}
+    ${carte('reglages', '⚙ ' + tr('Réglages'), '')}
   </div>
 `, 'accueil');
 }
@@ -2038,13 +2047,14 @@ const BONUS = [['vie', '❤', 'Une vie de plus', 'Tu pourras tomber une fois de 
 const serieP = (b, k, n) => Array.from({ length: n }, (_, i) => Math.round(b * Math.pow(k, i) / 10) * 10);
 const AMELIOS = [
   ['depart', '🚀', 'Partir plus loin : 10 salles de plus, plus dures mais qui rapportent plus', serieP(300, 1.8, 8)],
-  ['profond', '💎', 'Les salles après la 30e rapportent 20 % de plus', serieP(500, 2, 6)],
+  ['serie', '🔥', 'Sans chute : chaque salle franchie sans tomber rapporte 2 % de plus que la précédente (jusqu’à +10 % par niveau) ; une chute remet à zéro', serieP(400, 2, 5)],
   ['gain', '💰', 'Fragments : +15 %', serieP(100, 1.7, 10)],
   ['vie', '❤', 'Une vie de plus au départ', serieP(200, 3.5, 3)],
   ['choix', '🎲', 'Un bonus de plus à choisir', serieP(800, 6, 2)],
   ['souvent', '⏱', 'Un bonus toutes les 6 salles au lieu de 8', [3000]]];
 function expe() {
   if (!S.exp) S.exp = { frag: 0, am: {} };
+  if (S.exp.am.profond) { S.exp.am.serie = Math.min(5, (S.exp.am.serie || 0) + S.exp.am.profond); delete S.exp.am.profond; }   // l'ancienne amélioration devient la nouvelle
   if (S.exp.am.bouclier) {                       // l'invincibilité n'existe plus : on rend les fragments dépensés
     const P = [150, 450, 1350]; for (let i = 0; i < S.exp.am.bouclier; i++) S.exp.frag += P[i] || 0;
     delete S.exp.am.bouclier;
@@ -2074,7 +2084,7 @@ function acheterAmelio(id) {
 function lancerExpedition(graineImp, coop) {
   const graine = graineImp != null ? graineImp : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   const base = coop ? 0 : niv_am('depart') * 10;                                        // à deux : le même départ pour les deux                                                   // départ plus loin : plus dur, mais chaque salle rapporte plus
-  const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.08, 0.008], depart: base });     // la difficulté monte très lentement
+  const monde = new Gen.Infini(graine, 2, { drapeaux: true, rampe: [0.08, 0.008], depart: base, parEtats: true });     // la difficulté monte très lentement
   const def = { id: 'exp', nom: 'Expédition', phases: monde.etats.slice(), etats: monde.etats, carte: monde.ajouter(6), panneaux: [] };
   const n = M.charger(def), e = M.nouvelEtat(n);
   R.preparer(n, (x) => monde.theme(x));
@@ -2112,7 +2122,7 @@ function prendreBonus(id) {
 // fragments gagnés en arrivant à la salle n (plus la salle est loin, plus elle rapporte)
 function fragExpe(n) {
   const k = 1 + niv_am('gain') * 0.15;
-  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * (i > 30 ? 1 + niv_am('profond') * 0.2 : 1);
+  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * ((J.multS && J.multS[i]) || 1);
   return Math.round(frag * k);
 }
 function finExpedition() {
@@ -2225,10 +2235,15 @@ function finCourse() {
 function pause() {
   if (ecran !== 'jeu') return;
   ecran = 'pause';
+  if (J.coop) {                                                     // à deux : on ne peut pas arrêter la partie de l'autre
+    montrer(`<div class="fin"><div class="nomniv">${tr('Menu')}</div><div class="lignes"><div class="rouge">${tr('La partie continue pendant ce menu : ton personnage reste en jeu.')}</div></div>
+      <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Revenir au jeu')}</button><button class="btn" data-a="accueil">${tr('Quitter la partie')}</button></div></div>`, 'fin');
+    return;
+  }
   SON.attenuer(true);
   montrer(`<div class="fin"><div class="nomniv">${tr('Pause')}</div>
     <div class="menu"><button class="btn" data-a="reprendre" autofocus>${tr('Reprendre')}</button>
-    <button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>
+    ${J.mode === 'expedition' ? '' : `<button class="btn" data-a="rejouer">${tr(J.entrainement ? 'Repartir du point de sauvegarde' : J.mode === 'niveau' ? 'Recommencer le niveau' : 'Recommencer')}</button>`}
     ${J.entrainement ? `<div class="sous">${tr('Vitesse du jeu :')}</div><div class="drapeaux">${[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => `<button class="btn mini ${(+S.vitEntr || 1) === v ? 'choisi' : ''}" data-a="vit-entr" data-v="${v}">×${String(v).replace('.', ',')}</button>`).join('')}</div>` : ''}
     ${J.entrainement && J.mode === 'niveau' ? `<div class="sous">${tr('Fantôme du robot :')}</div><div class="drapeaux">${boutonsBot('fant-entr', BOTS[S.fantEntr] ? S.fantEntr : 'parfait')}</div>
       <div class="drapeaux"><button class="btn mini ${S.boucleEntr ? 'choisi' : ''}" data-a="boucle-entr">${S.boucleEntr ? '☑' : '☐'} ${tr('Boucle sur un passage : retour au drapeau de départ dès le drapeau suivant')}</button>
@@ -2305,7 +2320,8 @@ function action(a, el) {
     case 'el-prop-survie': proposer('survie'); break;
     case 'el-prop-expedition': proposer('expedition'); break;
     case 'el-course': menuCourseDuo(); break;
-    case 'el-prop-duel': { const sel = ui.querySelector('#el-niv'); if (sel) enligneNiv = sel.value; proposer('duel', enligneNiv); break; }
+    case 'el-prop-duel': enligneNiv = el.dataset.c; proposer('duel', enligneNiv); break;
+    case 'el-czone': courseZone = i; menuCourseDuo(); break;
     case 'el-oui': repondre(true); break;
     case 'el-non': repondre(false); break;
     case 'el-annuler': if (propEnvoyee) { EnLigne.envoyer({ t: 'annule' }); propEnvoyee = null; } rafraichirEnLigne(); break;
@@ -2317,6 +2333,7 @@ function action(a, el) {
     case 'reprendre': ecran = 'jeu'; cacherUI(); break;
     case 'rejouer': if (J && J.entrainement && (J.mode === 'niveau' || J.mode === 'defi')) { if (ecran === 'fin') allerDrapeau(J.drapeauDepart || 0); else allerDrapeau(drapeauActif()); ecran = 'jeu'; cacherUI(); } else if (J && J.mode === 'expedition') lancerExpedition(); else if (J && J.mode === 'survie') lancerSurvie(); else if (J && J.mode === 'defi' && J.periode !== 'jour') lancerDefiLong(J.periode); else if (J && J.mode === 'defi') lancerDefi(); else if (J && J.mode === 'infini') lancerInfini(J.imode); else if (J && J.mode === 'course') lancerCourse(J.cat); else if (J) { if (J.mode === 'fantome') lancerNiveau(J.idx); else lancerNiveau(J.idx); } break;
     case 'recommencer':
+      if (J && J.mode === 'expedition' && ecran !== 'fin') break;                  // une expédition ne se recommence pas en cours de route
       if (ecran === 'jeu') recommencer();
       else if (ecran === 'fin' && J && J.entrainement && (J.mode === 'niveau' || J.mode === 'defi')) { allerDrapeau(J.drapeauDepart || 0); ecran = 'jeu'; cacherUI(); }
       else if (ecran === 'fin' && J && J.mode === 'niveau') lancerNiveau(J.idx);

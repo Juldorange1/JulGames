@@ -170,11 +170,34 @@ function morceau(k) {
         case M.GEYSER: g.fillStyle = '#3a3330'; g.fillRect(px + 1, py + T - 5, T - 2, 5); g.fillStyle = '#6a5a50'; g.fillRect(px + 1, py + T - 5, T - 2, 1.5); g.fillStyle = '#120c0a'; for (let k = 3; k < T - 3; k += 3) g.fillRect(px + k, py + T - 3, 1.5, 3); break;
         case M.CASSANT: g.fillStyle = '#5b3e24'; g.fillRect(px, py, T, T); break;
       }
+      if (!solideR(kk)) ombresVide(g, x, y, px, py);
     }
   }
   th = garde;
   morceaux.set(k, c);
   return c;
+}
+// ombres douces dans le vide, contre les murs : la lumière vient d'en haut à gauche, donc il fait plus sombre sous un
+// plafond et à droite d'un mur (purement visuel : rien ne change dans le jeu)
+function ombresVide(g, x, y, px, py) {
+  const plein = (dx, dy) => solideR(tuileR(x + dx, y + dy));
+  if (plein(0, -1)) { const o = g.createLinearGradient(0, py, 0, py + 10); o.addColorStop(0, 'rgba(0,0,0,.38)'); o.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = o; g.fillRect(px, py, T, 10); }
+  else if (plein(-1, -1) && !plein(-1, 0)) { g.fillStyle = 'rgba(0,0,0,.12)'; g.beginPath(); g.moveTo(px, py); g.lineTo(px + 7, py); g.lineTo(px, py + 7); g.fill(); }   // coin d'un plafond voisin
+  if (plein(-1, 0)) { const o = g.createLinearGradient(px, 0, px + 8, 0); o.addColorStop(0, 'rgba(0,0,0,.3)'); o.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = o; g.fillRect(px, py, 8, T); }
+  if (plein(1, 0)) { const o = g.createLinearGradient(px + T - 4, 0, px + T, 0); o.addColorStop(0, 'rgba(0,0,0,0)'); o.addColorStop(1, 'rgba(0,0,0,.14)'); g.fillStyle = o; g.fillRect(px + T - 4, py, 4, T); }
+  if (plein(0, 1)) { const o = g.createLinearGradient(0, py + T - 3, 0, py + T); o.addColorStop(0, 'rgba(0,0,0,0)'); o.addColorStop(1, 'rgba(0,0,0,.16)'); g.fillStyle = o; g.fillRect(px, py + T - 3, T, 3); }   // contact au sol
+}
+// ombre au sol sous un personnage ou un ennemi : plus il est haut, plus elle est petite et pâle
+function ombreSol(g, cx, basY, larg) {
+  const tx = Math.floor(cx / T);
+  let ty = Math.floor(basY / T);
+  for (let k = 0; k < 8 && !solideR(tuileR(tx, ty)); k++) ty++;
+  if (!solideR(tuileR(tx, ty))) return;
+  const sol = ty * T, h = sol - basY;
+  if (h < -2 || h > 7 * T) return;
+  const f = Math.max(0, 1 - h / (7 * T));
+  g.fillStyle = `rgba(0,0,0,${0.32 * f})`;
+  g.beginPath(); g.ellipse(cx, sol + 0.5, larg * (0.55 + 0.45 * f), 1.6 + f, 0, 0, 7); g.fill();
 }
 function profondeur(x, y) {
   for (let r = 1; r <= 3; r++)
@@ -619,6 +642,7 @@ function dessiner(e, fantome, hud, dt) {
   }
   if (hud && hud.monstres) for (const m of hud.monstres) {         // Survivant : chaque ennemi est un rond de rayon r (sa hitbox), détails dedans
     const r = m.r, cx2 = m.x + r, cy2 = m.y + r, tt = m.t;
+    if (!m.invisible) ombreSol(g, cx2, cy2 + r, r);
     const C = { marcheur: ['#ff8a9a', '#c0304a', '#5a0a1a'], sauteur: ['#ffc080', '#d05a20', '#5a2008'], volant: ['#b8ecff', '#3a8ad0', '#0a2a50'], herisse: ['#f0f0f6', '#7a8296', '#2a2e3a'],
       tireur: ['#d4ffa0', '#4aa030', '#14380a'], fonceur: ['#ff8af0', '#a02090', '#40083a'], lourd: ['#e0b88a', '#7a5028', '#2a1808'], diviseur: ['#fff27a', '#c0a010', '#4a3a00'],
       petit: ['#fffac0', '#d0c040', '#4a4000'], fantome: ['#f4f0ff', '#8a7ac8', '#3a2a6a'], bombe: ['#6a6a76', '#202028', '#08080c'],
@@ -700,7 +724,7 @@ function dessiner(e, fantome, hud, dt) {
   }
   if (fantome && !fantome.fini) joueur(g, fantome, hud && hud.fantomeFort ? 0.62 : 0.32, true);   // en entraînement, le robot se voit mieux
   competences(g, e);
-  if (e.mortT === 0) joueur(g, e, 1, false);
+  if (e.mortT === 0) { ombreSol(g, e.x + 6, e.y + 12, 7); joueur(g, e, 1, false); }
   if (e.mortT === 0 && hud && hud.actifs) effetsSurvie(g, e, hud.actifs);
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière

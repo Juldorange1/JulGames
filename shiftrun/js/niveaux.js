@@ -59,7 +59,7 @@ const DESC = {
   [ME]: 'Métal : lourd, tu coules, et ni les flèches, ni le feu, ni le vent ne t’arrêtent.',
   [OM]: 'Ombre : tu voles librement un court moment et tu traverses les parois violettes.',
   [GL]: 'Glace : tu glisses très vite et tu marches sur l’eau.',
-  [MA]: 'Magma : le feu ne te fait rien ; tu es un peu lent.'
+  [MA]: 'Magma : le feu au sol ne te fait rien, mais les jets de flammes te brûlent ; tu es un peu lent.'
 };
 // compétence de chaque état : on l'utilise en réappuyant sur la touche de l'état où l'on est déjà
 const CAPA = {

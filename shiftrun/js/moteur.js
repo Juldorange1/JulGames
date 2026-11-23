@@ -1517,7 +1517,7 @@ function pas(n, e, inp) {
       if (Math.abs(b.x * T - e.x) > 6 * T || bruleurEtat(b, e.temps) !== 2 || feuEteint(e, b.x, b.y)) continue;
       const r = bruleurRect(b);
       if (!rectRect(e, r[0], r[1], r[2], r[3])) continue;
-      if (e.phase === ME || e.phase === P || e.phase === MA || e.phase === Z) continue;
+      if (e.phase === ME || e.phase === P || e.phase === Z) continue;      // le magma n'y résiste plus : ces jets sont bien plus chauds que lui
       if (e.phase === L) { e.phase = Z; e.gaz = K.zDuree; e.vy = -3; e.att = 0; e.immun = 10; e.ev |= EV.EVAPORE; e.evX = b.x; e.evY = b.y; break; }
       mourir(e); break;
     }

@@ -60,6 +60,18 @@ function elaguerDrapeaux(l, sens) {            // l : tableau de rangées (table
     if (!danger) l[a[1]][a[0]] = '.';
   }
 }
+// drapeaux (points de sauvegarde) à l'entrée des salles, pour que les passages entre deux drapeaux aient à peu près
+// la même longueur : on en pose un dès que le passage depuis le précédent atteint DRAP_MIN cases, ou avant une salle
+// qui le rendrait plus long que DRAP_MAX (une salle très longue garde son drapeau à l'entrée)
+const DRAP_MIN = 38, DRAP_MAX = 66;
+function poserDrapeaux(g, bornes, xFin) {
+  let depuis = 0;
+  for (let k = 1; k < bornes.length; k++) {
+    const xa = bornes[k][0], ya = bornes[k][1] || 0, suiv = (k + 1 < bornes.length ? bornes[k + 1][0] : xFin) - xa;
+    depuis += xa - bornes[k - 1][0];
+    if (depuis >= DRAP_MIN || depuis + suiv > DRAP_MAX) { salle(g, xa, ya).p(1, 19, '!'); depuis = 0; }
+  }
+}
 // outils relatifs au début d'une salle
 function salle(g, x0, dy) {
   dy = dy || 0;                                          // décalage vertical du couloir (niveaux qui montent et descendent)
@@ -1321,8 +1333,8 @@ function niveau(zone, graine, d, nb, panneaux, imposees, etats) {
     x = poser(g, x, nom, rng, Math.max(0, d + (rng() - 0.5) * 0.08 + equi(t, et0)), { glace, varier: !SALLES[nom].decale, rngV, dy: oy, style });
     bornes.push([x0, oy0, nom]);
     oy += SALLES[nom].decale || 0;
-    if (i > 0 && i % 2 === 0) salle(g, x0, oy0).p(1, 19, '!');   // un drapeau (point de sauvegarde) toutes les deux salles
   }
+  poserDrapeaux(g, bornes, x);
   x = fin(g, x, oy);
   for (let y = 0; y < g.h; y++) g.l[y][x - 1] = '#';
   elaguerDrapeaux(g.l);
@@ -1348,9 +1360,14 @@ function Infini(graine, mode, opts) {
   this.etats = this.opts.etats || etatsAuHasard(this.rng);
   if (this.opts.depart) { this.i = this.opts.depart; this.themes[0].theme = THEMES_INF[Math.floor(this.i / 6) % THEMES_INF.length]; }
   this.types = sallesPour(this.etats).filter(t => !t.endsWith('*'));
+  // Expédition : la même difficulté quelles que soient les transformations tirées. On y survit, on n'y fait pas la course :
+  // la plume et l'ombre (qui évitent presque tout) rendent les salles plus dures, le caoutchouc et la glace (faits pour
+  // la vitesse) plus faciles.
+  this.ajust = this.opts.parEtats ? this.etats.reduce((a, et) => a + (FORCE_EXPE[et] || 0), 0) : 0;
 }
+const FORCE_EXPE = [0, 0, 0.04, 0.06, 0.15, -0.15, -0.03, 0.15, -0.15, -0.03];   // S L Z P Plume Caoutchouc Métal Ombre Glace Magma
 Infini.prototype.difficulte = function (i) {
-  if (this.opts.rampe) return Math.min(1.2, this.opts.rampe[0] + i * this.opts.rampe[1]);
+  if (this.opts.rampe) return Math.max(0, Math.min(1.2, this.opts.rampe[0] + i * this.opts.rampe[1] + (this.ajust || 0)));
   return this.mode === 2 ? Math.min(1.2, 0.5 + i * 0.03) : Math.min(1.2, 0.05 + i * 0.02);
 };
 Infini.prototype.ajouter = function (k) {
@@ -1532,12 +1549,14 @@ function sommet(graine, etats, k, d) {
     if (t === 'couloir') {                               // passage vers la droite : de vraies salles, un drapeau toutes les deux
       const g = new Grille(HAUT);
       salle(g, 0).couloir(1, 4); let x = 5;
-      const nb = 3 + Math.floor(rng() * 2) + (k >= 4 ? 1 : 0);
+      const nb = 3 + Math.floor(rng() * 2) + (k >= 4 ? 1 : 0), bs = [[0, 0]];
       for (let i = 0; i < nb; i++) {
         const t2 = choisir(rng, types, [], recents.slice(-3), compte); compte[t2] = (compte[t2] || 0) + 1; recents.push(t2);
         const x0 = x; x = poser(g, x, t2, rng, Math.max(0, d + (rng() - 0.5) * 0.08 + equi(t2, etats)), { varier: true, rngV, style });
-        if (i % 2 === 1 || i === 0) salle(g, x0).p(1, 19, '!');
+        bs.push([x0, 0]);
       }
+      salle(g, bs[1][0]).p(1, 19, '!');                   // en sortant du puits : toujours un drapeau
+      poserDrapeaux(g, bs.slice(1), x);
       salle(g, x).couloir(0, 4); x += 5;
       const l = g.l.map(r => r.slice(0, x));
       for (let y = 14; y <= 19; y++) l[y][0] = '.';
