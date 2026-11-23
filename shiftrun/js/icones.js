@@ -67,6 +67,7 @@ const D = {
   plume: L('M20 4C10 4 5 10 5 19M5 19l3-3M9 15h5M8 12h7M11 8h6'),
   flocon: L('M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M10 5l2 2 2-2M10 19l2-2 2 2'),
   crane: L('M6 15a7 7 0 1 1 12 0v3H6zM9 21v-3M12 21v-3M15 21v-3') + C(9.5, 12, 1.6, true) + C(14.5, 12, 1.6, true),
+  camera: L('M3 7h12v10H3zM15 10l6-3v10l-6-3') + C(9, 12, 2.2, true),
   croix: L('M6 6l12 12M18 6L6 18'),
   coche: L('M5 12.5l4.5 4.5L19 7'),
   carreau: L('M5 5h14v14H5z'), grilleI: L('M4 4h16v16H4zM4 9.3h16M4 14.6h16M9.3 4v16M14.6 4v16')
@@ -81,7 +82,7 @@ const COUL = {
   bouclier: '#7ae8ff', cadenas: '#ffc85a', boucle: '#7ad8ff', attention: '#ffd84a', marteau: '#e0a070', clavier: '#c8d0e0',
   medaille: '#ffd84a', interdit: '#ff6a6a', ampoule: '#ffe98a', gemme: '#ff9ae6', bourse: '#ffd84a', recul: '#7ad8ff', pause: '#c8d0e0',
   suivant: '#7ad8ff', goutte: '#5ab8ff', nuage: '#d8e4f0', plume: '#e0f0ff', flocon: '#bfe8ff', crane: '#e8e8e8', croix: '#ff7a7a',
-  coche: '#7dff9a', carreau: '#c8d0e0', grilleI: '#c8d0e0'
+  camera: '#ff8a8a', coche: '#7dff9a', carreau: '#c8d0e0', grilleI: '#c8d0e0'
 };
 // emoji -> dessin
 const E = {
@@ -92,7 +93,7 @@ const E = {
   '🏀': 'balle', '🗺': 'carte', '🛡': 'bouclier', '🔒': 'cadenas', '🔄': 'boucle', '🔁': 'boucle', '⚠': 'attention', '🔨': 'marteau',
   '⌨': 'clavier', '💓': 'pouls', '💚': 'coeurVert', '❤': 'coeur', '🥇': 'medaille', '🚫': 'interdit', '💡': 'ampoule', '💎': 'gemme',
   '💰': 'bourse', '⏪': 'recul', '⏸': 'pause', '⏭': 'suivant', '💧': 'goutte', '☁': 'nuage', '🪶': 'plume', '❄': 'flocon', '☠': 'crane',
-  '✖': 'croix', '✘': 'croix', '✔': 'coche', '◻': 'carreau', '▦': 'grilleI'
+  '⏺': 'camera', '✖': 'croix', '✘': 'croix', '✔': 'coche', '◻': 'carreau', '▦': 'grilleI'
 };
 const cles = Object.keys(E).sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 const RE = new RegExp('(' + cles.join('|') + ')\\ufe0f?', 'gu');

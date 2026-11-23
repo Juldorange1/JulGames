@@ -711,17 +711,18 @@ function choixNiveauDuel() {
   return `<select id="el-niv">${opt('semaine', tr('Défi de la semaine'))}${opt('mois', tr('Défi du mois'))}${NIV.ZONES.map((z, zi) =>
     `<optgroup label="${zi + 1}. ${tr(z.nom)}">${LISTE.map((l, i) => [l, i]).filter(([l]) => l.zi === zi).map(([l, i]) => opt(i, l.id + ' ' + tr(l.def.nom))).join('')}</optgroup>`).join('')}</select>`;
 }
-function nomDuel(niv) { return niv === 'semaine' ? tr('Défi de la semaine') : niv === 'mois' ? tr('Défi du mois') : LISTE[+niv] ? LISTE[+niv].id + ' ' + tr(LISTE[+niv].def.nom) : ''; }
+function nomDuel(niv) { if (niv && niv[0] === 'z') return tr('Zone {0} entière', niv.slice(1)); return niv === 'semaine' ? tr('Défi de la semaine') : niv === 'mois' ? tr('Défi du mois') : LISTE[+niv] ? LISTE[+niv].id + ' ' + tr(LISTE[+niv].def.nom) : ''; }
 function lancerDuel(niv) {
-  if (niv === 'semaine' || niv === 'mois') lancerDefiLong(niv); else lancerNiveau(+niv);
+  niv = String(niv);
+  if (niv[0] === 'z') lancerCourse(niv); else if (niv === 'semaine' || niv === 'mois') lancerDefiLong(niv); else lancerNiveau(+niv);
   J.coop = true; J.fantome = null; J.duel = { niv: String(niv), moi: null, ami: null };
 }
 function boutonsFinDuo() {
   return `<div class="menu ligne"><button class="btn" data-a="rejouer" autofocus>${tr('Proposer de rejouer')}</button><button class="btn" data-a="accueil">${tr('Menu à deux')}</button></div>`;
 }
-function finDuel() {
+function finDuel(total) {
   const D = J.duel;
-  if (D.moi == null) { D.moi = J.e.temps; EnLigne.envoyer({ t: 'arrivee', temps: D.moi }); }
+  if (D.moi == null) { D.moi = total != null ? total : J.e.temps; EnLigne.envoyer({ t: 'arrivee', temps: D.moi }); }
   ecran = 'fin'; SON.attenuer(true);
   const verdict = D.ami == null ? `<div class="gris">${tr('{0} est encore en course…', nomAmi())}</div>`
     : D.moi < D.ami ? `<div class="vert">${tr('Tu gagnes !')}</div>` : D.moi > D.ami ? `<div class="rouge">${tr('{0} gagne !', nomAmi())}</div>` : `<div>${tr('Égalité !')}</div>`;
@@ -759,7 +760,7 @@ function accueilDuo() {
       ${carte('el-prop-expedition', '🎲 ' + tr('Expédition à deux'), D.expedition ? tr('record ensemble : {0}', tr('Salles : {0}', D.expedition.salles)) : tr('les mêmes salles pour les deux'))}
       ${carte('el-course', '⏱ ' + tr('Course'), tr('le même niveau, le plus rapide gagne (sans cristaux)'))}
     </div>
-    <div class="menu ligne">${estAmi ? `<span class="vert">${tr('{0} est dans tes amis', a.nom)}</span>` : `<button class="btn" data-a="el-ajouter">${tr('Ajouter {0} en ami', a.nom)}</button>`}<button class="btn" data-a="el-quitter">${tr('Quitter la partie à deux')}</button></div>`, 'large');
+    <div class="menu ligne">${estAmi ? `<span class="vert">${tr('{0} est dans tes amis', a.nom)}</span>` : `<button class="btn" data-a="el-ajouter">${tr('Ajouter {0} en ami', a.nom)}</button>`}<button class="btn" data-a="profil" data-c="${a.id}">${tr('Profil de {0}', echapper(a.nom))}</button><button class="btn" data-a="el-quitter">${tr('Quitter la partie à deux')}</button></div>`, 'large');
   insererPropo();
 }
 let courseZone = -1;                                 // -1 : les défis
@@ -768,13 +769,114 @@ function menuCourseDuo() {
   const onglets = `<button class="btn mini ${courseZone < 0 ? 'choisi' : ''}" data-a="el-czone" data-i="-1" ${courseZone < 0 ? 'autofocus' : ''}>${tr('Défis')}</button>` +
     NIV.ZONES.map((z, zi) => `<button class="btn mini ${courseZone === zi ? 'choisi' : ''}" data-a="el-czone" data-i="${zi}" ${courseZone === zi ? 'autofocus' : ''}>${zi + 1}. ${tr(z.nom)}</button>`).join('');
   const choix = courseZone < 0 ? [['semaine', '📅 ' + tr('Défi de la semaine')], ['mois', '🗓 ' + tr('Défi du mois')]]
-    : LISTE.map((l, i) => [l, i]).filter(([l]) => l.zi === courseZone).map(([l, i]) => [String(i), '<b>' + l.id + '</b> ' + tr(l.def.nom)]);
+    : [['z' + (courseZone + 1), '⏱ <b>' + tr('Toute la zone') + '</b> ' + tr('les 6 niveaux d’affilée')]].concat(LISTE.map((l, i) => [l, i]).filter(([l]) => l.zi === courseZone).map(([l, i]) => [String(i), '<b>' + l.id + '</b> ' + tr(l.def.nom)]));
   montrer(`<h2>⏱ ${tr('Course à deux')}</h2><p class="note">${tr('Choisis le niveau : ton ami reçoit la proposition. Le plus rapide gagne. Une course ne rapporte pas de cristaux.')}</p>
     <div class="onglets">${onglets}</div>
     <div class="grille">${choix.map(([v, t]) => `<button class="btn carte" data-a="el-prop-duel" data-c="${v}">${t}</button>`).join('')}</div>
     <div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
   insererPropo();
 }
+/* ---------- Vidéos : tes parties de niveau, rangées en catégorie 1, 2 ou publique ----------
+   Une vidéo = les touches appuyées à chaque image (le jeu est exact à l'image près : on la rejoue telle quelle).
+   Les 5 dernières parties finies attendent d'être rangées ; les vidéos publiques se voient depuis ton profil. */
+let dernieresParties = [], videosOnglet = 'nouvelles';
+if (!Array.isArray(S.videos)) S.videos = [];
+function noterPartie() {
+  if (!J || J.mode !== 'niveau' || J.entrainement || !J.entrees.length) return;
+  dernieresParties.unshift({ k: 'n' + Date.now(), idx: J.idx, id: J.L.id, t: J.e.temps, f: M.compresser(J.entrees), date: Date.now() });
+  dernieresParties = dernieresParties.slice(0, 5);
+}
+const NOMS_CAT = { '1': 'Catégorie 1', '2': 'Catégorie 2', pub: 'Publiques' };
+function dateCourte(d) { const x = new Date(d); return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0'); }
+function ligneVideo(v, boutons) {
+  const L2 = LISTE.find(l => l.id === v.id);
+  return `<div class="ami"><span><b>${v.id} ${L2 ? tr(L2.def.nom) : ''}</b> <small>${R.chrono(v.t)} · ${dateCourte(v.date)}</small></span>${boutons}</div>`;
+}
+function menuVideos() {
+  J = null; ecran = 'menu';
+  const ong = [['nouvelles', tr('À ranger')], ['1', tr('Catégorie 1')], ['2', tr('Catégorie 2')], ['pub', tr('Publiques')]];
+  let corps = '';
+  if (videosOnglet === 'nouvelles') {
+    corps = dernieresParties.length ? dernieresParties.map(v => ligneVideo(v, `<button class="btn mini" data-a="vid-voir" data-c="${v.k}">${tr('Regarder')}</button>` +
+      ['1', '2', 'pub'].map(c => `<button class="btn mini" data-a="vid-ranger" data-c="${v.k}" data-i="${c === 'pub' ? 3 : +c}">${tr(c === 'pub' ? 'Publique' : NOMS_CAT[c])}</button>`).join(''))).join('')
+      : `<p class="note">${tr('Finis un niveau : ta partie attendra ici que tu la ranges (les 5 dernières).')}</p>`;
+  } else {
+    const l = S.videos.filter(v => v.cat === videosOnglet);
+    corps = l.length ? l.map(v => ligneVideo(v, `<button class="btn mini" data-a="vid-voir" data-c="${v.k}">${tr('Regarder')}</button>` +
+      ['1', '2', 'pub'].filter(c => c !== v.cat).map(c => `<button class="btn mini" data-a="vid-ranger" data-c="${v.k}" data-i="${c === 'pub' ? 3 : +c}">${tr('Vers {0}', tr(c === 'pub' ? 'Publique' : NOMS_CAT[c]))}</button>`).join('') +
+      `<button class="btn mini" data-a="vid-suppr" data-c="${v.k}">${tr('Supprimer')}</button>`)).join('')
+      : `<p class="note">${tr('Aucune vidéo ici.')}</p>`;
+    if (videosOnglet === 'pub') corps = `<p class="note">${tr('Tes amis voient tes vidéos publiques depuis ton profil.')}</p>` + corps;
+  }
+  montrer(`<h2>⏺ ${tr('Vidéos')}</h2><div class="onglets">${ong.map(([k, n]) => `<button class="btn mini ${videosOnglet === k ? 'choisi' : ''}" data-a="vid-onglet" data-c="${k}" ${videosOnglet === k ? 'autofocus' : ''}>${n}</button>`).join('')}</div>
+    <div class="amis">${corps}</div><div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
+}
+function trouverVideo(k) { return dernieresParties.find(v => v.k === k) || S.videos.find(v => v.k === k); }
+function voirVideo(v, nom) {
+  const i = LISTE.findIndex(l => l.id === v.id);
+  if (i < 0 || !v.f) return;
+  retourVideos = true;
+  regarderEntrees(i, M.decompresser(v.f), nom || tr('vidéo'));
+}
+let retourVideos = false, retourProfil = null;
+function rangerVideo(k, cat) {
+  const n = dernieresParties.findIndex(v => v.k === k);
+  if (n >= 0) { const v = dernieresParties.splice(n, 1)[0]; S.videos.unshift({ k: 'v' + v.date, cat, idx: v.idx, id: v.id, t: v.t, f: v.f, date: v.date }); }
+  else { const v = S.videos.find(x => x.k === k); if (v) v.cat = cat; }
+  S.videos = S.videos.slice(0, 60);                      // 60 vidéos au plus
+  sauver(); envoyerProfil();
+  videosOnglet = cat; menuVideos();
+}
+/* ---------- Profil : tous les temps et l'avancée d'un joueur (le tien, ou celui d'un ami) ---------- */
+function monProfil() {
+  const niv = {};
+  for (const l of LISTE) { const r = S.il[l.id]; if (r && r.t != null) niv[l.id] = [r.t, medaille(l.id, r.t)]; }
+  return { nom: moi().nom, niv, survie: S.survie ? S.survie.kills : null, expedition: S.expedition ? S.expedition.salles : null,
+    succes: nbRangs(), cristaux: eclatsGagnes(), videos: S.videos.filter(v => v.cat === 'pub').slice(0, 20).map(v => ({ id: v.id, t: v.t, f: v.f, date: v.date })) };
+}
+function envoyerProfil() { if (EnLigne.actif()) EnLigne.envoyer({ t: 'profil', p: monProfil() }); }
+const profilsVus = {};                                   // id -> profil reçu (gardé pour les amis)
+let profilZone = 0, profilOnglet = 'temps', profilDe = null;
+function menuProfil(id) {
+  J = null; ecran = 'menu'; profilDe = id || null;
+  const P = id ? (profilsVus[id] || (S.amis[id] && S.amis[id].profil)) : monProfil();
+  if (!P) { montrer(`<h2>${tr('Profil')}</h2><p class="note">${tr('Pas encore de profil reçu : jouez ensemble une fois pour le voir.')}</p><div class="menu ligne"><button class="btn" data-a="retour-profil">${tr('Retour')}</button></div>`, 'large'); return; }
+  const faits = Object.keys(P.niv || {}).length, parfaits = Object.values(P.niv || {}).filter(x => x[1] === MP).length;
+  let corps = '';
+  if (profilOnglet === 'temps') {
+    corps = `<div class="onglets">${NIV.ZONES.map((z, zi) => `<button class="btn mini ${zi === profilZone ? 'choisi' : ''}" data-a="prof-zone" data-i="${zi}">${zi + 1}. ${tr(z.nom)}</button>`).join('')}</div>
+      <table class="rec">${LISTE.filter(l => l.zi === profilZone).map(l => { const r = (P.niv || {})[l.id]; return `<tr><td><b>${l.id}</b> ${tr(l.def.nom)}</td><td>${r ? R.chrono(r[0]) : '—'}</td><td>${r ? badge(r[1]) : ''}</td></tr>`; }).join('')}</table>`;
+  } else {
+    const vs = P.videos || [];
+    corps = `<div class="amis">${vs.length ? vs.map((v, k) => ligneVideo(v, `<button class="btn mini" data-a="prof-voir" data-i="${k}">${tr('Regarder')}</button>`)).join('') : `<p class="note">${tr('Aucune vidéo publique.')}</p>`}</div>`;
+  }
+  montrer(`<h2>${tr('Profil de {0}', echapper(P.nom))}</h2>
+    <div class="lignes"><div>${tr('Niveaux finis : {0} / {1}', faits, LISTE.length)} · ${tr('Parfaits : {0}', parfaits)} · ${tr('Succès')} ${P.succes || 0}</div>
+    <div>${tr('Survivant')} : <b>${P.survie != null ? P.survie + ' ✖' : '—'}</b> · ${tr('Expédition')} : <b>${P.expedition != null ? tr('Salles : {0}', P.expedition) : '—'}</b></div></div>
+    <div class="onglets"><button class="btn mini ${profilOnglet === 'temps' ? 'choisi' : ''}" data-a="prof-onglet" data-c="temps" autofocus>${tr('Tous les temps')}</button><button class="btn mini ${profilOnglet === 'videos' ? 'choisi' : ''}" data-a="prof-onglet" data-c="videos">${tr('Vidéos publiques')}</button></div>
+    ${corps}<div class="menu ligne"><button class="btn" data-a="retour-profil">${tr('Retour')}</button></div>`, 'large');
+}
+/* ---------- Expédition : salles maudites (plus dures, mais elles rapportent le double) ---------- */
+function choixMaudit() {
+  ecran = 'choix'; SON.attenuer(true);
+  montrer(`<div class="fin"><div class="nomniv">🎲 ${tr('Expédition')} · ${tr('Salle {0}', J.salle + (J.base || 0))}</div><div class="temps">${tr('Un passage maudit')}</div>
+    <div class="lignes"><div>${tr('Les 6 salles suivantes sont bien plus dures, mais elles rapportent le double de fragments.')}</div></div>
+    <div class="grille"><button class="btn carte bonus-choix" data-a="maudit" data-c="oui" disabled autofocus><b>☠ ${tr('Entrer')}</b><small>${tr('plus dur, fragments ×2')}</small></button>
+    <button class="btn carte bonus-choix" data-a="maudit" data-c="non" disabled><b>${tr('Éviter')}</b><small>${tr('les salles restent normales')}</small></button></div></div>`, 'fin');
+  debloquerBonus();
+}
+function prendreMaudit(oui) {
+  if (ecran !== 'choix') return;
+  J.prochaineMaud += 12;
+  if (oui) {
+    const i0 = J.monde.i;                                   // les prochaines salles construites (celles déjà prêtes restent normales)
+    J.mauds = J.mauds || []; J.mauds.push([i0 + 1, i0 + 7]); J.maudFin = i0 + 6;
+    J.monde.ajust = (J.monde.ajust || 0) + 0.3;
+  }
+  J.e.invT = Math.max(J.e.invT, M.K.invincible);
+  ecran = 'jeu'; cacherUI();
+}
+const estMaudite = (i) => !!(J && J.mauds && J.mauds.some(([a, b]) => i >= a && i < b));
 function appliquerBonusS(sorte, local) {
   J.actifs = J.actifs || {};
   if (sorte === 'bouclier') J.actifs.bouclier = 1; else J.actifs[sorte] = 480;
@@ -795,12 +897,12 @@ function menuEnLigne() {
   ecouterAmis();
   const ids = Object.keys(S.amis);
   const ligneAmi = (id) => { const D = S.duo[id] || {}; return `<div class="ami"><span><b>${echapper(S.amis[id].nom)}</b> <small>${tr('Parties ensemble : {0}', D.parties || 0)}${D.survie ? ' · ' + tr('Survivant') + ' ' + D.survie.kills + ' ✖' : ''}${D.expedition ? ' · ' + tr('Expédition') + ' ' + D.expedition.salles : ''}</small></span>
-    <button class="btn mini" data-a="el-appeler" data-c="${id}">${tr('Inviter')}</button><button class="btn mini" data-a="el-retirer" data-c="${id}">${tr('Retirer')}</button></div>`; };
+    <button class="btn mini" data-a="el-appeler" data-c="${id}">${tr('Inviter')}</button><button class="btn mini" data-a="profil" data-c="${id}">${tr('Profil')}</button><button class="btn mini" data-a="el-retirer" data-c="${id}">${tr('Retirer')}</button></div>`; };
   montrer(`<h2>🌐 ${tr('En ligne à deux')}</h2>
     <p class="note">${tr('Chacun sur son ordinateur. Survivant, Expédition ou course : si l’un meurt, l’autre aussi. Vos records à deux sont à part de tes records en solo.')}</p>
     ${texteEnLigne() ? `<div class="lignes"><div>${texteEnLigne()}</div></div>` : ''}
     ${EnLigne.code && EnLigne.role === 'hote' ? `<div class="temps">${EnLigne.code}</div>` : ''}
-    <div class="menu ligne"><label class="nom-joueur">${tr('Ton nom')} <input id="el-nom" maxlength="16" value="${echapper(moi().nom)}" autocomplete="off" data-entree="el-nom-ok"></label><button class="btn mini" data-a="el-nom-ok">${tr('Enregistrer')}</button></div>
+    <div class="menu ligne"><label class="nom-joueur">${tr('Ton nom')} <input id="el-nom" maxlength="16" value="${echapper(moi().nom)}" autocomplete="off" data-entree="el-nom-ok"></label><button class="btn mini" data-a="el-nom-ok">${tr('Enregistrer')}</button><button class="btn mini" data-a="profil">${tr('Mon profil')}</button></div>
     <h3>${tr('Mes amis')}</h3>
     ${ids.length ? `<div class="amis">${ids.map(ligneAmi).join('')}</div><p class="note">${tr('Ton ami doit avoir le jeu ouvert pour recevoir ton invitation.')}</p>` : `<p class="note">${tr('Aucun ami pour l’instant : rencontre-toi avec une salle, puis ajoute-le en ami.')}</p>`}
     <h3>${tr('Rencontrer quelqu’un')}</h3>
@@ -817,8 +919,14 @@ EnLigne.surChange = () => {
   if (ecran === 'menu' && enligneOuvert) menuEnLigne();
 };
 EnLigne.surMessage = (d) => {
+  if (d.t === 'profil' && EnLigne.ami && d.p) {                      // le profil de l'ami (ses temps, son avancée, ses vidéos publiques)
+    profilsVus[EnLigne.ami.id] = d.p;
+    if (S.amis[EnLigne.ami.id]) { S.amis[EnLigne.ami.id].profil = d.p; sauver(); }
+    return;
+  }
   if (d.t === 'moi') {                                               // l'autre se présente
     EnLigne.ami = { id: String(d.id || '').slice(0, 20), nom: String(d.nom || tr('Ton ami')).slice(0, 16) };
+    envoyerProfil();
     if (S.amis[EnLigne.ami.id]) { S.amis[EnLigne.ami.id].nom = EnLigne.ami.nom; sauver(); }
     if (!EnLigne.viaAmi) { EnLigne.accepte = true; if (ecran !== 'jeu') accueil(); }            // salle à code : on s'est donné rendez-vous
     else if (EnLigne.role === 'hote') { propRecue = { mode: 'rejoindre' }; rafraichirEnLigne(); }   // un ami nous invite : on accepte ou non
@@ -837,6 +945,7 @@ EnLigne.surMessage = (d) => {
   if (d.t === 'debut') { enligneOuvert = false; ecranDuo = false; propRecue = null; propEnvoyee = null; refusMsg = ''; if (d.mode === 'duel') lancerDuel(d.niv); else if (d.mode === 'survie') lancerSurvie(d.graine, true); else lancerExpedition(d.graine, true); return; }
   if (!J || !J.coop) return;
   if (d.t === 'e') {                                                 // la position de l'ami
+    if (d.i != null && J.idx != null && d.i !== J.idx) { J.partenaire = null; return; }   // pas sur le même niveau (course sur une zone)
     if (!J.partenaire) J.partenaire = M.nouvelEtat(J.n);
     const p = J.partenaire; J.partenairePrec = { x: p.x, y: p.y, phase: p.phase };
     Object.assign(p, { x: d.x, y: d.y, phase: d.ph, face: d.f, vx: d.vx, vy: d.vy, sol: d.s, mortT: d.m, dash: d.d, temps: J.e.temps, demarre: true });
@@ -869,7 +978,7 @@ function apresPasEnLigne() {
   if (J.mortForcee) { J.mortForcee = false; if (e.mortT === 0) { e.mortT = 20; e.morts++; e.ev |= M.EV.MORT; e.evX = e.x + 6; e.evY = e.y + 6; J.mortRecue = true; } }
   else if ((e.ev & M.EV.MORT) && !J.mortRecue) EnLigne.envoyer({ t: 'mort' });
   if (!(e.ev & M.EV.MORT)) J.mortRecue = false;
-  EnLigne.envoyer({ t: 'e', x: e.x, y: e.y, ph: e.phase, f: e.face, vx: e.vx, vy: e.vy, s: e.sol, m: e.mortT, d: e.dash });
+  EnLigne.envoyer({ t: 'e', x: e.x, y: e.y, ph: e.phase, f: e.face, vx: e.vx, vy: e.vy, s: e.sol, m: e.mortT, d: e.dash, i: J.idx });
   if (J.mode === 'survie' && EnLigne.role === 'hote' && !(e.temps % 2)) {
     EnLigne.envoyer({ t: 's', m: J.monstres, b: J.balles, bo: J.bonusS || [], k: J.kills, pb: J.prochainBoss, pr: J.prochain, v: J.vague });
   }
@@ -1431,6 +1540,11 @@ function pas() {
   if (J.mode === 'expedition' && (J.e.ev & M.EV.MORT) && --J.vies <= 0) J.finT = 50;
   if (J.mode === 'expedition' && J.finT > 0) { J.e.mortT = Math.max(J.e.mortT, 2); if (--J.finT === 0) { finExpedition(); return; } }
   if (J.mode === 'expedition' && J.salle >= J.prochainChoix && J.finT === 0) { choixBonus(); return; }
+  if (J.mode === 'expedition' && !J.coop && J.finT === 0) {
+    if (J.prochaineMaud == null) J.prochaineMaud = 10;
+    if (J.maudFin && J.monde.i >= J.maudFin) { J.monde.ajust -= 0.3; J.maudFin = 0; }      // fin du passage maudit : les salles suivantes redeviennent normales
+    if (J.salle >= J.prochaineMaud && !J.maudFin) { choixMaudit(); return; }
+  }
   const unevie = J.mode === 'infini' || J.mode === 'survie';
   if (unevie) {
     if (J.e.ev & M.EV.MORT) J.finT = 50;                      // une seule vie : la course s'arrête
@@ -1475,7 +1589,7 @@ function pas() {
 
 function t0Entr() { return J.e.temps - (J.segT || 0); }
 function terminer() {
-  if (J.duel) { finDuel(); return; }
+  if (J.duel && J.mode !== 'course') { finDuel(); return; }
   if (J.mode === 'fantome') { finFantome(); return; }
   if (J.mode === 'defi' && J.entrainement) {                 // entraînement sur un défi : rien n'est compté
     ecran = 'fin'; SON.attenuer(true);
@@ -1524,6 +1638,7 @@ function terminer() {
     S.il[id].obj = (S.il[id].obj || 0) | objectifsFaits(id, t);
     majSerie();
     if (STEAM && LB_PRET) STEAM.classementEnvoyer('niveau-' + id, t, M.compresser(J.entrees));
+    noterPartie();
     J.succesNeufs = verifierSucces();
     sauver();
     ecran = 'fin';
@@ -1616,6 +1731,7 @@ function dessiner(dt) {
     if (J.fragT > 0) J.fragT--;
     hud.lignes.push(J.fragT > 0 ? { t: tr('Fragments gagnés : {0}', fr) + '   +' + J.fragPlus, c: '#ff9ae6' } : { t: tr('Fragments gagnés : {0}', fr), c: '#e0b8ff' });
     hud.lignes.push({ t: tr('Prochain bonus : salle {0}', J.prochainChoix), c: '#aaa' });
+    if (estMaudite(J.salle + (J.base || 0))) hud.lignes.push({ t: tr('Passage maudit : fragments ×2'), c: '#c98cff' });
     if (J.finT > 0) { hud.message = tr('Salles franchies : {0}', J.salle); hud.messageC = '#ff9ae6'; }
   } else if (J.mode === 'infini') {
     const rec = S.infini[J.imode];
@@ -1804,6 +1920,7 @@ function accueil() {
   <div class="grille petite">
     ${carte('succes', '🏆 ' + tr('Succès'), tr('{0} / {1} rangs', nbSucces, SUCCES.length * 5))}
     ${carte('boutique', '🛍 ' + tr('Boutique'), '<span class="rose">' + eclatsDispo() + ' ◆</span>')}
+    ${carte('videos', '⏺ ' + tr('Vidéos'), S.videos.length ? tr('{0} rangées', S.videos.length) : '')}
     ${carte('aide', '❓ ' + tr('Comment jouer'), '')}
     ${carte('reglages', '⚙ ' + tr('Réglages'), '')}
   </div>
@@ -2122,7 +2239,7 @@ function prendreBonus(id) {
 // fragments gagnés en arrivant à la salle n (plus la salle est loin, plus elle rapporte)
 function fragExpe(n) {
   const k = 1 + niv_am('gain') * 0.15;
-  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * ((J.multS && J.multS[i]) || 1);
+  let frag = 0; for (let i = (J.base || 0) + 1; i <= n; i++) frag += (1 + Math.floor(i / 8)) * ((J.multS && J.multS[i]) || 1) * (estMaudite(i) ? 2 : 1);
   return Math.round(frag * k);
 }
 function finExpedition() {
@@ -2166,6 +2283,7 @@ function finNiveau(t, avant, record) {
       ${suiv ? `<button class="btn" data-a="jouer" data-i="${J.idx + 1}" autofocus>${tr('Suivant')} <small>${tr('Entrée')}</small></button>` : ''}
       ${LB_PRET ? `<button class="btn" data-a="classement" data-i="${J.idx}">🌐 ${tr('Classement mondial')}</button>` : ''}
       ${S.il[id] && S.il[id].f ? `<button class="btn" data-a="voir-record" data-i="${J.idx}">⏪ ${tr('Revoir mon record (ralenti, image par image)')}</button>` : ''}
+      <button class="btn" data-a="videos">⏺ ${tr('Ranger dans mes vidéos')}</button>
       <button class="btn" data-a="niveaux">${tr('Niveaux')}</button>
     </div></div>`, 'fin');
 }
@@ -2216,6 +2334,7 @@ function finFantome() {
     <div class="menu ligne"><button class="btn" data-a="revoir" data-i="${idx}" autofocus>🔁 ${tr('Revoir')}</button><button class="btn" data-a="jouer" data-i="${idx}">${tr('Jouer ce niveau')}</button><button class="btn" data-a="niveaux" data-garde="1">${tr('Niveaux')}</button></div></div>`, 'fin');
 }
 function finCourse() {
+  if (J.duel) { finDuel(J.course.total); return; }               // course à deux sur une zone : pas de record solo
   const cat = J.cat, tot = J.course.total, pb = S.course[cat];
   const record = !pb || tot < pb.t;
   if (record) S.course[cat] = { t: tot, splits: J.course.splits.slice() };
@@ -2325,7 +2444,18 @@ function action(a, el) {
     case 'el-oui': repondre(true); break;
     case 'el-non': repondre(false); break;
     case 'el-annuler': if (propEnvoyee) { EnLigne.envoyer({ t: 'annule' }); propEnvoyee = null; } rafraichirEnLigne(); break;
-    case 'el-ajouter': if (EnLigne.ami) { S.amis[EnLigne.ami.id] = { nom: EnLigne.ami.nom }; sauver(); ecouterAmis(); accueilDuo(); } break;
+    case 'el-ajouter': if (EnLigne.ami) { S.amis[EnLigne.ami.id] = { nom: EnLigne.ami.nom, profil: profilsVus[EnLigne.ami.id] }; sauver(); ecouterAmis(); accueilDuo(); } break;
+    case 'profil': profilOnglet = 'temps'; menuProfil(el.dataset.c || null); break;
+    case 'prof-zone': profilZone = i; menuProfil(profilDe); break;
+    case 'prof-onglet': profilOnglet = el.dataset.c; menuProfil(profilDe); break;
+    case 'prof-voir': { const P = profilDe ? (profilsVus[profilDe] || (S.amis[profilDe] && S.amis[profilDe].profil)) : monProfil(); const v = P && P.videos && P.videos[i]; if (v) { retourProfil = profilDe || 'moi'; voirVideo(v, tr('vidéo de {0}', P.nom)); } break; }
+    case 'retour-profil': if (EnLigne.ensemble()) accueilDuo(); else menuEnLigne(); break;
+    case 'videos': menuVideos(); break;
+    case 'vid-onglet': videosOnglet = el.dataset.c; menuVideos(); break;
+    case 'vid-voir': { const v = trouverVideo(el.dataset.c); if (v) voirVideo(v, tr('ta vidéo')); break; }
+    case 'vid-ranger': rangerVideo(el.dataset.c, i === 3 ? 'pub' : String(i)); break;
+    case 'vid-suppr': S.videos = S.videos.filter(v => v.k !== el.dataset.c); sauver(); envoyerProfil(); menuVideos(); break;
+    case 'maudit': prendreMaudit(el.dataset.c === 'oui'); break;
     case 'el-retirer': delete S.amis[el.dataset.c]; sauver(); menuEnLigne(); break;
     case 'el-appeler': refusMsg = ''; EnLigne.appeler(el.dataset.c); break;
     case 'el-nom-ok': { const c = ui.querySelector('#el-nom'), v = c ? c.value.trim().slice(0, 16) : ''; if (v) { moi().nom = v; sauver(); } menuEnLigne(); const b = ui.querySelector('[data-a="el-nom-ok"]'); if (b) b.focus(); break; }

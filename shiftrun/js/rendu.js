@@ -187,6 +187,54 @@ function ombresVide(g, x, y, px, py) {
   if (plein(1, 0)) { const o = g.createLinearGradient(px + T - 4, 0, px + T, 0); o.addColorStop(0, 'rgba(0,0,0,0)'); o.addColorStop(1, 'rgba(0,0,0,.14)'); g.fillStyle = o; g.fillRect(px + T - 4, py, 4, T); }
   if (plein(0, 1)) { const o = g.createLinearGradient(0, py + T - 3, 0, py + T); o.addColorStop(0, 'rgba(0,0,0,0)'); o.addColorStop(1, 'rgba(0,0,0,.16)'); g.fillStyle = o; g.fillRect(px, py + T - 3, T, 3); }   // contact au sol
 }
+// lumières qui bougent ou s'allument : surface de la lave, jets de flammes, lasers (recalculées à chaque image)
+let lumMobiles = [];
+function lumieresMobiles(e, ox, vw) {
+  const L = [], tt = e.tR != null ? e.tR : e.temps, dans = (x) => x > ox - 80 && x < ox + vw + 80;
+  if (niv.broyeurs) for (let k = 0; k < niv.broyeurs.length; k++) {
+    const b = niv.broyeurs[k]; if (!b.lave) continue;
+    const surf = e.broy === k ? e.broyX : b.yBas;
+    for (let x = (b.x0 + 3) * T; x < (b.x0 + 11) * T; x += 3 * T) if (dans(x)) L.push([x, surf, '255,120,30', 46]);
+  }
+  if (niv.bruleurs) for (const b of niv.bruleurs) {
+    if (!dans(b.x * T) || M.bruleurEtat(b, tt) !== 2) continue;
+    const r = M.bruleurRect(b); L.push([(r[0] + r[2]) / 2, (r[1] + r[3]) / 2, '255,140,40', 40]);
+  }
+  if (niv.lasers) for (const l of niv.lasers) {
+    if (!dans(l.x * T) || M.laserEtat(l, tt) !== 2) continue;
+    const r = M.laserRect(l); L.push([(r[0] + r[2]) / 2, (r[1] + r[3]) / 2, '255,70,90', 34]);
+  }
+  return L;
+}
+// les murs proches d'une lumière s'éclairent sur la face tournée vers elle (mode additif)
+function eclairerMurs(g, lx, ly, c, r) {
+  const x0 = Math.floor((lx - r) / T), x1 = Math.floor((lx + r) / T), y0 = Math.floor((ly - r) / T), y1 = Math.floor((ly + r) / T);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!solideR(tuileR(x, y))) continue;
+    const cx = x * T + T / 2, cy = y * T + T / 2, d = Math.hypot(cx - lx, cy - ly);
+    if (d > r || d < 4) continue;
+    const f = 0.32 * (1 - d / r);
+    g.fillStyle = `rgba(${c},${f.toFixed(3)})`;
+    if (ly < y * T && !solideR(tuileR(x, y - 1))) g.fillRect(x * T, y * T, T, 3);                 // face du dessus
+    if (ly > (y + 1) * T && !solideR(tuileR(x, y + 1))) g.fillRect(x * T, (y + 1) * T - 3, T, 3);   // face du dessous
+    if (lx < x * T && !solideR(tuileR(x - 1, y))) g.fillRect(x * T, y * T, 3, T);                 // face de gauche
+    if (lx > (x + 1) * T && !solideR(tuileR(x + 1, y))) g.fillRect((x + 1) * T - 3, y * T, 3, T);   // face de droite
+  }
+}
+// ombre portée du personnage : à l'opposé de la lumière proche la plus forte (rien s'il n'y en a pas)
+function ombreLumiere(g, e) {
+  const px = e.x + PW / 2, py = e.y + PH / 2;
+  let best = null, bf = 0;
+  const essai = (lx, ly, r) => { const d = Math.hypot(lx - px, ly - py), f = 1 - d / (r * 2.2); if (f > bf && d > 6) { bf = f; best = [lx, ly]; } };
+  for (const [x, y, c, r] of dyn.lumieres) if (Math.abs(x * T - px) < 200) essai(x * T + 8, y * T + 8, r);
+  for (const [lx, ly, c, r] of lumMobiles) essai(lx, ly, r);
+  if (!best || bf <= 0.05) return;
+  const dx = px - best[0], dy = py - best[1], d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
+  g.save(); g.translate(px + ux * 7, py + uy * 7); g.rotate(Math.atan2(uy, ux));
+  const o = g.createLinearGradient(0, 0, 16, 0); o.addColorStop(0, `rgba(0,0,0,${(0.3 * Math.min(1, bf * 1.6)).toFixed(3)})`); o.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = o; g.beginPath(); g.ellipse(6, 0, 11, 5, 0, 0, 7); g.fill();
+  g.restore();
+}
 // ombre au sol sous un personnage ou un ennemi : plus il est haut, plus elle est petite et pâle
 function ombreSol(g, cx, basY, larg) {
   const tx = Math.floor(cx / T);
@@ -724,7 +772,7 @@ function dessiner(e, fantome, hud, dt) {
   }
   if (fantome && !fantome.fini) joueur(g, fantome, hud && hud.fantomeFort ? 0.62 : 0.32, true);   // en entraînement, le robot se voit mieux
   competences(g, e);
-  if (e.mortT === 0) { ombreSol(g, e.x + 6, e.y + 12, 7); joueur(g, e, 1, false); }
+  if (e.mortT === 0) { ombreSol(g, e.x + 6, e.y + 12, 7); ombreLumiere(g, e); joueur(g, e, 1, false); }
   if (e.mortT === 0 && hud && hud.actifs) effetsSurvie(g, e, hud.actifs);
   eauDessus(g, vis);
   // carte de lumière : un voile sombre, percé par chaque source de lumière
@@ -747,6 +795,8 @@ function dessiner(e, fantome, hud, dt) {
     };
     if (e.mortT === 0 || !hud) trou(e.x + PW / 2, e.y + PH / 2, hud ? (hud.brouillardFort ? 52 : hud.brouillard ? 85 : nuitT >= 0 ? 105 : 120) : 260, 1);
     for (const [x, y, c, r] of dyn.lumieres) if (vis(x, y)) trou(x * T + 8, y * T + 8, r * 2.2 * (0.92 + 0.08 * Math.sin(temps * 5 + x)), 0.95);
+    lumMobiles = lumieresMobiles(e, ox, vw);
+    for (const [wx, wy, c, r] of lumMobiles) trou(wx, wy, r * 2.2, 0.9);
     g.drawImage(ombreCv, ox, oy, vw, vh);
   }
   // lumières (mode additif)
@@ -757,6 +807,13 @@ function dessiner(e, fantome, hud, dt) {
     const l = g.createRadialGradient(px, py, 0, px, py, rr);
     l.addColorStop(0, `rgba(${c},.28)`); l.addColorStop(1, `rgba(${c},0)`);
     g.fillStyle = l; g.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+    eclairerMurs(g, px, py, c, rr * 1.3);
+  }
+  for (const [wx, wy, c, r] of lumMobiles) {
+    const l = g.createRadialGradient(wx, wy, 0, wx, wy, r);
+    l.addColorStop(0, `rgba(${c},.22)`); l.addColorStop(1, `rgba(${c},0)`);
+    g.fillStyle = l; g.fillRect(wx - r, wy - r, r * 2, r * 2);
+    eclairerMurs(g, wx, wy, c, r * 1.2);
   }
   if (e.mortT === 0) {
     const px = e.x + PW / 2, py = e.y + PH / 2, rr = 70;
