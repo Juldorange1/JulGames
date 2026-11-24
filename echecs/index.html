@@ -83,101 +83,107 @@
   <header class="entete">
     <h1>Configurer la partie</h1>
     <nav class="onglets-haut">
-      <button class="bouton discret" data-aller="persos">🧩 Personnages</button>
       <button class="bouton" data-aller="accueil">⟵ Retour</button>
-      <button class="bouton principal" id="cf-jouer">▶ Jouer</button>
+      <button class="bouton principal grand" id="cf-jouer">▶ Jouer</button>
     </nav>
   </header>
   <div class="config">
     <div class="config-gauche"><div id="plateau-config"></div></div>
     <div class="config-droite">
       <div class="cf-haut">
+        <div class="cf-av-ligne"><span>Avantage des blancs (joueur 1) :</span><b id="cf-av-valeur"></b></div>
+        <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div>
+        <div class="cf-av-texte" id="cf-avantage"></div>
         <div class="cf-hasard">
-          <span>S’il y a du hasard, l’avantage des blancs (joueur 1) doit être entre</span>
-          <input type="number" id="cf-av-min" step="0.1" min="-20" max="20">
-          <span>et</span>
-          <input type="number" id="cf-av-max" step="0.1" min="-20" max="20">
-          <span>(en pions, comme sur la barre)</span>
-        </div>
-        <label class="case-a-cocher"><input type="checkbox" id="cf-miroir"> Les deux camps identiques, face à face (le hasard aussi)</label>
-        <div class="cf-avantage-ligne">
-          <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div>
-          <div class="cf-avantage" id="cf-avantage"></div>
+          S’il y a du hasard, l’avantage des blancs doit être entre
+          <input type="number" id="cf-av-min" step="0.1" min="-20" max="20"> et
+          <input type="number" id="cf-av-max" step="0.1" min="-20" max="20"> pions.
         </div>
       </div>
-      <div class="onglets" id="onglets-config">
-        <button data-onglet="placement" class="actif">Placement</button>
-        <button data-onglet="emplacements">Emplacements</button>
-        <button data-onglet="plateau">Plateau</button>
-        <button data-onglet="regles">Règles</button>
-        <button data-onglet="enregistrer">Enregistrer</button>
+      <div class="onglets grands" id="onglets-config">
+        <button data-onglet="pieces" class="actif">♟ Pièces</button>
+        <button data-onglet="plateau">▦ Plateau</button>
+        <button data-onglet="regles">📜 Règles</button>
+        <button data-onglet="enregistrer">💾 Enregistrer</button>
       </div>
       <div class="cf-corps">
-        <div class="cf-onglet" data-onglet="placement">
-          <div class="choix ligne" id="outils-config">
-            <button data-outil="perso">♞ Personnage</button>
-            <button data-outil="trou">⬛ Trou</button>
-            <button data-outil="zone">▨ Zone au hasard</button>
-            <button data-outil="gomme">⌫ Gomme</button>
-          </div>
-          <p class="aide" id="cf-aide-outil"></p>
-          <div id="cf-palette-bloc">
-            <div class="choix ligne" id="camp-config">
-              <button data-camp="w">Pièces blanches</button>
-              <button data-camp="b">Pièces noires</button>
+        <!-- PIÈCES -->
+        <div class="cf-onglet" data-onglet="pieces">
+          <section class="etape">
+            <h3><span class="num-etape">1</span> Choisis des cases</h3>
+            <p class="aide">Clique des cases sur le plateau. Pour en prendre plusieurs d’un coup, garde le clic appuyé et fais glisser. Re-cliquer une case l’enlève.</p>
+            <div class="ligne-boutons">
+              <button class="bouton" id="sel-blancs">Moitié des blancs</button>
+              <button class="bouton" id="sel-noirs">Moitié des noirs</button>
+              <button class="bouton" id="sel-tout">Tout le plateau</button>
+              <button class="bouton" id="sel-aucune">Aucune case</button>
             </div>
-            <div id="cf-palette" class="palette"></div>
-            <p class="aide" id="cf-legende"></p>
-          </div>
-          <div class="ligne-boutons">
-            <button class="bouton" id="cf-vider">Vider le plateau</button>
-            <button class="bouton" id="cf-classique">Position classique</button>
-          </div>
+            <div id="sel-types" class="sel-types"></div>
+            <div class="sel-nb" id="sel-nb"></div>
+          </section>
+          <section class="etape" id="etape2">
+            <h3><span class="num-etape">2</span> Mets quelque chose sur ces cases</h3>
+            <div class="choix ligne" id="camp-config">
+              <button data-camp="w">♙ Pièces blanches</button>
+              <button data-camp="b">♟ Pièces noires</button>
+            </div>
+            <label class="case-a-cocher"><input type="checkbox" id="cf-miroir"> Mettre aussi la même chose en face, pour l’autre couleur (et le même tirage au hasard)</label>
+            <div id="cf-persos" class="cf-persos"></div>
+            <div class="actions-cases">
+              <button class="bouton" id="act-hasard">🎲 Au hasard parmi plusieurs personnages…</button>
+              <button class="bouton" id="act-melanger">🔀 Mélanger les pièces de ces cases à chaque partie</button>
+              <button class="bouton" id="act-trou">⬛ Faire des trous</button>
+              <button class="bouton danger" id="act-vider">✖ Vider ces cases</button>
+            </div>
+          </section>
         </div>
-        <div class="cf-onglet" data-onglet="emplacements">
-          <p class="aide">Remplace d’un coup tous les personnages d’un emplacement (par exemple les cavaliers) : par un autre personnage, par rien, ou par un tirage au hasard.</p>
-          <div id="cf-emplacements"></div>
-        </div>
+        <!-- PLATEAU -->
         <div class="cf-onglet" data-onglet="plateau">
-          <label class="champ">Colonnes <select id="cf-cols"></select></label>
-          <label class="champ">Rangées <select id="cf-lignes"></select></label>
-          <label class="champ">Trous placés au hasard à chaque partie <select id="cf-trous-hasard"></select></label>
-          <p class="aide">Pour dessiner des trous fixes ou des zones de placement au hasard, utilise les outils « Trou » et « Zone au hasard » de l’onglet Placement.</p>
+          <div class="compteur"><span>Colonnes</span><button class="bouton" id="cols-moins">−</button><b id="cols-val"></b><button class="bouton" id="cols-plus">+</button></div>
+          <div class="compteur"><span>Rangées</span><button class="bouton" id="lignes-moins">−</button><b id="lignes-val"></b><button class="bouton" id="lignes-plus">+</button></div>
+          <div class="compteur"><span>Trous ajoutés au hasard à chaque partie</span><button class="bouton" id="trous-moins">−</button><b id="trous-val"></b><button class="bouton" id="trous-plus">+</button></div>
+          <p class="aide">Pour mettre des trous à des endroits précis : onglet « Pièces », choisis les cases puis « Faire des trous ».</p>
+          <div class="ligne-boutons">
+            <button class="bouton" id="cf-classique">♜ Remettre la position classique</button>
+            <button class="bouton danger" id="cf-vider">✖ Vider tout le plateau</button>
+          </div>
         </div>
+        <!-- RÈGLES -->
         <div class="cf-onglet" data-onglet="regles">
-          <label class="champ">But du jeu
+          <label class="champ">Comment gagner ?
             <select id="cf-but">
-              <option value="mat">Mater le roi (normal)</option>
-              <option value="prise">Prendre le roi adverse (on peut se mettre en échec)</option>
-              <option value="centre">Mater, ou amener son roi au centre</option>
-              <option value="echecs">Mater, ou donner un certain nombre d’échecs</option>
+              <option value="mat">En faisant échec et mat (normal)</option>
+              <option value="prise">En prenant le roi adverse</option>
+              <option value="centre">Par mat, ou en amenant son roi au centre</option>
+              <option value="echecs">Par mat, ou en donnant plusieurs échecs</option>
             </select>
           </label>
-          <label class="champ" id="cf-nb-echecs-bloc">Nombre d’échecs pour gagner <select id="cf-nb-echecs"></select></label>
-          <label class="champ">Si un joueur n’a plus de coup sans être en échec (pat)
+          <label class="champ" id="cf-nb-echecs-bloc">Nombre d’échecs à donner pour gagner <select id="cf-nb-echecs"></select></label>
+          <label class="champ">Si un joueur ne peut plus bouger sans être en échec (pat)
             <select id="cf-pat">
-              <option value="draw">Partie nulle</option>
+              <option value="draw">Partie nulle (normal)</option>
               <option value="win">Il gagne</option>
               <option value="loss">Il perd</option>
             </select>
           </label>
-          <label class="case-a-cocher"><input type="checkbox" id="cf-renfort"> Les pièces prises vont dans la réserve et peuvent être posées</label>
-          <label class="case-a-cocher"><input type="checkbox" id="cf-obligatoire"> Prendre est obligatoire</label>
-          <label class="case-a-cocher"><input type="checkbox" id="cf-roque"> Roque autorisé (roi et tours à leur place)</label>
+          <label class="case-a-cocher"><input type="checkbox" id="cf-roque"> Roque autorisé</label>
           <label class="case-a-cocher"><input type="checkbox" id="cf-double"> Les pions avancent de deux cases au premier coup</label>
           <label class="case-a-cocher"><input type="checkbox" id="cf-passant"> Prise en passant</label>
-          <div class="champ">Les pions se promeuvent en<div class="promos" id="cf-promos"></div></div>
+          <label class="case-a-cocher"><input type="checkbox" id="cf-obligatoire"> Prendre est obligatoire</label>
+          <label class="case-a-cocher"><input type="checkbox" id="cf-renfort"> Les pièces prises changent de camp et peuvent être reposées</label>
+          <div class="champ">Un pion arrivé au bout devient :<div class="promos" id="cf-promos"></div></div>
         </div>
+        <!-- ENREGISTRER -->
         <div class="cf-onglet" data-onglet="enregistrer">
           <label class="champ">Nom de la configuration<input type="text" id="cf-nom" maxlength="40"></label>
           <div class="ligne-boutons">
             <button class="bouton principal" id="cf-enregistrer">💾 Enregistrer</button>
-            <button class="bouton" id="cf-enregistrer-nouv">💾 Enregistrer comme nouvelle</button>
+            <button class="bouton" id="cf-enregistrer-nouv">💾 Enregistrer comme une nouvelle</button>
           </div>
-          <h3>Configurations enregistrées</h3>
+          <h3>Mes configurations</h3>
           <div id="cf-liste" class="cf-liste"></div>
-          <h3>Partager</h3>
-          <p class="aide">Copie le code pour donner ta configuration (avec ses personnages), ou colle un code reçu puis clique « Importer ».</p>
+          <h3>Partager avec quelqu’un</h3>
+          <p class="aide">« Copier le code » puis envoie-le. Pour en recevoir une : colle le code ici puis « Importer ».</p>
           <textarea id="cf-code" rows="3"></textarea>
           <div class="ligne-boutons">
             <button class="bouton" id="cf-copier">Copier le code</button>
@@ -203,31 +209,36 @@
     <div class="ps-liste" id="ps-liste"></div>
     <div class="ps-editeur">
       <h2 id="ps-titre"></h2>
-      <p class="aide" id="ps-note-classique">Les mouvements des pièces classiques ne changent pas, mais tu peux choisir si elles peuvent être tirées au hasard.</p>
-      <div class="ps-ligne">
-        <label class="champ">Nom<input type="text" id="ps-nom" maxlength="24"></label>
-        <label class="champ">Catégorie<input type="text" id="ps-cat" list="ps-cats" maxlength="24"><datalist id="ps-cats"></datalist></label>
-      </div>
-      <label class="case-a-cocher"><input type="checkbox" id="ps-tirable"> Peut être tiré au hasard</label>
-      <div class="ps-ligne">
-        <div class="champ">Silhouette<div class="palette-rangee" id="ps-bases"></div></div>
-        <label class="champ">Marque (1 ou 2 signes)<input type="text" id="ps-marque" maxlength="4"></label>
-        <div class="champ">Aperçu<div class="ps-apercu" id="ps-apercu"></div></div>
-      </div>
-      <h3>Déplacements</h3>
-      <p class="aide">Clique les cases autour du personnage : ● va et prend, ○ va seulement (sans prendre), ✕ prend seulement. Ces sauts passent par-dessus les pièces. Les flèches le font glisser en ligne (bloqué par les pièces). Le haut = vers l’adversaire.</p>
-      <div class="ps-mouvements">
-        <div class="ps-grille" id="ps-grille"></div>
-        <div class="ps-cote">
-          <div class="ps-boussole" id="ps-boussole"></div>
-          <label class="champ">Portée des glissades <select id="ps-portee"></select></label>
+      <p class="aide" id="ps-note-classique">C’est une pièce classique : tu peux voir ses déplacements, mais pas les changer.</p>
+      <div id="ps-bloc-edition">
+        <div class="ps-ligne">
+          <label class="champ">Nom<input type="text" id="ps-nom" maxlength="24"></label>
+          <label class="champ">Catégorie<select id="ps-cat"></select>
+            <input type="text" id="ps-cat-nouvelle" maxlength="24" placeholder="Nom de la nouvelle catégorie">
+          </label>
+        </div>
+        <h3>Apparence</h3>
+        <div class="ps-ligne">
+          <div class="champ">Dessin<div class="palette-rangee" id="ps-bases"></div></div>
+          <label class="champ ps-marque">Petit signe (1 ou 2)<input type="text" id="ps-marque" maxlength="4"></label>
+          <div class="ps-apercu" id="ps-apercu"></div>
+        </div>
+        <h3>Où peut-il aller ?</h3>
+        <p class="aide">Clique les cases où il peut aller depuis sa place (au milieu). Le haut = vers l’adversaire. Les flèches au bord : il continue tout droit jusqu’au bout.</p>
+        <div id="ps-grille"></div>
+        <h3>Peut-il sauter par-dessus les autres pièces ?</h3>
+        <div class="choix ligne" id="ps-saute">
+          <button data-val="1">Oui, il saute (comme le cavalier)</button>
+          <button data-val="0">Non, il est bloqué (comme la tour)</button>
+        </div>
+        <p class="ps-desc" id="ps-desc"></p>
+        <div class="ligne-boutons">
           <select id="ps-copier"></select>
-          <button class="bouton" id="ps-effacer">Effacer les déplacements</button>
+          <button class="bouton" id="ps-effacer">Tout effacer</button>
         </div>
       </div>
-      <p class="ps-desc" id="ps-desc"></p>
       <div class="ligne-boutons">
-        <button class="bouton principal" id="ps-enregistrer">💾 Enregistrer</button>
+        <button class="bouton principal grand" id="ps-enregistrer">💾 Enregistrer</button>
         <button class="bouton danger" id="ps-supprimer">🗑 Supprimer</button>
       </div>
     </div>

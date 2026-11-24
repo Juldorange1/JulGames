@@ -271,7 +271,7 @@
       if (p.perso && !window.Persos.trouver(p.perso)) return 'Un personnage placé n’existe plus.';
       if (p.perso && !['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(p.perso)) customs.add(p.perso);
       if (p.hasard != null) for (const x of window.Persos.pool(p.hasard)) if (!x.classique) customs.add(x.id);
-      if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Aucun personnage ne peut être tiré au hasard' + (p.hasard ? ' dans « ' + p.hasard + ' »' : '') + ' : coche « peut être tiré au hasard » sur des personnages.';
+      if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Une case « au hasard » n’a aucun personnage possible : sélectionne-la et refais « Au hasard parmi… ».';
     }
     const R = cfg.regles;
     if (R.but !== 'prise' && (K !== 1 || k !== 1)) return 'Il faut exactement un roi blanc et un roi noir.';

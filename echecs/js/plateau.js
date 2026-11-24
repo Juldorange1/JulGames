@@ -124,6 +124,7 @@
         d.classList.remove('dernier', 'selection', 'cible', 'cible-prise', 'echec');
         d.classList.toggle('trou', trous.has(nom));
         d.classList.toggle('zone', zones.has(nom));
+        d.classList.toggle('choisie-cfg', !!(this.decor && this.decor.selection && this.decor.selection.has(nom)));
       }
       if (this.dernier) for (const n of this.dernier) if (this.casesEl[n]) this.casesEl[n].classList.add('dernier');
       if (this.echecCase && this.casesEl[this.echecCase]) this.casesEl[this.echecCase].classList.add('echec');
@@ -162,9 +163,10 @@
           if (p.hasard != null) {
             el = document.createElement('div');
             el.className = 'piece de ' + (p.camp === 'b' ? 'noire' : 'blanche');
-            el.innerHTML = '<span>🎲</span>' + (p.hasard ? '<small></small>' : '');
-            if (p.hasard) el.querySelector('small').textContent = p.hasard;
-            el.title = 'Au hasard' + (p.hasard ? ' : ' + p.hasard : '');
+            const choix = Array.isArray(p.hasard) ? p.hasard.map((id) => (window.Persos.trouver(id) || {}).nom).filter(Boolean) : null;
+            el.innerHTML = '<span>🎲</span><small></small>';
+            el.querySelector('small').textContent = choix ? choix.length + ' choix' : (p.hasard || 'tous');
+            el.title = 'Au hasard parmi : ' + (choix ? choix.join(', ') : (p.hasard || 'tous'));
           } else if (p.perso) el = window.Pieces.creerPerso(p.perso, p.camp);
           else el = window.Pieces.creerPiece(p.l, this.variante);
           if (p.promu) el.classList.add('promue');
