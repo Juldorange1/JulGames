@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Échecs &amp; Variantes — JulGame</title>
+<!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
+<script>window.coi = { quiet: true };</script>
+<script src="coi-serviceworker.js"></script>
+<link rel="stylesheet" href="css/jeu.css">
+</head>
+<body>
+<div id="chargement" class="chargement">
+  <div class="chargement-titre">Échecs &amp; Variantes</div>
+  <div class="chargement-texte" id="chargement-texte">Chargement des règles…</div>
+</div>
+
+<!-- ============ ACCUEIL ============ -->
+<section id="ecran-accueil" class="ecran">
+  <header class="entete">
+    <h1>Échecs <span class="et">&amp;</span> Variantes</h1>
+    <nav class="onglets-haut">
+      <button class="bouton discret" data-aller="parties">📜 Mes parties</button>
+      <button class="bouton discret" data-aller="atelier">🛠️ Créer une variante</button>
+      <a class="bouton discret" href="../">⟵ JulGame</a>
+    </nav>
+  </header>
+  <div class="accueil">
+    <div class="accueil-variantes">
+      <h2>Variante</h2>
+      <div id="liste-variantes" class="liste-variantes"></div>
+    </div>
+    <div class="accueil-reglages">
+      <div class="bloc-info" id="info-variante"></div>
+      <h2>Adversaire</h2>
+      <div class="choix" id="choix-adversaire">
+        <button data-val="expert"><b>Expert</b><span>joue comme un joueur à 2200 Elo</span></button>
+        <button data-val="maitre"><b>Maître</b><span>Stockfish à pleine force</span></button>
+        <button data-val="ami"><b>Un ami</b><span>à deux sur le même écran</span></button>
+      </div>
+      <h2>Tu joues</h2>
+      <div class="choix ligne" id="choix-couleur">
+        <button data-val="w">Les blancs</button>
+        <button data-val="hasard">Au hasard</button>
+        <button data-val="b">Les noirs</button>
+      </div>
+      <h2>Pendule</h2>
+      <div class="choix ligne" id="choix-pendule">
+        <button data-val="0">Sans</button>
+        <button data-val="3+2">3+2</button>
+        <button data-val="5+3">5+3</button>
+        <button data-val="10+5">10+5</button>
+        <button data-val="15+10">15+10</button>
+        <button data-val="30+0">30 min</button>
+      </div>
+      <div id="bloc-reflexion">
+        <h2>Temps de réflexion du bot (sans pendule)</h2>
+        <div class="choix ligne" id="choix-reflexion">
+          <button data-val="1000">1 s</button>
+          <button data-val="3000">3 s</button>
+          <button data-val="8000">8 s</button>
+        </div>
+      </div>
+      <div class="ligne-boutons">
+        <button class="bouton principal grand" id="btn-commencer">Commencer la partie</button>
+        <button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button>
+      </div>
+      <div class="options-generales">
+        <label><input type="checkbox" id="opt-sons"> Bruits des pièces</label>
+        <label><input type="checkbox" id="opt-barre"> Barre d’avantage pendant la partie</label>
+      </div>
+      <div class="note-moteur" id="note-moteur"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PARTIE ============ -->
+<section id="ecran-partie" class="ecran">
+  <div class="zone-jeu" id="zone-partie">
+    <div class="barre-eval" id="barre-partie"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div>
+    <div id="plateau-partie"></div>
+  </div>
+  <aside class="panneau">
+    <div class="joueur" id="joueur-haut"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span></div>
+    <div class="etat" id="etat-partie"></div>
+    <div class="liste-coups" id="coups-partie"></div>
+    <div class="joueur" id="joueur-bas"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span></div>
+    <div class="boutons-partie">
+      <button class="bouton" id="btn-retourner" title="Retourner le plateau (touche F)">⟲ Retourner</button>
+      <button class="bouton" id="btn-annuler">↶ Annuler un coup</button>
+      <button class="bouton" id="btn-abandonner">🏳 Abandonner</button>
+      <button class="bouton" id="btn-regles">❓ Règles</button>
+      <button class="bouton" id="btn-menu-partie">☰ Menu</button>
+    </div>
+  </aside>
+</section>
+
+<!-- ============ BILAN ============ -->
+<section id="ecran-bilan" class="ecran">
+  <div class="zone-jeu" id="zone-bilan">
+    <div class="barre-eval" id="barre-bilan"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div>
+    <div id="plateau-bilan"></div>
+  </div>
+  <aside class="panneau panneau-bilan">
+    <div class="bilan-titre" id="bilan-titre"></div>
+    <div class="progression" id="bilan-progression"><div class="progression-barre"></div><span></span></div>
+    <div class="onglets" id="onglets-bilan">
+      <button data-onglet="resume" class="actif">Résumé</button>
+      <button data-onglet="coups">Coups</button>
+    </div>
+    <div class="bilan-onglet" id="bilan-resume"></div>
+    <div class="bilan-onglet" id="bilan-coups">
+      <canvas id="graphe-bilan" class="graphe"></canvas>
+      <div class="commentaire" id="bilan-commentaire"></div>
+      <div class="liste-coups" id="coups-bilan"></div>
+    </div>
+    <div class="nav-bilan">
+      <button class="bouton" data-nav="debut" title="Début (touche ↑)">⏮</button>
+      <button class="bouton" data-nav="prec" title="Coup précédent (touche ←)">◀</button>
+      <button class="bouton" data-nav="suiv" title="Coup suivant (touche →)">▶</button>
+      <button class="bouton" data-nav="fin" title="Fin (touche ↓)">⏭</button>
+      <button class="bouton" id="btn-bilan-retourner" title="Retourner (F)">⟲</button>
+    </div>
+    <div class="boutons-partie">
+      <button class="bouton" id="btn-bilan-rejouer">♟ Rejouer d’ici contre le bot</button>
+      <button class="bouton" id="btn-bilan-profond">🔍 Analyse plus profonde</button>
+      <button class="bouton" id="btn-bilan-pgn">📋 Copier la partie (PGN)</button>
+      <button class="bouton" id="btn-bilan-menu">☰ Menu</button>
+    </div>
+  </aside>
+</section>
+
+<!-- ============ MES PARTIES ============ -->
+<section id="ecran-parties" class="ecran">
+  <header class="entete">
+    <h1>Mes parties</h1>
+    <nav class="onglets-haut"><button class="bouton" data-aller="accueil">⟵ Retour</button></nav>
+  </header>
+  <div class="liste-parties" id="liste-parties"></div>
+</section>
+
+<!-- ============ ATELIER ============ -->
+<section id="ecran-atelier" class="ecran">
+  <header class="entete">
+    <h1>Atelier des variantes</h1>
+    <nav class="onglets-haut"><button class="bouton" data-aller="accueil">⟵ Retour</button></nav>
+  </header>
+  <div class="atelier">
+    <div class="atelier-gauche">
+      <div class="atelier-mes" id="atelier-mes"></div>
+      <div class="palette" id="atelier-palette"></div>
+      <div id="plateau-atelier"></div>
+      <div class="ligne-boutons">
+        <button class="bouton" id="at-vider">Vider le plateau</button>
+        <button class="bouton" id="at-depart">Position classique</button>
+        <label class="case-a-cocher"><input type="checkbox" id="at-miroir" checked> Poser aussi la pièce adverse en miroir</label>
+      </div>
+    </div>
+    <div class="atelier-droite">
+      <div class="onglets" id="onglets-atelier">
+        <button data-onglet="nom" class="actif">Nom</button>
+        <button data-onglet="plateau">Plateau</button>
+        <button data-onglet="regles">Règles</button>
+        <button data-onglet="partager">Partager</button>
+      </div>
+      <div class="at-onglet" data-onglet="nom">
+        <label class="champ">Nom de la variante<input type="text" id="at-nom" maxlength="30"></label>
+        <label class="champ">Description courte<input type="text" id="at-desc" maxlength="70"></label>
+        <label class="champ">Règles expliquées (facultatif)<textarea id="at-regles" rows="4" maxlength="500"></textarea></label>
+      </div>
+      <div class="at-onglet" data-onglet="plateau">
+        <label class="champ">Colonnes <select id="at-cols"></select></label>
+        <label class="champ">Rangées <select id="at-lignes"></select></label>
+        <p class="aide">Clique une pièce dans la palette, puis des cases du plateau. Clic droit (ou la gomme) pour effacer.</p>
+      </div>
+      <div class="at-onglet" data-onglet="regles">
+        <label class="champ">But du jeu
+          <select id="at-but">
+            <option value="mat">Mater le roi (normal)</option>
+            <option value="prise">Prendre le roi adverse (on peut se mettre en échec)</option>
+            <option value="centre">Mater, ou amener son roi au centre</option>
+            <option value="echecs">Mater, ou donner un certain nombre d’échecs</option>
+          </select>
+        </label>
+        <label class="champ" id="at-nb-echecs-bloc">Nombre d’échecs pour gagner <select id="at-nb-echecs"></select></label>
+        <label class="champ">Si un joueur n’a plus de coup sans être en échec (pat)
+          <select id="at-pat">
+            <option value="draw">Partie nulle</option>
+            <option value="win">Il gagne</option>
+            <option value="loss">Il perd</option>
+          </select>
+        </label>
+        <label class="case-a-cocher"><input type="checkbox" id="at-renfort"> Les pièces prises vont dans la réserve et peuvent être posées</label>
+        <label class="case-a-cocher"><input type="checkbox" id="at-obligatoire"> Prendre est obligatoire</label>
+        <label class="case-a-cocher"><input type="checkbox" id="at-roque" checked> Roque autorisé (roi et tours à leur place)</label>
+        <label class="case-a-cocher"><input type="checkbox" id="at-double" checked> Les pions avancent de deux cases au premier coup</label>
+        <label class="case-a-cocher"><input type="checkbox" id="at-passant" checked> Prise en passant</label>
+        <div class="champ">Les pions se promeuvent en<div class="promos" id="at-promos"></div></div>
+      </div>
+      <div class="at-onglet" data-onglet="partager">
+        <p class="aide">Copie ce code pour donner ta variante à quelqu’un, ou colle un code reçu puis clique « Importer ».</p>
+        <textarea id="at-code" rows="5"></textarea>
+        <div class="ligne-boutons">
+          <button class="bouton" id="at-copier">Copier le code</button>
+          <button class="bouton" id="at-importer">Importer</button>
+        </div>
+        <p class="aide">Définition technique (lue par les règles et par les bots) :</p>
+        <pre class="ini" id="at-ini"></pre>
+      </div>
+      <div class="at-message" id="at-message"></div>
+      <div class="ligne-boutons">
+        <button class="bouton principal" id="at-enregistrer">💾 Enregistrer</button>
+        <button class="bouton" id="at-jouer">▶ Enregistrer et jouer</button>
+        <button class="bouton" id="at-nouvelle">✚ Nouvelle</button>
+        <button class="bouton danger" id="at-supprimer">🗑 Supprimer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
+<div id="bulle" class="bulle cachee"></div>
+
+<script src="js/pieces-svg.js"></script>
+<script src="js/pieces.js"></script>
+<script src="js/variantes.js"></script>
+<script src="js/regles.js"></script>
+<script src="js/moteur.js"></script>
+<script src="js/son.js"></script>
+<script src="js/plateau.js"></script>
+<script src="js/bilan.js"></script>
+<script src="js/atelier.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
