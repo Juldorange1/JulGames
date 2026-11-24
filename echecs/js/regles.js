@@ -24,28 +24,15 @@
     return ff;
   }
 
-  function chargerVariantes(ini) {
-    if (!ff || ini === iniCharge) return;
-    if (ini.trim()) ff.loadVariantConfig(ini);
-    iniCharge = ini;
-  }
-
-  // Teste une définition .ini : renvoie null si tout va bien, sinon un message.
-  function testerIni(ini, nom) {
-    try {
-      ff.loadVariantConfig(ini);
-      const fen = ff.startingFen(nom);
-      if (!fen) return 'La variante n’a pas pu être lue.';
-      const b = new ff.Board(nom);
-      const n = b.numberLegalMoves();
-      b.delete();
-      if (n === 0) return 'Aucun coup possible au départ.';
-      return null;
-    } catch (e) {
-      return 'Définition refusée par les règles.';
-    } finally {
-      iniCharge = '';
-    }
+  // Charge une définition de variante (une seule fois par nom : les règles ne remplacent jamais).
+  const chargees = new Set();
+  function assurer(ini) {
+    if (!ini || !ff) return;
+    const m = ini.match(/^\[([^:\]]+)/);
+    const nom = m ? m[1] : ini;
+    if (chargees.has(nom)) return;
+    ff.loadVariantConfig(ini);
+    chargees.add(nom);
   }
 
   // ---------- Lecture d'une FEN ----------
@@ -65,6 +52,7 @@
     }
     const rangs = plac.split('/');
     const cases = [];
+    const murs = [];
     let cols = 0;
     for (const r of rangs) {
       const ligne = [];
@@ -82,7 +70,8 @@
         } else if (/[a-z]/i.test(ch)) {
           ligne.push({ l: ch });
         } else {
-          ligne.push(null); // mur ou symbole inconnu
+          if (ch === '*') murs.push([cases.length, ligne.length]); // trou (mur)
+          ligne.push(null);
         }
         i++;
       }
@@ -94,13 +83,19 @@
       const m = c.match(/^(\d+)\+(\d+)$/);
       if (m) echecs = { w: +m[1], b: +m[2] };
     }
-    return { cols, lignes: cases.length, cases, poches, trait: champs[1] === 'b' ? 'b' : 'w', echecs };
+    const trous = new Set(murs.map(([r, c]) => 'abcdefghijkl'[c] + (cases.length - r)));
+    return { cols, lignes: cases.length, cases, poches, trait: champs[1] === 'b' ? 'b' : 'w', echecs, trous };
   }
 
   // Notation française : R(oi) D(ame) T(our) F(ou) C(avalier) ; pièces féeriques : A, Ch, Am, H.
   const FR = { K: 'R', Q: 'D', R: 'T', B: 'F', N: 'C', A: 'A', C: 'Ch', Z: 'Am', M: 'H' };
-  function francais(san) {
-    return san.replace(/[A-NP-Z]/g, (l) => FR[l] || l);
+  // Avec une variante : un personnage créé s'écrit avec sa marque.
+  function francais(san, v) {
+    return san.replace(/[A-NP-Z]/g, (l) => {
+      const info = v && v.pieces && v.pieces[l.toLowerCase()];
+      if (info && info.marque) return info.marque;
+      return FR[l] || l;
+    });
   }
 
   const FICHIERS = 'abcdefghijkl';
@@ -122,6 +117,7 @@
   // ---------- Une partie ----------
   class Partie {
     constructor(variante, fen0, coups) {
+      assurer(variante.ini);
       this.v = variante;
       this.fen0 = fen0 || Regles.fenDepart(variante);
       this.board = new ff.Board(variante.uci, this.fen0, !!variante.is960);
@@ -144,7 +140,7 @@
       const prise = this.board.isCapture(uci);
       this.board.push(uci);
       this.coups.push(uci);
-      this.sans.push(francais(san));
+      this.sans.push(francais(san, this.v));
       this.sansEn.push(san);
       this.prises.push(prise);
       this.fens.push(this.board.fen());
@@ -181,7 +177,7 @@
         let s;
         try { s = b.sanMove(c); } catch (e) { break; }
         if (!b.push(c)) break;
-        out.push(francais(s));
+        out.push(francais(s, this.v));
       }
       b.delete();
       return out;
@@ -208,13 +204,9 @@
   }
 
   const Regles = {
-    charger, chargerVariantes, testerIni, francais, lireFen, nomCase, lireCase, decouper, Partie, fen960,
+    charger, assurer, francais, lireFen, nomCase, lireCase, decouper, Partie, fen960,
     get ff() { return ff; },
-    fenDepart(v) { return v.is960 ? fen960() : ff.startingFen(v.uci); },
-    dimensions(v) {
-      const p = lireFen(ff.startingFen(v.uci));
-      return { cols: p.cols, lignes: p.lignes, poches: !!p.poches };
-    }
+    fenDepart(v) { return v.fen0 || (v.is960 ? fen960() : ff.startingFen(v.uci)); }
   };
   window.Regles = Regles;
 })();

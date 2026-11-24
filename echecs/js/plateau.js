@@ -77,6 +77,7 @@
       this.position = position;
       this.cols = position.cols; this.lignes = position.lignes;
       if (o.variante) this.variante = o.variante;
+      this.decor = o.decor || null;
       this.dernier = o.dernier || null;
       this.echecCase = o.echec || null;
       if (dimsChangent || !this.grille.children.length) this._construireGrille();
@@ -116,9 +117,13 @@
 
     _surligner() {
       if (!this.casesEl) return;
+      const trous = (this.position && this.position.trous) || new Set();
+      const zones = (this.decor && this.decor.zones) || new Set();
       for (const nom in this.casesEl) {
         const d = this.casesEl[nom];
         d.classList.remove('dernier', 'selection', 'cible', 'cible-prise', 'echec');
+        d.classList.toggle('trou', trous.has(nom));
+        d.classList.toggle('zone', zones.has(nom));
       }
       if (this.dernier) for (const n of this.dernier) if (this.casesEl[n]) this.casesEl[n].classList.add('dernier');
       if (this.echecCase && this.casesEl[this.echecCase]) this.casesEl[this.echecCase].classList.add('echec');
@@ -153,7 +158,15 @@
           if (!p) continue;
           const rang = this.lignes - 1 - r;
           const nom = FICH[col] + (rang + 1);
-          const el = window.Pieces.creerPiece(p.l, this.variante);
+          let el;
+          if (p.hasard != null) {
+            el = document.createElement('div');
+            el.className = 'piece de ' + (p.camp === 'b' ? 'noire' : 'blanche');
+            el.innerHTML = '<span>🎲</span>' + (p.hasard ? '<small></small>' : '');
+            if (p.hasard) el.querySelector('small').textContent = p.hasard;
+            el.title = 'Au hasard' + (p.hasard ? ' : ' + p.hasard : '');
+          } else if (p.perso) el = window.Pieces.creerPerso(p.perso, p.camp);
+          else el = window.Pieces.creerPiece(p.l, this.variante);
           if (p.promu) el.classList.add('promue');
           const e = this._ecran(col, rang);
           el.style.width = t + 'px'; el.style.height = t + 'px';
@@ -407,6 +420,19 @@
         pointe.setAttribute('points', p1 + ' ' + p2 + ' ' + p3);
         pointe.setAttribute('fill', coul);
         svg.appendChild(pointe);
+        if (f.etiquette) {
+          const g = document.createElementNS(ns, 'g');
+          const cx = base.x, cy = base.y;
+          const rond = document.createElementNS(ns, 'circle');
+          rond.setAttribute('cx', cx); rond.setAttribute('cy', cy); rond.setAttribute('r', Math.max(11, t * 0.2));
+          rond.setAttribute('fill', coul); rond.setAttribute('stroke', '#111'); rond.setAttribute('stroke-width', 1.5);
+          const tx = document.createElementNS(ns, 'text');
+          tx.setAttribute('x', cx); tx.setAttribute('y', cy); tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('dominant-baseline', 'central');
+          tx.setAttribute('font-size', Math.max(16, t * 0.26)); tx.setAttribute('font-weight', '800'); tx.setAttribute('fill', '#111');
+          tx.textContent = f.etiquette;
+          g.append(rond, tx);
+          svg.appendChild(g);
+        }
       }
     }
   }

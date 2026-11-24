@@ -42,7 +42,8 @@
         this.aller(Math.round((e.clientX - r.left) / r.width * N));
       });
       document.querySelectorAll('#onglets-bilan button').forEach((b) => b.addEventListener('click', () => this.choisirOnglet(b.dataset.onglet)));
-      document.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
+      document.querySelectorAll('#ecran-bilan [data-nav]').forEach((b) => b.addEventListener('click', () => {
+        if (!this.partie) return;
         const N = this.partie.coups.length;
         const d = b.dataset.nav;
         this.aller(d === 'debut' ? 0 : d === 'fin' ? N : d === 'prec' ? this.n - 1 : this.n + 1);
@@ -57,8 +58,8 @@
 
     ouvrir(rec) {
       window.App.fermerModale();
-      const v = window.Variantes.toutes().find((x) => x.id === rec.varianteId);
-      if (!v) { window.App.bulle('La variante de cette partie a été supprimée.'); return; }
+      const v = rec.variante;
+      if (!v) { window.App.bulle('Partie illisible.'); return; }
       this.quitter();
       this.rec = rec;
       this.v = v;
@@ -83,7 +84,7 @@
 
     quitter() {
       this.session++;
-      if (this.v) { const m = window.Moteurs.pourVariante(this.v); if (m.pret) m.arreter(); }
+      if (this.v) { const m = window.Moteurs.pourVariante(this.v, 'analyse'); if (m.pret) m.arreter(); }
       if (this.partie) { this.partie.detruire(); this.partie = null; }
     },
 
@@ -100,7 +101,7 @@
       const rec = this.rec;
       const ses = ++this.session;
       const v = this.v;
-      const moteur = window.Moteurs.pourVariante(v);
+      const moteur = window.Moteurs.pourVariante(v, 'analyse');
       if (moteur.pret) moteur.arreter();
       const ancien = rec.analyse;
       const N = rec.coups.length;
@@ -211,7 +212,7 @@
       const el = $('#bilan-progression');
       el.querySelector('.progression-barre').style.width = (100 * faits / total) + '%';
       const niv = (NIVEAUX[a.niveau] || NIVEAUX.normal).nom;
-      const moteurNom = window.Variantes.moteurDe(this.v) === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
+      const moteurNom = this.v.moteur === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
       el.querySelector('span').textContent = faits < total
         ? 'Analyse ' + niv + ' par ' + moteurNom + ' : ' + faits + ' / ' + total + ' positions…'
         : 'Analyse ' + niv + ' par ' + moteurNom + ' terminée.';

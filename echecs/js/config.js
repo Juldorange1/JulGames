@@ -1,0 +1,351 @@
+/* Configuration d'une partie : plateau (taille, trous), personnages placés (ou tirés au hasard),
+   zones de placement aléatoire, règles, et fourchette d'avantage voulue quand il y a du hasard.
+   Une configuration est traduite en définition Fairy-Stockfish : les règles et les bots la comprennent. */
+(function () {
+  'use strict';
+
+  const CLE_LISTE = 'echecs.configs';
+  const CLE_COURANTE = 'echecs.config';
+  const FICH = 'abcdefghijkl';
+  const LETTRES_LIBRES = 'acdefghijlmostuvwxyz';
+
+  function grille(l, c, v) { return Array.from({ length: l }, () => Array.from({ length: c }, () => v)); }
+  function copie(o) { return JSON.parse(JSON.stringify(o)); }
+
+  function reglesDefaut() {
+    return { but: 'mat', nbEchecs: 3, pat: 'draw', renfort: false, obligatoire: false, roque: true, double: true, passant: true, promos: ['dame', 'tour', 'fou', 'cavalier'] };
+  }
+
+  function classique() {
+    const cfg = {
+      id: 'classique', nom: 'Classique', avMin: -0.5, avMax: 0.5,
+      cols: 8, lignes: 8, pieces: grille(8, 8, null), trous: grille(8, 8, false), zones: grille(8, 8, false),
+      trousHasard: 0, miroir: true, regles: reglesDefaut()
+    };
+    const rangee = ['tour', 'cavalier', 'fou', 'dame', 'roi', 'fou', 'cavalier', 'tour'];
+    for (let c = 0; c < 8; c++) {
+      cfg.pieces[0][c] = { camp: 'w', perso: rangee[c] };
+      cfg.pieces[1][c] = { camp: 'w', perso: 'pion' };
+      cfg.pieces[6][c] = { camp: 'b', perso: 'pion' };
+      cfg.pieces[7][c] = { camp: 'b', perso: rangee[c] };
+    }
+    return cfg;
+  }
+
+  // ---------- hasard ----------
+  function aleatoire(cfg) {
+    if (cfg.trousHasard > 0) return true;
+    for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
+      const p = cfg.pieces[r][c];
+      if (p && p.hasard != null) return true;
+      if (cfg.zones[r][c]) return true;
+    }
+    return false;
+  }
+
+  function melanger(t) {
+    for (let i = t.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; }
+    return t;
+  }
+  function auHasard(l) { return l.length ? l[Math.floor(Math.random() * l.length)] : null; }
+
+  // Tire une position concrète : { pieces[r][c] = {camp, perso} | null, trous[r][c] }
+  function tirage(cfg) {
+    const L = cfg.lignes, C = cfg.cols;
+    const pieces = copie(cfg.pieces);
+    const trous = copie(cfg.trous);
+    const miroir = (r) => L - 1 - r;
+    const moitie = Math.floor(L / 2);
+    // 1. personnages au hasard
+    const tirer = (cat) => { const p = auHasard(window.Persos.pool(cat || '')); return p ? p.id : null; };
+    for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+      const p = pieces[r][c];
+      if (!p || p.hasard == null || p.camp !== 'w') continue;
+      const id = tirer(p.hasard);
+      pieces[r][c] = id ? { camp: 'w', perso: id } : null;
+      const m = pieces[miroir(r)][c];
+      if (cfg.miroir && m && m.camp === 'b' && m.hasard != null) pieces[miroir(r)][c] = id ? { camp: 'b', perso: id } : null;
+    }
+    for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+      const p = pieces[r][c];
+      if (p && p.hasard != null) { const id = tirer(p.hasard); pieces[r][c] = id ? { camp: p.camp, perso: id } : null; }
+    }
+    // 2. zones de placement aléatoire (chaque camp dans sa moitié)
+    const zonesDe = (blanc) => {
+      const out = [];
+      for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+        if (!cfg.zones[r][c] || trous[r][c]) continue;
+        if (blanc ? r < moitie : r >= L - moitie) out.push([r, c]);
+      }
+      return out;
+    };
+    const brasser = (cases, camp) => {
+      const lot = [];
+      for (const [r, c] of cases) { const p = pieces[r][c]; if (p && p.camp === camp) { lot.push(p); pieces[r][c] = null; } }
+      const libres = melanger(cases.filter(([r, c]) => !pieces[r][c]));
+      lot.forEach((p, i) => { if (libres[i]) pieces[libres[i][0]][libres[i][1]] = p; });
+    };
+    const zw = zonesDe(true);
+    brasser(zw, 'w');
+    if (cfg.miroir) {
+      const faites = new Set();
+      for (const [r, c] of zw) {
+        const rm = miroir(r);
+        if (!cfg.zones[rm][c]) continue;
+        const p = pieces[r][c];
+        const q = pieces[rm][c];
+        if (q && q.camp === 'w') continue;
+        pieces[rm][c] = p && p.camp === 'w' ? { camp: 'b', perso: p.perso } : null;
+        faites.add(rm + ',' + c);
+      }
+      brasser(zonesDe(false).filter(([r, c]) => !faites.has(r + ',' + c)), 'b');
+    } else {
+      brasser(zonesDe(false), 'b');
+    }
+    // 3. trous au hasard (sur des cases vides)
+    let n = cfg.trousHasard || 0;
+    if (n > 0) {
+      const vides = [];
+      for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+        if (pieces[r][c] || trous[r][c]) continue;
+        if (cfg.miroir && r > miroir(r)) continue;
+        if (cfg.miroir && pieces[miroir(r)][c]) continue;
+        vides.push([r, c]);
+      }
+      melanger(vides);
+      for (const [r, c] of vides) {
+        if (n <= 0) break;
+        trous[r][c] = true; n--;
+        if (cfg.miroir && miroir(r) !== r) { trous[miroir(r)][c] = true; n--; }
+      }
+    }
+    return { pieces, trous };
+  }
+
+  // ---------- traduction en variante ----------
+  function empreinte(t) {
+    let h = 5381;
+    for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+
+  function casesCentre(cfg) {
+    const cs = cfg.cols % 2 ? [(cfg.cols - 1) / 2] : [cfg.cols / 2 - 1, cfg.cols / 2];
+    const rs = cfg.lignes % 2 ? [(cfg.lignes - 1) / 2] : [cfg.lignes / 2 - 1, cfg.lignes / 2];
+    const out = [];
+    for (const r of rs) for (const c of cs) out.push(FICH[c] + (r + 1));
+    return out;
+  }
+
+  // Construit la variante jouable à partir d'une position tirée.
+  function construire(cfg, t) {
+    const R = cfg.regles;
+    const ids = new Set();
+    for (const l of t.pieces) for (const p of l) if (p) ids.add(p.perso);
+    const aPion = ids.has('pion');
+    if (aPion) for (const id of R.promos) ids.add(id);
+    // lettres
+    const lettres = {}; // id -> lettre
+    const customs = [];
+    let libre = 0;
+    for (const id of ids) {
+      const p = window.Persos.trouver(id);
+      if (!p) continue;
+      if (p.classique) lettres[id] = p.lettre;
+      else { lettres[id] = LETTRES_LIBRES[libre++] || '?'; customs.push(p); }
+    }
+    // FEN
+    const rangs = [];
+    for (let r = cfg.lignes - 1; r >= 0; r--) {
+      let s = '', vide = 0;
+      for (let c = 0; c < cfg.cols; c++) {
+        if (t.trous[r][c]) { if (vide) { s += vide; vide = 0; } s += '*'; continue; }
+        const p = t.pieces[r][c];
+        if (!p || !lettres[p.perso]) { vide++; continue; }
+        if (vide) { s += vide; vide = 0; }
+        const l = lettres[p.perso];
+        s += p.camp === 'w' ? l.toUpperCase() : l;
+      }
+      if (vide) s += vide;
+      rangs.push(s);
+    }
+    let plac = rangs.join('/');
+    if (R.renfort) plac += '[]';
+    let roque = '';
+    if (R.roque && R.but !== 'prise') {
+      const test = (rang, camp, kc, qc) => {
+        const l = t.pieces[rang];
+        const k = l.findIndex((p) => p && p.camp === camp && p.perso === 'roi');
+        if (k < 0) return '';
+        let o = '';
+        const d = l[cfg.cols - 1], g = l[0];
+        if (d && d.camp === camp && d.perso === 'tour' && k < cfg.cols - 1) o += kc;
+        if (g && g.camp === camp && g.perso === 'tour' && k > 0) o += qc;
+        return o;
+      };
+      roque = test(0, 'w', 'K', 'Q') + test(cfg.lignes - 1, 'b', 'k', 'q');
+    }
+    const champs = [plac, 'w', roque || '-', '-'];
+    if (R.but === 'echecs') champs.push(R.nbEchecs + '+' + R.nbEchecs);
+    champs.push('0', '1');
+    const fen = champs.join(' ');
+
+    // Apparences
+    const pieces = {};
+    for (const id in lettres) {
+      const p = window.Persos.trouver(id);
+      if (p) pieces[lettres[id]] = window.Persos.apparence(p);
+    }
+
+    // Classique pur ? -> Stockfish 19
+    const STD = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const rd = reglesDefaut();
+    const reglesStd = R.but === 'mat' && R.pat === 'draw' && !R.renfort && !R.obligatoire && R.roque && R.double && R.passant &&
+      R.promos.length === 4 && rd.promos.every((x) => R.promos.includes(x));
+    if (fen === STD && reglesStd) {
+      return { uci: 'chess', ini: '', moteur: 'sf', fen0: fen, nom: cfg.nom, pieces, but: '', regles: texteRegles(cfg), cfgId: cfg.id };
+    }
+
+    const l = [];
+    l.push('maxFile = ' + FICH[cfg.cols - 1]);
+    l.push('maxRank = ' + cfg.lignes);
+    customs.forEach((p, i) => l.push('customPiece' + (i + 1) + ' = ' + lettres[p.id] + ':' + window.Persos.betza(p)));
+    if (R.but === 'prise') {
+      l.push('king = -'); l.push('commoner = k'); l.push('extinctionValue = loss'); l.push('extinctionPieceTypes = k');
+    }
+    l.push('startFen = ' + fen);
+    l.push('promotionRank = ' + cfg.lignes);
+    const promos = R.promos.map((id) => lettres[id]).filter((x) => x && x !== 'k' && x !== 'p');
+    l.push('promotionPieceTypes = ' + (promos.length ? promos.join('') : '-'));
+    if (!R.double) l.push('doubleStep = false');
+    if (!R.passant) l.push('enPassantRegion = -');
+    if (!R.roque || R.but === 'prise') l.push('castling = false');
+    else if (cfg.cols !== 8) { l.push('castlingKingsideFile = ' + FICH[cfg.cols - 2]); l.push('castlingQueensideFile = c'); }
+    if (R.obligatoire) l.push('mustCapture = true');
+    if (R.renfort) { l.push('pieceDrops = true'); l.push('capturesToHand = true'); }
+    if (R.pat !== 'draw') l.push('stalemateValue = ' + R.pat);
+    if (R.but === 'echecs') l.push('checkCounting = true');
+    if (R.but === 'centre') {
+      const cs = casesCentre(cfg).join(' ');
+      l.push('flagPiece = k'); l.push('flagRegionWhite = ' + cs); l.push('flagRegionBlack = ' + cs);
+    }
+    const corps = l.join('\n') + '\n';
+    const uci = 'cfg' + empreinte(corps);
+    const buts = { prise: 'Roi pris', centre: 'Roi arrivé au centre', echecs: 'Échecs donnés' };
+    return {
+      uci, ini: '[' + uci + ':chess]\n' + corps, moteur: 'fairy', fen0: fen, nom: cfg.nom, pieces,
+      but: buts[R.but] || '', regles: texteRegles(cfg), cfgId: cfg.id
+    };
+  }
+
+  function texteRegles(cfg) {
+    const R = cfg.regles;
+    const t = ['Plateau de ' + cfg.cols + ' × ' + cfg.lignes + '.'];
+    if (R.but === 'prise') t.push('On gagne en prenant le roi adverse (on peut laisser son roi en prise).');
+    else if (R.but === 'centre') t.push('On gagne par mat ou en amenant son roi au centre (' + casesCentre(cfg).join(', ') + ').');
+    else if (R.but === 'echecs') t.push('On gagne par mat ou en donnant ' + R.nbEchecs + ' échec' + (R.nbEchecs > 1 ? 's' : '') + '.');
+    else t.push('On gagne par mat.');
+    if (R.pat === 'win') t.push('Pat = victoire pour le joueur bloqué.');
+    if (R.pat === 'loss') t.push('Pat = défaite pour le joueur bloqué.');
+    if (R.renfort) t.push('Les pièces prises vont dans la réserve et peuvent être posées.');
+    if (R.obligatoire) t.push('Prendre est obligatoire.');
+    if (!R.roque) t.push('Pas de roque.');
+    if (!R.double) t.push('Les pions n’avancent que d’une case.');
+    if (!R.passant) t.push('Pas de prise en passant.');
+    if (cfg.trous.some((l) => l.some(Boolean)) || cfg.trousHasard) t.push('Les cases noires barrées sont des trous : on ne peut ni s’y arrêter ni glisser à travers (les sauts passent au-dessus).');
+    return t.join(' ');
+  }
+
+  // ---------- vérification ----------
+  function verifier(cfg) {
+    let K = 0, k = 0, pionBout = false, aPion = false;
+    const customs = new Set();
+    for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
+      const p = cfg.pieces[r][c];
+      if (!p) continue;
+      if (p.perso === 'roi') { if (p.camp === 'w') K++; else k++; }
+      if (p.perso === 'pion') {
+        aPion = true;
+        if ((p.camp === 'w' && r === cfg.lignes - 1) || (p.camp === 'b' && r === 0)) pionBout = true;
+      }
+      if (p.perso && !window.Persos.trouver(p.perso)) return 'Un personnage placé n’existe plus.';
+      if (p.perso && !['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(p.perso)) customs.add(p.perso);
+      if (p.hasard != null) for (const x of window.Persos.pool(p.hasard)) if (!x.classique) customs.add(x.id);
+      if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Aucun personnage ne peut être tiré au hasard' + (p.hasard ? ' dans « ' + p.hasard + ' »' : '') + ' : coche « peut être tiré au hasard » sur des personnages.';
+    }
+    const R = cfg.regles;
+    if (R.but !== 'prise' && (K !== 1 || k !== 1)) return 'Il faut exactement un roi blanc et un roi noir.';
+    if (R.but === 'prise' && (K < 1 || k < 1)) return 'Il faut au moins un roi de chaque couleur.';
+    if (pionBout) return 'Un pion ne peut pas commencer sur la dernière rangée.';
+    if (aPion && !R.promos.length) return 'Choisis au moins un personnage pour la promotion des pions.';
+    for (const id of R.promos) if (!['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(id)) customs.add(id);
+    if (customs.size > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
+    for (const id of customs) {
+      const p = window.Persos.trouver(id);
+      if (p && !window.Persos.betza(p)) return '« ' + p.nom + ' » n’a aucun déplacement.';
+    }
+    // Essai réel dans les règles
+    const v = construire(cfg, tirage(cfg));
+    return testerVariante(v);
+  }
+
+  function testerVariante(v) {
+    try {
+      window.Regles.assurer(v.ini);
+      const b = new window.Regles.ff.Board(v.uci, v.fen0, false);
+      const n = b.numberLegalMoves();
+      b.delete();
+      if (!n) return 'Aucun coup possible au départ.';
+      return null;
+    } catch (e) {
+      return 'Cette configuration est refusée par les règles.';
+    }
+  }
+
+  // ---------- avantage ----------
+  // Évalue la position de départ (en pions, vue des blancs). Mat = ±99.
+  async function evaluer(v, o) {
+    const m = window.Moteurs.obtenir(v.moteur, 'analyse');
+    const r = await m.chercher({ variante: v, fen0: v.fen0, coups: [], elo: null, profondeur: (o && o.profondeur) || 16, temps: (o && o.temps) || 1500 });
+    if (r.annulee || !r.lignes.length) return null;
+    const s = r.lignes[0].score;
+    const val = s.mate != null ? (s.mate > 0 ? 99 : -99) : s.cp / 100;
+    return v.fen0.split(' ')[1] === 'b' ? -val : val;
+  }
+
+  // Prépare une partie : tire au hasard jusqu'à tomber dans la fourchette d'avantage voulue.
+  async function preparer(cfg, progres) {
+    if (!aleatoire(cfg)) return { variante: construire(cfg, tirage(cfg)), avantage: null };
+    let meilleur = null;
+    const essais = 30;
+    for (let i = 1; i <= essais; i++) {
+      const v = construire(cfg, tirage(cfg));
+      if (testerVariante(v)) continue;
+      const av = await evaluer(v, { profondeur: 14, temps: 900 });
+      if (av == null) continue;
+      const dans = av >= cfg.avMin - 1e-9 && av <= cfg.avMax + 1e-9;
+      const ecart = dans ? 0 : Math.min(Math.abs(av - cfg.avMin), Math.abs(av - cfg.avMax));
+      if (!meilleur || ecart < meilleur.ecart) meilleur = { variante: v, avantage: av, ecart };
+      if (progres) progres(i, essais, av, dans);
+      if (dans) break;
+    }
+    if (!meilleur) throw new Error('Aucun tirage jouable.');
+    return meilleur;
+  }
+
+  // ---------- rangement ----------
+  function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
+  const Config = {
+    classique, aleatoire, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    liste,
+    enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
+    supprimer(id) { localStorage.setItem(CLE_LISTE, JSON.stringify(liste().filter((x) => x.id !== id))); },
+    courante() {
+      try { const c = JSON.parse(localStorage.getItem(CLE_COURANTE)); if (c && c.pieces) return c; } catch (e) { /* rien */ }
+      return classique();
+    },
+    definirCourante(cfg) { localStorage.setItem(CLE_COURANTE, JSON.stringify(cfg)); },
+    nouveauId() { return 'c' + Date.now().toString(36); }
+  };
+  window.Config = Config;
+})();

@@ -1,20 +1,11 @@
-/* Dessin des pièces : pièces classiques (cburnett) + pièces féeriques composées
-   (pièce de base + petit insigne d'une autre pièce dans le coin). */
+/* Dessin des pièces : silhouettes classiques (cburnett) ; un personnage créé = une silhouette
+   + une petite marque (lettres ou emoji) dans une pastille dorée. */
 (function () {
   'use strict';
 
-  // Pièces connues. « base » = dessin principal, « insigne » = petite pièce dans le coin.
   const TYPES = {
-    p: { base: 'p', nom: 'Pion', desc: 'Avance d’une case (deux au premier coup), prend en diagonale.' },
-    n: { base: 'n', nom: 'Cavalier', desc: 'Saute en « L ».' },
-    b: { base: 'b', nom: 'Fou', desc: 'Va en diagonale.' },
-    r: { base: 'r', nom: 'Tour', desc: 'Va en ligne droite.' },
-    q: { base: 'q', nom: 'Dame', desc: 'Tour + fou.' },
-    k: { base: 'k', nom: 'Roi', desc: 'Une case dans toutes les directions. Pièce royale.' },
-    a: { base: 'b', insigne: 'n', nom: 'Archevêque', desc: 'Fou + cavalier.' },
-    c: { base: 'r', insigne: 'n', nom: 'Chancelier', desc: 'Tour + cavalier.' },
-    z: { base: 'q', insigne: 'n', nom: 'Amazone', desc: 'Dame + cavalier : la pièce la plus forte.' },
-    m: { base: 'k', insigne: 'p', nom: 'Homme', desc: 'Se déplace comme un roi, mais n’est pas royal (on peut le perdre).' }
+    p: { base: 'p', nom: 'Pion' }, n: { base: 'n', nom: 'Cavalier' }, b: { base: 'b', nom: 'Fou' },
+    r: { base: 'r', nom: 'Tour' }, q: { base: 'q', nom: 'Dame' }, k: { base: 'k', nom: 'Roi' }
   };
 
   function infoPiece(lettre, variante) {
@@ -23,40 +14,45 @@
     return TYPES[t] || { base: null, nom: 'Pièce « ' + t.toUpperCase() + ' »', desc: '' };
   }
 
-  function image(couleur, type) {
-    return window.PIECES_SVG[couleur + type];
-  }
+  function image(couleur, type) { return window.PIECES_SVG[couleur + type]; }
 
-  // Crée l'élément d'une pièce. lettre : majuscule = blancs, minuscule = noirs.
-  function creerPiece(lettre, variante) {
-    const blanc = lettre === lettre.toUpperCase();
-    const c = blanc ? 'w' : 'b';
-    const info = infoPiece(lettre, variante);
-    const el = document.createElement('div');
-    el.className = 'piece ' + (blanc ? 'blanche' : 'noire');
-    if (info.base) {
-      el.style.backgroundImage = 'url("' + image(c, info.base) + '")';
-      if (info.insigne) {
-        const ins = document.createElement('div');
-        ins.className = 'insigne';
-        ins.style.backgroundImage = 'url("' + image(c, info.insigne) + '")';
-        el.appendChild(ins);
+  // Dessine une apparence { base, marque } dans un élément .piece
+  function dessiner(el, couleur, app) {
+    el.innerHTML = '';
+    if (app.base) {
+      el.style.backgroundImage = 'url("' + image(couleur, app.base) + '")';
+      if (app.marque) {
+        const m = document.createElement('div');
+        m.className = 'marque';
+        m.textContent = app.marque;
+        if ([...app.marque].length > 1 && !/\p{Extended_Pictographic}/u.test(app.marque)) m.classList.add('longue');
+        el.appendChild(m);
       }
     } else {
       el.classList.add('inconnue');
-      el.textContent = lettre.toUpperCase();
+      el.textContent = app.lettre || '?';
     }
+  }
+
+  // lettre : majuscule = blancs, minuscule = noirs.
+  function creerPiece(lettre, variante) {
+    const blanc = lettre === lettre.toUpperCase();
+    const el = document.createElement('div');
+    el.className = 'piece ' + (blanc ? 'blanche' : 'noire');
+    const info = infoPiece(lettre, variante);
+    dessiner(el, blanc ? 'w' : 'b', Object.assign({ lettre: lettre.toUpperCase() }, info));
     el.title = info.nom;
     return el;
   }
 
-  // Liste des pièces présentes dans une position de départ (pour la légende).
-  function piecesDeFen(fen) {
-    const plac = fen.split(' ')[0];
-    const vus = new Set();
-    for (const ch of plac) if (/[a-z]/i.test(ch)) vus.add(ch.toLowerCase());
-    return [...vus];
+  // Pièce dessinée à partir d'un personnage (éditeurs).
+  function creerPerso(perso, camp) {
+    const el = document.createElement('div');
+    el.className = 'piece ' + (camp === 'b' ? 'noire' : 'blanche');
+    dessiner(el, camp === 'b' ? 'b' : 'w', window.Persos.apparence(perso));
+    el.title = perso.nom;
+    return el;
   }
 
-  window.Pieces = { TYPES, infoPiece, creerPiece, piecesDeFen, image };
+  window.Pieces = { TYPES, infoPiece, creerPiece, creerPerso, image };
 })();

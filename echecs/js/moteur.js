@@ -5,25 +5,35 @@
 (function () {
   'use strict';
 
+  // Un seul chargement par fichier, même si les deux moteurs le demandent en même temps.
+  const scripts = {};
   function chargerScript(src) {
-    return new Promise((ok, ko) => {
-      if (document.querySelector('script[data-src="' + src + '"]')) return ok();
-      const s = document.createElement('script');
-      s.src = src; s.dataset.src = src;
-      s.onload = () => ok(); s.onerror = () => ko(new Error('Chargement impossible : ' + src));
-      document.head.appendChild(s);
-    });
+    if (!scripts[src]) {
+      scripts[src] = new Promise((ok, ko) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => ok();
+        s.onerror = () => { delete scripts[src]; ko(new Error('Chargement impossible : ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+    return scripts[src];
   }
 
-  function nbThreads() {
+  // Cœurs : le moteur du bot en prend la plus grosse part, celui de l'analyse (barre, conseils) le reste.
+  function nbThreads(role) {
     if (!window.crossOriginIsolated) return 1;
-    const c = navigator.hardwareConcurrency || 2;
-    return Math.max(1, Math.min(8, c - 1));
+    const total = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
+    const analyse = Math.max(1, Math.round(total / 3));
+    return role === 'analyse' ? analyse : Math.max(1, total - analyse);
   }
 
   class Moteur {
-    constructor(type) {
+    constructor(type, role) {
       this.type = type;
+      this.role = role || 'jeu';
+      this.charges = new Set();
+      this.nbFichiers = 0;
       this.ecouteurs = [];
       this.file = Promise.resolve();
       this.recherche = null; // recherche en cours
@@ -34,7 +44,7 @@
     }
 
     demarrer() {
-      if (!this.pret) this.pret = this._demarrer();
+      if (!this.pret) this.pret = this._demarrer().catch((e) => { this.pret = null; throw e; });
       return this.pret;
     }
 
@@ -60,7 +70,7 @@
         const m = l.match(/^id name (.*)$/);
         if (m) this.nom = m[1].replace(/\s*\[.*$/, '');
       });
-      const t = nbThreads();
+      const t = nbThreads(this.role);
       if (t > 1) this.envoyer('setoption name Threads value ' + t);
       this.envoyer('setoption name Hash value 64');
       await this.synchro();
@@ -88,12 +98,16 @@
       await this._attendre((l) => l === 'readyok');
     }
 
-    // Variantes définies en .ini (seulement pour Fairy-Stockfish).
-    async variantes(ini) {
-      if (this.type !== 'fairy' || ini === this.ini) return;
-      this.sf.FS.writeFile('/variantes.ini', ini);
-      this.envoyer('setoption name VariantPath value /variantes.ini');
-      this.ini = ini;
+    // Variante définie en .ini (seulement pour Fairy-Stockfish), chargée une fois.
+    async assurer(ini) {
+      if (this.type !== 'fairy' || !ini) return;
+      const m = ini.match(/^\[([^:\]]+)/);
+      const nom = m ? m[1] : ini;
+      if (this.charges.has(nom)) return;
+      const fichier = '/v' + (++this.nbFichiers) + '.ini';
+      this.sf.FS.writeFile(fichier, ini);
+      this.envoyer('setoption name VariantPath value ' + fichier);
+      this.charges.add(nom);
       await this.synchro();
     }
 
@@ -130,7 +144,7 @@
       await this.demarrer();
       const v = o.variante;
       if (this.type === 'fairy') {
-        await this.variantes(window.Variantes.iniTotal());
+        await this.assurer(v.ini);
         this.envoyer('setoption name UCI_Variant value ' + v.uci);
       }
       this.envoyer('setoption name UCI_Chess960 value ' + (v.is960 ? 'true' : 'false'));
@@ -196,11 +210,14 @@
 
   const moteurs = {};
   window.Moteurs = {
-    obtenir(type) {
-      if (!moteurs[type]) moteurs[type] = new Moteur(type);
-      return moteurs[type];
+    // role : « jeu » (le bot) ou « analyse » (barre d'avantage, conseils, bilan, configuration)
+    obtenir(type, role) {
+      const cle = type + ':' + (role || 'jeu');
+      if (!moteurs[cle]) moteurs[cle] = new Moteur(type, role);
+      return moteurs[cle];
     },
-    pourVariante(v) { return this.obtenir(window.Variantes.moteurDe(v)); },
+    pourVariante(v, role) { return this.obtenir(v.moteur === 'sf' ? 'sf' : 'fairy', role); },
+    tous() { return Object.values(moteurs); },
     disponible(type) { return type === 'sf' || (!!window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined'); }
   };
 })();

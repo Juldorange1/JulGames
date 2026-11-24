@@ -1,4 +1,6 @@
-/* Échecs & Variantes — déroulement du jeu : menus, partie contre les bots, pendule, sauvegardes. */
+/* Échecs — déroulement : accueil, lancement d'une configuration (avec tirage au hasard sous contrôle
+   de l'avantage), partie contre les bots, barre d'avantage permanente, meilleurs coups, navigation,
+   recommencer, pendule, sauvegardes. */
 (function () {
   'use strict';
 
@@ -12,6 +14,7 @@
     expert: { nom: 'Expert', detail: '≈ 2200 Elo', elo: 2200 },
     maitre: { nom: 'Maître', detail: 'pleine force', elo: null }
   };
+  const COULEURS_CONSEILS = ['rgba(90,200,90,0.9)', 'rgba(80,160,255,0.85)', 'rgba(240,170,60,0.85)'];
 
   function lire(cle, defaut) {
     try { const v = JSON.parse(localStorage.getItem(cle)); return v == null ? defaut : v; } catch (e) { return defaut; }
@@ -21,12 +24,11 @@
   }
 
   const options = Object.assign({
-    sons: true, barre: false, variante: 'classique', adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000'
+    sons: true, adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', conseils: false
   }, lire(CLE_OPT, {}));
   function sauverOptions() { ecrire(CLE_OPT, options); }
 
-  // ---------- outils d'évaluation (partagés avec le bilan) ----------
-  // Pourcentage de chances de gain (0..100) pour les blancs, à partir d'un score vu des blancs.
+  // ---------- évaluations ----------
   function chances(score) {
     if (!score) return 50;
     if (score.mate != null) return score.mate > 0 ? 100 : (score.mate < 0 ? 0 : 50);
@@ -47,26 +49,44 @@
     if (!score) return score;
     return score.mate != null ? { mate: -score.mate } : { cp: -score.cp };
   }
-  // Barre d'avantage. retourne = noirs en bas.
-  function majBarre(el, scoreBlanc, retourne) {
+  // Barre d'avantage. retourne = noirs en bas ; horizontale = blancs à gauche.
+  // reperes = [{ score, etiquette, couleur }] (meilleurs coups).
+  function majBarre(el, scoreBlanc, retourne, horizontale, reperes) {
     const p = chances(scoreBlanc);
     el.classList.toggle('retournee', !!retourne);
-    el.querySelector('.barre-blanc').style.height = p + '%';
+    const b = el.querySelector('.barre-blanc');
+    if (horizontale) b.style.width = p + '%'; else b.style.height = p + '%';
     const t = el.querySelector('.barre-texte');
     t.textContent = texteScore(scoreBlanc);
-    // le texte se met du côté de celui qui mène
-    const blancMene = p >= 50;
-    t.classList.toggle('cote-blanc', blancMene);
-    t.classList.toggle('cote-noir', !blancMene);
+    t.classList.toggle('cote-blanc', p >= 50);
+    t.classList.toggle('cote-noir', p < 50);
+    el.querySelectorAll('.barre-repere').forEach((x) => x.remove());
+    // repères espacés d'au moins 28 px pour rester lisibles
+    const H = el.getBoundingClientRect().height || 400;
+    const pos = (reperes || []).map((r) => H * chances(r.score) / 100);
+    for (let i = 1; i < pos.length; i++) if (Math.abs(pos[i] - pos[i - 1]) < 28) pos[i] = pos[i - 1] - 28;
+    for (let i = 0; i < pos.length; i++) pos[i] = Math.max(14, Math.min(H - 14, pos[i]));
+    for (let i = 1; i < pos.length; i++) if (Math.abs(pos[i] - pos[i - 1]) < 28) pos[i] = pos[i - 1] + 28;
+    (reperes || []).forEach((r, i) => {
+      const d = document.createElement('div');
+      d.className = 'barre-repere';
+      d.style[retourne ? 'top' : 'bottom'] = (pos[i] - 13) + 'px';
+      d.style.background = r.couleur;
+      d.textContent = r.etiquette;
+      d.title = texteScore(r.score);
+      el.appendChild(d);
+    });
   }
 
   // ---------- écrans ----------
   function ecran(nom) {
+    if (App.ecranActuel === 'partie' && nom !== 'partie') arreterAnalyse();
     $$('.ecran').forEach((e) => e.classList.toggle('visible', e.id === 'ecran-' + nom));
     App.ecranActuel = nom;
     if (nom === 'accueil') construireAccueil();
     if (nom === 'parties') construireParties();
-    if (nom === 'atelier') window.Atelier.ouvrir();
+    if (nom === 'config') window.EditeurConfig.ouvrir();
+    if (nom === 'persos') window.EditeurPersos.ouvrir();
     requestAnimationFrame(redimensionner);
   }
 
@@ -83,12 +103,13 @@
       const x = document.createElement('button');
       x.className = 'bouton ' + (bt.classe || '');
       x.textContent = bt.texte;
-      x.addEventListener('click', () => { if (bt.garder !== true) fermerModale(); if (bt.action) bt.action(); });
+      x.addEventListener('click', () => { fermerModale(); if (bt.action) bt.action(); });
       rangee.appendChild(x);
     }
     b.appendChild(rangee);
     m.classList.remove('cachee');
     m.dataset.fermable = fermable === false ? '' : '1';
+    return contenu;
   }
   function fermerModale() { $('#modale').classList.add('cachee'); }
 
@@ -98,115 +119,158 @@
     b.textContent = texte;
     b.classList.remove('cachee');
     clearTimeout(bulleMinuteur);
-    bulleMinuteur = setTimeout(() => b.classList.add('cachee'), 2600);
+    bulleMinuteur = setTimeout(() => b.classList.add('cachee'), 2800);
   }
 
   // ---------- accueil ----------
+  let plateauApercu = null;
+  let jetonApercu = 0;
   function construireAccueil() {
-    const liste = $('#liste-variantes');
-    liste.innerHTML = '';
-    const toutes = window.Variantes.toutes();
-    if (!toutes.find((v) => v.id === options.variante)) options.variante = 'classique';
-    for (const v of toutes) {
+    const cfg = window.Config.courante();
+    $('#acc-nom').textContent = cfg.nom;
+    const { pos, zones } = window.Editeur.positionAffichage(cfg);
+    plateauApercu.afficher(pos, { decor: { zones } });
+    redimensionnerApercu();
+    // configurations enregistrées
+    const box = $('#acc-configs');
+    box.innerHTML = '';
+    for (const c of [window.Config.classique()].concat(window.Config.liste())) {
       const b = document.createElement('button');
-      b.className = 'carte-variante' + (v.id === options.variante ? ' choisie' : '');
-      b.innerHTML = '<b></b><span></span>' + (v.perso ? '<i class="etiquette">créée</i>' : v.original ? '<i class="etiquette">JulGame</i>' : '');
-      b.querySelector('b').textContent = v.nom;
-      b.querySelector('span').textContent = v.court || '';
-      b.addEventListener('click', () => { options.variante = v.id; sauverOptions(); construireAccueil(); });
-      liste.appendChild(b);
+      b.className = 'puce' + (c.id === cfg.id ? ' choisie' : '');
+      b.textContent = c.nom;
+      b.addEventListener('click', () => { window.Config.definirCourante(window.Config.copie(c)); construireAccueil(); });
+      box.appendChild(b);
     }
-    const plus = document.createElement('button');
-    plus.className = 'carte-variante ajouter';
-    plus.innerHTML = '<b>✚ Créer une variante</b><span>Ton plateau, tes pièces, tes règles.</span>';
-    plus.addEventListener('click', () => ecran('atelier'));
-    liste.appendChild(plus);
-
-    const v = window.Variantes.trouver(options.variante);
-    const info = $('#info-variante');
-    info.innerHTML = '';
-    const h = document.createElement('h3'); h.textContent = v.nom; info.appendChild(h);
-    const p = document.createElement('p'); p.textContent = v.regles || v.court || ''; info.appendChild(p);
-    const m = document.createElement('p'); m.className = 'petit-gris';
-    const type = window.Variantes.moteurDe(v);
-    m.textContent = 'Bots : ' + (type === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish (le Stockfish des variantes)');
-    info.appendChild(m);
-
+    // avantage
+    const jet = ++jetonApercu;
+    const av = $('#acc-avantage');
+    const err = window.Config.verifier(cfg);
+    $('#btn-commencer').disabled = !!err;
+    if (err) { av.textContent = '⚠ ' + err; av.className = 'acc-avantage erreur'; }
+    else if (window.Config.aleatoire(cfg)) {
+      av.className = 'acc-avantage';
+      av.textContent = '🎲 Avec du hasard : avantage des blancs tiré entre ' + window.Editeur.texteAvantage(cfg.avMin) + ' et ' + window.Editeur.texteAvantage(cfg.avMax) + '.';
+    } else {
+      av.className = 'acc-avantage';
+      av.textContent = 'Calcul de l’avantage des blancs…';
+      const v = window.Config.construire(cfg, window.Config.tirage(cfg));
+      window.Config.evaluer(v, { profondeur: 16, temps: 1200 }).then((x) => {
+        if (jet !== jetonApercu || x == null) return;
+        av.textContent = 'Avantage des blancs au départ : ' + window.Editeur.texteAvantage(x);
+      }).catch(() => {});
+    }
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
       $$(id + ' button').forEach((b) => {
         b.classList.toggle('choisi', b.dataset.val === String(options[cle]));
-        b.onclick = () => { options[cle] = b.dataset.val; sauverOptions(); construireAccueil(); };
+        b.onclick = () => { options[cle] = b.dataset.val; sauverOptions(); majChoix(); };
       });
     }
-    $('#bloc-reflexion').style.display = options.adversaire === 'ami' || options.pendule !== '0' ? 'none' : '';
-    $('#choix-couleur').style.display = options.adversaire === 'ami' ? 'none' : '';
-    $('#choix-couleur').previousElementSibling.style.display = options.adversaire === 'ami' ? 'none' : '';
+    majChoix();
     $('#btn-reprendre').style.display = lire(CLE_ENCOURS, null) ? '' : 'none';
     $('#opt-sons').checked = options.sons;
-    $('#opt-barre').checked = options.barre;
     const note = $('#note-moteur');
-    if (!window.Moteurs.disponible('fairy')) {
-      note.textContent = 'Les bots des variantes ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
-    } else {
-      note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+    if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
+    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+  }
+  function majChoix() {
+    for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
+      $$(id + ' button').forEach((b) => b.classList.toggle('choisi', b.dataset.val === String(options[cle])));
     }
+    $('#bloc-reflexion').style.display = options.adversaire === 'ami' || options.pendule !== '0' ? 'none' : '';
+    $('#bloc-couleur').style.display = options.adversaire === 'ami' ? 'none' : '';
+  }
+  function redimensionnerApercu() {
+    const zone = $('#plateau-apercu');
+    if (!zone || !zone.offsetParent || !plateauApercu.position) return;
+    const r = zone.parentElement.getBoundingClientRect();
+    const haut = window.innerHeight - zone.getBoundingClientRect().top - 140;
+    const t = Math.floor(Math.min((r.width - 10) / plateauApercu.cols, Math.max(160, haut) / plateauApercu.lignes));
+    plateauApercu.taille(Math.max(20, Math.min(70, t)));
+  }
+
+  // ---------- lancement ----------
+  function reglagesActuels() {
+    return { adversaire: options.adversaire, couleur: options.couleur, pendule: options.pendule, reflexion: options.reflexion };
+  }
+
+  // Prépare la configuration courante (tirage au hasard contrôlé) puis lance la partie.
+  async function commencer(cfg, reglages) {
+    cfg = cfg || window.Config.courante();
+    reglages = reglages || reglagesActuels();
+    const err = window.Config.verifier(cfg);
+    if (err) {
+      modale('<h2>Configuration impossible</h2><p></p>', [{ texte: '⚙ Configurer', classe: 'principal', action: () => ecran('config') }, { texte: 'Fermer' }]).querySelector('p').textContent = err;
+      return;
+    }
+    arreterTout();
+    let prep;
+    if (window.Config.aleatoire(cfg)) {
+      const c = modale('<h2>Tirage au sort…</h2><p class="tirage">Recherche d’un tirage où l’avantage des blancs est entre ' +
+        window.Editeur.texteAvantage(cfg.avMin) + ' et ' + window.Editeur.texteAvantage(cfg.avMax) + '.</p><p class="tirage-etat"></p>', [], false);
+      try {
+        prep = await window.Config.preparer(cfg, (i, n, av, ok) => {
+          c.querySelector('.tirage-etat').textContent = 'Essai ' + i + ' : avantage ' + window.Editeur.texteAvantage(av) + (ok ? ' ✔' : ' (hors fourchette)');
+        });
+      } catch (e) {
+        fermerModale();
+        bulle('Aucun tirage jouable : change la configuration.');
+        return;
+      }
+      fermerModale();
+      if (prep.ecart > 0) bulle('Aucun tirage dans la fourchette : le plus proche a été pris (' + window.Editeur.texteAvantage(prep.avantage) + ').');
+    } else {
+      prep = { variante: window.Config.construire(cfg, window.Config.tirage(cfg)), avantage: null };
+    }
+    lancerPartie(prep.variante, reglages, null, cfg);
   }
 
   // ---------- partie ----------
   let jeu = null;
   let plateau = null;
   let horlogeMinuteur = null;
-  let jeton = 0; // change à chaque nouvelle situation : les réponses de moteur périmées sont ignorées
+  let jeton = 0;          // situations du bot
+  let jetonAnalyse = 0;   // analyse en direct
 
   function nomJoueur(camp) {
     if (!jeu) return '';
     if (jeu.adversaire === 'ami') return camp === 'w' ? 'Blancs' : 'Noirs';
     if (camp === jeu.humain) return 'Toi';
-    const b = BOTS[jeu.adversaire];
-    return b.nom;
+    return BOTS[jeu.adversaire].nom;
   }
   function detailJoueur(camp) {
     if (!jeu || jeu.adversaire === 'ami' || camp === jeu.humain) return '';
     const b = BOTS[jeu.adversaire];
     if (b.elo) return b.detail;
-    return window.Variantes.moteurDe(jeu.variante) === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
+    return jeu.variante.moteur === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
   }
-
   function estAuBot() {
     return jeu && !jeu.fin && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain;
   }
 
-  function nouvellePartie(cfg, depuis) {
+  function lancerPartie(v, reglages, depuis, cfg) {
     arreterTout();
     if (jeu && jeu.partie) jeu.partie.detruire();
-    const v = window.Variantes.trouver(cfg.variante);
-    let humain = cfg.couleur;
+    let humain = reglages.couleur;
     if (humain === 'hasard') humain = Math.random() < 0.5 ? 'w' : 'b';
-    if (cfg.adversaire === 'ami') humain = 'w';
+    if (reglages.adversaire === 'ami') humain = 'w';
     let partie;
     try {
-      partie = new window.Regles.Partie(v, depuis && depuis.fen0, depuis && depuis.coups);
+      partie = new window.Regles.Partie(v, depuis ? depuis.fen0 : v.fen0, depuis && depuis.coups);
     } catch (e) {
-      bulle('Impossible de lancer cette variante.');
       console.error(e);
+      bulle('Impossible de lancer cette partie.');
       return;
     }
-    const pend = cfg.pendule && cfg.pendule !== '0' ? cfg.pendule.split('+').map(Number) : null;
+    const pend = reglages.pendule && reglages.pendule !== '0' ? String(reglages.pendule).split('+').map(Number) : null;
     jeu = {
-      id: 'p' + Date.now().toString(36),
-      date: Date.now(),
-      variante: v,
-      partie,
-      adversaire: cfg.adversaire,
-      humain,
-      reflexion: +cfg.reflexion || 3000,
+      id: 'p' + Date.now().toString(36), date: Date.now(), variante: v, cfg: cfg ? window.Config.copie(cfg) : null,
+      reglages: Object.assign({}, reglages, { couleur: humain }),
+      partie, adversaire: reglages.adversaire, humain, reflexion: +reglages.reflexion || 3000,
       pendule: pend ? { base: pend[0] * 60000, inc: (pend[1] || 0) * 1000 } : null,
       temps: pend ? { w: pend[0] * 60000, b: pend[0] * 60000 } : null,
-      fin: null,
-      aide: false,
-      evalBlanc: null
+      fin: null, aide: false, vue: null, analyse: null
     };
-    window.Moteurs.pourVariante(v).nouvellePartie();
+    window.Moteurs.pourVariante(v, 'jeu').nouvellePartie();
     ecran('partie');
     plateau.retourner(humain === 'b');
     afficherPartie(false);
@@ -217,18 +281,16 @@
 
   function reprendre() {
     const s = lire(CLE_ENCOURS, null);
-    if (!s) return;
-    const v = window.Variantes.toutes().find((x) => x.id === s.varianteId);
-    if (!v) { bulle('La variante de cette partie n’existe plus.'); localStorage.removeItem(CLE_ENCOURS); return; }
+    if (!s || !s.variante) return;
     arreterTout();
     if (jeu && jeu.partie) jeu.partie.detruire();
     let partie;
-    try { partie = new window.Regles.Partie(v, s.fen0, s.coups); } catch (e) { bulle('Partie illisible.'); return; }
+    try { partie = new window.Regles.Partie(s.variante, s.fen0, s.coups); } catch (e) { bulle('Partie illisible.'); localStorage.removeItem(CLE_ENCOURS); return; }
     jeu = {
-      id: s.id, date: s.date, variante: v, partie, adversaire: s.adversaire, humain: s.humain,
-      reflexion: s.reflexion, pendule: s.pendule, temps: s.temps, fin: null, aide: s.aide, evalBlanc: null
+      id: s.id, date: s.date, variante: s.variante, cfg: s.cfg, reglages: s.reglages, partie, adversaire: s.adversaire, humain: s.humain,
+      reflexion: s.reflexion, pendule: s.pendule, temps: s.temps, fin: null, aide: s.aide, vue: null, analyse: null
     };
-    window.Moteurs.pourVariante(v).nouvellePartie();
+    window.Moteurs.pourVariante(s.variante, 'jeu').nouvellePartie();
     ecran('partie');
     plateau.retourner(jeu.humain === 'b');
     afficherPartie(false);
@@ -239,7 +301,7 @@
   function sauverEnCours() {
     if (!jeu || jeu.fin) { localStorage.removeItem(CLE_ENCOURS); return; }
     ecrire(CLE_ENCOURS, {
-      id: jeu.id, date: jeu.date, varianteId: jeu.variante.id, fen0: jeu.partie.fen0, coups: jeu.partie.coups,
+      id: jeu.id, date: jeu.date, variante: jeu.variante, cfg: jeu.cfg, reglages: jeu.reglages, fen0: jeu.partie.fen0, coups: jeu.partie.coups,
       adversaire: jeu.adversaire, humain: jeu.humain, reflexion: jeu.reflexion, pendule: jeu.pendule, temps: jeu.temps, aide: jeu.aide
     });
   }
@@ -255,7 +317,6 @@
     }
     return null;
   }
-
   function dernierCoupCases(uci) {
     if (!uci) return null;
     const d = window.Regles.decouper(uci);
@@ -263,16 +324,19 @@
     return d.de ? [d.de, d.vers] : [d.vers];
   }
 
+  function indexVue() { return jeu.vue == null ? jeu.partie.coups.length : jeu.vue; }
+
   function afficherPartie(animer) {
     const p = jeu.partie;
-    const pos = window.Regles.lireFen(p.fen);
-    plateau.afficher(pos, {
-      variante: jeu.variante,
-      dernier: dernierCoupCases(p.coups[p.coups.length - 1]),
-      echec: caseRoiEnEchec(pos, p),
-      animer
-    });
-    // joueurs (haut = camp adverse de celui du bas)
+    const n = indexVue();
+    const enDirect = n === p.coups.length;
+    const pos = window.Regles.lireFen(p.fens[n]);
+    let echec = null;
+    if (enDirect) echec = caseRoiEnEchec(pos, p);
+    else {
+      try { const t = new window.Regles.Partie(jeu.variante, p.fen0, p.coups.slice(0, n)); echec = caseRoiEnEchec(pos, t); t.detruire(); } catch (e) { /* rien */ }
+    }
+    plateau.afficher(pos, { variante: jeu.variante, dernier: dernierCoupCases(p.coups[n - 1]), echec, animer });
     const bas = plateau.retourne ? 'b' : 'w';
     const haut = bas === 'w' ? 'b' : 'w';
     for (const [id, camp] of [['#joueur-haut', haut], ['#joueur-bas', bas]]) {
@@ -281,21 +345,26 @@
       let extra = detailJoueur(camp);
       if (pos.echecs) extra = (extra ? extra + ' · ' : '') + 'échecs à donner : ' + pos.echecs[camp];
       el.querySelector('.joueur-extra').textContent = extra;
-      el.classList.toggle('au-trait', !jeu.fin && p.trait() === camp);
+      el.classList.toggle('au-trait', !jeu.fin && pos.trait === camp);
       el.querySelector('.pendule').style.display = jeu.temps ? '' : 'none';
     }
     majPendules();
-    // liste des coups
-    remplirListeCoups($('#coups-partie'), p, p.coups.length, null);
+    remplirListeCoups($('#coups-partie'), p, n, null, (k) => allerVue(k));
     $('#btn-annuler').disabled = !!jeu.fin || !p.coups.length;
     $('#btn-abandonner').disabled = !!jeu.fin;
-    const barre = $('#barre-partie');
-    barre.style.display = options.barre ? '' : 'none';
-    if (options.barre) majBarre(barre, jeu.evalBlanc, plateau.retourne);
+    $('#nav-partie [data-nav=prec]').disabled = n === 0;
+    $('#nav-partie [data-nav=debut]').disabled = n === 0;
+    $('#nav-partie [data-nav=suiv]').disabled = enDirect;
+    $('#nav-partie [data-nav=fin]').disabled = enDirect;
+    const bandeau = $('#vue-passee');
+    bandeau.style.display = enDirect ? 'none' : '';
+    if (!enDirect) $('#vue-passee-texte').textContent = 'Tu regardes la position après le coup ' + n + ' sur ' + p.coups.length + '.';
+    $('#btn-conseils').classList.toggle('actif', options.conseils);
+    $('#conseils').style.display = options.conseils ? '' : 'none';
+    majAnalyseAffichage();
     redimensionner();
   }
 
-  // Liste des coups en deux colonnes. marques[i] = classe CSS + symbole pour le coup i (bilan).
   function remplirListeCoups(el, partie, courant, marques, surClic) {
     el.innerHTML = '';
     const sans = partie.sans;
@@ -331,7 +400,7 @@
     }
     const cour = el.querySelector('.courant');
     if (cour) cour.scrollIntoView({ block: 'nearest' });
-    else el.scrollTop = el.scrollHeight;
+    else el.scrollTop = courant === 0 ? 0 : el.scrollHeight;
   }
 
   function etat(texte) { $('#etat-partie').textContent = texte; }
@@ -341,34 +410,28 @@
     const p = jeu.partie;
     if (p.finie()) { terminer(p.resultat(), p.raison()); return; }
     const monJeton = ++jeton;
+    relancerAnalyse();
     if (estAuBot()) {
       plateau.bloquer();
       lancerBot(monJeton);
     } else {
       const camp = p.trait();
-      plateau.autoriser(p.legaux(), camp);
-      if (jeu.adversaire === 'ami') etat('Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.');
-      else etat('À toi de jouer.');
-      if (options.barre) analyseEnDirect(monJeton);
+      if (jeu.vue == null) plateau.autoriser(p.legaux(), camp);
+      etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : 'À toi de jouer.');
     }
   }
 
   async function lancerBot(monJeton) {
     const bot = BOTS[jeu.adversaire];
     const p = jeu.partie;
-    const moteur = window.Moteurs.pourVariante(jeu.variante);
+    const moteur = window.Moteurs.pourVariante(jeu.variante, 'jeu');
     etat(bot.nom + ' réfléchit…');
     const debut = performance.now();
     const o = {
       variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(), elo: bot.elo,
-      surInfo: (lignes) => {
-        if (monJeton !== jeton || !lignes[0]) return;
-        if (!bot.elo) etat(bot.nom + ' réfléchit… (profondeur ' + lignes[0].profondeur + ')');
-        if (options.barre && !bot.elo) majEvalDirect(lignes[0].score, p.trait());
-      }
+      surInfo: (lignes) => { if (monJeton === jeton && lignes[0] && !bot.elo) etat(bot.nom + ' réfléchit… (profondeur ' + lignes[0].profondeur + ')'); }
     };
     if (jeu.temps && bot.elo) {
-      // L'Expert joue à un rythme humain : une petite part de son temps restant.
       const reste = jeu.temps[p.trait()];
       o.temps = Math.max(250, Math.min(2500, reste / 45 + jeu.pendule.inc * 0.6));
     } else if (jeu.temps) {
@@ -377,53 +440,104 @@
       o.temps = bot.elo ? 900 : jeu.reflexion;
     }
     let r;
-    try {
-      r = await moteur.chercher(o);
-    } catch (e) {
-      console.error(e);
-      etat('Le bot ne peut pas jouer : ' + e.message);
-      return;
-    }
+    try { r = await moteur.chercher(o); } catch (e) { console.error(e); etat('Le bot ne peut pas jouer : ' + e.message); return; }
     if (monJeton !== jeton || !jeu || jeu.fin || r.annulee) return;
     if (!r.coup || !p.legaux().includes(r.coup)) {
-      // Le moteur ne trouve rien (ne devrait pas arriver) : on joue un coup légal au hasard.
       const l = p.legaux();
       if (!l.length) return;
       r.coup = l[Math.floor(Math.random() * l.length)];
     }
-    // Un bot « humain » ne joue pas instantanément.
     const attente = (bot.elo ? 500 + Math.random() * 900 : 250) - (performance.now() - debut);
     if (attente > 0 && !jeu.temps) await new Promise((ok) => setTimeout(ok, attente));
     if (monJeton !== jeton || !jeu || jeu.fin) return;
     jouerCoup(r.coup, true);
   }
 
-  function majEvalDirect(scoreTrait, trait) {
-    jeu.evalBlanc = trait === 'w' ? scoreTrait : inverser(scoreTrait);
-    majBarre($('#barre-partie'), jeu.evalBlanc, plateau.retourne);
+  // ---------- analyse en direct (barre + meilleurs coups) ----------
+  function arreterAnalyse() {
+    jetonAnalyse++;
+    for (const m of window.Moteurs.tous()) if (m.role === 'analyse' && m.pret) m.arreter();
+  }
+  function relancerAnalyse() {
+    if (!jeu || App.ecranActuel !== 'partie') return;
+    arreterAnalyse();
+    const jet = jetonAnalyse;
+    const p = jeu.partie;
+    const n = indexVue();
+    jeu.analyse = jeu.analyse && jeu.analyse.n === n ? jeu.analyse : { n, lignes: [], trait: window.Regles.lireFen(p.fens[n]).trait };
+    if (n === p.coups.length && p.finie()) {
+      const res = p.resultat();
+      jeu.analyse = { n, lignes: [], fin: res, trait: p.trait() };
+      majAnalyseAffichage();
+      return;
+    }
+    const trait = window.Regles.lireFen(p.fens[n]).trait;
+    window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
+      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null, temps: 300000, multipv: 3,
+      surInfo: (lignes) => {
+        if (jet !== jetonAnalyse || !jeu) return;
+        jeu.analyse = { n, trait, lignes: lignes.map((l) => ({ score: l.score, pv: l.pv.slice(0, 8), profondeur: l.profondeur })) };
+        majAnalyseAffichage();
+      }
+    }).catch(() => {});
   }
 
-  function analyseEnDirect(monJeton) {
-    const p = jeu.partie;
-    const moteur = window.Moteurs.pourVariante(jeu.variante);
-    const trait = p.trait();
-    moteur.chercher({
-      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(), elo: null, temps: 30000,
-      surInfo: (lignes) => { if (monJeton === jeton && lignes[0]) majEvalDirect(lignes[0].score, trait); }
-    }).catch(() => {});
+  function majAnalyseAffichage() {
+    if (!jeu) return;
+    const a = jeu.analyse;
+    const barre = $('#barre-partie');
+    const n = indexVue();
+    if (!a || a.n !== n) { plateau.effacerFleches(); return; }
+    if (a.fin) {
+      const s = a.fin === '1-0' ? { mate: 1 } : a.fin === '0-1' ? { mate: -1 } : { cp: 0 };
+      majBarre(barre, s, plateau.retourne);
+      barre.querySelector('.barre-texte').textContent = a.fin === '1/2-1/2' ? '½' : a.fin;
+      plateau.effacerFleches();
+      $('#conseils-liste').innerHTML = '<div class="petit-gris">Partie terminée.</div>';
+      return;
+    }
+    const versBlanc = (s) => (a.trait === 'w' ? s : inverser(s));
+    const lignes = a.lignes.filter((l) => l && l.pv && l.pv.length);
+    const reperes = options.conseils ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: i + 1, couleur: COULEURS_CONSEILS[i] })) : null;
+    if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
+    // flèches + liste
+    const liste = $('#conseils-liste');
+    liste.innerHTML = '';
+    if (!options.conseils) { plateau.effacerFleches(); return; }
+    const fl = [];
+    lignes.forEach((l, i) => {
+      const d = window.Regles.decouper(l.pv[0]);
+      if (d) fl.push({ de: d.de, vers: d.vers, couleur: COULEURS_CONSEILS[i], etiquette: String(i + 1) });
+      const san = jeu.partie.suiteSan(n, l.pv, 1)[0] || l.pv[0];
+      const suite = jeu.partie.suiteSan(n, l.pv, 5);
+      const ligne = document.createElement('div');
+      ligne.className = 'conseil';
+      ligne.innerHTML = '<span class="conseil-num"></span><b></b><span class="conseil-score"></span><span class="conseil-suite"></span>';
+      ligne.querySelector('.conseil-num').textContent = i + 1;
+      ligne.querySelector('.conseil-num').style.background = COULEURS_CONSEILS[i];
+      ligne.querySelector('b').textContent = san;
+      ligne.querySelector('.conseil-score').textContent = texteScore(versBlanc(l.score));
+      ligne.querySelector('.conseil-suite').textContent = suite.slice(1).join(' ');
+      liste.appendChild(ligne);
+    });
+    if (!lignes.length) liste.innerHTML = '<div class="petit-gris">Calcul…</div>';
+    else {
+      const pr = document.createElement('div'); pr.className = 'petit-gris';
+      pr.textContent = 'Profondeur ' + lignes[0].profondeur + ' · score vu des blancs (comme la barre)';
+      liste.appendChild(pr);
+    }
+    // les flèches ne gênent pas la pièce qu'on est en train de choisir
+    plateau.flechesAfficher(fl.reverse());
   }
 
   function arreterTout() {
     jeton++;
-    for (const t of ['sf', 'fairy']) {
-      const m = window.Moteurs.obtenir(t);
-      if (m.pret) m.arreter();
-    }
+    arreterAnalyse();
+    for (const m of window.Moteurs.tous()) if (m.pret) m.arreter();
   }
 
   function surCoupHumain(uci) {
-    if (!jeu || jeu.fin || estAuBot()) return;
-    if (options.barre) window.Moteurs.pourVariante(jeu.variante).arreter();
+    if (!jeu || jeu.fin || estAuBot() || jeu.vue != null) return;
     jouerCoup(uci, false);
   }
 
@@ -437,7 +551,36 @@
     else if (uci.includes('@')) window.Son.pose();
     else if (prise) window.Son.prise();
     else window.Son.coup();
+    jeu.vue = null;
+    jeu.analyse = null;
     afficherPartie(animer);
+    sauverEnCours();
+    tour();
+  }
+
+  // ---------- navigation dans les coups ----------
+  function allerVue(n) {
+    if (!jeu) return;
+    const N = jeu.partie.coups.length;
+    n = Math.max(0, Math.min(N, n));
+    jeu.vue = n >= N ? null : n;
+    jeu.analyse = null;
+    if (jeu.vue != null) plateau.bloquer();
+    afficherPartie(true);
+    if (jeu.vue == null && !jeu.fin && !estAuBot()) plateau.autoriser(jeu.partie.legaux(), jeu.partie.trait());
+    relancerAnalyse();
+  }
+  function reprendreIci() {
+    if (!jeu || jeu.vue == null) return;
+    const n = jeu.vue;
+    arreterTout();
+    const p = jeu.partie;
+    while (p.coups.length > n) p.annuler();
+    if (jeu.adversaire !== 'ami') jeu.aide = true;
+    jeu.vue = null;
+    jeu.analyse = null;
+    if (jeu.fin) { jeu.fin = null; demarrerHorloge(); }
+    afficherPartie(false);
     sauverEnCours();
     tour();
   }
@@ -447,18 +590,30 @@
     const p = jeu.partie;
     if (!p.coups.length) return;
     arreterTout();
-    if (jeu.adversaire === 'ami') {
-      p.annuler();
-    } else {
-      // On revient au dernier moment où c'était à toi, en retirant au moins un de tes coups.
+    if (jeu.adversaire === 'ami') p.annuler();
+    else {
       p.annuler();
       while (p.coups.length && p.trait() !== jeu.humain) p.annuler();
       jeu.aide = true;
     }
-    jeu.evalBlanc = null;
+    jeu.vue = null;
+    jeu.analyse = null;
     afficherPartie(false);
     sauverEnCours();
     tour();
+  }
+
+  function recommencer() {
+    if (!jeu) return;
+    const hasard = jeu.cfg && window.Config.aleatoire(jeu.cfg);
+    modale('<h2>Recommencer ?</h2><p>' + (hasard ? 'La partie repart du début avec un nouveau tirage au hasard.' : 'La partie repart du début.') + '</p>', [
+      { texte: '↻ Recommencer', classe: 'principal', action: () => {
+        const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
+        if (hasard) commencer(jeu.cfg, reglages);
+        else lancerPartie(jeu.variante, reglages, null, jeu.cfg);
+      } },
+      { texte: 'Annuler' }
+    ]);
   }
 
   function abandonner() {
@@ -482,13 +637,12 @@
       const dt = maint - avant; avant = maint;
       if (!jeu || jeu.fin || !jeu.temps) return;
       const p = jeu.partie;
-      if (!p.coups.length) return; // la pendule part après le premier coup
+      if (!p.coups.length) return;
       const camp = p.trait();
       jeu.temps[camp] -= dt;
       if (jeu.temps[camp] <= 0) {
         jeu.temps[camp] = 0;
         majPendules();
-        arreterTout();
         terminer(camp === 'w' ? '0-1' : '1-0', 'Temps écoulé');
         return;
       }
@@ -517,11 +671,14 @@
     if (!jeu || jeu.fin) return;
     jeu.fin = { resultat, raison };
     clearInterval(horlogeMinuteur);
-    arreterTout();
+    jeton++;
+    for (const m of window.Moteurs.tous()) if (m.role === 'jeu' && m.pret) m.arreter();
     plateau.bloquer();
     window.Son.fin();
     const rec = enregistrerPartie();
+    jeu.vue = null;
     afficherPartie(false);
+    relancerAnalyse();
     localStorage.removeItem(CLE_ENCOURS);
     let titre;
     if (resultat === '1/2-1/2') titre = 'Partie nulle';
@@ -533,31 +690,23 @@
     etat(titre + ' — ' + raison);
     modale('<h2>' + titre + '</h2><p>' + raison + '</p>', [
       { texte: '📊 Bilan de la partie', classe: 'principal', action: () => window.Bilan.ouvrir(rec) },
-      { texte: '↻ Revanche', action: () => revanche() },
+      { texte: '↻ Recommencer', action: () => {
+        const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
+        if (jeu.cfg && window.Config.aleatoire(jeu.cfg)) commencer(jeu.cfg, reglages); else lancerPartie(jeu.variante, reglages, null, jeu.cfg);
+      } },
       { texte: 'Voir le plateau' },
       { texte: '☰ Menu', action: () => ecran('accueil') }
     ]);
   }
 
-  function revanche() {
-    if (!jeu) return;
-    const cfg = {
-      variante: jeu.variante.id, adversaire: jeu.adversaire,
-      couleur: jeu.adversaire === 'ami' ? 'w' : (jeu.humain === 'w' ? 'b' : 'w'),
-      pendule: jeu.pendule ? (jeu.pendule.base / 60000) + '+' + (jeu.pendule.inc / 1000) : '0',
-      reflexion: jeu.reflexion
-    };
-    nouvellePartie(cfg);
-  }
-
   function enregistrerPartie() {
     const p = jeu.partie;
     const rec = {
-      id: jeu.id, date: jeu.date, varianteId: jeu.variante.id, varianteNom: jeu.variante.nom,
+      id: jeu.id, date: jeu.date, variante: jeu.variante, varianteNom: jeu.variante.nom,
       fen0: p.fen0, coups: p.coups.slice(),
       blancs: nomJoueur('w') + (detailJoueur('w') ? ' (' + detailJoueur('w') + ')' : ''),
       noirs: nomJoueur('b') + (detailJoueur('b') ? ' (' + detailJoueur('b') + ')' : ''),
-      adversaire: jeu.adversaire, humain: jeu.humain,
+      adversaire: jeu.adversaire, humain: jeu.humain, reglages: jeu.reglages, cfg: jeu.cfg,
       resultat: jeu.fin.resultat, raison: jeu.fin.raison, aide: jeu.aide,
       pendule: jeu.pendule, reflexion: jeu.reflexion, analyse: null
     };
@@ -565,11 +714,11 @@
     return rec;
   }
 
-  function parties() { return lire(CLE_PARTIES, []); }
+  function parties() { return lire(CLE_PARTIES, []).filter((r) => r.variante); }
   function sauverPartie(rec) {
     let l = parties().filter((x) => x.id !== rec.id);
     l.unshift(rec);
-    if (l.length > 60) l = l.slice(0, 60);
+    if (l.length > 50) l = l.slice(0, 50);
     ecrire(CLE_PARTIES, l);
   }
 
@@ -578,10 +727,7 @@
     const el = $('#liste-parties');
     el.innerHTML = '';
     const l = parties();
-    if (!l.length) {
-      el.innerHTML = '<p class="vide">Aucune partie terminée pour l’instant.</p>';
-      return;
-    }
+    if (!l.length) { el.innerHTML = '<p class="vide">Aucune partie terminée pour l’instant.</p>'; return; }
     for (const rec of l) {
       const d = document.createElement('div');
       d.className = 'ligne-partie';
@@ -592,7 +738,7 @@
         if (rec.resultat === '1/2-1/2') issue = 'nulle';
         else issue = ((rec.resultat === '1-0') === (rec.humain === 'w')) ? 'victoire' : 'défaite';
       }
-      const prec = rec.analyse && rec.analyse.precision ? ' · précision ' + Math.round(rec.analyse.precision.w) + ' % / ' + Math.round(rec.analyse.precision.b) + ' %' : '';
+      const prec = rec.analyse && rec.analyse.precision && rec.analyse.precision.w != null ? ' · précision ' + Math.round(rec.analyse.precision.w) + ' % / ' + Math.round(rec.analyse.precision.b || 0) + ' %' : '';
       d.innerHTML = '<div class="lp-texte"><b></b><span></span></div><div class="lp-boutons"></div>';
       d.querySelector('b').textContent = rec.varianteNom + ' — ' + rec.blancs + ' contre ' + rec.noirs;
       d.querySelector('span').textContent = date.toLocaleDateString('fr-FR') + ' ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) +
@@ -603,8 +749,7 @@
       b1.onclick = () => window.Bilan.ouvrir(rec);
       const b2 = document.createElement('button'); b2.className = 'bouton'; b2.textContent = '📋 PGN';
       b2.onclick = () => copier(pgn(rec), 'Partie copiée (PGN).');
-      const b3 = document.createElement('button'); b3.className = 'bouton danger'; b3.textContent = '🗑';
-      b3.title = 'Supprimer';
+      const b3 = document.createElement('button'); b3.className = 'bouton danger'; b3.textContent = '🗑'; b3.title = 'Supprimer';
       b3.onclick = () => modale('<h2>Supprimer cette partie ?</h2>', [
         { texte: 'Supprimer', classe: 'danger', action: () => { ecrire(CLE_PARTIES, parties().filter((x) => x.id !== rec.id)); construireParties(); } },
         { texte: 'Annuler' }
@@ -616,63 +761,47 @@
 
   // ---------- PGN ----------
   function pgn(rec) {
-    const v = window.Variantes.toutes().find((x) => x.id === rec.varianteId);
+    const v = rec.variante;
     const d = new Date(rec.date);
     const date = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
-    const res = rec.resultat;
     const lignes = [
-      '[Event "JulGame — Échecs & Variantes"]', '[Site "JulGame"]', '[Date "' + date + '"]',
-      '[White "' + rec.blancs + '"]', '[Black "' + rec.noirs + '"]', '[Result "' + res + '"]'
+      '[Event "JulGame — Échecs (' + rec.varianteNom.replace(/"/g, '') + ')"]', '[Site "JulGame"]', '[Date "' + date + '"]',
+      '[White "' + rec.blancs + '"]', '[Black "' + rec.noirs + '"]', '[Result "' + rec.resultat + '"]'
     ];
-    if (v && v.uci !== 'chess') lignes.push('[Variant "' + v.uci + '"]');
-    if (v && v.is960) lignes.push('[Variant "Chess960"]');
     const std = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    if (rec.fen0 !== std && v && (v.uci === 'chess')) { lignes.push('[SetUp "1"]'); lignes.push('[FEN "' + rec.fen0 + '"]'); }
+    if (rec.fen0 !== std) { lignes.push('[SetUp "1"]'); lignes.push('[FEN "' + rec.fen0 + '"]'); }
     let sans = [];
-    try {
-      const p = new window.Regles.Partie(v, rec.fen0, rec.coups);
-      sans = p.sansEn.slice();
-      p.detruire();
-    } catch (e) { sans = rec.coups.slice(); }
+    try { const p = new window.Regles.Partie(v, rec.fen0, rec.coups); sans = p.sansEn.slice(); p.detruire(); } catch (e) { sans = rec.coups.slice(); }
     let num = +(rec.fen0.split(/\s+/).pop()) || 1;
     const noir = rec.fen0.split(/\s+/)[1] === 'b';
     let txt = '';
     let i = 0;
     if (noir && sans.length) { txt += num + '... ' + sans[0] + ' '; i = 1; num++; }
-    for (; i < sans.length; i += 2) {
-      txt += num + '. ' + sans[i] + ' ' + (sans[i + 1] ? sans[i + 1] + ' ' : '');
-      num++;
-    }
-    return lignes.join('\n') + '\n\n' + txt + res + '\n';
+    for (; i < sans.length; i += 2) { txt += num + '. ' + sans[i] + ' ' + (sans[i + 1] ? sans[i + 1] + ' ' : ''); num++; }
+    return lignes.join('\n') + '\n\n' + txt + rec.resultat + '\n';
   }
 
   function copier(texte, message) {
     const fin = () => bulle(message || 'Copié.');
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texte).then(fin, () => repli());
-    else repli();
-    function repli() {
+    const repli = () => {
       const t = document.createElement('textarea'); t.value = texte; document.body.appendChild(t); t.select();
       try { document.execCommand('copy'); fin(); } catch (e) { bulle('Copie impossible.'); }
       t.remove();
-    }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texte).then(fin, repli);
+    else repli();
   }
 
-  // ---------- règles de la variante ----------
+  // ---------- règles de la partie ----------
   function montrerRegles(v) {
-    v = v || (jeu && jeu.variante) || window.Variantes.trouver(options.variante);
+    v = v || (jeu && jeu.variante);
+    if (!v) return;
     const d = document.createElement('div');
     const h = document.createElement('h2'); h.textContent = v.nom; d.appendChild(h);
-    const p = document.createElement('p'); p.textContent = v.regles || v.court || ''; d.appendChild(p);
-    let fen;
-    try { fen = window.Regles.ff.startingFen(v.uci); } catch (e) { fen = ''; }
-    const lettres = window.Pieces.piecesDeFen(fen);
-    if (v.ini) {
-      const m = v.ini.match(/promotionPieceTypes\s*=\s*(\w+)/);
-      if (m) for (const l of m[1]) if (!lettres.includes(l)) lettres.push(l);
-    }
+    const p = document.createElement('p'); p.textContent = v.regles || 'Règles classiques des échecs.'; d.appendChild(p);
     const leg = document.createElement('div'); leg.className = 'legende';
-    for (const l of lettres) {
-      const info = window.Pieces.infoPiece(l, v);
+    for (const l of Object.keys(v.pieces || {})) {
+      const info = v.pieces[l];
       const ligne = document.createElement('div'); ligne.className = 'legende-ligne';
       const ic = window.Pieces.creerPiece(l.toUpperCase(), v); ic.classList.add('icone');
       const t = document.createElement('div');
@@ -692,25 +821,26 @@
     let pl = null, zone = null, barre = null;
     if (nom === 'partie') { pl = plateau; zone = $('#zone-partie'); barre = $('#barre-partie'); }
     else if (nom === 'bilan') { pl = window.Bilan.plateau; zone = $('#zone-bilan'); barre = $('#barre-bilan'); }
-    else if (nom === 'atelier') { window.Atelier.redimensionner(); return; }
+    else if (nom === 'config') { window.EditeurConfig.redimensionner(); return; }
+    else if (nom === 'accueil') { redimensionnerApercu(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
-    const avecBarre = barre && barre.style.display !== 'none';
-    const largeur = r.width - (avecBarre ? 58 : 0) - 24;
+    const largeur = r.width - (barre ? 58 : 0) - 24;
     const poches = pl.position && pl.position.poches;
     const hauteur = r.height - 24;
     const t = Math.floor(Math.min(largeur / pl.cols, hauteur / (pl.lignes + (poches ? 2.3 : 0))));
     pl.taille(Math.max(24, t));
-    if (barre) barre.style.height = (t * pl.lignes) + 'px';
+    if (barre) barre.style.height = (Math.max(24, t) * pl.lignes) + 'px';
   }
 
   // ---------- démarrage ----------
   async function demarrer() {
     plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain });
+    plateauApercu = new window.Plateau($('#plateau-apercu'), {});
+    plateauApercu.bloquer();
     window.Son.regler(options.sons);
     try {
       await window.Regles.charger();
-      window.Regles.chargerVariantes(window.Variantes.iniTotal());
     } catch (e) {
       $('#chargement-texte').textContent = 'Impossible de charger les règles. Ouvre le jeu par une adresse http (pas en double-cliquant le fichier).';
       console.error(e);
@@ -718,17 +848,33 @@
     }
     $('#chargement').remove();
     window.Bilan.init();
-    window.Atelier.init();
+    window.EditeurConfig.init();
+    window.EditeurPersos.init();
 
     $$('[data-aller]').forEach((b) => b.addEventListener('click', () => ecran(b.dataset.aller)));
-    $('#btn-commencer').addEventListener('click', () => nouvellePartie(options));
+    $('#btn-commencer').addEventListener('click', () => commencer());
     $('#btn-reprendre').addEventListener('click', reprendre);
     $('#opt-sons').addEventListener('change', (e) => { options.sons = e.target.checked; window.Son.regler(options.sons); sauverOptions(); });
-    $('#opt-barre').addEventListener('change', (e) => { options.barre = e.target.checked; sauverOptions(); });
     $('#btn-retourner').addEventListener('click', () => { plateau.retourner(!plateau.retourne); afficherPartie(false); });
     $('#btn-annuler').addEventListener('click', annulerCoup);
+    $('#btn-recommencer').addEventListener('click', recommencer);
     $('#btn-abandonner').addEventListener('click', abandonner);
     $('#btn-regles').addEventListener('click', () => montrerRegles());
+    $('#btn-bilan-partie').addEventListener('click', () => {
+      if (!jeu) return;
+      if (!jeu.fin) { bulle('Le bilan s’ouvre à la fin de la partie.'); return; }
+      const rec = parties().find((x) => x.id === jeu.id);
+      if (rec) window.Bilan.ouvrir(rec);
+    });
+    $('#btn-conseils').addEventListener('click', () => { options.conseils = !options.conseils; sauverOptions(); afficherPartie(false); });
+    $$('#nav-partie [data-nav]').forEach((b) => b.addEventListener('click', () => {
+      if (!jeu) return;
+      const N = jeu.partie.coups.length, n = indexVue();
+      const d = b.dataset.nav;
+      allerVue(d === 'debut' ? 0 : d === 'fin' ? N : d === 'prec' ? n - 1 : n + 1);
+    }));
+    $('#btn-vue-present').addEventListener('click', () => allerVue(Infinity));
+    $('#btn-vue-reprendre').addEventListener('click', reprendreIci);
     $('#btn-menu-partie').addEventListener('click', () => {
       if (jeu && !jeu.fin) sauverEnCours();
       arreterTout();
@@ -738,8 +884,15 @@
     $('#modale').addEventListener('click', (e) => { if (e.target.id === 'modale' && $('#modale').dataset.fermable) fermerModale(); });
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      if (e.key === 'Escape' && !$('#modale').classList.contains('cachee')) { fermerModale(); return; }
-      if (App.ecranActuel === 'partie' && (e.key === 'f' || e.key === 'F')) $('#btn-retourner').click();
+      if (e.key === 'Escape' && !$('#modale').classList.contains('cachee')) { if ($('#modale').dataset.fermable) fermerModale(); return; }
+      if (App.ecranActuel === 'partie' && jeu) {
+        if (e.key === 'f' || e.key === 'F') $('#btn-retourner').click();
+        const N = jeu.partie.coups.length, n = indexVue();
+        if (e.key === 'ArrowLeft') { allerVue(n - 1); e.preventDefault(); }
+        if (e.key === 'ArrowRight') { allerVue(n + 1); e.preventDefault(); }
+        if (e.key === 'Home' || e.key === 'ArrowUp') { allerVue(0); e.preventDefault(); }
+        if (e.key === 'End' || e.key === 'ArrowDown') { allerVue(N); e.preventDefault(); }
+      }
       if (App.ecranActuel === 'bilan') window.Bilan.touche(e);
     });
     window.addEventListener('resize', redimensionner);
@@ -750,20 +903,17 @@
     ecranActuel: 'accueil',
     ecran, modale, fermerModale, bulle, copier, pgn, montrerRegles, redimensionner,
     chances, texteScore, inverser, majBarre, remplirListeCoups, dernierCoupCases, caseRoiEnEchec,
-    sauverPartie, parties, options,
-    nouvellePartie,
+    sauverPartie, parties, options, commencer,
+    arreterAnalyse,
     // Rejouer depuis une position du bilan
     rejouerDepuis(rec, n) {
-      const cfg = {
-        variante: rec.varianteId,
-        adversaire: rec.adversaire === 'ami' ? options.adversaire === 'ami' ? 'expert' : options.adversaire : rec.adversaire,
-        couleur: 'w', pendule: '0', reflexion: rec.reflexion || options.reflexion
-      };
-      let partie;
-      try { partie = new window.Regles.Partie(window.Variantes.trouver(rec.varianteId), rec.fen0, rec.coups.slice(0, n)); } catch (e) { return; }
-      cfg.couleur = rec.adversaire === 'ami' ? partie.trait() : rec.humain;
-      partie.detruire();
-      nouvellePartie(cfg, { fen0: rec.fen0, coups: rec.coups.slice(0, n) });
+      const reglages = Object.assign({ adversaire: 'expert', pendule: '0', reflexion: options.reflexion }, rec.reglages || {});
+      if (rec.adversaire === 'ami') reglages.adversaire = options.adversaire === 'ami' ? 'expert' : options.adversaire;
+      let trait = 'w';
+      try { const p = new window.Regles.Partie(rec.variante, rec.fen0, rec.coups.slice(0, n)); trait = p.trait(); p.detruire(); } catch (e) { return; }
+      reglages.couleur = rec.adversaire === 'ami' ? trait : rec.humain;
+      reglages.pendule = '0';
+      lancerPartie(rec.variante, reglages, { fen0: rec.fen0, coups: rec.coups.slice(0, n) }, rec.cfg);
     }
   };
   window.App = App;
