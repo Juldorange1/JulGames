@@ -125,6 +125,7 @@
       this.remplir();
       this.choisirOnglet(this.onglet);
       this.change(true);
+      this.majAvantage();
     },
 
     choisirOnglet(o) {
