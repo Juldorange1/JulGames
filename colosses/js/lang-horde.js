@@ -3,6 +3,7 @@
 (function () {
 const T = {
   en: [
+    ["Pas de boss : des dizaines de sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "No boss: dozens of kinds of enemies, each with its own attack and its own way to be beaten."], ["Ils arrivent moins souvent, mais chacun est solide et dangereux : téléportations, tirs, zones à éviter.", "They come less often, but each one is tough and dangerous: teleports, shots, areas to avoid."],
     ["Tu commences à ton record moins 2 minutes (même temps, même menace) :", "You start at your record minus 2 minutes (same time, same threat):"], ["Départ à ", "Start at "], ["Pas de boss : dix-huit sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "No boss: eighteen kinds of enemies, each with its own attack and its own way to be beaten."],
     ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Enemies keep coming, ever faster and more numerous: hold out as long as you can'],
     ['des ennemis sans fin, toujours plus nombreux', 'endless enemies, more and more of them'],
@@ -12,6 +13,7 @@ const T = {
     ['Ils arrivent…', 'Here they come…'], ['Reprise : ', 'Resumed: '], ['Menace ', 'Threat '], [' ennemis', ' enemies'], [' ennemi', ' enemy'], ['ennemis abattus', 'enemies slain'], [' abattus', ' slain']
   ],
   es: [
+    ["Pas de boss : des dizaines de sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "Sin jefe: decenas de tipos de enemigos, cada uno con su ataque y su forma de vencerlo."], ["Ils arrivent moins souvent, mais chacun est solide et dangereux : téléportations, tirs, zones à éviter.", "Llegan con menos frecuencia, pero cada uno es duro y peligroso: teletransportes, disparos, zonas que evitar."],
     ["Tu commences à ton record moins 2 minutes (même temps, même menace) :", "Empiezas en tu récord menos 2 minutos (mismo tiempo, misma amenaza):"], ["Départ à ", "Salida en "], ["Pas de boss : dix-huit sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "Sin jefe: dieciocho tipos de enemigos, cada uno con su ataque y su forma de vencerlo."],
     ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Los enemigos llegan sin parar, cada vez más rápido y más numerosos: aguanta lo máximo posible'],
     ['des ennemis sans fin, toujours plus nombreux', 'enemigos sin fin, cada vez más'],
@@ -21,6 +23,7 @@ const T = {
     ['Ils arrivent…', 'Ya vienen…'], ['Reprise : ', 'Reanudado: '], ['Menace ', 'Amenaza '], [' ennemis', ' enemigos'], [' ennemi', ' enemigo'], ['ennemis abattus', 'enemigos abatidos'], [' abattus', ' abatidos']
   ],
   de: [
+    ["Pas de boss : des dizaines de sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "Kein Boss: Dutzende Gegnerarten, jede mit eigenem Angriff und eigener Art, sie zu besiegen."], ["Ils arrivent moins souvent, mais chacun est solide et dangereux : téléportations, tirs, zones à éviter.", "Sie kommen seltener, aber jeder ist zäh und gefährlich: Teleports, Schüsse, Zonen zum Meiden."],
     ["Tu commences à ton record moins 2 minutes (même temps, même menace) :", "Du startest bei deinem Rekord minus 2 Minuten (gleiche Zeit, gleiche Bedrohung):"], ["Départ à ", "Start bei "], ["Pas de boss : dix-huit sortes d'ennemis, chacune avec son attaque et sa façon d'être battue.", "Kein Boss: achtzehn Gegnerarten, jede mit eigenem Angriff und eigener Art, sie zu besiegen."],
     ['Des ennemis arrivent sans arrêt, toujours plus vite et plus nombreux : tiens le plus longtemps possible', 'Gegner kommen ohne Pause, immer schneller und zahlreicher: halte so lange wie möglich durch'],
     ['des ennemis sans fin, toujours plus nombreux', 'endlose Gegner, immer mehr'],
