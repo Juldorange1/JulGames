@@ -25,7 +25,7 @@
         const m = document.createElement('div');
         m.className = 'marque';
         m.textContent = app.marque;
-        if ([...app.marque].length > 1 && !/\p{Extended_Pictographic}/u.test(app.marque)) m.classList.add('longue');
+        if ([...app.marque].length > 2 && !/\p{Extended_Pictographic}/u.test(app.marque)) m.classList.add('longue');
         el.appendChild(m);
       }
     } else {

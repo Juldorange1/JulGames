@@ -72,6 +72,7 @@
     camp: 'w',
     plateau: null,
     onglet: 'pieces',
+    catActive: 'Classiques',
     jetonEval: 0,
     dernierPool: ['cavalier', 'fou', 'tour', 'dame'],
 
@@ -82,7 +83,24 @@
       cadre.addEventListener('pointerdown', (e) => this._appui(e));
       cadre.addEventListener('pointermove', (e) => { if (e.buttons && this.glisse) this._etendre(e); });
       window.addEventListener('pointerup', () => { this.glisse = null; });
-      document.querySelectorAll('#onglets-config button').forEach((b) => b.addEventListener('click', () => this.choisirOnglet(b.dataset.onglet)));
+      document.querySelectorAll('#acc-config .pli').forEach((s) => s.querySelector('.pli-titre').addEventListener('click', () => this.choisirOnglet(s.dataset.pli)));
+      $('#sel-par-type').addEventListener('click', () => { $('#sel-types').classList.toggle('ouvert'); $('#sel-par-type').classList.toggle('choisi'); });
+      $('#cf-charger').addEventListener('click', () => {
+        const id = $('#cf-liste').value;
+        const cfg = id === 'classique' ? window.Config.classique() : window.Config.liste().find((x) => x.id === id);
+        if (!cfg) return;
+        this.cfg = window.Config.copie(cfg); this.sel.clear(); window.Config.definirCourante(this.cfg);
+        this.remplir(); this.change(); this.listeEnregistrees(); this.majAvantage();
+        window.App.bulle('Configuration « ' + cfg.nom + ' » chargée.');
+      });
+      $('#cf-supprimer').addEventListener('click', () => {
+        const id = $('#cf-liste').value;
+        const cfg = window.Config.liste().find((x) => x.id === id);
+        if (!cfg) { window.App.bulle('La configuration classique ne peut pas être supprimée.'); return; }
+        window.App.modale('<h2>Supprimer « ' + cfg.nom.replace(/</g, '') + ' » ?</h2>', [
+          { texte: 'Supprimer', classe: 'danger', action: () => { window.Config.supprimer(cfg.id); this.listeEnregistrees(); } }, { texte: 'Annuler' }
+        ]);
+      });
       document.querySelectorAll('#camp-config button').forEach((b) => b.addEventListener('click', () => { this.camp = b.dataset.camp; this.majEtape2(); }));
       $('#sel-blancs').addEventListener('click', () => this.choisirZone((r) => r < this.cfg.lignes / 2));
       $('#sel-noirs').addEventListener('click', () => this.choisirZone((r) => r >= this.cfg.lignes / 2));
@@ -128,10 +146,10 @@
       this.majAvantage();
     },
 
+    // Une seule partie dépliée à la fois : tout tient sur l'écran.
     choisirOnglet(o) {
       this.onglet = o;
-      document.querySelectorAll('#onglets-config button').forEach((b) => b.classList.toggle('actif', b.dataset.onglet === o));
-      document.querySelectorAll('.cf-onglet').forEach((d) => { d.style.display = d.dataset.onglet === o ? '' : 'none'; });
+      document.querySelectorAll('#acc-config .pli').forEach((s) => s.classList.toggle('ouvert', s.dataset.pli === o));
       if (o === 'enregistrer') this.listeEnregistrees();
       if (o === 'regles') this.promos();
       if (o === 'pieces') this.majEtape2();
@@ -266,31 +284,37 @@
     // ---------- étape 2 : ce qu'on met ----------
     majEtape2() {
       document.querySelectorAll('#camp-config button').forEach((b) => b.classList.toggle('choisi', b.dataset.camp === this.camp));
+      const cats = window.Persos.categories();
+      if (!cats.includes(this.catActive)) this.catActive = cats[0];
+      // une catégorie affichée à la fois
+      const barre = $('#cf-cats');
+      barre.innerHTML = '';
+      for (const cat of cats) {
+        const b = el('button', 'puce' + (cat === this.catActive ? ' choisie' : ''), cat);
+        b.addEventListener('click', () => { this.catActive = cat; this.majEtape2(); });
+        barre.appendChild(b);
+      }
+      const nouveau = el('button', 'puce puce-plus', '✚ Créer');
+      nouveau.title = 'Créer un nouveau personnage';
+      nouveau.addEventListener('click', () => { window.EditeurPersos.p = null; window.App.ecran('persos'); });
+      barre.appendChild(nouveau);
       const box = $('#cf-persos');
       box.innerHTML = '';
-      for (const cat of window.Persos.categories()) {
-        box.appendChild(el('div', 'cf-cat', cat));
-        const g = el('div', 'cf-grille-persos');
-        for (const p of window.Persos.tous().filter((x) => x.categorie === cat)) {
-          const b = el('button', 'cf-perso');
-          const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone');
-          b.append(ic, el('span', null, p.nom));
-          b.title = window.Persos.description(p);
-          b.addEventListener('click', () => this.appliquer('perso', { perso: p.id }));
-          g.appendChild(b);
-        }
-        box.appendChild(g);
+      for (const p of window.Persos.tous().filter((x) => x.categorie === this.catActive)) {
+        const b = el('button', 'cf-perso');
+        const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone');
+        b.append(ic, el('span', null, p.nom));
+        b.title = window.Persos.description(p);
+        b.addEventListener('click', () => this.appliquer('perso', { perso: p.id }));
+        box.appendChild(b);
       }
-      const lien = el('button', 'bouton discret', '🧩 Créer un nouveau personnage…');
-      lien.addEventListener('click', () => window.App.ecran('persos'));
-      box.appendChild(lien);
     },
 
     majSelectionInfo() {
       const n = this.sel.size;
-      $('#sel-nb').textContent = n ? n + ' case' + (n > 1 ? 's choisies' : ' choisie') + '.' : 'Aucune case choisie.';
-      $('#etape2').classList.toggle('inactif', !n);
-      // raccourcis « toutes les cases avec… »
+      $('#sel-nb').textContent = n ? n + ' case' + (n > 1 ? 's choisies' : ' choisie') : 'clique ou glisse sur le plateau';
+      $('#sel-nb').classList.toggle('vide', !n);
+      // raccourcis « toutes les cases qui contiennent… »
       const box = $('#sel-types');
       box.innerHTML = '';
       const groupes = new Map();
@@ -302,17 +326,15 @@
         if (!groupes.has(cle)) groupes.set(cle, { p, n: 0 });
         groupes.get(cle).n++;
       }
-      if (!groupes.size) return;
-      box.appendChild(el('div', 'aide', 'Ou toutes les cases qui contiennent :'));
-      const rangee = el('div', 'puces');
+      if (!groupes.size) { box.appendChild(el('span', 'aide', 'Aucune pièce sur le plateau.')); return; }
       for (const [cle, g] of groupes) {
         const b = el('button', 'puce puce-piece');
         const ic = dessinContenu(g.p); ic.classList.add('icone');
-        b.append(ic, el('span', null, nomContenu(g.p) + ' ×' + g.n + (g.p.camp === 'w' ? ' (blancs)' : ' (noirs)')));
+        b.append(ic, el('span', null, '×' + g.n));
+        b.title = nomContenu(g.p) + (g.p.camp === 'w' ? ' (blancs)' : ' (noirs)');
         b.addEventListener('click', () => this.choisirType(cle));
-        rangee.appendChild(b);
+        box.appendChild(b);
       }
-      box.appendChild(rangee);
     },
 
     // ---------- plateau ----------
@@ -471,24 +493,12 @@
     },
 
     listeEnregistrees() {
-      const box = $('#cf-liste');
-      box.innerHTML = '';
-      const charger = (cfg) => { this.cfg = window.Config.copie(cfg); this.sel.clear(); window.Config.definirCourante(this.cfg); this.remplir(); this.change(); this.listeEnregistrees(); window.App.bulle('Configuration « ' + cfg.nom + ' » chargée.'); };
-      const ligne = (cfg, suppr) => {
-        const d = el('div', 'cf-ligne' + (cfg.id === this.cfg.id ? ' choisie' : ''));
-        d.appendChild(el('b', null, cfg.nom));
-        const b = el('button', 'bouton', 'Charger'); b.addEventListener('click', () => charger(cfg)); d.appendChild(b);
-        if (suppr) {
-          const s = el('button', 'bouton danger', '🗑'); s.title = 'Supprimer';
-          s.addEventListener('click', () => window.App.modale('<h2>Supprimer « ' + cfg.nom.replace(/</g, '') + ' » ?</h2>', [
-            { texte: 'Supprimer', classe: 'danger', action: () => { window.Config.supprimer(cfg.id); this.listeEnregistrees(); } }, { texte: 'Annuler' }
-          ]));
-          d.appendChild(s);
-        }
-        box.appendChild(d);
-      };
-      ligne(window.Config.classique(), false);
-      for (const c of window.Config.liste()) ligne(c, true);
+      const sel = $('#cf-liste');
+      sel.innerHTML = '';
+      for (const c of [window.Config.classique()].concat(window.Config.liste())) {
+        const o = el('option', null, c.nom); o.value = c.id; sel.appendChild(o);
+      }
+      sel.value = window.Config.liste().some((x) => x.id === this.cfg.id) ? this.cfg.id : 'classique';
     },
 
     code() {
@@ -545,7 +555,7 @@
         else $('#ps-cat-nouvelle').focus();
       });
       $('#ps-cat-nouvelle').addEventListener('input', () => { this.p.categorie = $('#ps-cat-nouvelle').value; });
-      $('#ps-marque').addEventListener('input', () => { this.p.marque = [...$('#ps-marque').value].slice(0, 2).join(''); this.apercu(); this.grille(); });
+      $('#ps-marque').addEventListener('input', () => { this.p.marque = [...$('#ps-marque').value].slice(0, 4).join(''); this.apercu(); this.grille(); });
       document.querySelectorAll('#ps-saute button').forEach((b) => b.addEventListener('click', () => {
         if (this.p.classique) return;
         this.p.saute = b.dataset.val === '1';
@@ -580,26 +590,32 @@
       else { this.remplir(); this.liste(); }
     },
 
+    // Liste des personnages : une catégorie dépliée à la fois.
     liste() {
       const box = $('#ps-liste');
       box.innerHTML = '';
-      for (const cat of window.Persos.categories()) {
-        box.appendChild(el('h3', 'ps-cat-titre', cat));
-        const grille = el('div', 'ps-grille-liste');
-        for (const p of window.Persos.tous().filter((x) => x.categorie === cat)) {
+      const cats = window.Persos.categories();
+      if (!this.catOuverte || !cats.includes(this.catOuverte)) this.catOuverte = (this.p && cats.includes(this.p.categorie)) ? this.p.categorie : cats[cats.length - 1];
+      for (const cat of cats) {
+        const persos = window.Persos.tous().filter((x) => x.categorie === cat);
+        const pli = el('section', 'pli' + (cat === this.catOuverte ? ' ouvert' : ''));
+        const t = el('button', 'pli-titre', cat + ' (' + persos.length + ')');
+        t.addEventListener('click', () => { this.catOuverte = cat; this.liste(); });
+        const corps = el('div', 'pli-corps ps-liste-corps');
+        for (const p of persos) {
           const carte = el('button', 'ps-carte' + (this.p && this.p.id === p.id ? ' choisie' : ''));
-          const ic = window.Pieces.creerPerso(p, 'w'); ic.classList.add('icone-grande');
-          carte.append(ic, el('b', null, p.nom));
+          const ic = window.Pieces.creerPerso(p, 'w'); ic.classList.add('icone');
+          carte.append(ic, el('span', null, p.nom));
           carte.addEventListener('click', () => this.editer(p));
-          grille.appendChild(carte);
+          corps.appendChild(carte);
         }
-        box.appendChild(grille);
+        pli.append(t, corps);
+        box.appendChild(pli);
       }
-      if (!window.Persos.crees().length) box.appendChild(el('p', 'aide grande-aide', 'Tu n’as pas encore créé de personnage : clique « ✚ Nouveau personnage ».'));
     },
 
     editer(p) {
-      if (p) this.p = JSON.parse(JSON.stringify(p));
+      if (p) { this.p = JSON.parse(JSON.stringify(p)); this.catOuverte = p.categorie; }
       else this.p = { id: null, nom: '', categorie: 'Mes personnages', base: 'q', marque: '', cases: {}, lignes: {}, saute: false };
       this.remplir();
       this.liste();
@@ -642,23 +658,28 @@
       for (const camp of ['w', 'b']) { const d = window.Pieces.creerPerso(Object.assign({}, p), camp); d.classList.add('icone-grande'); box.appendChild(d); }
     },
 
-    // Grille 9 × 9 : la pièce au milieu, les cases cliquables autour (3 cases de chaque côté),
-    // et 8 flèches au bord pour « continue tout droit jusqu'au bout ».
+    // Grille 15 × 15 : la pièce au milieu, 7 cases de chaque côté, et 8 flèches tout autour
+    // pour « continue tout droit jusqu'au bout ». Les cases en biais trop lointaines sont grisées
+    // (le moteur ne sait pas jouer ces sauts).
     grille() {
       const p = this.p;
       p.cases = p.cases || {}; p.lignes = p.lignes || {};
       const box = $('#ps-grille');
       box.innerHTML = '';
       const classique = !!p.classique;
-      const forces = new Set(classique ? [] : window.Persos.analyser(p).sautsForces);
-      const dirDe = (dx, dy) => Object.keys(window.Persos.DIRS).find((k) => window.Persos.DIRS[k][0] === Math.sign(dx) && window.Persos.DIRS[k][1] === Math.sign(dy));
+      const R = window.Persos.PORTEE, B = R + 1;
+      const avertis = classique ? {} : window.Persos.analyser(p).avertis;
+      const D = window.Persos.DIRS;
+      const dirDe = (dx, dy) => Object.keys(D).find((k) => D[k][0] === Math.sign(dx) && D[k][1] === Math.sign(dy));
       const enLigne = (dx, dy) => (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) && p.lignes[dirDe(dx, dy)];
-      for (let dy = 4; dy >= -4; dy--) {
-        for (let dx = -4; dx <= 4; dx++) {
-          const bord = Math.abs(dx) === 4 || Math.abs(dy) === 4;
-          if (bord) {
-            const estBout = (dx === 0 || Math.abs(dx) === 4) && (dy === 0 || Math.abs(dy) === 4);
-            if (!estBout) { box.appendChild(el('div', 'ps-vide')); continue; }
+      const SIGNES = { saute: '⚠', bloque: '⚠', ignore: '✖' };
+      box.style.gridTemplateColumns = 'repeat(' + (2 * B + 1) + ', var(--ps-case))';
+      box.style.gridTemplateRows = 'repeat(' + (2 * B + 1) + ', var(--ps-case))';
+      for (let dy = B; dy >= -B; dy--) {
+        for (let dx = -B; dx <= B; dx++) {
+          if (Math.abs(dx) === B || Math.abs(dy) === B) {
+            const bout = (dx === 0 || Math.abs(dx) === B) && (dy === 0 || Math.abs(dy) === B);
+            if (!bout) { box.appendChild(el('div', 'ps-vide')); continue; }
             const k = dirDe(dx, dy);
             const b = el('button', 'ps-fleche' + (p.lignes[k] ? ' active' : ''), FLECHES[k]);
             b.title = 'Continue tout droit jusqu’au bout du plateau';
@@ -673,17 +694,33 @@
             const d = window.Pieces.creerPerso(Object.assign({}, p), 'w'); d.classList.add('icone');
             c.appendChild(d);
             c.disabled = true;
+          } else if (!window.Persos.caseJouable(dx, dy)) {
+            c.classList.add('grisee');
+            c.disabled = true;
+            c.title = 'Trop loin en biais : impossible pour le moteur';
           } else {
-            if (p.cases[cle]) { c.classList.add('oui'); c.textContent = forces.has(cle) ? '⚠' : '●'; }
-            else if (enLigne(dx, dy)) { c.classList.add('ligne'); c.textContent = '•'; }
+            if (p.cases[cle]) {
+              c.classList.add('oui');
+              if (avertis[cle]) { c.classList.add('av-' + avertis[cle]); c.textContent = SIGNES[avertis[cle]]; }
+            } else if (enLigne(dx, dy)) c.classList.add('ligne');
             if (!classique) c.addEventListener('click', () => { if (p.cases[cle]) delete p.cases[cle]; else p.cases[cle] = 1; this.grille(); });
           }
           box.appendChild(c);
         }
       }
       document.querySelectorAll('#ps-saute button').forEach((b) => b.classList.toggle('choisi', (b.dataset.val === '1') === !!p.saute));
-      $('#ps-desc').textContent = window.Persos.description(Object.assign({}, p, { classique: false }));
-      if (classique) $('#ps-desc').textContent = p.desc;
+      $('#ps-desc').textContent = classique ? p.desc : window.Persos.description(Object.assign({}, p, { classique: false }));
+      this.redimensionner();
+    },
+
+    redimensionner() {
+      const zone = $('.ps-centre');
+      if (!zone || !zone.offsetParent) return;
+      const r = zone.getBoundingClientRect();
+      const titre = zone.querySelector('.ps-centre-titre').getBoundingClientRect().height;
+      const n = 2 * (window.Persos.PORTEE + 1) + 1;
+      const t = Math.floor(Math.min(r.width - 8, r.height - titre - 16) / n);
+      $('#ps-grille').style.setProperty('--ps-case', Math.max(16, Math.min(48, t)) + 'px');
     },
 
     enregistrer() {
@@ -695,8 +732,9 @@
       if (!p.nom) { window.App.bulle('Donne un nom au personnage.'); $('#ps-nom').focus(); return; }
       if (!window.Persos.betza(p)) { window.App.bulle('Clique au moins une case où il peut aller.'); return; }
       if (!p.id) p.id = window.Persos.nouveauId();
-      if (!p.marque) p.marque = [...p.nom][0].toUpperCase();
+      if (!p.marque) p.marque = [...p.nom].slice(0, 2).join('');
       window.Persos.enregistrer(p);
+      this.catOuverte = p.categorie;
       this.remplir();
       this.liste();
       window.App.bulle('Personnage « ' + p.nom + ' » enregistré.');

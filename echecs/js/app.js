@@ -131,16 +131,17 @@
     const { pos, zones } = window.Editeur.positionAffichage(cfg);
     plateauApercu.afficher(pos, { decor: { zones } });
     redimensionnerApercu();
-    // configurations enregistrées
-    const box = $('#acc-configs');
-    box.innerHTML = '';
-    for (const c of [window.Config.classique()].concat(window.Config.liste())) {
-      const b = document.createElement('button');
-      b.className = 'puce' + (c.id === cfg.id ? ' choisie' : '');
-      b.textContent = c.nom;
-      b.addEventListener('click', () => { window.Config.definirCourante(window.Config.copie(c)); construireAccueil(); });
-      box.appendChild(b);
-    }
+    // configurations enregistrées : menu déroulant
+    const sel = $('#acc-configs');
+    sel.innerHTML = '';
+    const toutes = [window.Config.classique()].concat(window.Config.liste());
+    if (!toutes.some((c) => c.id === cfg.id)) toutes.unshift(cfg);
+    for (const c of toutes) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.nom; sel.appendChild(o); }
+    sel.value = cfg.id;
+    sel.onchange = () => {
+      const c = toutes.find((x) => x.id === sel.value);
+      if (c) { window.Config.definirCourante(window.Config.copie(c)); construireAccueil(); }
+    };
     // avantage
     const jet = ++jetonApercu;
     const av = $('#acc-avantage');
@@ -823,6 +824,7 @@
     else if (nom === 'bilan') { pl = window.Bilan.plateau; zone = $('#zone-bilan'); barre = $('#barre-bilan'); }
     else if (nom === 'config') { window.EditeurConfig.redimensionner(); return; }
     else if (nom === 'accueil') { redimensionnerApercu(); return; }
+    else if (nom === 'persos') { window.EditeurPersos.redimensionner(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
     const largeur = r.width - (barre ? 58 : 0) - 24;
@@ -860,7 +862,7 @@
     $('#btn-recommencer').addEventListener('click', recommencer);
     $('#btn-abandonner').addEventListener('click', abandonner);
     $('#btn-regles').addEventListener('click', () => montrerRegles());
-    $('#btn-bilan-partie').addEventListener('click', () => {
+    if ($('#btn-bilan-partie')) $('#btn-bilan-partie').addEventListener('click', () => {
       if (!jeu) return;
       if (!jeu.fin) { bulle('Le bilan s’ouvre à la fin de la partie.'); return; }
       const rec = parties().find((x) => x.id === jeu.id);
