@@ -45,6 +45,15 @@ html, body, canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3
 .parts { display: flex; width: min(900px, 100%); margin-top: 8px; border-radius: 8px; overflow: hidden; font-size: 16px; }
 .parts span { background: var(--c); color: #111; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; min-width: 0; }
 textarea.code { width: min(820px, 100%); min-height: 110px; font: 16px monospace; background: #120e1c; color: #ffe94a; border: 2px solid #4a3a6a; border-radius: 10px; padding: 10px; user-select: text; -webkit-user-select: text; word-break: break-all; }
+.btn.rouge-fond { background: #8a1f2c; border-color: #ff6a6a; color: #fff; }
+details.plier .moins, details.plier[open] .plus { display: none; } details.plier[open] .moins { display: inline; }
+.voir-stats .lignes, .voir-stats .parts, .voir-stats .nomniv, .voir-stats .badges, .voir-stats .med { display: none; }
+.voir-stats .temps { font-size: clamp(32px, 4vw, 48px); }
+.voir-stats .fin { width: min(1000px, 100%); }
+.voir-stats .stats { margin-top: 6px; gap: 6px; } .voir-stats .stats div { padding: 4px 8px; }
+.voir-stats .stats.grandes b { font-size: clamp(20px, 1vw + 12px, 28px); }
+.voir-stats .stats.petites { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.voir-stats details.plier { margin-top: 6px; } .voir-stats .menu { margin-top: 10px; }
 details.plier { width: min(900px, 100%); margin-top: 12px; text-align: center; } details.plier summary { display: inline-block; list-style: none; } details.plier summary::-webkit-details-marker { display: none; }
 .segs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; width: min(900px, 100%); margin-top: 12px; }
 .segs div { background: rgba(255,255,255,.05); border-radius: 8px; padding: 5px 8px; text-align: left; }
@@ -228,22 +237,22 @@ html, body, canvas { touch-action: none; }
   <button data-p="pause" class="t-pause">II</button>
   <button data-p="recommencer" class="t-rec">↺</button>
 </div>
-<script src="js/moteur.js?v=63"></script>
-<script src="js/calibrage.js?v=63"></script>
-<script src="js/equilibre.js?v=63"></script>
-<script src="js/compat.js?v=63"></script>
-<script src="js/gen.js?v=63"></script>
-<script src="js/niveaux.js?v=63"></script>
-<script src="js/parfaits.js?v=63"></script>
-<script src="js/humains.js?v=63"></script>
-<script src="js/faciles.js?v=63"></script>
-<script src="js/paysages.js?v=63"></script>
-<script src="js/rendu.js?v=63"></script>
-<script src="js/icones.js?v=63"></script>
-<script src="js/son.js?v=63"></script>
-<script src="js/langues.js?v=63"></script>
-<script src="js/enligne.js?v=63"></script>
-<script src="js/jeu.js?v=63"></script>
-<script src="js/vitrine.js?v=63"></script>
+<script src="js/moteur.js?v=64"></script>
+<script src="js/calibrage.js?v=64"></script>
+<script src="js/equilibre.js?v=64"></script>
+<script src="js/compat.js?v=64"></script>
+<script src="js/gen.js?v=64"></script>
+<script src="js/niveaux.js?v=64"></script>
+<script src="js/parfaits.js?v=64"></script>
+<script src="js/humains.js?v=64"></script>
+<script src="js/faciles.js?v=64"></script>
+<script src="js/paysages.js?v=64"></script>
+<script src="js/rendu.js?v=64"></script>
+<script src="js/icones.js?v=64"></script>
+<script src="js/son.js?v=64"></script>
+<script src="js/langues.js?v=64"></script>
+<script src="js/enligne.js?v=64"></script>
+<script src="js/jeu.js?v=64"></script>
+<script src="js/vitrine.js?v=64"></script>
 </body>
 </html>

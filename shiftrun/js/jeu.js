@@ -110,6 +110,7 @@ const nomsEtatsHUD = () => sourceEntree === 'pad' ? ['solide', 'liquide', 'gaz']
 const nomSautHUD = () => sourceEntree === 'pad' ? (NOMS_BOUTONS[S.manette.saut] || 'A') : tr('saut');
 // petite vibration de la manette (chute, explosion)
 function vibrer(force, duree) {
+  if (rattrapage) return;
   try { const a = dernierePad && dernierePad.vibrationActuator; if (a && a.playEffect) a.playEffect('dual-rumble', { duration: duree, strongMagnitude: force, weakMagnitude: force * 0.6 }); } catch (err) { /* manette sans vibration */ }
 }
 const BITS = { gauche: M.E.G, droite: M.E.D, haut: M.E.H, bas: M.E.B, saut: M.E.SAUT, solide: M.E.S, liquide: M.E.L, gaz: M.E.Z, plasma: M.E.P };
@@ -464,8 +465,9 @@ function lancerSurvie(graineImp, coop, opts) {
   if (opts.defi) {                                           // défi de la semaine : des ennemis choisis, 2 minutes
     Object.assign(J, { defiS: true, periode: opts.defi.per, cle: opts.defi.cle, type: opts.defi.type, typesSpe: opts.defi.va.types, limite: opts.defi.va.limite, vague: 8, spawnT: 120 });
   }
-  if (depart > 0 && !opts.defi) { message = tr('Départ à {0} ennemis écrasés (ton record − 15)', depart); messageT = 150; }
-  S.essais++;
+  if (depart > 0 && !opts.defi && !opts.reprise) { message = tr('Départ à {0} ennemis écrasés (ton record − 15)', depart); messageT = 150; }
+  if (!opts.reprise) S.essais++;
+  if (!coop && !opts.defi && !opts.video) { delete S.survieReprise; sauver(); }
   ecran = 'jeu'; cacherUI();
   SON.jouerMusique('survie');
 }
@@ -962,7 +964,7 @@ function finVideo() {
     <div class="menu ligne"><button class="btn" data-a="vid-revoir" autofocus>🔁 ${tr('Revoir')}</button><button class="btn" data-a="vid-retour">${tr('Retour')}</button></div></div>`, 'fin');
   derniereVideo = v.src;
 }
-let derniereVideo = null, videoRetour = null;
+let derniereVideo = null, videoRetour = null, rattrapage = false;
 function noterPartie() {
   if (!J || J.mode !== 'niveau' || J.entrainement || !J.entrees.length) return;
   dernieresParties.unshift({ k: 'n' + Date.now(), idx: J.idx, id: J.L.id, t: J.e.temps, f: M.compresser(J.entrees), date: Date.now() });
@@ -981,18 +983,27 @@ function menuVideos() {
   let corps = '';
   if (videosOnglet === 'nouvelles') {
     corps = dernieresParties.length ? dernieresParties.map(v => ligneVideo(v, `<button class="btn mini" data-a="vid-voir" data-c="${v.k}">${tr('Regarder')}</button>` +
-      ['1', '2', 'pub'].map(c => `<button class="btn mini" data-a="vid-ranger" data-c="${v.k}" data-i="${c === 'pub' ? 3 : +c}">${tr(c === 'pub' ? 'Publique' : NOMS_CAT[c])}</button>`).join(''))).join('')
+      ['1', '2', 'pub'].map(c => `<button class="btn mini" data-a="vid-ranger" data-c="${v.k}" data-i="${c === 'pub' ? 3 : +c}">${tr(c === 'pub' ? 'Publique' : NOMS_CAT[c])}</button>`).join('') + boutonSuppr(v.k))).join('')
       : `<p class="note">${tr('Finis un niveau, un défi, une course ou une partie de Survivant : elle attendra ici que tu la ranges (les 5 dernières).')}</p>`;
   } else {
     const l = S.videos.filter(v => v.cat === videosOnglet);
     corps = l.length ? l.map(v => ligneVideo(v, `<button class="btn mini" data-a="vid-voir" data-c="${v.k}">${tr('Regarder')}</button>` +
       ['1', '2', 'pub'].filter(c => c !== v.cat).map(c => `<button class="btn mini" data-a="vid-ranger" data-c="${v.k}" data-i="${c === 'pub' ? 3 : +c}">${tr('Vers {0}', tr(c === 'pub' ? 'Publique' : NOMS_CAT[c]))}</button>`).join('') +
-      `<button class="btn mini" data-a="vid-suppr" data-c="${v.k}">${tr('Supprimer')}</button>`)).join('')
+      boutonSuppr(v.k))).join('')
       : `<p class="note">${tr('Aucune vidéo ici.')}</p>`;
     if (videosOnglet === 'pub') corps = `<p class="note">${tr('Tes amis voient tes vidéos publiques depuis ton profil.')}</p>` + corps;
   }
   montrer(`<h2>⏺ ${tr('Vidéos')}</h2><div class="onglets">${ong.map(([k, n]) => `<button class="btn mini ${videosOnglet === k ? 'choisi' : ''}" data-a="vid-onglet" data-c="${k}" ${videosOnglet === k ? 'autofocus' : ''}>${n}</button>`).join('')}</div>
     <div class="amis">${corps}</div><div class="menu ligne"><button class="btn" data-a="accueil">${tr('Retour')}</button></div>`, 'large');
+}
+// supprimer une vidéo : un premier appui demande de confirmer (elle ne revient pas)
+let supprAttente = null;
+function boutonSuppr(k) { return supprAttente === k ? `<button class="btn mini rouge-fond" data-a="vid-suppr" data-c="${k}" autofocus>✕ ${tr('Vraiment supprimer ?')}</button>` : `<button class="btn mini" data-a="vid-suppr" data-c="${k}">✕ ${tr('Supprimer')}</button>`; }
+function supprimerVideo(k) {
+  if (supprAttente !== k) { supprAttente = k; menuVideos(); return; }
+  supprAttente = null;
+  dernieresParties = dernieresParties.filter(v => v.k !== k);
+  S.videos = S.videos.filter(v => v.k !== k); sauver(); envoyerProfil(); menuVideos();
 }
 function trouverVideo(k) { return dernieresParties.find(v => v.k === k) || S.videos.find(v => v.k === k); }
 function voirVideo(v, nom) {
@@ -1001,7 +1012,7 @@ function voirVideo(v, nom) {
     const ent = M.decompresser(v.f); while (ent.length && !ent[0]) ent.shift();
     if (v.sorte === 'course') lancerCourse(v.cat);
     else if (v.sorte === 'defi') lancerDefiLong(v.per, ' ', v.cle);
-    else if (v.sorte === 'survie') lancerSurvie(v.graine, false, { alea: v.alea, depart: v.depart });
+    else if (v.sorte === 'survie') lancerSurvie(v.graine, false, { alea: v.alea, depart: v.depart, video: true });
     else return;
     message = ''; messageT = 0;
     J.video = { ent, ri: 0, nom: (nom || tr('vidéo')) + ' · ' + (v.nom || ''), src: [v, nom], retour: retourProfil };
@@ -1206,6 +1217,28 @@ function contactAmi(P2) {
       if (--m.pv <= 0) { J.monstres.splice(k, 1); J.kills++; if (m.type === 'boss') { J.bonusT = 1; message = tr('Boss vaincu !'); messageT = 100; J.couleurMsg = '#7dff9a'; } }
     } else { EnLigne.envoyer({ t: 'tue' }); break; }
   }
+}
+/* Survivant quitté en cours : on garde l'arène, le hasard et toutes les touches ; en revenant, le jeu rejoue tout très vite
+   (sans son ni effet) et on repart exactement au même instant de la partie. */
+function noterReprise() {
+  if (!J || J.mode !== 'survie' || J.coop || J.video || J.defiS || J.finT > 0 || !J.e.demarre || !J.entrees.length) return;
+  S.survieReprise = { graine: J.graine, alea: J.alea0, depart: J.depart, f: M.compresser(J.entrees) };
+  sauver();
+}
+addEventListener('pagehide', noterReprise);              // fermer la page en pleine partie : on la retrouve aussi
+function reprendreSurvie() {
+  const r = S.survieReprise; if (!r) return lancerSurvie();
+  const ent = M.decompresser(r.f);
+  lancerSurvie(r.graine, false, { alea: r.alea, depart: r.depart, reprise: true });
+  const muets = {}; for (const k in SON) if (typeof SON[k] === 'function' && k !== 'jouerMusique') { muets[k] = SON[k]; SON[k] = () => {}; }
+  const evR = R.evenements; R.evenements = () => {};
+  rattrapage = true;
+  J.video = { ent, ri: 0, nom: '', rattrapage: true };
+  try { while (J && J.video && J.video.ri < ent.length && ecran === 'jeu') pas(); }
+  finally { rattrapage = false; R.evenements = evR; Object.assign(SON, muets); }
+  if (J && J.mode === 'survie') { delete J.video; J.inpAv = ent[ent.length - 1] || 0; message = tr('Reprise de ta partie'); messageT = 110; J.couleurMsg = '#7ae8ff'; recadrer = true; }
+  delete S.survieReprise; sauver();
+  ecran = 'jeu'; pause();                                    // on repart en pause : tu reprends quand tu es prêt
 }
 function finSurvie() {
   if (J.video) { finVideo(); return; }
@@ -1512,7 +1545,7 @@ function statsHTML() {
   const pref = st.parEtat.map((v, i) => [v, i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
   return `<div class="stats grandes">${plan[0].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div>
     <div class="parts">${pref.map(([v, i]) => `<span style="--c:${R.COUL_PHASE[i]};flex:${v}">${tr(M.NOMS_PHASES[i])} ${Math.round(v / tot * 100)} %</span>`).join('')}</div>
-    <details class="plier"><summary class="btn mini">${tr('Plus de statistiques')}</summary><div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div></details>`;
+    <details class="plier"><summary class="btn mini"><span class="plus">${tr('Plus de statistiques')}</span><span class="moins">${tr('Moins de statistiques')}</span></summary><div class="stats petites">${plan[1].map(k => `<div><small>${V[k][0]}</small><b>${V[k][1]}</b></div>`).join('')}</div></details>`;
 }
 /* ---------- Entraînement : repartir d'un drapeau ---------- */
 let nivEntrainement = false, nivBot = false, botType = 'parfait';      // onglets de l'écran des niveaux
@@ -1798,7 +1831,7 @@ function pas() {
   if (J.mode === 'expedition' && J.e.ev & M.EV.MORT && J.vies > 0) { message = '❤ ' + tr('Plus que {0} vie(s)', J.vies); messageT = 90; }
   if (J.mode === 'defi' && J.limite && !J.entrainement && J.e.temps >= J.limite) { finDefi(); return; }
   if (J.e.demarre && J.mode !== 'fantome' && J.mode !== 'infini' && J.mode !== 'expedition') J.entrees.push(inp);
-  if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini) S.tempsJeu = (S.tempsJeu || 0) + 1;
+  if (J.e.demarre && J.mode !== 'fantome' && !J.e.fini && !rattrapage) S.tempsJeu = (S.tempsJeu || 0) + 1;
   if (J.attenteG && (inp & ~(J.inpAv || 0))) J.attenteG = false;   // entraînement : une nouvelle touche relance le robot
   J.inpAv = inp;
   if (J.fantome && J.e.demarre && !J.attenteG) { const f = J.fantome; M.pas(f.n, f.e, f.ent[f.i++] || 0); if (f.eclat && f.e.fini && !f.e.eclat) f.e.fini = false; }
@@ -2145,6 +2178,8 @@ function ajuster() {
   if (k < 1) { c.style.transform = `scale(${k})`; c.style.marginBottom = (-(1 - k) * h) + 'px'; }
 }
 addEventListener('resize', ajuster);
+// « Plus de statistiques » : l'écran se resserre (le reste du bilan se cache) pour que tout tienne sans défiler
+ui.addEventListener('toggle', ev => { const d = ev.target; if (!d.classList || !d.classList.contains('plier')) return; const c = ui.querySelector('.cadre'); if (c) c.classList.toggle('voir-stats', d.open); ajuster(); }, true);
 function cacherUI() { ui.className = ''; ui.innerHTML = ''; SON.attenuer(false); }
 
 function zoneDebloquee(zi) {
@@ -2159,6 +2194,7 @@ function sommeMeilleurs() {
 function sommeParfaits() { let s = 0; for (const l of LISTE) { if (!PARF[l.id]) return null; s += PARF[l.id].t; } return s; }
 
 function accueil() {
+  noterReprise();
   if (EnLigne.ensemble()) { accueilDuo(); return; }                       // à deux : seulement des parties à deux
   J = null; ecran = 'menu'; SON.jouerMusique(0); enligneOuvert = false; ecranDuo = false;
   const faits = LISTE.filter(l => S.il[l.id] && S.il[l.id].t != null).length;
@@ -2171,7 +2207,7 @@ function accueil() {
     ${S.tutoVu ? '' : carte('tuto', '🎓 ' + tr('Didacticiel'), tr('5 minutes pour apprendre à jouer, une idée à la fois'), 'autofocus')}
     ${carte('niveaux', '▶ ' + tr('Niveaux'), tr('Niveaux finis : {0} / {1}', faits, LISTE.length), 'autofocus')}
     ${carte('expedition', '🎲 ' + tr('Expédition'), (S.expedition ? tr('record : {0} salles', S.expedition.salles) + ' · ' : '') + '🧩 ' + expe().frag + ' ' + tr('fragments'))}
-    ${carte('survie', '⚔ ' + tr('Survivant'), S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : '')}
+    ${carte('survie', '⚔ ' + tr('Survivant'), S.survieReprise ? tr('partie en cours : tu reprends où tu en étais') : S.survie ? tr('record : {0}', S.survie.kills + ' ✖') : '')}
     ${carte('enligne', '🌐 ' + tr('En ligne à deux'), EnLigne.actif() ? tr('connecté à ton ami') : '')}
     ${carte('defi-semaine', '📅 ' + tr('Défi de la semaine'), tr(varianteDefi('semaine').nom) + (meilleurDefi('semaine') ? ' · ' + tr('ton meilleur : {0}', meilleurDefi('semaine')) : ''))}
     ${carte('defi-mois', '🗓 ' + tr('Défi du mois'), tr(varianteDefi('mois').nom) + (meilleurDefi('mois') ? ' · ' + tr('ton meilleur : {0}', meilleurDefi('mois')) : ''))}
@@ -2714,7 +2750,7 @@ function action(a, el) {
     case 'fant-entr': S.fantEntr = el.dataset.v; sauver(); J.botDrap = null; allerDrapeau(drapeauActif()); ecran = 'jeu'; pause(); break;
     case 'vit-entr': S.vitEntr = +el.dataset.v; sauver(); ecran = 'jeu'; pause(); break;
     case 'succes': succesEcran(); break;
-    case 'survie': lancerSurvie(); break;
+    case 'survie': if (S.survieReprise) reprendreSurvie(); else lancerSurvie(); break;
     case 'tuto': lancerTuto(); break;
     case 'classement': classementMondial(i); break;
     case 'fantome-mondial': { const en = CLASSEMENT[+el.dataset.k]; if (en && en.fantome) regarderEntrees(i, M.decompresser(en.fantome), en.nom); break; }
@@ -2750,12 +2786,12 @@ function action(a, el) {
     case 'prof-voir': { const P = profilDe ? (profilsVus[profilDe] || (S.amis[profilDe] && S.amis[profilDe].profil)) : monProfil(); const v = P && P.videos && P.videos[i]; if (v) { retourProfil = profilDe || 'moi'; voirVideo(v, tr('vidéo de {0}', P.nom)); } break; }
     case 'retour-profil': if (EnLigne.ensemble()) accueilDuo(); else menuEnLigne(); break;
     case 'videos': menuVideos(); break;
-    case 'vid-onglet': videosOnglet = el.dataset.c; menuVideos(); break;
+    case 'vid-onglet': videosOnglet = el.dataset.c; supprAttente = null; menuVideos(); break;
     case 'vid-voir': { retourProfil = null; const v = trouverVideo(el.dataset.c); if (v) voirVideo(v, tr('ta vidéo')); break; }
     case 'vid-retour': J = null; if (videoRetour) menuProfil(videoRetour === 'moi' ? null : videoRetour); else menuVideos(); break;
     case 'vid-revoir': if (derniereVideo) voirVideo(derniereVideo[0], derniereVideo[1]); break;
     case 'vid-ranger': rangerVideo(el.dataset.c, i === 3 ? 'pub' : String(i)); break;
-    case 'vid-suppr': S.videos = S.videos.filter(v => v.k !== el.dataset.c); sauver(); envoyerProfil(); menuVideos(); break;
+    case 'vid-suppr': supprimerVideo(el.dataset.c); break;
     case 'maudit': prendreMaudit(el.dataset.c === 'oui'); break;
     case 'el-retirer': delete S.amis[el.dataset.c]; sauver(); menuEnLigne(); break;
     case 'el-appeler': refusMsg = ''; EnLigne.appeler(el.dataset.c); break;
