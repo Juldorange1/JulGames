@@ -378,14 +378,14 @@
 
     _appui(e) {
       const nom = this._caseSous(e);
-      if (this.opts.reperes && nom) {
-        // clic droit : toujours un repère ; clic gauche : seulement là où il ne sert pas à jouer
-        const pourJouer = this.actif && (this._estAMoi(nom) || (this.selection && this._ciblesSelection().includes(nom)));
-        if (e.button === 2 || (e.button === 0 && !pourJouer && !this.selection)) {
+      if (this.opts.reperes) {
+        // comme sur chess.com : clic droit = repère (case ou flèche en glissant), clic gauche = tout effacer
+        if (e.button === 2) {
           e.preventDefault();
-          this.trace = { de: nom };
+          this.trace = nom ? { de: nom } : null;
           return;
         }
+        if (e.button === 0) this.effacerReperes();
       }
       if (e.button === 2) return;
       if (!this.actif) return;

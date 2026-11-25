@@ -359,6 +359,14 @@
     classique, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
+    // Met à jour une configuration déjà enregistrée (à sa place dans la liste) ; rien si elle ne l'est pas.
+    mettreAJour(cfg) {
+      const l = liste();
+      const i = l.findIndex((x) => x.id === cfg.id);
+      if (i < 0) return;
+      l[i] = copie(cfg);
+      localStorage.setItem(CLE_LISTE, JSON.stringify(l));
+    },
     supprimer(id) { localStorage.setItem(CLE_LISTE, JSON.stringify(liste().filter((x) => x.id !== id))); },
     courante() {
       try { const c = JSON.parse(localStorage.getItem(CLE_COURANTE)); if (c && c.pieces) return c; } catch (e) { /* rien */ }

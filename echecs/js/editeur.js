@@ -91,7 +91,7 @@
         const cfg = id === 'classique' ? window.Config.classique() : window.Config.liste().find((x) => x.id === id);
         if (!cfg) return;
         this.cfg = window.Config.copie(cfg); this.sel.clear(); window.Config.definirCourante(this.cfg);
-        this.remplir(); this.change(); this.listeEnregistrees(); this.majAvantage();
+        this.remplir(); this.change(true); this.listeEnregistrees(); this.majAvantage();
         window.App.bulle('Configuration « ' + cfg.nom + ' » chargée.');
       });
       $('#cf-supprimer').addEventListener('click', () => {
@@ -136,7 +136,7 @@
       }
       for (const id of ['#cf-av-min', '#cf-av-max']) $(id).addEventListener('change', () => this.lireAvantage());
       // enregistrer
-      $('#cf-nom').addEventListener('input', () => { this.cfg.nom = $('#cf-nom').value.trim() || 'Sans nom'; window.Config.definirCourante(this.cfg); });
+      $('#cf-nom').addEventListener('input', () => { this.cfg.nom = $('#cf-nom').value.trim() || 'Sans nom'; window.Config.definirCourante(this.cfg); window.Config.mettreAJour(this.cfg); });
       $('#cf-enregistrer').addEventListener('click', () => this.enregistrer(false));
       $('#cf-enregistrer-nouv').addEventListener('click', () => this.enregistrer(true));
       $('#cf-copier').addEventListener('click', () => window.App.copier(this.code(), 'Code de la configuration copié.'));
@@ -466,7 +466,16 @@
     // Appelé après chaque modification (sansSauver = seule la sélection a changé).
     change(seulementSelection) {
       const cfg = this.cfg;
-      if (!seulementSelection) window.Config.definirCourante(cfg);
+      if (!seulementSelection) {
+        // Une configuration modifiée n'est plus « Classique » (sinon la choisir dans la liste efface tout).
+        if (cfg.id === 'classique') {
+          cfg.id = window.Config.nouveauId();
+          if (cfg.nom === 'Classique') { cfg.nom = 'Ma configuration'; $('#cf-nom').value = cfg.nom; }
+        }
+        window.Config.definirCourante(cfg);
+        // Configuration enregistrée : chaque changement y est gardé tout de suite.
+        window.Config.mettreAJour(cfg);
+      }
       const { pos, zones } = positionAffichage(cfg);
       const selection = new Set([...this.sel].map((k) => { const [r, c] = k.split(',').map(Number); return FICH[c] + (r + 1); }));
       this.plateau.afficher(pos, { decor: { zones, selection }, pop: this.pop });
