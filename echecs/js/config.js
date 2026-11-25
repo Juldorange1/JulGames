@@ -38,7 +38,7 @@
     return {
       id: '', nom: '', avMin: -0.5, avMax: 0.5,
       cols, lignes, pieces: grille(lignes, cols, null), trous: grille(lignes, cols, false), zones: grille(lignes, cols, false),
-      trousHasard: 0, miroir: false, regles: reglesDefaut()
+      trousHasard: 0, miroir: false, regles: reglesDefaut(), auHasard: {}
     };
   }
 
@@ -50,13 +50,22 @@
     c.zones = grille(c.lignes, c.cols, false);
     c.trousHasard = 0;
     c.miroir = false;
-    c.avMin = -0.5; c.avMax = 0.5;
+    c.auHasard = c.auHasard || {};
+    const x = Math.max(Math.abs(c.avMin == null ? 0.5 : c.avMin), Math.abs(c.avMax == null ? 0.5 : c.avMax));
+    c.avMin = -x; c.avMax = x;
     return c;
   }
 
   // ---------- hasard ----------
+  // Pièces posées au hasard : { idPerso: nombre }, les mêmes pour les blancs et pour les noirs.
+  function lotHasard(cfg) {
+    const l = [];
+    for (const id in cfg.auHasard || {}) for (let i = 0; i < (cfg.auHasard[id] || 0); i++) l.push(id);
+    return l;
+  }
   function aleatoire(cfg) {
     if (cfg.trousHasard > 0) return true;
+    if (lotHasard(cfg).length) return true;
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];
       if (p && p.hasard != null) return true;
@@ -97,6 +106,23 @@
     for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
       const p = pieces[r][c];
       if (p && p.hasard != null) { const id = tirer(p.hasard); pieces[r][c] = id ? { camp: p.camp, perso: id } : null; }
+    }
+    // 1 bis. pièces au hasard : chacune sur une case libre tirée au hasard dans la moitié de sa couleur
+    //        (un pion jamais sur la première ni la dernière rangée)
+    const lot = lotHasard(cfg).sort((a, b) => (b === 'pion') - (a === 'pion'));
+    for (const camp of ['w', 'b']) {
+      const libres = [];
+      for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+        const moi = camp === 'w' ? r < moitie : r >= L - moitie;
+        if (moi && !pieces[r][c] && !trous[r][c]) libres.push([r, c]);
+      }
+      melanger(libres);
+      for (const id of lot) {
+        const i = libres.findIndex(([r]) => id !== 'pion' || (r !== 0 && r !== L - 1));
+        if (i < 0) continue;
+        const [r, c] = libres.splice(i, 1)[0];
+        pieces[r][c] = { camp, perso: id };
+      }
     }
     // 2. zones de départ : les pièces d'une couleur posées dans sa zone apparaissent au hasard
     //    sur n'importe quelle case libre de cette zone (un pion jamais sur la rangée de promotion).
@@ -294,7 +320,24 @@
   // ---------- vérification ----------
   function verifier(cfg) {
     let K = 0, k = 0, pionBout = false, aPion = false, nbHasard = 0;
+    const lot = lotHasard(cfg);
     const customs = new Set();
+    for (const id of lot) {
+      if (!window.Persos.trouver(id)) return 'Un personnage mis au hasard n’existe plus.';
+      if (id === 'roi') { K++; k++; }
+      if (id === 'pion') aPion = true;
+      if (!['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(id)) customs.add(id);
+    }
+    if (lot.length) {
+      const moitie = Math.floor(cfg.lignes / 2);
+      let libresW = 0, libresB = 0;
+      for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
+        if (cfg.pieces[r][c] || cfg.trous[r][c]) continue;
+        if (r < moitie) libresW++;
+        if (r >= cfg.lignes - moitie) libresB++;
+      }
+      if (lot.length > Math.min(libresW, libresB)) return 'Trop de pièces au hasard : il n’y a que ' + Math.min(libresW, libresB) + ' cases libres dans chaque moitié du plateau.';
+    }
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];
       if (!p) continue;
@@ -309,7 +352,8 @@
       if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Une case 🎲 aléatoire n’a aucun personnage possible : efface-la et repose 🎲.';
     }
     const R = cfg.regles;
-    if (R.but !== 'prise' && (K !== 1 || k !== 1)) return 'Il faut exactement un roi blanc et un roi noir.';
+    if (R.but !== 'prise' && (!K || !k)) return 'Il faut un roi blanc et un roi noir : pose-les à la main ou mets un roi au hasard.';
+    if (R.but !== 'prise' && (K > 1 || k > 1)) return 'Un seul roi par couleur (à la main ou au hasard, pas les deux).';
     if (R.but === 'prise' && (K < 1 || k < 1)) return 'Il faut au moins un roi de chaque couleur.';
     if (pionBout) return 'Un pion ne peut pas commencer sur la dernière rangée.';
     if (aPion && !R.promos.length) return 'Choisis au moins un personnage pour la promotion des pions.';
@@ -319,9 +363,13 @@
       const p = window.Persos.trouver(id);
       if (p && !window.Persos.betza(p)) return '« ' + p.nom + ' » n’a aucun déplacement.';
     }
-    // Essai réel dans les règles
-    const v = construire(cfg, tirage(cfg));
-    return testerVariante(v);
+    // Essai réel dans les règles (avec du hasard : il suffit qu'un tirage sur 12 soit jouable)
+    let erreur = null;
+    for (let n = 0; n < (aleatoire(cfg) ? 12 : 1); n++) {
+      erreur = testerVariante(construire(cfg, tirage(cfg)));
+      if (!erreur) return null;
+    }
+    return erreur;
   }
 
   function testerVariante(v) {
@@ -338,6 +386,10 @@
       const echec = b2.isCheck();
       b2.delete();
       if (echec) return 'Au départ, le roi noir serait déjà en échec.';
+      const b3 = window.Regles.nouveauPlateau(v.uci, v.fen0, false);
+      const echecBlanc = b3.isCheck();
+      b3.delete();
+      if (echecBlanc) return 'Au départ, le roi blanc serait déjà en échec.';
       return null;
     } catch (e) {
       return 'Cette configuration est refusée par les règles.';
@@ -378,7 +430,7 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, vide, simple, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, simple, lotHasard, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? simple(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },

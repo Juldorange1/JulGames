@@ -88,11 +88,21 @@
       });
       // pièces
       document.querySelectorAll('#camp-config button').forEach((b) => b.addEventListener('click', () => { this.camp = b.dataset.camp; this.majEtape2(); }));
-      $('#outil-hasard').addEventListener('click', () => this.choisirOutil({ type: 'hasard' }));
       $('#outil-trou').addEventListener('click', () => this.choisirOutil({ type: 'trou' }));
       $('#outil-gomme').addEventListener('click', () => this.choisirOutil({ type: 'gomme' }));
       $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); c.trous = window.Config.grille(c.lignes, c.cols, false); this.change(); });
-      $('#cf-classique').addEventListener('click', () => this.positionClassique());
+      // pièces au hasard : avantage permis
+      const ECARTS = [0.2, 0.5, 1, 1.5, 2, 3, 5, 10];
+      const ecart = (d) => {
+        const x = this.cfg.avMax;
+        let i = ECARTS.findIndex((v) => v >= x - 1e-9);
+        if (i < 0) i = ECARTS.length - 1;
+        i = Math.max(0, Math.min(ECARTS.length - 1, i + d));
+        this.cfg.avMin = -ECARTS[i]; this.cfg.avMax = ECARTS[i];
+        this.majHasard(); this.change();
+      };
+      $('#hz-av-moins').addEventListener('click', () => ecart(-1));
+      $('#hz-av-plus').addEventListener('click', () => ecart(1));
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
 
@@ -155,6 +165,53 @@
       document.querySelectorAll('#acc-config .pli').forEach((s) => s.classList.toggle('ouvert', s.dataset.pli === o));
       if (o === 'mes') this.listeConfigs();
       if (o === 'pieces') this.majEtape2();
+      if (o === 'hasard') this.majHasard();
+    },
+
+    // Pièces au hasard : combien de chaque personnage (les mêmes pour les deux couleurs).
+    majHasard() {
+      const cfg = this.cfg;
+      cfg.auHasard = cfg.auHasard || {};
+      const cats = window.Persos.categories();
+      const miennes = cats.filter((c) => c !== 'Classiques');
+      const ordre = miennes.concat(cats.includes('Classiques') ? ['Classiques'] : []);
+      if (!ordre.includes(this.catHasard)) this.catHasard = ordre[0];
+      const barre = $('#hz-cats');
+      barre.innerHTML = '';
+      for (const cat of ordre) {
+        const n = window.Persos.tous().filter((p) => p.categorie === cat).reduce((t, p) => t + (cfg.auHasard[p.id] || 0), 0);
+        const b = el('button', 'puce' + (cat === this.catHasard ? ' choisie' : ''), cat + (n ? ' (' + n + ')' : ''));
+        b.addEventListener('click', () => { this.catHasard = cat; this.majHasard(); });
+        barre.appendChild(b);
+      }
+      const box = $('#hz-persos');
+      box.innerHTML = '';
+      for (const p of window.Persos.tous().filter((x) => x.categorie === this.catHasard)) {
+        const n = cfg.auHasard[p.id] || 0;
+        const d = el('div', 'hz-perso' + (n ? ' actif' : ''));
+        const ic = window.Pieces.creerPerso(p, 'w'); ic.classList.add('icone');
+        const moins = el('button', 'bouton', '−'), plus = el('button', 'bouton', '+');
+        const max = p.id === 'roi' ? 1 : 16;
+        moins.disabled = !n; plus.disabled = n >= max;
+        const changer = (dn) => {
+          const v = Math.max(0, Math.min(max, (cfg.auHasard[p.id] || 0) + dn));
+          if (v) cfg.auHasard[p.id] = v; else delete cfg.auHasard[p.id];
+          this.majHasard(); this.change();
+        };
+        moins.addEventListener('click', () => changer(-1));
+        plus.addEventListener('click', () => changer(1));
+        d.title = window.Persos.description(p);
+        d.append(ic, el('span', 'hz-nom', p.nom), moins, el('b', null, n), plus);
+        box.appendChild(d);
+      }
+      const lot = window.Config.lotHasard(cfg);
+      const res = $('#hz-resume');
+      if (!lot.length) res.textContent = 'Rien au hasard pour l’instant.';
+      else {
+        const noms = Object.keys(cfg.auHasard).map((id) => { const p = window.Persos.trouver(id); return cfg.auHasard[id] + ' ' + (p ? p.nom : '?'); });
+        res.textContent = 'Chaque couleur reçoit au hasard : ' + noms.join(', ') + '.';
+      }
+      $('#hz-av-texte').textContent = texteAvantage(cfg.avMin) + ' et ' + texteAvantage(cfg.avMax);
     },
 
     remplir() {
@@ -186,19 +243,17 @@
     majOutil() {
       const o = this.outil;
       document.querySelectorAll('#cf-persos .cf-perso').forEach((b) => b.classList.toggle('choisi', !!(o && o.type === 'perso' && b.dataset.perso === o.perso)));
-      $('#outil-hasard').classList.toggle('choisi', !!(o && o.type === 'hasard'));
       $('#outil-trou').classList.toggle('choisi', !!(o && o.type === 'trou'));
       $('#outil-gomme').classList.toggle('choisi', !!(o && o.type === 'gomme'));
       const coul = this.camp === 'w' ? ' (blancs)' : ' (noirs)';
       const t = $('#outil-actuel');
       t.innerHTML = '';
-      if (!o) { t.append(el('span', 'aide', 'Rien de choisi : clique un personnage, 🎲, ⬛ ou ✖.')); return; }
+      if (!o) { t.append(el('span', 'aide', 'Rien de choisi : clique un personnage, ⬛ ou ✖.')); return; }
       t.append(el('b', null, 'Tu poses : '));
       if (o.type === 'perso') {
         const p = window.Persos.trouver(o.perso);
         if (p) { const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone'); t.append(ic, el('span', null, p.nom + coul)); }
-      } else if (o.type === 'hasard') t.append(el('span', null, '🎲 un personnage aléatoire à chaque partie' + coul));
-      else if (o.type === 'trou') t.append(el('span', null, '⬛ des trous'));
+      } else if (o.type === 'trou') t.append(el('span', null, '⬛ des trous'));
       else t.append(el('span', null, '✖ la gomme'));
     },
 
@@ -215,7 +270,7 @@
       let o;
       if (e.button === 2) o = { type: 'gomme' };
       else if (e.button === 0) {
-        if (!this.outil) { window.App.bulle('Choisis d’abord ce que tu poses : un personnage, 🎲, ⬛ ou ✖.'); return; }
+        if (!this.outil) { window.App.bulle('Choisis d’abord ce que tu poses : un personnage, ⬛ ou ✖.'); return; }
         o = this.outil;
         // cliquer une case qui contient déjà exactement ça : on l'enlève
         if (this._deja(c, o)) o = { type: 'gomme' };
@@ -276,21 +331,6 @@
       this.majOutil();
     },
 
-    positionClassique() {
-      const c = this.cfg;
-      const rang = ['tour', 'cavalier', 'fou', 'dame', 'roi', 'fou', 'cavalier', 'tour'];
-      if (c.cols !== 8) return;
-      c.pieces = window.Config.grille(c.lignes, c.cols, null);
-      for (let x = 0; x < c.cols; x++) {
-        c.pieces[0][x] = { camp: 'w', perso: rang[x] };
-        c.pieces[1][x] = { camp: 'w', perso: 'pion' };
-        c.pieces[c.lignes - 2][x] = { camp: 'b', perso: 'pion' };
-        c.pieces[c.lignes - 1][x] = { camp: 'b', perso: rang[x] };
-        for (const r of [0, 1, c.lignes - 2, c.lignes - 1]) c.trous[r][x] = false;
-      }
-      this.change();
-    },
-
     afficher() {
       const { pos } = positionAffichage(this.cfg);
       this.plateau.afficher(pos, { pop: this.pop });
@@ -323,7 +363,7 @@
       }
       if (window.Config.aleatoire(this.cfg)) {
         zone.className = 'cf-av-texte';
-        zone.textContent = '🎲 Avec l’aléatoire, le tirage est refait jusqu’à une partie équilibrée.';
+        zone.textContent = '🎲 À chaque partie, le tirage est refait jusqu’à un avantage des blancs entre ' + texteAvantage(this.cfg.avMin) + ' et ' + texteAvantage(this.cfg.avMax) + '.';
         valeur.textContent = '';
         barre.style.visibility = 'hidden';
         return;
