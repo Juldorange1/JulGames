@@ -18,10 +18,6 @@
     const s = Math.abs(v).toFixed(1).replace('.', ',');
     return (v > 0.04 ? '+' : v < -0.04 ? '−' : '') + s;
   }
-  function cleContenu(p) {
-    if (!p) return '';
-    return p.camp + ':' + (p.hasard != null ? 'h:' + (Array.isArray(p.hasard) ? p.hasard.slice().sort().join('|') : p.hasard) : 'p:' + p.perso);
-  }
   // Position au format du plateau à partir d'une configuration (affichage seulement).
   function positionAffichage(cfg) {
     const cases = [];
@@ -47,8 +43,8 @@
   }
 
   // =====================================================================
-  //  CONFIGURATION DE PARTIE
-  //  On choisit un outil (un personnage, le hasard, un trou, la gomme, une zone),
+  //  CONFIGURATION DE PARTIE (début de partie)
+  //  On choisit ce qu'on pose (un personnage, 🎲 aléatoire, un trou, la gomme),
   //  puis on clique ou on glisse sur le plateau. Clic droit = effacer.
   //  Chaque changement est enregistré tout de suite dans « Mes configurations ».
   // =====================================================================
@@ -60,8 +56,7 @@
     onglet: 'pieces',
     catActive: null,
     jetonEval: 0,
-    dernierPool: [],
-    outil: null,          // { type: 'perso', perso } | { type: 'hasard', ids } | { type: 'trou' } | { type: 'gomme' } | { type: 'zone', camp }
+    outil: null,          // { type: 'perso', perso } | { type: 'hasard' } | { type: 'trou' } | { type: 'gomme' }
     peint: null,          // glissement en cours
     pageListe: 0,
 
@@ -75,13 +70,6 @@
       document.querySelectorAll('#acc-config .pli').forEach((s) => s.querySelector('.pli-titre').addEventListener('click', () => this.choisirOnglet(s.dataset.pli)));
       // mes configurations
       $('#cf-nouvelle').addEventListener('click', () => { this.editer(this.nouvelleVide()); this.choisirOnglet('pieces'); window.App.bulle('Nouvelle configuration : plateau vide.'); });
-      $('#cf-dupliquer').addEventListener('click', () => {
-        const c = window.Config.copie(this.cfg);
-        c.id = window.Config.nouveauId(); c.nom = (this.cfg.nom + ' (copie)').slice(0, 40);
-        window.Config.enregistrer(c);
-        this.editer(c);
-        window.App.bulle('Copie créée : « ' + c.nom + ' ».');
-      });
       $('#cf-supprimer').addEventListener('click', () => {
         const cfg = this.cfg;
         window.App.modale('<h2>Supprimer « ' + cfg.nom.replace(/</g, '') + ' » ?</h2><p>Elle sera effacée pour de bon.</p>', [
@@ -98,39 +86,13 @@
         $('#cf-titre').textContent = this.cfg.nom;
         this.listeConfigs();
       });
-      $('#cf-copier').addEventListener('click', () => window.App.copier(this.code(), 'Code de la configuration copié.'));
-      $('#cf-importer').addEventListener('click', () => this.importer());
       // pièces
       document.querySelectorAll('#camp-config button').forEach((b) => b.addEventListener('click', () => { this.camp = b.dataset.camp; this.majEtape2(); }));
-      $('#cf-miroir').addEventListener('change', () => { this.cfg.miroir = $('#cf-miroir').checked; this.change(); });
-      $('#outil-hasard').addEventListener('click', () => this.choisirHasard());
+      $('#outil-hasard').addEventListener('click', () => this.choisirOutil({ type: 'hasard' }));
       $('#outil-trou').addEventListener('click', () => this.choisirOutil({ type: 'trou' }));
       $('#outil-gomme').addEventListener('click', () => this.choisirOutil({ type: 'gomme' }));
-      // zones de départ
-      $('#zd-blanche').addEventListener('click', () => this.choisirOutil({ type: 'zone', camp: 'w' }));
-      $('#zd-noire').addEventListener('click', () => this.choisirOutil({ type: 'zone', camp: 'b' }));
-      $('#zd-enlever').addEventListener('click', () => this.choisirOutil({ type: 'zone', camp: false }));
-      $('#zd-tout').addEventListener('click', () => { this.cfg.zones = window.Config.grille(this.cfg.lignes, this.cfg.cols, false); this.change(); });
-      $('#zd-fond').addEventListener('click', () => this.zonesToutes(1));
-      $('#zd-deux').addEventListener('click', () => this.zonesToutes(2));
-      $('#zd-moitie').addEventListener('click', () => this.zonesToutes(Math.floor(this.cfg.lignes / 2)));
-      // plateau
-      const pm = (id, delta, f) => $(id).addEventListener('click', () => f(delta));
-      pm('#cols-moins', -1, (d) => this.changerTaille(this.cfg.cols + d, this.cfg.lignes));
-      pm('#cols-plus', 1, (d) => this.changerTaille(this.cfg.cols + d, this.cfg.lignes));
-      pm('#lignes-moins', -1, (d) => this.changerTaille(this.cfg.cols, this.cfg.lignes + d));
-      pm('#lignes-plus', 1, (d) => this.changerTaille(this.cfg.cols, this.cfg.lignes + d));
-      pm('#trous-moins', -1, (d) => { this.cfg.trousHasard = Math.max(0, (this.cfg.trousHasard || 0) + d); this.change(); });
-      pm('#trous-plus', 1, (d) => { this.cfg.trousHasard = Math.min(16, (this.cfg.trousHasard || 0) + d); this.change(); });
-      $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); c.zones = window.Config.grille(c.lignes, c.cols, false); c.trous = window.Config.grille(c.lignes, c.cols, false); this.change(); });
+      $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); c.trous = window.Config.grille(c.lignes, c.cols, false); this.change(); });
       $('#cf-classique').addEventListener('click', () => this.positionClassique());
-      // règles
-      const ne = $('#cf-nb-echecs');
-      for (let i = 1; i <= 9; i++) { const o = el('option', null, i); o.value = i; ne.appendChild(o); }
-      for (const id of ['#cf-but', '#cf-nb-echecs', '#cf-pat', '#cf-renfort', '#cf-obligatoire', '#cf-roque', '#cf-double', '#cf-passant']) {
-        $(id).addEventListener('change', () => this.lireRegles());
-      }
-      for (const id of ['#cf-av-min', '#cf-av-max']) $(id).addEventListener('change', () => this.lireAvantage());
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
 
@@ -139,17 +101,17 @@
       const l = window.Config.liste();
       const c = window.Config.courante();
       const deja = l.find((x) => x.id === c.id);
-      if (deja) return window.Config.copie(deja);
+      if (deja) return window.Config.simple(deja);
       // ancienne configuration en cours, jamais enregistrée : on la garde si elle a été changée
       const cl = window.Config.classique();
       const sans = (x) => JSON.stringify(Object.assign({}, x, { id: '', nom: '' }));
       if (c.pieces && sans(c) !== sans(cl)) {
         c.id = window.Config.nouveauId();
-        if (!c.nom || c.nom === 'Classique') c.nom = this.nomLibre();
-        window.Config.enregistrer(c);
-        return c;
+        if (!c.nom || c.nom === 'Classique' || c.nom === 'Partie normale') c.nom = this.nomLibre();
+        window.Config.enregistrer(window.Config.simple(c));
+        return window.Config.simple(c);
       }
-      return l.length ? window.Config.copie(l[0]) : this.nouvelleVide();
+      return l.length ? window.Config.simple(l[0]) : this.nouvelleVide();
     },
     nomLibre() {
       const noms = new Set(window.Config.liste().map((x) => x.nom));
@@ -171,19 +133,18 @@
 
     ouvrir() {
       this.cfg = this.choisirDepart();
-      window.Config.definirCourante(this.cfg);
+      this.sauver();
       this.remplir();
       this.choisirOnglet(this.onglet);
       this.change(true);
       this.majAvantage();
     },
     editer(cfg) {
-      this.cfg = window.Config.copie(cfg);
-      window.Config.definirCourante(this.cfg);
+      this.cfg = window.Config.simple(cfg);
+      this.sauver();
       this.pageListe = 0;
       this.remplir();
       this.listeConfigs();
-      this.promos();
       this.change(true);
       this.majAvantage();
     },
@@ -192,24 +153,13 @@
     choisirOnglet(o) {
       this.onglet = o;
       document.querySelectorAll('#acc-config .pli').forEach((s) => s.classList.toggle('ouvert', s.dataset.pli === o));
-      // les outils de zone ne servent que dans « Départ au hasard », et inversement
-      const zone = this.outil && this.outil.type === 'zone';
-      if ((o === 'depart' && this.outil && !zone) || (o !== 'depart' && zone)) this.outil = null;
       if (o === 'mes') this.listeConfigs();
-      if (o === 'regles') this.promos();
       if (o === 'pieces') this.majEtape2();
-      this.majOutil();
     },
 
     remplir() {
-      const c = this.cfg, R = c.regles;
-      $('#cf-titre').textContent = c.nom;
-      $('#cf-av-min').value = c.avMin; $('#cf-av-max').value = c.avMax;
-      $('#cf-miroir').checked = !!c.miroir;
-      $('#cf-but').value = R.but; $('#cf-nb-echecs').value = R.nbEchecs; $('#cf-pat').value = R.pat;
-      $('#cf-renfort').checked = R.renfort; $('#cf-obligatoire').checked = R.obligatoire;
-      $('#cf-roque').checked = R.roque; $('#cf-double').checked = R.double; $('#cf-passant').checked = R.passant;
-      $('#cf-nom').value = c.nom;
+      $('#cf-titre').textContent = this.cfg.nom;
+      $('#cf-nom').value = this.cfg.nom;
     },
 
     // Liste des configurations enregistrées (par pages : rien ne défile).
@@ -232,7 +182,6 @@
     choisirOutil(o) {
       this.outil = o;
       this.majOutil();
-      if (o && o.type === 'perso') this.majEtape2();
     },
     majOutil() {
       const o = this.outil;
@@ -240,25 +189,17 @@
       $('#outil-hasard').classList.toggle('choisi', !!(o && o.type === 'hasard'));
       $('#outil-trou').classList.toggle('choisi', !!(o && o.type === 'trou'));
       $('#outil-gomme').classList.toggle('choisi', !!(o && o.type === 'gomme'));
-      $('#zd-blanche').classList.toggle('choisi', !!(o && o.type === 'zone' && o.camp === 'w'));
-      $('#zd-noire').classList.toggle('choisi', !!(o && o.type === 'zone' && o.camp === 'b'));
-      $('#zd-enlever').classList.toggle('choisi', !!(o && o.type === 'zone' && !o.camp));
+      const coul = this.camp === 'w' ? ' (blancs)' : ' (noirs)';
       const t = $('#outil-actuel');
       t.innerHTML = '';
-      if (!o || o.type === 'zone') t.append(el('span', 'aide', 'Choisis ce que tu veux poser, puis clique ou glisse sur le plateau. Clic droit : effacer.'));
-      else {
-        t.append(el('b', null, 'Sur le plateau : '));
-        if (o.type === 'perso') {
-          const p = window.Persos.trouver(o.perso);
-          if (p) { const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone'); t.append(ic, el('span', null, p.nom + (this.camp === 'w' ? ' (blancs)' : ' (noirs)'))); }
-        } else if (o.type === 'hasard') t.append(el('span', null, '🎲 au hasard parmi ' + o.ids.length + ' personnage' + (o.ids.length > 1 ? 's' : '') + ' (' + (this.camp === 'w' ? 'blancs' : 'noirs') + ')'));
-        else if (o.type === 'trou') t.append(el('span', null, '⬛ des trous (cases supprimées)'));
-        else t.append(el('span', null, '✖ la gomme'));
-      }
-      const z = $('#outil-zone');
-      z.textContent = o && o.type === 'zone'
-        ? (o.camp ? 'Clique ou glisse sur le plateau pour peindre la zone des ' + (o.camp === 'w' ? 'blancs.' : 'noirs.') : 'Clique ou glisse sur le plateau pour enlever des zones.')
-        : 'Choisis une zone, puis clique ou glisse sur le plateau.';
+      if (!o) { t.append(el('span', 'aide', 'Rien de choisi : clique un personnage, 🎲, ⬛ ou ✖.')); return; }
+      t.append(el('b', null, 'Tu poses : '));
+      if (o.type === 'perso') {
+        const p = window.Persos.trouver(o.perso);
+        if (p) { const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone'); t.append(ic, el('span', null, p.nom + coul)); }
+      } else if (o.type === 'hasard') t.append(el('span', null, '🎲 un personnage aléatoire à chaque partie' + coul));
+      else if (o.type === 'trou') t.append(el('span', null, '⬛ des trous'));
+      else t.append(el('span', null, '✖ la gomme'));
     },
 
     _case(e) {
@@ -271,17 +212,13 @@
       e.preventDefault();
       const c = this._case(e);
       if (!c) return;
-      const zone = this.onglet === 'depart';
       let o;
-      if (e.button === 2) o = zone ? { type: 'zone', camp: false } : { type: 'gomme' };
+      if (e.button === 2) o = { type: 'gomme' };
       else if (e.button === 0) {
-        if (!this.outil) {
-          window.App.bulle(zone ? 'Choisis d’abord une zone (blancs ou noirs).' : 'Choisis d’abord ce que tu veux poser : un personnage, 🎲, ⬛ ou ✖.');
-          return;
-        }
+        if (!this.outil) { window.App.bulle('Choisis d’abord ce que tu poses : un personnage, 🎲, ⬛ ou ✖.'); return; }
         o = this.outil;
         // cliquer une case qui contient déjà exactement ça : on l'enlève
-        if (this._deja(c, o)) o = o.type === 'zone' ? { type: 'zone', camp: false } : { type: 'gomme' };
+        if (this._deja(c, o)) o = { type: 'gomme' };
       } else return;
       this.peint = { outil: o, faites: new Set() };
       if (o.type === 'perso' || o.type === 'hasard') window.Son.pose(); else window.Son.clic();
@@ -290,9 +227,8 @@
     _deja([r, c], o) {
       const cfg = this.cfg, p = cfg.pieces[r][c];
       if (o.type === 'perso') return !!(p && p.hasard == null && p.perso === o.perso && p.camp === this.camp);
-      if (o.type === 'hasard') return !!(p && p.hasard != null && p.camp === this.camp && cleContenu(p) === cleContenu({ camp: this.camp, hasard: o.ids }));
+      if (o.type === 'hasard') return !!(p && p.hasard != null && p.camp === this.camp);
       if (o.type === 'trou') return !!cfg.trous[r][c];
-      if (o.type === 'zone') return !!o.camp && window.Config.zoneDe(cfg, r, c) === o.camp;
       return false;
     },
     _peindre([r, c]) {
@@ -300,91 +236,16 @@
       const cle = r + ',' + c;
       if (P.faites.has(cle)) return;
       P.faites.add(cle);
-      const cfg = this.cfg;
-      const pop = [];
-      if (this._poser(r, c, P.outil, false)) pop.push(FICH[c] + (r + 1));
-      const rm = cfg.lignes - 1 - r;
-      if (cfg.miroir && rm !== r && this._poser(rm, c, P.outil, true)) pop.push(FICH[c] + (rm + 1));
-      this.pop = pop;
-      this.afficher();
-    },
-    // Pose l'outil sur une case ; renvoie vrai si un personnage y a été posé.
-    _poser(r, c, o, enFace) {
-      const cfg = this.cfg;
-      const autre = (x) => (x === 'w' ? 'b' : 'w');
-      const camp = enFace ? autre(this.camp) : this.camp;
+      const cfg = this.cfg, o = P.outil;
+      let pose = false;
       if (o.type === 'perso' || o.type === 'hasard') {
         cfg.trous[r][c] = false;
-        cfg.pieces[r][c] = o.type === 'perso' ? { camp, perso: o.perso } : { camp, hasard: o.ids.slice() };
-        return true;
-      }
-      if (o.type === 'trou') { cfg.trous[r][c] = true; cfg.pieces[r][c] = null; cfg.zones[r][c] = false; }
-      else if (o.type === 'gomme') { cfg.pieces[r][c] = null; cfg.trous[r][c] = false; }
-      else if (o.type === 'zone') {
-        const z = o.camp ? (enFace ? autre(o.camp) : o.camp) : false;
-        cfg.zones[r][c] = z;
-        if (z) cfg.trous[r][c] = false;
-      }
-      return false;
-    },
-
-    // Zones prêtes : les n premières rangées de chaque camp.
-    zonesToutes(n) {
-      const cfg = this.cfg;
-      cfg.zones = window.Config.grille(cfg.lignes, cfg.cols, false);
-      for (let r = 0; r < n; r++) for (let c = 0; c < cfg.cols; c++) {
-        if (!cfg.trous[r][c]) cfg.zones[r][c] = 'w';
-        if (!cfg.trous[cfg.lignes - 1 - r][c]) cfg.zones[cfg.lignes - 1 - r][c] = 'b';
-      }
-      this.change();
-      window.App.bulle(n === 1 ? 'Les pièces de la rangée du fond changeront de place à chaque partie.' : 'Les pièces de ces rangées changeront de place à chaque partie.');
-    },
-
-    choisirHasard() {
-      const d = el('div');
-      d.appendChild(el('h2', null, '🎲 Au hasard parmi…'));
-      d.appendChild(el('p', null, 'Coche les personnages qui peuvent apparaître. À chaque partie, un d’eux est tiré au hasard pour chaque case où tu poses 🎲.'));
-      const boutons = el('div', 'ligne-boutons');
-      const tout = el('button', 'bouton', 'Tout cocher'), rien = el('button', 'bouton', 'Tout décocher');
-      boutons.append(tout, rien);
-      d.appendChild(boutons);
-      const cases = [];
-      for (const cat of window.Persos.categories()) {
-        const liste = window.Persos.tous().filter((p) => p.categorie === cat && p.id !== 'roi');
-        if (!liste.length) continue;
-        const titre = el('label', 'hasard-cat');
-        const cbCat = document.createElement('input'); cbCat.type = 'checkbox';
-        titre.append(cbCat, document.createTextNode(cat + ' (toute la catégorie)'));
-        d.appendChild(titre);
-        const grille = el('div', 'hasard-grille');
-        const lesCb = [];
-        for (const p of liste) {
-          const lab = el('label', 'hasard-choix');
-          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = p.id;
-          cb.checked = this.dernierPool.includes(p.id);
-          const ic = window.Pieces.creerPerso(p, this.camp); ic.classList.add('icone');
-          lab.append(cb, ic, document.createTextNode(p.nom));
-          grille.appendChild(lab);
-          lesCb.push(cb); cases.push(cb);
-        }
-        const majCat = () => { cbCat.checked = lesCb.every((x) => x.checked); };
-        lesCb.forEach((x) => x.addEventListener('change', majCat));
-        cbCat.addEventListener('change', () => { lesCb.forEach((x) => { x.checked = cbCat.checked; }); });
-        majCat();
-        d.appendChild(grille);
-      }
-      tout.addEventListener('click', () => { d.querySelectorAll('input').forEach((x) => { x.checked = true; }); });
-      rien.addEventListener('click', () => { d.querySelectorAll('input').forEach((x) => { x.checked = false; }); });
-      window.App.modale(d, [
-        { texte: '🎲 Poser ce hasard sur le plateau', classe: 'principal', action: () => {
-          const ids = cases.filter((x) => x.checked).map((x) => x.value);
-          if (!ids.length) { window.App.bulle('Coche au moins un personnage.'); return; }
-          this.dernierPool = ids;
-          this.choisirOutil({ type: 'hasard', ids });
-          window.App.bulle('Clique ou glisse sur le plateau pour poser 🎲.');
-        } },
-        { texte: 'Annuler' }
-      ]);
+        cfg.pieces[r][c] = o.type === 'perso' ? { camp: this.camp, perso: o.perso } : { camp: this.camp, hasard: '' };
+        pose = true;
+      } else if (o.type === 'trou') { cfg.trous[r][c] = true; cfg.pieces[r][c] = null; }
+      else { cfg.pieces[r][c] = null; cfg.trous[r][c] = false; }
+      this.pop = pose ? [FICH[c] + (r + 1)] : null;
+      this.afficher();
     },
 
     // Personnages à poser : une catégorie affichée à la fois (les tiennes d'abord).
@@ -415,63 +276,11 @@
       this.majOutil();
     },
 
-    majZones() {
-      const cfg = this.cfg;
-      const t = { w: [0, 0], b: [0, 0] };
-      for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
-        const z = window.Config.zoneDe(cfg, r, c);
-        if (!z || cfg.trous[r][c]) continue;
-        t[z][0]++;
-        const p = cfg.pieces[r][c];
-        if (p && p.camp === z) t[z][1]++;
-      }
-      const adj = { w: 'blanche', b: 'noire' };
-      const ligne = (z, nom) => t[z][0]
-        ? 'Zone des ' + nom + ' : ' + t[z][0] + ' case' + (t[z][0] > 1 ? 's' : '') + ', ' + t[z][1] + ' pièce' + (t[z][1] > 1 ? 's ' : ' ') + adj[z] + (t[z][1] > 1 ? 's' : '') + ' dedans.'
-        : 'Pas de zone pour les ' + nom + ' : leurs pièces restent à leur place.';
-      $('#zd-resume').innerHTML = '';
-      $('#zd-resume').append(el('div', 'zd-w', ligne('w', 'blancs')), el('div', 'zd-b', ligne('b', 'noirs')));
-    },
-
-    // ---------- plateau ----------
-    changerTaille(cols, lignes) {
-      cols = Math.max(5, Math.min(12, cols)); lignes = Math.max(5, Math.min(10, lignes));
-      const c = this.cfg;
-      if (cols === c.cols && lignes === c.lignes) return;
-      const ajuster = (g, vide) => {
-        const n = [];
-        for (let r = 0; r < lignes; r++) {
-          const l = [];
-          for (let x = 0; x < cols; x++) {
-            let src;
-            if (r < lignes / 2) src = g[r] ? g[r][x] : vide;
-            else { const rs = c.lignes - (lignes - r); src = rs >= 0 && g[rs] ? g[rs][x] : vide; }
-            l.push(src === undefined ? vide : src);
-          }
-          n.push(l);
-        }
-        return n;
-      };
-      c.pieces = ajuster(c.pieces, null);
-      c.trous = ajuster(c.trous, false);
-      c.zones = ajuster(c.zones, false);
-      c.cols = cols; c.lignes = lignes;
-      this.change();
-    },
-
     positionClassique() {
       const c = this.cfg;
-      const rangees = {
-        5: ['tour', 'cavalier', 'roi', 'fou', 'tour'], 6: ['tour', 'cavalier', 'dame', 'roi', 'fou', 'tour'],
-        7: ['tour', 'cavalier', 'fou', 'roi', 'fou', 'cavalier', 'tour'], 8: ['tour', 'cavalier', 'fou', 'dame', 'roi', 'fou', 'cavalier', 'tour'],
-        9: ['tour', 'cavalier', 'fou', 'dame', 'roi', 'dame', 'fou', 'cavalier', 'tour'],
-        10: ['tour', 'cavalier', 'fou', 'fou', 'dame', 'roi', 'fou', 'fou', 'cavalier', 'tour'],
-        11: ['tour', 'cavalier', 'cavalier', 'fou', 'dame', 'roi', 'dame', 'fou', 'cavalier', 'cavalier', 'tour'],
-        12: ['tour', 'tour', 'cavalier', 'fou', 'fou', 'dame', 'roi', 'fou', 'fou', 'cavalier', 'tour', 'tour']
-      };
-      const rang = rangees[c.cols];
+      const rang = ['tour', 'cavalier', 'fou', 'dame', 'roi', 'fou', 'cavalier', 'tour'];
+      if (c.cols !== 8) return;
       c.pieces = window.Config.grille(c.lignes, c.cols, null);
-      c.zones = window.Config.grille(c.lignes, c.cols, false);
       for (let x = 0; x < c.cols; x++) {
         c.pieces[0][x] = { camp: 'w', perso: rang[x] };
         c.pieces[1][x] = { camp: 'w', perso: 'pion' };
@@ -482,62 +291,17 @@
       this.change();
     },
 
-    lireRegles() {
-      const R = this.cfg.regles;
-      R.but = $('#cf-but').value; R.nbEchecs = +$('#cf-nb-echecs').value; R.pat = $('#cf-pat').value;
-      R.renfort = $('#cf-renfort').checked; R.obligatoire = $('#cf-obligatoire').checked;
-      R.roque = $('#cf-roque').checked; R.double = $('#cf-double').checked; R.passant = $('#cf-passant').checked;
-      this.change();
-    },
-
-    promos() {
-      const box = $('#cf-promos');
-      box.innerHTML = '';
-      for (const p of window.Persos.tous()) {
-        if (p.id === 'roi' || p.id === 'pion') continue;
-        const lab = el('label', 'promo-case');
-        const cb = document.createElement('input'); cb.type = 'checkbox';
-        cb.checked = this.cfg.regles.promos.includes(p.id);
-        cb.addEventListener('change', () => {
-          const l = this.cfg.regles.promos.filter((x) => x !== p.id);
-          if (cb.checked) l.push(p.id);
-          this.cfg.regles.promos = l;
-          this.change();
-        });
-        const ic = window.Pieces.creerPerso(p, 'w'); ic.classList.add('icone');
-        lab.append(cb, ic, document.createTextNode(p.nom));
-        box.appendChild(lab);
-      }
-    },
-
-    lireAvantage() {
-      let a = parseFloat(String($('#cf-av-min').value).replace(',', '.'));
-      let b = parseFloat(String($('#cf-av-max').value).replace(',', '.'));
-      if (isNaN(a)) a = -0.5;
-      if (isNaN(b)) b = 0.5;
-      if (a > b) [a, b] = [b, a];
-      this.cfg.avMin = a; this.cfg.avMax = b;
-      $('#cf-av-min').value = a; $('#cf-av-max').value = b;
-      this.change();
-    },
-
     afficher() {
-      const { pos, zones } = positionAffichage(this.cfg);
-      this.plateau.afficher(pos, { decor: { zones }, pop: this.pop });
+      const { pos } = positionAffichage(this.cfg);
+      this.plateau.afficher(pos, { pop: this.pop });
       this.pop = null;
       this.redimensionner();
     },
 
     // Appelé après chaque modification (seulementAffichage = rien n'a changé dans la configuration).
     change(seulementAffichage) {
-      const cfg = this.cfg;
       if (!seulementAffichage) this.sauver();
       this.afficher();
-      this.majZones();
-      $('#cols-val').textContent = cfg.cols;
-      $('#lignes-val').textContent = cfg.lignes;
-      $('#trous-val').textContent = cfg.trousHasard || 0;
-      $('#cf-nb-echecs-bloc').style.display = cfg.regles.but === 'echecs' ? '' : 'none';
       if (seulementAffichage) return;
       clearTimeout(this.minuteur);
       this.minuteur = setTimeout(() => this.majAvantage(), 450);
@@ -559,8 +323,8 @@
       }
       if (window.Config.aleatoire(this.cfg)) {
         zone.className = 'cf-av-texte';
-        zone.textContent = '(change à chaque partie)';
-        valeur.textContent = 'entre ' + texteAvantage(this.cfg.avMin) + ' et ' + texteAvantage(this.cfg.avMax);
+        zone.textContent = '🎲 Avec l’aléatoire, le tirage est refait jusqu’à une partie équilibrée.';
+        valeur.textContent = '';
         barre.style.visibility = 'hidden';
         return;
       }
@@ -575,33 +339,6 @@
       zone.textContent = av > 0.3 ? 'Les blancs commencent avec un avantage.' : av < -0.3 ? 'Les noirs commencent avec un avantage.' : 'La position de départ est équilibrée.';
       barre.style.visibility = '';
       window.App.majBarre(barre, { cp: Math.round(av * 100) }, false, true);
-    },
-
-    code() {
-      const cfg = window.Config.copie(this.cfg);
-      const ids = new Set();
-      for (const l of cfg.pieces) for (const p of l) {
-        if (p && p.perso) ids.add(p.perso);
-        if (p && Array.isArray(p.hasard)) p.hasard.forEach((x) => ids.add(x));
-      }
-      for (const id of cfg.regles.promos) ids.add(id);
-      const persos = [...ids].map((id) => window.Persos.trouver(id)).filter((p) => p && !p.classique);
-      return 'JULCFG1:' + btoa(unescape(encodeURIComponent(JSON.stringify({ cfg, persos }))));
-    },
-
-    importer() {
-      const t = $('#cf-code').value.trim();
-      try {
-        if (!t.startsWith('JULCFG1:')) throw new Error();
-        const d = JSON.parse(decodeURIComponent(escape(atob(t.slice(8)))));
-        if (!d.cfg || !d.cfg.pieces) throw new Error();
-        for (const p of d.persos || []) if (!window.Persos.trouver(p.id)) window.Persos.enregistrer(p);
-        d.cfg.id = window.Config.nouveauId();
-        window.Config.enregistrer(d.cfg);
-        this.editer(d.cfg);
-        $('#cf-code').value = '';
-        window.App.bulle('Configuration « ' + d.cfg.nom + ' » importée.');
-      } catch (e) { window.App.bulle('Code illisible.'); }
     },
 
     redimensionner() {

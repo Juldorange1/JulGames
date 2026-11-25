@@ -42,6 +42,18 @@
     };
   }
 
+  // Version simple d'une configuration : seulement les pièces posées (ou aléatoires) et les trous.
+  // Règles normales, pas de zones de départ ni de trous tirés au hasard.
+  function simple(cfg) {
+    const c = copie(cfg);
+    c.regles = reglesDefaut();
+    c.zones = grille(c.lignes, c.cols, false);
+    c.trousHasard = 0;
+    c.miroir = false;
+    c.avMin = -0.5; c.avMax = 0.5;
+    return c;
+  }
+
   // ---------- hasard ----------
   function aleatoire(cfg) {
     if (cfg.trousHasard > 0) return true;
@@ -281,7 +293,7 @@
 
   // ---------- vérification ----------
   function verifier(cfg) {
-    let K = 0, k = 0, pionBout = false, aPion = false;
+    let K = 0, k = 0, pionBout = false, aPion = false, nbHasard = 0;
     const customs = new Set();
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];
@@ -293,8 +305,8 @@
       }
       if (p.perso && !window.Persos.trouver(p.perso)) return 'Un personnage placé n’existe plus.';
       if (p.perso && !['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(p.perso)) customs.add(p.perso);
-      if (p.hasard != null) for (const x of window.Persos.pool(p.hasard)) if (!x.classique) customs.add(x.id);
-      if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Une case « au hasard » n’a aucun personnage possible : sélectionne-la et refais « Au hasard parmi… ».';
+      if (p.hasard != null) nbHasard++;
+      if (p.hasard != null && !window.Persos.pool(p.hasard).length) return 'Une case 🎲 aléatoire n’a aucun personnage possible : efface-la et repose 🎲.';
     }
     const R = cfg.regles;
     if (R.but !== 'prise' && (K !== 1 || k !== 1)) return 'Il faut exactement un roi blanc et un roi noir.';
@@ -302,7 +314,7 @@
     if (pionBout) return 'Un pion ne peut pas commencer sur la dernière rangée.';
     if (aPion && !R.promos.length) return 'Choisis au moins un personnage pour la promotion des pions.';
     for (const id of R.promos) if (!['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(id)) customs.add(id);
-    if (customs.size > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
+    if (customs.size + nbHasard > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
     for (const id of customs) {
       const p = window.Persos.trouver(id);
       if (p && !window.Persos.betza(p)) return '« ' + p.nom + ' » n’a aucun déplacement.';
@@ -366,9 +378,9 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, vide, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, simple, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
-    trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? copie(c) : null; },
+    trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? simple(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
     // Met à jour une configuration déjà enregistrée (à sa place dans la liste) ; rien si elle ne l'est pas.
     mettreAJour(cfg) {
