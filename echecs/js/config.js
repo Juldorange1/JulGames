@@ -54,8 +54,6 @@
     // où vont les pièces au hasard : « miroir » (dans sa moitié, les noirs pareil en face) ou « zones » (peintes)
     if (c.hasardOu !== 'zones') c.hasardOu = 'miroir';
     if (!c.zonesH || c.zonesH.length !== c.lignes) c.zonesH = grille(c.lignes, c.cols, false);
-    const roiH = Object.keys(c.auHasard).find((id) => c.auHasard[id] > 0 && estRoi(id));
-    if (roiH) garderUnRoi(c, roiH);
     if (c.avMin == null) c.avMin = -0.5;
     if (c.avMax == null) c.avMax = 0.5;
     return c;
@@ -336,7 +334,17 @@
     l.push('maxFile = ' + FICH[cfg.cols - 1]);
     l.push('maxRank = ' + cfg.lignes);
     customs.forEach((p, i) => l.push('customPiece' + (i + 1) + ' = ' + lettres[p.id] + ':' + window.Persos.betza(p)));
-    if (roiCree) l.push('king = k:' + window.Persos.betza(roiCree));
+    // plusieurs rois dans un camp : on peut en prendre ; le dernier qui reste se joue comme un vrai roi
+    let nbW = 0, nbB = 0;
+    for (const ligne of t.pieces) for (const p of ligne) if (p && estRoi(p.perso)) { if (p.camp === 'w') nbW++; else nbB++; }
+    const plusieurs = nbW > 1 || nbB > 1;
+    if (plusieurs) {
+      l.push('king = -');
+      if (roiCree) l.push('customPiece' + (customs.length + 1) + ' = k:' + window.Persos.betza(roiCree));
+      else l.push('commoner = k');
+      l.push('extinctionValue = loss'); l.push('extinctionPieceTypes = k'); l.push('extinctionPseudoRoyal = true');
+      l.push('castling = false');
+    } else if (roiCree) l.push('king = k:' + window.Persos.betza(roiCree));
     if (R.but === 'prise') {
       l.push('king = -'); l.push('commoner = k'); l.push('extinctionValue = loss'); l.push('extinctionPieceTypes = k');
     }
@@ -346,7 +354,7 @@
     l.push('promotionPieceTypes = ' + (promos.length ? promos.join('') : '-'));
     if (!R.double) l.push('doubleStep = false');
     if (!R.passant) l.push('enPassantRegion = -');
-    if (!R.roque || R.but === 'prise') l.push('castling = false');
+    if ((!R.roque || R.but === 'prise') && !plusieurs) l.push('castling = false');
     else if (cfg.cols !== 8) { l.push('castlingKingsideFile = ' + FICH[cfg.cols - 2]); l.push('castlingQueensideFile = c'); }
     if (R.obligatoire) l.push('mustCapture = true');
     if (R.renfort) { l.push('pieceDrops = true'); l.push('capturesToHand = true'); }
@@ -361,7 +369,7 @@
     const buts = { prise: 'Roi pris', centre: 'Roi arrivé au centre', echecs: 'Échecs donnés' };
     return {
       uci, ini: '[' + uci + ':chess]\n' + corps, moteur: 'fairy', fen0: fen, nom: cfg.nom, pieces,
-      but: buts[R.but] || '', regles: texteRegles(cfg), cfgId: cfg.id
+      but: plusieurs ? 'Tous les rois pris' : (buts[R.but] || ''), regles: texteRegles(cfg) + (plusieurs ? ' Plusieurs rois : tant qu’il t’en reste plus d’un, l’adversaire peut en prendre ; le dernier se joue comme un vrai roi (échec et mat).' : ''), cfgId: cfg.id
     };
   }
 
@@ -425,7 +433,6 @@
     }
     const R = cfg.regles;
     if (R.but !== 'prise' && (!K || !k)) return 'Il faut un roi blanc et un roi noir : pose-les à la main ou mets un roi au hasard.';
-    if (R.but !== 'prise' && (K > 1 || k > 1)) return 'Un seul roi par couleur (à la main ou au hasard, pas les deux).';
     if (R.but === 'prise' && (K < 1 || k < 1)) return 'Il faut au moins un roi de chaque couleur.';
     if (pionBout) return 'Un pion ne peut pas commencer sur la dernière rangée.';
     if (aPion && !R.promos.length) return 'Choisis au moins un personnage pour la promotion des pions.';
@@ -434,9 +441,9 @@
     const rois = new Set();
     for (const id of lot) if (estRoi(id)) rois.add(id);
     for (const l of cfg.pieces) for (const p of l) if (p && p.perso && estRoi(p.perso)) rois.add(p.perso);
-    if (rois.size > 1) return 'Un seul genre de roi par partie : les deux camps doivent avoir le même roi (classique ou créé).';
+    if (rois.size > 1) return 'Un seul genre de roi par partie : tous les rois doivent être le même personnage (classique ou créé).';
     for (const id of rois) customs.delete(id);
-    if (customs.size + nbHasard > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
+    if (customs.size + nbHasard + (rois.size && [...rois][0] !== 'roi' ? 1 : 0) > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
     for (const id of customs) {
       const p = window.Persos.trouver(id);
       if (p && !window.Persos.betza(p)) return '« ' + p.nom + ' » n’a aucun déplacement.';
