@@ -608,3 +608,12 @@ body.pieces-3d .piece:not(.de):not(.inconnue) { background-size: contain; backgr
 .apercu-pieces img { width: 100%; height: auto; max-height: 100%; object-fit: contain; }
 @media (max-height: 820px) { .groupes-apparence .titre-groupe { margin: 2px 0 3px; } .groupes-apparence .grille-apparence { margin-bottom: 4px; } .carte-apparence canvas, .apercu-pieces { aspect-ratio: 16 / 8; } }
 .groupes-apparence .titre-groupe { display: inline-block; background: rgba(20,22,26,.85); padding: 2px 12px; border-radius: 8px; }
+
+/* lave en fusion : elle coule doucement vers le bas et rougeoie */
+body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.echec) {
+  background-image: var(--lave) !important; background-size: 256px 256px !important; background-attachment: fixed !important;
+  animation: coulee 30s linear infinite, lueur 3.5s ease-in-out infinite alternate;
+}
+@keyframes coulee { from { background-position: 0 0; } to { background-position: 0 256px; } }
+@keyframes lueur { from { filter: brightness(.92) saturate(1); } to { filter: brightness(1.18) saturate(1.25); } }
+@media (prefers-reduced-motion: reduce) { body.lave-claire .case.claire, body.lave-foncee .case.foncee { animation: none; } }

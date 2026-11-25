@@ -580,13 +580,13 @@
 
   // ---------- vrais plateaux en photo (Lichess) et vrais paysages (Poly Haven, domaine public) ----------
   const PHOTOS_PLATEAU = [
-    ['p-wood4', 'Noyer massif', 'wood4', '#c3a36e', '#805633'], ['p-wood', 'Merisier', 'wood', '#d7a258', '#965221'],
-    ['p-wood3', 'Bois clair', 'wood3', '#c0b7ae', '#8c6c46'], ['p-maple', 'Érable', 'maple', '#dfbd91', '#b97743'],
-    ['p-maple2', 'Érable ondé', 'maple2', '#dfc39b', '#ac795d'], ['p-blue-marble', 'Marbre blanc', 'blue-marble', '#e2ddd3', '#969ead'],
-    ['p-marble', 'Marbre vert', 'marble', '#829983', '#647a63'], ['p-metal', 'Métal brossé', 'metal', '#c7c7c7', '#939393'],
+    ['s-lave', 'Lave en fusion', 's-lave', '#ac442e', '#483d33', 'claire'], ['s-volcan', 'Volcan', 's-volcan', '#b3a18c', '#4a383b', 'foncee'],
+    ['s-plage', 'Plage', 's-plage', '#c2ab88', '#564c3d'], ['s-foret', 'Sous-bois', 's-foret', '#cfa958', '#594b38'],
+    ['s-desert', 'Désert', 's-desert', '#c1a89c', '#624832'], ['s-neige', 'Neige et roche', 's-neige', '#aeaeb0', '#483d33'],
+    ['s-marais', 'Mousse et boue', 's-marais', '#b3b090', '#564b3d'], ['s-prairie', 'Prairie et terre', 's-prairie', '#ae862e', '#534c43'],
     ['p-canvas2', 'Toile bleue', 'canvas2', '#cbcedf', '#71819c']
   ];
-  PHOTOS_PLATEAU.forEach(([id, nom, photo, claire, foncee]) => THEMES.push({ id, nom, photo, claire, foncee }));
+  PHOTOS_PLATEAU.forEach(([id, nom, photo, claire, foncee, lave]) => THEMES.push({ id, nom, photo, claire, foncee, lave }));
   const PHOTOS_DECOR = [
     ['ph-venise', 'Coucher de soleil sur la mer', 'venice_sunset'], ['ph-plage', 'Lever de soleil sur la plage', 'umhlanga_sunrise'],
     ['ph-ciel-feu', 'Ciel en feu', 'the_sky_is_on_fire'], ['ph-aube', 'Aube rose en montagne', 'kiara_1_dawn'],
@@ -600,7 +600,7 @@
   const GROUPES = [['calme', '🧘 Pour se concentrer'], ['realiste', '📷 Très réalistes'], ['populaire', '⭐ Populaires']];
   const RANG_THEMES = {
     calme: ['gris', 'sauge', 'ardoise-uni', 'sable-uni', 'olive', 'lavande', 'nocturne', 'turquoise'],
-    realiste: ['p-wood4', 'p-wood', 'p-wood3', 'p-maple', 'p-maple2', 'p-blue-marble', 'p-marble', 'p-metal'],
+    realiste: ['s-lave', 's-volcan', 's-plage', 's-foret', 's-desert', 's-neige', 's-marais', 's-prairie'],
     populaire: ['sable', 'tournoi', 'ocean', 'violet', 'chene', 'ebene', 'marbre', 'p-canvas2']
   };
   const RANG_DECORS = {
@@ -650,6 +650,10 @@
     st.setProperty('--claire', t.claire);
     st.setProperty('--foncee', t.foncee);
     document.body.classList.toggle('plateau-photo', !!t.photo);
+    // lave qui coule : les cases de lave bougent lentement et rougeoient
+    document.body.classList.toggle('lave-claire', t.lave === 'claire');
+    document.body.classList.toggle('lave-foncee', t.lave === 'foncee');
+    if (t.lave) st.setProperty('--lave', 'url("' + new URL('skins/plateaux/' + t.photo + '-lave.jpg', location.href).href + '")');
     if (t.photo) {
       st.setProperty('--photo-claire', 'url("' + new URL('skins/plateaux/' + t.photo + '-c.jpg', location.href).href + '")');
       st.setProperty('--photo-foncee', 'url("' + new URL('skins/plateaux/' + t.photo + '-f.jpg', location.href).href + '")');

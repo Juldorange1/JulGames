@@ -18,8 +18,8 @@
   const JEUX = [
     ['cburnett', 'Classique', 'calme'], ['merida', 'Merida', 'calme'], ['staunty', 'Staunty', 'calme'], ['maestro', 'Maestro', 'calme'],
     ['cardinal', 'Cardinal', 'calme'], ['chessnut', 'Chessnut', 'calme'], ['leipzig', 'Leipzig', 'calme'], ['mpchess', 'MPChess', 'calme'],
-    ['3d-Staunton', 'Staunton 3D', 'realiste'], ['3d-Wood', 'Bois 3D', 'realiste'], ['3d-ModernWood', 'Bois moderne 3D', 'realiste'], ['3d-Basic', 'Ivoire et ébène 3D', 'realiste'],
-    ['3d-Glass', 'Verre 3D', 'realiste'], ['3d-Metal', 'Métal 3D', 'realiste'], ['3d-ModernJade', 'Jade 3D', 'realiste'], ['3d-Trimmed', 'Laqué 3D', 'realiste'],
+    ['cr-sauvage', 'Savane et dragon', 'realiste'], ['cr-ocean', 'Océan', 'realiste'], ['cr-prehistoire', 'Dinosaures', 'realiste'], ['cr-fantastique', 'Royaume magique', 'realiste'],
+    ['cr-monstres', 'Monstres', 'realiste'], ['cr-insectes', 'Insectes', 'realiste'], ['cr-espace', 'Espace', 'realiste'], ['cr-foret', 'Forêt', 'realiste'],
     ['dragons', 'Dragons', 'populaire'], ['fantasy', 'Fantasy', 'populaire'], ['celtic', 'Celtique', 'populaire'], ['california', 'California', 'populaire'],
     ['alpha', 'Alpha', 'populaire'], ['tatiana', 'Tatiana', 'populaire'], ['pixel', 'Pixel', 'populaire'], ['horsey', 'Horsey', 'populaire']
   ].map(([id, nom, groupe]) => ({ id, nom, groupe }));
@@ -33,6 +33,7 @@
   }
   function imageDe(j, couleur, type) {
     if (j === 'cburnett') return window.PIECES_SVG[couleur + type];
+    if (j.startsWith('cr-')) return 'skins/creatures/' + j.slice(3) + '/' + couleur + type.toUpperCase() + '.webp';
     if (j.startsWith('3d-')) return 'skins/pieces3d/' + j.slice(3) + '/' + (couleur === 'w' ? 'White' : 'Black') + '-' + NOMS_3D[type] + '.webp';
     return 'skins/pieces/' + j + '/' + couleur + type.toUpperCase() + '.svg';
   }
