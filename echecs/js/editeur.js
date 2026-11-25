@@ -101,8 +101,7 @@
         this.cfg.avMin = Math.min(a, b); this.cfg.avMax = Math.max(a, b);
         this.change();
       };
-      $('#hz-av-min').addEventListener('change', lireAv);
-      $('#hz-av-max').addEventListener('change', lireAv);
+      for (const id of ['#hz-av-min', '#hz-av-max']) { $(id).addEventListener('input', lireAv); $(id).addEventListener('change', () => { lireAv(); this.majAvCases(); }); }
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
 
@@ -211,12 +210,17 @@
         const noms = Object.keys(cfg.auHasard).map((id) => { const p = window.Persos.trouver(id); return cfg.auHasard[id] + ' ' + (p ? p.nom : '?'); });
         res.textContent = 'Chaque couleur reçoit au hasard : ' + noms.join(', ') + '.';
       }
-      const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
-      if (document.activeElement !== $('#hz-av-min')) $('#hz-av-min').value = ecrit(cfg.avMin);
-      if (document.activeElement !== $('#hz-av-max')) $('#hz-av-max').value = ecrit(cfg.avMax);
+      this.majAvCases();
     },
 
+    majAvCases() {
+      const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
+      if (document.activeElement !== $('#hz-av-min')) $('#hz-av-min').value = ecrit(this.cfg.avMin);
+      if (document.activeElement !== $('#hz-av-max')) $('#hz-av-max').value = ecrit(this.cfg.avMax);
+      $('#hz-av-min').classList.remove('faux'); $('#hz-av-max').classList.remove('faux');
+    },
     remplir() {
+      this.majAvCases();
       $('#cf-titre').textContent = this.cfg.nom;
       $('#cf-nom').value = this.cfg.nom;
     },
@@ -378,7 +382,9 @@
       if (jet !== this.jetonEval) return;
       if (av == null) { zone.textContent = 'Avantage impossible à calculer.'; return; }
       valeur.textContent = texteAvantage(av);
-      zone.textContent = av > 0.3 ? 'Les blancs commencent avec un avantage.' : av < -0.3 ? 'Les noirs commencent avec un avantage.' : 'La position de départ est équilibrée.';
+      const dans = av >= this.cfg.avMin - 1e-9 && av <= this.cfg.avMax + 1e-9;
+      zone.textContent = (av > 0.3 ? 'Les blancs commencent avec un avantage.' : av < -0.3 ? 'Les noirs commencent avec un avantage.' : 'La position de départ est équilibrée.') +
+        (dans ? '' : ' Pour viser ton avantage voulu, mets des pièces dans « 🎲 Placer au hasard ».');
       barre.style.visibility = '';
       window.App.majBarre(barre, { cp: Math.round(av * 100) }, false, true);
     },

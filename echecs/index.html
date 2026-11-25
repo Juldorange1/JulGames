@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=23">
+<link rel="stylesheet" href="css/jeu.css?v=25">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -33,6 +33,7 @@
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="options-generales centre"><label><input type="checkbox" id="opt-sons"> Bruits des pièces</label></div>
     <div class="note-moteur centre" id="note-moteur"></div>
+    <div class="note-moteur centre">Version 25</div>
   </div>
 </section>
 
@@ -105,7 +106,10 @@
     <div class="config-gauche"><div id="plateau-config"></div></div>
     <div class="config-droite">
       <div class="cf-haut">
-        <div class="cf-av-ligne"><span>Avantage des blancs :</span><b id="cf-av-valeur"></b>
+        <div class="hz-avantage" title="0 = égalité ; positif = les blancs devant (ex. +2) ; négatif = les noirs devant (ex. −3)"><b>Avantage voulu des blancs :</b> de
+          <input type="text" inputmode="decimal" id="hz-av-min"> à
+          <input type="text" inputmode="decimal" id="hz-av-max"> <span class="aide">(négatif = noirs devant)</span></div>
+        <div class="cf-av-ligne"><span>Avantage actuel :</span><b id="cf-av-valeur"></b>
           <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div></div>
         <div class="cf-av-texte" id="cf-avantage"></div>
       </div>
@@ -134,10 +138,7 @@
             <div class="cats" id="hz-cats"></div>
             <div id="hz-persos" class="hz-grille"></div>
             <div class="hz-resume" id="hz-resume"></div>
-            <div class="hz-avantage">Avantage des blancs au départ entre
-              <input type="text" inputmode="decimal" id="hz-av-min"> et
-              <input type="text" inputmode="decimal" id="hz-av-max"></div>
-            <p class="aide">Exemples : −1 et +1 (équilibré), +2 et +5 (les blancs commencent devant), −3 et −1 (les noirs devant).</p>
+
           </div>
         </section>
         <section class="pli" data-pli="mes">
@@ -286,16 +287,16 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=23"></script>
-<script src="js/persos.js?v=23"></script>
-<script src="js/pieces.js?v=23"></script>
-<script src="js/regles.js?v=23"></script>
-<script src="js/config.js?v=23"></script>
-<script src="js/moteur.js?v=23"></script>
-<script src="js/son.js?v=23"></script>
-<script src="js/plateau.js?v=23"></script>
-<script src="js/bilan.js?v=23"></script>
-<script src="js/editeur.js?v=23"></script>
-<script src="js/app.js?v=23"></script>
+<script src="js/pieces-svg.js?v=25"></script>
+<script src="js/persos.js?v=25"></script>
+<script src="js/pieces.js?v=25"></script>
+<script src="js/regles.js?v=25"></script>
+<script src="js/config.js?v=25"></script>
+<script src="js/moteur.js?v=25"></script>
+<script src="js/son.js?v=25"></script>
+<script src="js/plateau.js?v=25"></script>
+<script src="js/bilan.js?v=25"></script>
+<script src="js/editeur.js?v=25"></script>
+<script src="js/app.js?v=25"></script>
 </body>
 </html>
