@@ -278,13 +278,39 @@
       else this._ajout(liste, de, s);
     }
     attaquee(s, par) {
-      const tmp = [];
-      for (let i = 0; i < this.N; i++) {
-        const v = this.b[i];
-        if (v <= TROU || this.coulDe(v) !== par) continue;
-        tmp.length = 0;
-        this._cibles(i, v, tmp, false, true);
-        for (const x of tmp) if (x === s) return true;
+      const C = this.C, L = this.L, b = this.b;
+      const x0 = s % C, y0 = (s / C) | 0, sens = par ? -1 : 1;
+      let chemins = null;
+      for (let ti = 0; ti < this.types.length; ti++) {
+        const t = this.types[ti], v = this.code(ti, par);
+        if (t.pion) {
+          const y = y0 - sens;
+          if (y >= 0 && y < L) { if (x0 > 0 && b[y * C + x0 - 1] === v) return true; if (x0 < C - 1 && b[y * C + x0 + 1] === v) return true; }
+          continue;
+        }
+        for (const [dx, dy0] of t.sauts) {
+          const x = x0 - dx, y = y0 - dy0 * sens;
+          if (x >= 0 && x < C && y >= 0 && y < L && b[y * C + x] === v) return true;
+        }
+        for (const [dx, dy0] of t.glisses) {
+          const ddx = -dx, ddy = -dy0 * sens;
+          let x = x0 + ddx, y = y0 + ddy;
+          while (x >= 0 && x < C && y >= 0 && y < L) {
+            const q = b[y * C + x];
+            if (q !== VIDE) { if (q === v) return true; break; }
+            x += ddx; y += ddy;
+          }
+        }
+        if (t.chemin) (chemins || (chemins = [])).push(v);
+      }
+      if (chemins) {
+        const tmp = [];
+        for (let i = 0; i < this.N; i++) {
+          if (!chemins.includes(b[i])) continue;
+          tmp.length = 0;
+          this._cibles(i, b[i], tmp, false, true);
+          if (tmp.includes(s)) return true;
+        }
       }
       return false;
     }
@@ -366,6 +392,7 @@
       this.pile.push(u);
     }
     annulerCoup() {
+      if (this.pile.length && this.pile[this.pile.length - 1].nul) { this.annulerNul(); return; }
       const u = this.pile.pop(), m = u.m, b = this.b;
       this.hist.pop();
       this.trait ^= 1;
@@ -379,6 +406,23 @@
       if (m.roque) b[m.tour] = tv;
       if (u.pris > TROU || m.ep) b[u.prisCase] = u.pris;
       this.roque = u.roque; this.ep = u.ep; this.demi = u.demi; this.h1 = u.h1; this.h2 = u.h2; this.nbRois = u.rois;
+    }
+    // coup nul (pour la recherche) : on passe son tour
+    jouerNul() {
+      this.pile.push({ nul: true, ep: this.ep, h1: this.h1, h2: this.h2 });
+      this.hist.push(this.h1 + ':' + this.h2);
+      this.h1 ^= this.zEp[this.ep + 1] ^ this.zTrait[this.trait] ^ this.zTrait[this.trait ^ 1] ^ this.zEp[0];
+      this.h2 ^= this.zEp2[this.ep + 1] ^ this.zEp2[0];
+      this.ep = -1; this.trait ^= 1;
+    }
+    annulerNul() {
+      const u = this.pile.pop(); this.hist.pop();
+      this.trait ^= 1; this.ep = u.ep; this.h1 = u.h1; this.h2 = u.h2;
+    }
+    pieces(coul) {
+      let n = 0;
+      for (let i = 0; i < this.N; i++) { const v = this.b[i]; if (v > TROU && this.coulDe(v) === coul && !this.types[this.typeDe(v)].pion && !this.types[this.typeDe(v)].royal) n++; }
+      return n;
     }
     legaux() {
       const l = [], me = this.trait;
@@ -531,16 +575,29 @@
         if (e.type === 1 && e.sc >= beta) return e.sc;
         if (e.type === 2 && e.sc <= alpha) return e.sc;
       }
+      // coup nul : si même en passant son tour on reste au-dessus de beta, inutile de chercher plus
+      if (!echec && prof >= 3 && ply && beta < MAT - 1000 && j.pieces(me) > 0 && !j.multi) {
+        j.jouerNul();
+        let sn;
+        try { sn = -ab(prof - 3, -beta, -beta + 1, ply + 1, []); } finally { j.annulerNul(); }
+        if (sn >= beta) return beta;
+      }
       const liste = j.pseudo(false);
       ordonner(liste, e && e.m, ply);
       let meilleur = -Infinity, mm = null, legal = 0;
       const a0 = alpha;
       const sous = [];
       for (const m of liste) {
+        const calme = j.b[m.vers] === VIDE && !m.ep && m.promo < 0;
         j.jouerCoup(m);
         if (j.enEchec(me)) { j.annulerCoup(); continue; }
         legal++;
-        const sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous);
+        let sc;
+        // coups tardifs et calmes : d'abord une recherche moins profonde, refaite en entier s'ils semblent bons
+        if (legal > 4 && calme && prof >= 3 && !echec && !j.enEchec(j.trait)) {
+          sc = -ab(prof - 2, -alpha - 1, -alpha, ply + 1, sous);
+          if (sc > alpha) sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous);
+        } else sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous);
         j.annulerCoup();
         if (sc > meilleur) {
           meilleur = sc; mm = m;

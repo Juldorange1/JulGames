@@ -31,7 +31,7 @@
   }
 
   const options = Object.assign({
-    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: []
+    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: [], pieces: 'cburnett'
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
@@ -168,7 +168,11 @@
     if (!$('#par-onglets .actif')) choisirOngletPar('plateau'); else choisirOngletPar($('#par-onglets .actif').dataset.par);
     const remplir = (box, liste, cle, apercu, appliquer) => {
       box.innerHTML = '';
-      for (const t of liste) {
+      for (const [g, titre] of window.Themes.GROUPES) {
+        const h = document.createElement('h3'); h.className = 'titre-groupe'; h.textContent = titre;
+        const grille = document.createElement('div'); grille.className = 'grille-apparence';
+        box.append(h, grille);
+      for (const t of liste.filter((x) => x.groupe === g)) {
         const b = document.createElement('button');
         b.className = 'carte-apparence' + (options[cle] === t.id ? ' choisie' : '');
         b.appendChild(apercu(t));
@@ -177,9 +181,11 @@
           options[cle] = t.id; sauverOptions(); appliquer(t.id);
           box.querySelectorAll('.carte-apparence').forEach((x) => x.classList.toggle('choisie', x === b));
         };
-        box.appendChild(b);
+        grille.appendChild(b);
+      }
       }
     };
+    remplir($('#par-pieces'), window.Pieces.JEUX, 'pieces', window.Pieces.apercuJeu, window.Pieces.choisirJeu);
     remplir($('#par-themes'), window.Themes.THEMES, 'theme', window.Themes.apercuTheme, window.Themes.appliquerTheme);
     remplir($('#par-decors'), window.Themes.DECORS, 'decor', window.Themes.apercuDecor, (id) => { window.Themes.appliquerDecor(id); majAmbiance(); });
   }
@@ -642,12 +648,50 @@
   function copieLignes(lignes) {
     return lignes.filter(Boolean).map((l) => ({ score: l.score, pv: l.pv.slice(0, 8), profondeur: l.profondeur }));
   }
+  // Finales de 7 pièces ou moins aux échecs classiques : résultat EXACT (tables de finales de Lichess).
+  const tables = {};
+  function tablesFinales(cle) {
+    if (!jeu || tables[cle] || jeu.variante.is960) return;
+    const plac = cle.split(' ')[0];
+    const rangs = plac.split('/');
+    // seulement de vraies positions d'échecs : 8 × 8, pièces classiques, un roi de chaque côté
+    if (rangs.length !== 8 || /[^kqrbnp1-8\/]/i.test(plac) || rangs.some((r) => r.replace(/\d/g, (n) => '.'.repeat(+n)).length !== 8)) return;
+    if ((plac.match(/K/g) || []).length !== 1 || (plac.match(/k/g) || []).length !== 1) return;
+    if ((plac.match(/[a-z]/gi) || []).length > 7 || (cle.split(' ')[2] || '-') !== '-') return;
+    const v = jeu.variante.pieces || {};
+    if (Object.keys(v).some((l) => v[l] && v[l].marque)) return;
+    tables[cle] = { attente: true };
+    fetch('https://tablebase.lichess.ovh/standard?fen=' + encodeURIComponent(cle))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!d || !d.category) { delete tables[cle]; return; } tables[cle] = d; majAnalyseAffichage(); })
+      .catch(() => { delete tables[cle]; });
+  }
+  function pronosticExact(tb, trait) {
+    const el = $('#pronostic');
+    const c = tb.category, autre = trait === 'w' ? 'b' : 'w';
+    const nom = (x) => (x === 'w' ? 'les blancs' : 'les noirs');
+    el.className = 'pronostic';
+    let t;
+    if (c === 'win' || c === 'loss') {
+      const gagnant = c === 'win' ? trait : autre;
+      const n = tb.dtm != null ? Math.ceil(Math.abs(tb.dtm) / 2) : null;
+      t = '🔮 Certain (tables de finales) : ' + nom(gagnant) + ' gagnent' + (n ? ', mat en ' + n + ' coup' + (n > 1 ? 's' : '') : '') + ' si les deux jouent parfaitement.';
+      el.classList.add(gagnant === 'w' ? 'blancs' : 'noirs');
+    } else {
+      t = '🔮 Certain (tables de finales) : nulle, personne ne peut gagner en jouant parfaitement.';
+      el.classList.add('egal');
+    }
+    el.textContent = t;
+    el.title = 'Résultat exact : toutes les positions à 7 pièces ou moins ont été calculées jusqu’au bout.';
+  }
+
   function relancerAnalyse() {
     if (!jeu || App.ecranActuel !== 'partie') return;
     const p = jeu.partie;
     const n = indexVue();
     const cle = p.fens[n];
     const trait = window.Regles.lireFen(cle).trait;
+    tablesFinales(cle);
     // déjà calculée jusqu'au bout pour cette position : on garde le résultat (il ne change plus)
     jeu.cache = jeu.cache || {};
     if (jeu.cache[cle]) { arreterAnalyse(); jeu.analyse = Object.assign({}, jeu.cache[cle], { n }); majAnalyseAffichage(); return; }
@@ -723,8 +767,18 @@
     const lignes = a.lignes.filter((l) => l && l.pv && l.pv.length);
     const montrer = conseilsTenus && a.fini;
     const reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: i + 1, couleur: COULEURS_CONSEILS[i] })) : null;
-    if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
+    // fin de partie connue exactement : la barre montre le vrai résultat
+    const tb = tables[a.cle];
+    let exact = null;
+    if (tb && tb.category) {
+      const gagne = tb.category === 'win' ? a.trait : tb.category === 'loss' ? (a.trait === 'w' ? 'b' : 'w') : null;
+      const nb = tb.dtm != null ? Math.ceil(Math.abs(tb.dtm) / 2) : null;
+      exact = !gagne ? { cp: 0 } : nb ? { mate: gagne === 'w' ? nb : -nb } : { cp: gagne === 'w' ? 2000 : -2000 };
+    }
+    if (exact) majBarre(barre, exact, plateau.retourne, false, reperes);
+    else if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
     majPronostic(lignes[0] && (a.fini || (jeu.variante.moteur !== 'maison' && lignes[0].profondeur >= 12)) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
+    if (tables[a.cle] && tables[a.cle].category) pronosticExact(tables[a.cle], a.trait);
     const liste = $('#conseils-liste');
     liste.innerHTML = '';
     if (!conseilsTenus) { plateau.effacerFleches(); return; }
@@ -1074,7 +1128,7 @@
 
   // ---------- démarrage ----------
   async function demarrer() {
-    try { window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
+    try { window.Pieces.choisirJeu(options.pieces); window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
     plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true });
     plateauApercu = new window.Plateau($('#plateau-apercu'), {});
     plateauApercu.bloquer();

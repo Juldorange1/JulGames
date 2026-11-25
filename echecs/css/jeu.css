@@ -592,3 +592,19 @@ body.avec-decor .note-moteur, body.avec-decor .options-generales { background: r
 .suppr-pendule:hover { opacity: 1; color: #e06a5a; }
 .pendule-champs label { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 10px 0; font-size: 17px; }
 .pendule-champs input { width: 90px; font-size: 17px; padding: 4px 6px; }
+
+/* plateaux en photo : 4 variantes de chaque case pour un vrai grain */
+body.plateau-photo .case.claire:not(.echec) { background-image: var(--photo-claire); background-size: 400% 100%; background-attachment: scroll; }
+body.plateau-photo .case.foncee:not(.echec) { background-image: var(--photo-foncee); background-size: 400% 100%; background-attachment: scroll; }
+body.plateau-photo .case.v0 { background-position: 0% 0; } body.plateau-photo .case.v1 { background-position: 33.333% 0; }
+body.plateau-photo .case.v2 { background-position: 66.667% 0; } body.plateau-photo .case.v3 { background-position: 100% 0; }
+/* pièces en 3D : un peu plus hautes que larges, posées en bas de la case */
+body.pieces-3d .piece:not(.de):not(.inconnue) { background-size: contain; background-repeat: no-repeat; background-position: center bottom; }
+/* groupes de 8 dans les Paramètres */
+.groupes-apparence .titre-groupe { margin: 4px 0 6px; font-size: 17px; color: var(--accent); }
+.groupes-apparence .grille-apparence { margin-bottom: 8px; }
+.groupes-apparence.decors .grille-apparence { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.apercu-pieces { width: 100%; aspect-ratio: 16 / 10; display: grid; grid-template-columns: repeat(4, 1fr); align-items: end; background: linear-gradient(90deg, var(--claire) 50%, var(--foncee) 50%); border-radius: 6px; box-shadow: 0 3px 10px rgba(0,0,0,.4); padding: 4px; box-sizing: border-box; }
+.apercu-pieces img { width: 100%; height: auto; max-height: 100%; object-fit: contain; }
+@media (max-height: 820px) { .groupes-apparence .titre-groupe { margin: 2px 0 3px; } .groupes-apparence .grille-apparence { margin-bottom: 4px; } .carte-apparence canvas, .apercu-pieces { aspect-ratio: 16 / 8; } }
+.groupes-apparence .titre-groupe { display: inline-block; background: rgba(20,22,26,.85); padding: 2px 12px; border-radius: 8px; }

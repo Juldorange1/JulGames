@@ -203,7 +203,7 @@
           const c = this._depuisEcran(x, y);
           const nom = FICH[c.col] + (c.rang + 1);
           const d = document.createElement('div');
-          d.className = 'case ' + ((c.col + c.rang) % 2 === 0 ? 'foncee' : 'claire');
+          d.className = 'case ' + ((c.col + c.rang) % 2 === 0 ? 'foncee' : 'claire') + ' v' + ((c.col * 7 + c.rang * 3) % 4);
           if (x === 0) { const s = document.createElement('span'); s.className = 'coord rang'; s.textContent = c.rang + 1; d.appendChild(s); }
           if (y === this.lignes - 1) { const s = document.createElement('span'); s.className = 'coord col'; s.textContent = FICH[c.col]; d.appendChild(s); }
           this.casesEl[nom] = d;

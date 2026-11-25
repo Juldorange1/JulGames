@@ -14,13 +14,47 @@
     return TYPES[t] || { base: null, nom: 'Pièce « ' + t.toUpperCase() + ' »', desc: '' };
   }
 
-  function image(couleur, type) { return window.PIECES_SVG[couleur + type]; }
+  // Jeux de pièces (Paramètres) : 3 groupes de 8. Crédits dans skins/CREDITS.md.
+  const JEUX = [
+    ['cburnett', 'Classique', 'calme'], ['merida', 'Merida', 'calme'], ['staunty', 'Staunty', 'calme'], ['maestro', 'Maestro', 'calme'],
+    ['cardinal', 'Cardinal', 'calme'], ['chessnut', 'Chessnut', 'calme'], ['leipzig', 'Leipzig', 'calme'], ['mpchess', 'MPChess', 'calme'],
+    ['3d-Staunton', 'Staunton 3D', 'realiste'], ['3d-Wood', 'Bois 3D', 'realiste'], ['3d-ModernWood', 'Bois moderne 3D', 'realiste'], ['3d-Basic', 'Ivoire et ébène 3D', 'realiste'],
+    ['3d-Glass', 'Verre 3D', 'realiste'], ['3d-Metal', 'Métal 3D', 'realiste'], ['3d-ModernJade', 'Jade 3D', 'realiste'], ['3d-Trimmed', 'Laqué 3D', 'realiste'],
+    ['dragons', 'Dragons', 'populaire'], ['fantasy', 'Fantasy', 'populaire'], ['celtic', 'Celtique', 'populaire'], ['california', 'California', 'populaire'],
+    ['alpha', 'Alpha', 'populaire'], ['tatiana', 'Tatiana', 'populaire'], ['pixel', 'Pixel', 'populaire'], ['horsey', 'Horsey', 'populaire']
+  ].map(([id, nom, groupe]) => ({ id, nom, groupe }));
+  const NOMS_3D = { k: 'King', q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight', p: 'Pawn' };
+  let jeu = 'cburnett';
+  function choisirJeu(id) {
+    jeu = JEUX.some((j) => j.id === id) ? id : 'cburnett';
+    document.body.classList.toggle('pieces-3d', jeu.startsWith('3d-'));
+    // les pièces déjà dessinées changent aussi
+    document.querySelectorAll('.piece[data-b]').forEach((e) => { e.style.backgroundImage = 'url("' + image(e.dataset.c, e.dataset.b) + '")'; });
+  }
+  function imageDe(j, couleur, type) {
+    if (j === 'cburnett') return window.PIECES_SVG[couleur + type];
+    if (j.startsWith('3d-')) return 'skins/pieces3d/' + j.slice(3) + '/' + (couleur === 'w' ? 'White' : 'Black') + '-' + NOMS_3D[type] + '.webp';
+    return 'skins/pieces/' + j + '/' + couleur + type.toUpperCase() + '.svg';
+  }
+  function image(couleur, type) { return imageDe(jeu, couleur, type); }
+  // aperçu pour les Paramètres : roi et dame blancs, cavalier et dame noirs
+  function apercuJeu(j) {
+    const box = document.createElement('div');
+    box.className = 'apercu-pieces' + (j.id.startsWith('3d-') ? ' en-3d' : '');
+    for (const [c, t] of [['w', 'k'], ['w', 'q'], ['b', 'q'], ['b', 'n']]) {
+      const im = document.createElement('img');
+      im.src = imageDe(j.id, c, t); im.alt = ''; im.draggable = false;
+      box.appendChild(im);
+    }
+    return box;
+  }
 
   // Dessine une apparence { base, marque } dans un élément .piece
   function dessiner(el, couleur, app) {
     el.innerHTML = '';
     if (app.base) {
       el.style.backgroundImage = 'url("' + image(couleur, app.base) + '")';
+      el.dataset.c = couleur; el.dataset.b = app.base;
       if (app.marque) {
         // personnage créé : seulement son petit signe (pas de halo)
         el.classList.add('creee');
@@ -56,5 +90,5 @@
     return el;
   }
 
-  window.Pieces = { TYPES, infoPiece, creerPiece, creerPerso, image };
+  window.Pieces = { TYPES, JEUX, infoPiece, creerPiece, creerPerso, image, choisirJeu, apercuJeu };
 })();

@@ -17,8 +17,8 @@
   const ORDRE = ['unique', 'meilleur', 'excellent', 'bon', 'imprecision', 'erreur', 'gaffe'];
 
   const NIVEAUX = {
-    normal: { nom: 'normale', profondeur: 18, temps: 900 },
-    profond: { nom: 'profonde', profondeur: 24, temps: 3000 }
+    normal: { nom: 'normale', profondeur: 20, temps: 1800 },
+    profond: { nom: 'profonde', profondeur: 26, temps: 6000 }
   };
 
   const B = {

@@ -578,6 +578,44 @@
     ocean: 'vagues', dunes: 'vent', aurore: 'vent', collines: 'foret' };
   DECORS.forEach((x) => { if (x.ambiance === undefined && AMBIANCES[x.id]) x.ambiance = AMBIANCES[x.id]; });
 
+  // ---------- vrais plateaux en photo (Lichess) et vrais paysages (Poly Haven, domaine public) ----------
+  const PHOTOS_PLATEAU = [
+    ['p-wood4', 'Noyer massif', 'wood4', '#c3a36e', '#805633'], ['p-wood', 'Merisier', 'wood', '#d7a258', '#965221'],
+    ['p-wood3', 'Bois clair', 'wood3', '#c0b7ae', '#8c6c46'], ['p-maple', 'Érable', 'maple', '#dfbd91', '#b97743'],
+    ['p-maple2', 'Érable ondé', 'maple2', '#dfc39b', '#ac795d'], ['p-blue-marble', 'Marbre blanc', 'blue-marble', '#e2ddd3', '#969ead'],
+    ['p-marble', 'Marbre vert', 'marble', '#829983', '#647a63'], ['p-metal', 'Métal brossé', 'metal', '#c7c7c7', '#939393'],
+    ['p-canvas2', 'Toile bleue', 'canvas2', '#cbcedf', '#71819c']
+  ];
+  PHOTOS_PLATEAU.forEach(([id, nom, photo, claire, foncee]) => THEMES.push({ id, nom, photo, claire, foncee }));
+  const PHOTOS_DECOR = [
+    ['ph-venise', 'Coucher de soleil sur la mer', 'venice_sunset'], ['ph-plage', 'Lever de soleil sur la plage', 'umhlanga_sunrise'],
+    ['ph-ciel-feu', 'Ciel en feu', 'the_sky_is_on_fire'], ['ph-aube', 'Aube rose en montagne', 'kiara_1_dawn'],
+    ['ph-brume', 'Matin dans la brume', 'spruit_sunrise'], ['ph-alpes', 'Prairie des Alpes', 'alps_field'],
+    ['ph-foret', 'Lisière de forêt', 'lilienstein'], ['ph-voie-lactee', 'Voie lactée', 'rogland_clear_night']
+  ];
+  const AMB_PHOTOS = { 'ph-venise': 'vagues', 'ph-plage': 'vagues', 'ph-ciel-feu': 'vagues', 'ph-aube': 'vent', 'ph-brume': 'foret', 'ph-alpes': 'vent', 'ph-foret': 'foret', 'ph-voie-lactee': 'grillons' };
+  PHOTOS_DECOR.forEach(([id, nom, photo]) => DECORS.push({ id, nom, photo, dessiner: null, ambiance: AMB_PHOTOS[id] }));
+
+  // trois groupes de 8 dans les Paramètres
+  const GROUPES = [['calme', '🧘 Pour se concentrer'], ['realiste', '📷 Très réalistes'], ['populaire', '⭐ Populaires']];
+  const RANG_THEMES = {
+    calme: ['gris', 'sauge', 'ardoise-uni', 'sable-uni', 'olive', 'lavande', 'nocturne', 'turquoise'],
+    realiste: ['p-wood4', 'p-wood', 'p-wood3', 'p-maple', 'p-maple2', 'p-blue-marble', 'p-marble', 'p-metal'],
+    populaire: ['sable', 'tournoi', 'ocean', 'violet', 'chene', 'ebene', 'marbre', 'p-canvas2']
+  };
+  const RANG_DECORS = {
+    calme: ['nuit', 'uni-nuit', 'uni-bleu', 'uni-vert', 'uni-prune', 'uni-gris', 'feutre', 'foret'],
+    realiste: PHOTOS_DECOR.map((x) => x[0]),
+    populaire: ['couchant', 'aube', 'ocean', 'neige', 'aurore', 'etoiles', 'collines', 'code']
+  };
+  function ranger(liste, rangs) {
+    const out = [];
+    for (const [g] of GROUPES) for (const id of rangs[g]) { const x = liste.find((t) => t.id === id); if (x) { x.groupe = g; out.push(x); } }
+    return out;
+  }
+  const THEMES_MONTRES = ranger(THEMES, RANG_THEMES);
+  const DECORS_MONTRES = ranger(DECORS, RANG_DECORS);
+
   // ---------- calme : tout doit aider à se concentrer ----------
   // textures du plateau adoucies (moins de contraste dans le grain)
   function adoucir(c, couleur, force) {
@@ -607,11 +645,17 @@
   const cache = {};
   function url(c) { return 'url("' + c.toDataURL('image/jpeg', 0.9) + '")'; }
   function appliquerTheme(id) {
-    const t = THEMES.find((x) => x.id === id) || THEMES[0];
+    const t = THEMES_MONTRES.find((x) => x.id === id) || THEMES[0];
     const st = document.documentElement.style;
     st.setProperty('--claire', t.claire);
     st.setProperty('--foncee', t.foncee);
-    if (t.tex) {
+    document.body.classList.toggle('plateau-photo', !!t.photo);
+    if (t.photo) {
+      st.setProperty('--photo-claire', 'url("' + new URL('skins/plateaux/' + t.photo + '-c.jpg', location.href).href + '")');
+      st.setProperty('--photo-foncee', 'url("' + new URL('skins/plateaux/' + t.photo + '-f.jpg', location.href).href + '")');
+      st.setProperty('--tex-claire', 'none');
+      st.setProperty('--tex-foncee', 'none');
+    } else if (t.tex) {
       if (!cache['t' + t.id]) cache['t' + t.id] = texDe(t).map(url);
       st.setProperty('--tex-claire', cache['t' + t.id][0]);
       st.setProperty('--tex-foncee', cache['t' + t.id][1]);
@@ -621,7 +665,8 @@
     }
   }
   function appliquerDecor(id) {
-    const d = DECORS.find((x) => x.id === id) || DECORS[0];
+    const d = DECORS_MONTRES.find((x) => x.id === id) || DECORS[0];
+    if (d.photo) { document.body.style.backgroundImage = 'linear-gradient(rgba(10,12,16,.38), rgba(10,12,16,.38)), url("skins/decors/' + d.photo + '.jpg")'; document.body.classList.add('avec-decor'); return; }
     if (!d.dessiner) { document.body.style.backgroundImage = ''; document.body.classList.remove('avec-decor'); return; }
     if (!cache['d' + d.id]) cache['d' + d.id] = url(calmer(d.dessiner(W, H), d));
     document.body.style.backgroundImage = cache['d' + d.id];
@@ -630,6 +675,20 @@
   // petits aperçus pour l'écran Paramètres
   function apercuTheme(t) {
     const c = toile(160, 100), ctx = c.getContext('2d');
+    if (t.photo) {
+      const a = new Image(), b = new Image();
+      let n = 0;
+      const fin = () => {
+        if (++n < 2) return;
+        for (let y = 0; y < 5; y++) for (let x = 0; x < 8; x++) {
+          const im = (x + y) % 2 === 0 ? a : b, v = (x * 7 + y * 3) % 4;
+          ctx.drawImage(im, v * 128, 0, 128, 128, x * 20, y * 20, 20, 20);
+        }
+      };
+      a.onload = fin; b.onload = fin;
+      a.src = 'skins/plateaux/' + t.photo + '-c.jpg'; b.src = 'skins/plateaux/' + t.photo + '-f.jpg';
+      return c;
+    }
     const tex = t.tex ? (cache['p' + t.id] = cache['p' + t.id] || texDe(t)) : null;
     for (let y = 0; y < 5; y++) for (let x = 0; x < 8; x++) {
       const clair = (x + y) % 2 === 0;
@@ -639,6 +698,12 @@
     return c;
   }
   function apercuDecor(d) {
+    if (d.photo) {
+      const c = toile(160, 90), ctx = c.getContext('2d'), im = new Image();
+      im.onload = () => ctx.drawImage(im, 0, 0, 160, 90);
+      im.src = 'skins/decors/' + d.photo + '.jpg';
+      return c;
+    }
     if (!d.dessiner) {
       const c = toile(160, 90), ctx = c.getContext('2d');
       const g = ctx.createRadialGradient(48, 0, 5, 80, 45, 120);
@@ -649,5 +714,5 @@
     return calmer(d.dessiner(480, 270), d);
   }
 
-  window.Themes = { THEMES, DECORS, appliquerTheme, appliquerDecor, apercuTheme, apercuDecor };
+  window.Themes = { THEMES: THEMES_MONTRES, DECORS: DECORS_MONTRES, GROUPES, appliquerTheme, appliquerDecor, apercuTheme, apercuDecor };
 })();
