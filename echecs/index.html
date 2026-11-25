@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 35;
+  var ICI = 38;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,7 +21,7 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=35">
+<link rel="stylesheet" href="css/jeu.css?v=38">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -40,13 +40,47 @@
   <div class="menu-principal">
     <div class="menu-cartes">
       <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
-      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Un plateau vide : pose tes personnages à la main ou au hasard, et des trous.</span></button>
+      <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Créer des cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
+      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
       <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Thème du plateau, décor de fond et bruits des pièces.</span></button>
       <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un bot ou un ami.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 35</div>
+    <div class="note-moteur centre">Version 38</div>
+  </div>
+</section>
+
+<!-- ============ CARTES ============ -->
+<section id="ecran-cartes" class="ecran">
+  <header class="entete">
+    <h1>Carte : <span class="et" id="ca-titre"></span></h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+    </nav>
+  </header>
+  <div class="persos cartes">
+    <div class="ps-gauche">
+      <button class="bouton principal" id="ca-nouvelle">➕ Nouvelle carte</button>
+      <div class="ca-liste" id="ca-liste"></div>
+    </div>
+    <div class="config-gauche"><div id="plateau-carte"></div></div>
+    <div class="ps-editeur">
+      <p class="aide" id="ca-note-fixe">Le plateau normal ne se modifie pas. Clique « ➕ Nouvelle carte » pour en faire une à toi.</p>
+      <label class="champ">Nom<input type="text" id="ca-nom" maxlength="30"></label>
+      <div id="ca-reglages">
+        <div class="compteur"><span>Colonnes</span><button class="bouton" id="ca-cols-moins">−</button><b id="ca-cols-val"></b><button class="bouton" id="ca-cols-plus">+</button></div>
+        <div class="compteur"><span>Rangées</span><button class="bouton" id="ca-lignes-moins">−</button><b id="ca-lignes-val"></b><button class="bouton" id="ca-lignes-plus">+</button></div>
+        <p class="aide">Trous : clique ou glisse sur le plateau. Recliquer un trou (ou clic droit) le rebouche.</p>
+        <div class="ligne-boutons">
+          <button class="bouton" id="ca-boucher">Reboucher tous les trous</button>
+          <button class="bouton danger" id="ca-supprimer">🗑 Supprimer</button>
+        </div>
+      </div>
+      <p class="ca-resume" id="ca-resume"></p>
+      <p class="aide">Tout est enregistré tout seul. Choisis ensuite la carte dans « ⚙ Configurer des parties ».</p>
+    </div>
   </div>
 </section>
 
@@ -136,10 +170,11 @@
     <div class="config-gauche"><div id="plateau-config"></div></div>
     <div class="config-droite">
       <div class="cf-haut">
-        <div class="hz-avantage" title="0 = égalité ; positif = les blancs devant (ex. +2) ; négatif = les noirs devant (ex. −3)"><b>Avantage voulu des blancs :</b> de
+        <div class="cf-carte-ligne"><b>Carte :</b><select id="cf-carte"></select><button class="bouton" data-aller="cartes">🗺 Créer des cartes</button></div>
+        <div class="hz-avantage" title="0 = égalité ; positif = les blancs devant (ex. +2) ; négatif = les noirs devant (ex. −3)"><b>Avantage voulu des blancs</b> (négatif = noirs devant) : de
           <input type="text" inputmode="decimal" id="hz-av-min"> à
-          <input type="text" inputmode="decimal" id="hz-av-max"> <span class="aide">(négatif = noirs devant)</span></div>
-        <div class="cf-av-ligne"><span>Avantage actuel :</span><b id="cf-av-valeur"></b>
+          <input type="text" inputmode="decimal" id="hz-av-max"></div>
+        <div class="cf-av-ligne"><span>Actuel :</span><b id="cf-av-valeur"></b>
           <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div></div>
         <div class="cf-av-texte" id="cf-avantage"></div>
       </div>
@@ -154,7 +189,6 @@
             <div class="cats" id="cf-cats"></div>
             <div id="cf-persos" class="cf-grille-persos"></div>
             <div class="actions-cases">
-              <button class="bouton" id="outil-trou" title="La case est enlevée du plateau">⬛ Trou</button>
               <button class="bouton" id="outil-gomme" title="Enlève la pièce ou le trou">✖ Gomme</button>
               <button class="bouton danger" id="cf-vider">Tout vider</button>
             </div>
@@ -326,17 +360,18 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/themes.js?v=35"></script>
-<script src="js/pieces-svg.js?v=35"></script>
-<script src="js/persos.js?v=35"></script>
-<script src="js/pieces.js?v=35"></script>
-<script src="js/regles.js?v=35"></script>
-<script src="js/config.js?v=35"></script>
-<script src="js/moteur.js?v=35"></script>
-<script src="js/son.js?v=35"></script>
-<script src="js/plateau.js?v=35"></script>
-<script src="js/bilan.js?v=35"></script>
-<script src="js/editeur.js?v=35"></script>
-<script src="js/app.js?v=35"></script>
+<script src="js/cartes.js?v=38"></script>
+<script src="js/themes.js?v=38"></script>
+<script src="js/pieces-svg.js?v=38"></script>
+<script src="js/persos.js?v=38"></script>
+<script src="js/pieces.js?v=38"></script>
+<script src="js/regles.js?v=38"></script>
+<script src="js/config.js?v=38"></script>
+<script src="js/moteur.js?v=38"></script>
+<script src="js/son.js?v=38"></script>
+<script src="js/plateau.js?v=38"></script>
+<script src="js/bilan.js?v=38"></script>
+<script src="js/editeur.js?v=38"></script>
+<script src="js/app.js?v=38"></script>
 </body>
 </html>

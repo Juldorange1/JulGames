@@ -38,8 +38,24 @@
     return {
       id: '', nom: '', avMin: -0.5, avMax: 0.5,
       cols, lignes, pieces: grille(lignes, cols, null), trous: grille(lignes, cols, false), zones: grille(lignes, cols, false),
-      trousHasard: 0, miroir: false, regles: reglesDefaut(), auHasard: {}
+      trousHasard: 0, miroir: false, regles: reglesDefaut(), auHasard: {}, carte: 'normal'
     };
+  }
+
+  // Redimensionne une grille : la moitié du bas reste collée en bas, celle du haut en haut.
+  function ajusterGrille(g, anciennes, cols, lignes, vide) {
+    const n = [];
+    for (let r = 0; r < lignes; r++) {
+      const l = [];
+      for (let x = 0; x < cols; x++) {
+        let src;
+        if (r < lignes / 2) src = g[r] ? g[r][x] : vide;
+        else { const rs = anciennes - (lignes - r); src = rs >= 0 && g[rs] ? g[rs][x] : vide; }
+        l.push(src === undefined ? vide : src);
+      }
+      n.push(l);
+    }
+    return n;
   }
 
   // Version simple d'une configuration : seulement les pièces posées (ou aléatoires) et les trous.
@@ -54,6 +70,19 @@
     // où vont les pièces au hasard : « miroir » (dans sa moitié, les noirs pareil en face) ou « zones » (peintes)
     if (c.hasardOu !== 'zones') c.hasardOu = 'miroir';
     if (!c.zonesH || c.zonesH.length !== c.lignes) c.zonesH = grille(c.lignes, c.cols, false);
+    // la forme du plateau vient de la carte choisie
+    if (c.carte && window.Cartes) {
+      const k = window.Cartes.trouver(c.carte) || window.Cartes.trouver('normal');
+      if (!window.Cartes.trouver(c.carte)) c.carte = 'normal';
+      if (k.cols !== c.cols || k.lignes !== c.lignes) {
+        c.pieces = ajusterGrille(c.pieces, c.lignes, k.cols, k.lignes, null);
+        c.zonesH = ajusterGrille(c.zonesH, c.lignes, k.cols, k.lignes, false);
+        c.cols = k.cols; c.lignes = k.lignes;
+      }
+      c.trous = copie(k.trous);
+      c.zones = grille(c.lignes, c.cols, false);
+      for (let r = 0; r < c.lignes; r++) for (let x = 0; x < c.cols; x++) if (c.trous[r][x]) { c.pieces[r][x] = null; c.zonesH[r][x] = false; }
+    }
     if (c.avMin == null) c.avMin = -0.5;
     if (c.avMax == null) c.avMax = 0.5;
     return c;
@@ -518,7 +547,7 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, vide, simple, lotHasard, estRoi, garderUnRoi, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, simple, ajusterGrille, lotHasard, estRoi, garderUnRoi, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? simple(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },

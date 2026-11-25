@@ -97,9 +97,14 @@
       });
       // pièces
       document.querySelectorAll('#camp-config button').forEach((b) => b.addEventListener('click', () => { this.camp = b.dataset.camp; this.majEtape2(); }));
-      $('#outil-trou').addEventListener('click', () => this.choisirOutil({ type: 'trou' }));
+      $('#cf-carte').addEventListener('change', () => {
+        this.cfg.carte = $('#cf-carte').value;
+        this.cfg = window.Config.simple(this.cfg);
+        this.change();
+        this.majHasard();
+      });
       $('#outil-gomme').addEventListener('click', () => this.choisirOutil({ type: 'gomme' }));
-      $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); c.trous = window.Config.grille(c.lignes, c.cols, false); this.change(); });
+      $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); this.change(); });
       // pièces au hasard : avantage des blancs voulu au départ (minimum et maximum, écrits librement)
       const lireAv = () => {
         const lire = (el) => { const v = parseFloat(String(el.value).replace(',', '.').replace('−', '-').replace(/\s/g, '')); return isNaN(v) ? null : Math.max(-50, Math.min(50, v)); };
@@ -251,6 +256,10 @@
     },
     remplir() {
       this.majAvCases();
+      const sel = $('#cf-carte');
+      sel.innerHTML = '';
+      for (const k of window.Cartes.toutes()) { const o = el('option', null, k.nom + (k.fixe ? '' : ' (' + k.cols + ' × ' + k.lignes + ')')); o.value = k.id; sel.appendChild(o); }
+      sel.value = this.cfg.carte || 'normal';
       $('#cf-titre').textContent = this.cfg.nom;
       $('#cf-nom').value = this.cfg.nom;
     },
@@ -279,12 +288,11 @@
     majOutil() {
       const o = this.outil;
       document.querySelectorAll('#cf-persos .cf-perso').forEach((b) => b.classList.toggle('choisi', !!(o && o.type === 'perso' && b.dataset.perso === o.perso)));
-      $('#outil-trou').classList.toggle('choisi', !!(o && o.type === 'trou'));
       $('#outil-gomme').classList.toggle('choisi', !!(o && o.type === 'gomme'));
       const coul = this.camp === 'w' ? ' (blancs)' : ' (noirs)';
       const t = $('#outil-actuel');
       t.innerHTML = '';
-      if (!o) { t.append(el('span', 'aide', 'Rien de choisi : clique un personnage, ⬛ ou ✖.')); return; }
+      if (!o) { t.append(el('span', 'aide', 'Rien de choisi : clique un personnage ou ✖.')); return; }
       t.append(el('b', null, 'Tu poses : '));
       if (o.type === 'perso') {
         const p = window.Persos.trouver(o.perso);
@@ -306,7 +314,7 @@
       let o;
       if (e.button === 2) o = this.outil && this.outil.type === 'zone' ? { type: 'zone', camp: false } : { type: 'gomme' };
       else if (e.button === 0) {
-        if (!this.outil) { window.App.bulle(this.onglet === 'hasard' ? (this.cfg.hasardOu === 'zones' ? 'Choisis « Zone des blancs » ou « Zone des noirs », puis peins.' : 'Pour peindre des zones, choisis « dans des zones que je peins ».') : 'Choisis d’abord ce que tu poses : un personnage, ⬛ ou ✖.'); return; }
+        if (!this.outil) { window.App.bulle(this.onglet === 'hasard' ? (this.cfg.hasardOu === 'zones' ? 'Choisis « Zone des blancs » ou « Zone des noirs », puis peins.' : 'Pour peindre des zones, choisis « dans des zones que je peins ».') : 'Choisis d’abord ce que tu poses : un personnage ou ✖.'); return; }
         o = this.outil;
         // cliquer une case qui contient déjà exactement ça : on l'enlève
         if (o.type !== 'zone' && this._deja(c, o)) o = { type: 'gomme' };
@@ -330,6 +338,7 @@
       if (P.faites.has(cle)) return;
       P.faites.add(cle);
       const cfg = this.cfg, o = P.outil;
+      if (cfg.trous[r][c]) return; // trou de la carte : rien à faire ici
       let pose = false;
       if (o.type === 'perso' || o.type === 'hasard') {
         cfg.trous[r][c] = false;
@@ -339,7 +348,7 @@
         if (!cfg.zonesH) cfg.zonesH = window.Config.grille(cfg.lignes, cfg.cols, false);
         cfg.zonesH[r][c] = o.camp || false;
       } else if (o.type === 'trou') { cfg.trous[r][c] = true; cfg.pieces[r][c] = null; }
-      else { cfg.pieces[r][c] = null; cfg.trous[r][c] = false; }
+      else cfg.pieces[r][c] = null;
       this.pop = pose ? [FICH[c] + (r + 1)] : null;
       this.afficher();
     },

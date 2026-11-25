@@ -92,6 +92,7 @@
     if (nom === 'accueil') construireMenu();
     if (nom === 'jouer') { pageJouer = -1; construireJouer(); }
     if (nom === 'parametres') construireParametres();
+    if (nom === 'cartes') window.EditeurCartes.ouvrir();
     if (nom === 'config') window.EditeurConfig.ouvrir();
     if (nom === 'persos') window.EditeurPersos.ouvrir();
     requestAnimationFrame(redimensionner);
@@ -927,6 +928,7 @@
     else if (nom === 'config') { window.EditeurConfig.redimensionner(); return; }
     else if (nom === 'jouer') { redimensionnerApercu(); return; }
     else if (nom === 'persos') { window.EditeurPersos.redimensionner(); return; }
+    else if (nom === 'cartes') { window.EditeurCartes.redimensionner(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
     const largeur = r.width - (barre ? 58 : 0) - 24;
@@ -955,6 +957,7 @@
     window.Bilan.init();
     window.EditeurConfig.init();
     window.EditeurPersos.init();
+    window.EditeurCartes.init();
 
     $$('[data-aller]').forEach((b) => b.addEventListener('click', () => ecran(b.dataset.aller)));
     $('#btn-commencer').addEventListener('click', () => commencer());

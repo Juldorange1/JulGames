@@ -40,7 +40,7 @@ p { margin: 6px 0; line-height: 1.4; }
 /* ---------- écrans ---------- */
 .ecran { display: none; height: 100vh; }
 .ecran.visible { display: flex; }
-#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres { flex-direction: column; }
+#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres, #ecran-cartes { flex-direction: column; }
 .entete { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--bord); background: rgba(0,0,0,.15); }
 .entete h1 { font-size: 30px; color: var(--accent); }
 .entete .et { color: var(--texte); font-weight: 400; }
@@ -448,7 +448,7 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* ---------- menu principal ---------- */
 .menu-principal { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px; min-height: 0; }
-.menu-cartes { display: grid; grid-template-columns: repeat(4, minmax(0, 290px)); gap: 20px; }
+.menu-cartes { display: grid; grid-template-columns: repeat(5, minmax(0, 250px)); gap: 16px; }
 .carte-menu {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 28px 22px;
   background: var(--panneau); border: 2px solid var(--bord); border-radius: 18px; cursor: pointer; min-height: 250px;
@@ -521,11 +521,27 @@ body.avec-decor .note-moteur, body.avec-decor .options-generales { background: r
 .carte-apparence { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; background: var(--panneau); border: 2px solid var(--bord); border-radius: 12px; cursor: pointer; font-size: 16px; }
 .carte-apparence:hover { border-color: #56606c; }
 .carte-apparence.choisie { border-color: var(--accent); background: #2f2b24; color: var(--accent); font-weight: 650; }
-.carte-apparence canvas { width: 100%; aspect-ratio: 1; border-radius: 6px; box-shadow: 0 3px 10px rgba(0,0,0,.4); }
+.carte-apparence canvas { width: 100%; aspect-ratio: 16 / 10; border-radius: 6px; box-shadow: 0 3px 10px rgba(0,0,0,.4); }
+.carte-apparence span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .grille-apparence.decors { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.grille-apparence.decors canvas { aspect-ratio: 16 / 9; object-fit: cover; }
+.grille-apparence.decors canvas { aspect-ratio: 16 / 10; object-fit: cover; }
 .parametres .options-generales { margin-top: 14px; }
 @media (max-height: 820px) { .grille-apparence { gap: 8px; } .carte-apparence { padding: 5px; } .parametres h2 { margin: 6px 0 4px; } }
 .bouton.zone-b.choisi { background: rgba(80,150,255,.35); color: #fff; }
 .bouton.zone-n.choisi { background: rgba(240,120,60,.35); color: #fff; }
 #hz-zone-gomme.choisi { background: #3a3326; }
+
+/* ---------- cartes ---------- */
+.persos.cartes { grid-template-columns: 260px minmax(0, 1fr) 360px; }
+.ca-liste { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; }
+.ca-liste .ps-carte { padding: 7px 10px; }
+.ca-icone { font-size: 20px; }
+.ca-resume { font-size: 18px; color: var(--accent); }
+#ca-reglages { display: flex; flex-direction: column; gap: 8px; }
+.cf-carte-ligne { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.cf-carte-ligne select { flex: 1; min-width: 0; background: #15171b; color: var(--texte); border: 2px solid var(--bord); border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 17px; }
+.cf-carte-ligne .bouton { padding: 4px 10px; font-size: 16px; }
+.actions-cases { grid-template-columns: repeat(2, 1fr); }
+@media (max-height: 820px) { .carte-menu { min-height: 190px; padding: 16px 12px; } .carte-menu b { font-size: 21px; } }
+.cf-haut { gap: 3px; }
+.cf-av-ligne:has(#cf-av-valeur:empty) { display: none; }
