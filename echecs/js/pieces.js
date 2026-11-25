@@ -22,8 +22,7 @@
     if (app.base) {
       el.style.backgroundImage = 'url("' + image(couleur, app.base) + '")';
       if (app.marque) {
-        // personnage créé : disque doré derrière le dessin, pour ne pas le confondre avec une pièce classique
-        el.style.backgroundImage = 'url("' + image(couleur, app.base) + '"), radial-gradient(circle closest-side, rgba(227,177,90,.85) 0 70%, rgba(227,177,90,.35) 86%, transparent 98%)';
+        // personnage créé : seulement son petit signe (pas de halo)
         el.classList.add('creee');
         const m = document.createElement('div');
         m.className = 'marque';

@@ -172,8 +172,8 @@
     nouveauId() { return 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36); },
     // Personnages possibles pour une case « au hasard » : liste d'identifiants choisis (jamais le roi).
     pool(choix) {
-      if (Array.isArray(choix)) return choix.map((id) => this.trouver(id)).filter((p) => p && p.id !== 'roi');
-      return this.tous().filter((p) => p.id !== 'roi' && p.id !== 'pion' && (!choix || p.categorie === choix));
+      if (Array.isArray(choix)) return choix.map((id) => this.trouver(id)).filter((p) => p && p.id !== 'roi' && p.base !== 'k');
+      return this.tous().filter((p) => p.id !== 'roi' && p.base !== 'k' && p.id !== 'pion' && (!choix || p.categorie === choix));
     },
     apparence(p) {
       return { base: p.base || 'q', marque: p.classique ? '' : (p.marque || ''), nom: p.nom, desc: description(p) };

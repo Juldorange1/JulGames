@@ -57,6 +57,13 @@
   }
 
   // ---------- hasard ----------
+  // Un personnage dessiné en roi EST un roi (pièce royale : échec, mat), quels que soient ses déplacements.
+  function estRoi(id) {
+    if (id === 'roi') return true;
+    const p = window.Persos && window.Persos.trouver(id);
+    return !!(p && p.base === 'k');
+  }
+
   // Pièces posées au hasard : { idPerso: nombre }, les mêmes pour les blancs et pour les noirs.
   function lotHasard(cfg) {
     const l = [];
@@ -231,9 +238,16 @@
     const lettres = {}; // id -> lettre
     const customs = [];
     let libre = 0;
+    // le roi de la partie : la lettre « k », avec ses propres déplacements s'il a été créé
+    let roiCree = null;
+    for (const id of ids) {
+      if (!estRoi(id) || id === 'roi') continue;
+      roiCree = window.Persos.trouver(id);
+      lettres[id] = 'k';
+    }
     for (const id of ids) {
       const p = window.Persos.trouver(id);
-      if (!p) continue;
+      if (!p || lettres[id]) continue;
       if (p.classique) lettres[id] = p.lettre;
       else { lettres[id] = LETTRES_LIBRES[libre++] || '?'; customs.push(p); }
     }
@@ -258,7 +272,7 @@
     if (R.roque && R.but !== 'prise') {
       const test = (rang, camp, kc, qc) => {
         const l = t.pieces[rang];
-        const k = l.findIndex((p) => p && p.camp === camp && p.perso === 'roi');
+        const k = l.findIndex((p) => p && p.camp === camp && estRoi(p.perso));
         if (k < 0) return '';
         let o = '';
         const d = l[cfg.cols - 1], g = l[0];
@@ -285,7 +299,7 @@
     const rd = reglesDefaut();
     const reglesStd = R.but === 'mat' && R.pat === 'draw' && !R.renfort && !R.obligatoire && R.roque && R.double && R.passant &&
       R.promos.length === 4 && rd.promos.every((x) => R.promos.includes(x));
-    if (fen === STD && reglesStd) {
+    if (fen === STD && reglesStd && !roiCree) {
       return { uci: 'chess', ini: '', moteur: 'sf', fen0: fen, nom: cfg.nom, pieces, but: '', regles: texteRegles(cfg), cfgId: cfg.id };
     }
 
@@ -293,12 +307,13 @@
     l.push('maxFile = ' + FICH[cfg.cols - 1]);
     l.push('maxRank = ' + cfg.lignes);
     customs.forEach((p, i) => l.push('customPiece' + (i + 1) + ' = ' + lettres[p.id] + ':' + window.Persos.betza(p)));
+    if (roiCree) l.push('king = k:' + window.Persos.betza(roiCree));
     if (R.but === 'prise') {
       l.push('king = -'); l.push('commoner = k'); l.push('extinctionValue = loss'); l.push('extinctionPieceTypes = k');
     }
     l.push('startFen = ' + fen);
     l.push('promotionRank = ' + cfg.lignes);
-    const promos = R.promos.map((id) => lettres[id]).filter((x) => x && x !== 'k' && x !== 'p');
+    const promos = R.promos.filter((id) => !estRoi(id)).map((id) => lettres[id]).filter((x) => x && x !== 'k' && x !== 'p');
     l.push('promotionPieceTypes = ' + (promos.length ? promos.join('') : '-'));
     if (!R.double) l.push('doubleStep = false');
     if (!R.passant) l.push('enPassantRegion = -');
@@ -347,7 +362,7 @@
     const customs = new Set();
     for (const id of lot) {
       if (!window.Persos.trouver(id)) return 'Un personnage mis au hasard n’existe plus.';
-      if (id === 'roi') { K++; k++; }
+      if (estRoi(id)) { K++; k++; }
       if (id === 'pion') aPion = true;
       if (!['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(id)) customs.add(id);
     }
@@ -364,7 +379,7 @@
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];
       if (!p) continue;
-      if (p.perso === 'roi') { if (p.camp === 'w') K++; else k++; }
+      if (p.perso && estRoi(p.perso)) { if (p.camp === 'w') K++; else k++; }
       if (p.perso === 'pion') {
         aPion = true;
         if ((p.camp === 'w' && r === cfg.lignes - 1) || (p.camp === 'b' && r === 0)) pionBout = true;
@@ -381,6 +396,12 @@
     if (pionBout) return 'Un pion ne peut pas commencer sur la dernière rangée.';
     if (aPion && !R.promos.length) return 'Choisis au moins un personnage pour la promotion des pions.';
     for (const id of R.promos) if (!['pion', 'cavalier', 'fou', 'tour', 'dame', 'roi'].includes(id)) customs.add(id);
+    // un seul genre de roi par partie
+    const rois = new Set();
+    for (const id of lot) if (estRoi(id)) rois.add(id);
+    for (const l of cfg.pieces) for (const p of l) if (p && p.perso && estRoi(p.perso)) rois.add(p.perso);
+    if (rois.size > 1) return 'Un seul genre de roi par partie : les deux camps doivent avoir le même roi (classique ou créé).';
+    for (const id of rois) customs.delete(id);
     if (customs.size + nbHasard > 20) return 'Trop de personnages créés différents dans une même partie (20 au maximum, hasard compris).';
     for (const id of customs) {
       const p = window.Persos.trouver(id);
@@ -453,7 +474,7 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, vide, simple, lotHasard, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, simple, lotHasard, estRoi, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? simple(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },

@@ -422,7 +422,6 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .confetti { position: absolute; width: 9px; height: 14px; border-radius: 2px; pointer-events: none; z-index: 9; opacity: 0;
   animation: confetti 2.1s ease-in forwards; }
 @keyframes confetti { 0% { opacity: 1; transform: translateY(0) rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(var(--chute)) rotate(var(--tour)); } }
-.piece.creee { filter: drop-shadow(0 0 2px rgba(227,177,90,.95)) drop-shadow(0 0 1px rgba(227,177,90,.95)); }
 .bouton { transition: background .12s, border-color .12s, transform .08s, box-shadow .15s; }
 .bouton:hover:not(:disabled) { box-shadow: 0 3px 10px rgba(0,0,0,.25); }
 .pli-corps { animation: deplier .18s ease-out; }

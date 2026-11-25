@@ -190,7 +190,7 @@
         const d = el('div', 'hz-perso' + (n ? ' actif' : ''));
         const ic = window.Pieces.creerPerso(p, 'w'); ic.classList.add('icone');
         const moins = el('button', 'bouton', '−'), plus = el('button', 'bouton', '+');
-        const max = p.id === 'roi' ? 1 : 16;
+        const max = window.Config.estRoi(p.id) ? 1 : 16;
         moins.disabled = !n; plus.disabled = n >= max;
         const changer = (dn) => {
           const v = Math.max(0, Math.min(max, (cfg.auHasard[p.id] || 0) + dn));
