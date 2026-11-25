@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 39;
+  var ICI = 42;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,7 +21,7 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=39">
+<link rel="stylesheet" href="css/jeu.css?v=42">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -42,13 +42,13 @@
       <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
       <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Créer des cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
       <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
-      <button class="carte-menu" data-aller="bots"><span class="carte-icone">🤖</span><b>Créer des bots</b><span>Des adversaires qui jouent le 1er, 2e, 3e… meilleur coup selon tes %.</span></button>
+      <button class="carte-menu" data-aller="bots"><span class="carte-icone">🤖</span><b>Créer des bots</b><span>Tes adversaires : ils jouent le 1er, 2e, 3e… meilleur coup selon tes %.</span></button>
       <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Thème du plateau, décor de fond et bruits des pièces.</span></button>
-      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un bot ou un ami.</span></button>
+      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un de tes bots ou à deux.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 39</div>
+    <div class="note-moteur centre">Version 42</div>
   </div>
 </section>
 
@@ -68,7 +68,8 @@
     </div>
     <div class="config-gauche"><div id="plateau-carte"></div></div>
     <div class="ps-editeur">
-      <p class="aide" id="ca-note-fixe">Le plateau normal ne se modifie pas. Clique « ➕ Nouvelle carte » pour en faire une à toi.</p>
+      <p class="aide" id="ca-note-fixe">Carte toute faite : elle ne se modifie pas. Tu peux en faire une copie à toi.</p>
+      <button class="bouton" id="ca-copier">⧉ Faire une copie modifiable</button>
       <label class="champ">Nom<input type="text" id="ca-nom" maxlength="30"></label>
       <div id="ca-reglages">
         <div class="compteur"><span>Colonnes</span><button class="bouton" id="ca-cols-moins">−</button><b id="ca-cols-val"></b><button class="bouton" id="ca-cols-plus">+</button></div>
@@ -162,15 +163,16 @@
     <div class="accueil-config">
       <h2>Quelle partie ?</h2>
       <div class="liste-configs" id="jouer-liste"></div>
+      <div class="hz-avantage jo-avantage" title="0 = égalité ; positif = les blancs (joueur 1) devant ; négatif = les noirs devant"><b>Avantage voulu du joueur 1 (blancs) :</b> de
+        <input type="text" inputmode="decimal" id="jo-av-min"> à
+        <input type="text" inputmode="decimal" id="jo-av-max"></div>
       <div class="acc-avantage" id="acc-avantage"></div>
       <div class="acc-plateau"><div id="plateau-apercu"></div></div>
     </div>
     <div class="accueil-reglages">
       <h2>Adversaire</h2>
       <div class="choix" id="choix-adversaire">
-        <button data-val="expert"><b>Expert</b><span>joue comme un joueur à 2200 Elo</span></button>
-        <button data-val="maitre"><b>Maître</b><span>Stockfish à pleine force</span></button>
-        <button data-val="ami"><b>Un ami</b><span>à deux sur le même écran</span></button>
+        <button data-val="ami"><b>👥 À deux</b><span>sur le même ordinateur</span></button>
       </div>
       <div id="bloc-couleur">
         <h2>Tu joues</h2>
@@ -190,7 +192,7 @@
         <button data-val="30+0">30 min</button>
       </div>
       <div id="bloc-reflexion">
-        <h2>Temps de réflexion du Maître (sans pendule)</h2>
+        <h2>Temps de réflexion du bot (sans pendule)</h2>
         <div class="choix ligne" id="choix-reflexion">
           <button data-val="1000">1 s</button>
           <button data-val="3000">3 s</button>
@@ -218,10 +220,7 @@
     <div class="config-gauche"><div id="plateau-config"></div></div>
     <div class="config-droite">
       <div class="cf-haut">
-        <div class="cf-carte-ligne"><b>Carte :</b><select id="cf-carte"></select><button class="bouton" data-aller="cartes">🗺 Créer des cartes</button></div>
-        <div class="hz-avantage" title="0 = égalité ; positif = les blancs devant (ex. +2) ; négatif = les noirs devant (ex. −3)"><b>Avantage voulu des blancs</b> (négatif = noirs devant) : de
-          <input type="text" inputmode="decimal" id="hz-av-min"> à
-          <input type="text" inputmode="decimal" id="hz-av-max"></div>
+        <div class="cf-carte-ligne"><b>Carte :</b><select id="cf-carte"></select><button class="bouton" data-aller="cartes">🗺 Mes cartes</button></div>
         <div class="cf-av-ligne"><span>Actuel :</span><b id="cf-av-valeur"></b>
           <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div></div>
         <div class="cf-av-texte" id="cf-avantage"></div>
@@ -293,7 +292,8 @@
       <div class="accordeon" id="ps-liste"></div>
     </div>
     <div class="ps-centre">
-      <div class="ps-centre-titre"><b>Où peut-il aller ?</b> <span class="aide">Clique les cases. Le haut = vers l’adversaire. Grille de 15 × 15 cases.</span></div>
+      <div class="ps-centre-titre"><b>Où peut-il aller ?</b> <span class="aide">Le haut = vers l’adversaire. Grille de 15 × 15 cases.</span></div>
+      <div class="choix ligne mini ps-mode" id="ps-mode"><span>Un clic :</span><button data-mode="normal" title="Il y va normalement (bloqué ou non selon la question « saute-t-il »)">🟩 il y va</button><button data-mode="tele" title="Il y arrive même si des pièces sont sur le chemin">✦ il s’y téléporte</button></div>
       <div id="ps-grille"></div>
       <div id="ps-fleches" class="ps-fleches"></div>
     </div>
@@ -409,19 +409,19 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=39"></script>
-<script src="js/cartes.js?v=39"></script>
-<script src="js/themes.js?v=39"></script>
-<script src="js/pieces-svg.js?v=39"></script>
-<script src="js/persos.js?v=39"></script>
-<script src="js/pieces.js?v=39"></script>
-<script src="js/regles.js?v=39"></script>
-<script src="js/config.js?v=39"></script>
-<script src="js/moteur.js?v=39"></script>
-<script src="js/son.js?v=39"></script>
-<script src="js/plateau.js?v=39"></script>
-<script src="js/bilan.js?v=39"></script>
-<script src="js/editeur.js?v=39"></script>
-<script src="js/app.js?v=39"></script>
+<script src="js/bots.js?v=42"></script>
+<script src="js/cartes.js?v=42"></script>
+<script src="js/themes.js?v=42"></script>
+<script src="js/pieces-svg.js?v=42"></script>
+<script src="js/persos.js?v=42"></script>
+<script src="js/pieces.js?v=42"></script>
+<script src="js/regles.js?v=42"></script>
+<script src="js/config.js?v=42"></script>
+<script src="js/moteur.js?v=42"></script>
+<script src="js/son.js?v=42"></script>
+<script src="js/plateau.js?v=42"></script>
+<script src="js/bilan.js?v=42"></script>
+<script src="js/editeur.js?v=42"></script>
+<script src="js/app.js?v=42"></script>
 </body>
 </html>

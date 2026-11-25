@@ -105,25 +105,6 @@
       });
       $('#outil-gomme').addEventListener('click', () => this.choisirOutil({ type: 'gomme' }));
       $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); this.change(); });
-      // pièces au hasard : avantage des blancs voulu au départ (minimum et maximum, écrits librement)
-      const lireAv = () => {
-        const lire = (el) => { const v = parseFloat(String(el.value).replace(',', '.').replace('−', '-').replace(/\s/g, '')); return isNaN(v) ? null : Math.max(-50, Math.min(50, v)); };
-        const a = lire($('#hz-av-min')), b = lire($('#hz-av-max'));
-        $('#hz-av-min').classList.toggle('faux', a == null);
-        $('#hz-av-max').classList.toggle('faux', b == null);
-        if (a == null || b == null) return;
-        this.cfg.avMin = Math.min(a, b); this.cfg.avMax = Math.max(a, b);
-        this.change();
-      };
-      document.querySelectorAll('#hz-ou button').forEach((b) => b.addEventListener('click', () => {
-        this.cfg.hasardOu = b.dataset.ou;
-        this.outil = b.dataset.ou === 'zones' ? { type: 'zone', camp: 'w' } : null;
-        this.majHasard(); this.change();
-      }));
-      $('#hz-zone-w').addEventListener('click', () => { this.outil = { type: 'zone', camp: 'w' }; this.majHasard(); });
-      $('#hz-zone-b').addEventListener('click', () => { this.outil = { type: 'zone', camp: 'b' }; this.majHasard(); });
-      $('#hz-zone-gomme').addEventListener('click', () => { this.outil = { type: 'zone', camp: false }; this.majHasard(); });
-      for (const id of ['#hz-av-min', '#hz-av-max']) { $(id).addEventListener('input', lireAv); $(id).addEventListener('change', () => { lireAv(); this.majAvCases(); }); }
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
 
@@ -236,7 +217,6 @@
         const noms = Object.keys(cfg.auHasard).map((id) => { const p = window.Persos.trouver(id); return cfg.auHasard[id] + ' ' + (p ? p.nom : '?'); });
         res.textContent = 'Chaque couleur reçoit au hasard : ' + noms.join(', ') + '.';
       }
-      this.majAvCases();
       // où ?
       const zones = cfg.hasardOu === 'zones';
       document.querySelectorAll('#hz-ou button').forEach((b) => b.classList.toggle('choisi', b.dataset.ou === (cfg.hasardOu || 'miroir')));
@@ -248,14 +228,7 @@
       $('#hz-zone-aide').textContent = zones ? 'Clique ou glisse sur le plateau pour peindre. Les blancs apparaissent au hasard dans leur zone, les noirs dans la leur.' : '';
     },
 
-    majAvCases() {
-      const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
-      if (document.activeElement !== $('#hz-av-min')) $('#hz-av-min').value = ecrit(this.cfg.avMin);
-      if (document.activeElement !== $('#hz-av-max')) $('#hz-av-max').value = ecrit(this.cfg.avMax);
-      $('#hz-av-min').classList.remove('faux'); $('#hz-av-max').classList.remove('faux');
-    },
     remplir() {
-      this.majAvCases();
       const sel = $('#cf-carte');
       sel.innerHTML = '';
       for (const k of window.Cartes.toutes()) { const o = el('option', null, k.nom + (k.fixe ? '' : ' (' + k.cols + ' × ' + k.lignes + ')')); o.value = k.id; sel.appendChild(o); }
@@ -413,7 +386,7 @@
       }
       if (window.Config.aleatoire(this.cfg)) {
         zone.className = 'cf-av-texte';
-        zone.textContent = '🎲 À chaque partie, le tirage est refait jusqu’à un avantage des blancs entre ' + texteAvantage(this.cfg.avMin) + ' et ' + texteAvantage(this.cfg.avMax) + '.';
+        zone.textContent = '🎲 Avec du hasard : l’avantage voulu se choisit dans ▶ Jouer.';
         valeur.textContent = '';
         barre.style.visibility = 'hidden';
         return;
@@ -426,9 +399,8 @@
       if (jet !== this.jetonEval) return;
       if (av == null) { zone.textContent = 'Avantage impossible à calculer.'; return; }
       valeur.textContent = texteAvantage(av);
-      const dans = av >= this.cfg.avMin - 1e-9 && av <= this.cfg.avMax + 1e-9;
       zone.textContent = (av > 0.3 ? 'Les blancs commencent avec un avantage.' : av < -0.3 ? 'Les noirs commencent avec un avantage.' : 'La position de départ est équilibrée.') +
-        (dans ? '' : ' Pour viser ton avantage voulu, mets des pièces dans « 🎲 Placer au hasard ».');
+        '';
       barre.style.visibility = '';
       window.App.majBarre(barre, { cp: Math.round(av * 100) }, false, true);
     },
@@ -479,6 +451,7 @@
       $('#ps-copier').addEventListener('change', () => {
         const src = window.Persos.trouver($('#ps-copier').value);
         if (src) {
+          this.p.tele = Object.assign({}, src.tele || {});
           this.p.cases = Object.assign({}, src.cases);
           this.p.lignes = Object.assign({}, src.lignes);
           this.p.saute = !!src.saute;
@@ -486,7 +459,9 @@
         }
         $('#ps-copier').value = '';
       });
-      $('#ps-effacer').addEventListener('click', () => { this.p.cases = {}; this.p.lignes = {}; this.grille(); });
+      $('#ps-effacer').addEventListener('click', () => { this.p.cases = {}; this.p.lignes = {}; this.p.tele = {}; this.grille(); });
+      this.mode = 'normal';
+      document.querySelectorAll('#ps-mode button').forEach((b) => b.addEventListener('click', () => { this.mode = b.dataset.mode; this.grille(); }));
       $('#ps-enregistrer').addEventListener('click', () => this.enregistrer());
       $('#ps-supprimer').addEventListener('click', () => this.supprimer());
       const bases = $('#ps-bases');
@@ -531,7 +506,7 @@
 
     editer(p) {
       if (p) { this.p = JSON.parse(JSON.stringify(p)); this.catOuverte = p.categorie; }
-      else this.p = { id: null, nom: '', categorie: 'Mes personnages', base: 'q', marque: '', cases: {}, lignes: {}, saute: false };
+      else this.p = { id: null, nom: '', categorie: 'Mes personnages', base: 'q', marque: '', cases: {}, lignes: {}, tele: {}, saute: false };
       this.remplir();
       this.liste();
     },
@@ -577,7 +552,8 @@
     // pour « continue tout droit jusqu'au bout ». Une case que le moteur ne sait pas jouer est marquée ✖.
     grille() {
       const p = this.p;
-      p.cases = p.cases || {}; p.lignes = p.lignes || {};
+      p.cases = p.cases || {}; p.lignes = p.lignes || {}; p.tele = p.tele || {};
+      document.querySelectorAll('#ps-mode button').forEach((b) => b.classList.toggle('choisi', b.dataset.mode === this.mode));
       const box = $('#ps-grille');
       box.innerHTML = '';
       const classique = !!p.classique;
@@ -600,13 +576,25 @@
             c.disabled = true;
           } else {
             const possible = window.Persos.caseJouable(dx, dy);
-            if (p.cases[cle]) {
+            if (p.tele[cle]) {
+              c.classList.add('tele');
+              c.textContent = avertis[cle] ? '✖' : '✦';
+              if (avertis[cle]) c.classList.add('av-ignore');
+              c.title = 'Téléportation : il y arrive même si des pièces sont sur le chemin';
+            } else if (p.cases[cle]) {
               c.classList.add('oui');
               const av = avertis[cle] || (possible ? null : 'ignore');
               if (av) { c.classList.add('av-' + av); c.textContent = SIGNES[av]; }
             } else if (enLigne(dx, dy)) c.classList.add('ligne');
             if (!possible) c.title = 'Saut trop loin en biais : le moteur des règles ne sait pas le jouer';
-            if (!classique) c.addEventListener('click', () => { if (p.cases[cle]) delete p.cases[cle]; else p.cases[cle] = 1; window.Son.clic(); this.grille(); });
+            if (!classique) c.addEventListener('click', () => {
+              // un clic pose le mode choisi ; recliquer la même chose l'enlève
+              const t = this.mode === 'tele';
+              const deja = t ? p.tele[cle] : p.cases[cle];
+              delete p.cases[cle]; delete p.tele[cle];
+              if (!deja) (t ? p.tele : p.cases)[cle] = 1;
+              window.Son.clic(); this.grille();
+            });
           }
           box.appendChild(c);
         }
@@ -632,8 +620,9 @@
       const r = zone.getBoundingClientRect();
       const titre = zone.querySelector('.ps-centre-titre').getBoundingClientRect().height;
       const fleches = $('#ps-fleches').getBoundingClientRect().height;
+      const mode = $('#ps-mode').getBoundingClientRect().height + 6;
       const n = 2 * window.Persos.PORTEE + 1;
-      const t = Math.floor(Math.min(r.width - 8, r.height - titre - fleches - 24) / n);
+      const t = Math.floor(Math.min(r.width - 8, r.height - titre - fleches - mode - 24) / n);
       $('#ps-grille').style.setProperty('--ps-case', Math.max(16, Math.min(48, t)) + 'px');
     },
 

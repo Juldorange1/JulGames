@@ -16,6 +16,24 @@
   const copie = (o) => JSON.parse(JSON.stringify(o));
 
   const NORMALE = { id: 'normal', nom: 'Plateau normal 8 × 8', cols: 8, lignes: 8, trous: grille(8, 8, false), fixe: true };
+  // cartes toutes faites (symétriques : même forme pour les deux camps)
+  function faite(id, nom, cols, lignes, trou) {
+    const t = grille(lignes, cols, false);
+    for (let r = 0; r < lignes; r++) for (let c = 0; c < cols; c++) if (trou(r, c, lignes, cols)) t[r][c] = true;
+    return { id, nom, cols, lignes, trous: t, fixe: true };
+  }
+  const FAITES = [
+    faite('petit', 'Petit 6 × 6', 6, 6, () => false),
+    faite('grand', 'Grand 10 × 10', 10, 10, () => false),
+    faite('large', 'Large 12 × 8', 12, 8, () => false),
+    faite('lac', 'Lac central', 8, 8, (r, c) => (r === 3 || r === 4) && (c === 3 || c === 4)),
+    faite('ilots', 'Quatre îlots', 8, 8, (r, c) => (r === 3 || r === 4) && (c === 1 || c === 6)),
+    faite('couloirs', 'Trois couloirs', 9, 8, (r, c) => (r >= 2 && r <= 5) && (c === 2 || c === 6)),
+    faite('arene', 'Arène ronde', 10, 10, (r, c, L, C) => { const y = Math.min(r, L - 1 - r), x = Math.min(c, C - 1 - c); return x + y < 2; }),
+    faite('croix', 'Croix', 10, 10, (r, c, L, C) => { const y = Math.min(r, L - 1 - r), x = Math.min(c, C - 1 - c); return x < 3 && y < 3; }),
+    faite('diamant', 'Diamant', 9, 9, (r, c, L, C) => Math.abs(r - (L - 1) / 2) + Math.abs(c - (C - 1) / 2) > 5),
+    faite('pont', 'Le pont', 8, 8, (r, c) => (r === 3 || r === 4) && c !== 3 && c !== 4)
+  ];
 
   function lire() { try { const l = JSON.parse(localStorage.getItem(CLE) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
   function ecrire(l) { localStorage.setItem(CLE, JSON.stringify(l)); }
@@ -23,9 +41,11 @@
   const Cartes = {
     NORMALE,
     liste() { return lire(); },
-    toutes() { return [copie(NORMALE)].concat(lire()); },
+    toutes() { return [copie(NORMALE)].concat(FAITES.map(copie), lire()); },
     trouver(id) {
       if (!id || id === 'normal') return copie(NORMALE);
+      const f = FAITES.find((x) => x.id === id);
+      if (f) return copie(f);
       const c = lire().find((x) => x.id === id);
       return c ? copie(c) : null;
     },
@@ -64,6 +84,12 @@
       });
       window.addEventListener('pointerup', () => { if (this.peint) { this.peint = null; this.sauver(); } });
       $('#ca-nouvelle').addEventListener('click', () => this.nouvelle());
+      $('#ca-copier').addEventListener('click', () => {
+        const c = copie(this.carte);
+        delete c.fixe; c.id = Cartes.nouveauId(); c.nom = (c.nom + ' (copie)').slice(0, 30);
+        Cartes.enregistrer(c); this.editer(c);
+        window.App.bulle('Copie créée : tu peux la modifier.');
+      });
       $('#ca-nom').addEventListener('input', () => {
         if (this.carte.fixe) return;
         this.carte.nom = $('#ca-nom').value.trim() || 'Sans nom';
@@ -126,6 +152,7 @@
       $('#ca-lignes-val').textContent = c.lignes;
       document.querySelectorAll('#ca-reglages .bouton').forEach((b) => { b.disabled = !!c.fixe; });
       $('#ca-note-fixe').style.display = c.fixe ? '' : 'none';
+      $('#ca-copier').style.display = c.fixe ? '' : 'none';
       const n = c.trous.flat().filter(Boolean).length;
       $('#ca-resume').textContent = c.cols + ' × ' + c.lignes + ' cases, ' + (n ? n + ' trou' + (n > 1 ? 's' : '') : 'aucun trou') + '.';
     },
@@ -163,7 +190,7 @@
       e.preventDefault();
       const c = this._case(e);
       if (!c) return;
-      if (this.carte.fixe) { window.App.bulle('Le plateau normal ne se modifie pas : clique « ➕ Nouvelle carte ».'); return; }
+      if (this.carte.fixe) { window.App.bulle('Carte toute faite : clique « ⧉ Faire une copie modifiable ».'); return; }
       // clic gauche : trou (ou rebouche si c'en était un) ; clic droit : rebouche
       const trou = e.button === 2 ? false : !this.carte.trous[c[0]][c[1]];
       this.peint = { trou, faites: new Set() };

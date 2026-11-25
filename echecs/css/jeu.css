@@ -576,3 +576,12 @@ body.avec-decor .note-moteur, body.avec-decor .options-generales { background: r
 .par-volume input { width: 240px; accent-color: var(--accent); }
 .grille-apparence { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
 @media (max-height: 820px) { .carte-menu { min-height: 180px; padding: 14px 10px; } .carte-menu b { font-size: 20px; } .carte-menu .carte-icone { font-size: 40px; } }
+
+/* téléportation (création de personnages) */
+.ps-mode { justify-content: center; align-items: center; font-size: 16px; flex: none; }
+.ps-mode > span { color: var(--gris); }
+.ps-case.tele { background: #7b4fd0; color: #fff; }
+.ps-case.tele.av-ignore { background: #c0453a; }
+/* avantage voulu dans « Jouer » */
+.jo-avantage { background: var(--panneau); border-radius: 12px; padding: 6px 12px; }
+.jo-avantage input { width: 72px; }

@@ -87,7 +87,9 @@
     let s = '';
     const avertis = {};
     const lignes = p.lignes || {};
-    const cas = p.cases || {};
+    const tele = p.tele || {};
+    // s'il saute, se téléporter ou y aller, c'est pareil
+    const cas = p.saute ? Object.assign({}, p.cases || {}, tele) : (p.cases || {});
     for (const k in lignes) if (lignes[k] && DIR_BETZA[k]) s += DIR_BETZA[k][0] + DIR_BETZA[k][1];
     const cases = Object.keys(cas).filter((k) => cas[k]).map((k) => k.split(',').map(Number));
     const couvert = (dx, dy) => { const d = dirDe(dx, dy); return !!(d && lignes[d]); };
@@ -132,6 +134,13 @@
       if (BLOCABLES[at]) s += 'n' + direction(dx, dy) + at;
       else { s += direction(dx, dy) + at; avertis[cle] = 'saute'; }
     }
+    // cases de téléportation : il y arrive même si des pièces sont sur le chemin
+    for (const k of Object.keys(tele)) {
+      if (!tele[k]) continue;
+      const [dx, dy] = k.split(',').map(Number);
+      const at = atome(dx, dy);
+      if (at) s += direction(dx, dy) + at; else avertis[k] = 'ignore';
+    }
     return { betza: s, avertis };
   }
   function betza(p) { return analyser(p).betza; }
@@ -139,10 +148,12 @@
   function description(p) {
     if (p.classique) return p.desc;
     const nC = Object.values(p.cases || {}).filter(Boolean).length;
+    const nT = Object.values(p.tele || {}).filter(Boolean).length;
     const nL = Object.values(p.lignes || {}).filter(Boolean).length;
     const m = [];
     if (nC) m.push('va sur ' + nC + ' case' + (nC > 1 ? 's' : ''));
     if (nL) m.push('continue tout droit dans ' + nL + ' direction' + (nL > 1 ? 's' : ''));
+    if (nT) m.push('se téléporte sur ' + nT + ' case' + (nT > 1 ? 's' : '') + ' ✦');
     if (!m.length) return 'Il ne bouge pas encore : clique des cases.';
     let t = 'Il ' + m.join(' et ') + '. ' + (p.saute ? 'Il saute par-dessus les pièces.' : 'Il est bloqué par les pièces.');
     const a = Object.values(analyser(p).avertis);

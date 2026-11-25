@@ -31,7 +31,7 @@
   }
 
   const options = Object.assign({
-    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
+    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
@@ -205,12 +205,29 @@
     c.className = 'creer-bot'; c.textContent = '➕ Créer des bots';
     c.onclick = () => ecran('bots');
     box.appendChild(c);
-    if (options.adversaire && !BOTS[options.adversaire] && options.adversaire !== 'ami' && !window.Bots.trouver(options.adversaire)) { options.adversaire = 'expert'; sauverOptions(); }
+    if (options.adversaire !== 'ami' && !window.Bots.trouver(options.adversaire)) { options.adversaire = 'ami'; sauverOptions(); }
   }
   function jouerContre(id) { options.adversaire = id; sauverOptions(); ecran('jouer'); }
 
+  function majAvantageVoulu() {
+    const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
+    if (document.activeElement !== $('#jo-av-min')) $('#jo-av-min').value = ecrit(options.avMin);
+    if (document.activeElement !== $('#jo-av-max')) $('#jo-av-max').value = ecrit(options.avMax);
+  }
+  function lireAvantageVoulu(e) {
+    const lire = (el) => { const v = parseFloat(String(el.value).replace(',', '.').replace('−', '-').replace(/\s/g, '')); return isNaN(v) ? null : Math.max(-50, Math.min(50, v)); };
+    const a = lire($('#jo-av-min')), b = lire($('#jo-av-max'));
+    $('#jo-av-min').classList.toggle('faux', a == null); $('#jo-av-max').classList.toggle('faux', b == null);
+    if (a == null || b == null) return;
+    // la case qu'on vient d'écrire a raison : l'autre s'ajuste si besoin
+    const surMax = e && e.target && e.target.id === 'jo-av-max';
+    if (a > b) { if (surMax) options.avMin = options.avMax = b; else options.avMin = options.avMax = a; }
+    else { options.avMin = a; options.avMax = b; }
+    sauverOptions();
+  }
   function construireJouer() {
     remplirBots();
+    majAvantageVoulu();
     const cfg = configChoisie();
     if (cfg.id !== options.jouer) { options.jouer = cfg.id; sauverOptions(); }
     const { pos, zones } = window.Editeur.positionAffichage(cfg);
@@ -247,14 +264,14 @@
     if (err) { av.textContent = '⚠ ' + err; av.className = 'acc-avantage erreur'; }
     else if (window.Config.aleatoire(cfg)) {
       av.className = 'acc-avantage';
-      av.textContent = '🎲 Avec du hasard : avantage des blancs tiré entre ' + window.Editeur.texteAvantage(cfg.avMin) + ' et ' + window.Editeur.texteAvantage(cfg.avMax) + '.';
+      av.textContent = '🎲 Avec du hasard : le tirage est refait jusqu’à tomber dans ton avantage voulu.';
     } else {
       av.className = 'acc-avantage';
       av.textContent = 'Calcul de l’avantage des blancs…';
       const v = window.Config.construire(cfg, window.Config.tirage(cfg));
       window.Config.evaluer(v, { profondeur: 16, temps: 1200 }).then((x) => {
         if (jet !== jetonApercu || x == null) return;
-        av.textContent = 'Avantage des blancs au départ : ' + window.Editeur.texteAvantage(x);
+        av.textContent = 'Avantage des blancs au départ : ' + window.Editeur.texteAvantage(x) + ' (sans hasard, il ne peut pas changer).';
       }).catch(() => {});
     }
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
@@ -274,7 +291,7 @@
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
       $$(id + ' button').forEach((b) => b.classList.toggle('choisi', b.dataset.val === String(options[cle])));
     }
-    $('#bloc-reflexion').style.display = options.adversaire === 'ami' || options.adversaire === 'expert' || options.pendule !== '0' ? 'none' : '';
+    $('#bloc-reflexion').style.display = options.adversaire === 'ami' || options.pendule !== '0' ? 'none' : '';
     $('#bloc-couleur').style.display = options.adversaire === 'ami' ? 'none' : '';
   }
   function redimensionnerApercu() {
@@ -293,7 +310,8 @@
 
   // Prépare la configuration courante (tirage au hasard contrôlé) puis lance la partie.
   async function commencer(cfg, reglages) {
-    cfg = cfg || configChoisie();
+    cfg = window.Config.copie(cfg || configChoisie());
+    cfg.avMin = options.avMin; cfg.avMax = options.avMax;
     reglages = reglages || reglagesActuels();
     const err = window.Config.verifier(cfg);
     if (err) {
@@ -1038,6 +1056,7 @@
     $('#btn-commencer').addEventListener('click', () => commencer());
     $('#btn-reprendre').addEventListener('click', reprendre);
     $('#opt-sons').addEventListener('change', (e) => { options.sons = e.target.checked; window.Son.regler(options.sons); sauverOptions(); });
+    for (const id of ['#jo-av-min', '#jo-av-max']) { $(id).addEventListener('input', lireAvantageVoulu); $(id).addEventListener('change', (e) => { lireAvantageVoulu(e); majAvantageVoulu(); }); }
     $('#opt-ambiance').addEventListener('change', (e) => { options.ambiance = e.target.checked; sauverOptions(); majAmbiance(); });
     $('#opt-volume').addEventListener('input', (e) => { options.volume = +e.target.value; sauverOptions(); majAmbiance(); });
     // le navigateur n'autorise le son qu'après un premier clic : l'ambiance démarre à ce moment
