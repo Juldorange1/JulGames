@@ -18,7 +18,7 @@
 
   function classique() {
     const cfg = {
-      id: 'classique', nom: 'Classique', avMin: -0.5, avMax: 0.5,
+      id: 'classique', nom: 'Partie normale', avMin: -0.5, avMax: 0.5,
       cols: 8, lignes: 8, pieces: grille(8, 8, null), trous: grille(8, 8, false), zones: grille(8, 8, false),
       trousHasard: 0, miroir: true, regles: reglesDefaut()
     };
@@ -30,6 +30,16 @@
       cfg.pieces[7][c] = { camp: 'b', perso: rangee[c] };
     }
     return cfg;
+  }
+
+  // Configuration neuve : plateau vide (on y pose ce qu'on veut).
+  function vide(cols, lignes) {
+    cols = cols || 8; lignes = lignes || 8;
+    return {
+      id: '', nom: '', avMin: -0.5, avMax: 0.5,
+      cols, lignes, pieces: grille(lignes, cols, null), trous: grille(lignes, cols, false), zones: grille(lignes, cols, false),
+      trousHasard: 0, miroir: false, regles: reglesDefaut()
+    };
   }
 
   // ---------- hasard ----------
@@ -356,8 +366,9 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
+    trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? copie(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
     // Met à jour une configuration déjà enregistrée (à sa place dans la liste) ; rien si elle ne l'est pas.
     mettreAJour(cfg) {

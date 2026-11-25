@@ -24,7 +24,7 @@
   }
 
   const options = Object.assign({
-    sons: true, adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
+    sons: true, jouer: 'classique', adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
@@ -89,7 +89,8 @@
     if (App.ecranActuel === 'partie' && nom !== 'partie') arreterAnalyse();
     $$('.ecran').forEach((e) => e.classList.toggle('visible', e.id === 'ecran-' + nom));
     App.ecranActuel = nom;
-    if (nom === 'accueil') construireAccueil();
+    if (nom === 'accueil') construireMenu();
+    if (nom === 'jouer') { pageJouer = -1; construireJouer(); }
     if (nom === 'config') window.EditeurConfig.ouvrir();
     if (nom === 'persos') window.EditeurPersos.ouvrir();
     requestAnimationFrame(redimensionner);
@@ -127,26 +128,54 @@
     bulleMinuteur = setTimeout(() => b.classList.add('cachee'), 2800);
   }
 
-  // ---------- accueil ----------
+  // ---------- menu principal ----------
+  function construireMenu() {
+    const enCours = lire(CLE_ENCOURS, null);
+    $('#btn-reprendre').style.display = enCours ? '' : 'none';
+    if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Partie normale') + ')';
+    $('#opt-sons').checked = options.sons;
+    const note = $('#note-moteur');
+    if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
+    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+  }
+
+  // ---------- jouer : partie normale ou configuration créée ----------
   let plateauApercu = null;
   let jetonApercu = 0;
-  function construireAccueil() {
-    const cfg = window.Config.courante();
-    $('#acc-nom').textContent = cfg.nom;
+  let pageJouer = 0;
+  const PAR_PAGE_JOUER = 9;
+  function configChoisie() {
+    return window.Config.trouver(options.jouer || 'classique') || window.Config.classique();
+  }
+  function construireJouer() {
+    const cfg = configChoisie();
+    if (cfg.id !== options.jouer) { options.jouer = cfg.id; sauverOptions(); }
     const { pos, zones } = window.Editeur.positionAffichage(cfg);
     plateauApercu.afficher(pos, { decor: { zones } });
     redimensionnerApercu();
-    // configurations enregistrées : menu déroulant
-    const sel = $('#acc-configs');
-    sel.innerHTML = '';
-    const toutes = [window.Config.classique()].concat(window.Config.liste());
-    if (!toutes.some((c) => c.id === cfg.id)) toutes.unshift(cfg);
-    for (const c of toutes) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.nom; sel.appendChild(o); }
-    sel.value = cfg.id;
-    sel.onchange = () => {
-      const c = toutes.find((x) => x.id === sel.value);
-      if (c) { window.Config.definirCourante(window.Config.copie(c)); construireAccueil(); }
-    };
+    // liste : partie normale + configurations créées (par pages : rien ne défile)
+    const box = $('#jouer-liste');
+    box.innerHTML = '';
+    const toutes = [Object.assign(window.Config.classique(), { nom: '♟ Partie normale' })].concat(window.Config.liste());
+    const pages = Math.max(1, Math.ceil(toutes.length / PAR_PAGE_JOUER));
+    const ici = toutes.findIndex((c) => c.id === cfg.id);
+    if (pageJouer < 0) pageJouer = ici >= 0 ? Math.floor(ici / PAR_PAGE_JOUER) : 0;
+    pageJouer = Math.min(pageJouer, pages - 1);
+    for (const c of toutes.slice(pageJouer * PAR_PAGE_JOUER, (pageJouer + 1) * PAR_PAGE_JOUER)) {
+      const b = document.createElement('button');
+      b.className = 'puce-config' + (c.id === cfg.id ? ' choisie' : '') + (c.id === 'classique' ? ' normale' : '');
+      b.textContent = c.nom;
+      b.title = c.nom;
+      b.onclick = () => { options.jouer = c.id; sauverOptions(); construireJouer(); };
+      box.appendChild(b);
+    }
+    if (pages > 1) box.appendChild(window.Editeur.pagination(pageJouer, pages, (p) => { pageJouer = p; construireJouer(); }));
+    if (window.Config.liste().length === 0) {
+      const a = document.createElement('p');
+      a.className = 'aide';
+      a.textContent = 'Tes configurations apparaîtront ici (menu « ⚙ Configurer des parties »).';
+      box.appendChild(a);
+    }
     // avantage
     const jet = ++jetonApercu;
     const av = $('#acc-avantage');
@@ -172,13 +201,11 @@
       });
     }
     majChoix();
-    const enCours = lire(CLE_ENCOURS, null);
-    $('#btn-reprendre').style.display = enCours ? '' : 'none';
-    if (enCours) $('#btn-reprendre').textContent = 'Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Classique') + ')';
-    $('#opt-sons').checked = options.sons;
-    const note = $('#note-moteur');
-    if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
-    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+  }
+  function jouerAvec(id) {
+    options.jouer = id;
+    sauverOptions();
+    ecran('jouer');
   }
   function majChoix() {
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
@@ -203,11 +230,11 @@
 
   // Prépare la configuration courante (tirage au hasard contrôlé) puis lance la partie.
   async function commencer(cfg, reglages) {
-    cfg = cfg || window.Config.courante();
+    cfg = cfg || configChoisie();
     reglages = reglages || reglagesActuels();
     const err = window.Config.verifier(cfg);
     if (err) {
-      modale('<h2>Configuration impossible</h2><p></p>', [{ texte: '⚙ Configurer', classe: 'principal', action: () => ecran('config') }, { texte: 'Fermer' }]).querySelector('p').textContent = err;
+      modale('<h2>Configuration impossible</h2><p></p>', [{ texte: '⚙ La modifier', classe: 'principal', action: () => { if (cfg.id !== 'classique') window.Config.definirCourante(cfg); ecran('config'); } }, { texte: 'Fermer' }]).querySelector('p').textContent = err;
       return;
     }
     arreterTout();
@@ -688,14 +715,19 @@
   }
 
   // Recommencer : repart du début avec la configuration actuelle (nouveau tirage s'il y a du hasard).
+  // La configuration de la partie, dans sa version enregistrée la plus récente.
+  function configDeLaPartie() {
+    const id = jeu && jeu.cfg && jeu.cfg.id;
+    return (id && window.Config.trouver(id)) || (jeu && jeu.cfg) || window.Config.classique();
+  }
   function relancer() {
     const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
-    const cfg = window.Config.courante();
+    const cfg = configDeLaPartie();
     commencer(cfg, reglages);
   }
   function recommencer() {
     if (!jeu) return;
-    const cfg = window.Config.courante();
+    const cfg = configDeLaPartie();
     const hasard = window.Config.aleatoire(cfg);
     modale('<h2>Recommencer ?</h2><p></p>', [
       { texte: '↻ Recommencer', classe: 'principal', action: relancer },
@@ -872,7 +904,7 @@
     if (nom === 'partie') { pl = plateau; zone = $('#zone-partie'); barre = $('#barre-partie'); }
     else if (nom === 'bilan') { pl = window.Bilan.plateau; zone = $('#zone-bilan'); barre = $('#barre-bilan'); }
     else if (nom === 'config') { window.EditeurConfig.redimensionner(); return; }
-    else if (nom === 'accueil') { redimensionnerApercu(); return; }
+    else if (nom === 'jouer') { redimensionnerApercu(); return; }
     else if (nom === 'persos') { window.EditeurPersos.redimensionner(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
@@ -967,7 +999,7 @@
     ecranActuel: 'accueil',
     ecran, modale, fermerModale, bulle, copier, pgn, montrerRegles, redimensionner,
     chances, texteScore, inverser, majBarre, remplirListeCoups, dernierCoupCases, caseRoiEnEchec,
-    sauverPartie, parties, options, commencer,
+    sauverPartie, parties, options, commencer, jouerAvec,
     arreterAnalyse,
     // Rejouer depuis une position du bilan
     rejouerDepuis(rec, n) {

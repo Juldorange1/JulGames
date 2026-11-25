@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=19">
+<link rel="stylesheet" href="css/jeu.css?v=20">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -16,24 +16,41 @@
   <div class="chargement-texte" id="chargement-texte">Chargement des règles…</div>
 </div>
 
-<!-- ============ ACCUEIL ============ -->
+<!-- ============ MENU PRINCIPAL ============ -->
 <section id="ecran-accueil" class="ecran">
   <header class="entete">
     <h1>Échecs <span class="et">sur mesure</span></h1>
     <nav class="onglets-haut">
-      <button class="bouton discret" data-aller="persos">🧩 Personnages</button>
       <a class="bouton discret" href="../">⟵ JulGame</a>
+    </nav>
+  </header>
+  <div class="menu-principal">
+    <div class="menu-cartes">
+      <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
+      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Un plateau vide : pose tes personnages où tu veux, du hasard, des trous, tes règles.</span></button>
+      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un bot ou un ami.</span></button>
+    </div>
+    <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
+    <div class="options-generales centre"><label><input type="checkbox" id="opt-sons"> Bruits des pièces</label></div>
+    <div class="note-moteur centre" id="note-moteur"></div>
+  </div>
+</section>
+
+<!-- ============ JOUER ============ -->
+<section id="ecran-jouer" class="ecran">
+  <header class="entete">
+    <h1>Jouer</h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
     </nav>
   </header>
   <div class="accueil">
     <div class="accueil-config">
-      <div class="acc-titre">
-        <label class="champ acc-choix">Configuration de la partie<select id="acc-configs"></select></label>
-        <button class="bouton principal" data-aller="config">⚙ Configurer</button>
-      </div>
+      <h2>Quelle partie ?</h2>
+      <div class="liste-configs" id="jouer-liste"></div>
       <div class="acc-avantage" id="acc-avantage"></div>
       <div class="acc-plateau"><div id="plateau-apercu"></div></div>
-      <b id="acc-nom" class="cache"></b>
     </div>
     <div class="accueil-reglages">
       <h2>Adversaire</h2>
@@ -69,12 +86,7 @@
       </div>
       <div class="ligne-boutons">
         <button class="bouton principal grand" id="btn-commencer">▶ Commencer la partie</button>
-        <button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button>
       </div>
-      <div class="options-generales">
-        <label><input type="checkbox" id="opt-sons"> Bruits des pièces</label>
-      </div>
-      <div class="note-moteur" id="note-moteur"></div>
     </div>
   </div>
 </section>
@@ -82,11 +94,11 @@
 <!-- ============ CONFIGURATION ============ -->
 <section id="ecran-config" class="ecran">
   <header class="entete">
-    <h1>Configurer la partie</h1>
+    <h1>Configuration : <span class="et" id="cf-titre"></span></h1>
     <nav class="onglets-haut">
       <button class="bouton" data-aller="persos">🧩 Personnages</button>
-      <button class="bouton" data-aller="accueil">⟵ Retour</button>
-      <button class="bouton principal" id="cf-jouer">▶ Jouer</button>
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+      <button class="bouton principal" id="cf-jouer">▶ Jouer cette configuration</button>
     </nav>
   </header>
   <div class="config">
@@ -101,29 +113,37 @@
           <input type="number" id="cf-av-max" step="0.1" min="-20" max="20"></div>
       </div>
       <div class="accordeon" id="acc-config">
-        <section class="pli" data-pli="pieces">
-          <button class="pli-titre">♟ Pièces sur le plateau</button>
+        <section class="pli" data-pli="mes">
+          <button class="pli-titre">📂 Mes configurations</button>
           <div class="pli-corps">
-            <div class="etape-ligne"><span class="num-etape">1</span><b>Choisis des cases</b><span class="sel-nb" id="sel-nb"></span></div>
             <div class="ligne-boutons serree">
-              <button class="bouton" id="sel-blancs">Moitié des blancs</button>
-              <button class="bouton" id="sel-noirs">Moitié des noirs</button>
-              <button class="bouton" id="sel-tout">Tout</button>
-              <button class="bouton" id="sel-aucune">Aucune</button>
-              <button class="bouton" id="sel-par-type">Par pièce ▾</button>
+              <button class="bouton principal" id="cf-nouvelle">➕ Nouvelle (plateau vide)</button>
+              <button class="bouton" id="cf-dupliquer">⧉ Dupliquer</button>
+              <button class="bouton danger" id="cf-supprimer">🗑 Supprimer</button>
             </div>
-            <div id="sel-types" class="sel-types"></div>
-            <div class="etape-ligne"><span class="num-etape">2</span><b>Mets-y</b>
+            <div class="ligne-champ"><span>Nom</span><input type="text" id="cf-nom" maxlength="40"></div>
+            <p class="aide">Clique une configuration pour la modifier. Tout est enregistré tout seul.</p>
+            <div class="liste-configs" id="cf-liste"></div>
+            <div class="ligne-champ"><input type="text" id="cf-code" placeholder="Code à partager ou à importer">
+              <button class="bouton" id="cf-copier">Copier</button>
+              <button class="bouton" id="cf-importer">Importer</button></div>
+          </div>
+        </section>
+        <section class="pli" data-pli="pieces">
+          <button class="pli-titre">♟ Placer les pièces</button>
+          <div class="pli-corps">
+            <div class="etape-ligne"><b>Couleur :</b>
               <span class="choix ligne mini" id="camp-config"><button data-camp="w">blanches</button><button data-camp="b">noires</button></span>
-              <label class="case-a-cocher" title="Met aussi la même chose en face pour l’autre couleur (et le même tirage au hasard)"><input type="checkbox" id="cf-miroir"> aussi en face</label>
+              <label class="case-a-cocher" title="Pose aussi la même chose en face, pour l’autre couleur"><input type="checkbox" id="cf-miroir"> aussi en face</label>
             </div>
             <div class="cats" id="cf-cats"></div>
             <div id="cf-persos" class="cf-grille-persos"></div>
             <div class="actions-cases">
-              <button class="bouton" id="act-hasard" title="Un personnage tiré au hasard parmi ceux que tu coches">🎲 Hasard…</button>
-              <button class="bouton" id="act-trou" title="Ces cases deviennent des trous">⬛ Trous</button>
-              <button class="bouton danger" id="act-vider" title="Enlever ce qu’il y a sur ces cases">✖ Vider</button>
+              <button class="bouton" id="outil-hasard" title="Un personnage tiré au hasard à chaque partie, parmi ceux que tu coches">🎲 Hasard…</button>
+              <button class="bouton" id="outil-trou" title="La case est supprimée du plateau">⬛ Trou</button>
+              <button class="bouton" id="outil-gomme" title="Enlève la pièce ou le trou">✖ Gomme</button>
             </div>
+            <div class="outil-actuel" id="outil-actuel"></div>
           </div>
         </section>
         <section class="pli" data-pli="depart">
@@ -131,28 +151,29 @@
           <div class="pli-corps">
             <p class="aide">À chaque partie, les pièces posées dans la zone de leur couleur sont placées au hasard sur ses cases.</p>
             <div class="ligne-boutons serree">
-              <button class="bouton" id="zd-fond">Rangée du fond au hasard</button>
-              <button class="bouton" id="zd-deux">2 premières rangées au hasard</button>
-              <button class="bouton" id="zd-moitie">Toute sa moitié au hasard</button>
+              <button class="bouton" id="zd-fond">Rangée du fond</button>
+              <button class="bouton" id="zd-deux">2 premières rangées</button>
+              <button class="bouton" id="zd-moitie">Toute sa moitié</button>
             </div>
-            <div class="etape-ligne"><b>Ou à la main :</b><span class="aide">choisis des cases sur le plateau, puis</span><span class="sel-nb" id="zd-nb"></span></div>
+            <div class="etape-ligne"><b>Ou peins les zones :</b></div>
             <div class="actions-zones">
-              <button class="bouton zone-b" id="zd-blanche">▨ Zone de départ des blancs</button>
-              <button class="bouton zone-n" id="zd-noire">▨ Zone de départ des noirs</button>
-              <button class="bouton" id="zd-enlever">Enlever la zone de ces cases</button>
-              <button class="bouton danger" id="zd-tout">✖ Effacer toutes les zones</button>
+              <button class="bouton zone-b" id="zd-blanche">▨ Zone des blancs</button>
+              <button class="bouton zone-n" id="zd-noire">▨ Zone des noirs</button>
+              <button class="bouton" id="zd-enlever">✖ Gomme à zones</button>
+              <button class="bouton danger" id="zd-tout">Effacer toutes les zones</button>
             </div>
+            <div class="outil-actuel" id="outil-zone"></div>
             <div class="zd-resume" id="zd-resume"></div>
           </div>
         </section>
         <section class="pli" data-pli="plateau">
-          <button class="pli-titre">▦ Taille du plateau et trous</button>
+          <button class="pli-titre">▦ Taille du plateau</button>
           <div class="pli-corps">
             <div class="compteur"><span>Colonnes</span><button class="bouton" id="cols-moins">−</button><b id="cols-val"></b><button class="bouton" id="cols-plus">+</button></div>
             <div class="compteur"><span>Rangées</span><button class="bouton" id="lignes-moins">−</button><b id="lignes-val"></b><button class="bouton" id="lignes-plus">+</button></div>
             <div class="compteur"><span>Trous au hasard à chaque partie</span><button class="bouton" id="trous-moins">−</button><b id="trous-val"></b><button class="bouton" id="trous-plus">+</button></div>
             <div class="ligne-boutons">
-              <button class="bouton" id="cf-classique">♜ Position classique</button>
+              <button class="bouton" id="cf-classique">♜ Mettre la position classique</button>
               <button class="bouton danger" id="cf-vider">✖ Vider tout le plateau</button>
             </div>
           </div>
@@ -188,21 +209,6 @@
             <div class="champ">Un pion arrivé au bout devient :<div class="promos" id="cf-promos"></div></div>
           </div>
         </section>
-        <section class="pli" data-pli="enregistrer">
-          <button class="pli-titre">💾 Enregistrer et partager</button>
-          <div class="pli-corps">
-            <div class="ligne-champ"><input type="text" id="cf-nom" maxlength="40" placeholder="Nom de la configuration">
-              <button class="bouton principal" id="cf-enregistrer">💾 Enregistrer</button>
-              <button class="bouton" id="cf-enregistrer-nouv">En nouvelle</button></div>
-            <div class="ligne-champ"><select id="cf-liste"></select>
-              <button class="bouton" id="cf-charger">Charger</button>
-              <button class="bouton danger" id="cf-supprimer">🗑</button></div>
-            <p class="aide">Partager : copie le code et envoie-le. Pour en recevoir un, colle-le puis « Importer ».</p>
-            <div class="ligne-champ"><input type="text" id="cf-code" placeholder="Code de configuration">
-              <button class="bouton" id="cf-copier">Copier</button>
-              <button class="bouton" id="cf-importer">Importer</button></div>
-          </div>
-        </section>
       </div>
     </div>
   </div>
@@ -213,8 +219,8 @@
   <header class="entete">
     <h1>Personnages</h1>
     <nav class="onglets-haut">
-      <button class="bouton" data-aller="config">⚙ Configuration</button>
-      <button class="bouton" data-aller="accueil">⟵ Retour</button>
+      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
     </nav>
   </header>
   <div class="persos">
@@ -337,16 +343,16 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=19"></script>
-<script src="js/persos.js?v=19"></script>
-<script src="js/pieces.js?v=19"></script>
-<script src="js/regles.js?v=19"></script>
-<script src="js/config.js?v=19"></script>
-<script src="js/moteur.js?v=19"></script>
-<script src="js/son.js?v=19"></script>
-<script src="js/plateau.js?v=19"></script>
-<script src="js/bilan.js?v=19"></script>
-<script src="js/editeur.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/pieces-svg.js?v=20"></script>
+<script src="js/persos.js?v=20"></script>
+<script src="js/pieces.js?v=20"></script>
+<script src="js/regles.js?v=20"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/moteur.js?v=20"></script>
+<script src="js/son.js?v=20"></script>
+<script src="js/plateau.js?v=20"></script>
+<script src="js/bilan.js?v=20"></script>
+<script src="js/editeur.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 </body>
 </html>
