@@ -19,6 +19,9 @@
       this.dernier = null;
       this.fleches = [];
       this.variante = null;
+      // repères tracés par le joueur (comme sur chess.com) : cases colorées et flèches
+      this.reperes = { cases: new Set(), fleches: [] };
+      this.trace = null;
 
       racine.classList.add('plateau-bloc');
       racine.innerHTML = '';
@@ -221,10 +224,11 @@
         d.classList.toggle('zone', zw.has(nom));
         d.classList.toggle('zone-noire', zb.has(nom));
         d.classList.toggle('choisie-cfg', !!(this.decor && this.decor.selection && this.decor.selection.has(nom)));
+        d.classList.toggle('repere', this.reperes.cases.has(nom));
       }
       if (this.dernier) for (const n of this.dernier) if (this.casesEl[n]) this.casesEl[n].classList.add('dernier');
       if (this.echecCase && this.casesEl[this.echecCase]) this.casesEl[this.echecCase].classList.add('echec');
-      for (const nom in this.piecesEl || {}) this.piecesEl[nom].classList.toggle('levee', !!(this.selection && this.selection.de === nom));
+      // (pas d'effet sur la pièce choisie : ça déconcentrait)
       if (this.selection) {
         if (this.selection.de) this.casesEl[this.selection.de].classList.add('selection');
         for (const v of this._ciblesSelection()) {
@@ -373,9 +377,18 @@
     }
 
     _appui(e) {
-      if (e.button === 2) { this.effacerFleches(); return; }
-      if (!this.actif) return;
       const nom = this._caseSous(e);
+      if (this.opts.reperes && nom) {
+        // clic droit : toujours un repère ; clic gauche : seulement là où il ne sert pas à jouer
+        const pourJouer = this.actif && (this._estAMoi(nom) || (this.selection && this._ciblesSelection().includes(nom)));
+        if (e.button === 2 || (e.button === 0 && !pourJouer && !this.selection)) {
+          e.preventDefault();
+          this.trace = { de: nom };
+          return;
+        }
+      }
+      if (e.button === 2) return;
+      if (!this.actif) return;
       if (!nom) return;
       // Coup vers une case cible ?
       if (this.selection && this._ciblesSelection().includes(nom) && !(this._estAMoi(nom) && !this._coupsVers(nom).length)) {
@@ -414,6 +427,21 @@
       for (const n in this.casesEl) this.casesEl[n].classList.toggle('survol', n === sous && this._ciblesSelection().includes(n));
     }
     _lache(e) {
+      if (this.trace) {
+        const de = this.trace.de, vers = this._caseSous(e);
+        this.trace = null;
+        if (!vers) return;
+        const R = this.reperes;
+        if (vers === de) {
+          if (R.cases.has(de)) R.cases.delete(de); else R.cases.add(de);
+          this._surligner();
+        } else {
+          const i = R.fleches.findIndex((f) => f.de === de && f.vers === vers);
+          if (i >= 0) R.fleches.splice(i, 1); else R.fleches.push({ de, vers });
+          this._dessinerFleches();
+        }
+        return;
+      }
       const g = this.glisse;
       if (!g) return;
       this.glisse = null;
@@ -484,6 +512,11 @@
     // ---------- flèches ----------
     // liste de { de, vers, couleur } (de peut être null pour une pose : on entoure la case)
     flechesAfficher(liste) { this.fleches = liste || []; this._dessinerFleches(); }
+    effacerReperes() {
+      if (!this.reperes.cases.size && !this.reperes.fleches.length) return;
+      this.reperes = { cases: new Set(), fleches: [] };
+      this._surligner(); this._dessinerFleches();
+    }
     effacerFleches() { this.fleches = []; this._dessinerFleches(); }
     _dessinerFleches() {
       const svg = this.svg;
@@ -492,7 +525,9 @@
       svg.innerHTML = '';
       const ns = 'http://www.w3.org/2000/svg';
       const centre = (nom) => { const c = this._coord(nom); const e = this._ecran(c.col, c.rang); return { x: (e.x + 0.5) * t, y: (e.y + 0.5) * t }; };
-      for (const f of this.fleches) {
+      const REP = 'rgba(255,170,0,0.8)';
+      const tout = this.reperes.fleches.map((f) => ({ de: f.de, vers: f.vers, couleur: REP })).concat(this.fleches);
+      for (const f of tout) {
         const b = centre(f.vers);
         const coul = f.couleur || 'rgba(80,200,120,0.85)';
         if (!f.de || f.de === f.vers) {

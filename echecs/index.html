@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=15">
+<link rel="stylesheet" href="css/jeu.css?v=18">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -21,7 +21,6 @@
   <header class="entete">
     <h1>Échecs <span class="et">sur mesure</span></h1>
     <nav class="onglets-haut">
-      <button class="bouton discret" data-aller="parties">📜 Mes parties</button>
       <button class="bouton discret" data-aller="persos">🧩 Personnages</button>
       <a class="bouton discret" href="../">⟵ JulGame</a>
     </nav>
@@ -283,8 +282,11 @@
       <button class="bouton" data-nav="suiv" title="Coup suivant (→)">▶</button>
       <button class="bouton" data-nav="fin" title="Position actuelle (↓)">⏭</button>
     </div>
-    <button class="bouton bouton-conseils" id="btn-conseils">💡 Montrer les 3 meilleurs coups</button>
-    <div class="conseils" id="conseils"><div id="conseils-liste"></div></div>
+    <div class="ligne-conseils">
+      <button class="bouton bouton-conseils" id="btn-conseils" title="Tiens le bouton ou la touche enfoncé">💡 <span id="btn-conseils-texte"></span></button>
+      <button class="bouton bouton-touche" id="btn-touche" title="Choisir la touche des 3 meilleurs coups">⌨</button>
+    </div>
+    <div class="conseils" id="conseils" style="display:none"><div id="conseils-liste"></div></div>
     <div class="joueur" id="joueur-bas"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span></div>
     <div class="boutons-partie trois">
       <button class="bouton" id="btn-annuler" title="Annuler ton dernier coup">↶ Annuler</button>
@@ -332,28 +334,19 @@
   </aside>
 </section>
 
-<!-- ============ MES PARTIES ============ -->
-<section id="ecran-parties" class="ecran">
-  <header class="entete">
-    <h1>Mes parties</h1>
-    <nav class="onglets-haut"><button class="bouton" data-aller="accueil">⟵ Retour</button></nav>
-  </header>
-  <div class="liste-parties" id="liste-parties"></div>
-</section>
-
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=15"></script>
-<script src="js/persos.js?v=15"></script>
-<script src="js/pieces.js?v=15"></script>
-<script src="js/regles.js?v=15"></script>
-<script src="js/config.js?v=15"></script>
-<script src="js/moteur.js?v=15"></script>
-<script src="js/son.js?v=15"></script>
-<script src="js/plateau.js?v=15"></script>
-<script src="js/bilan.js?v=15"></script>
-<script src="js/editeur.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
+<script src="js/pieces-svg.js?v=18"></script>
+<script src="js/persos.js?v=18"></script>
+<script src="js/pieces.js?v=18"></script>
+<script src="js/regles.js?v=18"></script>
+<script src="js/config.js?v=18"></script>
+<script src="js/moteur.js?v=18"></script>
+<script src="js/son.js?v=18"></script>
+<script src="js/plateau.js?v=18"></script>
+<script src="js/bilan.js?v=18"></script>
+<script src="js/editeur.js?v=18"></script>
+<script src="js/app.js?v=18"></script>
 </body>
 </html>

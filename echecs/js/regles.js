@@ -35,6 +35,22 @@
     chargees.add(nom);
   }
 
+  // ffish ne garde en mémoire QU'UNE définition des personnages créés à la fois : celle de la dernière
+  // variante préparée. Avant toute opération, on remet la bonne variante (sinon un aperçu ou un tirage
+  // fait dans la configuration change les déplacements des pièces de la partie en cours).
+  let active = null;
+  function nouveauPlateau(uci, fen, is960) {
+    const b = new ff.Board(uci, fen, !!is960);
+    active = uci;
+    return b;
+  }
+  function activer(uci, is960) {
+    if (active === uci) return;
+    const b = new ff.Board(uci);
+    active = uci;
+    b.delete();
+  }
+
   // ---------- Lecture d'une FEN ----------
   // Renvoie { cols, lignes, cases[ligne][col] (ligne 0 = rangée du haut), poches, trait, echecs }
   function lireFen(fen) {
@@ -120,7 +136,7 @@
       assurer(variante.ini);
       this.v = variante;
       this.fen0 = fen0 || Regles.fenDepart(variante);
-      this.board = new ff.Board(variante.uci, this.fen0, !!variante.is960);
+      this.board = nouveauPlateau(variante.uci, this.fen0, variante.is960);
       this.coups = [];
       this.sans = [];
       this.sansEn = [];
@@ -129,13 +145,16 @@
       for (const c of coups || []) this.jouer(c);
     }
     get fen() { return this.fens[this.fens.length - 1]; }
+    _a() { activer(this.v.uci, this.v.is960); return this.board; }
     trait() { return this.board.turn() ? 'w' : 'b'; }
     legaux() {
+      this._a();
       const s = this.board.legalMoves();
       return s ? s.split(' ') : [];
     }
     jouer(uci) {
       if (!this.legaux().includes(uci)) return false;
+      this._a();
       const san = this.board.sanMove(uci);
       const prise = this.board.isCapture(uci);
       this.board.push(uci);
@@ -148,13 +167,14 @@
     }
     annuler() {
       if (!this.coups.length) return;
-      this.board.pop();
+      this._a().pop();
       this.coups.pop(); this.sans.pop(); this.sansEn.pop(); this.prises.pop(); this.fens.pop();
     }
-    echec() { return this.board.isCheck(); }
-    finie() { return this.board.isGameOver(true); }
-    resultat() { return this.board.result(true); }
+    echec() { return this._a().isCheck(); }
+    finie() { return this._a().isGameOver(true); }
+    resultat() { return this._a().result(true); }
     raison() {
+      this._a();
       const res = this.resultat();
       if (this.board.numberLegalMoves() === 0) {
         if (this.board.isCheck()) return 'Échec et mat';
@@ -170,7 +190,7 @@
     }
     // Notation d'une suite de coups depuis la position après « n » coups.
     suiteSan(n, pv, max) {
-      const b = new ff.Board(this.v.uci, this.fen0, !!this.v.is960);
+      const b = nouveauPlateau(this.v.uci, this.fen0, this.v.is960);
       for (let i = 0; i < n; i++) b.push(this.coups[i]);
       const out = [];
       for (const c of pv.slice(0, max || 8)) {
@@ -204,7 +224,7 @@
   }
 
   const Regles = {
-    charger, assurer, francais, lireFen, nomCase, lireCase, decouper, Partie, fen960,
+    charger, assurer, nouveauPlateau, activer, francais, lireFen, nomCase, lireCase, decouper, Partie, fen960,
     get ff() { return ff; },
     fenDepart(v) { return v.fen0 || (v.is960 ? fen960() : ff.startingFen(v.uci)); }
   };

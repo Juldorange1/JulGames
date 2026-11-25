@@ -30,7 +30,7 @@
     onglet: 'coups',
 
     init() {
-      this.plateau = new window.Plateau($('#plateau-bilan'), {});
+      this.plateau = new window.Plateau($('#plateau-bilan'), { reperes: true });
       this.plateau.bloquer();
       // la courbe reste visible au-dessus des onglets
       const g = $('#graphe-bilan');
@@ -222,6 +222,7 @@
 
     // ---------- affichage ----------
     aller(n) {
+      this.plateau.effacerReperes();
       if (!this.partie) return;
       this.n = Math.max(0, Math.min(this.partie.coups.length, n));
       this.afficher(true);

@@ -305,14 +305,14 @@
   function testerVariante(v) {
     try {
       window.Regles.assurer(v.ini);
-      const b = new window.Regles.ff.Board(v.uci, v.fen0, false);
+      const b = window.Regles.nouveauPlateau(v.uci, v.fen0, false);
       const n = b.numberLegalMoves();
       b.delete();
       if (!n) return 'Aucun coup possible au départ.';
       // si c'était aux noirs de jouer, seraient-ils déjà en échec ?
       const champs = v.fen0.split(' ');
       champs[1] = 'b';
-      const b2 = new window.Regles.ff.Board(v.uci, champs.join(' '), false);
+      const b2 = window.Regles.nouveauPlateau(v.uci, champs.join(' '), false);
       const echec = b2.isCheck();
       b2.delete();
       if (echec) return 'Au départ, le roi noir serait déjà en échec.';
