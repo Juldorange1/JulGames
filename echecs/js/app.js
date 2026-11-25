@@ -31,13 +31,14 @@
   }
 
   const options = Object.assign({
-    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
+    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: []
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
   let toucheTenue = false;
   // Profondeur à atteindre avant d'afficher les 3 meilleurs coups (ils ne changent plus ensuite).
-  const PROF_CONSEILS = { sf: 20, fairy: 16 };
+  const PROF_CONSEILS = { sf: 20, fairy: 16, maison: 30 };
+  const typeMoteur = (v) => (v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy');
   const MAX_CONSEILS = 25000; // ms au plus
   function sauverOptions() { ecrire(CLE_OPT, options); }
 
@@ -225,8 +226,50 @@
     else { options.avMin = a; options.avMax = b; }
     sauverOptions();
   }
+  // Pendules : seulement celles que le joueur a créées (minutes + secondes ajoutées à chaque coup).
+  function textePendule(v) { const [m, s] = v.split('+'); return m + ' min' + (+s ? ' + ' + s + ' s' : ''); }
+  function remplirPendules() {
+    const box = $('#choix-pendule');
+    if (!Array.isArray(options.pendules)) options.pendules = [];
+    if (options.pendule !== '0' && !options.pendules.includes(options.pendule)) { options.pendule = '0'; sauverOptions(); }
+    box.querySelectorAll('.puce-pendule, .creer-pendule').forEach((x) => x.remove());
+    for (const v of options.pendules) {
+      const b = document.createElement('button');
+      b.className = 'puce-pendule'; b.dataset.val = v;
+      b.textContent = '⏱ ' + textePendule(v);
+      const x = document.createElement('span');
+      x.className = 'suppr-pendule'; x.textContent = '✕'; x.title = 'Supprimer cette pendule';
+      x.addEventListener('click', (e) => {
+        e.stopPropagation();
+        options.pendules = options.pendules.filter((p) => p !== v);
+        if (options.pendule === v) options.pendule = '0';
+        sauverOptions(); construireJouer();
+      });
+      b.appendChild(x);
+      box.appendChild(b);
+    }
+    const c = document.createElement('button');
+    c.className = 'creer-pendule'; c.textContent = '➕ Créer une pendule';
+    c.onclick = () => {
+      const m = modale('<h2>Nouvelle pendule</h2><div class="pendule-champs"><label>Minutes pour chaque joueur <input type="number" id="np-min" min="1" max="180" value="10"></label>' +
+        '<label>Secondes ajoutées à chaque coup <input type="number" id="np-inc" min="0" max="60" value="0"></label></div>', [
+        { texte: 'Créer', classe: 'principal', action: () => {
+          const mi = Math.max(1, Math.min(180, Math.round(+m.querySelector('#np-min').value || 0)));
+          const inc = Math.max(0, Math.min(60, Math.round(+m.querySelector('#np-inc').value || 0)));
+          const v = mi + '+' + inc;
+          if (!options.pendules.includes(v)) options.pendules.push(v);
+          options.pendule = v; sauverOptions(); construireJouer();
+        } },
+        { texte: 'Annuler' }
+      ]);
+      m.querySelector('#np-min').focus();
+    };
+    box.appendChild(c);
+  }
+
   function construireJouer() {
     remplirBots();
+    remplirPendules();
     majAvantageVoulu();
     const cfg = configChoisie();
     if (cfg.id !== options.jouer) { options.jouer = cfg.id; sauverOptions(); }
@@ -357,7 +400,7 @@
     if (!jeu || jeu.adversaire === 'ami' || camp === jeu.humain) return '';
     const b = botDe(jeu.adversaire);
     if (b.elo || b.rangs) return b.detail;
-    return jeu.variante.moteur === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
+    return jeu.variante.moteur === 'sf' ? 'Stockfish 19' : jeu.variante.moteur === 'maison' ? 'moteur Custom Chess' : 'Fairy-Stockfish';
   }
   function estAuBot() {
     return jeu && !jeu.fin && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain;
@@ -619,10 +662,10 @@
     jeu.analyse = { n, cle, trait, lignes: [] };
     // au tour du Maître, c'est son propre calcul qui donne la barre et les 3 coups
     if (n === p.coups.length && estAuBot() && !botDe(jeu.adversaire).elo && !botDe(jeu.adversaire).rangs) { majAnalyseAffichage(); return; }
-    const type = jeu.variante.moteur === 'sf' ? 'sf' : 'fairy';
+    const type = typeMoteur(jeu.variante);
     window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
       variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-      profondeur: PROF_CONSEILS[type], temps: MAX_CONSEILS, multipv: 3,
+      profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 5000 : MAX_CONSEILS, multipv: 3,
       surInfo: (lignes) => {
         if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
         jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
@@ -681,7 +724,7 @@
     const montrer = conseilsTenus && a.fini;
     const reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: i + 1, couleur: COULEURS_CONSEILS[i] })) : null;
     if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
-    majPronostic(lignes[0] && (a.fini || lignes[0].profondeur >= 12) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
+    majPronostic(lignes[0] && (a.fini || (jeu.variante.moteur !== 'maison' && lignes[0].profondeur >= 12)) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
     const liste = $('#conseils-liste');
     liste.innerHTML = '';
     if (!conseilsTenus) { plateau.effacerFleches(); return; }
@@ -689,9 +732,9 @@
       // pas encore sûr : on n'affiche rien qui pourrait changer
       plateau.effacerFleches();
       const prof = lignes[0] ? lignes[0].profondeur : 0;
-      const but = PROF_CONSEILS[jeu.variante.moteur === 'sf' ? 'sf' : 'fairy'];
+      const but = PROF_CONSEILS[typeMoteur(jeu.variante)];
       const t = document.createElement('div'); t.className = 'petit-gris';
-      t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + ' / ' + but;
+      t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + (jeu.variante.moteur === 'maison' ? '' : ' / ' + but);
       liste.appendChild(t);
       return;
     }
@@ -767,7 +810,6 @@
     const camp = p.trait();
     const prise = p._a().isCapture(uci);
     if (!p.jouer(uci)) return;
-    plateau.effacerReperes();
     if (jeu.temps) jeu.temps[camp] += jeu.pendule.inc;
     if (p.echec()) window.Son.echec();
     else if (uci.includes('@')) window.Son.pose();
@@ -789,7 +831,6 @@
     n = Math.max(0, Math.min(N, n));
     jeu.vue = n >= N ? null : n;
     jeu.analyse = null;
-    plateau.effacerReperes();
     if (jeu.vue != null) plateau.bloquer();
     afficherPartie(true);
     if (jeu.vue == null && !jeu.fin && !estAuBot()) plateau.autoriser(jeu.partie.legaux(), jeu.partie.trait());
@@ -961,7 +1002,7 @@
     const d = new Date(rec.date);
     const date = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
     const lignes = [
-      '[Event "JulGame — Échecs (' + rec.varianteNom.replace(/"/g, '') + ')"]', '[Site "JulGame"]', '[Date "' + date + '"]',
+      '[Event "JulGame — Custom Chess (' + rec.varianteNom.replace(/"/g, '') + ')"]', '[Site "JulGame"]', '[Date "' + date + '"]',
       '[White "' + rec.blancs + '"]', '[Black "' + rec.noirs + '"]', '[Result "' + rec.resultat + '"]'
     ];
     const std = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -1098,6 +1139,8 @@
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
       if (e.key === 'Escape' && !$('#modale').classList.contains('cachee')) { if ($('#modale').dataset.fermable) fermerModale(); return; }
+      // Échap : efface tous les repères faits au clic droit
+      if (e.key === 'Escape' && App.ecranActuel === 'partie' && plateau) { plateau.effacerReperes(); return; }
       if (App.ecranActuel === 'partie' && jeu && e.code === options.touche.code && $('#modale').classList.contains('cachee')) {
         e.preventDefault();
         if (document.activeElement && document.activeElement.blur) document.activeElement.blur();

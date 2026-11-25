@@ -192,6 +192,54 @@
     }
   }
 
+  // Moteur maison (js/maison.js dans un Worker) : même façon de s'en servir que les autres.
+  class MoteurMaison {
+    constructor(role) {
+      this.type = 'maison'; this.role = role || 'jeu'; this.nom = 'Moteur Custom Chess';
+      this.pret = null; this.file = Promise.resolve(); this.gen = 0; this.courante = null; this.w = null; this.id = 0;
+    }
+    demarrer() { if (!this.pret) this.pret = Promise.resolve(); return this.pret; }
+    nouvellePartie() { this.demarrer(); return this.file; }
+    arreter() { this.gen++; if (this.courante) this.courante.stop(); }
+    chercher(o) {
+      const gen = this.gen;
+      const tache = this.file.then(() => (gen === this.gen ? this._chercher(o) : { coup: null, lignes: [], annulee: true }));
+      this.file = tache.catch(() => {});
+      return tache;
+    }
+    _chercher(o) {
+      this.demarrer();
+      if (!this.w) this.w = new Worker('js/maison.js?v=43');
+      const w = this.w, id = ++this.id;
+      let temps = o.temps || 0;
+      if (o.horloge) {
+        const t0 = (o.fen0.split(' ')[1] === 'b') ? 1 : 0;
+        const noir = ((o.coups ? o.coups.length : 0) + t0) % 2 === 1;
+        const reste = noir ? o.horloge.btime : o.horloge.wtime, inc = noir ? o.horloge.binc : o.horloge.winc;
+        temps = Math.max(100, Math.min(6000, reste / 45 + (inc || 0) * 0.6));
+      }
+      if (!temps) temps = o.profondeur ? 20000 : 3000;
+      return new Promise((ok) => {
+        let lignes = [], fait = false;
+        const fini = (annulee, coup) => {
+          if (fait) return;
+          fait = true; w.onmessage = null; this.courante = null;
+          if (o.surInfo && lignes[0]) o.surInfo(lignes);
+          ok({ coup: coup || (lignes[0] && lignes[0].pv[0]) || null, lignes, annulee });
+        };
+        this.courante = { stop: () => { w.terminate(); if (this.w === w) this.w = null; fini(true); } };
+        w.onmessage = (e) => {
+          const r = e.data;
+          if (r.id !== id) return;
+          if (r.type === 'info') { lignes = r.lignes; if (o.surInfo) o.surInfo(lignes); }
+          else { if (r.lignes && r.lignes.length) lignes = r.lignes; fini(false, r.coup); }
+        };
+        w.onerror = (e) => { console.error('Moteur maison', e); w.terminate(); if (this.w === w) this.w = null; fini(true); };
+        w.postMessage({ id, def: o.variante.def, fen0: o.fen0, coups: o.coups || [], temps, profondeur: o.profondeur, multipv: o.multipv || 1 });
+      });
+    }
+  }
+
   function lireInfo(l) {
     const t = l.split(/\s+/);
     const info = { multipv: 1, profondeur: 0, score: null, pv: [] };
@@ -213,10 +261,10 @@
     // role : « jeu » (le bot) ou « analyse » (barre d'avantage, conseils, bilan, configuration)
     obtenir(type, role) {
       const cle = type + ':' + (role || 'jeu');
-      if (!moteurs[cle]) moteurs[cle] = new Moteur(type, role);
+      if (!moteurs[cle]) moteurs[cle] = type === 'maison' ? new MoteurMaison(role) : new Moteur(type, role);
       return moteurs[cle];
     },
-    pourVariante(v, role) { return this.obtenir(v.moteur === 'sf' ? 'sf' : 'fairy', role); },
+    pourVariante(v, role) { return this.obtenir(v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy', role); },
     tous() { return Object.values(moteurs); },
     disponible(type) { return type === 'sf' || (!!window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined'); }
   };

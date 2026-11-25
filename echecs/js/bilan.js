@@ -212,7 +212,7 @@
       const el = $('#bilan-progression');
       el.querySelector('.progression-barre').style.width = (100 * faits / total) + '%';
       const niv = (NIVEAUX[a.niveau] || NIVEAUX.normal).nom;
-      const moteurNom = this.v.moteur === 'sf' ? 'Stockfish 19' : 'Fairy-Stockfish';
+      const moteurNom = this.v.moteur === 'sf' ? 'Stockfish 19' : this.v.moteur === 'maison' ? 'moteur Custom Chess' : 'Fairy-Stockfish';
       el.querySelector('span').textContent = faits < total
         ? 'Analyse ' + niv + ' par ' + moteurNom + ' : ' + faits + ' / ' + total + ' positions…'
         : 'Analyse ' + niv + ' par ' + moteurNom + ' terminée.';

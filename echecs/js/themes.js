@@ -578,6 +578,31 @@
     ocean: 'vagues', dunes: 'vent', aurore: 'vent', collines: 'foret' };
   DECORS.forEach((x) => { if (x.ambiance === undefined && AMBIANCES[x.id]) x.ambiance = AMBIANCES[x.id]; });
 
+  // ---------- calme : tout doit aider à se concentrer ----------
+  // textures du plateau adoucies (moins de contraste dans le grain)
+  function adoucir(c, couleur, force) {
+    const r = toile(c.width, c.height), x = r.getContext('2d');
+    x.drawImage(c, 0, 0);
+    x.globalAlpha = force; x.fillStyle = couleur; x.fillRect(0, 0, c.width, c.height);
+    return r;
+  }
+  function texDe(t) { const [a, b] = t.tex(); return [adoucir(a, t.claire, 0.45), adoucir(b, t.foncee, 0.45)]; }
+  // décors : flous, moins colorés, plus sombres derrière le plateau
+  const AGITES = { etoiles: 1, marbre: 1, code: 1, marches: 1, calculs: 1, circuit: 1, table: 1 };
+  function calmer(c, d) {
+    if (String(d.id).startsWith('uni')) return c;
+    const fort = AGITES[d.id] ? 1 : 0;
+    const k = c.width / 1600;
+    const r = toile(c.width, c.height), x = r.getContext('2d');
+    x.filter = 'blur(' + ((fort ? 5 : 2.5) * k).toFixed(2) + 'px) saturate(' + (fort ? 0.45 : 0.75) + ') brightness(' + (fort ? 0.62 : 0.82) + ')';
+    x.drawImage(c, 0, 0);
+    x.filter = 'none';
+    const g = x.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.1, c.width / 2, c.height / 2, c.width * 0.7);
+    g.addColorStop(0, 'rgba(12,14,18,' + (fort ? 0.5 : 0.32) + ')'); g.addColorStop(1, 'rgba(12,14,18,0.08)');
+    x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+    return r;
+  }
+
   // ---------- application ----------
   const cache = {};
   function url(c) { return 'url("' + c.toDataURL('image/jpeg', 0.9) + '")'; }
@@ -587,7 +612,7 @@
     st.setProperty('--claire', t.claire);
     st.setProperty('--foncee', t.foncee);
     if (t.tex) {
-      if (!cache['t' + t.id]) cache['t' + t.id] = t.tex().map(url);
+      if (!cache['t' + t.id]) cache['t' + t.id] = texDe(t).map(url);
       st.setProperty('--tex-claire', cache['t' + t.id][0]);
       st.setProperty('--tex-foncee', cache['t' + t.id][1]);
     } else {
@@ -598,14 +623,14 @@
   function appliquerDecor(id) {
     const d = DECORS.find((x) => x.id === id) || DECORS[0];
     if (!d.dessiner) { document.body.style.backgroundImage = ''; document.body.classList.remove('avec-decor'); return; }
-    if (!cache['d' + d.id]) cache['d' + d.id] = url(d.dessiner(W, H));
+    if (!cache['d' + d.id]) cache['d' + d.id] = url(calmer(d.dessiner(W, H), d));
     document.body.style.backgroundImage = cache['d' + d.id];
     document.body.classList.add('avec-decor');
   }
   // petits aperçus pour l'écran Paramètres
   function apercuTheme(t) {
     const c = toile(160, 100), ctx = c.getContext('2d');
-    const tex = t.tex ? (cache['p' + t.id] = cache['p' + t.id] || t.tex()) : null;
+    const tex = t.tex ? (cache['p' + t.id] = cache['p' + t.id] || texDe(t)) : null;
     for (let y = 0; y < 5; y++) for (let x = 0; x < 8; x++) {
       const clair = (x + y) % 2 === 0;
       if (tex) { const im = tex[clair ? 0 : 1], pas = (im.width - 40) / 8; ctx.drawImage(im, x * pas, y * pas, 40, 40, x * 20, y * 20, 20, 20); }
@@ -621,8 +646,7 @@
       ctx.fillStyle = g; ctx.fillRect(0, 0, 160, 90);
       return c;
     }
-    const grand = d.dessiner(480, 270);
-    return grand;
+    return calmer(d.dessiner(480, 270), d);
   }
 
   window.Themes = { THEMES, DECORS, appliquerTheme, appliquerDecor, apercuTheme, apercuDecor };

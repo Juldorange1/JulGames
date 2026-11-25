@@ -359,6 +359,29 @@
       return { uci: 'chess', ini: '', moteur: 'sf', fen0: fen, nom: cfg.nom, pieces, but: '', regles: texteRegles(cfg), cfgId: cfg.id };
     }
 
+    // personnages que Fairy-Stockfish ne sait pas jouer exactement -> moteur maison
+    const promosL = R.promos.filter((id) => !estRoi(id)).map((id) => lettres[id]).filter((x) => x && x !== 'k' && x !== 'p');
+    let nbRw = 0, nbRb = 0;
+    for (const ligne of t.pieces) for (const p of ligne) if (p && estRoi(p.perso)) { if (p.camp === 'w') nbRw++; else nbRb++; }
+    const tousCustoms = customs.concat(roiCree ? [roiCree] : []);
+    if (R.but === 'mat' && !R.renfort && !R.obligatoire && tousCustoms.some((p) => !window.Persos.exprimable(p))) {
+      const types = {};
+      for (const id in lettres) {
+        const p = window.Persos.trouver(id);
+        const l = lettres[id];
+        if (!p) continue;
+        types[l] = p.classique ? { perso: null } : { perso: { cases: p.cases || {}, tele: p.tele || {}, lignes: p.lignes || {}, saute: !!p.saute }, royal: l === 'k' };
+      }
+      const def = { cols: cfg.cols, lignes: cfg.lignes, types, promos: promosL.length ? promosL : [], multi: nbRw > 1 || nbRb > 1 };
+      const plusieursM = def.multi;
+      let fenM = fen;
+      if (plusieursM || !R.roque) { const ch = fen.split(' '); ch[2] = '-'; fenM = ch.join(' '); }
+      return {
+        uci: 'maison' + empreinte(JSON.stringify(def) + fenM), ini: '', moteur: 'maison', def, fen0: fenM, nom: cfg.nom, pieces,
+        but: plusieursM ? 'Tous les rois pris' : '', regles: texteRegles(cfg) + (plusieursM ? ' Plusieurs rois : tant qu’il t’en reste plus d’un, l’adversaire peut en prendre ; le dernier se joue comme un vrai roi (échec et mat).' : ''), cfgId: cfg.id
+      };
+    }
+
     const l = [];
     l.push('maxFile = ' + FICH[cfg.cols - 1]);
     l.push('maxRank = ' + cfg.lignes);
@@ -487,6 +510,15 @@
   }
 
   function testerVariante(v) {
+    if (v.moteur === 'maison') {
+      try {
+        const j = new window.Maison.Jeu(v.def, v.fen0);
+        if (!j.legaux().length) return 'Aucun coup possible au départ.';
+        if (j.enEchec(0)) return 'Au départ, le roi blanc serait déjà en échec.';
+        if (j.enEchec(1)) return 'Au départ, le roi noir serait déjà en échec.';
+        return null;
+      } catch (e) { console.error(e); return 'Cette configuration est refusée par les règles.'; }
+    }
     try {
       window.Regles.assurer(v.ini);
       const b = window.Regles.nouveauPlateau(v.uci, v.fen0, false);
@@ -532,7 +564,7 @@
       const v = construire(cfg, tirage(cfg));
       if (testerVariante(v)) continue;
       i++;
-      const av = await evaluer(v, { profondeur: 14, temps: 900 });
+      const av = await evaluer(v, v.moteur === 'maison' ? { profondeur: 30, temps: 600 } : { profondeur: 14, temps: 900 });
       if (av == null) { if (!meilleur) meilleur = { variante: v, avantage: 0, ecart: 99 }; continue; }
       const dans = av >= cfg.avMin - 1e-9 && av <= cfg.avMax + 1e-9;
       const ecart = dans ? 0 : Math.min(Math.abs(av - cfg.avMin), Math.abs(av - cfg.avMax));

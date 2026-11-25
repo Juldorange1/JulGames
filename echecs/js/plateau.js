@@ -379,13 +379,12 @@
     _appui(e) {
       const nom = this._caseSous(e);
       if (this.opts.reperes) {
-        // comme sur chess.com : clic droit = repère (case ou flèche en glissant), clic gauche = tout effacer
+        // clic droit = repère (case ou flèche en glissant) ; on les efface tous avec la touche Échap
         if (e.button === 2) {
           e.preventDefault();
           this.trace = nom ? { de: nom } : null;
           return;
         }
-        if (e.button === 0) this.effacerReperes();
       }
       if (e.button === 2) return;
       if (!this.actif) return;

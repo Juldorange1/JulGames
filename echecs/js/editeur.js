@@ -558,7 +558,7 @@
       box.innerHTML = '';
       const classique = !!p.classique;
       const R = window.Persos.PORTEE;
-      const avertis = classique ? {} : window.Persos.analyser(p).avertis;
+      const avertis = {};
       const D = window.Persos.DIRS;
       const dirDe = (dx, dy) => Object.keys(D).find((k) => D[k][0] === Math.sign(dx) && D[k][1] === Math.sign(dy));
       const enLigne = (dx, dy) => (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) && p.lignes[dirDe(dx, dy)];

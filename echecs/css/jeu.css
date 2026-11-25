@@ -585,3 +585,10 @@ body.avec-decor .note-moteur, body.avec-decor .options-generales { background: r
 /* avantage voulu dans « Jouer » */
 .jo-avantage { background: var(--panneau); border-radius: 12px; padding: 6px 12px; }
 .jo-avantage input { width: 72px; }
+
+/* pendules créées */
+.puce-pendule { display: inline-flex; align-items: center; gap: 6px; }
+.suppr-pendule { opacity: .55; padding: 0 2px; }
+.suppr-pendule:hover { opacity: 1; color: #e06a5a; }
+.pendule-champs label { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 10px 0; font-size: 17px; }
+.pendule-champs input { width: 90px; font-size: 17px; padding: 4px 6px; }

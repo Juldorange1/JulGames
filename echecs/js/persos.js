@@ -144,6 +144,15 @@
     return { betza: s, avertis };
   }
   function betza(p) { return analyser(p).betza; }
+  // Fairy-Stockfish sait-il jouer ce personnage exactement ? (sinon : moteur maison, qui sait tout faire)
+  function exprimable(p) {
+    if (p.classique) return true;
+    const cle = (o) => Object.keys(o || {}).filter((k) => o[k]).map((k) => k.split(',').map(Number));
+    const tele = cle(p.tele), cases = cle(p.cases);
+    if (tele.some(([dx, dy]) => !atome(dx, dy))) return false;
+    if (p.saute) return cases.every(([dx, dy]) => atome(dx, dy));
+    return !cases.length;
+  }
 
   function description(p) {
     if (p.classique) return p.desc;
@@ -156,16 +165,12 @@
     if (nT) m.push('se téléporte sur ' + nT + ' case' + (nT > 1 ? 's' : '') + ' ✦');
     if (!m.length) return 'Il ne bouge pas encore : clique des cases.';
     let t = 'Il ' + m.join(' et ') + '. ' + (p.saute ? 'Il saute par-dessus les pièces.' : 'Il est bloqué par les pièces.');
-    const a = Object.values(analyser(p).avertis);
-    if (a.includes('saute')) t += ' ⚠ jaune : il saute quand même.';
-    if (a.includes('bloque')) t += ' ⚠ orange : au-delà de 3 cases, il est bloqué quand même.';
-    const loin = Object.keys(p.cases || {}).some((k) => { const [dx, dy] = k.split(',').map(Number); return p.cases[k] && !caseJouable(dx, dy); });
-    if (a.includes('ignore') || loin) t += ' ✖ rouge : case que le moteur ne sait pas jouer (saut trop loin en biais, ou cases d’avant manquantes sur la ligne).';
+    if (!p.saute && nC) t += ' S’il est bloqué, il passe par un autre chemin de ses cases vertes.';
     return t;
   }
 
   const Persos = {
-    DIRS, CLASSIQUES, PORTEE, caseJouable, betza, analyser, description,
+    DIRS, CLASSIQUES, PORTEE, caseJouable: () => true, betza, analyser, exprimable, description,
     tous() { return CLASSIQUES.map((p) => Object.assign({}, p)).concat(lire()); },
     crees: lire,
     trouver(id) { return this.tous().find((p) => p.id === id) || null; },

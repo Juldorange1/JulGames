@@ -131,8 +131,70 @@
   }
 
   // ---------- Une partie ----------
+  // Partie jouée avec le moteur maison (personnages que Fairy-Stockfish ne sait pas jouer exactement).
+  class PartieMaison {
+    constructor(variante, fen0, coups) {
+      this.v = variante;
+      this.fen0 = fen0 || variante.fen0;
+      this.j = new window.Maison.Jeu(variante.def, this.fen0);
+      this.coups = []; this.sans = []; this.sansEn = []; this.prises = [];
+      this.fens = [this.j.fen()];
+      this.reps = [this.j.cleRepetition()];
+      this._c = null;
+      for (const c of coups || []) if (!this.jouer(c)) break;
+    }
+    get fen() { return this.fens[this.fens.length - 1]; }
+    _cache() {
+      if (!this._c || this._c.n !== this.coups.length) {
+        const cle = this.reps[this.reps.length - 1];
+        const fin = this.j.finPartie(this.reps.filter((k) => k === cle).length);
+        this._c = { n: this.coups.length, legaux: this.j.legaux(), fin };
+      }
+      return this._c;
+    }
+    trait() { return this.j.trait ? 'b' : 'w'; }
+    legaux() { return this._cache().legaux.map((m) => this.j.uci(m)); }
+    jouer(uci) {
+      const m = this._cache().legaux.find((x) => this.j.uci(x) === uci);
+      if (!m) return false;
+      const san = this.j.san(m);
+      const prise = this.j.b[m.vers] > 1 || m.ep;
+      this.j.jouerCoup(m);
+      this.coups.push(uci); this.sans.push(francais(san, this.v)); this.sansEn.push(san); this.prises.push(prise);
+      this.fens.push(this.j.fen()); this.reps.push(this.j.cleRepetition());
+      return true;
+    }
+    annuler() {
+      if (!this.coups.length) return;
+      this.j.annulerCoup();
+      this.coups.pop(); this.sans.pop(); this.sansEn.pop(); this.prises.pop(); this.fens.pop(); this.reps.pop();
+    }
+    echec() { return this.j.enEchec(); }
+    // petite partie de l'interface de ffish dont l'application se sert
+    _a() {
+      return { isCapture: (u) => { const m = this._cache().legaux.find((x) => this.j.uci(x) === u); return !!m && (this.j.b[m.vers] > 1 || m.ep); } };
+    }
+    finie() { return !!this._cache().fin; }
+    resultat() { const f = this._cache().fin; return f ? f.res : '*'; }
+    raison() { const f = this._cache().fin; return f ? f.raison : ''; }
+    suiteSan(n, pv, max) {
+      const j = new window.Maison.Jeu(this.v.def, this.fen0);
+      for (let i = 0; i < n; i++) { const m = j.trouverUci(this.coups[i]); if (!m) break; j.jouerCoup(m); }
+      const out = [];
+      for (const c of pv.slice(0, max || 8)) {
+        const m = j.trouverUci(c);
+        if (!m) break;
+        out.push(francais(j.san(m), this.v));
+        j.jouerCoup(m);
+      }
+      return out;
+    }
+    detruire() {}
+  }
+
   class Partie {
     constructor(variante, fen0, coups) {
+      if (variante.moteur === 'maison') return new PartieMaison(variante, fen0, coups);
       assurer(variante.ini);
       this.v = variante;
       this.fen0 = fen0 || Regles.fenDepart(variante);

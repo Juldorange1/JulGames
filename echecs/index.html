@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <script>/* ?muet dans l'adresse : aucun son (tests automatiques) */if(/[?&]muet\b/.test(location.search)){(function(){var A=window.AudioContext||window.webkitAudioContext;if(A){var M=function(o){var c=new A(o);var g=c.createGain();try{Object.defineProperty(c,'destination',{value:g})}catch(e){}try{c.suspend()}catch(e){}c.resume=function(){return Promise.resolve()};return c};M.prototype=A.prototype;window.AudioContext=window.webkitAudioContext=M;}var P=HTMLMediaElement.prototype;P.play=function(){this.muted=true;return Promise.resolve()};})()}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Échecs — JulGame</title>
+<title>Custom Chess — JulGame</title>
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 42;
+  var ICI = 43;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,18 +21,18 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=42">
+<link rel="stylesheet" href="css/jeu.css?v=43">
 </head>
 <body>
 <div id="chargement" class="chargement">
-  <div class="chargement-titre">Échecs</div>
+  <div class="chargement-titre">Custom Chess</div>
   <div class="chargement-texte" id="chargement-texte">Chargement des règles…</div>
 </div>
 
 <!-- ============ MENU PRINCIPAL ============ -->
 <section id="ecran-accueil" class="ecran">
   <header class="entete">
-    <h1>Échecs <span class="et">sur mesure</span></h1>
+    <h1>Custom <span class="et">Chess</span></h1>
     <nav class="onglets-haut">
       <a class="bouton discret" href="../">⟵ JulGame</a>
     </nav>
@@ -48,7 +48,7 @@
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 42</div>
+    <div class="note-moteur centre">Version 43</div>
   </div>
 </section>
 
@@ -185,11 +185,6 @@
       <h2>Pendule</h2>
       <div class="choix ligne" id="choix-pendule">
         <button data-val="0">Sans</button>
-        <button data-val="3+2">3+2</button>
-        <button data-val="5+3">5+3</button>
-        <button data-val="10+5">10+5</button>
-        <button data-val="15+10">15+10</button>
-        <button data-val="30+0">30 min</button>
       </div>
       <div id="bloc-reflexion">
         <h2>Temps de réflexion du bot (sans pendule)</h2>
@@ -409,19 +404,20 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=42"></script>
-<script src="js/cartes.js?v=42"></script>
-<script src="js/themes.js?v=42"></script>
-<script src="js/pieces-svg.js?v=42"></script>
-<script src="js/persos.js?v=42"></script>
-<script src="js/pieces.js?v=42"></script>
-<script src="js/regles.js?v=42"></script>
-<script src="js/config.js?v=42"></script>
-<script src="js/moteur.js?v=42"></script>
-<script src="js/son.js?v=42"></script>
-<script src="js/plateau.js?v=42"></script>
-<script src="js/bilan.js?v=42"></script>
-<script src="js/editeur.js?v=42"></script>
-<script src="js/app.js?v=42"></script>
+<script src="js/bots.js?v=43"></script>
+<script src="js/cartes.js?v=43"></script>
+<script src="js/themes.js?v=43"></script>
+<script src="js/pieces-svg.js?v=43"></script>
+<script src="js/persos.js?v=43"></script>
+<script src="js/pieces.js?v=43"></script>
+<script src="js/maison.js?v=43"></script>
+<script src="js/regles.js?v=43"></script>
+<script src="js/config.js?v=43"></script>
+<script src="js/moteur.js?v=43"></script>
+<script src="js/son.js?v=43"></script>
+<script src="js/plateau.js?v=43"></script>
+<script src="js/bilan.js?v=43"></script>
+<script src="js/editeur.js?v=43"></script>
+<script src="js/app.js?v=43"></script>
 </body>
 </html>
