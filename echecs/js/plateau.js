@@ -219,7 +219,7 @@
       const zw = zs instanceof Set ? zs : (zs.w || new Set()), zb = zs instanceof Set ? new Set() : (zs.b || new Set());
       for (const nom in this.casesEl) {
         const d = this.casesEl[nom];
-        d.classList.remove('dernier', 'selection', 'cible', 'cible-prise', 'echec');
+        d.classList.remove('dernier', 'selection', 'cible', 'cible-prise', 'echec', 'premove');
         d.classList.toggle('trou', trous.has(nom));
         d.classList.toggle('zone', zw.has(nom));
         d.classList.toggle('zone-noire', zb.has(nom));
@@ -228,6 +228,7 @@
       }
       if (this.dernier) for (const n of this.dernier) if (this.casesEl[n]) this.casesEl[n].classList.add('dernier');
       if (this.echecCase && this.casesEl[this.echecCase]) this.casesEl[this.echecCase].classList.add('echec');
+      if (this.premove) for (const n of this.premove) if (this.casesEl[n]) this.casesEl[n].classList.add('premove');
       // (pas d'effet sur la pièce choisie : ça déconcentrait)
       if (this.selection) {
         if (this.selection.de) this.casesEl[this.selection.de].classList.add('selection');
@@ -403,7 +404,15 @@
         return;
       }
       this.selection = null;
+      if (this.opts.surClicVide) this.opts.surClicVide();
       this._surligner(); this._poches();
+    }
+
+    // pré-move (comme sur chess.com) : cases de départ et d'arrivée en rouge
+    marquerPremove(uci) {
+      const d = uci ? window.Regles.decouper(uci) : null;
+      this.premove = d ? [d.de, d.vers].filter(Boolean) : null;
+      this._surligner();
     }
 
     _commencerGlisse(nom, e, dejaChoisie) {

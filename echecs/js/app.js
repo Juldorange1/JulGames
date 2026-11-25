@@ -37,9 +37,10 @@
   let conseilsTenus = false;
   let toucheTenue = false;
   // Profondeur à atteindre avant d'afficher les 3 meilleurs coups (ils ne changent plus ensuite).
-  const PROF_CONSEILS = { sf: 20, fairy: 16, maison: 30 };
+  // profondeur fixe : la même position donne toujours les mêmes 3 meilleurs coups, quel que soit le bot
+  const PROF_CONSEILS = { sf: 20, fairy: 16, maison: 6 };
   const typeMoteur = (v) => (v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy');
-  const MAX_CONSEILS = 25000; // ms au plus
+  const MAX_CONSEILS = 60000; // ms au plus (en général la profondeur fixe est atteinte bien avant)
   function sauverOptions() { ecrire(CLE_OPT, options); }
 
   // ---------- évaluations ----------
@@ -577,11 +578,20 @@
     const p = jeu.partie;
     if (p.finie()) { terminer(p.resultat(), p.raison()); return; }
     const monJeton = ++jeton;
+    if (!jeu.premove && plateau.premove) plateau.marquerPremove(null);
     relancerAnalyse();
     if (estAuBot()) {
-      plateau.bloquer();
+      // pendant que le bot réfléchit, on peut préparer son coup (pré-move)
+      if (jeu.vue == null) plateau.autoriser(window.Regles.premoves(jeu.variante, p.fen), p.trait() === 'w' ? 'b' : 'w');
+      else plateau.bloquer();
       lancerBot(monJeton);
     } else {
+      // pré-move prêt : on le joue tout de suite s'il est permis
+      if (jeu.premove) {
+        const u = jeu.premove;
+        jeu.premove = null; plateau.marquerPremove(null);
+        if (jeu.vue == null && p.legaux().includes(u)) { setTimeout(() => { if (jeu && !jeu.fin && !estAuBot() && jeu.partie === p) jouerCoup(u, true); }, 120); return; }
+      }
       const camp = p.trait();
       if (jeu.vue == null) plateau.autoriser(p.legaux(), camp);
       etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : 'À toi de jouer.');
@@ -709,7 +719,7 @@
     const type = typeMoteur(jeu.variante);
     window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
       variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-      profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 5000 : MAX_CONSEILS, multipv: 3,
+      profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 3, deterministe: true,
       surInfo: (lignes) => {
         if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
         jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
@@ -788,7 +798,7 @@
       const prof = lignes[0] ? lignes[0].profondeur : 0;
       const but = PROF_CONSEILS[typeMoteur(jeu.variante)];
       const t = document.createElement('div'); t.className = 'petit-gris';
-      t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + (jeu.variante.moteur === 'maison' ? '' : ' / ' + but);
+      t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + ' / ' + but;
       liste.appendChild(t);
       return;
     }
@@ -855,6 +865,11 @@
   }
 
   function surCoupHumain(uci) {
+    if (jeu && !jeu.fin && jeu.vue == null && estAuBot()) {
+      jeu.premove = uci;
+      plateau.marquerPremove(uci);
+      return;
+    }
     if (!jeu || jeu.fin || estAuBot() || jeu.vue != null) return;
     jouerCoup(uci, false);
   }
@@ -1129,7 +1144,9 @@
   // ---------- démarrage ----------
   async function demarrer() {
     try { window.Pieces.choisirJeu(options.pieces); window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
-    plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true });
+    plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true,
+      // un clic ailleurs sur le plateau annule le pré-move
+      surClicVide: () => { if (jeu && jeu.premove) { jeu.premove = null; plateau.marquerPremove(null); } } });
     plateauApercu = new window.Plateau($('#plateau-apercu'), {});
     plateauApercu.bloquer();
     window.Son.regler(options.sons);

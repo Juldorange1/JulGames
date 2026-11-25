@@ -617,3 +617,6 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 @keyframes coulee { from { background-position: 0 0; } to { background-position: 0 256px; } }
 @keyframes lueur { from { filter: brightness(.92) saturate(1); } to { filter: brightness(1.18) saturate(1.25); } }
 @media (prefers-reduced-motion: reduce) { body.lave-claire .case.claire, body.lave-foncee .case.foncee { animation: none; } }
+
+/* pré-move */
+.case.premove::after { content: ''; position: absolute; inset: 0; background: rgba(220, 60, 60, .5); }

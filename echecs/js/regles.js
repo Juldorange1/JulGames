@@ -285,7 +285,24 @@
     return noirs + '/pppppppp/8/8/8/8/PPPPPPPP/' + noirs.toUpperCase() + ' w ' + roque + ' - 0 1';
   }
 
+  // Pré-moves possibles : tous les coups qu'on pourrait jouer après n'importe quelle réponse de l'adversaire.
+  function premoves(v, fen) {
+    const out = new Set();
+    let P = null;
+    try {
+      P = new Partie(v, fen, []);
+      for (const m of P.legaux()) {
+        if (!P.jouer(m)) continue;
+        for (const x of P.legaux()) out.add(x);
+        P.annuler();
+      }
+    } catch (e) { /* rien */ }
+    if (P) P.detruire();
+    return [...out];
+  }
+
   const Regles = {
+    premoves,
     charger, assurer, nouveauPlateau, activer, francais, lireFen, nomCase, lireCase, decouper, Partie, fen960,
     get ff() { return ff; },
     fenDepart(v) { return v.fen0 || (v.is960 ? fen960() : ff.startingFen(v.uci)); }

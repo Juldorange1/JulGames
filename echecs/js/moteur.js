@@ -25,7 +25,8 @@
     if (!window.crossOriginIsolated) return 1;
     const total = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
     const analyse = Math.max(1, Math.round(total / 3));
-    return role === 'analyse' ? analyse : Math.max(1, total - analyse);
+    // analyse : un seul cœur, pour que la même position donne toujours les mêmes résultats
+    return role === 'analyse' ? 1 : Math.max(1, total - analyse);
   }
 
   class Moteur {
@@ -155,6 +156,8 @@
         this.envoyer('setoption name UCI_LimitStrength value false');
       }
       this.envoyer('setoption name MultiPV value ' + (o.multipv || 1));
+      // analyse : mémoire vidée avant chaque calcul, pour ne dépendre ni du bot ni des positions vues avant
+      if (o.deterministe || this.role === 'analyse') this.envoyer('setoption name Clear Hash');
       await this.synchro();
 
       const rech = { annulee: false };
@@ -209,7 +212,7 @@
     }
     _chercher(o) {
       this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=46');
+      if (!this.w) this.w = new Worker('js/maison.js?v=47');
       const w = this.w, id = ++this.id;
       let temps = o.temps || 0;
       if (o.horloge) {
