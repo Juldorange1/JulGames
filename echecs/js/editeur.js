@@ -195,6 +195,8 @@
         const changer = (dn) => {
           const v = Math.max(0, Math.min(max, (cfg.auHasard[p.id] || 0) + dn));
           if (v) cfg.auHasard[p.id] = v; else delete cfg.auHasard[p.id];
+          // un roi au hasard : c'est LE roi de chaque camp (on enlève les autres rois)
+          if (v && window.Config.estRoi(p.id) && window.Config.garderUnRoi(cfg, p.id)) window.App.bulle('Le roi sera placé au hasard : les autres rois ont été enlevés.');
           this.majHasard(); this.change();
         };
         moins.addEventListener('click', () => changer(-1));
@@ -299,6 +301,12 @@
       P.faites.add(cle);
       const cfg = this.cfg, o = P.outil;
       let pose = false;
+      if (o.type === 'perso' && window.Config.estRoi(o.perso)) {
+        // un roi posé à la main remplace le roi mis au hasard
+        let enleve = false;
+        for (const id of Object.keys(cfg.auHasard || {})) if (window.Config.estRoi(id)) { delete cfg.auHasard[id]; enleve = true; }
+        if (enleve) window.App.bulle('Roi posé à la main : le roi au hasard a été enlevé.');
+      }
       if (o.type === 'perso' || o.type === 'hasard') {
         cfg.trous[r][c] = false;
         cfg.pieces[r][c] = o.type === 'perso' ? { camp: this.camp, perso: o.perso } : { camp: this.camp, hasard: '' };

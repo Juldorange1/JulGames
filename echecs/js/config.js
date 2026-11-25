@@ -51,6 +51,8 @@
     c.trousHasard = 0;
     c.miroir = false;
     c.auHasard = c.auHasard || {};
+    const roiH = Object.keys(c.auHasard).find((id) => c.auHasard[id] > 0 && estRoi(id));
+    if (roiH) garderUnRoi(c, roiH);
     if (c.avMin == null) c.avMin = -0.5;
     if (c.avMax == null) c.avMax = 0.5;
     return c;
@@ -62,6 +64,16 @@
     if (id === 'roi') return true;
     const p = window.Persos && window.Persos.trouver(id);
     return !!(p && p.base === 'k');
+  }
+
+  // Le roi « id » est mis au hasard : on enlève les rois posés à la main et les autres rois au hasard.
+  // Renvoie vrai si quelque chose a été enlevé.
+  function garderUnRoi(cfg, id) {
+    let enleve = false;
+    for (const x of Object.keys(cfg.auHasard || {})) if (x !== id && estRoi(x)) { delete cfg.auHasard[x]; enleve = true; }
+    if (cfg.auHasard[id] > 1) cfg.auHasard[id] = 1;
+    for (const l of cfg.pieces) for (let c = 0; c < l.length; c++) if (l[c] && l[c].perso && estRoi(l[c].perso)) { l[c] = null; enleve = true; }
+    return enleve;
   }
 
   // Pièces posées au hasard : { idPerso: nombre }, les mêmes pour les blancs et pour les noirs.
@@ -407,9 +419,9 @@
       const p = window.Persos.trouver(id);
       if (p && !window.Persos.betza(p)) return '« ' + p.nom + ' » n’a aucun déplacement.';
     }
-    // Essai réel dans les règles (avec du hasard : il suffit qu'un tirage sur 12 soit jouable)
+    // Essai réel dans les règles (avec du hasard : il suffit qu'un tirage sur 60 soit jouable)
     let erreur = null;
-    for (let n = 0; n < (aleatoire(cfg) ? 12 : 1); n++) {
+    for (let n = 0; n < (aleatoire(cfg) ? 60 : 1); n++) {
       erreur = testerVariante(construire(cfg, tirage(cfg)));
       if (!erreur) return null;
     }
@@ -456,11 +468,14 @@
     if (!aleatoire(cfg)) return { variante: construire(cfg, tirage(cfg)), avantage: null };
     let meilleur = null;
     const essais = 30;
-    for (let i = 1; i <= essais; i++) {
+    let i = 0;
+    // les tirages impossibles (roi en échec, aucun coup…) ne comptent pas : on en essaie jusqu'à 600
+    for (let t = 0; t < 600 && i < essais; t++) {
       const v = construire(cfg, tirage(cfg));
       if (testerVariante(v)) continue;
+      i++;
       const av = await evaluer(v, { profondeur: 14, temps: 900 });
-      if (av == null) continue;
+      if (av == null) { if (!meilleur) meilleur = { variante: v, avantage: 0, ecart: 99 }; continue; }
       const dans = av >= cfg.avMin - 1e-9 && av <= cfg.avMax + 1e-9;
       const ecart = dans ? 0 : Math.min(Math.abs(av - cfg.avMin), Math.abs(av - cfg.avMax));
       if (!meilleur || ecart < meilleur.ecart) meilleur = { variante: v, avantage: av, ecart };
@@ -474,7 +489,7 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, vide, simple, lotHasard, estRoi, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, vide, simple, lotHasard, estRoi, garderUnRoi, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     trouver(id) { if (id === 'classique') return classique(); const c = liste().find((x) => x.id === id); return c ? simple(c) : null; },
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
