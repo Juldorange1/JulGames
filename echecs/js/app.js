@@ -148,7 +148,7 @@
     if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Partie normale') + ')';
     const note = $('#note-moteur');
     if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
-    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs du processeur (la moitié, pour rester fluide).' : '';
   }
 
   // ---------- paramètres : thème du plateau, décor de fond ----------
@@ -1004,8 +1004,11 @@
     const haut = bas === 'w' ? 'b' : 'w';
     for (const [id, camp] of [['#joueur-haut', haut], ['#joueur-bas', bas]]) {
       const el = $(id + ' .pendule');
-      el.textContent = texteTemps(jeu.temps[camp]);
-      el.classList.toggle('peu', jeu.temps[camp] < 20000);
+      // on ne touche à l'affichage que s'il change (moins de travail pour le navigateur)
+      const t = texteTemps(jeu.temps[camp]);
+      if (el.textContent !== t) el.textContent = t;
+      const peu = jeu.temps[camp] < 20000;
+      if (el.classList.contains('peu') !== peu) el.classList.toggle('peu', peu);
     }
   }
 

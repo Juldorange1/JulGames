@@ -20,13 +20,12 @@
     return scripts[src];
   }
 
-  // Cœurs : le moteur du bot en prend la plus grosse part, celui de l'analyse (barre, conseils) le reste.
+  // Cœurs : le bot n'en prend que la moitié (4 au plus) pour laisser le jeu fluide et l'ordinateur au calme ;
+  // l'analyse (barre, conseils) un seul, pour que la même position donne toujours les mêmes résultats.
   function nbThreads(role) {
     if (!window.crossOriginIsolated) return 1;
-    const total = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1));
-    const analyse = Math.max(1, Math.round(total / 3));
-    // analyse : un seul cœur, pour que la même position donne toujours les mêmes résultats
-    return role === 'analyse' ? 1 : Math.max(1, total - analyse);
+    if (role === 'analyse') return 1;
+    return Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
   }
 
   class Moteur {
@@ -212,7 +211,7 @@
     }
     _chercher(o) {
       this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=47');
+      if (!this.w) this.w = new Worker('js/maison.js?v=48');
       const w = this.w, id = ++this.id;
       let temps = o.temps || 0;
       if (o.horloge) {

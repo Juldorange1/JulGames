@@ -155,8 +155,8 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .case.claire .coord { color: var(--foncee); }
 .case.foncee .coord { color: var(--claire); }
 .calque-pieces { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-.piece { position: absolute; left: 0; top: 0; background-size: 100% 100%; transition: transform .18s ease; will-change: transform; }
-.piece.glissee { z-index: 10; transition: none; transform-origin: center; filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)); }
+.piece { position: absolute; left: 0; top: 0; background-size: 100% 100%; background-repeat: no-repeat; transition: transform .18s ease; }
+.piece.glissee { z-index: 10; transition: none; will-change: transform; transform-origin: center; filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)); }
 .piece .marque {
   position: absolute; right: 2%; bottom: 2%; min-width: 18%; max-width: 70%; height: 17%; padding: 0 3%; border-radius: 999px;
   background: rgba(227,177,90,.9); color: #1b1408; box-shadow: 0 0 0 1px rgba(0,0,0,.45);
@@ -612,10 +612,9 @@ body.pieces-3d .piece:not(.de):not(.inconnue) { background-size: contain; backgr
 /* lave en fusion : elle coule doucement vers le bas et rougeoie */
 body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.echec) {
   background-image: var(--lave) !important; background-size: 256px 256px !important; background-attachment: fixed !important;
-  animation: coulee 30s linear infinite, lueur 3.5s ease-in-out infinite alternate;
+  animation: coulee 30s steps(240) infinite;
 }
 @keyframes coulee { from { background-position: 0 0; } to { background-position: 0 256px; } }
-@keyframes lueur { from { filter: brightness(.92) saturate(1); } to { filter: brightness(1.18) saturate(1.25); } }
 @media (prefers-reduced-motion: reduce) { body.lave-claire .case.claire, body.lave-foncee .case.foncee { animation: none; } }
 
 /* pré-move */
