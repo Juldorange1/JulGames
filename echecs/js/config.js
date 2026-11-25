@@ -51,6 +51,9 @@
     c.trousHasard = 0;
     c.miroir = false;
     c.auHasard = c.auHasard || {};
+    // où vont les pièces au hasard : « miroir » (dans sa moitié, les noirs pareil en face) ou « zones » (peintes)
+    if (c.hasardOu !== 'zones') c.hasardOu = 'miroir';
+    if (!c.zonesH || c.zonesH.length !== c.lignes) c.zonesH = grille(c.lignes, c.cols, false);
     const roiH = Object.keys(c.auHasard).find((id) => c.auHasard[id] > 0 && estRoi(id));
     if (roiH) garderUnRoi(c, roiH);
     if (c.avMin == null) c.avMin = -0.5;
@@ -129,7 +132,21 @@
     // 1 bis. pièces au hasard : les blancs sont posés au hasard dans leur moitié (un pion jamais sur la première
     //        ni la dernière rangée), puis les noirs reçoivent exactement la même disposition, en miroir.
     const lot = lotHasard(cfg).sort((a, b) => (b === 'pion') - (a === 'pion'));
-    if (lot.length) {
+    const parZones = cfg.hasardOu === 'zones';
+    if (lot.length && parZones) {
+      // chaque couleur au hasard dans les cases peintes pour elle
+      for (const camp of ['w', 'b']) {
+        const libres = [];
+        for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) if (cfg.zonesH && cfg.zonesH[r] && cfg.zonesH[r][c] === camp && !pieces[r][c] && !trous[r][c]) libres.push([r, c]);
+        melanger(libres);
+        for (const id of lot) {
+          const i = libres.findIndex(([r]) => id !== 'pion' || (r !== 0 && r !== L - 1));
+          if (i < 0) continue;
+          const [r, c] = libres.splice(i, 1)[0];
+          pieces[r][c] = { camp, perso: id };
+        }
+      }
+    } else if (lot.length) {
       const pionOk = (r) => r !== 0 && r !== L - 1;
       const libresDe = (camp) => {
         const l = [];
@@ -380,13 +397,18 @@
     }
     if (lot.length) {
       const moitie = Math.floor(cfg.lignes / 2);
+      const zones = cfg.hasardOu === 'zones';
+      const zH = (r, c) => cfg.zonesH && cfg.zonesH[r] ? cfg.zonesH[r][c] : false;
       let libresW = 0, libresB = 0;
       for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
         if (cfg.pieces[r][c] || cfg.trous[r][c]) continue;
+        if (zones) { if (zH(r, c) === 'w') libresW++; if (zH(r, c) === 'b') libresB++; continue; }
         if (r < moitie) libresW++;
         if (r >= cfg.lignes - moitie) libresB++;
       }
-      if (lot.length > Math.min(libresW, libresB)) return 'Trop de pièces au hasard : il n’y a que ' + Math.min(libresW, libresB) + ' cases libres dans chaque moitié du plateau.';
+      if (zones && !libresW) return 'Peins la zone des blancs (cases où leurs pièces au hasard peuvent apparaître).';
+      if (zones && !libresB) return 'Peins la zone des noirs (cases où leurs pièces au hasard peuvent apparaître).';
+      if (lot.length > Math.min(libresW, libresB)) return 'Trop de pièces au hasard : il n’y a que ' + Math.min(libresW, libresB) + (zones ? ' cases libres dans une des zones.' : ' cases libres dans chaque moitié du plateau.');
     }
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];

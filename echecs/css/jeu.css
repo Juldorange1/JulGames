@@ -40,7 +40,7 @@ p { margin: 6px 0; line-height: 1.4; }
 /* ---------- écrans ---------- */
 .ecran { display: none; height: 100vh; }
 .ecran.visible { display: flex; }
-#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos { flex-direction: column; }
+#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres { flex-direction: column; }
 .entete { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--bord); background: rgba(0,0,0,.15); }
 .entete h1 { font-size: 30px; color: var(--accent); }
 .entete .et { color: var(--texte); font-weight: 400; }
@@ -158,12 +158,12 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .piece { position: absolute; left: 0; top: 0; background-size: 100% 100%; transition: transform .18s ease; will-change: transform; }
 .piece.glissee { z-index: 10; transition: none; transform-origin: center; filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)); }
 .piece .marque {
-  position: absolute; right: 0; bottom: 0; min-width: 32%; max-width: 100%; height: 32%; padding: 0 4%; border-radius: 999px;
-  background: rgba(227,177,90,.95); color: #1b1408; box-shadow: 0 0 0 1px rgba(0,0,0,.55);
-  display: flex; align-items: center; justify-content: center; font-weight: 900; line-height: 1; white-space: nowrap; overflow: hidden;
-  font-size: max(11px, calc(var(--case, 60px) * .21)); font-family: "Segoe UI", system-ui, sans-serif;
+  position: absolute; right: 2%; bottom: 2%; min-width: 18%; max-width: 70%; height: 17%; padding: 0 3%; border-radius: 999px;
+  background: rgba(227,177,90,.9); color: #1b1408; box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden;
+  font-size: max(8px, calc(var(--case, 60px) * .12)); font-family: "Segoe UI", system-ui, sans-serif;
 }
-.piece .marque.longue { font-size: max(10px, calc(var(--case, 60px) * .16)); }
+.piece .marque.longue { font-size: max(7px, calc(var(--case, 60px) * .09)); }
 .piece.de { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 22%; }
 .piece.de span { font-size: max(16px, calc(var(--case, 60px) * .55)); line-height: 1; }
 .piece.de small { font-size: 16px; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -448,7 +448,7 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* ---------- menu principal ---------- */
 .menu-principal { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px; min-height: 0; }
-.menu-cartes { display: grid; grid-template-columns: repeat(3, minmax(0, 330px)); gap: 22px; }
+.menu-cartes { display: grid; grid-template-columns: repeat(4, minmax(0, 290px)); gap: 20px; }
 .carte-menu {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 28px 22px;
   background: var(--panneau); border: 2px solid var(--bord); border-radius: 18px; cursor: pointer; min-height: 250px;
@@ -502,3 +502,30 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .hz-avantage input.faux { border-color: var(--rouge); }
 .cf-haut .hz-avantage { padding: 2px 0; background: none; gap: 4px 6px; flex-wrap: wrap; }
 .cf-haut .hz-avantage input { width: 68px; padding: 2px 6px; }
+/* flèches « tout droit » sous la grille de création */
+.ps-fleches { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; font-size: 17px; flex: none; }
+.ps-fleches span { color: var(--gris); margin-right: 4px; }
+.ps-fleches .ps-fleche { width: 40px; height: 36px; margin: 0; font-size: 22px; }
+#hz-zones .aide { grid-column: 1 / -1; }
+
+/* ---------- thèmes et décors ---------- */
+.case.claire:not(.echec) { background-image: var(--tex-claire, none); background-size: 512px; background-attachment: fixed; }
+.case.foncee:not(.echec) { background-image: var(--tex-foncee, none); background-size: 512px; background-attachment: fixed; }
+body.avec-decor { background-size: cover; background-position: center; background-attachment: fixed; background-repeat: no-repeat; }
+body.avec-decor .entete { background: rgba(10,12,16,.72); }
+body.avec-decor .carte-menu, body.avec-decor .options-generales, body.avec-decor .note-moteur { box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+body.avec-decor .note-moteur, body.avec-decor .options-generales { background: rgba(10,12,16,.7); border-radius: 10px; padding: 4px 12px; }
+.parametres { flex: 1; display: flex; flex-direction: column; padding: 10px 26px 16px; min-height: 0; gap: 4px; }
+.parametres h2 { margin: 10px 0 6px; }
+.grille-apparence { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 12px; }
+.carte-apparence { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px; background: var(--panneau); border: 2px solid var(--bord); border-radius: 12px; cursor: pointer; font-size: 16px; }
+.carte-apparence:hover { border-color: #56606c; }
+.carte-apparence.choisie { border-color: var(--accent); background: #2f2b24; color: var(--accent); font-weight: 650; }
+.carte-apparence canvas { width: 100%; aspect-ratio: 1; border-radius: 6px; box-shadow: 0 3px 10px rgba(0,0,0,.4); }
+.grille-apparence.decors { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.grille-apparence.decors canvas { aspect-ratio: 16 / 9; object-fit: cover; }
+.parametres .options-generales { margin-top: 14px; }
+@media (max-height: 820px) { .grille-apparence { gap: 8px; } .carte-apparence { padding: 5px; } .parametres h2 { margin: 6px 0 4px; } }
+.bouton.zone-b.choisi { background: rgba(80,150,255,.35); color: #fff; }
+.bouton.zone-n.choisi { background: rgba(240,120,60,.35); color: #fff; }
+#hz-zone-gomme.choisi { background: #3a3326; }

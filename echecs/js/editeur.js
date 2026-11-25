@@ -28,7 +28,7 @@
         const p = cfg.pieces[r][c];
         const nom = FICH[c] + (r + 1);
         if (cfg.trous[r][c]) trous.add(nom);
-        const z = window.Config.zoneDe(cfg, r, c);
+        const z = cfg.hasardOu === 'zones' && cfg.zonesH ? cfg.zonesH[r][c] : null;
         if (z) zones[z].add(nom);
         if (!p) { l.push(null); continue; }
         if (p.hasard != null) l.push({ hasard: p.hasard, camp: p.camp });
@@ -65,7 +65,16 @@
       this.plateau.bloquer();
       const cadre = this.plateau.cadre;
       cadre.addEventListener('pointerdown', (e) => this._appui(e));
-      cadre.addEventListener('pointermove', (e) => { if (this.peint && e.buttons) { const c = this._case(e); if (c) this._peindre(c); } });
+      cadre.addEventListener('pointermove', (e) => {
+        if (!this.peint || !e.buttons) return;
+        const c = this._case(e);
+        if (!c) return;
+        // souris rapide : on peint aussi les cases traversées depuis la dernière
+        const d = this.peint.dernier || c;
+        const n = Math.max(Math.abs(c[0] - d[0]), Math.abs(c[1] - d[1]));
+        for (let i = 1; i <= n; i++) this._peindre([Math.round(d[0] + (c[0] - d[0]) * i / n), Math.round(d[1] + (c[1] - d[1]) * i / n)]);
+        this._peindre(c);
+      });
       window.addEventListener('pointerup', () => { if (this.peint) { this.peint = null; this.change(); } });
       document.querySelectorAll('#acc-config .pli').forEach((s) => s.querySelector('.pli-titre').addEventListener('click', () => this.choisirOnglet(s.dataset.pli)));
       // mes configurations
@@ -101,6 +110,14 @@
         this.cfg.avMin = Math.min(a, b); this.cfg.avMax = Math.max(a, b);
         this.change();
       };
+      document.querySelectorAll('#hz-ou button').forEach((b) => b.addEventListener('click', () => {
+        this.cfg.hasardOu = b.dataset.ou;
+        this.outil = b.dataset.ou === 'zones' ? { type: 'zone', camp: 'w' } : null;
+        this.majHasard(); this.change();
+      }));
+      $('#hz-zone-w').addEventListener('click', () => { this.outil = { type: 'zone', camp: 'w' }; this.majHasard(); });
+      $('#hz-zone-b').addEventListener('click', () => { this.outil = { type: 'zone', camp: 'b' }; this.majHasard(); });
+      $('#hz-zone-gomme').addEventListener('click', () => { this.outil = { type: 'zone', camp: false }; this.majHasard(); });
       for (const id of ['#hz-av-min', '#hz-av-max']) { $(id).addEventListener('input', lireAv); $(id).addEventListener('change', () => { lireAv(); this.majAvCases(); }); }
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
@@ -163,6 +180,9 @@
       this.onglet = o;
       document.querySelectorAll('#acc-config .pli').forEach((s) => s.classList.toggle('ouvert', s.dataset.pli === o));
       if (o === 'mes') this.listeConfigs();
+      const zone = this.outil && this.outil.type === 'zone';
+      if ((o === 'hasard') !== zone) this.outil = null;
+      if (o === 'hasard' && !this.outil && this.cfg.hasardOu === 'zones') this.outil = { type: 'zone', camp: 'w' };
       if (o === 'pieces') this.majEtape2();
       if (o === 'hasard') this.majHasard();
     },
@@ -213,6 +233,15 @@
         res.textContent = 'Chaque couleur reçoit au hasard : ' + noms.join(', ') + '.';
       }
       this.majAvCases();
+      // où ?
+      const zones = cfg.hasardOu === 'zones';
+      document.querySelectorAll('#hz-ou button').forEach((b) => b.classList.toggle('choisi', b.dataset.ou === (cfg.hasardOu || 'miroir')));
+      $('#hz-zones').style.display = zones ? '' : 'none';
+      const o = this.outil;
+      $('#hz-zone-w').classList.toggle('choisi', !!(o && o.type === 'zone' && o.camp === 'w'));
+      $('#hz-zone-b').classList.toggle('choisi', !!(o && o.type === 'zone' && o.camp === 'b'));
+      $('#hz-zone-gomme').classList.toggle('choisi', !!(o && o.type === 'zone' && !o.camp));
+      $('#hz-zone-aide').textContent = zones ? 'Clique ou glisse sur le plateau pour peindre. Les blancs apparaissent au hasard dans leur zone, les noirs dans la leur.' : '';
     },
 
     majAvCases() {
@@ -276,12 +305,12 @@
       const c = this._case(e);
       if (!c) return;
       let o;
-      if (e.button === 2) o = { type: 'gomme' };
+      if (e.button === 2) o = this.outil && this.outil.type === 'zone' ? { type: 'zone', camp: false } : { type: 'gomme' };
       else if (e.button === 0) {
-        if (!this.outil) { window.App.bulle('Choisis d’abord ce que tu poses : un personnage, ⬛ ou ✖.'); return; }
+        if (!this.outil) { window.App.bulle(this.onglet === 'hasard' ? (this.cfg.hasardOu === 'zones' ? 'Choisis « Zone des blancs » ou « Zone des noirs », puis peins.' : 'Pour peindre des zones, choisis « dans des zones que je peins ».') : 'Choisis d’abord ce que tu poses : un personnage, ⬛ ou ✖.'); return; }
         o = this.outil;
         // cliquer une case qui contient déjà exactement ça : on l'enlève
-        if (this._deja(c, o)) o = { type: 'gomme' };
+        if (o.type !== 'zone' && this._deja(c, o)) o = { type: 'gomme' };
       } else return;
       this.peint = { outil: o, faites: new Set() };
       if (o.type === 'perso' || o.type === 'hasard') window.Son.pose(); else window.Son.clic();
@@ -292,10 +321,12 @@
       if (o.type === 'perso') return !!(p && p.hasard == null && p.perso === o.perso && p.camp === this.camp);
       if (o.type === 'hasard') return !!(p && p.hasard != null && p.camp === this.camp);
       if (o.type === 'trou') return !!cfg.trous[r][c];
+      if (o.type === 'zone') return !!o.camp && cfg.zonesH && cfg.zonesH[r][c] === o.camp;
       return false;
     },
     _peindre([r, c]) {
       const P = this.peint;
+      P.dernier = [r, c];
       const cle = r + ',' + c;
       if (P.faites.has(cle)) return;
       P.faites.add(cle);
@@ -311,6 +342,9 @@
         cfg.trous[r][c] = false;
         cfg.pieces[r][c] = o.type === 'perso' ? { camp: this.camp, perso: o.perso } : { camp: this.camp, hasard: '' };
         pose = true;
+      } else if (o.type === 'zone') {
+        if (!cfg.zonesH) cfg.zonesH = window.Config.grille(cfg.lignes, cfg.cols, false);
+        cfg.zonesH[r][c] = o.camp || false;
       } else if (o.type === 'trou') { cfg.trous[r][c] = true; cfg.pieces[r][c] = null; }
       else { cfg.pieces[r][c] = null; cfg.trous[r][c] = false; }
       this.pop = pose ? [FICH[c] + (r + 1)] : null;
@@ -346,8 +380,8 @@
     },
 
     afficher() {
-      const { pos } = positionAffichage(this.cfg);
-      this.plateau.afficher(pos, { pop: this.pop });
+      const { pos, zones } = positionAffichage(this.cfg);
+      this.plateau.afficher(pos, { decor: { zones }, pop: this.pop });
       this.pop = null;
       this.redimensionner();
     },
@@ -537,35 +571,24 @@
       for (const camp of ['w', 'b']) { const d = window.Pieces.creerPerso(Object.assign({}, p), camp); d.classList.add('icone-grande'); box.appendChild(d); }
     },
 
-    // Grille 15 × 15 : la pièce au milieu, 7 cases de chaque côté, et 8 flèches tout autour
-    // pour « continue tout droit jusqu'au bout ». Les cases en biais trop lointaines sont grisées
-    // (le moteur ne sait pas jouer ces sauts).
+    // Grille 15 × 15 (225 cases) : la pièce au milieu, 7 cases de chaque côté. Sous la grille, 8 flèches
+    // pour « continue tout droit jusqu'au bout ». Une case que le moteur ne sait pas jouer est marquée ✖.
     grille() {
       const p = this.p;
       p.cases = p.cases || {}; p.lignes = p.lignes || {};
       const box = $('#ps-grille');
       box.innerHTML = '';
       const classique = !!p.classique;
-      const R = window.Persos.PORTEE, B = R + 1;
+      const R = window.Persos.PORTEE;
       const avertis = classique ? {} : window.Persos.analyser(p).avertis;
       const D = window.Persos.DIRS;
       const dirDe = (dx, dy) => Object.keys(D).find((k) => D[k][0] === Math.sign(dx) && D[k][1] === Math.sign(dy));
       const enLigne = (dx, dy) => (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) && p.lignes[dirDe(dx, dy)];
       const SIGNES = { saute: '⚠', bloque: '⚠', ignore: '✖' };
-      box.style.gridTemplateColumns = 'repeat(' + (2 * B + 1) + ', var(--ps-case))';
-      box.style.gridTemplateRows = 'repeat(' + (2 * B + 1) + ', var(--ps-case))';
-      for (let dy = B; dy >= -B; dy--) {
-        for (let dx = -B; dx <= B; dx++) {
-          if (Math.abs(dx) === B || Math.abs(dy) === B) {
-            const bout = (dx === 0 || Math.abs(dx) === B) && (dy === 0 || Math.abs(dy) === B);
-            if (!bout) { box.appendChild(el('div', 'ps-vide')); continue; }
-            const k = dirDe(dx, dy);
-            const b = el('button', 'ps-fleche' + (p.lignes[k] ? ' active' : ''), FLECHES[k]);
-            b.title = 'Continue tout droit jusqu’au bout du plateau';
-            if (!classique) b.addEventListener('click', () => { if (p.lignes[k]) delete p.lignes[k]; else p.lignes[k] = 1; window.Son.clic(); this.grille(); });
-            box.appendChild(b);
-            continue;
-          }
+      box.style.gridTemplateColumns = 'repeat(' + (2 * R + 1) + ', var(--ps-case))';
+      box.style.gridTemplateRows = 'repeat(' + (2 * R + 1) + ', var(--ps-case))';
+      for (let dy = R; dy >= -R; dy--) {
+        for (let dx = -R; dx <= R; dx++) {
           const cle = dx + ',' + dy;
           const c = el('button', 'ps-case ' + ((dx + dy) % 2 === 0 ? 'foncee' : 'claire'));
           if (dx === 0 && dy === 0) {
@@ -573,19 +596,28 @@
             const d = window.Pieces.creerPerso(Object.assign({}, p), 'w'); d.classList.add('icone');
             c.appendChild(d);
             c.disabled = true;
-          } else if (!window.Persos.caseJouable(dx, dy)) {
-            c.classList.add('grisee');
-            c.disabled = true;
-            c.title = 'Trop loin en biais : impossible pour le moteur';
           } else {
+            const possible = window.Persos.caseJouable(dx, dy);
             if (p.cases[cle]) {
               c.classList.add('oui');
-              if (avertis[cle]) { c.classList.add('av-' + avertis[cle]); c.textContent = SIGNES[avertis[cle]]; }
+              const av = avertis[cle] || (possible ? null : 'ignore');
+              if (av) { c.classList.add('av-' + av); c.textContent = SIGNES[av]; }
             } else if (enLigne(dx, dy)) c.classList.add('ligne');
+            if (!possible) c.title = 'Saut trop loin en biais : le moteur des règles ne sait pas le jouer';
             if (!classique) c.addEventListener('click', () => { if (p.cases[cle]) delete p.cases[cle]; else p.cases[cle] = 1; window.Son.clic(); this.grille(); });
           }
           box.appendChild(c);
         }
+      }
+      // flèches « tout droit jusqu'au bout »
+      const fl = $('#ps-fleches');
+      fl.innerHTML = '';
+      fl.appendChild(el('span', null, 'Tout droit jusqu’au bout :'));
+      for (const k of ['NO', 'N', 'NE', 'O', 'E', 'SO', 'S', 'SE']) {
+        const b = el('button', 'ps-fleche' + (p.lignes[k] ? ' active' : ''), FLECHES[k]);
+        b.title = 'Continue tout droit jusqu’au bout du plateau';
+        if (!classique) b.addEventListener('click', () => { if (p.lignes[k]) delete p.lignes[k]; else p.lignes[k] = 1; window.Son.clic(); this.grille(); });
+        fl.appendChild(b);
       }
       document.querySelectorAll('#ps-saute button').forEach((b) => b.classList.toggle('choisi', (b.dataset.val === '1') === !!p.saute));
       $('#ps-desc').textContent = classique ? p.desc : window.Persos.description(Object.assign({}, p, { classique: false }));
@@ -597,8 +629,9 @@
       if (!zone || !zone.offsetParent) return;
       const r = zone.getBoundingClientRect();
       const titre = zone.querySelector('.ps-centre-titre').getBoundingClientRect().height;
-      const n = 2 * (window.Persos.PORTEE + 1) + 1;
-      const t = Math.floor(Math.min(r.width - 8, r.height - titre - 16) / n);
+      const fleches = $('#ps-fleches').getBoundingClientRect().height;
+      const n = 2 * window.Persos.PORTEE + 1;
+      const t = Math.floor(Math.min(r.width - 8, r.height - titre - fleches - 24) / n);
       $('#ps-grille').style.setProperty('--ps-case', Math.max(16, Math.min(48, t)) + 'px');
     },
 

@@ -24,7 +24,7 @@
   }
 
   const options = Object.assign({
-    sons: true, jouer: 'classique', adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
+    sons: true, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'expert', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
@@ -91,6 +91,7 @@
     App.ecranActuel = nom;
     if (nom === 'accueil') construireMenu();
     if (nom === 'jouer') { pageJouer = -1; construireJouer(); }
+    if (nom === 'parametres') construireParametres();
     if (nom === 'config') window.EditeurConfig.ouvrir();
     if (nom === 'persos') window.EditeurPersos.ouvrir();
     requestAnimationFrame(redimensionner);
@@ -133,10 +134,30 @@
     const enCours = lire(CLE_ENCOURS, null);
     $('#btn-reprendre').style.display = enCours ? '' : 'none';
     if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Partie normale') + ')';
-    $('#opt-sons').checked = options.sons;
     const note = $('#note-moteur');
     if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
     else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2) - 1)) + ' cœurs du processeur.' : '';
+  }
+
+  // ---------- paramètres : thème du plateau, décor de fond ----------
+  function construireParametres() {
+    $('#opt-sons').checked = options.sons;
+    const remplir = (box, liste, cle, apercu, appliquer) => {
+      box.innerHTML = '';
+      for (const t of liste) {
+        const b = document.createElement('button');
+        b.className = 'carte-apparence' + (options[cle] === t.id ? ' choisie' : '');
+        b.appendChild(apercu(t));
+        const n = document.createElement('span'); n.textContent = t.nom; b.appendChild(n);
+        b.onclick = () => {
+          options[cle] = t.id; sauverOptions(); appliquer(t.id);
+          box.querySelectorAll('.carte-apparence').forEach((x) => x.classList.toggle('choisie', x === b));
+        };
+        box.appendChild(b);
+      }
+    };
+    remplir($('#par-themes'), window.Themes.THEMES, 'theme', window.Themes.apercuTheme, window.Themes.appliquerTheme);
+    remplir($('#par-decors'), window.Themes.DECORS, 'decor', window.Themes.apercuDecor, window.Themes.appliquerDecor);
   }
 
   // ---------- jouer : partie normale ou configuration créée ----------
@@ -918,6 +939,7 @@
 
   // ---------- démarrage ----------
   async function demarrer() {
+    try { window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
     plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true });
     plateauApercu = new window.Plateau($('#plateau-apercu'), {});
     plateauApercu.bloquer();

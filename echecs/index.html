@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=28">
+<link rel="stylesheet" href="css/jeu.css?v=34">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -27,13 +27,30 @@
   <div class="menu-principal">
     <div class="menu-cartes">
       <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
-      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Un plateau vide : pose tes personnages où tu veux, du hasard, des trous, tes règles.</span></button>
+      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Un plateau vide : pose tes personnages à la main ou au hasard, et des trous.</span></button>
+      <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Thème du plateau, décor de fond et bruits des pièces.</span></button>
       <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un bot ou un ami.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
-    <div class="options-generales centre"><label><input type="checkbox" id="opt-sons"> Bruits des pièces</label></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 28</div>
+    <div class="note-moteur centre">Version 34</div>
+  </div>
+</section>
+
+<!-- ============ PARAMÈTRES ============ -->
+<section id="ecran-parametres" class="ecran">
+  <header class="entete">
+    <h1>Paramètres</h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+    </nav>
+  </header>
+  <div class="parametres">
+    <h2>Thème du plateau</h2>
+    <div class="grille-apparence" id="par-themes"></div>
+    <h2>Décor de fond</h2>
+    <div class="grille-apparence decors" id="par-decors"></div>
+    <div class="options-generales"><label><input type="checkbox" id="opt-sons"> Bruits des pièces</label></div>
   </div>
 </section>
 
@@ -134,10 +151,18 @@
         <section class="pli" data-pli="hasard">
           <button class="pli-titre">🎲 Placer au hasard</button>
           <div class="pli-corps">
-            <p class="aide">Choisis combien de chaque personnage. À chaque partie, les blancs les reçoivent à des places tirées au hasard dans leur moitié, et les noirs exactement pareil, en face.</p>
+            <p class="aide">Choisis combien de chaque personnage. Les deux couleurs reçoivent les mêmes pièces, à des places tirées au hasard à chaque partie.</p>
             <div class="cats" id="hz-cats"></div>
             <div id="hz-persos" class="hz-grille"></div>
             <div class="hz-resume" id="hz-resume"></div>
+            <div class="etape-ligne"><b>Où ?</b>
+              <span class="choix ligne mini" id="hz-ou"><button data-ou="miroir">dans sa moitié, en miroir</button><button data-ou="zones">dans des zones que je peins</button></span></div>
+            <div class="actions-zones" id="hz-zones">
+              <button class="bouton zone-b" id="hz-zone-w">▨ Zone des blancs</button>
+              <button class="bouton zone-n" id="hz-zone-b">▨ Zone des noirs</button>
+              <button class="bouton" id="hz-zone-gomme">✖ Gomme à zones</button>
+              <span class="aide" id="hz-zone-aide"></span>
+            </div>
 
           </div>
         </section>
@@ -173,8 +198,9 @@
       <div class="accordeon" id="ps-liste"></div>
     </div>
     <div class="ps-centre">
-      <div class="ps-centre-titre"><b>Où peut-il aller ?</b> <span class="aide">Clique les cases. Le haut = vers l’adversaire. Les flèches : tout droit jusqu’au bout.</span></div>
+      <div class="ps-centre-titre"><b>Où peut-il aller ?</b> <span class="aide">Clique les cases. Le haut = vers l’adversaire. Grille de 15 × 15 cases.</span></div>
       <div id="ps-grille"></div>
+      <div id="ps-fleches" class="ps-fleches"></div>
     </div>
     <div class="ps-editeur">
       <h2 id="ps-titre"></h2>
@@ -287,16 +313,17 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=28"></script>
-<script src="js/persos.js?v=28"></script>
-<script src="js/pieces.js?v=28"></script>
-<script src="js/regles.js?v=28"></script>
-<script src="js/config.js?v=28"></script>
-<script src="js/moteur.js?v=28"></script>
-<script src="js/son.js?v=28"></script>
-<script src="js/plateau.js?v=28"></script>
-<script src="js/bilan.js?v=28"></script>
-<script src="js/editeur.js?v=28"></script>
-<script src="js/app.js?v=28"></script>
+<script src="js/themes.js?v=34"></script>
+<script src="js/pieces-svg.js?v=34"></script>
+<script src="js/persos.js?v=34"></script>
+<script src="js/pieces.js?v=34"></script>
+<script src="js/regles.js?v=34"></script>
+<script src="js/config.js?v=34"></script>
+<script src="js/moteur.js?v=34"></script>
+<script src="js/son.js?v=34"></script>
+<script src="js/plateau.js?v=34"></script>
+<script src="js/bilan.js?v=34"></script>
+<script src="js/editeur.js?v=34"></script>
+<script src="js/app.js?v=34"></script>
 </body>
 </html>

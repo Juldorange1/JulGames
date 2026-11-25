@@ -148,7 +148,8 @@
     const a = Object.values(analyser(p).avertis);
     if (a.includes('saute')) t += ' ⚠ jaune : il saute quand même.';
     if (a.includes('bloque')) t += ' ⚠ orange : au-delà de 3 cases, il est bloqué quand même.';
-    if (a.includes('ignore')) t += ' ✖ rouge : impossible, choisis aussi les cases d’avant sur la ligne.';
+    const loin = Object.keys(p.cases || {}).some((k) => { const [dx, dy] = k.split(',').map(Number); return p.cases[k] && !caseJouable(dx, dy); });
+    if (a.includes('ignore') || loin) t += ' ✖ rouge : case que le moteur ne sait pas jouer (saut trop loin en biais, ou cases d’avant manquantes sur la ligne).';
     return t;
   }
 
