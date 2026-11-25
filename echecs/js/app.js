@@ -167,7 +167,9 @@
       });
     }
     majChoix();
-    $('#btn-reprendre').style.display = lire(CLE_ENCOURS, null) ? '' : 'none';
+    const enCours = lire(CLE_ENCOURS, null);
+    $('#btn-reprendre').style.display = enCours ? '' : 'none';
+    if (enCours) $('#btn-reprendre').textContent = 'Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Classique') + ')';
     $('#opt-sons').checked = options.sons;
     const note = $('#note-moteur');
     if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
@@ -274,7 +276,8 @@
     window.Moteurs.pourVariante(v, 'jeu').nouvellePartie();
     ecran('partie');
     plateau.retourner(humain === 'b');
-    afficherPartie(false);
+    afficherPartie(false, { entree: true });
+    window.Son.debut();
     sauverEnCours();
     demarrerHorloge();
     tour();
@@ -327,7 +330,7 @@
 
   function indexVue() { return jeu.vue == null ? jeu.partie.coups.length : jeu.vue; }
 
-  function afficherPartie(animer) {
+  function afficherPartie(animer, extra) {
     const p = jeu.partie;
     const n = indexVue();
     const enDirect = n === p.coups.length;
@@ -337,7 +340,9 @@
     else {
       try { const t = new window.Regles.Partie(jeu.variante, p.fen0, p.coups.slice(0, n)); echec = caseRoiEnEchec(pos, t); t.detruire(); } catch (e) { /* rien */ }
     }
-    plateau.afficher(pos, { variante: jeu.variante, dernier: dernierCoupCases(p.coups[n - 1]), echec, animer });
+    plateau.afficher(pos, Object.assign({ variante: jeu.variante, dernier: dernierCoupCases(p.coups[n - 1]), echec, animer }, extra || {}));
+    $('#nom-config').innerHTML = 'Configuration : <b></b>';
+    $('#nom-config b').textContent = jeu.variante.nom || 'Classique';
     const bas = plateau.retourne ? 'b' : 'w';
     const haut = bas === 'w' ? 'b' : 'w';
     for (const [id, camp] of [['#joueur-haut', haut], ['#joueur-bas', bas]]) {
@@ -552,9 +557,10 @@
     else if (uci.includes('@')) window.Son.pose();
     else if (prise) window.Son.prise();
     else window.Son.coup();
+    if (/^[a-l]\d+[a-l]\d+[a-z]/.test(uci)) window.Son.promotion();
     jeu.vue = null;
     jeu.analyse = null;
-    afficherPartie(animer);
+    afficherPartie(animer, { effets: true });
     sauverEnCours();
     tour();
   }
@@ -604,17 +610,20 @@
     tour();
   }
 
+  // Recommencer : repart du début avec la configuration actuelle (nouveau tirage s'il y a du hasard).
+  function relancer() {
+    const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
+    const cfg = window.Config.courante();
+    commencer(cfg, reglages);
+  }
   function recommencer() {
     if (!jeu) return;
-    const hasard = jeu.cfg && window.Config.aleatoire(jeu.cfg);
-    modale('<h2>Recommencer ?</h2><p>' + (hasard ? 'La partie repart du début avec un nouveau tirage au hasard.' : 'La partie repart du début.') + '</p>', [
-      { texte: '↻ Recommencer', classe: 'principal', action: () => {
-        const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
-        if (hasard) commencer(jeu.cfg, reglages);
-        else lancerPartie(jeu.variante, reglages, null, jeu.cfg);
-      } },
+    const cfg = window.Config.courante();
+    const hasard = window.Config.aleatoire(cfg);
+    modale('<h2>Recommencer ?</h2><p></p>', [
+      { texte: '↻ Recommencer', classe: 'principal', action: relancer },
       { texte: 'Annuler' }
-    ]);
+    ]).querySelector('p').textContent = 'La partie repart du début avec la configuration « ' + cfg.nom + ' »' + (hasard ? ', avec un nouveau tirage au hasard.' : '.');
   }
 
   function abandonner() {
@@ -675,7 +684,6 @@
     jeton++;
     for (const m of window.Moteurs.tous()) if (m.role === 'jeu' && m.pret) m.arreter();
     plateau.bloquer();
-    window.Son.fin();
     const rec = enregistrerPartie();
     jeu.vue = null;
     afficherPartie(false);
@@ -689,12 +697,13 @@
       else titre = gagnant === jeu.humain ? 'Tu as gagné !' : BOTS[jeu.adversaire].nom + ' a gagné';
     }
     etat(titre + ' — ' + raison);
+    const gagneHumain = resultat !== '1/2-1/2' && (jeu.adversaire === 'ami' || (resultat === '1-0') === (jeu.humain === 'w'));
+    if (resultat === '1/2-1/2') window.Son.nulle();
+    else if (gagneHumain) { window.Son.victoire(); plateau.feuDeJoie(); }
+    else window.Son.defaite();
     modale('<h2>' + titre + '</h2><p>' + raison + '</p>', [
       { texte: '📊 Bilan de la partie', classe: 'principal', action: () => window.Bilan.ouvrir(rec) },
-      { texte: '↻ Recommencer', action: () => {
-        const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
-        if (jeu.cfg && window.Config.aleatoire(jeu.cfg)) commencer(jeu.cfg, reglages); else lancerPartie(jeu.variante, reglages, null, jeu.cfg);
-      } },
+      { texte: '↻ Recommencer', action: relancer },
       { texte: 'Voir le plateau' },
       { texte: '☰ Menu', action: () => ecran('accueil') }
     ]);
@@ -837,7 +846,7 @@
 
   // ---------- démarrage ----------
   async function demarrer() {
-    plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain });
+    plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, surSelection: () => window.Son.clic() });
     plateauApercu = new window.Plateau($('#plateau-apercu'), {});
     plateauApercu.bloquer();
     window.Son.regler(options.sons);

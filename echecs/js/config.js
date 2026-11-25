@@ -38,9 +38,15 @@
     for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
       const p = cfg.pieces[r][c];
       if (p && p.hasard != null) return true;
-      if (cfg.zones[r][c]) return true;
+      if (zoneDe(cfg, r, c)) return true;
     }
     return false;
+  }
+
+  function zoneDe(cfg, r, c) {
+    const v = cfg.zones[r] && cfg.zones[r][c];
+    if (v === true) return r < cfg.lignes / 2 ? 'w' : 'b';
+    return v === 'w' || v === 'b' ? v : null;
   }
 
   function melanger(t) {
@@ -70,37 +76,43 @@
       const p = pieces[r][c];
       if (p && p.hasard != null) { const id = tirer(p.hasard); pieces[r][c] = id ? { camp: p.camp, perso: id } : null; }
     }
-    // 2. zones de placement aléatoire (chaque camp dans sa moitié)
-    const zonesDe = (blanc) => {
-      const out = [];
-      for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
-        if (!cfg.zones[r][c] || trous[r][c]) continue;
-        if (blanc ? r < moitie : r >= L - moitie) out.push([r, c]);
-      }
-      return out;
-    };
+    // 2. zones de départ : les pièces d'une couleur posées dans sa zone apparaissent au hasard
+    //    sur n'importe quelle case libre de cette zone (un pion jamais sur la rangée de promotion).
+    const Z = { w: [], b: [] };
+    for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+      const z = zoneDe(cfg, r, c);
+      if (z && !trous[r][c]) Z[z].push([r, c]);
+    }
+    const lotDe = (cases, camp) => cases.map(([r, c]) => pieces[r][c]).filter((p) => p && p.camp === camp).map((p) => p.perso).sort().join('|');
+    const memeLot = lotDe(Z.w, 'w') === lotDe(Z.b, 'b');
     const brasser = (cases, camp) => {
       const lot = [];
       for (const [r, c] of cases) { const p = pieces[r][c]; if (p && p.camp === camp) { lot.push(p); pieces[r][c] = null; } }
       const libres = melanger(cases.filter(([r, c]) => !pieces[r][c]));
-      lot.forEach((p, i) => { if (libres[i]) pieces[libres[i][0]][libres[i][1]] = p; });
+      const promo = camp === 'w' ? L - 1 : 0;
+      const pris = new Set();
+      const poser = (p, ok) => {
+        const i = libres.findIndex(([r, c], k) => !pris.has(k) && ok(r));
+        if (i < 0) return;
+        pris.add(i);
+        pieces[libres[i][0]][libres[i][1]] = p;
+      };
+      for (const p of lot.filter((x) => x.perso === 'pion')) poser(p, (r) => r !== promo);
+      for (const p of lot.filter((x) => x.perso !== 'pion')) poser(p, () => true);
     };
-    const zw = zonesDe(true);
-    brasser(zw, 'w');
-    if (cfg.miroir) {
-      const faites = new Set();
-      for (const [r, c] of zw) {
-        const rm = miroir(r);
-        if (!cfg.zones[rm][c]) continue;
-        const p = pieces[r][c];
-        const q = pieces[rm][c];
+    brasser(Z.w, 'w');
+    const enFace = cfg.miroir && memeLot && Z.w.length === Z.b.length &&
+      Z.w.every(([r, c]) => zoneDe(cfg, miroir(r), c) === 'b');
+    if (enFace) {
+      // même tirage, en face
+      for (const [r, c] of Z.w) {
+        const q = pieces[miroir(r)][c];
         if (q && q.camp === 'w') continue;
-        pieces[rm][c] = p && p.camp === 'w' ? { camp: 'b', perso: p.perso } : null;
-        faites.add(rm + ',' + c);
+        const p = pieces[r][c];
+        pieces[miroir(r)][c] = p && p.camp === 'w' ? { camp: 'b', perso: p.perso } : null;
       }
-      brasser(zonesDe(false).filter(([r, c]) => !faites.has(r + ',' + c)), 'b');
     } else {
-      brasser(zonesDe(false), 'b');
+      brasser(Z.b, 'b');
     }
     // 3. trous au hasard (sur des cases vides)
     let n = cfg.trousHasard || 0;
@@ -252,6 +264,7 @@
     if (!R.roque) t.push('Pas de roque.');
     if (!R.double) t.push('Les pions n’avancent que d’une case.');
     if (!R.passant) t.push('Pas de prise en passant.');
+    if (cfg.zones.some((l, r) => l.some((x, c) => zoneDe(cfg, r, c)))) t.push('Les pièces posées dans les zones de départ apparaissent à une place tirée au hasard dans leur zone.');
     if (cfg.trous.some((l) => l.some(Boolean)) || cfg.trousHasard) t.push('Les cases noires barrées sont des trous : on ne peut ni s’y arrêter ni glisser à travers (les sauts passent au-dessus).');
     return t.join(' ');
   }
@@ -296,6 +309,13 @@
       const n = b.numberLegalMoves();
       b.delete();
       if (!n) return 'Aucun coup possible au départ.';
+      // si c'était aux noirs de jouer, seraient-ils déjà en échec ?
+      const champs = v.fen0.split(' ');
+      champs[1] = 'b';
+      const b2 = new window.Regles.ff.Board(v.uci, champs.join(' '), false);
+      const echec = b2.isCheck();
+      b2.delete();
+      if (echec) return 'Au départ, le roi noir serait déjà en échec.';
       return null;
     } catch (e) {
       return 'Cette configuration est refusée par les règles.';
@@ -336,7 +356,7 @@
   // ---------- rangement ----------
   function liste() { try { return JSON.parse(localStorage.getItem(CLE_LISTE) || '[]'); } catch (e) { return []; } }
   const Config = {
-    classique, aleatoire, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
+    classique, aleatoire, zoneDe, tirage, construire, verifier, evaluer, preparer, testerVariante, texteRegles, casesCentre, reglesDefaut, grille, copie,
     liste,
     enregistrer(cfg) { const l = liste().filter((x) => x.id !== cfg.id); l.unshift(copie(cfg)); localStorage.setItem(CLE_LISTE, JSON.stringify(l)); },
     supprimer(id) { localStorage.setItem(CLE_LISTE, JSON.stringify(liste().filter((x) => x.id !== id))); },

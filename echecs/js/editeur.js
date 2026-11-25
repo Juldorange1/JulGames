@@ -43,14 +43,15 @@
   // Position au format du plateau à partir d'une configuration (affichage seulement).
   function positionAffichage(cfg) {
     const cases = [];
-    const trous = new Set(), zones = new Set();
+    const trous = new Set(), zones = { w: new Set(), b: new Set() };
     for (let r = cfg.lignes - 1; r >= 0; r--) {
       const l = [];
       for (let c = 0; c < cfg.cols; c++) {
         const p = cfg.pieces[r][c];
         const nom = FICH[c] + (r + 1);
         if (cfg.trous[r][c]) trous.add(nom);
-        if (cfg.zones[r][c]) zones.add(nom);
+        const z = window.Config.zoneDe(cfg, r, c);
+        if (z) zones[z].add(nom);
         if (!p) { l.push(null); continue; }
         if (p.hasard != null) l.push({ hasard: p.hasard, camp: p.camp });
         else {
@@ -107,7 +108,13 @@
       $('#sel-tout').addEventListener('click', () => this.choisirZone(() => true));
       $('#sel-aucune').addEventListener('click', () => { this.sel.clear(); this.change(true); });
       $('#act-hasard').addEventListener('click', () => this.choisirHasard());
-      $('#act-melanger').addEventListener('click', () => this.appliquer('zone'));
+      $('#zd-blanche').addEventListener('click', () => this.appliquer('zone', 'w'));
+      $('#zd-noire').addEventListener('click', () => this.appliquer('zone', 'b'));
+      $('#zd-enlever').addEventListener('click', () => this.appliquer('zone', false));
+      $('#zd-tout').addEventListener('click', () => { this.cfg.zones = window.Config.grille(this.cfg.lignes, this.cfg.cols, false); this.change(); });
+      $('#zd-fond').addEventListener('click', () => this.zonesToutes(1));
+      $('#zd-deux').addEventListener('click', () => this.zonesToutes(2));
+      $('#zd-moitie').addEventListener('click', () => this.zonesToutes(Math.floor(this.cfg.lignes / 2)));
       $('#act-trou').addEventListener('click', () => this.appliquer('trou'));
       $('#act-vider').addEventListener('click', () => this.appliquer('vider'));
       $('#cf-miroir').addEventListener('change', () => { this.cfg.miroir = $('#cf-miroir').checked; this.change(); });
@@ -212,8 +219,6 @@
       const cfg = this.cfg;
       if (!this.sel.size) { window.App.bulle('Choisis d’abord des cases sur le plateau.'); return; }
       const cases = [...this.sel].map((k) => k.split(',').map(Number));
-      let valZone = true;
-      if (action === 'zone') valZone = !cases.every(([r, c]) => cfg.zones[r][c]);
       const faire = (r, c, autreCamp) => {
         if (action === 'perso') {
           cfg.trous[r][c] = false;
@@ -221,17 +226,33 @@
         } else if (action === 'trou') {
           cfg.trous[r][c] = true; cfg.pieces[r][c] = null; cfg.zones[r][c] = false;
         } else if (action === 'zone') {
-          cfg.zones[r][c] = valZone; if (valZone) cfg.trous[r][c] = false;
+          // contenu = 'w', 'b' ou false ; en face, c'est la zone de l'autre couleur
+          const z = contenu ? (autreCamp ? (contenu === 'w' ? 'b' : 'w') : contenu) : false;
+          cfg.zones[r][c] = z; if (z) cfg.trous[r][c] = false;
         } else if (action === 'vider') {
           cfg.pieces[r][c] = null; cfg.trous[r][c] = false; cfg.zones[r][c] = false;
         }
       };
+      const pop = [];
       for (const [r, c] of cases) {
-        faire(r, c, false);
+        faire(r, c, false); pop.push(FICH[c] + (r + 1));
         const rm = cfg.lignes - 1 - r;
-        if (cfg.miroir && rm !== r && !this.sel.has(rm + ',' + c)) faire(rm, c, true);
+        if (cfg.miroir && rm !== r && !this.sel.has(rm + ',' + c)) { faire(rm, c, true); pop.push(FICH[c] + (rm + 1)); }
+      }
+      if (action === 'perso') { window.Son.pose(); this.pop = pop; } else window.Son.clic();
+      this.change();
+    },
+
+    // Zones prêtes : les n premières rangées de chaque camp.
+    zonesToutes(n) {
+      const cfg = this.cfg;
+      cfg.zones = window.Config.grille(cfg.lignes, cfg.cols, false);
+      for (let r = 0; r < n; r++) for (let c = 0; c < cfg.cols; c++) {
+        if (!cfg.trous[r][c]) cfg.zones[r][c] = 'w';
+        if (!cfg.trous[cfg.lignes - 1 - r][c]) cfg.zones[cfg.lignes - 1 - r][c] = 'b';
       }
       this.change();
+      window.App.bulle(n === 1 ? 'Les pièces de la rangée du fond changeront de place à chaque partie.' : 'Les pièces de ces rangées changeront de place à chaque partie.');
     },
 
     choisirHasard() {
@@ -294,10 +315,6 @@
         b.addEventListener('click', () => { this.catActive = cat; this.majEtape2(); });
         barre.appendChild(b);
       }
-      const nouveau = el('button', 'puce puce-plus', '✚ Créer');
-      nouveau.title = 'Créer un nouveau personnage';
-      nouveau.addEventListener('click', () => { window.EditeurPersos.p = null; window.App.ecran('persos'); });
-      barre.appendChild(nouveau);
       const box = $('#cf-persos');
       box.innerHTML = '';
       for (const p of window.Persos.tous().filter((x) => x.categorie === this.catActive)) {
@@ -310,8 +327,28 @@
       }
     },
 
+    majZones() {
+      const cfg = this.cfg;
+      const t = { w: [0, 0], b: [0, 0] };
+      for (let r = 0; r < cfg.lignes; r++) for (let c = 0; c < cfg.cols; c++) {
+        const z = window.Config.zoneDe(cfg, r, c);
+        if (!z || cfg.trous[r][c]) continue;
+        t[z][0]++;
+        const p = cfg.pieces[r][c];
+        if (p && p.camp === z) t[z][1]++;
+      }
+      const adj = { w: 'blanche', b: 'noire' };
+      const ligne = (z, nom) => t[z][0]
+        ? 'Zone des ' + nom + ' : ' + t[z][0] + ' case' + (t[z][0] > 1 ? 's' : '') + ', ' + t[z][1] + ' pièce' + (t[z][1] > 1 ? 's ' : ' ') + adj[z] + (t[z][1] > 1 ? 's' : '') + ' dedans.'
+        : 'Pas de zone pour les ' + nom + ' : leurs pièces restent à leur place.';
+      $('#zd-resume').innerHTML = '';
+      $('#zd-resume').append(el('div', 'zd-w', ligne('w', 'blancs')), el('div', 'zd-b', ligne('b', 'noirs')));
+    },
+
     majSelectionInfo() {
       const n = this.sel.size;
+      $('#zd-nb').textContent = n ? n + ' case' + (n > 1 ? 's choisies' : ' choisie') : '';
+      this.majZones();
       $('#sel-nb').textContent = n ? n + ' case' + (n > 1 ? 's choisies' : ' choisie') : 'clique ou glisse sur le plateau';
       $('#sel-nb').classList.toggle('vide', !n);
       // raccourcis « toutes les cases qui contiennent… »
@@ -432,7 +469,8 @@
       if (!seulementSelection) window.Config.definirCourante(cfg);
       const { pos, zones } = positionAffichage(cfg);
       const selection = new Set([...this.sel].map((k) => { const [r, c] = k.split(',').map(Number); return FICH[c] + (r + 1); }));
-      this.plateau.afficher(pos, { decor: { zones, selection } });
+      this.plateau.afficher(pos, { decor: { zones, selection }, pop: this.pop });
+      this.pop = null;
       this.redimensionner();
       this.majSelectionInfo();
       $('#cols-val').textContent = cfg.cols;
@@ -460,7 +498,7 @@
       }
       if (window.Config.aleatoire(this.cfg)) {
         zone.className = 'cf-av-texte';
-        zone.textContent = '🎲 Il y a du hasard : l’avantage changera à chaque partie, toujours entre les deux nombres ci-dessous.';
+        zone.textContent = '(change à chaque partie)';
         valeur.textContent = 'entre ' + texteAvantage(this.cfg.avMin) + ' et ' + texteAvantage(this.cfg.avMax);
         barre.style.visibility = 'hidden';
         return;
@@ -683,7 +721,7 @@
             const k = dirDe(dx, dy);
             const b = el('button', 'ps-fleche' + (p.lignes[k] ? ' active' : ''), FLECHES[k]);
             b.title = 'Continue tout droit jusqu’au bout du plateau';
-            if (!classique) b.addEventListener('click', () => { if (p.lignes[k]) delete p.lignes[k]; else p.lignes[k] = 1; this.grille(); });
+            if (!classique) b.addEventListener('click', () => { if (p.lignes[k]) delete p.lignes[k]; else p.lignes[k] = 1; window.Son.clic(); this.grille(); });
             box.appendChild(b);
             continue;
           }
@@ -703,7 +741,7 @@
               c.classList.add('oui');
               if (avertis[cle]) { c.classList.add('av-' + avertis[cle]); c.textContent = SIGNES[avertis[cle]]; }
             } else if (enLigne(dx, dy)) c.classList.add('ligne');
-            if (!classique) c.addEventListener('click', () => { if (p.cases[cle]) delete p.cases[cle]; else p.cases[cle] = 1; this.grille(); });
+            if (!classique) c.addEventListener('click', () => { if (p.cases[cle]) delete p.cases[cle]; else p.cases[cle] = 1; window.Son.clic(); this.grille(); });
           }
           box.appendChild(c);
         }

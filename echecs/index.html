@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=7">
+<link rel="stylesheet" href="css/jeu.css?v=15">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -97,9 +97,9 @@
         <div class="cf-av-ligne"><span>Avantage des blancs :</span><b id="cf-av-valeur"></b>
           <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div></div>
         <div class="cf-av-texte" id="cf-avantage"></div>
-        <div class="cf-hasard">S’il y a du hasard, l’avantage des blancs reste entre
+        <div class="cf-hasard">🎲 Avec du hasard, avantage des blancs entre
           <input type="number" id="cf-av-min" step="0.1" min="-20" max="20"> et
-          <input type="number" id="cf-av-max" step="0.1" min="-20" max="20"> pions</div>
+          <input type="number" id="cf-av-max" step="0.1" min="-20" max="20"></div>
       </div>
       <div class="accordeon" id="acc-config">
         <section class="pli" data-pli="pieces">
@@ -122,10 +122,28 @@
             <div id="cf-persos" class="cf-grille-persos"></div>
             <div class="actions-cases">
               <button class="bouton" id="act-hasard" title="Un personnage tiré au hasard parmi ceux que tu coches">🎲 Hasard…</button>
-              <button class="bouton" id="act-melanger" title="Les pièces de ces cases changent de place à chaque partie">🔀 Mélanger</button>
               <button class="bouton" id="act-trou" title="Ces cases deviennent des trous">⬛ Trous</button>
               <button class="bouton danger" id="act-vider" title="Enlever ce qu’il y a sur ces cases">✖ Vider</button>
             </div>
+          </div>
+        </section>
+        <section class="pli" data-pli="depart">
+          <button class="pli-titre">🎯 Départ des pièces au hasard</button>
+          <div class="pli-corps">
+            <p class="aide">À chaque partie, les pièces posées dans la zone de leur couleur sont placées au hasard sur ses cases.</p>
+            <div class="ligne-boutons serree">
+              <button class="bouton" id="zd-fond">Rangée du fond au hasard</button>
+              <button class="bouton" id="zd-deux">2 premières rangées au hasard</button>
+              <button class="bouton" id="zd-moitie">Toute sa moitié au hasard</button>
+            </div>
+            <div class="etape-ligne"><b>Ou à la main :</b><span class="aide">choisis des cases sur le plateau, puis</span><span class="sel-nb" id="zd-nb"></span></div>
+            <div class="actions-zones">
+              <button class="bouton zone-b" id="zd-blanche">▨ Zone de départ des blancs</button>
+              <button class="bouton zone-n" id="zd-noire">▨ Zone de départ des noirs</button>
+              <button class="bouton" id="zd-enlever">Enlever la zone de ces cases</button>
+              <button class="bouton danger" id="zd-tout">✖ Effacer toutes les zones</button>
+            </div>
+            <div class="zd-resume" id="zd-resume"></div>
           </div>
         </section>
         <section class="pli" data-pli="plateau">
@@ -248,6 +266,7 @@
     <div id="plateau-partie"></div>
   </div>
   <aside class="panneau">
+    <div class="nom-config" id="nom-config"></div>
     <div class="joueur" id="joueur-haut"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span></div>
     <div class="etat" id="etat-partie"></div>
     <div class="vue-passee" id="vue-passee">
@@ -325,16 +344,16 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=7"></script>
-<script src="js/persos.js?v=7"></script>
-<script src="js/pieces.js?v=7"></script>
-<script src="js/regles.js?v=7"></script>
-<script src="js/config.js?v=7"></script>
-<script src="js/moteur.js?v=7"></script>
-<script src="js/son.js?v=7"></script>
-<script src="js/plateau.js?v=7"></script>
-<script src="js/bilan.js?v=7"></script>
-<script src="js/editeur.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/pieces-svg.js?v=15"></script>
+<script src="js/persos.js?v=15"></script>
+<script src="js/pieces.js?v=15"></script>
+<script src="js/regles.js?v=15"></script>
+<script src="js/config.js?v=15"></script>
+<script src="js/moteur.js?v=15"></script>
+<script src="js/son.js?v=15"></script>
+<script src="js/plateau.js?v=15"></script>
+<script src="js/bilan.js?v=15"></script>
+<script src="js/editeur.js?v=15"></script>
+<script src="js/app.js?v=15"></script>
 </body>
 </html>

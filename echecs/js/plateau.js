@@ -40,7 +40,8 @@
 
     // ---------- géométrie ----------
     taille(px) {
-      // px = côté d'une case
+      // px = côté d'une case ; rien à refaire si la taille ne change pas (les animations continuent)
+      if (px === this.tCase && this.cadre.style.width === (px * this.cols) + 'px' && this.cadre.style.height === (px * this.lignes) + 'px') return;
       this.tCase = px;
       this.cadre.style.width = (px * this.cols) + 'px';
       this.cadre.style.height = (px * this.lignes) + 'px';
@@ -73,6 +74,7 @@
     // ---------- affichage ----------
     afficher(position, o) {
       o = o || {};
+      const ancienne = this.position;
       const dimsChangent = position.cols !== this.cols || position.lignes !== this.lignes;
       this.position = position;
       this.cols = position.cols; this.lignes = position.lignes;
@@ -85,6 +87,98 @@
       this._surligner();
       this._placerPieces(o.animer);
       this._poches();
+      if ((o.animer || o.effets) && ancienne && !dimsChangent) this._animerPrises(ancienne);
+      if (o.effets && !o.animer && this.dernier) { const el = this.piecesEl && this.piecesEl[this.dernier[this.dernier.length - 1]]; if (el) this._poser(el, 0); }
+      if (o.entree) {
+        // après le premier dimensionnement du plateau, sinon l'animation serait effacée
+        this.calquePieces.style.opacity = '0';
+        setTimeout(() => { this.calquePieces.style.opacity = ''; this._entree(); }, 80);
+      }
+      if (o.pop) for (const nom of o.pop) { const el = this.piecesEl && this.piecesEl[nom]; if (el) this._poser(el, 0); }
+    }
+
+    // ---------- petites animations ----------
+    _lettreEn(pos, nom) {
+      const c = this._coord(nom);
+      const l = pos.cases[pos.lignes - 1 - c.rang];
+      const p = l ? l[c.col] : null;
+      return p ? p.l : null;
+    }
+    // Pièces disparues (prises, explosions) : elles s'effacent avec un petit éclat.
+    _animerPrises(ancienne) {
+      if (!this.tCase) return;
+      const depart = this.dernier && this.dernier.length === 2 ? this.dernier[0] : null;
+      const parties = [], arrivees = [];
+      for (let r = 0; r < this.lignes; r++) for (let c = 0; c < this.cols; c++) {
+        const nom = FICH[c] + (r + 1);
+        const avant = this._lettreEn(ancienne, nom), apres = this._lettreEn(this.position, nom);
+        if (avant && avant !== apres && nom !== depart) parties.push([nom, avant]);
+        if (apres && apres !== avant) arrivees.push(apres);
+      }
+      for (const [nom, l] of parties) {
+        const i = arrivees.indexOf(l);
+        if (i >= 0 && !(this.dernier && this.dernier[1] === nom)) { arrivees.splice(i, 1); continue; } // pièce déplacée (roque), pas prise
+        this._eclat(nom, l);
+      }
+    }
+    _centre(nom) {
+      const c = this._coord(nom);
+      const e = this._ecran(c.col, c.rang);
+      return { x: (e.x + 0.5) * this.tCase, y: (e.y + 0.5) * this.tCase, ex: e.x, ey: e.y };
+    }
+    _eclat(nom, lettre) {
+      const t = this.tCase;
+      const p = this._centre(nom);
+      const fantome = window.Pieces.creerPiece(lettre, this.variante);
+      fantome.classList.add('fantome');
+      fantome.style.width = t + 'px'; fantome.style.height = t + 'px';
+      fantome.style.left = (p.ex * t) + 'px'; fantome.style.top = (p.ey * t) + 'px';
+      this.calquePieces.appendChild(fantome);
+      setTimeout(() => fantome.remove(), 450);
+      for (let i = 0; i < 10; i++) {
+        const e = document.createElement('div');
+        e.className = 'eclat';
+        const a = (i / 10) * Math.PI * 2 + Math.random() * 0.5;
+        const d = t * (0.45 + Math.random() * 0.35);
+        e.style.left = p.x + 'px'; e.style.top = p.y + 'px';
+        e.style.setProperty('--dx', (Math.cos(a) * d) + 'px');
+        e.style.setProperty('--dy', (Math.sin(a) * d) + 'px');
+        e.style.background = lettre === lettre.toUpperCase() ? '#f4efe2' : '#2a2a2a';
+        this.calquePieces.appendChild(e);
+        setTimeout(() => e.remove(), 520);
+      }
+    }
+    _poser(el, delai) {
+      setTimeout(() => { el.classList.remove('pose'); void el.offsetWidth; el.classList.add('pose'); }, delai);
+    }
+    // Début de partie : les pièces arrivent rangée par rangée.
+    _entree() {
+      for (const nom in this.piecesEl || {}) {
+        const el = this.piecesEl[nom];
+        const c = this._coord(nom);
+        const loin = Math.min(c.rang, this.lignes - 1 - c.rang);
+        el.style.animationDelay = (loin * 70 + c.col * 15) + 'ms';
+        el.classList.add('apparition');
+        setTimeout(() => { el.classList.remove('apparition'); el.style.animationDelay = ''; }, 900);
+      }
+    }
+    // Petits confettis dorés au-dessus du plateau.
+    feuDeJoie() {
+      if (!this.tCase) return;
+      const W = this.cols * this.tCase, H = this.lignes * this.tCase;
+      const couleurs = ['#e3b15a', '#f4efe2', '#78c850', '#4a9bff', '#ec6b6b'];
+      for (let i = 0; i < 60; i++) {
+        const e = document.createElement('div');
+        e.className = 'confetti';
+        e.style.left = (Math.random() * W) + 'px';
+        e.style.top = (-10 - Math.random() * H * 0.2) + 'px';
+        e.style.background = couleurs[i % couleurs.length];
+        e.style.setProperty('--chute', (H * (0.7 + Math.random() * 0.4)) + 'px');
+        e.style.setProperty('--tour', (Math.random() * 720 - 360) + 'deg');
+        e.style.animationDelay = (Math.random() * 400) + 'ms';
+        this.calquePieces.appendChild(e);
+        setTimeout(() => e.remove(), 2600);
+      }
     }
 
     retourner(oui) {
@@ -118,16 +212,19 @@
     _surligner() {
       if (!this.casesEl) return;
       const trous = (this.position && this.position.trous) || new Set();
-      const zones = (this.decor && this.decor.zones) || new Set();
+      const zs = (this.decor && this.decor.zones) || {};
+      const zw = zs instanceof Set ? zs : (zs.w || new Set()), zb = zs instanceof Set ? new Set() : (zs.b || new Set());
       for (const nom in this.casesEl) {
         const d = this.casesEl[nom];
         d.classList.remove('dernier', 'selection', 'cible', 'cible-prise', 'echec');
         d.classList.toggle('trou', trous.has(nom));
-        d.classList.toggle('zone', zones.has(nom));
+        d.classList.toggle('zone', zw.has(nom));
+        d.classList.toggle('zone-noire', zb.has(nom));
         d.classList.toggle('choisie-cfg', !!(this.decor && this.decor.selection && this.decor.selection.has(nom)));
       }
       if (this.dernier) for (const n of this.dernier) if (this.casesEl[n]) this.casesEl[n].classList.add('dernier');
       if (this.echecCase && this.casesEl[this.echecCase]) this.casesEl[this.echecCase].classList.add('echec');
+      for (const nom in this.piecesEl || {}) this.piecesEl[nom].classList.toggle('levee', !!(this.selection && this.selection.de === nom));
       if (this.selection) {
         if (this.selection.de) this.casesEl[this.selection.de].classList.add('selection');
         for (const v of this._ciblesSelection()) {
@@ -183,6 +280,8 @@
               el.style.transition = '';
               el.style.transform = 'translate(' + (e.x * t) + 'px,' + (e.y * t) + 'px)';
             }));
+            const arrivant = el;
+            setTimeout(() => this._poser(arrivant, 0), 190);
           }
           nouveaux[nom] = el;
           this.calquePieces.appendChild(el);
@@ -286,6 +385,7 @@
       if (this._estAMoi(nom)) {
         const dejaChoisie = this.selection && this.selection.de === nom;
         this.selection = { de: nom };
+        if (!dejaChoisie && this.opts.surSelection) this.opts.surSelection(nom);
         this._surligner(); this._poches();
         this._commencerGlisse(nom, e, dejaChoisie);
         return;
