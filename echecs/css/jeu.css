@@ -501,5 +501,5 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .hz-avantage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 17px; background: var(--panneau); border-radius: 12px; padding: 8px 12px; }
 .hz-avantage input { width: 80px; background: #15171b; color: var(--texte); border: 2px solid var(--bord); border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 18px; text-align: center; }
 .hz-avantage input.faux { border-color: var(--rouge); }
-.cf-haut .hz-avantage { padding: 2px 0; background: none; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
+.cf-haut .hz-avantage { padding: 2px 0; background: none; gap: 4px 6px; flex-wrap: wrap; }
 .cf-haut .hz-avantage input { width: 68px; padding: 2px 6px; }
