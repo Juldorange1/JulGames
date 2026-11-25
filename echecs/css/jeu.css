@@ -498,3 +498,6 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .hz-resume { font-size: 17px; color: var(--accent); min-height: 24px; }
 .hz-av-texte { color: var(--accent); white-space: nowrap; }
 @media (max-height: 820px) { .hz-perso .icone { width: 30px !important; height: 30px !important; --case: 30px; } .hz-perso .bouton { height: 28px; } }
+.hz-avantage { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 17px; background: var(--panneau); border-radius: 12px; padding: 8px 12px; }
+.hz-avantage input { width: 80px; background: #15171b; color: var(--texte); border: 2px solid var(--bord); border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 18px; text-align: center; }
+.hz-avantage input.faux { border-color: var(--rouge); }

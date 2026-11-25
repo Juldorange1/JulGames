@@ -8,7 +8,7 @@
 <!-- Rend la page « isolée » (nécessaire aux moteurs qui calculent sur plusieurs cœurs) -->
 <script>window.coi = { quiet: true };</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=22">
+<link rel="stylesheet" href="css/jeu.css?v=23">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -130,12 +130,14 @@
         <section class="pli" data-pli="hasard">
           <button class="pli-titre">🎲 Placer au hasard</button>
           <div class="pli-corps">
-            <p class="aide">Choisis combien de chaque personnage. Les blancs et les noirs reçoivent les mêmes, posés au hasard dans leur moitié du plateau, à chaque partie.</p>
+            <p class="aide">Choisis combien de chaque personnage. À chaque partie, les blancs les reçoivent à des places tirées au hasard dans leur moitié, et les noirs exactement pareil, en face.</p>
             <div class="cats" id="hz-cats"></div>
             <div id="hz-persos" class="hz-grille"></div>
             <div class="hz-resume" id="hz-resume"></div>
-            <div class="compteur"><span>Avantage des blancs permis : entre <b class="hz-av-texte" id="hz-av-texte"></b></span>
-              <button class="bouton" id="hz-av-moins">−</button><button class="bouton" id="hz-av-plus">+</button></div>
+            <div class="hz-avantage">Avantage des blancs au départ entre
+              <input type="text" inputmode="decimal" id="hz-av-min"> et
+              <input type="text" inputmode="decimal" id="hz-av-max"></div>
+            <p class="aide">Exemples : −1 et +1 (équilibré), +2 et +5 (les blancs commencent devant), −3 et −1 (les noirs devant).</p>
           </div>
         </section>
         <section class="pli" data-pli="mes">
@@ -284,16 +286,16 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/pieces-svg.js?v=22"></script>
-<script src="js/persos.js?v=22"></script>
-<script src="js/pieces.js?v=22"></script>
-<script src="js/regles.js?v=22"></script>
-<script src="js/config.js?v=22"></script>
-<script src="js/moteur.js?v=22"></script>
-<script src="js/son.js?v=22"></script>
-<script src="js/plateau.js?v=22"></script>
-<script src="js/bilan.js?v=22"></script>
-<script src="js/editeur.js?v=22"></script>
-<script src="js/app.js?v=22"></script>
+<script src="js/pieces-svg.js?v=23"></script>
+<script src="js/persos.js?v=23"></script>
+<script src="js/pieces.js?v=23"></script>
+<script src="js/regles.js?v=23"></script>
+<script src="js/config.js?v=23"></script>
+<script src="js/moteur.js?v=23"></script>
+<script src="js/son.js?v=23"></script>
+<script src="js/plateau.js?v=23"></script>
+<script src="js/bilan.js?v=23"></script>
+<script src="js/editeur.js?v=23"></script>
+<script src="js/app.js?v=23"></script>
 </body>
 </html>

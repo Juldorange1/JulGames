@@ -51,8 +51,8 @@
     c.trousHasard = 0;
     c.miroir = false;
     c.auHasard = c.auHasard || {};
-    const x = Math.max(Math.abs(c.avMin == null ? 0.5 : c.avMin), Math.abs(c.avMax == null ? 0.5 : c.avMax));
-    c.avMin = -x; c.avMax = x;
+    if (c.avMin == null) c.avMin = -0.5;
+    if (c.avMax == null) c.avMax = 0.5;
     return c;
   }
 
@@ -107,21 +107,44 @@
       const p = pieces[r][c];
       if (p && p.hasard != null) { const id = tirer(p.hasard); pieces[r][c] = id ? { camp: p.camp, perso: id } : null; }
     }
-    // 1 bis. pièces au hasard : chacune sur une case libre tirée au hasard dans la moitié de sa couleur
-    //        (un pion jamais sur la première ni la dernière rangée)
+    // 1 bis. pièces au hasard : les blancs sont posés au hasard dans leur moitié (un pion jamais sur la première
+    //        ni la dernière rangée), puis les noirs reçoivent exactement la même disposition, en miroir.
     const lot = lotHasard(cfg).sort((a, b) => (b === 'pion') - (a === 'pion'));
-    for (const camp of ['w', 'b']) {
-      const libres = [];
-      for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
-        const moi = camp === 'w' ? r < moitie : r >= L - moitie;
-        if (moi && !pieces[r][c] && !trous[r][c]) libres.push([r, c]);
-      }
-      melanger(libres);
+    if (lot.length) {
+      const pionOk = (r) => r !== 0 && r !== L - 1;
+      const libresDe = (camp) => {
+        const l = [];
+        for (let r = 0; r < L; r++) for (let c = 0; c < C; c++) {
+          const moi = camp === 'w' ? r < moitie : r >= L - moitie;
+          if (moi && !pieces[r][c] && !trous[r][c]) l.push([r, c]);
+        }
+        return melanger(l);
+      };
+      const libresW = libresDe('w');
+      const poses = [];
       for (const id of lot) {
-        const i = libres.findIndex(([r]) => id !== 'pion' || (r !== 0 && r !== L - 1));
+        // de préférence une case dont le miroir est libre aussi (pour que les noirs aient la même place)
+        const ok = ([r, c]) => (id !== 'pion' || pionOk(r));
+        let i = libresW.findIndex(([r, c]) => ok([r, c]) && !pieces[miroir(r)][c] && !trous[miroir(r)][c]);
+        if (i < 0) i = libresW.findIndex(ok);
         if (i < 0) continue;
-        const [r, c] = libres.splice(i, 1)[0];
-        pieces[r][c] = { camp, perso: id };
+        const [r, c] = libresW.splice(i, 1)[0];
+        pieces[r][c] = { camp: 'w', perso: id };
+        poses.push([r, c, id]);
+      }
+      const restes = [];
+      for (const [r, c, id] of poses) {
+        const rm = miroir(r);
+        if (!pieces[rm][c] && !trous[rm][c]) pieces[rm][c] = { camp: 'b', perso: id };
+        else restes.push(id);
+      }
+      // si une case miroir était prise (pièce posée à la main, trou), on prend une autre case libre
+      const libresB = libresDe('b');
+      for (const id of restes) {
+        const i = libresB.findIndex(([r]) => id !== 'pion' || pionOk(r));
+        if (i < 0) continue;
+        const [r, c] = libresB.splice(i, 1)[0];
+        pieces[r][c] = { camp: 'b', perso: id };
       }
     }
     // 2. zones de départ : les pièces d'une couleur posées dans sa zone apparaissent au hasard

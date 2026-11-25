@@ -91,18 +91,18 @@
       $('#outil-trou').addEventListener('click', () => this.choisirOutil({ type: 'trou' }));
       $('#outil-gomme').addEventListener('click', () => this.choisirOutil({ type: 'gomme' }));
       $('#cf-vider').addEventListener('click', () => { const c = this.cfg; c.pieces = window.Config.grille(c.lignes, c.cols, null); c.trous = window.Config.grille(c.lignes, c.cols, false); this.change(); });
-      // pièces au hasard : avantage permis
-      const ECARTS = [0.2, 0.5, 1, 1.5, 2, 3, 5, 10];
-      const ecart = (d) => {
-        const x = this.cfg.avMax;
-        let i = ECARTS.findIndex((v) => v >= x - 1e-9);
-        if (i < 0) i = ECARTS.length - 1;
-        i = Math.max(0, Math.min(ECARTS.length - 1, i + d));
-        this.cfg.avMin = -ECARTS[i]; this.cfg.avMax = ECARTS[i];
-        this.majHasard(); this.change();
+      // pièces au hasard : avantage des blancs voulu au départ (minimum et maximum, écrits librement)
+      const lireAv = () => {
+        const lire = (el) => { const v = parseFloat(String(el.value).replace(',', '.').replace('−', '-').replace(/\s/g, '')); return isNaN(v) ? null : Math.max(-50, Math.min(50, v)); };
+        const a = lire($('#hz-av-min')), b = lire($('#hz-av-max'));
+        $('#hz-av-min').classList.toggle('faux', a == null);
+        $('#hz-av-max').classList.toggle('faux', b == null);
+        if (a == null || b == null) return;
+        this.cfg.avMin = Math.min(a, b); this.cfg.avMax = Math.max(a, b);
+        this.change();
       };
-      $('#hz-av-moins').addEventListener('click', () => ecart(-1));
-      $('#hz-av-plus').addEventListener('click', () => ecart(1));
+      $('#hz-av-min').addEventListener('change', lireAv);
+      $('#hz-av-max').addEventListener('change', lireAv);
       $('#cf-jouer').addEventListener('click', () => window.App.jouerAvec(this.cfg.id));
     },
 
@@ -211,7 +211,9 @@
         const noms = Object.keys(cfg.auHasard).map((id) => { const p = window.Persos.trouver(id); return cfg.auHasard[id] + ' ' + (p ? p.nom : '?'); });
         res.textContent = 'Chaque couleur reçoit au hasard : ' + noms.join(', ') + '.';
       }
-      $('#hz-av-texte').textContent = texteAvantage(cfg.avMin) + ' et ' + texteAvantage(cfg.avMax);
+      const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
+      if (document.activeElement !== $('#hz-av-min')) $('#hz-av-min').value = ecrit(cfg.avMin);
+      if (document.activeElement !== $('#hz-av-max')) $('#hz-av-max').value = ecrit(cfg.avMax);
     },
 
     remplir() {
