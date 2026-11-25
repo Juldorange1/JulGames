@@ -40,7 +40,7 @@ p { margin: 6px 0; line-height: 1.4; }
 /* ---------- écrans ---------- */
 .ecran { display: none; height: 100vh; }
 .ecran.visible { display: flex; }
-#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres, #ecran-cartes { flex-direction: column; }
+#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres, #ecran-cartes, #ecran-bots { flex-direction: column; }
 .entete { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--bord); background: rgba(0,0,0,.15); }
 .entete h1 { font-size: 30px; color: var(--accent); }
 .entete .et { color: var(--texte); font-weight: 400; }
@@ -448,7 +448,7 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 
 /* ---------- menu principal ---------- */
 .menu-principal { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px; min-height: 0; }
-.menu-cartes { display: grid; grid-template-columns: repeat(5, minmax(0, 250px)); gap: 16px; }
+.menu-cartes { display: grid; grid-template-columns: repeat(6, minmax(0, 220px)); gap: 12px; }
 .carte-menu {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 28px 22px;
   background: var(--panneau); border: 2px solid var(--bord); border-radius: 18px; cursor: pointer; min-height: 250px;
@@ -545,3 +545,34 @@ body.avec-decor .note-moteur, body.avec-decor .options-generales { background: r
 @media (max-height: 820px) { .carte-menu { min-height: 190px; padding: 16px 12px; } .carte-menu b { font-size: 21px; } }
 .cf-haut { gap: 3px; }
 .cf-av-ligne:has(#cf-av-valeur:empty) { display: none; }
+
+/* ---------- pronostic ---------- */
+.pronostic { font-size: 17px; line-height: 1.35; padding: 6px 10px; border-radius: 10px; background: #1b1e23; border-left: 4px solid var(--gris); min-height: 34px; flex: none; }
+.pronostic:empty { display: none; }
+.pronostic.blancs { border-left-color: #f2f0ea; }
+.pronostic.noirs { border-left-color: #6a6f78; }
+.pronostic.egal { border-left-color: var(--accent); }
+.pronostic.attente { color: var(--gris); }
+
+/* ---------- bots ---------- */
+.bo-explication { background: var(--fond2); border: 2px solid var(--bord); border-radius: 14px; padding: 14px 18px; font-size: 18px; align-self: start; }
+.bo-explication h2 { margin-top: 0; }
+.bo-rangs { display: flex; flex-direction: column; gap: 5px; }
+.bo-rang { display: grid; grid-template-columns: 170px 64px 20px 1fr; align-items: center; gap: 6px; font-size: 17px; }
+.bo-rang input { background: #15171b; color: var(--texte); border: 2px solid var(--bord); border-radius: 8px; padding: 2px 6px; font: inherit; font-size: 17px; text-align: center; width: 100%; }
+.bo-barre { height: 12px; background: #15171b; border-radius: 6px; overflow: hidden; }
+.bo-plein { height: 100%; background: linear-gradient(90deg, #c98f2e, #e9b964); width: 0; transition: width .2s; }
+.bo-total { font-size: 18px; font-weight: 700; color: var(--vert); }
+.bo-total.faux { color: #ff9c9c; }
+.bots-crees { display: flex; flex-wrap: wrap; gap: 6px; }
+.choix .bots-crees button { padding: 5px 12px; font-size: 16px; border-radius: 16px; }
+.choix .bots-crees button.creer-bot { border-style: dashed; color: var(--gris); }
+
+/* ---------- paramètres en onglets ---------- */
+.par-onglets { margin-bottom: 10px; max-width: 700px; }
+.par-panneau { display: block; }
+.par-panneau .options-generales { gap: 14px; font-size: 18px; }
+.par-volume { display: flex; gap: 12px; align-items: center; }
+.par-volume input { width: 240px; accent-color: var(--accent); }
+.grille-apparence { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+@media (max-height: 820px) { .carte-menu { min-height: 180px; padding: 14px 10px; } .carte-menu b { font-size: 20px; } .carte-menu .carte-icone { font-size: 40px; } }

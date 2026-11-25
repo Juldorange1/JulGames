@@ -98,7 +98,16 @@
       tex: () => [marbre('#eef2f6', '#a9b8c6', 71, 512), marbre('#5d7a96', '#2f4256', 73, 512)] },
     { id: 'olive', nom: 'Olive', claire: '#e9e7d0', foncee: '#7f8c55' },
     { id: 'lavande', nom: 'Lavande', claire: '#ece7f1', foncee: '#8a7ca8' },
-    { id: 'nocturne', nom: 'Nocturne', claire: '#a9b1bf', foncee: '#3f4858' }
+    { id: 'nocturne', nom: 'Nocturne', claire: '#a9b1bf', foncee: '#3f4858' },
+    // couleurs unies, totalement lisses et très lisibles
+    { id: 'gris', nom: 'Gris uni', claire: '#e4e4e4', foncee: '#8f9298' },
+    { id: 'ardoise-uni', nom: 'Bleu ardoise uni', claire: '#e1e7ee', foncee: '#56708c' },
+    { id: 'sauge', nom: 'Vert sauge uni', claire: '#e9eee5', foncee: '#7d9a7a' },
+    { id: 'sable-uni', nom: 'Sable uni', claire: '#f4ead7', foncee: '#c2a174' },
+    { id: 'contraste', nom: 'Contraste fort', claire: '#ffffff', foncee: '#5a5a5a' },
+    { id: 'turquoise', nom: 'Turquoise uni', claire: '#e3f1ef', foncee: '#4c958f' },
+    { id: 'brique', nom: 'Brique uni', claire: '#f1e3da', foncee: '#a8644c' },
+    { id: 'violet', nom: 'Violet uni', claire: '#ece8f3', foncee: '#6e5b96' }
   ];
 
 
@@ -274,6 +283,134 @@
     } }
   ];
 
+
+  // ---------- décors « geek » ----------
+  const LIGNES_CODE = [
+    'function evaluer(position, profondeur) {', '  if (profondeur === 0) return statique(position);', '  let meilleur = -Infinity;',
+    '  for (const coup of position.coupsLegaux()) {', '    position.jouer(coup);', '    const v = -evaluer(position, profondeur - 1);',
+    '    position.annuler();', '    if (v > meilleur) meilleur = v;', '  }', '  return meilleur;', '}', '',
+    'const table = new Map();', 'while (temps.restant() > 0) {', '  profondeur++;', '  score = alphaBeta(-INF, INF, profondeur);',
+    '  console.log(`prof ${profondeur} : ${score}`);', '}', 'for (let i = 0; i < 64; i++) bitboard |= 1n << BigInt(i);',
+    'if (roi.enEchec()) return MAT;', 'export default class Moteur {', '  constructor(taille = 8) {', '    this.cases = new Uint8Array(taille * taille);',
+    '  }', 'return hash ^ cleZobrist[piece][caseIndex];', 'const pv = lignes.map(l => l.coups.join(" "));', 'await worker.postMessage({ go: true });',
+    '0x3F8A 0x00C1 0xFFE2 0x7B10 0x9D4C', 'git commit -m "plus rapide"', '$ npm run build && ./moteur --threads 8'
+  ];
+  function code(w, h) {
+    const c = toile(w, h), ctx = c.getContext('2d'), r = aleaGraine(901);
+    ctx.fillStyle = '#040805'; ctx.fillRect(0, 0, w, h);
+    const tailles = [13, 15, 17];
+    for (let col = 0; col < 4; col++) {
+      const x0 = 30 + col * (w / 4);
+      let y = 20 + r() * 20, i = Math.floor(r() * LIGNES_CODE.length);
+      const t = tailles[col % 3];
+      ctx.font = t + 'px Consolas, "Courier New", monospace';
+      while (y < h - 10) {
+        const l = LIGNES_CODE[i++ % LIGNES_CODE.length];
+        const vif = r() < 0.08;
+        ctx.fillStyle = vif ? 'rgba(170,255,190,0.85)' : 'rgba(46,200,100,' + (0.25 + r() * 0.35).toFixed(2) + ')';
+        ctx.fillText(l, x0 + (l.match(/^ */)[0].length) * 2, y);
+        y += t * 1.45;
+      }
+    }
+    halo(ctx, w / 2, h / 2, 50, w * 0.7, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.55)');
+    return c;
+  }
+  function marches(w, h) {
+    const c = toile(w, h), ctx = c.getContext('2d'), r = aleaGraine(77), B = creerBruit(5);
+    ctx.fillStyle = '#070c16'; ctx.fillRect(0, 0, w, h);
+    const panneaux = [[0.03, 0.05, 0.45, 0.42], [0.52, 0.05, 0.45, 0.42], [0.03, 0.52, 0.45, 0.42], [0.52, 0.52, 0.45, 0.42]];
+    const noms = ['EUR/USD', 'BTC/USD', 'CAC 40', 'OR'];
+    panneaux.forEach(([px, py, pw, ph], k) => {
+      const X = px * w, Y = py * h, W = pw * w, H = ph * h;
+      ctx.fillStyle = 'rgba(20,30,50,0.6)'; ctx.fillRect(X, Y, W, H);
+      ctx.strokeStyle = 'rgba(90,120,170,0.15)'; ctx.lineWidth = 1;
+      for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(X, Y + H * i / 6); ctx.lineTo(X + W, Y + H * i / 6); ctx.stroke(); }
+      for (let i = 1; i < 10; i++) { ctx.beginPath(); ctx.moveTo(X + W * i / 10, Y); ctx.lineTo(X + W * i / 10, Y + H); ctx.stroke(); }
+      let v = 0.5;
+      const n = 48, bw = W / n;
+      for (let i = 0; i < n; i++) {
+        const o = v; v = Math.max(0.1, Math.min(0.9, v + (B.bruit(i * 0.3, k * 9) - 0.5) * 0.12 + (r() - 0.5) * 0.04));
+        const haut = Math.max(o, v) + r() * 0.04, bas = Math.min(o, v) - r() * 0.04;
+        const monte = v >= o, x = X + i * bw + bw / 2;
+        ctx.strokeStyle = ctx.fillStyle = monte ? 'rgba(46,204,113,0.75)' : 'rgba(231,76,60,0.75)';
+        ctx.beginPath(); ctx.moveTo(x, Y + H * (1 - haut)); ctx.lineTo(x, Y + H * (1 - bas)); ctx.stroke();
+        ctx.fillRect(x - bw * 0.3, Y + H * (1 - Math.max(o, v)), bw * 0.6, Math.max(1, H * Math.abs(v - o)));
+      }
+      ctx.font = '600 16px "Segoe UI", sans-serif';
+      ctx.fillStyle = 'rgba(200,215,240,0.6)'; ctx.fillText(noms[k], X + 10, Y + 22);
+      const pct = ((r() - 0.4) * 3).toFixed(2);
+      ctx.fillStyle = pct >= 0 ? 'rgba(46,204,113,0.8)' : 'rgba(231,76,60,0.8)';
+      ctx.fillText((pct >= 0 ? '▲ +' : '▼ ') + pct + ' %', X + 110, Y + 22);
+    });
+    halo(ctx, w / 2, h / 2, 60, w * 0.75, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.5)');
+    return c;
+  }
+  const FORMULES = ['∫₀^∞ e^(−x²) dx = √π / 2', 'Σ 1/n² = π² / 6', 'e^(iπ) + 1 = 0', '∇ · E = ρ / ε₀', 'f(x) = Σ aₙ (x − a)ⁿ',
+    'det(A − λI) = 0', 'lim (1 + 1/n)ⁿ = e', '∂u/∂t = α ∇²u', 'P(A|B) = P(B|A) P(A) / P(B)', 'x = (−b ± √(b² − 4ac)) / 2a',
+    'ζ(s) = Σ n^(−s)', '∮ B · dl = μ₀ I', '10^120 parties possibles', 'Γ(n) = (n − 1)!', 'φ = (1 + √5) / 2', 'O(b^d) → O(b^(d/2))'];
+  function calculs(w, h) {
+    const c = toile(w, h), ctx = c.getContext('2d'), r = aleaGraine(313);
+    ctx.fillStyle = degrade(ctx, 0, 0, 0, h, [[0, '#0a1222'], [1, '#0d1a2e']]); ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(120,160,220,0.07)'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    // courbes
+    [['rgba(90,200,255,0.35)', 0.008, 60, 0.3], ['rgba(255,170,90,0.3)', 0.004, 110, 0.65], ['rgba(160,255,170,0.25)', 0.013, 30, 0.85]].forEach(([coul, f, a, base]) => {
+      ctx.strokeStyle = coul; ctx.lineWidth = 2; ctx.beginPath();
+      for (let x = 0; x <= w; x += 4) { const y = h * base + Math.sin(x * f) * a * Math.cos(x * f * 0.31); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    });
+    for (let i = 0; i < 26; i++) {
+      const t = 16 + Math.floor(r() * 16);
+      ctx.font = 'italic ' + t + 'px "Cambria Math", "Times New Roman", serif';
+      ctx.fillStyle = 'rgba(' + (r() < 0.5 ? '220,235,255' : '140,220,255') + ',' + (0.18 + r() * 0.4).toFixed(2) + ')';
+      ctx.fillText(FORMULES[i % FORMULES.length], r() * (w - 300), 30 + r() * (h - 40));
+    }
+    halo(ctx, w / 2, h / 2, 60, w * 0.75, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.45)');
+    return c;
+  }
+  function circuit(w, h) {
+    const c = toile(w, h), ctx = c.getContext('2d'), r = aleaGraine(55);
+    ctx.fillStyle = '#06281a'; ctx.fillRect(0, 0, w, h);
+    const pas = 24;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 140; i++) {
+      let x = Math.round(r() * w / pas) * pas, y = Math.round(r() * h / pas) * pas;
+      ctx.strokeStyle = 'rgba(214,170,80,' + (0.25 + r() * 0.35).toFixed(2) + ')';
+      ctx.lineWidth = r() < 0.2 ? 4 : 2;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let k = 0; k < 4; k++) {
+        const dir = Math.floor(r() * 4), long = pas * (2 + Math.floor(r() * 6));
+        if (dir === 0) x += long; else if (dir === 1) x -= long; else if (dir === 2) y += long; else y -= long;
+        if (r() < 0.4) { x += (r() < 0.5 ? 1 : -1) * pas; y += (r() < 0.5 ? 1 : -1) * pas; }
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(230,190,100,0.6)';
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < 9; i++) {
+      const x = r() * (w - 140), y = r() * (h - 100), cw = 70 + r() * 80, ch = 50 + r() * 50;
+      ctx.fillStyle = 'rgba(15,15,18,0.9)'; ctx.fillRect(x, y, cw, ch);
+      ctx.fillStyle = 'rgba(200,200,210,0.5)';
+      for (let k = 6; k < cw - 4; k += 10) { ctx.fillRect(x + k, y - 6, 4, 6); ctx.fillRect(x + k, y + ch, 4, 6); }
+    }
+    halo(ctx, w / 2, h / 2, 60, w * 0.75, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.55)');
+    return c;
+  }
+  const uni = (couleur) => (w, h) => { const c = toile(w, h), ctx = c.getContext('2d'); ctx.fillStyle = couleur; ctx.fillRect(0, 0, w, h); return c; };
+  const DECORS_EN_PLUS = [
+    { id: 'uni-nuit', nom: 'Uni anthracite', dessiner: uni('#1c1f24') },
+    { id: 'uni-bleu', nom: 'Uni bleu nuit', dessiner: uni('#152235') },
+    { id: 'uni-vert', nom: 'Uni vert sapin', dessiner: uni('#16291f') },
+    { id: 'uni-prune', nom: 'Uni prune', dessiner: uni('#251c2b') },
+    { id: 'uni-gris', nom: 'Uni gris doux', dessiner: uni('#3a3d43') },
+    { id: 'code', nom: 'Code vert', ambiance: 'ordinateur', dessiner: code },
+    { id: 'marches', nom: 'Salle des marchés', ambiance: 'ordinateur', dessiner: marches },
+    { id: 'calculs', nom: 'Calculs extrêmes', ambiance: 'ordinateur', dessiner: calculs },
+    { id: 'circuit', nom: 'Circuit imprimé', ambiance: 'ordinateur', dessiner: circuit }
+  ];
+
   // ---------- décors de fond ----------
   const W = 1600, H = 900;
   function vignette(ctx, w, h, force) {
@@ -432,8 +569,14 @@
       });
       vignette(c.getContext('2d'), w, h, 0.5);
       return c;
-    } }
+    } },
+    ...DECORS_EN_PLUS
   ];
+
+  // son d'ambiance de chaque décor (les décors unis restent silencieux)
+  const AMBIANCES = { table: 'feu', etoiles: 'grillons', couchant: 'vagues', foret: 'foret', aube: 'vagues', neige: 'vent',
+    ocean: 'vagues', dunes: 'vent', aurore: 'vent', collines: 'foret' };
+  DECORS.forEach((x) => { if (x.ambiance === undefined && AMBIANCES[x.id]) x.ambiance = AMBIANCES[x.id]; });
 
   // ---------- application ----------
   const cache = {};

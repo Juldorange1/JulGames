@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 38;
+  var ICI = 39;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,7 +21,7 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=38">
+<link rel="stylesheet" href="css/jeu.css?v=39">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -42,12 +42,13 @@
       <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
       <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Créer des cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
       <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
+      <button class="carte-menu" data-aller="bots"><span class="carte-icone">🤖</span><b>Créer des bots</b><span>Des adversaires qui jouent le 1er, 2e, 3e… meilleur coup selon tes %.</span></button>
       <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Thème du plateau, décor de fond et bruits des pièces.</span></button>
       <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un bot ou un ami.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 38</div>
+    <div class="note-moteur centre">Version 39</div>
   </div>
 </section>
 
@@ -84,6 +85,43 @@
   </div>
 </section>
 
+<!-- ============ BOTS ============ -->
+<section id="ecran-bots" class="ecran">
+  <header class="entete">
+    <h1>Bot : <span class="et" id="bo-titre"></span></h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="jouer">▶ Jouer</button>
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+    </nav>
+  </header>
+  <div class="persos cartes">
+    <div class="ps-gauche">
+      <button class="bouton principal" id="bo-nouveau">➕ Nouveau bot</button>
+      <div class="ca-liste" id="bo-liste"></div>
+    </div>
+    <div class="bo-explication">
+      <h2>Comment joue ce bot ?</h2>
+      <p>À chaque coup, le moteur (à pleine force) range tous les coups du meilleur au moins bon.</p>
+      <p>Le bot joue le <b>1er meilleur coup</b>, le <b>2e</b>, le <b>3e</b>… selon les pourcentages que tu choisis à droite.</p>
+      <p class="aide">Exemples : 100 % au 1er = le plus fort possible. 50 % / 30 % / 20 % = fort mais imprévisible. 10 % à chacun des 10 = très facile.</p>
+    </div>
+    <div class="ps-editeur" id="bo-editeur">
+      <label class="champ">Nom<input type="text" id="bo-nom" maxlength="24"></label>
+      <div class="bo-rangs" id="bo-rangs"></div>
+      <div class="ligne-boutons serree">
+        <button class="bouton" id="bo-ajouter">➕ Coup suivant</button>
+        <button class="bouton" id="bo-retirer">➖ Retirer le dernier</button>
+      </div>
+      <div class="bo-total" id="bo-total"></div>
+      <div class="ligne-boutons serree">
+        <button class="bouton" id="bo-repartir">Ramener à 100 %</button>
+        <button class="bouton principal" id="bo-jouer">▶ Jouer contre lui</button>
+        <button class="bouton danger" id="bo-supprimer">🗑</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ PARAMÈTRES ============ -->
 <section id="ecran-parametres" class="ecran">
   <header class="entete">
@@ -93,11 +131,21 @@
     </nav>
   </header>
   <div class="parametres">
-    <h2>Thème du plateau</h2>
-    <div class="grille-apparence" id="par-themes"></div>
-    <h2>Décor de fond</h2>
-    <div class="grille-apparence decors" id="par-decors"></div>
-    <div class="options-generales"><label><input type="checkbox" id="opt-sons"> Bruits des pièces</label></div>
+    <div class="onglets par-onglets" id="par-onglets">
+      <button data-par="plateau" class="actif">🎨 Plateau</button>
+      <button data-par="decor">🖼 Décor de fond</button>
+      <button data-par="sons">🔊 Sons</button>
+    </div>
+    <div class="par-panneau" data-par="plateau"><div class="grille-apparence" id="par-themes"></div></div>
+    <div class="par-panneau" data-par="decor"><div class="grille-apparence decors" id="par-decors"></div></div>
+    <div class="par-panneau" data-par="sons">
+      <div class="options-generales">
+        <label><input type="checkbox" id="opt-sons"> Bruits des pièces (coups, prises, échec, fin de partie)</label>
+        <label><input type="checkbox" id="opt-ambiance"> Sons d’ambiance du décor (vagues, vent, forêt, feu, grillons…)</label>
+        <label class="par-volume">Volume de l’ambiance <input type="range" id="opt-volume" min="0" max="100" step="5"></label>
+      </div>
+      <p class="aide">Les sons d’ambiance arrivent et partent en douceur. Les décors unis restent silencieux.</p>
+    </div>
   </div>
 </section>
 
@@ -291,6 +339,7 @@
     <div class="nom-config" id="nom-config"></div>
     <div class="joueur" id="joueur-haut"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span></div>
     <div class="etat" id="etat-partie"></div>
+      <div class="pronostic" id="pronostic"></div>
     <div class="vue-passee" id="vue-passee">
       <span id="vue-passee-texte"></span>
       <div class="ligne-boutons">
@@ -360,18 +409,19 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/cartes.js?v=38"></script>
-<script src="js/themes.js?v=38"></script>
-<script src="js/pieces-svg.js?v=38"></script>
-<script src="js/persos.js?v=38"></script>
-<script src="js/pieces.js?v=38"></script>
-<script src="js/regles.js?v=38"></script>
-<script src="js/config.js?v=38"></script>
-<script src="js/moteur.js?v=38"></script>
-<script src="js/son.js?v=38"></script>
-<script src="js/plateau.js?v=38"></script>
-<script src="js/bilan.js?v=38"></script>
-<script src="js/editeur.js?v=38"></script>
-<script src="js/app.js?v=38"></script>
+<script src="js/bots.js?v=39"></script>
+<script src="js/cartes.js?v=39"></script>
+<script src="js/themes.js?v=39"></script>
+<script src="js/pieces-svg.js?v=39"></script>
+<script src="js/persos.js?v=39"></script>
+<script src="js/pieces.js?v=39"></script>
+<script src="js/regles.js?v=39"></script>
+<script src="js/config.js?v=39"></script>
+<script src="js/moteur.js?v=39"></script>
+<script src="js/son.js?v=39"></script>
+<script src="js/plateau.js?v=39"></script>
+<script src="js/bilan.js?v=39"></script>
+<script src="js/editeur.js?v=39"></script>
+<script src="js/app.js?v=39"></script>
 </body>
 </html>
