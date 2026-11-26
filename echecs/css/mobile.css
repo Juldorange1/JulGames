@@ -95,3 +95,14 @@
   .ps-fleches { flex-wrap: nowrap !important; gap: 3px !important; font-size: 16px; }
   .ps-fleches .bouton { padding: 4px 5px; }
 }
+
+/* bots : au moins 4 visibles d'un coup (2 colonnes), sans l'explication */
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  #ecran-bots .persos > :first-child { max-height: none; overflow: visible; }
+  #ecran-bots #bo-liste { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; max-height: 150px; overflow-y: auto !important; overflow-x: hidden !important; margin-top: 6px; }
+  #ecran-bots #bo-liste .ps-carte { padding: 6px 8px; min-width: 0; }
+  #ecran-bots #bo-liste .ps-carte span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #ecran-bots .bo-explication { display: none; }
+  .bouton-plus { padding: 7px 8px; }
+  #plus-coups { max-height: 120px; overflow-y: auto; }
+}

@@ -24,7 +24,7 @@
   // l'analyse (barre, conseils) un seul, pour que la même position donne toujours les mêmes résultats.
   function nbThreads(role) {
     if (!window.crossOriginIsolated) return 1;
-    if (role === 'analyse') return 1;
+    if (role === 'analyse' || role === 'plus') return 1;
     return Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
   }
 
@@ -156,7 +156,7 @@
       }
       this.envoyer('setoption name MultiPV value ' + (o.multipv || 1));
       // analyse : mémoire vidée avant chaque calcul, pour ne dépendre ni du bot ni des positions vues avant
-      if (o.deterministe || this.role === 'analyse') this.envoyer('setoption name Clear Hash');
+      if (o.deterministe || this.role === 'analyse' || this.role === 'plus') this.envoyer('setoption name Clear Hash');
       await this.synchro();
 
       const rech = { annulee: false };
@@ -211,7 +211,7 @@
     }
     _chercher(o) {
       this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=50');
+      if (!this.w) this.w = new Worker('js/maison.js?v=51');
       const w = this.w, id = ++this.id;
       let temps = o.temps || 0;
       if (o.horloge) {

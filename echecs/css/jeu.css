@@ -627,3 +627,18 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .joueur .prises:empty { display: none; }
 .joueur .prises .icone { position: relative; width: 26px; height: 26px; --case: 26px; transform: none; }
 .barre-eval { overflow: visible; }
+
+/* 4e, 5e et 6e meilleurs coups */
+.bouton-plus { width: 100%; justify-content: center; flex: none; }
+.bouton-plus.actif { background: #3a3326; border-color: var(--accent); color: var(--accent); }
+/* choix du curseur */
+.apercu-curseur { width: 100%; aspect-ratio: 16 / 10; border-radius: 6px; background: linear-gradient(135deg, #6b7380, #3a4048); display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,.4); font-size: 34px; }
+.apercu-curseur img { width: auto; height: auto; }
+@media (max-height: 900px) and (min-width: 901px) {
+  #ecran-partie .panneau.serre { gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+  #ecran-partie .panneau.serre .nom-config { display: none; }
+  #ecran-partie .panneau.serre .liste-coups { min-height: 46px; }
+  #ecran-partie .panneau.serre .conseils { padding: 2px 8px; }
+  #ecran-partie .panneau.serre .conseil { padding: 0; }
+  #ecran-partie .panneau.serre .conseil + .petit-gris { display: none; }
+}

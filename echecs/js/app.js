@@ -22,6 +22,10 @@
     return BOTS.expert;
   }
   const COULEURS_CONSEILS = ['rgba(90,200,90,0.9)', 'rgba(80,160,255,0.85)', 'rgba(240,170,60,0.85)'];
+  const COULEURS_PLUS = ['rgba(200,120,255,0.85)', 'rgba(255,120,170,0.85)', 'rgba(170,175,185,0.85)'];
+  // recherche des 4e, 5e et 6e meilleurs coups (bouton), pour la position regardée
+  let plus = null;
+  let jetonPlus = 0;
 
   function lire(cle, defaut) {
     try { const v = JSON.parse(localStorage.getItem(cle)); return v == null ? defaut : v; } catch (e) { return defaut; }
@@ -31,7 +35,7 @@
   }
 
   const options = Object.assign({
-    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: [], pieces: 'cburnett'
+    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: [], pieces: 'cburnett', curseur: 'systeme'
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
@@ -202,6 +206,19 @@
       }
     };
     remplir($('#par-pieces'), window.Pieces.JEUX, 'pieces', window.Pieces.apercuJeu, window.Pieces.choisirJeu);
+    const gc = $('#par-curseurs');
+    gc.innerHTML = '';
+    for (const c of window.Curseurs.LISTE) {
+      const b = document.createElement('button');
+      b.className = 'carte-apparence' + (options.curseur === c.id ? ' choisie' : '');
+      b.appendChild(window.Curseurs.apercu(c));
+      const n = document.createElement('span'); n.textContent = c.nom; b.appendChild(n);
+      b.onclick = () => {
+        options.curseur = c.id; sauverOptions(); window.Curseurs.appliquer(c.id);
+        gc.querySelectorAll('.carte-apparence').forEach((x) => x.classList.toggle('choisie', x === b));
+      };
+      gc.appendChild(b);
+    }
     remplir($('#par-themes'), window.Themes.THEMES, 'theme', window.Themes.apercuTheme, window.Themes.appliquerTheme);
     remplir($('#par-decors'), window.Themes.DECORS, 'decor', window.Themes.apercuDecor, (id) => { window.Themes.appliquerDecor(id); majAmbiance(); });
   }
@@ -730,6 +747,7 @@
     const n = indexVue();
     const cle = p.fens[n];
     const trait = window.Regles.lireFen(cle).trait;
+    if (plus && plus.cle !== cle) fermerPlus();
     tablesFinales(cle);
     // déjà calculée jusqu'au bout pour cette position : on garde le résultat (il ne change plus)
     jeu.cache = jeu.cache || {};
@@ -819,12 +837,13 @@
     else if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
     majPronostic(lignes[0] && (a.fini || (jeu.variante.moteur !== 'maison' && lignes[0].profondeur >= 12)) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
     if (tables[a.cle] && tables[a.cle].category) pronosticExact(tables[a.cle], a.trait);
+    const flPlus = afficherPlus(a, lignes);
     const liste = $('#conseils-liste');
     liste.innerHTML = '';
-    if (!conseilsTenus) { plateau.effacerFleches(); return; }
+    if (!conseilsTenus) { if (flPlus.length) plateau.flechesAfficher(flPlus.reverse()); else plateau.effacerFleches(); return; }
     if (!a.fini) {
       // pas encore sûr : on n'affiche rien qui pourrait changer
-      plateau.effacerFleches();
+      if (flPlus.length) plateau.flechesAfficher(flPlus.reverse()); else plateau.effacerFleches();
       const prof = lignes[0] ? lignes[0].profondeur : 0;
       const but = PROF_CONSEILS[typeMoteur(jeu.variante)];
       const t = document.createElement('div'); t.className = 'petit-gris';
@@ -854,7 +873,99 @@
       pr.textContent = 'Calcul terminé (profondeur ' + lignes[0].profondeur + ') · score vu des blancs';
       liste.appendChild(pr);
     }
-    plateau.flechesAfficher(fl.reverse());
+    plateau.flechesAfficher(fl.concat(flPlus).reverse());
+  }
+
+  // ---------- 4e, 5e et 6e meilleurs coups (bouton) ----------
+  // panneau resserré quand les meilleurs coups sont affichés, pour que tout tienne sans défiler
+  function majSerre() { const pn = $('#ecran-partie .panneau'); if (pn) pn.classList.toggle('serre', conseilsTenus || !!plus); }
+  function fermerPlus() {
+    jetonPlus++;
+    plus = null;
+    majSerre();
+    for (const m of window.Moteurs.tous()) if (m.role === 'plus' && m.pret) m.arreter();
+    $('#plus-coups').style.display = 'none';
+    $('#btn-plus-coups').classList.remove('actif');
+    $('#btn-plus-texte').textContent = 'Chercher les 4e, 5e et 6e meilleurs coups';
+  }
+  function chercherPlus() {
+    if (!jeu) return;
+    const p = jeu.partie;
+    const n = indexVue();
+    const cle = p.fens[n];
+    if (plus && plus.cle === cle) { fermerPlus(); majAnalyseAffichage(); redimensionner(); return; }
+    fermerPlus();
+    if (n === p.coups.length && p.finie()) return;
+    const jet = jetonPlus;
+    const trait = window.Regles.lireFen(cle).trait;
+    jeu.cachePlus = jeu.cachePlus || {};
+    plus = jeu.cachePlus[cle] ? Object.assign({}, jeu.cachePlus[cle]) : { cle, trait, lignes: [], fini: false };
+    majSerre();
+    $('#btn-plus-coups').classList.add('actif');
+    $('#btn-plus-texte').textContent = 'Cacher les 4e, 5e et 6e meilleurs coups';
+    $('#plus-coups').style.display = '';
+    if (!plus.fini) {
+      const type = typeMoteur(jeu.variante);
+      // même profondeur fixe que les 3 meilleurs coups, 6 coups à la fois
+      window.Moteurs.pourVariante(jeu.variante, 'plus').chercher({
+        variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
+        profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 6, deterministe: true,
+        surInfo: (l) => {
+          if (jet !== jetonPlus || !plus || plus.fini) return;
+          plus.lignes = copieLignes(l);
+          majAnalyseAffichage();
+        }
+      }).then((r) => {
+        if (jet !== jetonPlus || !plus || r.annulee) return;
+        plus.lignes = copieLignes(r.lignes);
+        plus.fini = true;
+        jeu.cachePlus[cle] = Object.assign({}, plus);
+        majAnalyseAffichage();
+      }).catch(() => {});
+    }
+    majAnalyseAffichage();
+    redimensionner();
+  }
+  // remplit la liste des 4e-6e coups ; renvoie leurs flèches
+  function afficherPlus(a, lignes3) {
+    const box = $('#plus-liste');
+    if (!plus || plus.cle !== a.cle) { if (box) box.innerHTML = ''; return []; }
+    box.innerHTML = '';
+    const l6 = plus.lignes.filter((l) => l && l.pv && l.pv.length);
+    if (!plus.fini) {
+      const t = document.createElement('div'); t.className = 'petit-gris';
+      t.textContent = 'Recherche des 4e, 5e et 6e meilleurs coups… profondeur ' + (l6[0] ? l6[0].profondeur : 0) + ' / ' + PROF_CONSEILS[typeMoteur(jeu.variante)];
+      box.appendChild(t);
+      return [];
+    }
+    const rangs = rangsEgaux(l6);
+    // pas deux fois le même coup que dans les 3 meilleurs
+    const deja = new Set(a.fini ? lignes3.map((l) => l.pv[0]) : l6.slice(0, 3).map((l) => l.pv[0]));
+    const choix = [];
+    l6.forEach((l, i) => { if (i >= 3 && !deja.has(l.pv[0]) && choix.length < 3) choix.push({ l, r: rangs[i] }); });
+    const versBlanc = (s) => (plus.trait === 'w' ? s : inverser(s));
+    const fl = [];
+    choix.forEach(({ l, r }, i) => {
+      const d = window.Regles.decouper(l.pv[0]);
+      if (d) fl.push({ de: d.de, vers: d.vers, couleur: COULEURS_PLUS[i], etiquette: String(r) });
+      const san = jeu.partie.suiteSan(a.n, l.pv, 1)[0] || l.pv[0];
+      const suite = jeu.partie.suiteSan(a.n, l.pv, 5);
+      const ligne = document.createElement('div');
+      ligne.className = 'conseil';
+      ligne.innerHTML = '<span class="conseil-num"></span><b></b><span class="conseil-score"></span><span class="conseil-suite"></span>';
+      ligne.querySelector('.conseil-num').textContent = r;
+      ligne.querySelector('.conseil-num').style.background = COULEURS_PLUS[i];
+      ligne.querySelector('b').textContent = san;
+      ligne.querySelector('.conseil-score').textContent = texteScore(versBlanc(l.score));
+      ligne.querySelector('.conseil-suite').textContent = suite.slice(1).join(' ');
+      box.appendChild(ligne);
+    });
+    if (!choix.length) {
+      const t = document.createElement('div'); t.className = 'petit-gris';
+      t.textContent = l6.length <= 3 ? 'Il n’y a que ' + l6.length + ' coup' + (l6.length > 1 ? 's' : '') + ' possible' + (l6.length > 1 ? 's' : '') + ' ici.' : 'Aucun autre coup.';
+      box.appendChild(t);
+    }
+    return fl;
   }
 
   // Tenir la touche choisie (ou le bouton) pour voir les 3 meilleurs coups.
@@ -863,6 +974,7 @@
     conseilsTenus = oui;
     $('#btn-conseils').classList.toggle('actif', oui);
     $('#conseils').style.display = oui ? '' : 'none';
+    majSerre();
     majAnalyseAffichage();
     redimensionner();
   }
@@ -1198,6 +1310,7 @@
 
   // ---------- démarrage ----------
   async function demarrer() {
+    try { window.Curseurs.appliquer(options.curseur); } catch (e) { console.error(e); }
     try { window.Pieces.choisirJeu(options.pieces); window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
     plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true,
       // un clic ailleurs sur le plateau annule le pré-move
@@ -1243,6 +1356,7 @@
     window.addEventListener('pointerup', () => { if (!toucheTenue) tenirConseils(false); });
     $('#btn-touche').addEventListener('click', changerTouche);
     $('#btn-effacer-reperes').addEventListener('click', () => plateau.effacerReperes());
+    $('#btn-plus-coups').addEventListener('click', chercherPlus);
     majBoutonConseils();
     window.addEventListener('blur', () => { toucheTenue = false; tenirConseils(false); });
     document.addEventListener('keyup', (e) => {
