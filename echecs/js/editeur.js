@@ -602,7 +602,7 @@
       // flèches « tout droit jusqu'au bout »
       const fl = $('#ps-fleches');
       fl.innerHTML = '';
-      fl.appendChild(el('span', null, 'Tout droit jusqu’au bout :'));
+      fl.appendChild(el('span', null, window.innerWidth < 600 ? 'Tout droit :' : 'Tout droit jusqu’au bout :'));
       for (const k of ['NO', 'N', 'NE', 'O', 'E', 'SO', 'S', 'SE']) {
         const b = el('button', 'ps-fleche' + (p.lignes[k] ? ' active' : ''), FLECHES[k]);
         b.title = 'Continue tout droit jusqu’au bout du plateau';

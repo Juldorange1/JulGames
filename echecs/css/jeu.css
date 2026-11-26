@@ -619,3 +619,11 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 
 /* pré-move */
 .case.premove::after { content: ''; position: absolute; inset: 0; background: rgba(220, 60, 60, .5); }
+
+/* bouton qui efface les traits du clic droit */
+.bouton-effacer { width: 100%; justify-content: center; }
+/* pièces mangées, à droite à côté de chaque joueur */
+.joueur .prises { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 1px; min-height: 0; }
+.joueur .prises:empty { display: none; }
+.joueur .prises .icone { position: relative; width: 26px; height: 26px; --case: 26px; transform: none; }
+.barre-eval { overflow: visible; }

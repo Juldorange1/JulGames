@@ -60,6 +60,17 @@
     const s = Math.abs(v).toFixed(1).replace('.', ',');
     return (v > 0.04 ? '+' : v < -0.04 ? '−' : '') + s;
   }
+  // valeur comparable d'un score (vu du camp au trait) ; deux coups exactement aussi bons ont la même valeur
+  function valeurScore(s) {
+    if (!s) return 0;
+    return s.mate != null ? (s.mate > 0 ? 1e6 - s.mate : -1e6 - s.mate) : s.cp;
+  }
+  // rangs « 1, 1, 3 » : des coups exactement aussi bons ont le même rang
+  function rangsEgaux(lignes) {
+    const r = [];
+    lignes.forEach((l, i) => r.push(i && valeurScore(l.score) === valeurScore(lignes[i - 1].score) ? r[i - 1] : i + 1));
+    return r;
+  }
   function inverser(score) {
     if (!score) return score;
     return score.mate != null ? { mate: -score.mate } : { cp: -score.cp };
@@ -76,16 +87,20 @@
     t.classList.toggle('cote-blanc', p >= 50);
     t.classList.toggle('cote-noir', p < 50);
     el.querySelectorAll('.barre-repere').forEach((x) => x.remove());
-    // repères espacés d'au moins 28 px pour rester lisibles
+    // repères à leur VRAIE hauteur ; s'ils se chevauchent (même score ou presque), ils se rangent côte à côte vers la gauche
     const H = el.getBoundingClientRect().height || 400;
-    const pos = (reperes || []).map((r) => H * chances(r.score) / 100);
-    for (let i = 1; i < pos.length; i++) if (Math.abs(pos[i] - pos[i - 1]) < 28) pos[i] = pos[i - 1] - 28;
-    for (let i = 0; i < pos.length; i++) pos[i] = Math.max(14, Math.min(H - 14, pos[i]));
-    for (let i = 1; i < pos.length; i++) if (Math.abs(pos[i] - pos[i - 1]) < 28) pos[i] = pos[i - 1] + 28;
+    const pos = (reperes || []).map((r) => Math.max(13, Math.min(H - 13, H * chances(r.score) / 100)));
+    const col = pos.map(() => 0);
+    for (let i = 1; i < pos.length; i++) {
+      const pris = new Set();
+      for (let j = 0; j < i; j++) if (Math.abs(pos[i] - pos[j]) < 26) pris.add(col[j]);
+      while (pris.has(col[i])) col[i]++;
+    }
     (reperes || []).forEach((r, i) => {
       const d = document.createElement('div');
       d.className = 'barre-repere';
       d.style[retourne ? 'top' : 'bottom'] = (pos[i] - 13) + 'px';
+      if (col[i]) d.style.left = 'calc(50% - ' + (col[i] * 29) + 'px)';
       d.style.background = r.couleur;
       d.textContent = r.etiquette;
       d.title = texteScore(r.score);
@@ -516,6 +531,7 @@
       el.querySelector('.joueur-extra').textContent = extra;
       el.classList.toggle('au-trait', !jeu.fin && pos.trait === camp);
       el.querySelector('.pendule').style.display = jeu.temps ? '' : 'none';
+      afficherPrises(el.querySelector('.prises'), camp, p.fen0, pos);
     }
     majPendules();
     remplirListeCoups($('#coups-partie'), p, n, null, (k) => allerVue(k));
@@ -613,7 +629,8 @@
         if (jeu.vue == null) { jeu.analyse = { n: n0, cle, trait: trait0, lignes: copieLignes(lignes) }; majAnalyseAffichage(); }
       }
     };
-    if (bot.rangs) o.multipv = Math.max(1, bot.rangs.length);
+    // quelques coups de plus que ses rangs, pour bien repérer les coups exactement aussi bons
+    if (bot.rangs) o.multipv = Math.min(20, Math.max(1, bot.rangs.length) + 4);
     else if (!bot.elo) o.multipv = 3;
     if (jeu.temps && bot.elo) {
       const reste = jeu.temps[p.trait()];
@@ -629,7 +646,19 @@
     if (bot.rangs && r.lignes.length) {
       // bot créé : il joue le 1er, 2e, 3e… meilleur coup selon ses pourcentages
       const dispo = r.lignes.filter((l) => l && l.pv && l.pv[0] && p.legaux().includes(l.pv[0]));
-      if (dispo.length) r.coup = dispo[window.Bots.tirer(bot.rangs, dispo.length)].pv[0];
+      // des coups exactement aussi bons forment UN seul rang (deux « 1er meilleur coup », etc.)
+      const niveaux = [];
+      for (const l of dispo) {
+        const v = valeurScore(l.score);
+        const n = niveaux.find((x) => x.v === v);
+        if (n) n.l.push(l); else niveaux.push({ v, l: [l] });
+      }
+      niveaux.sort((a, b) => b.v - a.v);
+      if (niveaux.length) {
+        const k = window.Bots.tirer(bot.rangs, niveaux.length);
+        const choix = niveaux[k].l;
+        r.coup = choix[Math.floor(Math.random() * choix.length)].pv[0];
+      }
     }
     if (!bot.elo && !bot.rangs && r.lignes.length) {
       // le Maître joue exactement le meilleur des 3 coups trouvés (celui qu'on voit en n° 1)
@@ -776,7 +805,8 @@
     const versBlanc = (s) => (a.trait === 'w' ? s : inverser(s));
     const lignes = a.lignes.filter((l) => l && l.pv && l.pv.length);
     const montrer = conseilsTenus && a.fini;
-    const reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: i + 1, couleur: COULEURS_CONSEILS[i] })) : null;
+    const rangs = rangsEgaux(lignes);
+    const reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: rangs[i], couleur: COULEURS_CONSEILS[i] })) : null;
     // fin de partie connue exactement : la barre montre le vrai résultat
     const tb = tables[a.cle];
     let exact = null;
@@ -805,13 +835,13 @@
     const fl = [];
     lignes.forEach((l, i) => {
       const d = window.Regles.decouper(l.pv[0]);
-      if (d) fl.push({ de: d.de, vers: d.vers, couleur: COULEURS_CONSEILS[i], etiquette: String(i + 1) });
+      if (d) fl.push({ de: d.de, vers: d.vers, couleur: COULEURS_CONSEILS[i], etiquette: String(rangs[i]) });
       const san = jeu.partie.suiteSan(n, l.pv, 1)[0] || l.pv[0];
       const suite = jeu.partie.suiteSan(n, l.pv, 5);
       const ligne = document.createElement('div');
       ligne.className = 'conseil';
       ligne.innerHTML = '<span class="conseil-num"></span><b></b><span class="conseil-score"></span><span class="conseil-suite"></span>';
-      ligne.querySelector('.conseil-num').textContent = i + 1;
+      ligne.querySelector('.conseil-num').textContent = rangs[i];
       ligne.querySelector('.conseil-num').style.background = COULEURS_CONSEILS[i];
       ligne.querySelector('b').textContent = san;
       ligne.querySelector('.conseil-score').textContent = texteScore(versBlanc(l.score));
@@ -837,7 +867,7 @@
     redimensionner();
   }
   function majBoutonConseils() {
-    $('#btn-conseils-texte').textContent = 'Tiens ' + options.touche.nom + ' : 3 meilleurs coups';
+    $('#btn-conseils-texte').textContent = window.matchMedia('(pointer: coarse)').matches ? 'Garde le doigt ici : 3 meilleurs coups' : 'Tiens ' + options.touche.nom + ' : 3 meilleurs coups';
   }
   function changerTouche() {
     const m = modale('<h2>Touche des 3 meilleurs coups</h2><p>Appuie maintenant sur la touche que tu veux utiliser.</p>', [{ texte: 'Annuler' }]);
@@ -998,6 +1028,26 @@
     const t = Math.ceil(s);
     return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
   }
+  // Pièces mangées par « camp » : celles de l'adversaire qui ont disparu depuis le départ.
+  function afficherPrises(box, camp, fen0, pos) {
+    if (!box) return;
+    const compte = (P) => { const c = {}; for (const l of P.cases) for (const x of l) if (x) c[x.l] = (c[x.l] || 0) + 1; return c; };
+    const avant = compte(window.Regles.lireFen(fen0)), maint = compte(pos);
+    const ordre = 'qrbnp';
+    const lettres = Object.keys(avant).filter((l) => (camp === 'w' ? l === l.toLowerCase() : l === l.toUpperCase()) && l.toLowerCase() !== 'k')
+      .sort((a, b) => ordre.indexOf(a.toLowerCase()) - ordre.indexOf(b.toLowerCase()));
+    const cle = lettres.map((l) => l + Math.max(0, avant[l] - (maint[l] || 0))).join(',');
+    if (box.dataset.cle === cle) return;
+    box.dataset.cle = cle;
+    box.innerHTML = '';
+    for (const l of lettres) {
+      for (let i = 0; i < Math.max(0, avant[l] - (maint[l] || 0)); i++) {
+        const ic = window.Pieces.creerPiece(l, jeu.variante);
+        ic.classList.add('icone');
+        box.appendChild(ic);
+      }
+    }
+  }
   function majPendules() {
     if (!jeu || !jeu.temps) return;
     const bas = plateau.retourne ? 'b' : 'w';
@@ -1136,9 +1186,11 @@
     else if (nom === 'cartes') { window.EditeurCartes.redimensionner(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
-    const largeur = r.width - (barre ? 58 : 0) - 24;
+    const etroit = window.innerWidth <= 900 || (window.innerWidth <= 1100 && window.innerHeight > window.innerWidth);
+    const marge = etroit ? 8 : 24;
+    const largeur = r.width - (barre ? barre.getBoundingClientRect().width + (etroit ? 6 : 14) : 0) - marge;
     const poches = pl.position && pl.position.poches;
-    const hauteur = r.height - 24;
+    const hauteur = r.height - marge;
     const t = Math.floor(Math.min(largeur / pl.cols, hauteur / (pl.lignes + (poches ? 2.3 : 0))));
     pl.taille(Math.max(24, t));
     if (barre) barre.style.height = (Math.max(24, t) * pl.lignes) + 'px';
@@ -1190,6 +1242,7 @@
     $('#btn-conseils').addEventListener('pointerdown', (e) => { if (e.button === 0) { e.preventDefault(); tenirConseils(true); } });
     window.addEventListener('pointerup', () => { if (!toucheTenue) tenirConseils(false); });
     $('#btn-touche').addEventListener('click', changerTouche);
+    $('#btn-effacer-reperes').addEventListener('click', () => plateau.effacerReperes());
     majBoutonConseils();
     window.addEventListener('blur', () => { toucheTenue = false; tenirConseils(false); });
     document.addEventListener('keyup', (e) => {

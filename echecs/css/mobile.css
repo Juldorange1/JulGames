@@ -1,0 +1,97 @@
+/* Custom Chess — téléphone et tablette (écrans étroits ou en hauteur).
+   Le plateau prend toute la largeur en haut, les commandes sont rangées dessous. */
+
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  html, body { overflow: hidden; }
+  .ecran { height: 100dvh; min-height: 0; }
+  .ecran.visible { flex-direction: column; }
+  #ecran-partie.visible, #ecran-bilan.visible { flex-direction: column; }
+
+  /* en-têtes compacts */
+  .entete { padding: 5px 8px; gap: 4px 8px; flex-wrap: wrap; }
+  .entete h1 { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .onglets-haut { gap: 6px; flex: 1 1 auto; justify-content: flex-end; overflow-x: auto; max-width: 100%; }
+  .onglets-haut .bouton { flex: none; }
+  .onglets-haut .bouton { padding: 6px 9px; font-size: 16px; }
+
+  /* menu principal : 2 colonnes, tout tient */
+  .menu-principal { justify-content: flex-start; padding: 10px; gap: 10px; overflow: hidden; }
+  .menu-cartes { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  .carte-menu { min-height: 0 !important; padding: 10px 8px !important; gap: 4px; border-radius: 14px; }
+  .carte-menu .carte-icone { font-size: 30px !important; }
+  .carte-menu b { font-size: 18px !important; }
+  .carte-menu span { font-size: 16px; line-height: 1.25; }
+
+  /* partie : plateau en haut (barre d'avantage fine à gauche), panneau dessous */
+  .zone-jeu { flex: none; height: min(calc(100vw + 4px), 58dvh); padding: 4px; gap: 6px; }
+  .barre-eval { width: 34px; }
+  .barre-eval .barre-texte { font-size: 16px; }
+  .barre-repere { width: 24px; height: 24px; font-size: 16px; }
+  .panneau, .panneau-bilan { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--bord); padding: 6px 8px; gap: 5px; overflow-y: auto; min-height: 0; }
+  .nom-config { display: none; }
+  .joueur { padding: 4px 8px; gap: 6px; }
+  .joueur-nom { font-size: 17px; }
+  .pendule { font-size: 20px; padding: 0 8px; }
+  .joueur .prises .icone { width: 20px; height: 20px; --case: 20px; }
+  .etat { font-size: 16px; min-height: 0; }
+  .pronostic { font-size: 16px; padding: 4px 8px; }
+  .liste-coups { flex: none; min-height: 0; height: 44px; overflow-x: auto; overflow-y: hidden; padding: 3px; display: flex; flex-wrap: nowrap; }
+  .liste-coups .rangee-coups { display: flex; flex: none; background: none !important; }
+  .liste-coups .num { padding-left: 4px; }
+  .nav-bilan { gap: 4px; }
+  .nav-bilan .bouton { padding: 6px 0; }
+  .ligne-conseils .bouton, .bouton-effacer { padding: 7px 8px; }
+  .boutons-partie.trois .bouton { padding: 7px 2px; }
+  .conseils { max-height: 120px; overflow-y: auto; }
+
+  /* jouer : une seule colonne, sans aperçu du plateau */
+  .accueil { grid-template-columns: 1fr !important; gap: 8px; padding: 8px 10px; overflow-y: auto; }
+  .acc-plateau { display: none; }
+  .liste-configs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .accueil h2 { font-size: 18px; margin: 6px 0 4px; }
+
+  /* éditeurs (configuration, personnages, cartes, bots) : plateau en haut, réglages dessous */
+  .config, .persos, .persos.cartes { display: flex !important; flex-direction: column; gap: 6px; padding: 6px 8px; overflow: hidden; }
+  .config-gauche { flex: none; height: min(94vw, 40dvh); }
+  .config-droite, .ps-editeur { flex: 1; min-height: 0; overflow-y: auto; }
+  .persos > :first-child { flex: none; max-height: 22dvh; overflow-y: auto; }
+  .ca-liste { flex-direction: row !important; flex-wrap: nowrap; overflow-x: auto !important; }
+  .ca-liste .ps-carte { flex: none; }
+
+  /* paramètres : 4 vignettes par ligne */
+  .parametres { padding: 6px 8px; overflow-y: auto; }
+  .grille-apparence, .groupes-apparence.decors .grille-apparence { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 5px !important; }
+  .carte-apparence { padding: 3px !important; gap: 2px; }
+  .carte-apparence span { font-size: 16px; }
+  .par-onglets button { padding: 6px 8px; font-size: 16px; }
+
+  /* fenêtres */
+  #modale-boite { width: calc(100vw - 20px); max-width: none; max-height: calc(100dvh - 20px); overflow-y: auto; }
+}
+
+/* tablette en hauteur : un peu plus d'air */
+@media (min-width: 600px) and (max-width: 1100px) and (orientation: portrait) {
+  .menu-cartes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .carte-menu { padding: 18px 12px !important; }
+  .carte-menu .carte-icone { font-size: 42px !important; }
+  .barre-eval { width: 30px; }
+  .liste-coups { height: 52px; }
+}
+
+/* écrans tactiles : cibles plus grandes, pas de surbrillance au toucher */
+@media (pointer: coarse) {
+  .bouton, .coup, .puce-config, .carte-apparence { -webkit-tap-highlight-color: transparent; }
+  #plateau-partie, #plateau-config, #plateau-carte { touch-action: none; }
+}
+@media (pointer: coarse) { #btn-touche { display: none; } }
+@media (pointer: coarse) { #btn-conseils { touch-action: none; -webkit-touch-callout: none; } }
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  #ecran-persos .persos > :first-child { max-height: 15dvh; }
+  #ecran-persos .persos > :nth-child(2) { flex: none; height: 47dvh; min-height: 0; }
+}
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  #ecran-persos .ps-centre { overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+  .ps-centre-titre .aide { display: none; }
+  .ps-fleches { flex-wrap: nowrap !important; gap: 3px !important; font-size: 16px; }
+  .ps-fleches .bouton { padding: 4px 5px; }
+}
