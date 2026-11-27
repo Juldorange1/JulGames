@@ -642,3 +642,32 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
   #ecran-partie .panneau.serre .conseil { padding: 0; }
   #ecran-partie .panneau.serre .conseil + .petit-gris { display: none; }
 }
+
+/* ---------- coach ---------- */
+.panneau, .panneau-bilan { position: relative; }
+.ligne-plus { display: flex; gap: 6px; flex: none; }
+.ligne-plus .bouton { flex: 1; justify-content: center; padding-left: 6px; padding-right: 6px; }
+.bouton-coach { background: #2b3340; border-color: #4a7bd0; }
+.bouton-coach:hover { border-color: #7aa6f0; }
+.bouton-coach.large { width: 100%; justify-content: center; flex: none; }
+.coach { position: absolute; inset: 0; z-index: 30; background: var(--fond2); display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-left: 3px solid #4a7bd0; }
+.coach-tete { display: flex; align-items: center; gap: 10px; font-size: 20px; }
+.coach-tete b { color: #9cc1ff; }
+.coach-sous { flex: 1; }
+.coach-fermer { padding: 4px 12px; }
+.coach-onglets { display: flex; flex-wrap: wrap; gap: 5px; }
+.coach-onglets button { background: var(--panneau); border: 2px solid var(--bord); color: inherit; border-radius: 16px; padding: 4px 10px; font-size: 16px; cursor: pointer; }
+.coach-onglets button.actif { border-color: #4a7bd0; background: #24324a; color: #cfe0ff; }
+.coach-corps { flex: 1; min-height: 0; overflow-y: auto; background: #1b1e23; border-radius: 12px; padding: 12px 14px; }
+.coach-titre { margin: 0 0 8px; font-size: 20px; color: var(--accent); }
+.coach-texte { font-size: 17px; line-height: 1.45; }
+.coach-texte p { margin: 0 0 10px; }
+.coach-texte b { color: #fff; }
+.coach-coup { color: #7fe07f !important; }
+.coach-ligne { color: var(--gris); font-size: 16px; }
+.coach-ligne b { color: var(--accent) !important; }
+.coach-notion { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 10px; background: #24324a; color: #9cc1ff; font-size: 16px; cursor: pointer; white-space: nowrap; }
+.coach-attente { color: var(--gris); }
+.coach-nav { display: flex; align-items: center; gap: 8px; }
+.coach-nav .bouton { flex: 1; justify-content: center; }
+.coach-pos { min-width: 64px; text-align: center; color: var(--gris); font-size: 16px; }

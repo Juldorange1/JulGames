@@ -106,3 +106,17 @@
   .bouton-plus { padding: 7px 8px; }
   #plus-coups { max-height: 120px; overflow-y: auto; }
 }
+/* coach sur téléphone : plus serré */
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  .coach { padding: 6px 8px; gap: 5px; }
+  .coach-tete { font-size: 18px; }
+  .coach-fermer { padding: 2px 10px; }
+  .coach-onglets { flex-wrap: nowrap; overflow-x: auto; }
+  .coach-onglets button { flex: none; padding: 2px 8px; }
+  .coach-corps { padding: 8px 10px; }
+  .coach-titre { font-size: 18px; margin-bottom: 4px; }
+  .coach-texte { font-size: 16px; line-height: 1.35; }
+  .coach-texte p { margin-bottom: 6px; }
+  .coach-nav .bouton { padding: 6px 4px; }
+  .ligne-plus .bouton { padding: 7px 4px; }
+}

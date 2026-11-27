@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 51;
+  var ICI = 52;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=51">
-<link rel="stylesheet" href="css/mobile.css?v=51">
+<link rel="stylesheet" href="css/jeu.css?v=52">
+<link rel="stylesheet" href="css/mobile.css?v=52">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -49,7 +49,7 @@
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 51</div>
+    <div class="note-moteur centre">Version 52</div>
   </div>
 </section>
 
@@ -363,7 +363,10 @@
       <button class="bouton bouton-touche" id="btn-touche" title="Choisir la touche des 3 meilleurs coups">⌨</button>
     </div>
     <div class="conseils" id="conseils" style="display:none"><div id="conseils-liste"></div></div>
-    <button class="bouton bouton-plus" id="btn-plus-coups" title="Cherche puis affiche les 4e, 5e et 6e meilleurs coups de cette position">🔎 <span id="btn-plus-texte">Chercher les 4e, 5e et 6e meilleurs coups</span></button>
+    <div class="ligne-plus">
+      <button class="bouton bouton-plus" id="btn-plus-coups" title="Cherche puis affiche les 4e, 5e et 6e meilleurs coups de cette position">🔎 <span id="btn-plus-texte">4e, 5e, 6e coups</span></button>
+      <button class="bouton bouton-coach" id="btn-coach" title="Le coach explique en détail pourquoi le meilleur coup est le meilleur">🎓 Pourquoi ce coup ?</button>
+    </div>
     <div class="conseils" id="plus-coups" style="display:none"><div id="plus-liste"></div></div>
     <div class="joueur" id="joueur-bas"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span><div class="prises"></div></div>
     <div class="boutons-partie trois">
@@ -394,6 +397,7 @@
     <div class="bilan-onglet" id="bilan-coups">
       <canvas id="graphe-bilan" class="graphe"></canvas>
       <div class="commentaire" id="bilan-commentaire"></div>
+      <button class="bouton bouton-coach large" id="btn-bilan-coach" title="Le coach explique en détail le meilleur coup de cette position">🎓 Pourquoi ? Le coach explique ce coup</button>
       <div class="liste-coups" id="coups-bilan"></div>
     </div>
     <div class="nav-bilan">
@@ -415,21 +419,22 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=51"></script>
-<script src="js/curseurs.js?v=51"></script>
-<script src="js/cartes.js?v=51"></script>
-<script src="js/themes.js?v=51"></script>
-<script src="js/pieces-svg.js?v=51"></script>
-<script src="js/persos.js?v=51"></script>
-<script src="js/pieces.js?v=51"></script>
-<script src="js/maison.js?v=51"></script>
-<script src="js/regles.js?v=51"></script>
-<script src="js/config.js?v=51"></script>
-<script src="js/moteur.js?v=51"></script>
-<script src="js/son.js?v=51"></script>
-<script src="js/plateau.js?v=51"></script>
-<script src="js/bilan.js?v=51"></script>
-<script src="js/editeur.js?v=51"></script>
-<script src="js/app.js?v=51"></script>
+<script src="js/bots.js?v=52"></script>
+<script src="js/curseurs.js?v=52"></script>
+<script src="js/cartes.js?v=52"></script>
+<script src="js/themes.js?v=52"></script>
+<script src="js/pieces-svg.js?v=52"></script>
+<script src="js/persos.js?v=52"></script>
+<script src="js/pieces.js?v=52"></script>
+<script src="js/maison.js?v=52"></script>
+<script src="js/regles.js?v=52"></script>
+<script src="js/config.js?v=52"></script>
+<script src="js/moteur.js?v=52"></script>
+<script src="js/son.js?v=52"></script>
+<script src="js/plateau.js?v=52"></script>
+<script src="js/coach.js?v=52"></script>
+<script src="js/bilan.js?v=52"></script>
+<script src="js/editeur.js?v=52"></script>
+<script src="js/app.js?v=52"></script>
 </body>
 </html>

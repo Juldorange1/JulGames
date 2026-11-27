@@ -526,6 +526,8 @@
       this._surligner(); this._dessinerFleches();
     }
     effacerFleches() { this.fleches = []; this._dessinerFleches(); }
+    // dessins du coach : remplacent les flèches habituelles tant qu'il est ouvert (null = fini)
+    coachDessin(liste) { this.flechesCoach = liste; this._dessinerFleches(); }
     _dessinerFleches() {
       const svg = this.svg;
       const t = this.tCase || 50;
@@ -534,10 +536,20 @@
       const ns = 'http://www.w3.org/2000/svg';
       const centre = (nom) => { const c = this._coord(nom); const e = this._ecran(c.col, c.rang); return { x: (e.x + 0.5) * t, y: (e.y + 0.5) * t }; };
       const REP = 'rgba(255,170,0,0.8)';
-      const tout = this.reperes.fleches.map((f) => ({ de: f.de, vers: f.vers, couleur: REP })).concat(this.fleches);
+      const dessus = this.flechesCoach ? this.flechesCoach.filter(Boolean) : this.fleches;
+      const tout = this.reperes.fleches.map((f) => ({ de: f.de, vers: f.vers, couleur: REP })).concat(dessus);
+      // cases colorées d'abord (sous les flèches)
+      tout.sort((x, y) => (y.carre ? 1 : 0) - (x.carre ? 1 : 0));
       for (const f of tout) {
         const b = centre(f.vers);
         const coul = f.couleur || 'rgba(80,200,120,0.85)';
+        if (f.carre) {
+          const r = document.createElementNS(ns, 'rect');
+          r.setAttribute('x', b.x - t / 2); r.setAttribute('y', b.y - t / 2); r.setAttribute('width', t); r.setAttribute('height', t);
+          r.setAttribute('fill', coul);
+          svg.appendChild(r);
+          continue;
+        }
         if (!f.de || f.de === f.vers) {
           const c = document.createElementNS(ns, 'circle');
           c.setAttribute('cx', b.x); c.setAttribute('cy', b.y); c.setAttribute('r', t * 0.42);

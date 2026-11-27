@@ -51,6 +51,7 @@
       $('#btn-bilan-retourner').addEventListener('click', () => { this.plateau.retourner(!this.plateau.retourne); this.afficher(); });
       $('#btn-bilan-rejouer').addEventListener('click', () => { this.quitter(); window.App.rejouerDepuis(this.rec, this.n); });
       $('#btn-bilan-profond').addEventListener('click', () => this.lancer('profond'));
+      $('#btn-bilan-coach').addEventListener('click', () => this.coach());
       $('#btn-bilan-pgn').addEventListener('click', () => window.App.copier(window.App.pgn(this.rec), 'Partie copiée (PGN) : tu peux la coller sur un autre site d’échecs.'));
       $('#btn-bilan-menu').addEventListener('click', () => { this.quitter(); window.App.ecran('accueil'); });
       window.addEventListener('resize', () => this.dessinerGraphe());
@@ -221,7 +222,20 @@
     },
 
     // ---------- affichage ----------
+    // le coach explique le coup qu'on regarde : la position d'avant, comparée au coup joué
+    coach() {
+      if (!this.partie || !this.rec) return;
+      const n = this.n;
+      const k = n > 0 ? n - 1 : 0;
+      window.Coach.ouvrir({
+        variante: this.v, fen0: this.rec.fen0, coups: this.rec.coups.slice(0, k), joue: n > 0 ? this.rec.coups[n - 1] : null,
+        conteneur: $('#ecran-bilan .panneau-bilan'), plateau: this.plateau,
+        restaurer: () => { this.afficher(); }
+      });
+    },
+
     aller(n) {
+      if (window.Coach && window.Coach.ouvert()) window.Coach.fermer(true);
       this.plateau.effacerReperes();
       if (!this.partie) return;
       this.n = Math.max(0, Math.min(this.partie.coups.length, n));
@@ -230,6 +244,7 @@
 
     afficher(animer) {
       if (!this.partie || !this.rec || !this.rec.analyse) return;
+      if (window.Coach && window.Coach.ouvert()) return;
       const p = this.partie, n = this.n, a = this.rec.analyse;
       const pos = window.Regles.lireFen(p.fens[n]);
       // roi en échec : on regarde la position via une partie temporaire

@@ -114,6 +114,7 @@
 
   // ---------- écrans ----------
   function ecran(nom) {
+    if (window.Coach && window.Coach.ouvert()) window.Coach.fermer(true);
     if (App.ecranActuel === 'partie' && nom !== 'partie') arreterAnalyse();
     $$('.ecran').forEach((e) => e.classList.toggle('visible', e.id === 'ecran-' + nom));
     if (App.ecranActuel && App.ecranActuel !== nom) window.Son.ecran();
@@ -526,6 +527,8 @@
   function indexVue() { return jeu.vue == null ? jeu.partie.coups.length : jeu.vue; }
 
   function afficherPartie(animer, extra) {
+    // la position change : le coach (qui parlait de l'ancienne) se ferme
+    if (window.Coach && window.Coach.ouvert()) window.Coach.fermer(true);
     const p = jeu.partie;
     const n = indexVue();
     const enDirect = n === p.coups.length;
@@ -876,6 +879,28 @@
     plateau.flechesAfficher(fl.concat(flPlus).reverse());
   }
 
+  // ---------- coach : pourquoi le meilleur coup est le meilleur ----------
+  function ouvrirCoach() {
+    if (!jeu) return;
+    const p = jeu.partie;
+    const n = indexVue();
+    if (n === p.coups.length && p.finie()) { bulle('La partie est finie : plus de coup à expliquer.'); return; }
+    window.Coach.ouvrir({
+      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n),
+      conteneur: $('#ecran-partie .panneau'), plateau,
+      restaurer: () => {
+        if (!jeu) return;
+        afficherPartie(false);
+        if (!jeu.fin) {
+          if (jeu.vue != null) plateau.bloquer();
+          else if (estAuBot()) plateau.autoriser(window.Regles.premoves(jeu.variante, jeu.partie.fen), jeu.partie.trait() === 'w' ? 'b' : 'w');
+          else plateau.autoriser(jeu.partie.legaux(), jeu.partie.trait());
+        }
+        majAnalyseAffichage();
+      }
+    });
+  }
+
   // ---------- 4e, 5e et 6e meilleurs coups (bouton) ----------
   // panneau resserré quand les meilleurs coups sont affichés, pour que tout tienne sans défiler
   function majSerre() { const pn = $('#ecran-partie .panneau'); if (pn) pn.classList.toggle('serre', conseilsTenus || !!plus); }
@@ -886,7 +911,7 @@
     for (const m of window.Moteurs.tous()) if (m.role === 'plus' && m.pret) m.arreter();
     $('#plus-coups').style.display = 'none';
     $('#btn-plus-coups').classList.remove('actif');
-    $('#btn-plus-texte').textContent = 'Chercher les 4e, 5e et 6e meilleurs coups';
+    $('#btn-plus-texte').textContent = '4e, 5e, 6e coups';
   }
   function chercherPlus() {
     if (!jeu) return;
@@ -902,7 +927,7 @@
     plus = jeu.cachePlus[cle] ? Object.assign({}, jeu.cachePlus[cle]) : { cle, trait, lignes: [], fini: false };
     majSerre();
     $('#btn-plus-coups').classList.add('actif');
-    $('#btn-plus-texte').textContent = 'Cacher les 4e, 5e et 6e meilleurs coups';
+    $('#btn-plus-texte').textContent = 'Cacher 4e, 5e, 6e';
     $('#plus-coups').style.display = '';
     if (!plus.fini) {
       const type = typeMoteur(jeu.variante);
@@ -1357,6 +1382,7 @@
     $('#btn-touche').addEventListener('click', changerTouche);
     $('#btn-effacer-reperes').addEventListener('click', () => plateau.effacerReperes());
     $('#btn-plus-coups').addEventListener('click', chercherPlus);
+    $('#btn-coach').addEventListener('click', ouvrirCoach);
     majBoutonConseils();
     window.addEventListener('blur', () => { toucheTenue = false; tenirConseils(false); });
     document.addEventListener('keyup', (e) => {
