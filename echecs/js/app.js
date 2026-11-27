@@ -42,7 +42,7 @@
   let toucheTenue = false;
   // Profondeur à atteindre avant d'afficher les 3 meilleurs coups (ils ne changent plus ensuite).
   // profondeur fixe : la même position donne toujours les mêmes 3 meilleurs coups, quel que soit le bot
-  const PROF_CONSEILS = { sf: 20, fairy: 16, maison: 6 };
+  const PROF_CONSEILS = { sf: 22, fairy: 16, maison: 8 };
   const typeMoteur = (v) => (v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy');
   const MAX_CONSEILS = 60000; // ms au plus (en général la profondeur fixe est atteinte bien avant)
   function sauverOptions() { ecrire(CLE_OPT, options); }
@@ -92,7 +92,9 @@
     t.classList.toggle('cote-noir', p < 50);
     el.querySelectorAll('.barre-repere').forEach((x) => x.remove());
     // repères à leur VRAIE hauteur ; s'ils se chevauchent (même score ou presque), ils se rangent côte à côte vers la gauche
-    const H = el.getBoundingClientRect().height || 400;
+    const rb = el.getBoundingClientRect();
+    const H = rb.height || 400;
+    const gauche = Math.max(0, Math.floor((rb.left + rb.width / 2 - 15) / 29));
     const pos = (reperes || []).map((r) => Math.max(13, Math.min(H - 13, H * chances(r.score) / 100)));
     const col = pos.map(() => 0);
     for (let i = 1; i < pos.length; i++) {
@@ -104,7 +106,8 @@
       const d = document.createElement('div');
       d.className = 'barre-repere';
       d.style[retourne ? 'top' : 'bottom'] = (pos[i] - 13) + 'px';
-      if (col[i]) d.style.left = 'calc(50% - ' + (col[i] * 29) + 'px)';
+      // vers la gauche tant qu'il y a de la place à l'écran, puis à droite de la barre
+      if (col[i]) d.style.left = col[i] <= gauche ? 'calc(50% - ' + (col[i] * 29) + 'px)' : 'calc(50% + ' + ((col[i] - gauche) * 29) + 'px)';
       d.style.background = r.couleur;
       d.textContent = r.etiquette;
       d.title = texteScore(r.score);
@@ -828,7 +831,10 @@
     const lignes = a.lignes.filter((l) => l && l.pv && l.pv.length);
     const montrer = conseilsTenus && a.fini;
     const rangs = rangsEgaux(lignes);
-    const reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: rangs[i], couleur: COULEURS_CONSEILS[i] })) : null;
+    // 4e, 5e, 6e coups : affichés (et sur la barre) dès qu'ils sont trouvés
+    const flPlus = afficherPlus(a, lignes);
+    let reperes = montrer ? lignes.map((l, i) => ({ score: versBlanc(l.score), etiquette: rangs[i], couleur: COULEURS_CONSEILS[i] })) : null;
+    if (flPlus.reperes && flPlus.reperes.length) reperes = (reperes || []).concat(flPlus.reperes);
     // fin de partie connue exactement : la barre montre le vrai résultat
     const tb = tables[a.cle];
     let exact = null;
@@ -841,7 +847,6 @@
     else if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
     majPronostic(lignes[0] && (a.fini || (jeu.variante.moteur !== 'maison' && lignes[0].profondeur >= 12)) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
     if (tables[a.cle] && tables[a.cle].category) pronosticExact(tables[a.cle], a.trait);
-    const flPlus = afficherPlus(a, lignes);
     const liste = $('#conseils-liste');
     liste.innerHTML = '';
     if (!conseilsTenus) { if (flPlus.length) plateau.flechesAfficher(flPlus.reverse()); else plateau.effacerFleches(); return; }
@@ -1006,9 +1011,11 @@
     });
     const versBlanc = (s) => (plus.trait === 'w' ? s : inverser(s));
     const fl = [];
+    fl.reperes = [];
     choix.forEach(({ l, r }, i) => {
       const d = window.Regles.decouper(l.pv[0]);
       if (d) fl.push({ de: d.de, vers: d.vers, couleur: COULEURS_PLUS[i], etiquette: String(r) });
+      fl.reperes.push({ score: versBlanc(l.score), etiquette: r, couleur: COULEURS_PLUS[i] });
       const san = jeu.partie.suiteSan(a.n, l.pv, 1)[0] || l.pv[0];
       const suite = jeu.partie.suiteSan(a.n, l.pv, 5);
       const ligne = document.createElement('div');

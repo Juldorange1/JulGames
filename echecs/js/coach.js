@@ -294,7 +294,7 @@
       [fleche, { de: nomCase(d), vers: nomCase(roiDe(b1, O)), couleur: C_MENACE }]);
 
     // --- prise
-    if (P1.prise && o.repriseCase != null && P1.priseCase === o.repriseCase) {
+    if (P1.prise && o.repriseCase != null && P1.priseCase === o.repriseCase && V[P1.prise] <= (o.repriseValeur || 0)) {
       ajouter(26, Maj(piece) + ' <b>reprend ' + UN[P1.prise] + '</b> : l’échange est fini, le matériel redevient égal.', 'echange', [fleche]);
     } else if (P1.prise) {
       const pc = P1.priseCase;
@@ -551,6 +551,171 @@
   const puce = (x) => '<li' + (NOTIONS[x.notion] ? ' title="' + NOTIONS[x.notion][0] + ' : ' + NOTIONS[x.notion][1].replace(/"/g, '') + '"' : '') + '>' + x.texte + '</li>';
 
   // =====================================================================
+  //  RÉFLEXION DÉTAILLÉE : ce qu'un bon joueur regarde avant de choisir
+  // =====================================================================
+  const C_VERT = 'rgba(90,200,90,0.28)', C_ROUGE = 'rgba(235,70,70,0.28)', C_JAUNE = 'rgba(255,215,0,0.35)';
+  const carres = (liste, c) => liste.map((q) => ({ de: null, vers: nomCase(q), couleur: c, carre: true }));
+  const DEPART = { w: { n: [1, 6], b: [2, 5] }, b: { n: [57, 62], b: [58, 61] } };
+  function nonDeveloppees(b, c) {
+    const out = [];
+    for (const t of ['n', 'b']) for (const q of DEPART[c][t]) if (b[q] === (c === 'w' ? t.toUpperCase() : t)) out.push(q);
+    return out;
+  }
+  const LETTRE = { n: 'C', b: 'F', r: 'T', q: 'D', k: 'R', p: '' };
+  const court2 = (b, s) => LETTRE[typ(b[s])] + nomCase(s);
+  function listeEt(l) { return l.length <= 1 ? (l[0] || '') : l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1]; }
+  function pionsDe(b, c) { const out = []; for (let s = 0; s < 64; s++) if (b[s] === (c === 'w' ? 'P' : 'p')) out.push(s); return out; }
+  function structure(b, c) {
+    const P = pionsDe(b, c);
+    const passes = P.filter((s) => pionPasse(b, s));
+    const isoles = P.filter((s) => !passes.includes(s) && ![col(s) - 1, col(s) + 1].some((x) => x >= 0 && x < 8 && pionsColonne(b, x, c) > 0));
+    const doubles = [];
+    for (let x = 0; x < 8; x++) if (pionsColonne(b, x, c) >= 2) doubles.push(x);
+    return { passes, isoles, doubles };
+  }
+  function activiteTotale(b, c) {
+    let n = 0;
+    for (let s = 0; s < 64; s++) if (b[s] && coul(b[s]) === c && !['p', 'k'].includes(typ(b[s]))) n += mobilite(b, s);
+    return n;
+  }
+  // pièces de c (sauf pions et roi) qui visent une case autour du roi adverse
+  function attaquantsRoi(b, c) {
+    const z = zoneRoi(b, autre(c)), out = [];
+    for (let s = 0; s < 64; s++) if (b[s] && coul(b[s]) === c && !['p', 'k'].includes(typ(b[s])) && attaques(b, s).some((q) => z.includes(q))) out.push(s);
+    return out;
+  }
+  function abriRoi(b, c) {
+    const k = roiDe(b, c); if (k < 0) return null;
+    const d = c === 'w' ? 1 : -1, bouclier = [];
+    for (const dc of [-1, 0, 1]) for (const dr of [1, 2]) {
+      const x = col(k) + dc, y = rg(k) + d * dr;
+      if (dans(x, y) && b[y * 8 + x] === (c === 'w' ? 'P' : 'p')) bouclier.push(y * 8 + x);
+    }
+    const ouvertes = [];
+    for (const dc of [-1, 0, 1]) { const x = col(k) + dc; if (x >= 0 && x < 8 && !pionsColonne(b, x, c)) ouvertes.push(FI[x]); }
+    const base = c === 'w' ? rg(k) === 0 : rg(k) === 7;
+    return { k, bouclier, ouvertes, centre: base && col(k) >= 3 && col(k) <= 5, aile: col(k) <= 2 || col(k) >= 6 };
+  }
+  const accord = (t, mot) => mot + (fem(t) ? 'e' : '');
+
+  // ce que l'on remarque dans la position (S = camp au trait), du plus important au moins important
+  function diagnostic(P0, S, ra) {
+    const b = P0.b, O = autre(S), out = [];
+    const ajout = (poids, texte, dessin) => out.push({ poids, texte, dessin: dessin || [] });
+    const fin = finale(b);
+    // matériel
+    const m = materiel(b), d = m.w - m.b;
+    if (!d) ajout(9, '<b>Matériel égal</b> (' + m.w + ' points chacun).');
+    else {
+      const g = d > 0 ? 'w' : 'b', c = comptes(b), plus = [], moins = [];
+      for (const t of ['q', 'r', 'b', 'n', 'p']) {
+        const x = (c[g][t] || 0) - (c[autre(g)][t] || 0);
+        if (x > 0) plus.push(x === 1 ? UN[t] : x + ' ' + NOM[t] + 's');
+        if (x < 0) moins.push(-x === 1 ? UN[t] : -x + ' ' + NOM[t] + 's');
+      }
+      ajout(9, '<b>Matériel</b> : ' + campNom(g) + ' ont <b>' + Math.abs(d) + ' point' + (Math.abs(d) > 1 ? 's' : '') + ' de plus</b>' +
+        (plus.length ? ' (' + listeEt(plus) + ' en plus' + (moins.length ? ', ' + listeEt(moins) + ' en moins' : '') + ')' : '') +
+        (ra && ra.repriseCase != null && g === O && attaquants(b, ra.repriseCase, S).length ? ', mais l’échange n’est pas fini : tu peux reprendre en ' + nomCase(ra.repriseCase) : '') + '.');
+    }
+    // ce qui est attaqué tout de suite
+    const mO = menaces(b, O).sort((x, y) => y.gain - x.gain)[0];
+    if (mO) { const t = typ(b[mO.s]); ajout(8, '⚠ <b>' + Maj(pieceEn(b, mO.s)) + '</b> est ' + accord(t, 'attaqué') + ' et pas assez ' + accord(t, 'défendu') + ' : il faut s’en occuper.', [{ de: nomCase(mO.par), vers: nomCase(mO.s), couleur: C_MENACE }]); }
+    const mS = menaces(b, S).sort((x, y) => y.gain - x.gain)[0];
+    if (mS) { const t = typ(b[mS.s]); ajout(8, '🎯 Chez l’adversaire, <b>' + pieceEn(b, mS.s) + '</b> est ' + accord(t, 'mal protégé') + ' : c’est une cible.', [{ de: nomCase(mS.par), vers: nomCase(mS.s), couleur: C_COUP }]); }
+    // les rois
+    if (!fin) {
+      for (const c of [S, O]) {
+        const a = abriRoi(b, c); if (!a) continue;
+        const att = attaquantsRoi(b, autre(c));
+        const roiNom = 'le roi ' + (c === 'w' ? 'blanc' : 'noir');
+        let t = null, poids = 5;
+        if (a.centre && P0.coup >= 8) {
+          const peut = c === 'w' ? /[KQA-H]/.test(P0.roques) : /[kqa-h]/.test(P0.roques);
+          t = Maj(roiNom) + ' est <b>encore au centre</b> (' + nomCase(a.k) + ')' + (peut ? '' : ' et <b>ne peut plus roquer</b>') + ' : il est exposé.';
+          poids = 7;
+        } else if (a.aile && a.bouclier.length >= 2 && att.length < 3) { t = Maj(roiNom) + ' est <b>à l’abri</b> en ' + nomCase(a.k) + ', derrière ' + a.bouclier.length + ' pions.'; poids = 4.5; }
+        if (att.length >= 3) {
+          t = (t ? t + ' ' : '') + '<b>' + att.length + ' pièces ' + (c === 'w' ? 'noires' : 'blanches') + '</b> visent les cases autour ' + (c === 'w' ? 'du roi blanc' : 'du roi noir') + ' (' + listeEt(att.map((s) => court2(b, s))) + ').';
+          poids = 8;
+        } else if (t && a.ouvertes.length && a.aile && m.w + m.b > 40) { t += ' Mais la colonne ' + listeEt(a.ouvertes) + ' devant lui n’a plus de pion pour le protéger.'; poids = 6; }
+        if (t) ajout(poids, t, carres(zoneRoi(b, c), c === S ? C_VERT : C_ROUGE).concat(att.length >= 3 ? att.map((s) => ({ de: nomCase(s), vers: nomCase(a.k), couleur: C_ADV })) : []));
+      }
+      // les deux rois simplement à l'abri : une seule ligne
+      const abris = out.filter((x) => x.poids === 4.5);
+      if (abris.length === 2) {
+        out.splice(out.indexOf(abris[0]), 1); out.splice(out.indexOf(abris[1]), 1);
+        ajout(4, 'Les deux rois sont <b>à l’abri</b> derrière leurs pions : pas d’attaque directe possible pour l’instant.', abris[0].dessin.concat(abris[1].dessin));
+      }
+    } else {
+      const kS = roiDe(b, S), kO = roiDe(b, O);
+      const dist = (k) => Math.max(Math.abs(col(k) - 3.5), Math.abs(rg(k) - 3.5));
+      if (kS >= 0 && kO >= 0) ajout(6, '<b>Finale</b> : les rois deviennent des pièces d’attaque. Ton roi est ' + (dist(kS) < dist(kO) ? '<b>plus central</b>' : dist(kS) > dist(kO) ? '<b>moins central</b>' : 'aussi central') + ' que le roi adverse.', carres([kS], C_VERT).concat(carres([kO], C_ROUGE)));
+    }
+    // développement
+    if (!fin && P0.coup <= 20) {
+      const nS = nonDeveloppees(b, S), nO = nonDeveloppees(b, O);
+      if (nS.length || nO.length) {
+        const t = '<b>Développement</b> : ' + campNom(S) + ' ont ' + (nS.length ? nS.length + ' pièce' + (nS.length > 1 ? 's' : '') + ' encore chez ' + (nS.length > 1 ? 'elles' : 'elle') + ' (' + listeEt(nS.map((s) => court2(b, s))) + ')' : 'tout sorti') +
+          ', ' + campNom(O) + ' ' + (nO.length ? nO.length + ' (' + listeEt(nO.map((s) => court2(b, s))) + ')' : 'ont tout sorti') + '.';
+        ajout(nS.length !== nO.length ? 6 : 4, t, carres(nS, C_JAUNE).concat(carres(nO, C_ROUGE)));
+      }
+    }
+    // les pions
+    const pt = [];
+    let dP = [];
+    for (const c of [S, O]) {
+      const st = structure(b, c), f = [];
+      if (st.passes.length) { f.push(st.passes.length > 1 ? 'des <b>pions passés</b> en ' + listeEt(st.passes.map(nomCase)) : 'un <b>pion passé</b> en ' + nomCase(st.passes[0])); dP = dP.concat(carres(st.passes, c === S ? C_VERT : C_ROUGE)); }
+      if (st.isoles.length) { f.push(st.isoles.length > 1 ? 'des pions isolés (' + listeEt(st.isoles.map(nomCase)) + ')' : 'un pion isolé en ' + nomCase(st.isoles[0])); dP = dP.concat(carres(st.isoles, C_JAUNE)); }
+      if (st.doubles.length) f.push('des pions doublés (colonne ' + listeEt(st.doubles.map((x) => FI[x])) + ')');
+      if (f.length) pt.push(campNom(c) + ' ont ' + listeEt(f));
+    }
+    if (pt.length) ajout(pt.join('').includes('passé') ? 7 : 4, '<b>Pions</b> : ' + pt.join(' ; ') + '.', dP);
+    // activité
+    const aS = activiteTotale(b, S), aO = activiteTotale(b, O);
+    if (Math.abs(aS - aO) >= 5) ajout(5, '<b>Activité</b> : les pièces ' + (S === 'w' ? 'blanches' : 'noires') + ' contrôlent <b>' + aS + ' cases</b>, celles d’en face ' + aO + ' : ' + (aS > aO ? 'tu es plus actif.' : 'l’adversaire est plus actif.'));
+    // colonnes ouvertes
+    const ouv = [];
+    for (let x = 0; x < 8; x++) if (!pionsColonne(b, x, 'w') && !pionsColonne(b, x, 'b')) ouv.push(x);
+    if (ouv.length && !fin) {
+      const occ = (c) => ouv.filter((x) => { for (let y = 0; y < 8; y++) { const p = b[y * 8 + x]; if (p && coul(p) === c && ['r', 'q'].includes(typ(p))) return true; } return false; });
+      const oS = occ(S), oO = occ(O), cases = [];
+      for (const x of ouv) for (let y = 0; y < 8; y++) cases.push(y * 8 + x);
+      const pl = ouv.length > 1;
+      ajout(4, '<b>Colonne' + (pl ? 's' : '') + ' ouverte' + (pl ? 's' : '') + '</b> ' + listeEt(ouv.map((x) => FI[x])) + ' : ' +
+        (oS.length ? 'tes tours ou ta dame y sont déjà' : oO.length ? 'l’adversaire y est déjà' : 'personne n’y est encore, c’est une place pour une tour') + '.', carres(cases, C_JAUNE));
+    }
+    out.sort((x, y) => y.poids - x.poids);
+    return out.slice(0, 5);
+  }
+
+  // ce que la ligne du moteur change pour S entre le début (b0) et la fin (b1)
+  function changements(b0, b1, S, bMat) {
+    const O = autre(S), out = [];
+    // au milieu d'un échange, le matériel se compte depuis AVANT la prise adverse (reprendre n'est pas gagner)
+    const bp = bilanPieces(bMat || b0, b1, S);
+    if (bp.net > 0) out.push('<b>Matériel</b> : ' + campNom(S) + ' gagnent <b>' + bp.net + ' point' + (bp.net > 1 ? 's' : '') + '</b>' + (bp.perdO.length ? ' (' + listeEt(bp.perdO) + ' pris' + (bp.perdS.length ? ', contre ' + listeEt(bp.perdS) : '') + ')' : '') + '.');
+    else if (bp.net < 0) out.push('<b>Matériel</b> : ' + campNom(S) + ' donnent <b>' + (-bp.net) + ' point' + (bp.net < -1 ? 's' : '') + '</b> exprès : c’est un <b>sacrifice</b>, payé par ce qui suit.');
+    else if (bp.perdO.length) out.push('<b>Échanges</b> : ' + listeEt(bp.perdS) + ' contre ' + listeEt(bp.perdO) + ', le matériel reste égal.');
+    const a0 = activiteTotale(b0, S), a1 = activiteTotale(b1, S);
+    if (a1 - a0 >= 4) out.push('<b>Activité</b> : tes pièces passent de ' + a0 + ' à <b>' + a1 + ' cases</b> contrôlées.');
+    const o0 = activiteTotale(b0, O), o1 = activiteTotale(b1, O);
+    if (o0 - o1 >= 4) out.push('Les pièces adverses perdent de l’activité : <b>' + o0 + ' → ' + o1 + ' cases</b>.');
+    const r0 = attaquantsRoi(b0, S).length, r1 = attaquantsRoi(b1, S).length;
+    if (r1 - r0 >= 2) out.push('<b>Attaque</b> : ' + r1 + ' de tes pièces visent maintenant les cases du roi adverse (au lieu de ' + r0 + ').');
+    const k0 = abriRoi(b0, S), k1 = abriRoi(b1, S);
+    if (k0 && k1 && k0.centre && k1.aile) out.push('<b>Ton roi</b> quitte le centre et se met à l’abri.');
+    const d0 = nonDeveloppees(b0, S).length, d1 = nonDeveloppees(b1, S).length;
+    if (d0 > d1) out.push('<b>Développement</b> : ' + (d0 - d1) + ' pièce' + (d0 - d1 > 1 ? 's' : '') + ' de plus ' + (d0 - d1 > 1 ? 'sorties' : 'sortie') + '.');
+    const s0 = structure(b0, S), s1 = structure(b1, S), t0 = structure(b0, O), t1 = structure(b1, O);
+    const nvPasses = s1.passes.filter((x) => !s0.passes.includes(x));
+    if (s1.passes.length > s0.passes.length && nvPasses.length) out.push('<b>Pion passé</b> créé en ' + listeEt(nvPasses.map(nomCase)) + '.');
+    if (t1.doubles.length > t0.doubles.length) out.push('L’adversaire se retrouve avec des <b>pions doublés</b>.');
+    if (t1.isoles.length > t0.isoles.length) out.push('L’adversaire se retrouve avec un <b>pion isolé</b> de plus.');
+    return out;
+  }
+
+  // =====================================================================
   //  INTERFACE
   // =====================================================================
   const cache = {};
@@ -570,6 +735,9 @@
       '<div class="coach-corps"></div>' +
       '<div class="coach-nav"><button class="bouton coach-prec">◀ Page précédente</button><button class="bouton principal coach-suiv">Page suivante ▶</button></div>';
     ctx.conteneur.appendChild(box);
+    // sur téléphone : plateau plus petit tant que le coach est ouvert, pour que ses explications tiennent sans défiler
+    const ecr = ctx.conteneur.closest('.ecran');
+    if (ecr) { ecr.classList.add('coach-actif'); requestAnimationFrame(() => window.App.redimensionner()); }
     box.querySelector('.coach-fermer').onclick = () => fermer();
     box.querySelector('.coach-prec').onclick = () => bouger(-1);
     box.querySelector('.coach-suiv').onclick = () => bouger(1);
@@ -598,6 +766,8 @@
     const m = window.Moteurs.tous().find((x) => x.role === 'coach');
     if (m && m.pret) m.arreter();
     e.el.remove();
+    const ecr = e.ctx.conteneur.closest('.ecran');
+    if (ecr) { ecr.classList.remove('coach-actif'); requestAnimationFrame(() => window.App.redimensionner()); }
     e.ctx.plateau.coachDessin(null);
     if (!sansRestaurer) e.ctx.restaurer();
   }
@@ -637,6 +807,15 @@
       vue(pg.vues[k]);
     };
     corps.querySelectorAll('[data-vue]').forEach((x) => { x.onclick = () => choisir(+x.dataset.vue); });
+    // sous-onglets (page « Réflexion ») : une seule partie affichée à la fois
+    const plis = corps.querySelectorAll('.coach-pli');
+    corps.querySelectorAll('.coach-so').forEach((t) => {
+      t.onclick = () => {
+        corps.querySelectorAll('.coach-so').forEach((x) => x.classList.toggle('actif', x === t));
+        plis.forEach((p, i) => p.classList.toggle('ouvert', i === +t.dataset.pli));
+        choisir(+t.dataset.v);
+      };
+    });
     choisir(0);
   }
 
@@ -688,7 +867,36 @@
       } catch (e) { menace = null; }
       if (!etat || etat.id !== id) throw new Error('fermé');
     }
-    const donnees = { fen, S, lignes: lignes.map((l) => ({ score: l.score, pv: l.pv.slice(0, 10), joue: !!l.joue })), menace };
+    // les coups « tentants » (échecs et prises) que le moteur n'a pas gardés : on les fait calculer pour dire POURQUOI ils ne marchent pas
+    let tentants = [];
+    if (v.moteur !== 'maison' && classique(v, fen)) {
+      const P0 = lire(fen), O = autre(S);
+      const deja = new Set(lignes.map((l) => l.pv[0]));
+      const cands = [];
+      for (const u of legaux) {
+        if (deja.has(u) || (u.length > 4 && u[4] !== 'q')) continue;
+        const P1 = jouer(P0, u); if (!P1) continue;
+        const ech = enEchec(P1.b, O);
+        if (!ech && !P1.prise) continue;
+        cands.push({ u, poids: (ech ? 4 : 0) + (P1.prise ? V[P1.prise] : 0) + (P1.prise && see(P0.b, lireCase(u.slice(0, 2)), lireCase(u.slice(2, 4))) < 0 ? 2 : 0) });
+      }
+      cands.sort((a, b) => b.poids - a.poids);
+      const choix = cands.slice(0, 4).map((c) => c.u);
+      if (choix.length) {
+        attente('Le coach vérifie les coups tentants (échecs et prises)…');
+        try {
+          const rt = await window.Moteurs.pourVariante(v, 'coach').chercher({
+            variante: v, fen0: ctx.fen0, coups: ctx.coups, elo: null, profondeur: PROF_MENACE[tm], temps: 20000, multipv: choix.length, deterministe: true, coupsLimites: choix
+          });
+          if (rt && !rt.annulee) tentants = rt.lignes.filter((l) => l && l.pv && l.pv.length && choix.includes(l.pv[0])).map((l) => ({ score: l.score, pv: l.pv.slice(0, 6) }));
+        } catch (e) { tentants = []; }
+        if (!etat || etat.id !== id) throw new Error('fermé');
+      }
+      // le nombre total d'échecs et de prises possibles (méthode des coups forçants)
+      tentants.nbEchecs = 0; tentants.nbPrises = 0;
+      for (const u of legaux) { if (u.length > 4 && u[4] !== 'q') continue; const P1 = jouer(P0, u); if (!P1) continue; if (enEchec(P1.b, O)) tentants.nbEchecs++; if (P1.prise) tentants.nbPrises++; }
+    }
+    const donnees = { fen, S, lignes: lignes.map((l) => ({ score: l.score, pv: l.pv.slice(0, 10), joue: !!l.joue })), menace, tentants, nbEchecs: tentants.nbEchecs || 0, nbPrises: tentants.nbPrises || 0 };
     cache[cle] = donnees;
     return construire(ctx, donnees);
   }
@@ -739,10 +947,11 @@
       else h += '<p>Dans la partie : <b>' + sanJoue + '</b> (page « Les autres coups »).</p>';
     }
     let dessin1 = fBest ? [fBest] : [];
-    const puces = [];
+    const puces = [], notions1 = [];
     if (cl) {
-      const r = idees(P0, best.pv[0], { mat1: best.score.mate === 1 });
-      for (const x of nettoyer(r.idees, 3)) { if (!dire(x.texte)) continue; puces.push(puce(x)); dessin1 = dessin1.concat(x.dessin.filter((d) => d && !(fBest && d.de === fBest.de && d.vers === fBest.vers))); }
+      const ra = repriseAvant(ctx);
+      const r = idees(P0, best.pv[0], { mat1: best.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur });
+      for (const x of nettoyer(r.idees, 3)) { if (!dire(x.texte)) continue; notions1.push(x.notion); puces.push(puce(x)); dessin1 = dessin1.concat(x.dessin.filter((d) => d && !(fBest && d.de === fBest.de && d.vers === fBest.vers))); }
     } else if (suite[0] && (suite[0].prise || suite[0].echec)) {
       puces.push('<li>' + (suite[0].prise ? 'Il <b>prend une pièce</b>' : '') + (suite[0].prise && suite[0].echec ? ' et ' : '') + (suite[0].echec ? (suite[0].prise ? 'donne' : 'Il donne') + ' <b>échec</b>' : '') + '.</li>');
     }
@@ -776,7 +985,9 @@
           else if (best.score.mate != null && best.score.mate > 0) pare = sanBest + ' va plus vite que la menace.';
           else pare = 'Après ' + sanBest + ', la menace ne marche plus.';
         } else pare = 'Après ' + sanBest + ', la menace ne marche plus.';
-        const t = '⚠ <b>Menace adverse</b> : sans rien faire, ' + campNom(O) + ' ' + quoi + '. ' + pare;
+        // déjà expliqué dans les idées du coup (« élimine l'attaquant », « met à l'abri »…) : on ne le répète pas
+        if (notions1.includes('defense') && plusTard < 1) pare = '';
+        const t = '⚠ <b>Menace adverse</b> : sans rien faire, ' + campNom(O) + ' ' + quoi + '.' + (pare ? ' ' + pare : '');
         if (dire(t)) {
           puces.push('<li class="coach-menace" title="' + NOTIONS.menace[1] + '">' + t + '</li>');
           const fm = flecheUci(D.menace.pv[0], C_MENACE);
@@ -798,7 +1009,7 @@
           const de = lireCase(rep.uci.slice(0, 2));
           txtRep = typ(P1c.b[de]) === 'k' ? ' — le roi est obligé de fuir l’échec' : Pr && Pr.prise ? ' — elle prend la pièce qui donnait échec' : ' — elle bouche la ligne de l’échec';
         } else {
-          const x = nettoyer(idees(P1c, rep.uci, { mat1: best.score.mate === -1, repriseCase: P1c.prise ? P1c.priseCase : null }).idees, 1)[0];
+          const x = nettoyer(idees(P1c, rep.uci, { mat1: best.score.mate === -1, repriseCase: P1c.prise ? P1c.priseCase : null, repriseValeur: P1c.prise ? V[P1c.prise] : 0 }).idees, 1)[0];
           if (x && dire(x.texte)) txtRep = ' — ' + court(x.texte);
         }
       } else if (rep.prise || rep.echec) txtRep = rep.prise ? ' (une prise)' : ' (échec)';
@@ -809,11 +1020,11 @@
         let txtPlan = '';
         if (cl && P1c) {
           const P2 = jouer(P1c, rep.uci);
-          const x = P2 ? nettoyer(idees(P2, plan.uci, { mat1: best.score.mate === 2, repriseCase: P2.prise ? P2.priseCase : null }).idees, 1)[0] : null;
+          const x = P2 ? nettoyer(idees(P2, plan.uci, { mat1: best.score.mate === 2, repriseCase: P2.prise ? P2.priseCase : null, repriseValeur: P2.prise ? V[P2.prise] : 0 }).idees, 1)[0] : null;
           if (x && dire(x.texte)) txtPlan = ' — ' + court(x.texte);
         }
         vues1.push({ fen: plan.fen, dernier: window.App.dernierCoupCases(plan.uci), dessin: [] });
-        ensuite += '<li><span class="coach-chip" data-vue="2">○ ' + plan.san + '</span> ce que ' + sanBest + ' prépare' + txtPlan + '.</li>';
+        ensuite += '<li><span class="coach-chip" data-vue="2">○ ' + plan.san + '</span> ' + (txtPlan ? 'ce que ' + sanBest + ' prépare' + txtPlan : 'la suite prévue : un coup de placement, sans menace directe') + '.</li>';
       }
     }
     if (!puces.length) puces.push('<li>' + (suite[2] ? 'Pas de gain tout de suite : ' + sanBest + ' sert surtout à préparer la suite ci-dessous.' : 'Pas de gain tout de suite : le moteur le préfère de peu aux autres coups.') + '</li>');
@@ -821,6 +1032,10 @@
     if (ensuite) h += '<p class="coach-sous">Et ensuite <span class="coach-ligne">(clique pour voir)</span> :</p><ul class="coach-liste">' + ensuite + '</ul>';
     h = h.replace('<h3 class="coach-titre">★ ' + sanBest + '</h3>', '<h3 class="coach-titre" data-vue="0">★ Pourquoi ' + sanBest + ' ?</h3>');
     pages.push({ nom: '★ Pourquoi ' + sanBest, html: h, vues: vues1 });
+
+    // ---------- Page 2 : la réflexion détaillée ----------
+    const p2 = pageReflexion(ctx, D, { cl, P0, S, O, best, suite, sanBest, fBest, notions1, dire });
+    if (p2) pages.push(p2);
 
     // ---------- Page 3 : les autres coups (le coup joué d'abord) ----------
     const alts = [];
@@ -839,7 +1054,7 @@
           let pourquoi = ' Réponse : <b>' + s2[1].san + '</b>';
           if (cl) {
             const Pa = jouer(P0, l.pv[0]);
-            const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null }).idees, 1)[0] : null;
+            const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null, repriseValeur: Pa.prise ? V[Pa.prise] : 0 }).idees, 1)[0] : null;
             if (rep) { pourquoi += ' — ' + court(rep.texte) + '.'; dessin.push(...recolorer(rep.dessin, C_MENACE)); }
             else { pourquoi += '.'; const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
             const bb = bilanPieces(P0.b, lire((suite[Math.min(5, suite.length - 1)] || { fen: D.fen }).fen).b, S);
@@ -860,6 +1075,104 @@
     }
     return pages;
   }
+  // Page 2 : comment un bon joueur réfléchit ici, en 3 parties dépliables (une seule ouverte à la fois)
+  function pageReflexion(ctx, D, o) {
+    const { cl, P0, S, best, suite, sanBest, fBest, notions1, dire } = o;
+    const vues = [{ dessin: fBest ? [fBest] : [] }];
+    const plis = [];
+    const vueDe = (v) => { vues.push(v); return vues.length - 1; };
+    const li = (texte, v) => '<li' + (v != null ? ' data-vue="' + v + '"' : '') + '>' + texte + '</li>';
+
+    // 1. ce que je vois
+    if (cl) {
+      const ra = repriseAvant(ctx);
+      const diag = diagnostic(P0, S, ra).filter((x) => dire(x.texte));
+      if (diag.length) {
+        const v0 = vueDe({ dessin: diag.reduce((a, x) => a.concat(x.dessin.filter((d) => d.carre)), []).slice(0, 24) });
+        plis.push({ titre: '1. Ce que je vois dans la position', court: '1. La position', vue: v0,
+          corps: '<p class="coach-ligne">Avant de chercher un coup, on fait le point. Clique une ligne pour la voir.</p><ul class="coach-liste">' + diag.map((x) => li(x.texte, vueDe({ dessin: x.dessin }))).join('') + '</ul>' });
+      }
+    }
+
+    // 2. les coups forçants (échecs, prises) : lesquels marchent, lesquels non
+    if (cl && D.tentants) {
+      const items = [];
+      const nE = D.nbEchecs || 0, nP = D.nbPrises || 0;
+      const P1 = jouer(P0, best.pv[0]);
+      const sorte = P1 && enEchec(P1.b, autre(S)) ? (P1.prise ? 'une prise avec échec' : 'un échec') : P1 && P1.prise ? 'une prise' : 'un <b>coup calme</b> (ni échec ni prise)';
+      const intro = '<p>On regarde d’abord les <b>coups forçants</b> (échecs, prises). ' +
+        (nE + nP ? 'Ici : <b>' + nE + ' échec' + (nE > 1 ? 's' : '') + '</b> et <b>' + nP + ' prise' + (nP > 1 ? 's' : '') + '</b>.' : 'Ici <b>aucun</b> : position calme, on cherche un plan.') +
+        ' ' + sanBest + ' est ' + sorte + '.' + (!P1 || P1.prise || enEchec(P1.b, autre(S)) || !(nE + nP) ? '' : ' Aucun coup forçant ne fait mieux :') + '</p>';
+      for (const t of D.tentants.slice(0, 2)) {
+        const s2 = fensSuite(ctx, t.pv);
+        if (!s2.length) continue;
+        const g = ecart(best.score, t.score);
+        const genre = s2[0].echec && s2[0].prise ? 'prise avec échec' : s2[0].echec ? 'échec' : 'prise';
+        let tx;
+        const dessin = [];
+        if (g <= 0.15) tx = '<b>' + s2[0].san + '</b> (' + genre + ') : se joue aussi, presque aussi bon (' + (g > 0.04 ? '−' + nb(g) : 'pareil') + ').';
+        else if (g <= 0.6) tx = '<b>' + s2[0].san + '</b> (' + genre + ') : jouable, mais un peu moins bon que ' + sanBest + ' (−' + nb(g) + ').';
+        else {
+          tx = '<b>' + s2[0].san + ' ?</b> (' + genre + ') ne marche pas';
+          if (s2[1]) {
+            const Pa = jouer(P0, t.pv[0]);
+            const rep = Pa ? nettoyer(idees(Pa, t.pv[1], { mat1: t.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null, repriseValeur: Pa.prise ? V[Pa.prise] : 0 }).idees, 1)[0] : null;
+            tx += ' : ' + campNom(autre(S)) + ' répondent <b>' + s2[1].san + '</b>' + (rep ? ' — ' + court(rep.texte).split(/\. /)[0] : '');
+            if (rep) dessin.push(...recolorer(rep.dessin, C_MENACE)); else { const f = flecheUci(t.pv[1], C_MENACE); if (f) dessin.push(f); }
+            const fin = lire(s2[s2.length - 1].fen).b, bp = bilanPieces(P0.b, fin, S);
+            if (bp.net < 0) tx += '. Au bout, <b>' + (-bp.net) + ' de matériel perdu</b>';
+          }
+          tx += '. ' + (g >= 99 ? '' : 'Soit <b>−' + nb(g) + '</b> par rapport à ' + sanBest + '.');
+        }
+        items.push(li(tx, vueDe(g > 0.6 && s2[1] ? { fen: s2[0].fen, dernier: window.App.dernierCoupCases(t.pv[0]), dessin } : { dessin: [flecheUci(t.pv[0], C_ADV, '?'), fBest].filter(Boolean) })));
+      }
+      plis.push({ titre: '2. Les coups à regarder d’abord', court: '2. Coups forçants', vue: 0, corps: intro + (items.length ? '<ul class="coach-liste">' + items.join('') + '</ul>' : '') });
+    }
+
+    // 3. le plan : où mène la ligne du moteur, et ce qu'elle change
+    if (suite.length >= 2) {
+      const n0 = +(D.fen.split(/\s+/)[5] || 1);
+      let num = n0, blanc = S === 'w', chips = '';
+      suite.forEach((x, i) => {
+        const pre = blanc ? num + '. ' : (i === 0 ? num + '… ' : '');
+        const v = vueDe({ fen: x.fen, dernier: window.App.dernierCoupCases(x.uci), dessin: [flecheUci(x.uci, i % 2 ? C_MENACE : C_COUP)].filter(Boolean) });
+        chips += '<span class="coach-chip" data-vue="' + v + '">' + pre + x.san + '</span>';
+        if (!blanc) num++;
+        blanc = !blanc;
+      });
+      let corps = '<p>La ligne que le moteur a calculée (' + suite.length + ' demi-coups, clique pour voir) :</p><p>' + chips + '</p>';
+      if (cl) {
+        const ra2 = repriseAvant(ctx);
+        const ch = changements(P0.b, lire(suite[suite.length - 1].fen).b, S, ra2.fenAvant ? lire(ra2.fenAvant).b : null).filter((t) => dire(t)).slice(0, 3);
+        corps += '<p class="coach-sous">Ce que ça change au bout de la ligne :</p><ul class="coach-liste">' +
+          (ch.length ? ch.map((t) => li(t)).join('') : li('Rien de spectaculaire : pas de gain, mais une position un peu plus agréable (' + phraseScore(best.score, S) + '). Aux échecs, beaucoup de bons coups sont de petites améliorations.')) + '</ul>';
+        const ret = [...new Set(notions1)].filter((n) => NOTIONS[n])[0];
+        if (ret) corps += '<p>📘 <b>À retenir — ' + NOTIONS[ret][0] + '</b> : ' + NOTIONS[ret][1] + '</p>';
+      } else {
+        const prises = suite.filter((x) => x.prise).length, echecs = suite.filter((x) => x.echec).length;
+        corps += '<p>' + (prises ? prises + ' prise' + (prises > 1 ? 's' : '') : 'Aucune prise') + ' et ' + (echecs ? echecs + ' échec' + (echecs > 1 ? 's' : '') : 'aucun échec') + ' dans cette ligne.</p>';
+      }
+      plis.push({ titre: '3. Le plan : où mène ' + sanBest, court: '3. Le plan', vue: vues.length > 1 ? vues.length - suite.length : 0, corps });
+    }
+    if (!plis.length) return null;
+    let h = '<h3 class="coach-titre" data-vue="0">🧠 Réflexion détaillée</h3>';
+    // 3 sous-onglets : une seule partie affichée à la fois
+    h += '<div class="coach-sous-onglets">' + plis.map((p, i) => '<button class="coach-so' + (i === 0 ? ' actif' : '') + '" data-pli="' + i + '" data-v="' + p.vue + '">' + p.court + '</button>').join('') + '</div>';
+    plis.forEach((p, i) => {
+      h += '<div class="coach-pli' + (i === 0 ? ' ouvert' : '') + '"><p class="coach-pli-titre">' + p.titre + '</p>' + p.corps + '</div>';
+    });
+    return { nom: '🧠 Réflexion', html: h, vues };
+  }
+  // le dernier coup joué était-il une prise ? (pour reconnaître une simple reprise)
+  function repriseAvant(ctx) {
+    if (!ctx.coups || !ctx.coups.length) return {};
+    try {
+      const p = new window.Regles.Partie(ctx.variante, ctx.fen0, ctx.coups.slice(0, -1));
+      const f = p.fen; p.detruire();
+      const P = jouer(lire(f), ctx.coups[ctx.coups.length - 1]);
+      return P && P.prise ? { repriseCase: P.priseCase, repriseValeur: V[P.prise], fenAvant: f } : {};
+    } catch (e) { return {}; }
+  }
   function legauxUn(ctx) { try { const p = new window.Regles.Partie(ctx.variante, ctx.fen0, ctx.coups); const n = p.legaux().length; p.detruire(); return n === 1; } catch (e) { return false; } }
 
   // touches : ← → pour changer de page, Échap pour fermer
@@ -871,5 +1184,5 @@
     else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
 
-  window.Coach = { ouvrir, fermer, ouvert, _idees: idees, _lire: lire, _nettoyer: nettoyer };
+  window.Coach = { ouvrir, fermer, ouvert, _idees: idees, _lire: lire, _nettoyer: nettoyer, _diag: diagnostic, _chg: changements };
 })();

@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 54;
+  var ICI = 55;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=54">
-<link rel="stylesheet" href="css/mobile.css?v=54">
+<link rel="stylesheet" href="css/jeu.css?v=55">
+<link rel="stylesheet" href="css/mobile.css?v=55">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -47,7 +47,7 @@
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 54</div>
+    <div class="note-moteur centre">Version 55</div>
   </div>
 </section>
 
@@ -430,8 +430,10 @@
     <div class="onglets" id="onglets-bilan">
       <button data-onglet="resume" class="actif">Résumé</button>
       <button data-onglet="coups">Coups</button>
+      <button data-onglet="moments">Moments clés</button>
     </div>
     <div class="bilan-onglet" id="bilan-resume"></div>
+    <div class="bilan-onglet" id="bilan-moments"></div>
     <div class="bilan-onglet" id="bilan-coups">
       <canvas id="graphe-bilan" class="graphe"></canvas>
       <div class="commentaire" id="bilan-commentaire"></div>
@@ -458,23 +460,23 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=54"></script>
-<script src="js/curseurs.js?v=54"></script>
-<script src="js/cartes.js?v=54"></script>
-<script src="js/themes.js?v=54"></script>
-<script src="js/pieces-svg.js?v=54"></script>
-<script src="js/persos.js?v=54"></script>
-<script src="js/pieces.js?v=54"></script>
-<script src="js/maison.js?v=54"></script>
-<script src="js/regles.js?v=54"></script>
-<script src="js/config.js?v=54"></script>
-<script src="js/moteur.js?v=54"></script>
-<script src="js/son.js?v=54"></script>
-<script src="js/plateau.js?v=54"></script>
-<script src="js/coach.js?v=54"></script>
-<script src="js/repertoire.js?v=54"></script>
-<script src="js/bilan.js?v=54"></script>
-<script src="js/editeur.js?v=54"></script>
-<script src="js/app.js?v=54"></script>
+<script src="js/bots.js?v=55"></script>
+<script src="js/curseurs.js?v=55"></script>
+<script src="js/cartes.js?v=55"></script>
+<script src="js/themes.js?v=55"></script>
+<script src="js/pieces-svg.js?v=55"></script>
+<script src="js/persos.js?v=55"></script>
+<script src="js/pieces.js?v=55"></script>
+<script src="js/maison.js?v=55"></script>
+<script src="js/regles.js?v=55"></script>
+<script src="js/config.js?v=55"></script>
+<script src="js/moteur.js?v=55"></script>
+<script src="js/son.js?v=55"></script>
+<script src="js/plateau.js?v=55"></script>
+<script src="js/coach.js?v=55"></script>
+<script src="js/repertoire.js?v=55"></script>
+<script src="js/bilan.js?v=55"></script>
+<script src="js/editeur.js?v=55"></script>
+<script src="js/app.js?v=55"></script>
 </body>
 </html>

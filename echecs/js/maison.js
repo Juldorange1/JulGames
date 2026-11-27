@@ -184,6 +184,8 @@
       return rangs.join('/') + ' ' + (this.trait ? 'b' : 'w') + ' ' + (rq || '-') + ' ' + (this.ep >= 0 ? this.nom(this.ep) : '-') + ' ' + this.demi + ' ' + this.plein;
     }
     cleRepetition() { return this.h1 + ':' + this.h2; }
+    // la même clé en nombre (plus rapide pour la recherche) : 32 + 21 bits
+    cleNum() { return this.h1 * 2097152 + (this.h2 & 0x1fffff); }
     nom(sq) { return FICH[sq % this.C] + (Math.floor(sq / this.C) + 1); }
     caseDe(s) {
       const m = /^([a-l])(\d+)$/.exec(s);
@@ -315,7 +317,10 @@
       return false;
     }
     caseRoi(coul) {
-      for (let i = 0; i < this.N; i++) { const v = this.b[i]; if (v > TROU && this.coulDe(v) === coul && this.types[this.typeDe(v)].royal) return i; }
+      // dernière case connue d'abord (le roi bouge rarement)
+      const r = this._roi || (this._roi = [-1, -1]), k = r[coul];
+      if (k >= 0) { const v = this.b[k]; if (v > TROU && this.coulDe(v) === coul && this.types[this.typeDe(v)].royal) return k; }
+      for (let i = 0; i < this.N; i++) { const v = this.b[i]; if (v > TROU && this.coulDe(v) === coul && this.types[this.typeDe(v)].royal) { r[coul] = i; return i; } }
       return -1;
     }
     // le roi n'est « royal » (échec) que s'il en reste un seul
@@ -365,7 +370,7 @@
     jouerCoup(m) {
       const b = this.b, me = this.trait;
       const u = { m, pris: VIDE, prisCase: m.vers, roque: this.roque, ep: this.ep, demi: this.demi, h1: this.h1, h2: this.h2, rois: this.nbRois.slice() };
-      this.hist.push(this.h1 + ':' + this.h2);
+      this.hist.push(this.cleNum());
       const v = b[m.de];
       this.h1 ^= this.zRoque[this.roque] ^ this.zEp[this.ep + 1] ^ this.zTrait[me];
       this.h2 ^= this.zRoque2[this.roque] ^ this.zEp2[this.ep + 1];
@@ -409,15 +414,16 @@
     }
     // coup nul (pour la recherche) : on passe son tour
     jouerNul() {
-      this.pile.push({ nul: true, ep: this.ep, h1: this.h1, h2: this.h2 });
-      this.hist.push(this.h1 + ':' + this.h2);
+      this.pile.push({ nul: true, ep: this.ep, h1: this.h1, h2: this.h2, demi: this.demi });
+      this.hist.push(this.cleNum());
+      this.demi = 0;
       this.h1 ^= this.zEp[this.ep + 1] ^ this.zTrait[this.trait] ^ this.zTrait[this.trait ^ 1] ^ this.zEp[0];
       this.h2 ^= this.zEp2[this.ep + 1] ^ this.zEp2[0];
       this.ep = -1; this.trait ^= 1;
     }
     annulerNul() {
       const u = this.pile.pop(); this.hist.pop();
-      this.trait ^= 1; this.ep = u.ep; this.h1 = u.h1; this.h2 = u.h2;
+      this.trait ^= 1; this.ep = u.ep; this.h1 = u.h1; this.h2 = u.h2; this.demi = u.demi;
     }
     pieces(coul) {
       let n = 0;
@@ -484,44 +490,114 @@
     }
 
     // ---------- évaluation (vue du camp au trait) ----------
+    // matériel + placement + roi (abri au milieu de partie, centre en finale) + pions (passés, doublés, isolés)
+    // + paire de fous + tours sur colonnes ouvertes + développement. Marche aussi avec les personnages créés.
     evaluer() {
-      const C = this.C, L = this.L, cx = (C - 1) / 2, cy = (L - 1) / 2;
-      let s = 0;
-      for (let i = 0; i < this.N; i++) {
-        const v = this.b[i];
+      const C = this.C, L = this.L, N = this.N, b = this.b, cx = (C - 1) / 2, cy = (L - 1) / 2;
+      const ev = this._ev || (this._ev = { pions: [new Int8Array(C), new Int8Array(C)], fous: [0, 0], lettres: this.types.map((t) => t.lettre) });
+      const pions = ev.pions, lt = ev.lettres;
+      pions[0].fill(0); pions[1].fill(0);
+      let s = 0, npm = 0;
+      const fous = [0, 0];
+      // 1er passage : matériel, placement, colonnes de pions
+      for (let i = 0; i < N; i++) {
+        const v = b[i];
         if (v <= TROU) continue;
-        const ti = this.typeDe(v), coul = this.coulDe(v), t = this.types[ti];
-        const x = i % C, y = (i / C) | 0;
+        const ti = (v - 2) >> 1, coul = (v - 2) & 1, t = this.types[ti];
+        const x = i % C, y = (i / C) | 0, yr = coul ? L - 1 - y : y;
         let val = this.valeurs[ti];
-        if (t.pion) val += 8 * (coul ? L - 1 - y : y);
-        else if (!t.royal || this.multi) val += Math.round(10 - 3 * (Math.abs(x - cx) + Math.abs(y - cy)) / 2);
+        if (t.pion) { val += 8 * yr; pions[coul][x]++; }
+        else if (!t.royal) {
+          npm += this.valeurs[ti];
+          val += Math.round(10 - 3 * (Math.abs(x - cx) + Math.abs(y - cy)) / 2);
+          if (lt[ti] === 'b') fous[coul]++;
+          // pièce mineure restée sur sa rangée de départ
+          if (yr === 0 && lt[ti] !== 'r' && lt[ti] !== 'q') val -= 12;
+        } else if (this.multi) val += Math.round(10 - 3 * (Math.abs(x - cx) + Math.abs(y - cy)) / 2);
         s += coul ? -val : val;
       }
+      // phase : 1 = début (beaucoup de pièces), 0 = finale
+      const phase = Math.min(1, npm / 6200);
+      if (fous[0] >= 2) s += 30; if (fous[1] >= 2) s -= 30;
+      // 2e passage : pions et roi et tours
+      for (let i = 0; i < N; i++) {
+        const v = b[i];
+        if (v <= TROU) continue;
+        const ti = (v - 2) >> 1, coul = (v - 2) & 1, t = this.types[ti];
+        const x = i % C, y = (i / C) | 0, yr = coul ? L - 1 - y : y, sg = coul ? -1 : 1, moi = pions[coul], lui = pions[coul ^ 1];
+        if (t.pion) {
+          let e = 0;
+          if (moi[x] > 1) e -= 12;
+          if ((x === 0 || !moi[x - 1]) && (x === C - 1 || !moi[x + 1])) e -= 12;
+          // passé : aucun pion adverse devant lui sur sa colonne ou à côté
+          let passe = true;
+          const d = coul ? -1 : 1;
+          for (let yy = y + d; yy >= 0 && yy < L && passe; yy += d) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const xx = x + dx;
+              if (xx < 0 || xx >= C) continue;
+              const q = b[yy * C + xx];
+              if (q > TROU && this.types[(q - 2) >> 1].pion && ((q - 2) & 1) !== coul) { passe = false; break; }
+            }
+          }
+          if (passe) { const r = yr / (L - 1); e += Math.round((10 + 110 * r * r) * (1.4 - 0.6 * phase)); }
+          s += sg * e;
+        } else if (t.royal && !this.multi) {
+          // milieu de partie : roi au fond, derrière ses pions ; finale : roi au centre
+          let abri = 0;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx; if (xx < 0 || xx >= C) continue;
+            for (let dy = 1; dy <= 2; dy++) {
+              const yy = y + (coul ? -dy : dy); if (yy < 0 || yy >= L) continue;
+              const q = b[yy * C + xx];
+              if (q > TROU && this.types[(q - 2) >> 1].pion && ((q - 2) & 1) === coul) { abri += dy === 1 ? 14 : 8; break; }
+            }
+            if (!moi[xx]) abri -= 12;
+          }
+          const bord = Math.min(x, C - 1 - x);
+          const mg = abri - 18 * yr - (bord >= 2 ? 20 : 0);
+          const eg = Math.round(14 - 4 * (Math.abs(x - cx) + Math.abs(y - cy)));
+          s += sg * Math.round(phase * mg + (1 - phase) * eg);
+        } else if (lt[ti] === 'r' || lt[ti] === 'q') {
+          const f = lt[ti] === 'r' ? 1 : 0.5;
+          if (!moi[x]) s += sg * Math.round((lui[x] ? 10 : 22) * f);
+          if (yr === L - 2 && lt[ti] === 'r') s += sg * 15;
+        }
+      }
+      s += this.trait ? -10 : 10; // avoir le trait vaut un peu
       return this.trait ? -s : s;
     }
   }
 
   // ---------- recherche ----------
   // o = { temps, profondeur, multipv, surInfo(lignes), histo: [clés des positions déjà jouées] }
+  // Recherche alpha-bêta : approfondissement itératif, table de transposition, coup nul, PVS, réductions des coups
+  // tardifs, coups tueurs et historique pour l'ordre des coups, recherche des prises au bout (sans les prises perdantes).
   function chercher(j, o) {
     const fin = Date.now() + Math.max(50, o.temps || 1000);
     const profMax = Math.min(64, o.profondeur || 64);
     const multipv = Math.max(1, o.multipv || 1);
+    const N = j.N;
     const TT = new Map();
-    const deja = new Set(o.histo || []);
+    const num = (k) => { const [a, b] = String(k).split(':').map(Number); return a * 2097152 + (b & 0x1fffff); };
+    const deja = new Set((o.histo || []).map(num));
     let noeuds = 0;
     const STOP = {};
-    const tueurs = [];
+    const tueurs = [], tueurs2 = [];
+    const histoire = new Int32Array(2 * N * N);
     const valeurDe = (v) => (v > TROU ? j.valeurs[j.typeDe(v)] + 1 : 0);
+    const memeCoup = (a, b) => a && b && a.de === b.de && a.vers === b.vers && a.promo === b.promo;
     function ordonner(liste, meilleur, ply) {
-      const k = tueurs[ply];
+      const k1 = tueurs[ply], k2 = tueurs2[ply], base = j.trait * N * N;
       for (const m of liste) {
-        let sc = 0;
+        let sc;
         const pris = j.b[m.vers];
-        if (pris > TROU) sc = 100000 + valeurDe(pris) * 16 - valeurDe(j.b[m.de]) / 8;
-        if (m.promo >= 0) sc += 90000 + j.valeurs[m.promo];
-        if (k && k.de === m.de && k.vers === m.vers) sc += 50000;
-        if (meilleur && meilleur.de === m.de && meilleur.vers === m.vers && meilleur.promo === m.promo) sc = 1e9;
+        if (memeCoup(meilleur, m)) sc = 1e9;
+        else if (pris > TROU || m.ep) sc = 1e7 + valeurDe(pris || 2) * 16 - valeurDe(j.b[m.de]) / 8;
+        else if (m.promo >= 0) sc = 9e6 + j.valeurs[m.promo];
+        else if (memeCoup(k1, m)) sc = 8e6;
+        else if (memeCoup(k2, m)) sc = 7e6;
+        else sc = histoire[base + m.de * N + m.vers];
         m.sc = sc;
       }
       liste.sort((a, b) => b.sc - a.sc);
@@ -531,56 +607,79 @@
       if (j.multi && !j.nbRois[me]) return -MAT + ply;
       return null;
     }
+    // la position s'est-elle déjà vue (partie ou recherche) depuis la dernière prise ou poussée de pion ?
+    function repetee() {
+      const k = j.cleNum();
+      if (deja.has(k)) return true;
+      const h = j.hist;
+      for (let i = h.length - 2, n = 0; i >= 0 && n < j.demi; i -= 2, n += 2) if (h[i] === k) return true;
+      return false;
+    }
     function quiesce(alpha, beta, ply) {
       if ((++noeuds & 1023) === 0 && Date.now() > fin) throw STOP;
       const t = terminal(ply);
       if (t != null) return t;
       const me = j.trait;
       const echec = j.enEchec(me);
+      let st = -Infinity;
       if (!echec) {
-        const st = j.evaluer();
+        st = j.evaluer();
         if (st >= beta) return st;
         if (st > alpha) alpha = st;
+        if (ply > 40) return st;
       }
       const liste = echec ? j.pseudo(false) : j.pseudo(true);
       ordonner(liste, null, ply);
-      let legal = 0;
+      let legal = 0, meilleur = echec ? -Infinity : st;
       for (const m of liste) {
+        if (!echec && m.promo < 0) {
+          const vPris = valeurDe(j.b[m.vers]);
+          // prise qui ne peut pas remonter jusqu'à alpha, même en gagnant la pièce
+          if (st + vPris + 200 < alpha) continue;
+          // prise perdante : la pièce vaut plus que ce qu'elle prend, et la case est défendue
+          if (valeurDe(j.b[m.de]) > vPris + 50 && j.attaquee(m.vers, me ^ 1)) continue;
+        }
         j.jouerCoup(m);
         if (j.enEchec(me)) { j.annulerCoup(); continue; }
         legal++;
         const sc = -quiesce(-beta, -alpha, ply + 1);
         j.annulerCoup();
+        if (sc > meilleur) meilleur = sc;
         if (sc >= beta) return sc;
         if (sc > alpha) alpha = sc;
       }
       if (echec && !legal) return -MAT + ply;
-      return alpha;
+      return meilleur === -Infinity ? alpha : meilleur;
     }
-    function ab(prof, alpha, beta, ply, pv) {
+    // scores de mat dans la table : relatifs à la position, pas à la racine
+    const versTT = (sc, ply) => (sc > MAT - 1000 ? sc + ply : sc < -MAT + 1000 ? sc - ply : sc);
+    const depuisTT = (sc, ply) => (sc > MAT - 1000 ? sc - ply : sc < -MAT + 1000 ? sc + ply : sc);
+    function ab(prof, alpha, beta, ply, pv, nulOk) {
       if ((++noeuds & 1023) === 0 && Date.now() > fin) throw STOP;
       pv.length = 0;
       const t = terminal(ply);
       if (t != null) return t;
-      const cle = j.h1 + ':' + j.h2;
-      if (ply && (deja.has(cle) || j.hist.includes(cle))) return 0;
+      if (ply && repetee()) return 0;
       if (j.demi >= 100) return 0;
       const me = j.trait;
       const echec = j.enEchec(me);
       if (echec) prof++;
       if (prof <= 0) return quiesce(alpha, beta, ply);
+      const cle = j.cleNum();
       const e = TT.get(cle);
-      if (e && e.prof >= prof && ply) {
-        if (e.type === 0) return e.sc;
-        if (e.type === 1 && e.sc >= beta) return e.sc;
-        if (e.type === 2 && e.sc <= alpha) return e.sc;
+      const pvNoeud = beta - alpha > 1;
+      if (e && e.prof >= prof && ply && !pvNoeud) {
+        const sc = depuisTT(e.sc, ply);
+        if (e.type === 0) return sc;
+        if (e.type === 1 && sc >= beta) return sc;
+        if (e.type === 2 && sc <= alpha) return sc;
       }
       // coup nul : si même en passant son tour on reste au-dessus de beta, inutile de chercher plus
-      if (!echec && prof >= 3 && ply && beta < MAT - 1000 && j.pieces(me) > 0 && !j.multi) {
+      if (nulOk && !echec && !pvNoeud && prof >= 3 && ply && beta < MAT - 1000 && j.pieces(me) > 0 && !j.multi && j.evaluer() >= beta) {
         j.jouerNul();
         let sn;
-        try { sn = -ab(prof - 3, -beta, -beta + 1, ply + 1, []); } finally { j.annulerNul(); }
-        if (sn >= beta) return beta;
+        try { sn = -ab(prof - 3 - (prof >= 7 ? 1 : 0), -beta, -beta + 1, ply + 1, [], false); } finally { j.annulerNul(); }
+        if (sn >= beta) return sn > MAT - 1000 ? beta : sn;
       }
       const liste = j.pseudo(false);
       ordonner(liste, e && e.m, ply);
@@ -593,21 +692,33 @@
         if (j.enEchec(me)) { j.annulerCoup(); continue; }
         legal++;
         let sc;
-        // coups tardifs et calmes : d'abord une recherche moins profonde, refaite en entier s'ils semblent bons
-        if (legal > 4 && calme && prof >= 3 && !echec && !j.enEchec(j.trait)) {
-          sc = -ab(prof - 2, -alpha - 1, -alpha, ply + 1, sous);
-          if (sc > alpha) sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous);
-        } else sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous);
+        const donneEchec = j.enEchec(j.trait);
+        if (legal === 1) sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous, true);
+        else {
+          // coups tardifs et calmes : d'abord une recherche moins profonde ; puis fenêtre nulle ; refaite en entier s'ils semblent bons
+          let r = 0;
+          if (legal > 3 && calme && prof >= 3 && !echec && !donneEchec) r = 1 + (legal > 8 && prof >= 5 ? 1 : 0);
+          sc = -ab(prof - 1 - r, -alpha - 1, -alpha, ply + 1, sous, true);
+          if (sc > alpha && r) sc = -ab(prof - 1, -alpha - 1, -alpha, ply + 1, sous, true);
+          if (sc > alpha && sc < beta) sc = -ab(prof - 1, -beta, -alpha, ply + 1, sous, true);
+        }
         j.annulerCoup();
         if (sc > meilleur) {
           meilleur = sc; mm = m;
           if (sc > alpha) { alpha = sc; pv.length = 0; pv.push(m); for (const x of sous) pv.push(x); }
         }
-        if (alpha >= beta) { if (j.b[m.vers] === VIDE) tueurs[ply] = m; break; }
+        if (alpha >= beta) {
+          if (calme) {
+            if (!memeCoup(tueurs[ply], m)) { tueurs2[ply] = tueurs[ply]; tueurs[ply] = m; }
+            const i = me * N * N + m.de * N + m.vers;
+            histoire[i] = Math.min(5e6, histoire[i] + prof * prof);
+          }
+          break;
+        }
       }
       if (!legal) return echec ? -MAT + ply : 0;
-      TT.set(cle, { prof, sc: meilleur, type: meilleur <= a0 ? 2 : meilleur >= beta ? 1 : 0, m: mm });
-      if (TT.size > 400000) TT.clear();
+      TT.set(cle, { prof, sc: versTT(meilleur, ply), type: meilleur <= a0 ? 2 : meilleur >= beta ? 1 : 0, m: mm });
+      if (TT.size > 600000) TT.clear();
       return meilleur;
     }
     const versScore = (sc) => {
@@ -629,8 +740,12 @@
           j.jouerCoup(r.m);
           const sous = [];
           let sc;
-          // fenêtre : seulement savoir si le coup entre dans les « multipv » meilleurs
-          sc = -ab(prof - 1, -Infinity, alphaK === -Infinity ? Infinity : -alphaK + 1, 1, sous);
+          // fenêtre : seulement savoir si le coup entre dans les « multipv » meilleurs ; refaite en entier s'il y entre
+          if (alphaK === -Infinity) sc = -ab(prof - 1, -Infinity, Infinity, 1, sous, true);
+          else {
+            sc = -ab(prof - 1, -alphaK - 1, -alphaK + 1, 1, sous, true);
+            if (sc > alphaK) sc = -ab(prof - 1, -Infinity, -alphaK + 1, 1, sous, true);
+          }
           j.annulerCoup();
           nouveaux.push({ m: r.m, sc, pv: [r.m].concat(sous) });
           const top = nouveaux.map((x) => x.sc).sort((a, b) => b - a);
@@ -642,11 +757,13 @@
         if (e !== STOP) throw e;
         break;
       }
+      // à score égal, l'ordre de l'itération précédente est gardé (tri stable)
       nouveaux.sort((a, b) => b.sc - a.sc);
       resultats = nouveaux;
       lignes = resultats.slice(0, multipv).map((r, i) => ({ multipv: i + 1, profondeur: prof, score: versScore(r.sc), pv: r.pv.map((m) => j.uci(m)) }));
       if (o.surInfo) o.surInfo(lignes);
-      if (Math.abs(resultats[0].sc) > MAT - 1000 && prof > MAT - Math.abs(resultats[0].sc)) break;
+      // mat trouvé : on peut s'arrêter… sauf si on veut aussi les coups suivants (ils doivent être calculés aussi loin)
+      if (multipv === 1 && Math.abs(resultats[0].sc) > MAT - 1000 && prof > MAT - Math.abs(resultats[0].sc)) break;
       if (Date.now() > fin) break;
       if (resultats.length === 1 && prof >= 3) break;
     }

@@ -95,6 +95,7 @@
       document.querySelectorAll('#onglets-bilan button').forEach((b) => b.classList.toggle('actif', b.dataset.onglet === o));
       $('#bilan-resume').style.display = o === 'resume' ? '' : 'none';
       $('#bilan-coups').style.display = o === 'coups' ? '' : 'none';
+      $('#bilan-moments').style.display = o === 'moments' ? '' : 'none';
       this.afficher();
     },
 
@@ -347,38 +348,41 @@
       return camp === 'w' ? r.blancs.replace(/ \(.*$/, '') : r.noirs.replace(/ \(.*$/, '');
     },
 
+    // Résumé : précision, puis les catégories de coups sur 2 colonnes (tout tient sans défiler).
+    // Les moments clés sont dans leur propre onglet.
     resume() {
-      const el = $('#bilan-resume');
-      if (this.onglet !== 'resume') return;
+      if (this.onglet !== 'resume' && this.onglet !== 'moments') return;
       const a = this.rec.analyse;
-      el.innerHTML = '';
-      const tab = document.createElement('table'); tab.className = 'tableau-resume';
       const fmt = (x) => (x == null ? '…' : Math.round(x) + ' %');
-      tab.innerHTML = '<thead><tr><th></th><th></th><th></th></tr></thead><tbody></tbody>';
-      const th = tab.querySelectorAll('th');
-      th[1].textContent = '○ ' + this.nomCamp('w');
-      th[2].textContent = '● ' + this.nomCamp('b');
-      const corps = tab.querySelector('tbody');
-      const lp = document.createElement('tr'); lp.className = 'ligne-precision';
-      lp.innerHTML = '<td>Précision</td><td></td><td></td>';
-      lp.children[1].textContent = fmt(a.precision && a.precision.w);
-      lp.children[2].textContent = fmt(a.precision && a.precision.b);
-      corps.appendChild(lp);
-      const compte = { w: {}, b: {} };
-      for (const m of a.marques) if (m) compte[m.camp][m.classe] = (compte[m.camp][m.classe] || 0) + 1;
-      for (const k of ORDRE) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td><span class="pastille"></span> </td><td></td><td></td>';
-        const pa = tr.querySelector('.pastille');
-        pa.textContent = CLASSES[k].symbole; pa.style.background = CLASSES[k].couleur;
-        tr.children[0].appendChild(document.createTextNode(CLASSES[k].nom));
-        tr.children[1].textContent = compte.w[k] || 0;
-        tr.children[2].textContent = compte.b[k] || 0;
-        tr.children[1].style.color = tr.children[2].style.color = CLASSES[k].couleur;
-        corps.appendChild(tr);
+      if (this.onglet === 'resume') {
+        const el = $('#bilan-resume');
+        el.innerHTML = '';
+        const pr = document.createElement('div'); pr.className = 'resume-precision';
+        // mêmes couleurs que les chiffres dessous : clair = blancs, sombre = noirs
+        pr.innerHTML = '<span>Précision</span><b class="camp-b nb-b"></b><b class="camp-n nb-n"></b>';
+        pr.querySelector('.camp-b').textContent = '○ ' + this.nomCamp('w') + ' ' + fmt(a.precision && a.precision.w);
+        pr.querySelector('.camp-n').textContent = '● ' + this.nomCamp('b') + ' ' + fmt(a.precision && a.precision.b);
+        el.appendChild(pr);
+        const compte = { w: {}, b: {} };
+        for (const m of a.marques) if (m) compte[m.camp][m.classe] = (compte[m.camp][m.classe] || 0) + 1;
+        const g = document.createElement('div'); g.className = 'resume-grille';
+        for (const k of ORDRE) {
+          const c = document.createElement('div'); c.className = 'resume-case';
+          c.title = CLASSES[k].nom + ' : ' + (compte.w[k] || 0) + ' pour ' + this.nomCamp('w') + ', ' + (compte.b[k] || 0) + ' pour ' + this.nomCamp('b');
+          c.innerHTML = '<span class="pastille"></span><span class="resume-nom"></span><span class="nb-b"></span><span class="nb-n"></span>';
+          const pa = c.querySelector('.pastille');
+          pa.textContent = CLASSES[k].symbole; pa.style.background = CLASSES[k].couleur;
+          c.querySelector('.resume-nom').textContent = CLASSES[k].nom;
+          c.querySelector('.nb-b').textContent = compte.w[k] || 0;
+          c.querySelector('.nb-n').textContent = compte.b[k] || 0;
+          g.appendChild(c);
+        }
+        el.appendChild(g);
+        return;
       }
-      el.appendChild(tab);
       // moments clés
+      const el = $('#bilan-moments');
+      el.innerHTML = '';
       const cles = [];
       a.marques.forEach((m, i) => { if (m && (m.classe === 'gaffe' || m.classe === 'erreur' || m.classe === 'unique')) cles.push(i + 1); });
       const h = document.createElement('h3'); h.textContent = cles.length ? 'Moments clés (clique pour voir)' : 'Moments clés';

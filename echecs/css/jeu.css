@@ -213,6 +213,15 @@ input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
 .tableau-resume td { padding: 5px 6px; text-align: center; border-top: 1px solid rgba(255,255,255,.05); font-weight: 650; }
 .tableau-resume td:first-child { text-align: left; font-weight: 400; display: flex; align-items: center; gap: 8px; }
 .ligne-precision td { font-size: 24px; font-weight: 800; }
+.resume-precision { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 17px; }
+.resume-precision > span { color: var(--gris); }
+.resume-precision b { font-size: 19px; padding: 1px 8px; }
+.resume-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.resume-case { display: flex; align-items: center; gap: 6px; background: var(--panneau); border-radius: 10px; padding: 4px 6px; font-size: 16px; min-width: 0; }
+.resume-nom { flex: 1; min-width: 0; line-height: 1.15; }
+.nb-b, .nb-n { display: inline-block; min-width: 26px; text-align: center; border-radius: 7px; font-weight: 800; padding: 0 4px; }
+.nb-b { background: #e8e8e8; color: #111; }
+.nb-n { background: #111; color: #e8e8e8; border: 1px solid #555; }
 .ligne-precision td:first-child { font-size: 18px; font-weight: 650; }
 .moments { display: flex; flex-wrap: wrap; gap: 8px; }
 .moment { background: var(--panneau); border: 2px solid; border-radius: 9px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
@@ -638,6 +647,7 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
   #ecran-partie .panneau.serre { gap: 4px; padding-top: 8px; padding-bottom: 8px; }
   #ecran-partie .panneau.serre .nom-config { display: none; }
   #ecran-partie .panneau.serre .liste-coups { min-height: 46px; }
+  #bilan-coups .liste-coups { min-height: 60px; }
   #ecran-partie .panneau.serre .conseils { padding: 2px 8px; }
   #ecran-partie .panneau.serre .conseil { padding: 0; }
   #ecran-partie .panneau.serre .conseil + .petit-gris { display: none; }
@@ -674,6 +684,12 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .coach-bloc { padding: 8px 10px; border: 2px solid var(--bord); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
 .coach-bloc.choisi { border-color: #4a7bd0; background: #1f2838; }
 .coach-attente { color: var(--gris); }
+.coach-sous-onglets { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.coach-so { flex: 1 1 auto; white-space: nowrap; background: var(--panneau); border: 2px solid var(--bord); color: #e8e8e8; border-radius: 10px; padding: 4px 5px; font-size: 16px; cursor: pointer; }
+.coach-so.actif { border-color: #4a7bd0; background: #24324a; color: #cfe0ff; font-weight: bold; }
+.coach-pli { display: none; }
+.coach-pli.ouvert { display: block; }
+.coach-pli-titre { font-weight: bold; color: #cfe0ff; }
 .coach-nav { display: flex; align-items: center; gap: 8px; }
 .coach-nav .bouton { flex: 1; justify-content: center; }
 

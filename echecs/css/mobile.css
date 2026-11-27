@@ -24,6 +24,11 @@
 
   /* partie : plateau en haut (barre d'avantage fine à gauche), panneau dessous */
   .zone-jeu { flex: none; height: min(calc(100vw + 4px), 58dvh); padding: 4px; gap: 6px; }
+  .ecran.coach-actif .zone-jeu { height: min(calc(64vw + 4px), 30dvh); }
+  .coach-corps h3.coach-titre:has(+ .coach-sous-onglets) { display: none; }
+  .coach-sous-onglets { margin-bottom: 4px; gap: 4px; }
+  .coach-so { padding: 2px 4px; white-space: nowrap; }
+  .coach-pli-titre { display: none; }
   .barre-eval { width: 34px; }
   .barre-eval .barre-texte { font-size: 16px; }
   .barre-repere { width: 24px; height: 24px; font-size: 16px; }

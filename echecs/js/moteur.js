@@ -172,6 +172,8 @@
         if (o.temps) go += ' movetime ' + Math.round(o.temps);
         if (!o.profondeur && !o.temps) go += ' infinite';
       }
+      // seulement ces coups-là (le coach fait calculer les coups « tentants »)
+      if (o.coupsLimites && o.coupsLimites.length) go += ' searchmoves ' + o.coupsLimites.join(' ');
       let derniereInfo = 0;
       const attente = this._attendre((l) => l.startsWith('bestmove'), (l) => {
         if (!l.startsWith('info') || l.indexOf(' pv ') < 0) return;
@@ -211,7 +213,7 @@
     }
     _chercher(o) {
       this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=54');
+      if (!this.w) this.w = new Worker('js/maison.js?v=55');
       const w = this.w, id = ++this.id;
       let temps = o.temps || 0;
       if (o.horloge) {
