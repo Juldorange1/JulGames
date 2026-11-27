@@ -42,7 +42,8 @@
   // Profondeur à atteindre avant d'afficher les meilleurs coups (ils ne changent plus ensuite) : Stockfish complet,
   // profondeur 24, ou 10 s au plus dans les positions très compliquées. Si Lichess a déjà analysé la position
   // plus profondément, c'est son analyse qui est prise (tout de suite).
-  const PROF_CONSEILS = 24;
+  // avec le programme Windows (environ 4 fois plus de calcul), profondeur 28 dans le même temps
+  const profConseils = () => (window.Moteurs.natif() ? 28 : 24);
   const MAX_CONSEILS = 10000;
   function sauverOptions() { ecrire(CLE_OPT, options); }
 
@@ -166,8 +167,21 @@
     $('#btn-reprendre').style.display = enCours ? '' : 'none';
     if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours';
     const note = $('#note-moteur');
-    note.textContent = window.Moteurs.complet() ? 'Stockfish 19 complet sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs, livre d’ouvertures, parties de maîtres et analyses de Lichess.'
-      : 'Moteur réduit : recharge la page une fois pour avoir Stockfish complet.';
+    const ecrire = () => {
+      if (window.Moteurs.natif()) { note.textContent = '🖥 Moteur Windows actif : Stockfish 19 sur ' + window.Moteurs.coeursNatif() + ' cœurs, livre d’ouvertures, parties de maîtres et analyses de Lichess.'; return; }
+      note.innerHTML = '';
+      note.append(window.Moteurs.complet() ? 'Stockfish 19 complet sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs, livre d’ouvertures, parties de maîtres et analyses de Lichess. '
+        : 'Moteur réduit : recharge la page une fois pour avoir Stockfish complet. ');
+      if (/Windows/i.test(navigator.userAgent)) {
+        const a = document.createElement('a');
+        a.href = 'windows/MoteurCustomChess.exe'; a.download = 'MoteurCustomChess.exe';
+        a.textContent = '⬇ Moteur Windows gratuit : 4 fois plus de calcul';
+        a.title = 'Petit programme qui fait tourner le vrai Stockfish sur tous les cœurs du PC. Lance-le, puis recharge cette page.';
+        note.appendChild(a);
+      }
+    };
+    ecrire();
+    window.Moteurs.verifierNatif().then(ecrire);
   }
 
   // ---------- jouer ----------
@@ -589,7 +603,7 @@
       }
     }
     const nu = await window.Savoir.nuage(fen, 3);
-    if (nu && nu.profondeur >= PROF_CONSEILS && ok(nu.lignes[0].pv[0])) return { coup: nu.lignes[0].pv[0], lignes: nu.lignes, pourquoi: 'le meilleur coup analysé par Lichess (profondeur ' + nu.profondeur + ')' };
+    if (nu && nu.profondeur >= profConseils() && ok(nu.lignes[0].pv[0])) return { coup: nu.lignes[0].pv[0], lignes: nu.lignes, pourquoi: 'le meilleur coup analysé par Lichess (profondeur ' + nu.profondeur + ')' };
     const livre = window.Savoir.coupsLivre(fen).filter(ok);
     if (livre.length) return { coup: livre[0], livre, pourquoi: 'la théorie' };
     return null;
@@ -678,13 +692,13 @@
   // analyse de Lichess utilisable si elle est plus profonde que notre calcul et a assez de coups
   async function lignesProfondes(fen, multipv, nbLegaux) {
     const nu = await window.Savoir.nuage(fen, multipv);
-    if (!nu || nu.profondeur < PROF_CONSEILS || nu.lignes.length < Math.min(multipv, nbLegaux)) return null;
+    if (!nu || nu.profondeur < profConseils() || nu.lignes.length < Math.min(multipv, nbLegaux)) return null;
     return nu;
   }
   function analyseLocale(p, n, cle, trait, jet) {
     window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
       variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-      profondeur: PROF_CONSEILS, temps: MAX_CONSEILS, multipv: 3, deterministe: true,
+      profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true,
       surInfo: (lignes) => {
         if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
         jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
@@ -765,7 +779,7 @@
       // pas encore sûr : on n'affiche rien qui pourrait changer
       if (flPlus.length) plateau.flechesAfficher(flPlus.reverse()); else plateau.effacerFleches();
       const prof = lignes[0] ? lignes[0].profondeur : 0;
-      const but = PROF_CONSEILS;
+      const but = profConseils();
       const t = document.createElement('div'); t.className = 'petit-gris';
       t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + ' / ' + but;
       liste.appendChild(t);
@@ -826,7 +840,7 @@
         }
         const r = await window.Moteurs.pourVariante(v, 'coach').chercher({
           variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-          profondeur: PROF_CONSEILS, temps: MAX_CONSEILS, multipv: 3, deterministe: true
+          profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true
         });
         if (!r.annulee && r.lignes.length && jeu && jeu.partie === p) {
           jeu.cache = jeu.cache || {};
@@ -881,7 +895,7 @@
       // même profondeur que les 3 meilleurs coups, 6 coups à la fois
       window.Moteurs.pourVariante(jeu.variante, 'plus').chercher({
         variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-        profondeur: PROF_CONSEILS, temps: MAX_CONSEILS + 4000, multipv: 6, deterministe: true,
+        profondeur: profConseils(), temps: MAX_CONSEILS + 4000, multipv: 6, deterministe: true,
         surInfo: (l) => {
           if (jet !== jetonPlus || !plus || plus.fini) return;
           plus.lignes = copieLignes(l);
@@ -906,7 +920,7 @@
     const l6 = plus.lignes.filter((l) => l && l.pv && l.pv.length);
     if (!plus.fini) {
       const t = document.createElement('div'); t.className = 'petit-gris';
-      t.textContent = 'Recherche des 4e, 5e et 6e meilleurs coups… profondeur ' + (l6[0] ? l6[0].profondeur : 0) + ' / ' + PROF_CONSEILS;
+      t.textContent = 'Recherche des 4e, 5e et 6e meilleurs coups… profondeur ' + (l6[0] ? l6[0].profondeur : 0) + ' / ' + profConseils();
       box.appendChild(t);
       return [];
     }

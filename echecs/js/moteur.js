@@ -1,5 +1,8 @@
-/* Le moteur d'échecs (protocole UCI) : Stockfish 19 COMPLET (gros réseau de neurones, le plus fort),
-   sur plusieurs cœurs. Si la page n'est pas isolée (premier chargement), version « lite » sur un cœur.
+/* Le moteur d'échecs (protocole UCI) : Stockfish 19.
+   - Si le programme Windows « Moteur Custom Chess » est lancé : le VRAI Stockfish Windows, sur presque tous les
+     cœurs (environ 4 fois plus de calcul), par ws://127.0.0.1:57613/ (windows/MoteurCustomChess.cs).
+   - Sinon : Stockfish 19 COMPLET dans le navigateur (gros réseau de neurones), sur plusieurs cœurs ;
+     si la page n'est pas isolée (premier chargement), version « lite » sur un cœur.
    Trois moteurs au plus : « jeu » (le bot), « analyse » (barre, conseils, bilan) et « aide » (4e-6e coups, coach). */
 (function () {
   'use strict';
@@ -26,6 +29,31 @@
     return Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
   }
 
+  // ---------- moteur Windows (programme à part) ----------
+  const URL_NATIF = 'ws://127.0.0.1:57613/';
+  let natif = null, coeursNatif = 0, estNatif = false;
+  function testerNatif() {
+    if (!natif) {
+      natif = new Promise((ok) => {
+        let ws;
+        try { ws = new WebSocket(URL_NATIF); } catch (e) { ok(false); return; }
+        const t = setTimeout(() => { try { ws.close(); } catch (e) { /* rien */ } ok(false); }, 1500);
+        ws.onmessage = (e) => {
+          const m = /^custom-chess-moteur \d+ coeurs=(\d+)/.exec(String(e.data));
+          if (!m) return;
+          coeursNatif = +m[1]; clearTimeout(t); try { ws.close(); } catch (x) { /* rien */ }
+          estNatif = true; ok(true);
+        };
+        ws.onerror = () => { clearTimeout(t); ok(false); };
+      });
+    }
+    return natif;
+  }
+  function threadsNatif(role) {
+    const n = coeursNatif || 4;
+    return role === 'aide' ? Math.max(1, Math.floor(n / 2)) : Math.max(1, n - 2);
+  }
+
   class Moteur {
     constructor(type, role) {
       this.type = type;
@@ -47,6 +75,9 @@
     }
 
     async _demarrer() {
+      if (await testerNatif()) {
+        try { await this._demarrerNatif(); return; } catch (e) { console.warn('Moteur Windows indisponible', e); }
+      }
       const src = complet() ? 'moteurs/stockfish/stockfish-19.js' : 'moteurs/stockfish/stockfish-19-lite-single.js';
       this.worker = new Worker(src);
       this.worker.onmessage = (e) => this._ligne(String(e.data));
@@ -61,6 +92,39 @@
       if (t > 1) this.envoyer('setoption name Threads value ' + t);
       this.envoyer('setoption name Hash value ' + (this.role === 'analyse' ? 128 : 64));
       await this.synchro();
+    }
+
+    _demarrerNatif() {
+      return new Promise((ok, ko) => {
+        const ws = new WebSocket(URL_NATIF);
+        let pret = false;
+        ws.onerror = () => { if (!pret) ko(new Error('connexion')); };
+        ws.onclose = () => {
+          // programme Windows fermé : le prochain calcul repart sur Stockfish du navigateur
+          estNatif = false; natif = null;
+          if (this.ws === ws) { this.ws = null; this.pret = null; }
+          if (pret) { this._ligne('uciok'); this._ligne('readyok'); this._ligne('bestmove (none)'); }
+        };
+        ws.onmessage = async (e) => {
+          const l = String(e.data);
+          if (!pret) {
+            if (!l.startsWith('custom-chess-moteur')) return;
+            pret = true;
+            this.ws = ws; this.natif = true;
+            this.envoyer = (c) => { if (ws.readyState === 1) ws.send(c); };
+            try {
+              this.envoyer('uci');
+              await this._attendre((x) => x === 'uciok', (x) => { const m = x.match(/^id name (.*)$/); if (m) this.nom = m[1] + ' (Windows)'; });
+              this.envoyer('setoption name Threads value ' + threadsNatif(this.role));
+              this.envoyer('setoption name Hash value ' + (this.role === 'analyse' ? 512 : 256));
+              await this.synchro();
+              ok();
+            } catch (x) { ko(x); }
+            return;
+          }
+          this._ligne(l);
+        };
+      });
     }
 
     _ligne(l) {
@@ -194,6 +258,10 @@
     pourVariante(v, role) { return this.obtenir('sf', role); },
     tous() { return Object.values(moteurs); },
     complet,
-    disponible() { return true; }
+    disponible() { return true; },
+    // le programme Windows est-il là ? (déjà testé ; verifierNatif() refait le test)
+    natif() { return estNatif; },
+    coeursNatif() { return coeursNatif; },
+    verifierNatif() { if (!estNatif) natif = null; return testerNatif(); }
   };
 })();

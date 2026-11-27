@@ -718,3 +718,4 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .ligne-plus .bouton-effacer { width: auto; }
 .repertoire > *, .rep-liste, .rep-partie { min-width: 0; }
 .rep-boutons { flex-wrap: wrap; }
+.note-moteur a { color: var(--accent); margin-left: 6px; }
