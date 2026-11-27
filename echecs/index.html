@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 59;
+  var ICI = 60;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=59">
-<link rel="stylesheet" href="css/mobile.css?v=59">
+<link rel="stylesheet" href="css/jeu.css?v=60">
+<link rel="stylesheet" href="css/mobile.css?v=60">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -45,7 +45,7 @@
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 59</div>
+    <div class="note-moteur centre">Version 60</div>
   </div>
 </section>
 
@@ -243,18 +243,18 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=59"></script>
-<script src="js/pieces-svg.js?v=59"></script>
-<script src="js/pieces.js?v=59"></script>
-<script src="js/config.js?v=59"></script>
-<script src="js/savoir.js?v=59"></script>
-<script src="js/regles.js?v=59"></script>
-<script src="js/moteur.js?v=59"></script>
-<script src="js/son.js?v=59"></script>
-<script src="js/plateau.js?v=59"></script>
-<script src="js/coach.js?v=59"></script>
-<script src="js/repertoire.js?v=59"></script>
-<script src="js/bilan.js?v=59"></script>
-<script src="js/app.js?v=59"></script>
+<script src="js/bots.js?v=60"></script>
+<script src="js/pieces-svg.js?v=60"></script>
+<script src="js/pieces.js?v=60"></script>
+<script src="js/config.js?v=60"></script>
+<script src="js/savoir.js?v=60"></script>
+<script src="js/regles.js?v=60"></script>
+<script src="js/moteur.js?v=60"></script>
+<script src="js/son.js?v=60"></script>
+<script src="js/plateau.js?v=60"></script>
+<script src="js/coach.js?v=60"></script>
+<script src="js/repertoire.js?v=60"></script>
+<script src="js/bilan.js?v=60"></script>
+<script src="js/app.js?v=60"></script>
 </body>
 </html>

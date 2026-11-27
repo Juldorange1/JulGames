@@ -477,6 +477,8 @@
     if (p.finie()) { terminer(p.resultat(), p.raison()); return; }
     const monJeton = ++jeton;
     if (!jeu.premove && plateau.premove) plateau.marquerPremove(null);
+    // bot créé : on tire tout de suite le rang qu'il va jouer (1er, 2e, 3e… meilleur coup)
+    if (estAuBot()) { const b = botDe(jeu.adversaire); jeu.kTire = b.rangs ? window.Bots.tirer(b.rangs, b.rangs.length) : 0; }
     relancerAnalyse();
     if (estAuBot()) {
       // pendant que le bot réfléchit, on peut préparer son coup (pré-move)
@@ -496,6 +498,13 @@
     }
   }
 
+  // le bot va-t-il jouer le MEILLEUR coup ? (Maître, ou bot créé qui a tiré son 1er rang)
+  function botParfait() {
+    if (!estAuBot()) return false;
+    const b = botDe(jeu.adversaire);
+    return !b.elo && (!b.rangs || jeu.kTire === 0);
+  }
+
   async function lancerBot(monJeton) {
     const bot = botDe(jeu.adversaire);
     const p = jeu.partie;
@@ -503,77 +512,70 @@
     etat(bot.nom + ' réfléchit…');
     const debut = performance.now();
     const n0 = p.coups.length, cle = p.fens[n0], trait0 = p.trait();
-    const o = {
-      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(), elo: bot.elo,
-      surInfo: (lignes) => {
-        if (monJeton !== jeton || !lignes[0] || bot.elo || bot.rangs) return;
-        etat(bot.nom + ' réfléchit… (profondeur ' + lignes[0].profondeur + ')');
-        if (jeu.vue == null) { jeu.analyse = { n: n0, cle, trait: trait0, lignes: copieLignes(lignes) }; majAnalyseAffichage(); }
-      }
-    };
-    // Bot créé : on tire d'abord le rang qu'il va jouer (1er, 2e, 3e… meilleur coup, selon ses pourcentages).
-    const kTire = bot.rangs ? window.Bots.tirer(bot.rangs, bot.rangs.length) : 0;
-    const pleineForce = !bot.elo && (!bot.rangs || kTire === 0);
-    // quelques coups de plus que ses rangs, pour bien repérer les coups exactement aussi bons ;
-    // pour le 1er meilleur coup, un seul coup cherché : c'est la recherche la plus forte
-    if (bot.rangs) o.multipv = kTire === 0 ? 1 : Math.min(20, Math.max(1, bot.rangs.length) + 4);
-    else if (!bot.elo) o.multipv = 3;
-    if (jeu.temps && bot.elo) {
-      const reste = jeu.temps[p.trait()];
-      o.temps = Math.max(250, Math.min(2500, reste / 45 + jeu.pendule.inc * 0.6));
-    } else if (jeu.temps) {
-      o.horloge = { wtime: jeu.temps.w, btime: jeu.temps.b, winc: jeu.pendule.inc, binc: jeu.pendule.inc };
-    } else {
-      o.temps = bot.elo ? 900 : jeu.reflexion;
-    }
+    const kTire = jeu.kTire || 0;
+    const pleineForce = botParfait();
     let r = null;
-    // le meilleur coup (Maître, ou bot créé qui doit jouer son 1er meilleur coup) : d'abord tout ce qu'on sait par cœur
     if (pleineForce) {
-      const su = await savoirDuMaitre(p, cle);
+      // Le meilleur coup = EXACTEMENT le n° 1 des conseils (même calcul, partagé) : jamais de contradiction.
+      // 1) finale de 7 pièces ou moins : le coup parfait des tables de finales
+      const fin = await window.Savoir.finale(cle);
       if (monJeton !== jeton || !jeu || jeu.fin) return;
-      if (su && su.coup) {
-        r = { coup: su.coup, lignes: su.lignes || [] };
-        etat(bot.nom + ' joue ' + su.pourquoi + '.');
-        if (su.livre) o.coupsLimites = su.livre;
-        else if (su.lignes && su.lignes.length && !bot.rangs) {
-          jeu.cache = jeu.cache || {};
-          jeu.cache[cle] = { n: n0, cle, trait: trait0, lignes: copieLignes(su.lignes), fini: true, source: 'lichess' };
-          if (jeu.vue == null) { jeu.analyse = jeu.cache[cle]; majAnalyseAffichage(); }
+      if (fin && fin.coup && p.legaux().includes(fin.coup)) { r = { coup: fin.coup, lignes: [] }; etat(bot.nom + ' joue le coup parfait (tables de finales).'); }
+      else if (!jeu.temps) {
+        // 2) sans pendule : les conseils de cette position (analyse Lichess très profonde, sinon Stockfish profondeur 24 ou 28)
+        let res = null;
+        for (let essai = 0; essai < 3 && !res; essai++) {
+          res = await conseilsPour(p, n0, 'jeu', (lignes) => {
+            if (monJeton !== jeton || !lignes[0]) return;
+            etat(bot.nom + ' réfléchit… (profondeur ' + lignes[0].profondeur + ')');
+          });
+          if (monJeton !== jeton || !jeu || jeu.fin) return;
         }
-        if (su.livre) r = null; // livre hors ligne : Stockfish choisit le meilleur des coups de la théorie
+        if (res && res.lignes.length) r = { coup: await departage(p, cle, res.lignes), lignes: res.lignes };
       }
     }
     if (!r) {
+      const o = { variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(), elo: bot.elo };
+      // bot qui joue le 2e, 3e… coup : quelques coups de plus que ses rangs, pour repérer les coups exactement aussi bons
+      o.multipv = bot.rangs && !pleineForce ? Math.min(20, Math.max(1, bot.rangs.length) + 4) : 3;
+      if (jeu.temps && bot.elo) {
+        const reste = jeu.temps[p.trait()];
+        o.temps = Math.max(250, Math.min(2500, reste / 45 + jeu.pendule.inc * 0.6));
+      } else if (jeu.temps) {
+        o.horloge = { wtime: jeu.temps.w, btime: jeu.temps.b, winc: jeu.pendule.inc, binc: jeu.pendule.inc };
+      } else {
+        o.temps = bot.elo ? 900 : jeu.reflexion;
+      }
+      if (pleineForce) o.surInfo = (lignes) => {
+        if (monJeton !== jeton || !lignes[0]) return;
+        etat(bot.nom + ' réfléchit… (profondeur ' + lignes[0].profondeur + ')');
+        if (jeu.vue == null) { jeu.analyse = { n: n0, cle, trait: trait0, lignes: copieLignes(lignes) }; majAnalyseAffichage(); }
+      };
       try { r = await moteur.chercher(o); } catch (e) { console.error(e); etat('Le bot ne peut pas jouer : ' + e.message); return; }
-    }
-    if (monJeton !== jeton || !jeu || jeu.fin || r.annulee) return;
-    if (bot.rangs && kTire === 0 && r.lignes.length && !r.annulee) {
-      // 1er meilleur coup : le meilleur trouvé
-      if (r.lignes[0].pv && p.legaux().includes(r.lignes[0].pv[0])) r.coup = r.lignes[0].pv[0];
-    } else if (bot.rangs && r.lignes.length) {
-      // bot créé : il joue le 1er, 2e, 3e… meilleur coup selon ses pourcentages
-      const dispo = r.lignes.filter((l) => l && l.pv && l.pv[0] && p.legaux().includes(l.pv[0]));
-      // des coups exactement aussi bons forment UN seul rang (deux « 1er meilleur coup », etc.)
-      const niveaux = [];
-      for (const l of dispo) {
-        const v = valeurScore(l.score);
-        const n = niveaux.find((x) => x.v === v);
-        if (n) n.l.push(l); else niveaux.push({ v, l: [l] });
+      if (monJeton !== jeton || !jeu || jeu.fin || r.annulee) return;
+      if (pleineForce && r.lignes.length) {
+        // avec pendule : ce calcul devient les conseils de la position (le coup joué est leur n° 1)
+        r.coup = await departage(p, cle, r.lignes);
+        jeu.cache = jeu.cache || {};
+        jeu.cache[cle] = { n: n0, cle, trait: trait0, lignes: copieLignes(r.lignes), fini: true };
+        if (jeu.vue == null) { jeu.analyse = jeu.cache[cle]; majAnalyseAffichage(); }
+      } else if (bot.rangs && r.lignes.length) {
+        // bot créé : il joue le 2e, 3e… meilleur coup selon le rang tiré
+        const dispo = r.lignes.filter((l) => l && l.pv && l.pv[0] && p.legaux().includes(l.pv[0]));
+        // des coups exactement aussi bons forment UN seul rang (deux « 1er meilleur coup », etc.)
+        const niveaux = [];
+        for (const l of dispo) {
+          const v = valeurScore(l.score);
+          const n = niveaux.find((x) => x.v === v);
+          if (n) n.l.push(l); else niveaux.push({ v, l: [l] });
+        }
+        niveaux.sort((a, b) => b.v - a.v);
+        if (niveaux.length) {
+          const k = Math.min(kTire, niveaux.length - 1);
+          const choix = niveaux[k].l;
+          r.coup = choix[Math.floor(Math.random() * choix.length)].pv[0];
+        }
       }
-      niveaux.sort((a, b) => b.v - a.v);
-      if (niveaux.length) {
-        const k = Math.min(kTire, niveaux.length - 1);
-        const choix = niveaux[k].l;
-        r.coup = choix[Math.floor(Math.random() * choix.length)].pv[0];
-      }
-    }
-    if (!bot.elo && !bot.rangs && r.lignes.length && !o.coupsLimites) {
-      // le Maître joue exactement le meilleur des 3 coups trouvés (celui qu'on voit en n° 1)
-      const premier = r.lignes[0].pv[0];
-      if (premier && p.legaux().includes(premier)) r.coup = premier;
-      jeu.cache = jeu.cache || {};
-      jeu.cache[cle] = { n: n0, cle, trait: trait0, lignes: copieLignes(r.lignes), fini: true };
-      if (jeu.vue == null) { jeu.analyse = jeu.cache[cle]; majAnalyseAffichage(); }
     }
     if (!r.coup || !p.legaux().includes(r.coup)) {
       const l = p.legaux();
@@ -586,37 +588,59 @@
     jouerCoup(r.coup, true);
   }
 
-  // Ce que le Maître sait par cœur, dans cet ordre :
-  //   finale de 7 pièces ou moins -> le coup parfait (tables de finales) ;
-  //   début de partie -> le coup des maîtres qui marque le plus de points (avec assez de parties) ;
-  //   position déjà analysée très profondément par Lichess -> son meilleur coup ;
-  //   sans internet, dans le livre d'ouvertures -> Stockfish choisit parmi les coups de la théorie.
-  async function savoirDuMaitre(p, fen) {
-    const legaux = p.legaux();
-    const ok = (u) => u && legaux.includes(u);
-    const fin = await window.Savoir.finale(fen);
-    if (fin && ok(fin.coup)) return { coup: fin.coup, pourquoi: 'le coup parfait (tables de finales)' };
-    if (p.coups.length < 30) {
-      const m = await window.Savoir.maitres(fen);
-      if (m && m.total >= 50) {
-        // coups assez joués (5 % des parties au moins), classés par points marqués (prudence pour les petits nombres)
-        const bons = m.coups.filter((c) => ok(c.uci) && c.n >= Math.max(10, m.total * 0.05))
-          .map((c) => Object.assign({ note: (c.score * c.n + 0.5 * 20) / (c.n + 20) }, c))
-          .sort((a, b) => b.note - a.note);
-        if (bons.length) return { coup: bons[0].uci, pourquoi: 'un coup de maître (' + bons[0].n + ' parties)' };
-      }
+  // Parmi les coups EXACTEMENT aussi bons que le n° 1 : celui que les maîtres jouent le plus, sinon un coup de la
+  // théorie, sinon le n° 1. (Jamais un coup moins bon : le bot parfait joue toujours un n° 1 des conseils.)
+  async function departage(p, fen, lignes) {
+    const ok = lignes.filter((l) => l && l.pv && l.pv[0] && p.legaux().includes(l.pv[0]));
+    if (!ok.length) return null;
+    const egaux = ok.filter((l) => valeurScore(l.score) === valeurScore(ok[0].score)).map((l) => l.pv[0]);
+    if (egaux.length < 2) return egaux[0];
+    const m = await window.Savoir.maitres(fen);
+    if (m && m.coups.length) {
+      const joues = m.coups.filter((c) => egaux.includes(c.uci)).sort((a, b) => b.n - a.n);
+      if (joues.length) return joues[0].uci;
     }
-    const nu = await window.Savoir.nuage(fen, 3);
-    if (nu && nu.profondeur >= profConseils() && ok(nu.lignes[0].pv[0])) return { coup: nu.lignes[0].pv[0], lignes: nu.lignes, pourquoi: 'le meilleur coup analysé par Lichess (profondeur ' + nu.profondeur + ')' };
-    const livre = window.Savoir.coupsLivre(fen).filter(ok);
-    if (livre.length) return { coup: livre[0], livre, pourquoi: 'la théorie' };
-    return null;
+    const livre = window.Savoir.coupsLivre(fen).filter((u) => egaux.includes(u));
+    return livre[0] || egaux[0];
+  }
+
+  // Les 3 meilleurs coups d'une position : UNE seule source pour les conseils, la barre, le coach et le bot parfait.
+  // Analyse de Lichess si elle est plus profonde que la nôtre, sinon Stockfish (profondeur 24, 28 avec le moteur
+  // Windows, 10 s au plus). Un seul calcul par position, même si plusieurs le demandent en même temps.
+  function conseilsPour(p, n, role, surInfo) {
+    const cle = p.fens[n];
+    jeu.cache = jeu.cache || {};
+    jeu.calculs = jeu.calculs || {};
+    if (jeu.cache[cle]) return Promise.resolve(jeu.cache[cle]);
+    if (jeu.calculs[cle]) return jeu.calculs[cle];
+    const j = jeu;
+    const trait = window.Regles.lireFen(cle).trait;
+    const nbLegaux = n === p.coups.length ? p.legaux().length : 3;
+    const pr = (async () => {
+      const nu = await lignesProfondes(cle, 3, nbLegaux);
+      if (nu) return { n, cle, trait, lignes: copieLignes(nu.lignes), fini: true, source: 'lichess' };
+      const r = await window.Moteurs.pourVariante(j.variante, role).chercher({
+        variante: j.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
+        profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true, surInfo
+      });
+      if (r.annulee || !r.lignes.length) return null;
+      return { n, cle, trait, lignes: copieLignes(r.lignes), fini: true };
+    })().catch(() => null).then((res) => {
+      if (j.calculs && j.calculs[cle] === pr) delete j.calculs[cle];
+      if (res) j.cache[cle] = res;
+      return res;
+    });
+    pr.role = role;
+    jeu.calculs[cle] = pr;
+    return pr;
   }
 
   // ---------- analyse en direct (barre + meilleurs coups) ----------
   function arreterAnalyse() {
     jetonAnalyse++;
     for (const m of window.Moteurs.tous()) if (m.role === 'analyse' && m.pret) m.arreter();
+    // les calculs arrêtés ne doivent plus être attendus (un nouveau sera lancé si besoin)
+    if (jeu && jeu.calculs) for (const k in jeu.calculs) if (jeu.calculs[k].role === 'analyse') delete jeu.calculs[k];
   }
   function copieLignes(lignes) {
     return lignes.filter(Boolean).map((l) => ({ score: l.score, pv: l.pv.slice(0, 8), profondeur: l.profondeur }));
@@ -678,19 +702,16 @@
       return;
     }
     jeu.analyse = { n, cle, trait, lignes: [] };
-    // au tour du Maître, c'est son propre calcul qui donne la barre et les 3 coups
-    if (n === p.coups.length && estAuBot() && !botDe(jeu.adversaire).elo && !botDe(jeu.adversaire).rangs) { majAnalyseAffichage(); return; }
-    const nbLegaux = n === p.coups.length ? p.legaux().length : 3;
-    lignesProfondes(cle, 3, nbLegaux).then((nu) => {
-      if (jet !== jetonAnalyse || !jeu) return;
-      if (nu) {
-        // déjà analysée par Lichess plus loin que notre calcul : on la prend telle quelle
-        jeu.analyse = { n, cle, trait, lignes: copieLignes(nu.lignes), fini: true, source: 'lichess' };
-        jeu.cache[cle] = jeu.analyse;
-        majAnalyseAffichage();
-        return;
-      }
-      analyseLocale(p, n, cle, trait, jet);
+    // au tour du bot parfait AVEC pendule, c'est son propre calcul (au temps de la pendule) qui donne les conseils
+    if (n === p.coups.length && botParfait() && jeu.temps) { majAnalyseAffichage(); return; }
+    conseilsPour(p, n, 'analyse', (lignes) => {
+      if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
+      jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
+      majAnalyseAffichage();
+    }).then((res) => {
+      if (jet !== jetonAnalyse || !jeu || !res) return;
+      jeu.analyse = Object.assign({}, res, { n });
+      majAnalyseAffichage();
     });
   }
   // analyse de Lichess utilisable si elle est plus profonde que notre calcul et a assez de coups
@@ -699,24 +720,6 @@
     if (!nu || nu.profondeur < profConseils() || nu.lignes.length < Math.min(multipv, nbLegaux)) return null;
     return nu;
   }
-  function analyseLocale(p, n, cle, trait, jet) {
-    window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
-      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-      profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true,
-      surInfo: (lignes) => {
-        if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
-        jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
-        majAnalyseAffichage();
-      }
-    }).then((r) => {
-      if (jet !== jetonAnalyse || !jeu || r.annulee || !r.lignes.length) return;
-      jeu.analyse = { n, cle, trait, lignes: copieLignes(r.lignes), fini: true };
-      jeu.cache = jeu.cache || {};
-      jeu.cache[cle] = jeu.analyse;
-      majAnalyseAffichage();
-    }).catch(() => {});
-  }
-
   // Si les deux camps jouent parfaitement : qui gagne, et en combien de coups (ou égalité).
   function majPronostic(s, prof, fini) {
     const el = $('#pronostic');
@@ -835,23 +838,8 @@
       variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), exact, source: 'conseils',
       // EXACTEMENT les 3 meilleurs coups des conseils (même calcul : même profondeur, un cœur, mémoire vidée)
       lignes: async () => {
-        if (jeu.cache && jeu.cache[cle] && jeu.cache[cle].lignes) return jeu.cache[cle].lignes;
-        const nu = await lignesProfondes(cle, 3, n === p.coups.length ? p.legaux().length : 3);
-        if (nu && jeu && jeu.partie === p) {
-          jeu.cache = jeu.cache || {};
-          jeu.cache[cle] = { n, cle, trait: window.Regles.lireFen(cle).trait, lignes: copieLignes(nu.lignes), fini: true, source: 'lichess' };
-          return nu.lignes;
-        }
-        const r = await window.Moteurs.pourVariante(v, 'coach').chercher({
-          variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-          profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true
-        });
-        if (!r.annulee && r.lignes.length && jeu && jeu.partie === p) {
-          jeu.cache = jeu.cache || {};
-          const lignes = copieLignes(r.lignes);
-          jeu.cache[cle] = { n, cle, trait: window.Regles.lireFen(cle).trait, lignes, fini: true };
-        }
-        return r.lignes;
+        const res = await conseilsPour(p, n, 'coach');
+        return res ? res.lignes : [];
       },
       conteneur: $('#ecran-partie .panneau'), plateau,
       restaurer: () => {
@@ -1209,10 +1197,25 @@
       noirs: nomJoueur('b') + (detailJoueur('b') ? ' (' + detailJoueur('b') + ')' : ''),
       adversaire: jeu.adversaire, humain: jeu.humain, reglages: jeu.reglages, cfg: jeu.cfg,
       resultat: jeu.fin.resultat, raison: jeu.fin.raison, aide: jeu.aide,
-      pendule: jeu.pendule, reflexion: jeu.reflexion, analyse: null
+      pendule: jeu.pendule, reflexion: jeu.reflexion, analyse: analyseDeLaPartie()
     };
     sauverPartie(rec);
     return rec;
+  }
+
+  // Les évaluations calculées pendant la partie (conseils) servent au bilan : mêmes chiffres, pas de contradiction.
+  function analyseDeLaPartie() {
+    const p = jeu.partie, N = p.coups.length;
+    const positions = new Array(N + 1).fill(null);
+    let n = 0;
+    for (let k = 0; k < N; k++) {
+      const c = jeu.cache && jeu.cache[p.fens[k]];
+      if (!c || !c.lignes || !c.lignes.length) continue;
+      const vb = (sc) => (c.trait === 'w' ? sc : inverser(sc));
+      positions[k] = { s: vb(c.lignes[0].score), m: c.lignes[0].pv[0], pv: c.lignes[0].pv.slice(0, 12), s2: c.lignes[1] ? vb(c.lignes[1].score) : null, p: c.lignes[0].profondeur };
+      n++;
+    }
+    return n ? { niveau: 'normal', positions, marques: [], precision: null } : null;
   }
 
   // fiche d'une partie pas encore finie (pour la ranger dans « Mes parties »)
