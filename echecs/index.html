@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 52;
+  var ICI = 53;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=52">
-<link rel="stylesheet" href="css/mobile.css?v=52">
+<link rel="stylesheet" href="css/jeu.css?v=53">
+<link rel="stylesheet" href="css/mobile.css?v=53">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -40,16 +40,52 @@
   </header>
   <div class="menu-principal">
     <div class="menu-cartes">
-      <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Créer des personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
-      <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Créer des cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
-      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurer des parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
-      <button class="carte-menu" data-aller="bots"><span class="carte-icone">🤖</span><b>Créer des bots</b><span>Tes adversaires : ils jouent le 1er, 2e, 3e… meilleur coup selon tes %.</span></button>
-      <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Thème du plateau, décor de fond et bruits des pièces.</span></button>
-      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre un de tes bots ou à deux.</span></button>
+      <button class="carte-menu" data-aller="creer"><span class="carte-icone">🛠</span><b>Créer</b><span>Tes personnages, tes cartes et tes configurations de parties.</span></button>
+      <button class="carte-menu" data-aller="repertoire"><span class="carte-icone">📁</span><b>Mes parties</b><span>Tes parties rangées dans des dossiers, pour les revoir.</span></button>
+      <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Plateau, pièces, décor, curseur et sons.</span></button>
+      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre tes bots ou à deux.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 52</div>
+    <div class="note-moteur centre">Version 53</div>
+  </div>
+</section>
+
+<!-- ============ CRÉER ============ -->
+<section id="ecran-creer" class="ecran">
+  <header class="entete">
+    <h1>Créer</h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+    </nav>
+  </header>
+  <div class="menu-principal">
+    <div class="menu-cartes trois">
+      <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
+      <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
+      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurations de parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MES PARTIES ============ -->
+<section id="ecran-repertoire" class="ecran">
+  <header class="entete">
+    <h1>Mes parties</h1>
+    <nav class="onglets-haut">
+      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+    </nav>
+  </header>
+  <div class="repertoire">
+    <div class="rep-gauche">
+      <button class="bouton principal" id="rep-nouveau">➕ Nouveau dossier</button>
+      <div class="rep-dossiers" id="rep-dossiers"></div>
+    </div>
+    <div class="rep-droite">
+      <div class="rep-entete"><h2 id="rep-titre"></h2><div class="rep-actions" id="rep-actions"></div></div>
+      <div class="rep-liste" id="rep-liste"></div>
+      <div class="rep-pages" id="rep-pages"></div>
+    </div>
   </div>
 </section>
 
@@ -59,7 +95,7 @@
     <h1>Carte : <span class="et" id="ca-titre"></span></h1>
     <nav class="onglets-haut">
       <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+      <button class="bouton" data-aller="creer">⟵ Créer</button>
     </nav>
   </header>
   <div class="persos cartes">
@@ -92,8 +128,7 @@
   <header class="entete">
     <h1>Bot : <span class="et" id="bo-titre"></span></h1>
     <nav class="onglets-haut">
-      <button class="bouton" data-aller="jouer">▶ Jouer</button>
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+      <button class="bouton" data-aller="jouer">⟵ Retour à Jouer</button>
     </nav>
   </header>
   <div class="persos cartes">
@@ -215,7 +250,7 @@
     <h1>Configuration : <span class="et" id="cf-titre"></span></h1>
     <nav class="onglets-haut">
       <button class="bouton" data-aller="persos">🧩 Personnages</button>
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+      <button class="bouton" data-aller="creer">⟵ Créer</button>
       <button class="bouton principal" id="cf-jouer">▶ Jouer cette configuration</button>
     </nav>
   </header>
@@ -286,7 +321,7 @@
     <h1>Personnages</h1>
     <nav class="onglets-haut">
       <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
+      <button class="bouton" data-aller="creer">⟵ Créer</button>
     </nav>
   </header>
   <div class="persos">
@@ -357,7 +392,10 @@
       <button class="bouton" data-nav="suiv" title="Coup suivant (→)">▶</button>
       <button class="bouton" data-nav="fin" title="Position actuelle (↓)">⏭</button>
     </div>
-    <button class="bouton bouton-effacer" id="btn-effacer-reperes" title="Efface toutes les flèches et cases marquées au clic droit (touche Échap)">🧹 Effacer mes traits</button>
+    <div class="ligne-plus">
+      <button class="bouton bouton-effacer" id="btn-effacer-reperes" title="Efface toutes les flèches et cases marquées au clic droit (touche Échap)">🧹 Effacer mes traits</button>
+      <button class="bouton" id="btn-enregistrer-partie" title="Ranger cette partie dans un dossier de « Mes parties »">💾 Enregistrer</button>
+    </div>
     <div class="ligne-conseils">
       <button class="bouton bouton-conseils" id="btn-conseils" title="Tiens le bouton ou la touche enfoncé">💡 <span id="btn-conseils-texte"></span></button>
       <button class="bouton bouton-touche" id="btn-touche" title="Choisir la touche des 3 meilleurs coups">⌨</button>
@@ -410,6 +448,7 @@
     <div class="boutons-partie">
       <button class="bouton" id="btn-bilan-rejouer">♟ Rejouer d’ici contre le bot</button>
       <button class="bouton" id="btn-bilan-profond">🔍 Analyse plus profonde</button>
+      <button class="bouton" id="btn-bilan-enregistrer">💾 Enregistrer dans Mes parties</button>
       <button class="bouton" id="btn-bilan-pgn">📋 Copier la partie (PGN)</button>
       <button class="bouton" id="btn-bilan-menu">☰ Menu</button>
     </div>
@@ -419,22 +458,23 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=52"></script>
-<script src="js/curseurs.js?v=52"></script>
-<script src="js/cartes.js?v=52"></script>
-<script src="js/themes.js?v=52"></script>
-<script src="js/pieces-svg.js?v=52"></script>
-<script src="js/persos.js?v=52"></script>
-<script src="js/pieces.js?v=52"></script>
-<script src="js/maison.js?v=52"></script>
-<script src="js/regles.js?v=52"></script>
-<script src="js/config.js?v=52"></script>
-<script src="js/moteur.js?v=52"></script>
-<script src="js/son.js?v=52"></script>
-<script src="js/plateau.js?v=52"></script>
-<script src="js/coach.js?v=52"></script>
-<script src="js/bilan.js?v=52"></script>
-<script src="js/editeur.js?v=52"></script>
-<script src="js/app.js?v=52"></script>
+<script src="js/bots.js?v=53"></script>
+<script src="js/curseurs.js?v=53"></script>
+<script src="js/cartes.js?v=53"></script>
+<script src="js/themes.js?v=53"></script>
+<script src="js/pieces-svg.js?v=53"></script>
+<script src="js/persos.js?v=53"></script>
+<script src="js/pieces.js?v=53"></script>
+<script src="js/maison.js?v=53"></script>
+<script src="js/regles.js?v=53"></script>
+<script src="js/config.js?v=53"></script>
+<script src="js/moteur.js?v=53"></script>
+<script src="js/son.js?v=53"></script>
+<script src="js/plateau.js?v=53"></script>
+<script src="js/coach.js?v=53"></script>
+<script src="js/repertoire.js?v=53"></script>
+<script src="js/bilan.js?v=53"></script>
+<script src="js/editeur.js?v=53"></script>
+<script src="js/app.js?v=53"></script>
 </body>
 </html>

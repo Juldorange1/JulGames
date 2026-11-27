@@ -211,7 +211,7 @@
     }
     _chercher(o) {
       this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=52');
+      if (!this.w) this.w = new Worker('js/maison.js?v=53');
       const w = this.w, id = ++this.id;
       let temps = o.temps || 0;
       if (o.horloge) {

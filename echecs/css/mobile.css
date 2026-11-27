@@ -109,14 +109,23 @@
 /* coach sur téléphone : plus serré */
 @media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
   .coach { padding: 6px 8px; gap: 5px; }
-  .coach-tete { font-size: 18px; }
+  .coach-tete { font-size: 18px; flex-wrap: wrap; }
   .coach-fermer { padding: 2px 10px; }
   .coach-onglets { flex-wrap: nowrap; overflow-x: auto; }
   .coach-onglets button { flex: none; padding: 2px 8px; }
   .coach-corps { padding: 8px 10px; }
   .coach-titre { font-size: 18px; margin-bottom: 4px; }
-  .coach-texte { font-size: 16px; line-height: 1.35; }
-  .coach-texte p { margin-bottom: 6px; }
+  .coach-corps { font-size: 16px; line-height: 1.35; }
   .coach-nav .bouton { padding: 6px 4px; }
   .ligne-plus .bouton { padding: 7px 4px; }
+}
+
+/* Mes parties et Créer sur téléphone */
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  .menu-cartes, .menu-cartes.trois { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .repertoire { grid-template-columns: 1fr; grid-template-rows: auto 1fr; padding: 8px; gap: 8px; }
+  .rep-dossiers { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .rep-dossiers .ps-carte { flex: none; }
+  .rep-partie { flex-wrap: wrap; min-height: 0; }
+  .rep-boutons { width: 100%; justify-content: flex-end; }
 }

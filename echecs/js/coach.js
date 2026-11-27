@@ -131,9 +131,13 @@
             if (premier < 0) premier = q;
             else {
               const tA = typ(b[premier]), tB = typ(b[q]);
-              if (tB === 'k') out.push({ par: s, devant: premier, derriere: q, sorte: 'absolu' });
-              else if (tA === 'k' || V[tA] > V[tB]) out.push({ par: s, devant: premier, derriere: q, sorte: 'enfilade' });
-              else if (V[tB] > V[tA] && V[tB] > V[typ(p)]) out.push({ par: s, devant: premier, derriere: q, sorte: 'relatif' });
+              // si la pièce de devant s'en va, prendre celle de derrière doit vraiment rapporter
+              const sans = b.slice(); sans[premier] = null;
+              const gainDerriere = tB === 'k' ? 99 : see(sans, s, q);
+              const devantMenace = tA === 'k' || V[tA] > V[typ(p)] || !attaquants(b, premier, autre(c)).length;
+              if (tB === 'k') { if (tA !== 'k') out.push({ par: s, devant: premier, derriere: q, sorte: 'absolu' }); }
+              else if ((tA === 'k' || V[tA] > V[tB]) && devantMenace && gainDerriere > 0) out.push({ par: s, devant: premier, derriere: q, sorte: 'enfilade' });
+              else if (V[tB] > V[tA] && gainDerriere > 0) out.push({ par: s, devant: premier, derriere: q, sorte: 'relatif' });
               break;
             }
           }
@@ -295,6 +299,8 @@
       const g = P1.priseCase === d ? see(b0, P1.de, d) : V.p;
       if (!defendue) ajouter(50 + V[P1.prise], piece[0].toUpperCase() + piece.slice(1) + ' prend <b>' + UN[P1.prise] + ' qui n’était pas défendu' + (['r', 'q'].includes(P1.prise) ? 'e' : '') + '</b> : une pièce <b>en prise</b>, gagnée gratuitement (+' + V[P1.prise] + ').', 'en-prise',
         [fleche, { de: null, vers: nomCase(pc), couleur: C_MENACE }]);
+      else if (g >= V[P1.prise]) ajouter(45 + g, piece[0].toUpperCase() + piece.slice(1) + ' <b>gagne ' + UN[P1.prise] + '</b> : ' + campNom(O) + ' ne peuvent pas reprendre sans perdre plus.', 'valeur',
+        [fleche, ...attaquants(b0, pc, O).map((a) => ({ de: nomCase(a), vers: nomCase(pc), couleur: C_ADV }))]);
       else if (g > 0) ajouter(45 + g, 'La prise gagne du matériel : ' + UN[P1.prise] + ' (' + V[P1.prise] + ') contre ' + piece.replace(/^(le|la) /, '') + ' (' + V[t] + ') si ' + campNom(O) + ' reprennent. Compte : <b>+' + g + '</b> au bout des échanges.', 'valeur',
         [fleche, ...attaquants(b0, pc, O).map((a) => ({ de: nomCase(a), vers: nomCase(pc), couleur: C_ADV }))]);
       else if (g === 0) {
@@ -452,47 +458,67 @@
     return (a - b) / 100;
   }
 
+  // Garde les idées utiles, sans répétition : une idée par cible, pas d'« échec » déjà dit ailleurs,
+  // pas de petites idées de position quand il y a de la tactique.
+  function nettoyer(liste, max) {
+    const tactique = liste.some((x) => x.poids >= 30);
+    const vues = new Set(), notions = new Set(), out = [];
+    for (const x of liste) {
+      if (out.length >= (max || 3)) break;
+      if (tactique && x.poids < 20) continue;
+      if (x.notion === 'echec' && out.some((y) => /roi/.test(y.texte))) continue;
+      if (notions.has(x.notion) && x.notion !== 'defense') continue;
+      const cibles = x.dessin.filter((d) => d && d.de !== undefined && (d.couleur === C_MENACE || d.couleur === C_CLOU)).map((d) => d.vers);
+      if (cibles.length && cibles.every((c) => vues.has(c))) continue;
+      cibles.forEach((c) => vues.add(c));
+      notions.add(x.notion);
+      out.push(x);
+    }
+    return out;
+  }
+  const sansBalises = (t) => t.replace(/<[^>]+>/g, '');
+  const puce = (x) => '<li' + (NOTIONS[x.notion] ? ' title="' + NOTIONS[x.notion][0] + ' : ' + NOTIONS[x.notion][1].replace(/"/g, '') + '"' : '') + '>' + x.texte + '</li>';
+
   // =====================================================================
   //  INTERFACE
   // =====================================================================
-  const $ = (s) => document.querySelector(s);
   const cache = {};
-  let etat = null; // { ctx, onglets, onglet, k, el, jeton }
+  let etat = null;
   let jeton = 0;
 
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 
-  // ctx = { variante, fen0, coups (jusqu'à la position), joue (uci joué, facultatif), conteneur, plateau, restaurer(), titre }
+  /* ctx = { variante, fen0, coups (jusqu'à la position), conteneur, plateau, restaurer(),
+             lignes() -> promesse des lignes du moteur (les MÊMES que les conseils ou le bilan),
+             joue (uci joué, bilan), exact (score exact vu du camp au trait, facultatif) } */
   function ouvrir(ctx) {
     fermer();
     const id = ++jeton;
     const box = el('div', 'coach');
-    box.innerHTML = '<div class="coach-tete"><b>🎓 Coach</b><span class="coach-sous"></span><button class="bouton coach-fermer" title="Fermer (Échap)">✖</button></div>' +
-      '<div class="coach-onglets"></div><div class="coach-corps"><h3 class="coach-titre"></h3><div class="coach-texte"></div></div>' +
-      '<div class="coach-nav"><button class="bouton coach-prec">◀ Précédent</button><span class="coach-pos"></span><button class="bouton principal coach-suiv">Suivant ▶</button></div>';
+    box.innerHTML = '<div class="coach-tete"><b>🎓 Coach</b><div class="coach-onglets"></div><button class="bouton coach-fermer" title="Fermer (Échap)">✖</button></div>' +
+      '<div class="coach-corps"></div>' +
+      '<div class="coach-nav"><button class="bouton coach-prec">◀ Page précédente</button><button class="bouton principal coach-suiv">Page suivante ▶</button></div>';
     ctx.conteneur.appendChild(box);
     box.querySelector('.coach-fermer').onclick = () => fermer();
     box.querySelector('.coach-prec').onclick = () => bouger(-1);
     box.querySelector('.coach-suiv').onclick = () => bouger(1);
-    etat = { ctx, el: box, id, onglets: null, onglet: 0, k: 0 };
+    etat = { ctx, el: box, id, pages: null, page: 0 };
     ctx.plateau.bloquer();
     attente('Le coach regarde la position…');
-    preparer(ctx, id).then((onglets) => {
+    preparer(ctx, id).then((pages) => {
       if (!etat || etat.id !== id) return;
-      etat.onglets = onglets; etat.onglet = 0; etat.k = 0;
-      dessinerOnglets(); montrer();
+      etat.pages = pages; etat.page = 0;
+      montrer();
     }).catch((e) => {
-      console.error(e);
-      if (etat && etat.id === id) attente('Le coach n’a pas pu analyser cette position.');
+      if (e && e.message !== 'fermé') console.error(e);
+      if (etat && etat.id === id) attente(e && e.message === 'fin' ? 'La partie est finie ici : plus de coup à expliquer.' : 'Le coach n’a pas pu analyser cette position.');
     });
   }
   function attente(t) {
     if (!etat) return;
-    etat.el.querySelector('.coach-titre').textContent = '';
-    etat.el.querySelector('.coach-texte').innerHTML = '<p class="coach-attente">' + t + '</p>';
+    etat.el.querySelector('.coach-corps').innerHTML = '<p class="coach-attente">' + t + '</p>';
     etat.el.querySelector('.coach-nav').style.visibility = 'hidden';
   }
-  // sansRestaurer : la position a changé ailleurs, celui qui appelle redessine lui-même
   function fermer(sansRestaurer) {
     if (!etat) return;
     const e = etat;
@@ -506,48 +532,46 @@
   }
   const ouvert = () => !!etat;
 
-  function dessinerOnglets() {
-    const box = etat.el.querySelector('.coach-onglets');
-    box.innerHTML = '';
-    etat.onglets.forEach((o, i) => {
-      const b = el('button', i === etat.onglet ? 'actif' : '', o.nom);
-      b.onclick = () => { etat.onglet = i; etat.k = 0; dessinerOnglets(); montrer(); };
-      box.appendChild(b);
-    });
-  }
   function bouger(d) {
-    if (!etat || !etat.onglets) return;
-    const o = etat.onglets[etat.onglet];
-    let k = etat.k + d;
-    if (k < 0) { if (etat.onglet > 0) { etat.onglet--; k = etat.onglets[etat.onglet].etapes.length - 1; dessinerOnglets(); } else k = 0; }
-    else if (k >= o.etapes.length) { if (etat.onglet < etat.onglets.length - 1) { etat.onglet++; k = 0; dessinerOnglets(); } else k = o.etapes.length - 1; }
-    etat.k = k;
+    if (!etat || !etat.pages) return;
+    const p = Math.max(0, Math.min(etat.pages.length - 1, etat.page + d));
+    if (p === etat.page) return;
+    etat.page = p;
     montrer();
   }
-  function montrer() {
-    const o = etat.onglets[etat.onglet], e = o.etapes[etat.k];
+  // vue du plateau : { fen, dernier, dessin }
+  function vue(v) {
     const ctx = etat.ctx;
-    etat.el.querySelector('.coach-titre').innerHTML = e.titre;
-    etat.el.querySelector('.coach-texte').innerHTML = e.texte;
+    ctx.plateau.afficher(window.Regles.lireFen(v.fen || etat.base), { variante: ctx.variante, dernier: v.dernier || null });
+    ctx.plateau.coachDessin(v.dessin || []);
+  }
+  function montrer() {
+    const pg = etat.pages[etat.page];
+    const ong = etat.el.querySelector('.coach-onglets');
+    ong.innerHTML = '';
+    etat.pages.forEach((x, i) => {
+      const b = el('button', i === etat.page ? 'actif' : '', x.nom);
+      b.onclick = () => { etat.page = i; montrer(); };
+      ong.appendChild(b);
+    });
+    const corps = etat.el.querySelector('.coach-corps');
+    corps.innerHTML = pg.html;
     const nav = etat.el.querySelector('.coach-nav');
-    nav.style.visibility = '';
-    const total = etat.onglets.reduce((n, x) => n + x.etapes.length, 0);
-    let ici = 0; for (let i = 0; i < etat.onglet; i++) ici += etat.onglets[i].etapes.length; ici += etat.k + 1;
-    nav.querySelector('.coach-pos').textContent = ici + ' / ' + total;
-    nav.querySelector('.coach-prec').disabled = ici === 1;
-    nav.querySelector('.coach-suiv').disabled = ici === total;
-    // position montrée sur le plateau (la suite avance sur le plateau)
-    const fen = e.fen || etat.base;
-    ctx.plateau.afficher(window.Regles.lireFen(fen), { variante: ctx.variante, dernier: e.dernier || null });
-    ctx.plateau.coachDessin(e.dessin || []);
-    // notions : liens cliquables
-    etat.el.querySelectorAll('[data-notion]').forEach((x) => { x.onclick = () => { const i = etat.onglets.findIndex((oo) => oo.cle === 'notions'); if (i >= 0) { etat.onglet = i; etat.k = 0; dessinerOnglets(); montrer(); } }; });
+    nav.style.visibility = etat.pages.length > 1 ? '' : 'hidden';
+    nav.querySelector('.coach-prec').disabled = etat.page === 0;
+    nav.querySelector('.coach-suiv').disabled = etat.page === etat.pages.length - 1;
+    // éléments cliquables : ils changent ce que montre le plateau
+    const choisir = (k) => {
+      corps.querySelectorAll('[data-vue]').forEach((x) => x.classList.toggle('choisi', +x.dataset.vue === k));
+      vue(pg.vues[k]);
+    };
+    corps.querySelectorAll('[data-vue]').forEach((x) => { x.onclick = () => choisir(+x.dataset.vue); });
+    choisir(0);
   }
 
   // --------------------------------------------------------------------
-  //  Préparation : moteur + idées -> onglets et étapes
+  //  Préparation : moteur + idées -> 2 ou 3 pages
   // --------------------------------------------------------------------
-  const PROF = { sf: 18, fairy: 14, maison: 5 };
   const PROF_MENACE = { sf: 14, fairy: 11, maison: 4 };
   const typeMoteur = (v) => (v.moteur === 'sf' ? 'sf' : v.moteur === 'maison' ? 'maison' : 'fairy');
 
@@ -561,15 +585,6 @@
     return !Object.keys(P).some((l) => P[l] && P[l].marque);
   }
 
-  async function chercher(ctx, coups, multipv, prof, texte) {
-    const m = window.Moteurs.pourVariante(ctx.variante, 'coach');
-    const r = await m.chercher({
-      variante: ctx.variante, fen0: ctx.fen0, coups, elo: null, profondeur: prof, temps: 30000, multipv, deterministe: true,
-      surInfo: (l) => { if (etat && l[0] && texte) attente(texte + ' (profondeur ' + l[0].profondeur + ' / ' + prof + ')'); }
-    });
-    return r;
-  }
-
   async function preparer(ctx, id) {
     const v = ctx.variante;
     const tm = typeMoteur(v);
@@ -581,40 +596,28 @@
     const legaux = partie.legaux();
     partie.detruire();
     if (!legaux.length) throw new Error('fin');
-    const cle = v.uci + '|' + fen + '|' + (ctx.joue || '');
+    const cle = v.uci + '|' + fen + '|' + (ctx.joue || '') + '|' + (ctx.source || '');
     if (cache[cle]) return construire(ctx, cache[cle]);
 
-    const r = await chercher(ctx, ctx.coups, Math.min(5, legaux.length), PROF[tm], 'Le coach cherche les meilleurs coups…');
+    attente('Le coach cherche les meilleurs coups…');
+    const lignes = (await ctx.lignes()).filter((l) => l && l.pv && l.pv.length);
     if (!etat || etat.id !== id) throw new Error('fermé');
-    if (r.annulee || !r.lignes.length) throw new Error('rien');
-    const lignes = r.lignes.filter((l) => l && l.pv && l.pv.length);
+    if (!lignes.length) throw new Error('rien');
     // la menace : que ferait l'adversaire si c'était encore à lui de jouer ?
     let menace = null;
     if (!enEchecMaintenant && v.moteur !== 'maison') {
+      attente('Le coach regarde ce que prépare l’adversaire…');
       const ch = fen.split(/\s+/);
       ch[1] = S === 'w' ? 'b' : 'w'; if (ch.length > 3) ch[3] = '-';
       try {
         const rm = await window.Moteurs.pourVariante(v, 'coach').chercher({
-          variante: v, fen0: ch.join(' '), coups: [], elo: null, profondeur: PROF_MENACE[tm], temps: 15000, multipv: 1, deterministe: true,
-          surInfo: () => { if (etat) attente('Le coach regarde ce que prépare l’adversaire…'); }
+          variante: v, fen0: ch.join(' '), coups: [], elo: null, profondeur: PROF_MENACE[tm], temps: 15000, multipv: 1, deterministe: true
         });
         if (rm && !rm.annulee && rm.lignes[0] && rm.lignes[0].pv && rm.lignes[0].pv.length) menace = { score: rm.lignes[0].score, pv: rm.lignes[0].pv.slice(0, 6) };
       } catch (e) { menace = null; }
       if (!etat || etat.id !== id) throw new Error('fermé');
     }
-    // le coup joué (bilan) s'il n'est pas dans la liste
-    let joue = null;
-    if (ctx.joue) {
-      const l = lignes.find((x) => x.pv[0] === ctx.joue);
-      if (l) joue = { score: l.score, pv: l.pv };
-      else {
-        const rj = await chercher(ctx, ctx.coups.concat([ctx.joue]), 1, Math.max(4, PROF[tm] - 2), 'Le coach regarde le coup joué…');
-        if (!etat || etat.id !== id) throw new Error('fermé');
-        if (rj.lignes[0]) joue = { score: window.App.inverser(rj.lignes[0].score), pv: [ctx.joue].concat(rj.lignes[0].pv || []) };
-        else joue = { score: { cp: 0 }, pv: [ctx.joue] };
-      }
-    }
-    const donnees = { fen, S, lignes: lignes.map((l) => ({ score: l.score, pv: l.pv.slice(0, 10) })), menace, joue, enEchec: enEchecMaintenant };
+    const donnees = { fen, S, lignes: lignes.map((l) => ({ score: l.score, pv: l.pv.slice(0, 10), joue: !!l.joue })), menace };
     cache[cle] = donnees;
     return construire(ctx, donnees);
   }
@@ -628,6 +631,7 @@
     return out;
   }
   const flecheUci = (u, c, etiquette) => { const d = window.Regles.decouper(u); return d ? { de: d.de, vers: d.vers, couleur: c, etiquette } : null; };
+  const recolorer = (l, c) => l.filter(Boolean).map((x) => (x.couleur === C_COUP ? Object.assign({}, x, { couleur: c }) : x));
 
   function construire(ctx, D) {
     const cl = classique(ctx.variante, D.fen);
@@ -636,178 +640,152 @@
     const best = D.lignes[0];
     const suite = fensSuite(ctx, best.pv.slice(0, 8));
     const sanBest = suite[0] ? suite[0].san : best.pv[0];
-    const notions = new Set(['evaluation']);
-    const lienN = (k) => (NOTIONS[k] ? ' <span class="coach-notion" data-notion="' + k + '">📚 ' + NOTIONS[k][0] + '</span>' : '');
-    const onglets = [];
+    const fBest = flecheUci(best.pv[0], C_COUP);
+    const pages = [];
+    const dits = new Set(); // phrases déjà dites (pour ne jamais répéter)
+    const dire = (t) => { const k = sansBalises(t).slice(0, 60); if (dits.has(k)) return false; dits.add(k); return true; };
+    const eval1 = ctx.exact ? ctx.exact.texte : phraseScore(best.score, S);
+    const joue = ctx.joue ? D.lignes.find((l) => l.joue) : null;
+    const sanJoue = ctx.joue ? ((fensSuite(ctx, [ctx.joue])[0] || {}).san || ctx.joue) : null;
 
-    // ---------- 1. Le coup ----------
-    const e1 = [];
-    const mat = best.score.mate != null && best.score.mate > 0;
-    let ideesBest = [];
+    // ---------- Page 1 : le meilleur coup et pourquoi ----------
+    let h = '<h3 class="coach-titre">★ ' + sanBest + '</h3><p>' + Maj(aux(S)) + ' de jouer. Meilleur coup : <b class="coach-coup">' + sanBest + '</b> — ' + eval1 + '.';
+    const egaux = D.lignes.slice(1).filter((l) => !l.joue && ecart(best.score, l.score) <= 0.15);
+    const autresVrais = D.lignes.slice(1).filter((l) => !l.joue);
+    if (best.score.mate != null && best.score.mate > 0) h += ' <b>Mat forcé</b> : chaque coup compte.';
+    else if (egaux.length) {
+      const noms = egaux.map((l) => (fensSuite(ctx, [l.pv[0]])[0] || {}).san || l.pv[0]);
+      h += ' ' + (noms.length === 1 ? noms[0] + ' est' : noms.join(' et ') + ' sont') + ' aussi bon' + (noms.length > 1 ? 's' : '') + '.';
+    } else if (autresVrais.length && ecart(best.score, autresVrais[0].score) >= 1.5) h += ' C’est <b>le seul bon coup</b>.';
+    else if (legauxUn(ctx)) h += ' C’est le seul coup possible.';
+    h += '</p>';
+    if (joue) {
+      if (ctx.joue === best.pv[0]) h += '<p>✅ Dans la partie, <b>' + sanJoue + '</b> a été joué : c’était le meilleur.</p>';
+      else h += '<p>Dans la partie : <b>' + sanJoue + '</b> (page « Les autres coups »).</p>';
+    }
+    let dessin1 = fBest ? [fBest] : [];
+    const puces = [];
     if (cl) {
       const r = idees(P0, best.pv[0], { mat1: best.score.mate === 1 });
-      ideesBest = r.idees;
+      for (const x of nettoyer(r.idees, 3)) { if (!dire(x.texte)) continue; puces.push(puce(x)); dessin1 = dessin1.concat(x.dessin.filter((d) => d && !(fBest && d.de === fBest.de && d.vers === fBest.vers))); }
+      if (!puces.length) puces.push('<li title="' + NOTIONS.prophylaxie[1] + '">Un <b>coup d’amélioration</b> : il ne prend rien et ne menace rien tout de suite, mais il prépare la suite sans rien laisser à l’adversaire.</li>');
+    } else if (suite[0] && (suite[0].prise || suite[0].echec)) {
+      puces.push('<li>' + (suite[0].prise ? 'Il <b>prend une pièce</b>' : '') + (suite[0].prise && suite[0].echec ? ' et ' : '') + (suite[0].echec ? (suite[0].prise ? 'donne' : 'Il donne') + ' <b>échec</b>' : '') + '.</li>');
     }
-    const alt = D.lignes[1];
-    const gap = alt ? ecart(best.score, alt.score) : 99;
-    let intro = Maj(aux(S)) + ' de jouer. Le meilleur coup est <b class="coach-coup">' + sanBest + '</b>. Évaluation : ' + phraseScore(best.score, S) + '.';
-    if (mat) intro += ' Il y a un <b>mat forcé</b> : chaque coup compte !';
-    if (!alt) intro += '<br>C’est le <b>seul coup possible</b>.';
-    else if (gap >= 1.5) intro += '<br>C’est <b>le seul bon coup</b> : tous les autres perdent au moins ' + (gap >= 99 ? 'le mat' : nb(gap) + ' pion' + (gap >= 2 ? 's' : '')) + '.';
-    else if (gap >= 0.5) intro += '<br>Il est nettement meilleur que les autres (le 2e coup perd ' + nb(gap) + ').';
-    else intro += '<br>D’autres coups sont presque aussi bons (écart ' + nb(Math.max(0, gap)) + ') : ici, c’est surtout l’idée qui compte.';
-    if (ctx.joue) {
-      const jSan = (fensSuite(ctx, [ctx.joue])[0] || {}).san || ctx.joue;
-      if (ctx.joue === best.pv[0]) intro += '<br>✅ <b>' + jSan + '</b> a été joué : c’était bien le meilleur !';
-      else intro += '<br>Dans la partie, <b>' + jSan + '</b> a été joué : on verra plus loin pourquoi c’est moins bon.';
-    }
-    const fBest = flecheUci(best.pv[0], C_COUP);
-    e1.push({ titre: '★ Le meilleur coup : ' + sanBest, texte: '<p>' + intro + '</p>' + (ideesBest[0] ? '<p>L’idée principale : ' + ideesBest[0].texte + lienN(ideesBest[0].notion) + '</p>' : ''),
-      dessin: ideesBest[0] ? ideesBest[0].dessin : (fBest ? [fBest] : []) });
-    if (ideesBest[0]) notions.add(ideesBest[0].notion);
-    for (const id of ideesBest.slice(1, 4)) {
-      notions.add(id.notion);
-      e1.push({ titre: 'Ce que fait aussi ' + sanBest, texte: '<p>' + id.texte + lienN(id.notion) + '</p>', dessin: id.dessin });
-    }
-    if (cl && !ideesBest.length) {
-      e1.push({ titre: 'Un coup calme', texte: '<p>' + sanBest + ' ne prend rien et ne menace rien tout de suite. C’est un <b>coup d’amélioration</b> : il prépare la suite et ne laisse rien à l’adversaire. Regarde l’onglet « La suite » pour voir l’idée.' + lienN('prophylaxie') + '</p>', dessin: fBest ? [fBest] : [] });
-      notions.add('prophylaxie');
-    }
-    if (!cl) {
-      const s0 = suite[0];
-      const bouts = [];
-      if (s0 && s0.prise) bouts.push('il <b>prend une pièce</b>');
-      if (s0 && s0.echec) bouts.push('il <b>donne échec</b>');
-      e1.push({ titre: 'Ce que fait ' + sanBest, texte: '<p>' + (bouts.length ? 'Ce coup est fort parce qu’' + bouts.join(' et ') + '. ' : '') +
-        'Avec des personnages créés, le coach ne connaît pas tous leurs déplacements par cœur : il s’appuie sur le calcul du moteur. La suite, coup par coup, montre l’idée.</p>', dessin: fBest ? [fBest] : [] });
-    }
-    onglets.push({ cle: 'coup', nom: '★ Le coup', etapes: e1 });
-
-    // ---------- 2. La menace adverse ----------
+    // la menace adverse, dans la même page
     if (D.menace && D.menace.pv[0]) {
       const sm = D.menace.score; // vu de O
       const forte = (sm.mate != null && sm.mate > 0) || (best.score.mate == null && sm.mate == null && (sm.cp + best.score.cp) >= 150);
       if (forte) {
-        const pM = new window.Regles.Partie(ctx.variante, D.fen.split(/\s+/).map((x, i) => (i === 1 ? O : i === 3 ? '-' : x)).join(' '), []);
+        const fenM = D.fen.split(/\s+/).map((x, i) => (i === 1 ? O : i === 3 ? '-' : x)).join(' ');
         let sanM = D.menace.pv[0];
-        try { sanM = pM.suiteSan(0, D.menace.pv, 1)[0] || sanM; } catch (e) { /* rien */ }
-        pM.detruire();
-        let quoi = '';
-        const dessin = [flecheUci(D.menace.pv[0], C_MENACE)].filter(Boolean);
-        if (sm.mate != null && sm.mate > 0) quoi = campNom(O) + ' feraient <b>mat en ' + sm.mate + '</b> en commençant par <b>' + sanM + '</b>';
+        try { const pM = new window.Regles.Partie(ctx.variante, fenM, []); sanM = pM.suiteSan(0, D.menace.pv, 1)[0] || sanM; pM.detruire(); } catch (e) { /* rien */ }
+        let quoi;
+        if (sm.mate != null && sm.mate > 0) quoi = 'feraient <b>mat en ' + sm.mate + '</b> avec ' + sanM;
+        else {
+          quoi = 'joueraient <b>' + sanM + '</b>';
+          if (cl) {
+            const r = idees(Object.assign({}, P0, { t: O }), D.menace.pv[0]);
+            if (r.idees[0]) quoi += ' (' + sansBalises(r.idees[0].texte).replace(/^./, (c) => c.toLowerCase()).replace(/\.$/, '') + ')';
+          }
+        }
+        let pare;
+        const plusTard = best.pv.findIndex((u, i) => i % 2 === 1 && u === D.menace.pv[0]);
+        if (plusTard === 1) pare = 'On ne peut pas tout parer : ' + sanBest + ' est le coup qui <b>limite le plus les dégâts</b>.';
+        else if (plusTard > 1) pare = sanBest + ' passe d’abord, mais ' + campNom(O) + ' joueront quand même ' + sanM + ' un peu plus tard : on ne peut pas tout sauver, c’est <b>le moins mauvais</b>.';
         else if (cl) {
-          const Pn = Object.assign({}, P0, { t: O });
-          const r = idees(Pn, D.menace.pv[0]);
-          quoi = campNom(O) + ' joueraient <b>' + sanM + '</b>' + (r.idees[0] ? ' : ' + r.idees[0].texte.replace(/^./, (c) => c.toLowerCase()).replace(/\.$/, '') : '');
-          if (r.idees[0]) { notions.add(r.idees[0].notion); for (const x of r.idees[0].dessin) if (x && x.couleur !== C_COUP) dessin.push(x); }
-        } else quoi = campNom(O) + ' joueraient <b>' + sanM + '</b>, qui leur ferait gagner environ ' + nb((sm.cp + best.score.cp) / 100) + ' pion(s)';
-        let pare = '';
-        if (best.pv[1] === D.menace.pv[0]) {
-          pare = 'Ici, on ne peut pas tout parer : même après ' + sanBest + ', ' + campNom(O) + ' jouent ' + sanM + '. ' + sanBest + ' est le coup qui <b>limite le plus les dégâts</b> : tous les autres perdent davantage.';
-        } else if (cl) {
           const P1 = jouer(P0, best.pv[0]);
-          const u = D.menace.pv[0];
-          const de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4));
+          const u = D.menace.pv[0], de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4));
           if (P1 && (!P1.b[de] || coul(P1.b[de]) !== O)) pare = sanBest + ' <b>élimine la pièce</b> qui menaçait.';
           else if (P1 && P0.b[vers] && !P1.b[vers]) pare = sanBest + ' <b>met la pièce visée à l’abri</b>.';
-          else if (P1 && P1.b[vers] && coul(P1.b[vers]) === S && see(P1.b, de, vers) <= 0) pare = sanBest + ' <b>défend la case</b> : la prise ne gagne plus rien.';
-          else if (best.score.mate != null && best.score.mate > 0) pare = sanBest + ' va plus vite : son attaque arrive avant la menace.';
-          else pare = sanBest + ' s’en occupe : avec lui, la menace ne marche plus (le moteur l’a vérifié).';
-        } else pare = sanBest + ' s’en occupe : avec lui, la menace ne marche plus.';
-        notions.add('menace');
-        onglets.push({ cle: 'menace', nom: '⚠ La menace', etapes: [{ titre: '⚠ Que veulent faire ' + campNom(O) + ' ?', texte: '<p>Avant de jouer, demande-toi toujours ce que veut l’adversaire. Si ' + campNom(S) + ' ne faisaient rien, ' + quoi + '.</p><p>' + pare + lienN('menace') + '</p>', dessin }] });
-      }
-    }
-
-    // ---------- 3. La suite ----------
-    const e3 = [];
-    let Pc = P0;
-    suite.slice(0, 6).forEach((s, i) => {
-      const qui = i % 2 === 0 ? S : O;
-      let com = '';
-      if (cl && Pc) {
-        const r = idees(Pc, s.uci, { mat1: best.score.mate != null && best.score.mate > 0 && i === best.score.mate * 2 - 2 });
-        if (r.idees[0]) { com = r.idees[0].texte; notions.add(r.idees[0].notion); }
-        Pc = r.P1;
-      }
-      if (!com) com = s.echec ? 'Échec !' : s.prise ? 'Une prise.' : (i === 0 ? 'Le meilleur coup.' : qui === O ? 'La meilleure défense ' + des(O) + '.' : 'Le coup le plus fort pour continuer.');
-      if (i === 1) com = '<i>Meilleure réponse ' + des(O) + ' :</i> ' + com;
-      const avant = i === 0 ? D.fen : suite[i - 1].fen;
-      e3.push({ titre: 'La suite · ' + (i + 1) + '. ' + (qui === 'w' ? '○' : '●') + ' ' + s.san,
-        texte: '<p>' + com + '</p><p class="coach-ligne">' + suite.slice(0, 6).map((x, j) => (j === i ? '<b>' + x.san + '</b>' : x.san)).join(' ') + '</p>',
-        fen: avant, dessin: [flecheUci(s.uci, qui === S ? C_COUP : C_ADV, String(i + 1))].filter(Boolean) });
-    });
-    if (suite.length) {
-      const fin = suite[Math.min(5, suite.length - 1)];
-      let bilan = 'Évaluation au bout de la suite : ' + phraseScore(best.score, S) + '.';
-      if (cl) {
-        const Pf = lire(fin.fen);
-        const bp = bilanPieces(P0.b, Pf.b, S);
-        if (bp.net > 0) bilan = 'Au bout de cette suite, ' + campNom(S) + ' ont <b>gagné du matériel</b> (+' + bp.net + ')' + (bp.perdO.length ? ' : ' + campNom(O) + ' ont perdu ' + bp.perdO.join(', ') + (bp.perdS.length ? ', contre ' + bp.perdS.join(', ') : '') : '') + '. ' + bilan;
-        else if (bp.net < 0) bilan = CampNom(S) + ' ont perdu du matériel (−' + (-bp.net) + ')' + (bp.perdS.length ? ' : ' + bp.perdS.join(', ') : '') + ', mais ' + (best.score.mate != null && best.score.mate > 0 ? 'c’est pour faire mat' : 'le moteur voit que c’est le mieux possible : les autres coups perdent plus, ou leur jeu compense (pièces actives, attaque)') + '. ' + bilan;
-        notions.add('valeur');
-      }
-      e3.push({ titre: 'Le résultat', texte: '<p>' + bilan + '</p><p class="coach-ligne">' + suite.slice(0, 6).map((x) => x.san).join(' ') + '</p>', fen: fin.fen, dernier: window.App.dernierCoupCases(fin.uci) });
-    }
-    if (e3.length) onglets.push({ cle: 'suite', nom: '▶ La suite', etapes: e3 });
-
-    // ---------- 4. Pourquoi pas les autres ? ----------
-    const e4 = [];
-    const autres = [];
-    if (D.joue && ctx.joue !== best.pv[0]) autres.push({ l: D.joue, joue: true });
-    for (const l of D.lignes.slice(1)) if (autres.length < 3 && l.pv[0] !== ctx.joue) autres.push({ l });
-    for (const { l, joue } of autres) {
-      const s2 = fensSuite(ctx, l.pv.slice(0, 6));
-      if (!s2.length) continue;
-      const g = ecart(best.score, l.score);
-      let t = '';
-      if (g <= 0.15) t = '<b>' + s2[0].san + '</b> est <b>aussi bon</b> (' + phraseScore(l.score, S) + ') : les deux coups se valent.';
-      else if (g < 0.5) t = '<b>' + s2[0].san + '</b> est un peu moins précis (−' + nb(g) + ').';
-      else t = '<b>' + s2[0].san + '</b> est moins bon : ' + phraseScore(l.score, S) + ' au lieu de ' + phraseScore(best.score, S) + (g >= 99 ? '.' : '. Il perd <b>' + nb(g) + '</b> pion' + (g >= 2 ? 's' : '') + ' d’évaluation.');
-      const dessin = [flecheUci(l.pv[0], joue ? 'rgba(236,75,75,0.9)' : C_ADV, joue ? '✗' : '?')].filter(Boolean);
-      if (g >= 0.4 && s2[1]) {
-        let pourquoi = '';
-        if (cl) {
-          const Pa = jouer(P0, l.pv[0]);
-          if (Pa) {
-            const rep = idees(Pa, l.pv[1], { mat1: l.score.mate === -1 });
-            pourquoi = 'Meilleure réponse : <b>' + s2[1].san + '</b>' + (rep.idees[0] ? ' — ' + rep.idees[0].texte : '.');
-            if (rep.idees[0]) { notions.add(rep.idees[0].notion); for (const x of rep.idees[0].dessin) if (x) dessin.push(Object.assign({}, x, x.couleur === C_COUP ? { couleur: C_MENACE } : {})); }
-            else { const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
-            // ce qu'il manque par rapport au meilleur coup
-            if (ideesBest[0] && ideesBest[0].poids >= 30) pourquoi += '<br>Et surtout, on rate l’idée de ' + sanBest + ' : ' + ideesBest[0].texte.replace(/<[^>]+>/g, '').replace(/^./, (c) => c.toLowerCase());
-            const fin = s2[s2.length - 1];
-            const bp = bilanPieces(P0.b, lire(fin.fen).b, S);
-            const bb = bilanPieces(P0.b, lire((suite[Math.min(5, suite.length - 1)] || { fen: D.fen }).fen).b, S);
-            const sg = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x);
-            if (bp.net < bb.net) pourquoi += '<br>Matériel au bout de la suite : <b>' + sg(bp.net) + '</b> au lieu de ' + sg(bb.net) + ' avec ' + sanBest + '.';
-          }
-        } else {
-          pourquoi = 'Réponse : <b>' + s2[1].san + '</b>' + (s2[1].prise ? ', qui prend une pièce' : '') + (s2[1].echec ? ', avec échec' : '') + '.';
-          const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f);
+          else if (P1 && P1.b[vers] && coul(P1.b[vers]) === S && see(P1.b, de, vers) <= 0) pare = sanBest + ' <b>défend la case</b>.';
+          else if (best.score.mate != null && best.score.mate > 0) pare = sanBest + ' va plus vite que la menace.';
+          else pare = 'Après ' + sanBest + ', la menace ne marche plus.';
+        } else pare = 'Après ' + sanBest + ', la menace ne marche plus.';
+        const t = '⚠ <b>Menace adverse</b> : sans rien faire, ' + campNom(O) + ' ' + quoi + '. ' + pare;
+        if (dire(t)) {
+          puces.push('<li class="coach-menace" title="' + NOTIONS.menace[1] + '">' + t + '</li>');
+          const fm = flecheUci(D.menace.pv[0], C_MENACE);
+          if (fm) dessin1.push(Object.assign(fm, { etiquette: '!' }));
         }
-        t += '<br>' + pourquoi;
-        t += '<p class="coach-ligne">Suite : ' + s2.map((x) => x.san).join(' ') + '</p>';
       }
-      // sur le plateau : la position APRÈS ce coup, et la réponse qui le punit
-      const apres = g >= 0.4 && s2[1];
-      e4.push({ titre: (joue ? '✗ Le coup joué : ' : '? Et ') + s2[0].san + (joue ? '' : ' ?'), texte: '<p>' + t + '</p>' + (apres ? '<p class="coach-ligne">Plateau : la position après ' + s2[0].san + ', et la réponse ' + des(O) + ' en rouge.</p>' : ''),
-        fen: apres ? s2[0].fen : null, dernier: apres ? window.App.dernierCoupCases(l.pv[0]) : null,
-        dessin: apres ? dessin.slice(1) : dessin.concat(fBest ? [Object.assign({}, fBest, { etiquette: '★' })] : []) });
     }
-    if (e4.length) onglets.push({ cle: 'autres', nom: '? Les autres', etapes: e4 });
+    if (puces.length) h += '<p class="coach-sous">Pourquoi :</p><ul class="coach-liste">' + puces.join('') + '</ul>';
+    pages.push({ nom: '★ Le coup', html: h, vues: [{ dessin: dessin1.slice(0, 8) }] });
 
-    // ---------- 5. Notions ----------
-    const liste = [...notions].filter((k) => NOTIONS[k]);
-    const e5 = [];
-    for (let i = 0; i < liste.length; i += 3) {
-      e5.push({ titre: '📚 À retenir', texte: liste.slice(i, i + 3).map((k) => '<p><b>' + NOTIONS[k][0] + '</b> : ' + NOTIONS[k][1] + '</p>').join(''), dessin: fBest ? [fBest] : [] });
+    // ---------- Page 2 : la suite ----------
+    if (suite.length > 1) {
+      const N = Math.min(6, suite.length);
+      const vues = [{ dessin: suite.slice(0, Math.min(4, N)).map((s, i) => flecheUci(s.uci, i % 2 === 0 ? C_COUP : C_ADV, String(i + 1))).filter(Boolean) }];
+      let puces2 = '';
+      let Pc = P0;
+      let chips = '<p class="coach-ligne"><span class="coach-chip" data-vue="0">Départ</span>';
+      for (let i = 0; i < N; i++) {
+        const s = suite[i], qui = i % 2 === 0 ? S : O;
+        vues.push({ fen: s.fen, dernier: window.App.dernierCoupCases(s.uci) });
+        chips += '<span class="coach-chip" data-vue="' + (i + 1) + '">' + (qui === 'w' ? '○' : '●') + ' ' + s.san + '</span>';
+        if (cl && Pc) {
+          const r = idees(Pc, s.uci, { mat1: best.score.mate != null && best.score.mate > 0 && i === best.score.mate * 2 - 2 });
+          Pc = r.P1;
+          const x = nettoyer(r.idees, 1)[0];
+          // le 1er coup est déjà expliqué page 1 ; on ne garde que les moments qui comptent
+          if (i > 0 && x && x.poids >= 22 && dire(x.texte)) puces2 += '<li data-vue="' + (i + 1) + '"><b>' + s.san + '</b> : ' + x.texte + '</li>';
+        } else if (!cl && i > 0 && (s.prise || s.echec)) puces2 += '<li data-vue="' + (i + 1) + '"><b>' + s.san + '</b> : ' + (s.prise ? 'une prise' : '') + (s.prise && s.echec ? ' avec ' : '') + (s.echec ? 'échec' : '') + '.</li>';
+      }
+      chips += '</p>';
+      let h2 = '<h3 class="coach-titre">▶ La suite prévue</h3>' + chips;
+      if (puces2) h2 += '<ul class="coach-liste">' + puces2 + '</ul>';
+      if (cl) {
+        const bp = bilanPieces(P0.b, lire(suite[N - 1].fen).b, S);
+        const sg = (x) => (x > 0 ? '+' : '−') + Math.abs(x);
+        if (bp.net > 0) h2 += '<p>Au bout : ' + campNom(S) + ' ont <b>gagné ' + sg(bp.net) + '</b> de matériel' + (bp.perdO.length ? ' (' + bp.perdO.join(', ') + ')' : '') + '.</p>';
+        else if (bp.net < 0) h2 += '<p>Au bout : ' + campNom(S) + ' ont <b>' + sg(bp.net) + '</b> de matériel' + (bp.perdS.length ? ' (' + bp.perdS.join(', ') + ')' : '') + ' ; ' + (best.score.mate != null && best.score.mate > 0 ? 'c’est pour faire mat.' : 'c’est quand même le mieux possible.') + '</p>';
+      }
+      h2 += '<p class="coach-ligne">Clique un coup pour le voir sur le plateau.</p>';
+      pages.push({ nom: '▶ La suite', html: h2, vues });
     }
-    if (e5.length) onglets.push({ cle: 'notions', nom: '📚 Notions', etapes: e5 });
-    return onglets;
+
+    // ---------- Page 3 : les autres coups (le coup joué d'abord) ----------
+    const alts = [];
+    if (joue && ctx.joue !== best.pv[0]) alts.push(joue);
+    for (const l of D.lignes.slice(1)) if (!l.joue && ecart(best.score, l.score) > 0.15 && alts.length < 3) alts.push(l);
+    if (alts.length) {
+      const vues = [];
+      let h3 = '<h3 class="coach-titre">? Les autres coups</h3>';
+      alts.forEach((l, k) => {
+        const s2 = fensSuite(ctx, l.pv.slice(0, 6));
+        if (!s2.length) return;
+        const g = ecart(best.score, l.score);
+        let t = '<b>' + s2[0].san + '</b>' + (l.joue ? ' (joué)' : '') + ' : ' + phraseScore(l.score, S) + (g >= 99 ? '' : ', soit <b>−' + nb(g) + '</b> par rapport à ' + sanBest) + '.';
+        const dessin = [];
+        if (s2[1]) {
+          let pourquoi = ' Réponse : <b>' + s2[1].san + '</b>';
+          if (cl) {
+            const Pa = jouer(P0, l.pv[0]);
+            const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1 }).idees, 1)[0] : null;
+            if (rep) { pourquoi += ' — ' + sansBalises(rep.texte).replace(/^./, (c) => c.toLowerCase()); dessin.push(...recolorer(rep.dessin, C_MENACE)); }
+            else { pourquoi += '.'; const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
+            const bb = bilanPieces(P0.b, lire((suite[Math.min(5, suite.length - 1)] || { fen: D.fen }).fen).b, S);
+            const bp = bilanPieces(P0.b, lire(s2[s2.length - 1].fen).b, S);
+            if (bp.net < bb.net) pourquoi += ' Au bout, <b>' + (bb.net - bp.net) + ' de matériel en moins</b> qu’avec ' + sanBest + '.';
+          } else {
+            pourquoi += (s2[1].prise ? ', qui prend une pièce' : '') + (s2[1].echec ? ', avec échec' : '') + '.';
+            const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f);
+          }
+          if (g >= 0.4) t += pourquoi;
+          else t += ' Un peu moins précis, sans faute grave.';
+        }
+        vues.push(g >= 0.4 && s2[1] ? { fen: s2[0].fen, dernier: window.App.dernierCoupCases(l.pv[0]), dessin } : { dessin: [flecheUci(l.pv[0], C_ADV, '?'), fBest].filter(Boolean) });
+        h3 += '<div class="coach-bloc" data-vue="' + (vues.length - 1) + '">' + t + '</div>';
+      });
+      h3 += '<p class="coach-ligne">Clique un coup : le plateau montre la position après lui, et la réponse en rouge.</p>';
+      if (vues.length) pages.push({ nom: '? Les autres coups', html: h3, vues });
+    }
+    return pages;
   }
+  function legauxUn(ctx) { try { const p = new window.Regles.Partie(ctx.variante, ctx.fen0, ctx.coups); const n = p.legaux().length; p.detruire(); return n === 1; } catch (e) { return false; } }
 
-  // touches : ← → pour avancer, Échap pour fermer
+  // touches : ← → pour changer de page, Échap pour fermer
   window.addEventListener('keydown', (e) => {
     if (!etat) return;
     if (e.key === 'ArrowRight') { bouger(1); e.preventDefault(); e.stopImmediatePropagation(); }
@@ -816,5 +794,5 @@
     else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
 
-  window.Coach = { ouvrir, fermer, ouvert, _idees: idees, _lire: lire };
+  window.Coach = { ouvrir, fermer, ouvert, _idees: idees, _lire: lire, _nettoyer: nettoyer };
 })();

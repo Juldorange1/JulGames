@@ -52,6 +52,7 @@
       $('#btn-bilan-rejouer').addEventListener('click', () => { this.quitter(); window.App.rejouerDepuis(this.rec, this.n); });
       $('#btn-bilan-profond').addEventListener('click', () => this.lancer('profond'));
       $('#btn-bilan-coach').addEventListener('click', () => this.coach());
+      $('#btn-bilan-enregistrer').addEventListener('click', () => { if (this.rec) window.Repertoire.enregistrer(this.rec); });
       $('#btn-bilan-pgn').addEventListener('click', () => window.App.copier(window.App.pgn(this.rec), 'Partie copiée (PGN) : tu peux la coller sur un autre site d’échecs.'));
       $('#btn-bilan-menu').addEventListener('click', () => { this.quitter(); window.App.ecran('accueil'); });
       window.addEventListener('resize', () => this.dessinerGraphe());
@@ -227,8 +228,19 @@
       if (!this.partie || !this.rec) return;
       const n = this.n;
       const k = n > 0 ? n - 1 : 0;
+      const P = this.rec.analyse && this.rec.analyse.positions;
+      const av = P && P[k], ici = P && P[n];
+      if (!av || !av.m || (n > 0 && !ici)) { window.App.bulle('Le bilan analyse encore ce coup : réessaie dans un instant.'); return; }
+      const joue = n > 0 ? this.rec.coups[n - 1] : null;
+      const trait = window.Regles.lireFen(this.partie.fens[k]).trait;
+      const vu = (s) => (trait === 'w' ? s : window.App.inverser(s)); // score des blancs -> score du camp au trait
+      // les coups et les notes du BILAN lui-même : le coach ne le contredit jamais
+      const lignes = [{ score: vu(av.s), pv: (av.pv && av.pv.length ? av.pv : [av.m]) }];
+      if (joue && joue !== av.m) lignes.push({ score: vu(ici.s), pv: [joue].concat(ici.pv || (ici.m ? [ici.m] : [])), joue: true });
+      else if (joue) lignes[0].joue = true;
       window.Coach.ouvrir({
-        variante: this.v, fen0: this.rec.fen0, coups: this.rec.coups.slice(0, k), joue: n > 0 ? this.rec.coups[n - 1] : null,
+        variante: this.v, fen0: this.rec.fen0, coups: this.rec.coups.slice(0, k), joue, source: 'bilan' + (this.rec.analyse.niveau || ''),
+        lignes: async () => lignes,
         conteneur: $('#ecran-bilan .panneau-bilan'), plateau: this.plateau,
         restaurer: () => { this.afficher(); }
       });

@@ -126,6 +126,7 @@
     if (nom === 'bots') window.EditeurBots.ouvrir();
     if (nom === 'config') window.EditeurConfig.ouvrir();
     if (nom === 'persos') window.EditeurPersos.ouvrir();
+    if (nom === 'repertoire') requestAnimationFrame(() => window.Repertoire.ouvrir());
     requestAnimationFrame(redimensionner);
   }
 
@@ -336,7 +337,7 @@
     if (window.Config.liste().length === 0) {
       const a = document.createElement('p');
       a.className = 'aide';
-      a.textContent = 'Tes configurations apparaîtront ici (menu « ⚙ Configurer des parties »).';
+      a.textContent = 'Tes configurations apparaîtront ici (menu « 🛠 Créer » → Configurations de parties).';
       box.appendChild(a);
     }
     // avantage
@@ -885,8 +886,34 @@
     const p = jeu.partie;
     const n = indexVue();
     if (n === p.coups.length && p.finie()) { bulle('La partie est finie : plus de coup à expliquer.'); return; }
+    const cle = p.fens[n];
+    const v = jeu.variante;
+    // résultat exact des tables de finales (le même que le pronostic)
+    let exact = null;
+    const tb = tables[cle];
+    if (tb && tb.category) {
+      const nb = tb.dtm != null ? Math.ceil(Math.abs(tb.dtm) / 2) : null;
+      const trait = window.Regles.lireFen(cle).trait, autre = trait === 'w' ? 'b' : 'w';
+      const nom = (x) => (x === 'w' ? 'les blancs' : 'les noirs');
+      exact = { texte: tb.category === 'win' ? 'certain : ' + nom(trait) + ' gagnent' + (nb ? ', mat en ' + nb : '') : tb.category === 'loss' ? 'certain : ' + nom(autre) + ' gagnent' + (nb ? ', mat en ' + nb : '') : 'certain : nulle' };
+    }
     window.Coach.ouvrir({
-      variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n),
+      variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), exact, source: 'conseils',
+      // EXACTEMENT les 3 meilleurs coups des conseils (même calcul : même profondeur, un cœur, mémoire vidée)
+      lignes: async () => {
+        if (jeu.cache && jeu.cache[cle] && jeu.cache[cle].lignes) return jeu.cache[cle].lignes;
+        const type = typeMoteur(v);
+        const r = await window.Moteurs.pourVariante(v, 'coach').chercher({
+          variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
+          profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 3, deterministe: true
+        });
+        if (!r.annulee && r.lignes.length && jeu && jeu.partie === p) {
+          jeu.cache = jeu.cache || {};
+          const lignes = copieLignes(r.lignes);
+          jeu.cache[cle] = { n, cle, trait: window.Regles.lireFen(cle).trait, lignes, fini: true };
+        }
+        return r.lignes;
+      },
       conteneur: $('#ecran-partie .panneau'), plateau,
       restaurer: () => {
         if (!jeu) return;
@@ -963,11 +990,20 @@
       box.appendChild(t);
       return [];
     }
-    const rangs = rangsEgaux(l6);
-    // pas deux fois le même coup que dans les 3 meilleurs
-    const deja = new Set(a.fini ? lignes3.map((l) => l.pv[0]) : l6.slice(0, 3).map((l) => l.pv[0]));
+    // les 3 coups qui suivent les 3 meilleurs : tous ceux de la recherche à 6 qui ne sont pas déjà dans les 3 meilleurs
+    // (les deux recherches peuvent ranger un peu différemment : on prend toujours les 3 suivants, jamais moins)
+    const trois = a.fini ? lignes3 : l6.slice(0, 3);
+    const deja = new Set(trois.map((l) => l.pv[0]));
+    const suivants = l6.filter((l) => !deja.has(l.pv[0])).slice(0, 3);
+    // rangs 4, 5, 6 ; des coups exactement aussi bons gardent le même rang (aussi avec le 3e)
     const choix = [];
-    l6.forEach((l, i) => { if (i >= 3 && !deja.has(l.pv[0]) && choix.length < 3) choix.push({ l, r: rangs[i] }); });
+    suivants.forEach((l, i) => {
+      const v = valeurScore(l.score);
+      let r = 4 + i;
+      if (i > 0 && v === valeurScore(suivants[i - 1].score)) r = choix[i - 1].r;
+      else if (i === 0 && trois.length === 3 && v === valeurScore(trois[2].score)) r = rangsEgaux(trois)[2];
+      choix.push({ l, r });
+    });
     const versBlanc = (s) => (plus.trait === 'w' ? s : inverser(s));
     const fl = [];
     choix.forEach(({ l, r }, i) => {
@@ -1226,6 +1262,7 @@
     else window.Son.defaite();
     modale('<h2>' + titre + '</h2><p>' + raison + '</p>', [
       { texte: '📊 Bilan de la partie', classe: 'principal', action: () => window.Bilan.ouvrir(rec) },
+      { texte: '💾 Enregistrer', action: () => window.Repertoire.enregistrer(rec) },
       { texte: '↻ Recommencer', action: relancer },
       { texte: 'Voir le plateau' },
       { texte: '☰ Menu', action: () => ecran('accueil') }
@@ -1247,8 +1284,22 @@
     return rec;
   }
 
+  // fiche d'une partie pas encore finie (pour la ranger dans « Mes parties »)
+  function ficheEnCours() {
+    const p = jeu.partie;
+    return {
+      id: jeu.id, date: jeu.date, variante: jeu.variante, varianteNom: jeu.variante.nom,
+      fen0: p.fen0, coups: p.coups.slice(),
+      blancs: nomJoueur('w') + (detailJoueur('w') ? ' (' + detailJoueur('w') + ')' : ''),
+      noirs: nomJoueur('b') + (detailJoueur('b') ? ' (' + detailJoueur('b') + ')' : ''),
+      adversaire: jeu.adversaire, humain: jeu.humain, reglages: jeu.reglages, cfg: jeu.cfg,
+      resultat: '*', raison: 'partie en cours', aide: jeu.aide, pendule: jeu.pendule, reflexion: jeu.reflexion, analyse: null
+    };
+  }
   function parties() { return lire(CLE_PARTIES, []).filter((r) => r.variante); }
   function sauverPartie(rec) {
+    // partie rangée dans « Mes parties » : c'est là qu'on garde son analyse
+    if (rec.rep) { window.Repertoire.maj(rec); return; }
     let l = parties().filter((x) => x.id !== rec.id);
     l.unshift(rec);
     if (l.length > 50) l = l.slice(0, 50);
@@ -1383,6 +1434,13 @@
     $('#btn-effacer-reperes').addEventListener('click', () => plateau.effacerReperes());
     $('#btn-plus-coups').addEventListener('click', chercherPlus);
     $('#btn-coach').addEventListener('click', ouvrirCoach);
+    $('#btn-enregistrer-partie').addEventListener('click', () => {
+      if (!jeu) return;
+      let rec = jeu.fin ? parties().find((x) => x.id === jeu.id) : null;
+      if (!rec) rec = ficheEnCours();
+      window.Repertoire.enregistrer(rec);
+    });
+    window.Repertoire.init();
     majBoutonConseils();
     window.addEventListener('blur', () => { toucheTenue = false; tenirConseils(false); });
     document.addEventListener('keyup', (e) => {

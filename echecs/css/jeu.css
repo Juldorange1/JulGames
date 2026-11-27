@@ -40,7 +40,7 @@ p { margin: 6px 0; line-height: 1.4; }
 /* ---------- écrans ---------- */
 .ecran { display: none; height: 100vh; }
 .ecran.visible { display: flex; }
-#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres, #ecran-cartes, #ecran-bots { flex-direction: column; }
+#ecran-accueil, #ecran-jouer, #ecran-config, #ecran-persos, #ecran-parametres, #ecran-cartes, #ecran-bots, #ecran-creer, #ecran-repertoire { flex-direction: column; }
 .entete { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--bord); background: rgba(0,0,0,.15); }
 .entete h1 { font-size: 30px; color: var(--accent); }
 .entete .et { color: var(--texte); font-weight: 400; }
@@ -651,23 +651,54 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .bouton-coach:hover { border-color: #7aa6f0; }
 .bouton-coach.large { width: 100%; justify-content: center; flex: none; }
 .coach { position: absolute; inset: 0; z-index: 30; background: var(--fond2); display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-left: 3px solid #4a7bd0; }
-.coach-tete { display: flex; align-items: center; gap: 10px; font-size: 20px; }
-.coach-tete b { color: #9cc1ff; }
-.coach-sous { flex: 1; }
-.coach-fermer { padding: 4px 12px; }
-.coach-onglets { display: flex; flex-wrap: wrap; gap: 5px; }
-.coach-onglets button { background: var(--panneau); border: 2px solid var(--bord); color: inherit; border-radius: 16px; padding: 4px 10px; font-size: 16px; cursor: pointer; }
+.coach-tete { display: flex; align-items: center; gap: 8px; font-size: 20px; }
+.coach-tete b { color: #9cc1ff; white-space: nowrap; }
+.coach-onglets { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+.coach-onglets button { background: var(--panneau); border: 2px solid var(--bord); color: inherit; border-radius: 16px; padding: 3px 10px; font-size: 16px; cursor: pointer; }
 .coach-onglets button.actif { border-color: #4a7bd0; background: #24324a; color: #cfe0ff; }
-.coach-corps { flex: 1; min-height: 0; overflow-y: auto; background: #1b1e23; border-radius: 12px; padding: 12px 14px; }
-.coach-titre { margin: 0 0 8px; font-size: 20px; color: var(--accent); }
-.coach-texte { font-size: 17px; line-height: 1.45; }
-.coach-texte p { margin: 0 0 10px; }
-.coach-texte b { color: #fff; }
+.coach-fermer { padding: 4px 12px; }
+.coach-corps { flex: 1; min-height: 0; overflow-y: auto; background: #1b1e23; border-radius: 12px; padding: 12px 14px; font-size: 17px; line-height: 1.4; }
+.coach-corps p { margin: 0 0 8px; }
+.coach-corps b { color: #fff; }
+.coach-titre { margin: 0 0 8px; font-size: 21px; color: var(--accent); }
 .coach-coup { color: #7fe07f !important; }
+.coach-sous { color: var(--gris); margin-bottom: 4px !important; }
+.coach-liste { margin: 0 0 8px; padding-left: 20px; }
+.coach-liste li { margin-bottom: 6px; }
+.coach-liste li[data-vue] { cursor: pointer; }
+.coach-liste li.choisi { color: #cfe0ff; }
+.coach-menace { color: #ffd0c8; }
 .coach-ligne { color: var(--gris); font-size: 16px; }
-.coach-ligne b { color: var(--accent) !important; }
-.coach-notion { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 10px; background: #24324a; color: #9cc1ff; font-size: 16px; cursor: pointer; white-space: nowrap; }
+.coach-chip { display: inline-block; margin: 0 4px 4px 0; padding: 1px 8px; border-radius: 10px; background: var(--panneau); border: 2px solid var(--bord); color: #e8e8e8; cursor: pointer; }
+.coach-chip.choisi { border-color: #4a7bd0; background: #24324a; }
+.coach-bloc { padding: 8px 10px; border: 2px solid var(--bord); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+.coach-bloc.choisi { border-color: #4a7bd0; background: #1f2838; }
 .coach-attente { color: var(--gris); }
 .coach-nav { display: flex; align-items: center; gap: 8px; }
 .coach-nav .bouton { flex: 1; justify-content: center; }
-.coach-pos { min-width: 64px; text-align: center; color: var(--gris); font-size: 16px; }
+
+/* menu : 4 cartes ; « Créer » : 3 cartes */
+.menu-cartes { grid-template-columns: repeat(4, minmax(0, 240px)); }
+.menu-cartes.trois { grid-template-columns: repeat(3, minmax(0, 260px)); }
+/* ---------- Mes parties ---------- */
+.repertoire { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px 1fr; gap: 16px; padding: 14px 18px; }
+.rep-gauche { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.rep-dossiers { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+.rep-dossiers .ps-carte { padding: 8px 10px; }
+.rep-dnom { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-compte { color: var(--gris); font-size: 16px; }
+.rep-droite { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.rep-entete { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rep-entete h2 { margin: 0; flex: 1; font-size: 22px; }
+.rep-actions { display: flex; gap: 6px; }
+.rep-liste { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.rep-partie { display: flex; align-items: center; gap: 10px; background: var(--panneau); border: 2px solid var(--bord); border-radius: 12px; padding: 8px 12px; min-height: 70px; flex: none; }
+.rep-infos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rep-infos b { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-infos span { color: var(--gris); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rep-boutons { display: flex; gap: 6px; flex: none; }
+.rep-pages { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.rep-pages:empty { display: none; }
+.ligne-plus .bouton-effacer { width: auto; }
+.repertoire > *, .rep-liste, .rep-partie { min-width: 0; }
+.rep-boutons { flex-wrap: wrap; }
