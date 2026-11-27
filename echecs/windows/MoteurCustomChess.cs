@@ -1,6 +1,8 @@
-﻿// Moteur Custom Chess pour Windows : fait tourner le vrai Stockfish (version Windows officielle, gratuite, GPL)
+// Moteur Custom Chess pour Windows : fait tourner le vrai Stockfish (version Windows officielle, gratuite, GPL)
 // sur presque tous les cœurs du PC, et le prête au jeu Custom Chess (page web) par un WebSocket local :
-// ws://127.0.0.1:57613/ . Une connexion = un Stockfish. Rien d'autre n'est accessible.
+// ws://127.0.0.1:57613/ . Une connexion = un Stockfish.
+// Il sert aussi le jeu lui-même à http://localhost:57613/ (copie du site JulGames gardée sur le PC) : le jeu et
+// le moteur sont alors au même endroit, et aucun navigateur ne bloque la connexion.
 // Au premier lancement, Stockfish est téléchargé depuis github.com/official-stockfish (≈ 80 Mo).
 // Compilation : csc /target:winexe /out:MoteurCustomChess.exe /r:System.IO.Compression.dll
 //   /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll MoteurCustomChess.cs
@@ -38,7 +40,8 @@ static class MoteurCustomChess
         var menu = new ContextMenuStrip();
         var auto = new ToolStripMenuItem("Lancer avec Windows") { Checked = LanceAvecWindows(), CheckOnClick = true };
         auto.CheckedChanged += (s, e) => ChangerLancement(auto.Checked);
-        menu.Items.Add(new ToolStripMenuItem("Ouvrir Custom Chess", null, (s, e) => Process.Start("https://juldorange1.github.io/JulGames/echecs/")));
+        menu.Items.Add(new ToolStripMenuItem("Ouvrir Custom Chess", null, (s, e) => Process.Start("http://localhost:" + PORT + "/")));
+        icone.DoubleClick += (s, e) => Process.Start("http://localhost:" + PORT + "/");
         menu.Items.Add(auto);
         menu.Items.Add(new ToolStripMenuItem("Quitter", null, (s, e) => { icone.Visible = false; Environment.Exit(0); }));
         icone.ContextMenuStrip = menu;
@@ -48,7 +51,7 @@ static class MoteurCustomChess
             try { cheminSf = TrouverStockfish(); }
             catch (Exception ex) { Bulle("Impossible de préparer Stockfish : " + ex.Message, ToolTipIcon.Error); return; }
             MajTexte();
-            Bulle("Prêt : Stockfish sur " + Environment.ProcessorCount + " cœurs. Recharge la page du jeu.", ToolTipIcon.Info);
+            Bulle("Prêt : Stockfish sur " + Environment.ProcessorCount + " cœurs. Double-clique ici pour ouvrir le jeu.", ToolTipIcon.Info);
             while (true)
             {
                 TcpClient c = ecoute.AcceptTcpClient();
@@ -134,7 +137,12 @@ static class MoteurCustomChess
                 if (n == "sec-websocket-key") cle = v;
                 if (n == "origin") origine = v;
             }
-            if (cle == null || !OrigineOk(origine))
+            if (cle == null)
+            {
+                ServirFichier(flux, entete.ToString());
+                return;
+            }
+            if (!OrigineOk(origine))
             {
                 var refus = Encoding.ASCII.GetBytes("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
                 flux.Write(refus, 0, refus.Length); return;
@@ -204,6 +212,74 @@ static class MoteurCustomChess
                 try { sf.StandardInput.WriteLine("quit"); if (!sf.WaitForExit(1500)) sf.Kill(); } catch { }
             }
             try { client.Close(); } catch { }
+        }
+    }
+
+    // ---------- le jeu servi depuis le PC : copie du site, mise à jour à chaque ouverture ----------
+    const string SITE = "https://juldorange1.github.io/JulGames/echecs/";
+    static readonly string Cache = Path.Combine(Dossier, "site");
+    static void ServirFichier(Stream flux, string entete)
+    {
+        string premiere = entete.Split(new[] { "\r\n" }, StringSplitOptions.None)[0];
+        string[] m = premiere.Split(' ');
+        string chemin = m.Length > 1 ? m[1] : "/";
+        int q = chemin.IndexOf('?'); if (q >= 0) chemin = chemin.Substring(0, q);
+        q = chemin.IndexOf('#'); if (q >= 0) chemin = chemin.Substring(0, q);
+        chemin = Uri.UnescapeDataString(chemin).TrimStart('/');
+        if (chemin == "" || chemin.EndsWith("/")) chemin += "index.html";
+        bool sur = chemin.Length < 200 && !chemin.Contains("..") && !chemin.Contains("\\") && !chemin.Contains(":");
+        foreach (char c in chemin) if (!(char.IsLetterOrDigit(c) || c == '/' || c == '.' || c == '-' || c == '_')) sur = false;
+        byte[] corps = null;
+        if (sur)
+        {
+            string local = Path.Combine(Cache, chemin.Replace('/', Path.DirectorySeparatorChar));
+            bool gros = chemin.EndsWith(".wasm") || chemin.EndsWith(".json") || chemin.EndsWith(".tsv");
+            // gros fichiers : la copie du PC d'abord ; le reste : le site d'abord (toujours à jour), la copie si pas d'internet
+            if (gros && File.Exists(local)) corps = File.ReadAllBytes(local);
+            if (corps == null)
+            {
+                try
+                {
+                    using (var w = new WebClient())
+                    {
+                        ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
+                        w.Headers[HttpRequestHeader.CacheControl] = "no-cache";
+                        corps = w.DownloadData(SITE + chemin + (gros ? "" : "?t=" + DateTime.UtcNow.Ticks));
+                    }
+                    Directory.CreateDirectory(Path.GetDirectoryName(local));
+                    File.WriteAllBytes(local, corps);
+                }
+                catch { if (File.Exists(local)) corps = File.ReadAllBytes(local); }
+            }
+        }
+        string type = TypeDe(chemin);
+        var sb = new StringBuilder();
+        if (corps == null) sb.Append("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n");
+        else sb.Append("HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nContent-Length: " + corps.Length + "\r\n");
+        sb.Append("Cross-Origin-Opener-Policy: same-origin\r\nCross-Origin-Embedder-Policy: require-corp\r\nCross-Origin-Resource-Policy: same-origin\r\n");
+        sb.Append("Cache-Control: no-cache\r\nConnection: close\r\n\r\n");
+        var h = Encoding.ASCII.GetBytes(sb.ToString());
+        flux.Write(h, 0, h.Length);
+        if (corps != null) flux.Write(corps, 0, corps.Length);
+        flux.Flush();
+    }
+    static string TypeDe(string c)
+    {
+        string e = Path.GetExtension(c).ToLowerInvariant();
+        switch (e)
+        {
+            case ".html": return "text/html; charset=utf-8";
+            case ".js": return "text/javascript; charset=utf-8";
+            case ".css": return "text/css; charset=utf-8";
+            case ".json": return "application/json";
+            case ".wasm": return "application/wasm";
+            case ".svg": return "image/svg+xml";
+            case ".png": return "image/png";
+            case ".jpg": return "image/jpeg";
+            case ".webp": return "image/webp";
+            case ".txt": case ".tsv": case ".md": return "text/plain; charset=utf-8";
+            case ".exe": return "application/octet-stream";
+            default: return "application/octet-stream";
         }
     }
 

@@ -172,12 +172,16 @@
       note.innerHTML = '';
       note.append(window.Moteurs.complet() ? 'Stockfish 19 complet sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs, livre d’ouvertures, parties de maîtres et analyses de Lichess. '
         : 'Moteur réduit : recharge la page une fois pour avoir Stockfish complet. ');
-      if (/Windows/i.test(navigator.userAgent)) {
+      if (/Windows/i.test(navigator.userAgent) && !window.Config.surPC) {
         const a = document.createElement('a');
         a.href = 'windows/MoteurCustomChess.exe'; a.download = 'MoteurCustomChess.exe';
-        a.textContent = '⬇ Moteur Windows gratuit : 4 fois plus de calcul';
-        a.title = 'Petit programme qui fait tourner le vrai Stockfish sur tous les cœurs du PC. Lance-le, puis recharge cette page.';
-        note.appendChild(a);
+        a.textContent = '⬇ Moteur Windows gratuit (4 fois plus de calcul)';
+        a.title = 'Petit programme qui fait tourner le vrai Stockfish sur tous les cœurs du PC.';
+        const b = document.createElement('a');
+        b.href = '#'; b.textContent = '🖥 Jouer avec le moteur Windows';
+        b.title = 'Il faut que le programme soit lancé. Tes bots, pendules et parties sont emportés.';
+        b.onclick = (e) => { e.preventDefault(); location.href = window.Config.lienPC(); };
+        note.append(a, ' ', b);
       }
     };
     ecrire();
