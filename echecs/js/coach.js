@@ -763,7 +763,7 @@
     const e = etat;
     etat = null;
     jeton++;
-    const m = window.Moteurs.tous().find((x) => x.role === 'coach');
+    const m = window.Moteurs.tous().find((x) => x.role === 'aide');
     if (m && m.pret) m.arreter();
     e.el.remove();
     const ecr = e.ctx.conteneur.closest('.ecran');
@@ -822,7 +822,7 @@
   // --------------------------------------------------------------------
   //  Préparation : moteur + idées -> 2 ou 3 pages
   // --------------------------------------------------------------------
-  const PROF_MENACE = { sf: 14, fairy: 11, maison: 4 };
+  const PROF_MENACE = { sf: 16, fairy: 11, maison: 4 };
   const typeMoteur = (v) => (v.moteur === 'sf' ? 'sf' : v.moteur === 'maison' ? 'maison' : 'fairy');
 
   function classique(v, fen) {

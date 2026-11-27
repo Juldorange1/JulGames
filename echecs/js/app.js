@@ -1,6 +1,5 @@
-/* Échecs — déroulement : accueil, lancement d'une configuration (avec tirage au hasard sous contrôle
-   de l'avantage), partie contre les bots, barre d'avantage permanente, meilleurs coups, navigation,
-   recommencer, pendule, sauvegardes. */
+/* Échecs classiques — déroulement : accueil, partie contre les bots ou à deux, barre d'avantage permanente,
+   meilleurs coups, navigation, recommencer, pendule, sauvegardes. */
 (function () {
   'use strict';
 
@@ -35,16 +34,16 @@
   }
 
   const options = Object.assign({
-    sons: true, ambiance: true, volume: 40, theme: 'sable', decor: 'nuit', jouer: 'classique', adversaire: 'ami', avMin: -0.5, avMax: 0.5, couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: [], pieces: 'cburnett', curseur: 'systeme'
+    sons: true, adversaire: 'ami', couleur: 'w', pendule: '0', reflexion: '3000', touche: { code: 'Space', nom: 'Espace' }, pendules: []
   }, lire(CLE_OPT, {}));
   // Les 3 meilleurs coups ne s'affichent que tant qu'on tient la touche (ou le bouton) enfoncée.
   let conseilsTenus = false;
   let toucheTenue = false;
-  // Profondeur à atteindre avant d'afficher les 3 meilleurs coups (ils ne changent plus ensuite).
-  // profondeur fixe : la même position donne toujours les mêmes 3 meilleurs coups, quel que soit le bot
-  const PROF_CONSEILS = { sf: 22, fairy: 16, maison: 8 };
-  const typeMoteur = (v) => (v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy');
-  const MAX_CONSEILS = 60000; // ms au plus (en général la profondeur fixe est atteinte bien avant)
+  // Profondeur à atteindre avant d'afficher les meilleurs coups (ils ne changent plus ensuite) : Stockfish complet,
+  // profondeur 24, ou 10 s au plus dans les positions très compliquées. Si Lichess a déjà analysé la position
+  // plus profondément, c'est son analyse qui est prise (tout de suite).
+  const PROF_CONSEILS = 24;
+  const MAX_CONSEILS = 10000;
   function sauverOptions() { ecrire(CLE_OPT, options); }
 
   // ---------- évaluations ----------
@@ -123,12 +122,8 @@
     if (App.ecranActuel && App.ecranActuel !== nom) window.Son.ecran();
     App.ecranActuel = nom;
     if (nom === 'accueil') construireMenu();
-    if (nom === 'jouer') { pageJouer = -1; construireJouer(); }
-    if (nom === 'parametres') construireParametres();
-    if (nom === 'cartes') window.EditeurCartes.ouvrir();
+    if (nom === 'jouer') construireJouer();
     if (nom === 'bots') window.EditeurBots.ouvrir();
-    if (nom === 'config') window.EditeurConfig.ouvrir();
-    if (nom === 'persos') window.EditeurPersos.ouvrir();
     if (nom === 'repertoire') requestAnimationFrame(() => window.Repertoire.ouvrir());
     requestAnimationFrame(redimensionner);
   }
@@ -169,73 +164,14 @@
   function construireMenu() {
     const enCours = lire(CLE_ENCOURS, null);
     $('#btn-reprendre').style.display = enCours ? '' : 'none';
-    if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours (' + ((enCours.variante && enCours.variante.nom) || 'Partie normale') + ')';
+    if (enCours) $('#btn-reprendre').textContent = '↺ Reprendre la partie en cours';
     const note = $('#note-moteur');
-    if (!window.Moteurs.disponible('fairy')) note.textContent = 'Les bots ont besoin que la page soit rechargée une fois (et ouverte par une adresse http, pas en fichier).';
-    else note.textContent = window.crossOriginIsolated ? 'Les moteurs calculent sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs du processeur (la moitié, pour rester fluide).' : '';
+    note.textContent = window.Moteurs.complet() ? 'Stockfish 19 complet sur ' + Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2))) + ' cœurs, livre d’ouvertures, parties de maîtres et analyses de Lichess.'
+      : 'Moteur réduit : recharge la page une fois pour avoir Stockfish complet.';
   }
 
-  // ---------- paramètres : thème du plateau, décor de fond ----------
-  function choisirOngletPar(o) {
-    $$('#par-onglets button').forEach((b) => b.classList.toggle('actif', b.dataset.par === o));
-    $$('.par-panneau').forEach((p) => p.classList.toggle('cache', p.dataset.par !== o));
-  }
-  // son d'ambiance du décor choisi (fondu doux)
-  function majAmbiance() {
-    const d = window.Themes.DECORS.find((x) => x.id === options.decor);
-    window.Son.ambiance(options.ambiance && d ? d.ambiance || null : null, options.volume / 100);
-  }
-  function construireParametres() {
-    $('#opt-sons').checked = options.sons;
-    $('#opt-ambiance').checked = options.ambiance;
-    $('#opt-volume').value = options.volume;
-    $$('#par-onglets button').forEach((b) => { b.onclick = () => choisirOngletPar(b.dataset.par); });
-    if (!$('#par-onglets .actif')) choisirOngletPar('plateau'); else choisirOngletPar($('#par-onglets .actif').dataset.par);
-    const remplir = (box, liste, cle, apercu, appliquer) => {
-      box.innerHTML = '';
-      for (const [g, titre] of window.Themes.GROUPES) {
-        const h = document.createElement('h3'); h.className = 'titre-groupe'; h.textContent = titre;
-        const grille = document.createElement('div'); grille.className = 'grille-apparence';
-        box.append(h, grille);
-      for (const t of liste.filter((x) => x.groupe === g)) {
-        const b = document.createElement('button');
-        b.className = 'carte-apparence' + (options[cle] === t.id ? ' choisie' : '');
-        b.appendChild(apercu(t));
-        const n = document.createElement('span'); n.textContent = t.nom; b.appendChild(n);
-        b.onclick = () => {
-          options[cle] = t.id; sauverOptions(); appliquer(t.id);
-          box.querySelectorAll('.carte-apparence').forEach((x) => x.classList.toggle('choisie', x === b));
-        };
-        grille.appendChild(b);
-      }
-      }
-    };
-    remplir($('#par-pieces'), window.Pieces.JEUX, 'pieces', window.Pieces.apercuJeu, window.Pieces.choisirJeu);
-    const gc = $('#par-curseurs');
-    gc.innerHTML = '';
-    for (const c of window.Curseurs.LISTE) {
-      const b = document.createElement('button');
-      b.className = 'carte-apparence' + (options.curseur === c.id ? ' choisie' : '');
-      b.appendChild(window.Curseurs.apercu(c));
-      const n = document.createElement('span'); n.textContent = c.nom; b.appendChild(n);
-      b.onclick = () => {
-        options.curseur = c.id; sauverOptions(); window.Curseurs.appliquer(c.id);
-        gc.querySelectorAll('.carte-apparence').forEach((x) => x.classList.toggle('choisie', x === b));
-      };
-      gc.appendChild(b);
-    }
-    remplir($('#par-themes'), window.Themes.THEMES, 'theme', window.Themes.apercuTheme, window.Themes.appliquerTheme);
-    remplir($('#par-decors'), window.Themes.DECORS, 'decor', window.Themes.apercuDecor, (id) => { window.Themes.appliquerDecor(id); majAmbiance(); });
-  }
-
-  // ---------- jouer : partie normale ou configuration créée ----------
+  // ---------- jouer ----------
   let plateauApercu = null;
-  let jetonApercu = 0;
-  let pageJouer = 0;
-  const PAR_PAGE_JOUER = 9;
-  function configChoisie() {
-    return window.Config.trouver(options.jouer || 'classique') || window.Config.classique();
-  }
   // Les bots créés, sous les adversaires du jeu, + un bouton pour en créer.
   function remplirBots() {
     let box = $('#choix-bots');
@@ -254,22 +190,6 @@
   }
   function jouerContre(id) { options.adversaire = id; sauverOptions(); ecran('jouer'); }
 
-  function majAvantageVoulu() {
-    const ecrit = (v) => (v > 0 ? '+' : '') + String(v).replace('.', ',');
-    if (document.activeElement !== $('#jo-av-min')) $('#jo-av-min').value = ecrit(options.avMin);
-    if (document.activeElement !== $('#jo-av-max')) $('#jo-av-max').value = ecrit(options.avMax);
-  }
-  function lireAvantageVoulu(e) {
-    const lire = (el) => { const v = parseFloat(String(el.value).replace(',', '.').replace('−', '-').replace(/\s/g, '')); return isNaN(v) ? null : Math.max(-50, Math.min(50, v)); };
-    const a = lire($('#jo-av-min')), b = lire($('#jo-av-max'));
-    $('#jo-av-min').classList.toggle('faux', a == null); $('#jo-av-max').classList.toggle('faux', b == null);
-    if (a == null || b == null) return;
-    // la case qu'on vient d'écrire a raison : l'autre s'ajuste si besoin
-    const surMax = e && e.target && e.target.id === 'jo-av-max';
-    if (a > b) { if (surMax) options.avMin = options.avMax = b; else options.avMin = options.avMax = a; }
-    else { options.avMin = a; options.avMax = b; }
-    sauverOptions();
-  }
   // Pendules : seulement celles que le joueur a créées (minutes + secondes ajoutées à chaque coup).
   function textePendule(v) { const [m, s] = v.split('+'); return m + ' min' + (+s ? ' + ' + s + ' s' : ''); }
   function remplirPendules() {
@@ -314,53 +234,8 @@
   function construireJouer() {
     remplirBots();
     remplirPendules();
-    majAvantageVoulu();
-    const cfg = configChoisie();
-    if (cfg.id !== options.jouer) { options.jouer = cfg.id; sauverOptions(); }
-    const { pos, zones } = window.Editeur.positionAffichage(cfg);
-    plateauApercu.afficher(pos, { decor: { zones } });
+    plateauApercu.afficher(window.Regles.lireFen(window.Config.STD), {});
     redimensionnerApercu();
-    // liste : partie normale + configurations créées (par pages : rien ne défile)
-    const box = $('#jouer-liste');
-    box.innerHTML = '';
-    const toutes = [Object.assign(window.Config.classique(), { nom: '♟ Partie normale' })].concat(window.Config.liste());
-    const pages = Math.max(1, Math.ceil(toutes.length / PAR_PAGE_JOUER));
-    const ici = toutes.findIndex((c) => c.id === cfg.id);
-    if (pageJouer < 0) pageJouer = ici >= 0 ? Math.floor(ici / PAR_PAGE_JOUER) : 0;
-    pageJouer = Math.min(pageJouer, pages - 1);
-    for (const c of toutes.slice(pageJouer * PAR_PAGE_JOUER, (pageJouer + 1) * PAR_PAGE_JOUER)) {
-      const b = document.createElement('button');
-      b.className = 'puce-config' + (c.id === cfg.id ? ' choisie' : '') + (c.id === 'classique' ? ' normale' : '');
-      b.textContent = c.nom;
-      b.title = c.nom;
-      b.onclick = () => { options.jouer = c.id; sauverOptions(); construireJouer(); };
-      box.appendChild(b);
-    }
-    if (pages > 1) box.appendChild(window.Editeur.pagination(pageJouer, pages, (p) => { pageJouer = p; construireJouer(); }));
-    if (window.Config.liste().length === 0) {
-      const a = document.createElement('p');
-      a.className = 'aide';
-      a.textContent = 'Tes configurations apparaîtront ici (menu « 🛠 Créer » → Configurations de parties).';
-      box.appendChild(a);
-    }
-    // avantage
-    const jet = ++jetonApercu;
-    const av = $('#acc-avantage');
-    const err = window.Config.verifier(cfg);
-    $('#btn-commencer').disabled = !!err;
-    if (err) { av.textContent = '⚠ ' + err; av.className = 'acc-avantage erreur'; }
-    else if (window.Config.aleatoire(cfg)) {
-      av.className = 'acc-avantage';
-      av.textContent = '🎲 Avec du hasard : le tirage est refait jusqu’à tomber dans ton avantage voulu.';
-    } else {
-      av.className = 'acc-avantage';
-      av.textContent = 'Calcul de l’avantage des blancs…';
-      const v = window.Config.construire(cfg, window.Config.tirage(cfg));
-      window.Config.evaluer(v, { profondeur: 16, temps: 1200 }).then((x) => {
-        if (jet !== jetonApercu || x == null) return;
-        av.textContent = 'Avantage des blancs au départ : ' + window.Editeur.texteAvantage(x) + ' (sans hasard, il ne peut pas changer).';
-      }).catch(() => {});
-    }
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
       $$(id + ' button[data-val]').forEach((b) => {
         b.classList.toggle('choisi', b.dataset.val === String(options[cle]));
@@ -368,11 +243,6 @@
       });
     }
     majChoix();
-  }
-  function jouerAvec(id) {
-    options.jouer = id;
-    sauverOptions();
-    ecran('jouer');
   }
   function majChoix() {
     for (const [id, cle] of [['#choix-adversaire', 'adversaire'], ['#choix-couleur', 'couleur'], ['#choix-pendule', 'pendule'], ['#choix-reflexion', 'reflexion']]) {
@@ -395,36 +265,8 @@
     return { adversaire: options.adversaire, couleur: options.couleur, pendule: options.pendule, reflexion: options.reflexion };
   }
 
-  // Prépare la configuration courante (tirage au hasard contrôlé) puis lance la partie.
-  async function commencer(cfg, reglages) {
-    cfg = window.Config.copie(cfg || configChoisie());
-    cfg.avMin = options.avMin; cfg.avMax = options.avMax;
-    reglages = reglages || reglagesActuels();
-    const err = window.Config.verifier(cfg);
-    if (err) {
-      modale('<h2>Configuration impossible</h2><p></p>', [{ texte: '⚙ La modifier', classe: 'principal', action: () => { if (cfg.id !== 'classique') window.Config.definirCourante(cfg); ecran('config'); } }, { texte: 'Fermer' }]).querySelector('p').textContent = err;
-      return;
-    }
-    arreterTout();
-    let prep;
-    if (window.Config.aleatoire(cfg)) {
-      const c = modale('<h2>Tirage au sort…</h2><p class="tirage">Recherche d’un tirage où l’avantage des blancs est entre ' +
-        window.Editeur.texteAvantage(cfg.avMin) + ' et ' + window.Editeur.texteAvantage(cfg.avMax) + '.</p><p class="tirage-etat"></p>', [], false);
-      try {
-        prep = await window.Config.preparer(cfg, (i, n, av, ok) => {
-          c.querySelector('.tirage-etat').textContent = 'Essai ' + i + ' : avantage ' + window.Editeur.texteAvantage(av) + (ok ? ' ✔' : ' (hors fourchette)');
-        });
-      } catch (e) {
-        fermerModale();
-        bulle('Aucun tirage jouable : change la configuration.');
-        return;
-      }
-      fermerModale();
-      if (prep.ecart > 0) bulle('Aucun tirage dans la fourchette : le plus proche a été pris (' + window.Editeur.texteAvantage(prep.avantage) + ').');
-    } else {
-      prep = { variante: window.Config.construire(cfg, window.Config.tirage(cfg)), avantage: null };
-    }
-    lancerPartie(prep.variante, reglages, null, cfg);
+  function commencer(reglages) {
+    lancerPartie(window.Config.variante(), reglages || reglagesActuels(), null);
   }
 
   // ---------- partie ----------
@@ -444,13 +286,13 @@
     if (!jeu || jeu.adversaire === 'ami' || camp === jeu.humain) return '';
     const b = botDe(jeu.adversaire);
     if (b.elo || b.rangs) return b.detail;
-    return jeu.variante.moteur === 'sf' ? 'Stockfish 19' : jeu.variante.moteur === 'maison' ? 'moteur Custom Chess' : 'Fairy-Stockfish';
+    return 'Stockfish 19 + ouvertures';
   }
   function estAuBot() {
     return jeu && !jeu.fin && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain;
   }
 
-  function lancerPartie(v, reglages, depuis, cfg) {
+  function lancerPartie(v, reglages, depuis) {
     arreterTout();
     if (jeu && jeu.partie) jeu.partie.detruire();
     let humain = reglages.couleur;
@@ -466,7 +308,7 @@
     }
     const pend = reglages.pendule && reglages.pendule !== '0' ? String(reglages.pendule).split('+').map(Number) : null;
     jeu = {
-      id: 'p' + Date.now().toString(36), date: Date.now(), variante: v, cfg: cfg ? window.Config.copie(cfg) : null,
+      id: 'p' + Date.now().toString(36), date: Date.now(), variante: v,
       reglages: Object.assign({}, reglages, { couleur: humain }),
       partie, adversaire: reglages.adversaire, humain, reflexion: +reglages.reflexion || 3000,
       pendule: pend ? { base: pend[0] * 60000, inc: (pend[1] || 0) * 1000 } : null,
@@ -485,13 +327,13 @@
 
   function reprendre() {
     const s = lire(CLE_ENCOURS, null);
-    if (!s || !s.variante) return;
+    if (!s || !window.Config.estClassique(s.variante)) { localStorage.removeItem(CLE_ENCOURS); construireMenu(); return; }
     arreterTout();
     if (jeu && jeu.partie) jeu.partie.detruire();
     let partie;
     try { partie = new window.Regles.Partie(s.variante, s.fen0, s.coups); } catch (e) { bulle('Partie illisible.'); localStorage.removeItem(CLE_ENCOURS); return; }
     jeu = {
-      id: s.id, date: s.date, variante: s.variante, cfg: s.cfg, reglages: s.reglages, partie, adversaire: s.adversaire, humain: s.humain,
+      id: s.id, date: s.date, variante: s.variante, reglages: s.reglages, partie, adversaire: s.adversaire, humain: s.humain,
       reflexion: s.reflexion, pendule: s.pendule, temps: s.temps, fin: null, aide: s.aide, vue: null, analyse: null
     };
     window.Moteurs.pourVariante(s.variante, 'jeu').nouvellePartie();
@@ -505,7 +347,7 @@
   function sauverEnCours() {
     if (!jeu || jeu.fin) { localStorage.removeItem(CLE_ENCOURS); return; }
     ecrire(CLE_ENCOURS, {
-      id: jeu.id, date: jeu.date, variante: jeu.variante, cfg: jeu.cfg, reglages: jeu.reglages, fen0: jeu.partie.fen0, coups: jeu.partie.coups,
+      id: jeu.id, date: jeu.date, variante: jeu.variante, reglages: jeu.reglages, fen0: jeu.partie.fen0, coups: jeu.partie.coups,
       adversaire: jeu.adversaire, humain: jeu.humain, reflexion: jeu.reflexion, pendule: jeu.pendule, temps: jeu.temps, aide: jeu.aide
     });
   }
@@ -543,8 +385,6 @@
       try { const t = new window.Regles.Partie(jeu.variante, p.fen0, p.coups.slice(0, n)); echec = caseRoiEnEchec(pos, t); t.detruire(); } catch (e) { /* rien */ }
     }
     plateau.afficher(pos, Object.assign({ variante: jeu.variante, dernier: dernierCoupCases(p.coups[n - 1]), echec, animer }, extra || {}));
-    $('#nom-config').innerHTML = 'Configuration : <b></b>';
-    $('#nom-config b').textContent = jeu.variante.nom || 'Classique';
     const bas = plateau.retourne ? 'b' : 'w';
     const haut = bas === 'w' ? 'b' : 'w';
     for (const [id, camp] of [['#joueur-haut', haut], ['#joueur-bas', bas]]) {
@@ -653,8 +493,12 @@
         if (jeu.vue == null) { jeu.analyse = { n: n0, cle, trait: trait0, lignes: copieLignes(lignes) }; majAnalyseAffichage(); }
       }
     };
-    // quelques coups de plus que ses rangs, pour bien repérer les coups exactement aussi bons
-    if (bot.rangs) o.multipv = Math.min(20, Math.max(1, bot.rangs.length) + 4);
+    // Bot créé : on tire d'abord le rang qu'il va jouer (1er, 2e, 3e… meilleur coup, selon ses pourcentages).
+    const kTire = bot.rangs ? window.Bots.tirer(bot.rangs, bot.rangs.length) : 0;
+    const pleineForce = !bot.elo && (!bot.rangs || kTire === 0);
+    // quelques coups de plus que ses rangs, pour bien repérer les coups exactement aussi bons ;
+    // pour le 1er meilleur coup, un seul coup cherché : c'est la recherche la plus forte
+    if (bot.rangs) o.multipv = kTire === 0 ? 1 : Math.min(20, Math.max(1, bot.rangs.length) + 4);
     else if (!bot.elo) o.multipv = 3;
     if (jeu.temps && bot.elo) {
       const reste = jeu.temps[p.trait()];
@@ -664,10 +508,31 @@
     } else {
       o.temps = bot.elo ? 900 : jeu.reflexion;
     }
-    let r;
-    try { r = await moteur.chercher(o); } catch (e) { console.error(e); etat('Le bot ne peut pas jouer : ' + e.message); return; }
+    let r = null;
+    // le meilleur coup (Maître, ou bot créé qui doit jouer son 1er meilleur coup) : d'abord tout ce qu'on sait par cœur
+    if (pleineForce) {
+      const su = await savoirDuMaitre(p, cle);
+      if (monJeton !== jeton || !jeu || jeu.fin) return;
+      if (su && su.coup) {
+        r = { coup: su.coup, lignes: su.lignes || [] };
+        etat(bot.nom + ' joue ' + su.pourquoi + '.');
+        if (su.livre) o.coupsLimites = su.livre;
+        else if (su.lignes && su.lignes.length && !bot.rangs) {
+          jeu.cache = jeu.cache || {};
+          jeu.cache[cle] = { n: n0, cle, trait: trait0, lignes: copieLignes(su.lignes), fini: true, source: 'lichess' };
+          if (jeu.vue == null) { jeu.analyse = jeu.cache[cle]; majAnalyseAffichage(); }
+        }
+        if (su.livre) r = null; // livre hors ligne : Stockfish choisit le meilleur des coups de la théorie
+      }
+    }
+    if (!r) {
+      try { r = await moteur.chercher(o); } catch (e) { console.error(e); etat('Le bot ne peut pas jouer : ' + e.message); return; }
+    }
     if (monJeton !== jeton || !jeu || jeu.fin || r.annulee) return;
-    if (bot.rangs && r.lignes.length) {
+    if (bot.rangs && kTire === 0 && r.lignes.length && !r.annulee) {
+      // 1er meilleur coup : le meilleur trouvé
+      if (r.lignes[0].pv && p.legaux().includes(r.lignes[0].pv[0])) r.coup = r.lignes[0].pv[0];
+    } else if (bot.rangs && r.lignes.length) {
       // bot créé : il joue le 1er, 2e, 3e… meilleur coup selon ses pourcentages
       const dispo = r.lignes.filter((l) => l && l.pv && l.pv[0] && p.legaux().includes(l.pv[0]));
       // des coups exactement aussi bons forment UN seul rang (deux « 1er meilleur coup », etc.)
@@ -679,12 +544,12 @@
       }
       niveaux.sort((a, b) => b.v - a.v);
       if (niveaux.length) {
-        const k = window.Bots.tirer(bot.rangs, niveaux.length);
+        const k = Math.min(kTire, niveaux.length - 1);
         const choix = niveaux[k].l;
         r.coup = choix[Math.floor(Math.random() * choix.length)].pv[0];
       }
     }
-    if (!bot.elo && !bot.rangs && r.lignes.length) {
+    if (!bot.elo && !bot.rangs && r.lignes.length && !o.coupsLimites) {
       // le Maître joue exactement le meilleur des 3 coups trouvés (celui qu'on voit en n° 1)
       const premier = r.lignes[0].pv[0];
       if (premier && p.legaux().includes(premier)) r.coup = premier;
@@ -701,6 +566,33 @@
     if (attente > 0 && !jeu.temps) await new Promise((ok) => setTimeout(ok, attente));
     if (monJeton !== jeton || !jeu || jeu.fin) return;
     jouerCoup(r.coup, true);
+  }
+
+  // Ce que le Maître sait par cœur, dans cet ordre :
+  //   finale de 7 pièces ou moins -> le coup parfait (tables de finales) ;
+  //   début de partie -> le coup des maîtres qui marque le plus de points (avec assez de parties) ;
+  //   position déjà analysée très profondément par Lichess -> son meilleur coup ;
+  //   sans internet, dans le livre d'ouvertures -> Stockfish choisit parmi les coups de la théorie.
+  async function savoirDuMaitre(p, fen) {
+    const legaux = p.legaux();
+    const ok = (u) => u && legaux.includes(u);
+    const fin = await window.Savoir.finale(fen);
+    if (fin && ok(fin.coup)) return { coup: fin.coup, pourquoi: 'le coup parfait (tables de finales)' };
+    if (p.coups.length < 30) {
+      const m = await window.Savoir.maitres(fen);
+      if (m && m.total >= 50) {
+        // coups assez joués (5 % des parties au moins), classés par points marqués (prudence pour les petits nombres)
+        const bons = m.coups.filter((c) => ok(c.uci) && c.n >= Math.max(10, m.total * 0.05))
+          .map((c) => Object.assign({ note: (c.score * c.n + 0.5 * 20) / (c.n + 20) }, c))
+          .sort((a, b) => b.note - a.note);
+        if (bons.length) return { coup: bons[0].uci, pourquoi: 'un coup de maître (' + bons[0].n + ' parties)' };
+      }
+    }
+    const nu = await window.Savoir.nuage(fen, 3);
+    if (nu && nu.profondeur >= PROF_CONSEILS && ok(nu.lignes[0].pv[0])) return { coup: nu.lignes[0].pv[0], lignes: nu.lignes, pourquoi: 'le meilleur coup analysé par Lichess (profondeur ' + nu.profondeur + ')' };
+    const livre = window.Savoir.coupsLivre(fen).filter(ok);
+    if (livre.length) return { coup: livre[0], livre, pourquoi: 'la théorie' };
+    return null;
   }
 
   // ---------- analyse en direct (barre + meilleurs coups) ----------
@@ -770,10 +662,29 @@
     jeu.analyse = { n, cle, trait, lignes: [] };
     // au tour du Maître, c'est son propre calcul qui donne la barre et les 3 coups
     if (n === p.coups.length && estAuBot() && !botDe(jeu.adversaire).elo && !botDe(jeu.adversaire).rangs) { majAnalyseAffichage(); return; }
-    const type = typeMoteur(jeu.variante);
+    const nbLegaux = n === p.coups.length ? p.legaux().length : 3;
+    lignesProfondes(cle, 3, nbLegaux).then((nu) => {
+      if (jet !== jetonAnalyse || !jeu) return;
+      if (nu) {
+        // déjà analysée par Lichess plus loin que notre calcul : on la prend telle quelle
+        jeu.analyse = { n, cle, trait, lignes: copieLignes(nu.lignes), fini: true, source: 'lichess' };
+        jeu.cache[cle] = jeu.analyse;
+        majAnalyseAffichage();
+        return;
+      }
+      analyseLocale(p, n, cle, trait, jet);
+    });
+  }
+  // analyse de Lichess utilisable si elle est plus profonde que notre calcul et a assez de coups
+  async function lignesProfondes(fen, multipv, nbLegaux) {
+    const nu = await window.Savoir.nuage(fen, multipv);
+    if (!nu || nu.profondeur < PROF_CONSEILS || nu.lignes.length < Math.min(multipv, nbLegaux)) return null;
+    return nu;
+  }
+  function analyseLocale(p, n, cle, trait, jet) {
     window.Moteurs.pourVariante(jeu.variante, 'analyse').chercher({
       variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-      profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 3, deterministe: true,
+      profondeur: PROF_CONSEILS, temps: MAX_CONSEILS, multipv: 3, deterministe: true,
       surInfo: (lignes) => {
         if (jet !== jetonAnalyse || !jeu || (jeu.analyse && jeu.analyse.fini)) return;
         jeu.analyse = { n, cle, trait, lignes: copieLignes(lignes) };
@@ -845,7 +756,7 @@
     }
     if (exact) majBarre(barre, exact, plateau.retourne, false, reperes);
     else if (lignes[0]) majBarre(barre, versBlanc(lignes[0].score), plateau.retourne, false, reperes);
-    majPronostic(lignes[0] && (a.fini || (jeu.variante.moteur !== 'maison' && lignes[0].profondeur >= 12)) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
+    majPronostic(lignes[0] && (a.fini || lignes[0].profondeur >= 12) ? versBlanc(lignes[0].score) : null, lignes[0] ? lignes[0].profondeur : 0);
     if (tables[a.cle] && tables[a.cle].category) pronosticExact(tables[a.cle], a.trait);
     const liste = $('#conseils-liste');
     liste.innerHTML = '';
@@ -854,7 +765,7 @@
       // pas encore sûr : on n'affiche rien qui pourrait changer
       if (flPlus.length) plateau.flechesAfficher(flPlus.reverse()); else plateau.effacerFleches();
       const prof = lignes[0] ? lignes[0].profondeur : 0;
-      const but = PROF_CONSEILS[typeMoteur(jeu.variante)];
+      const but = PROF_CONSEILS;
       const t = document.createElement('div'); t.className = 'petit-gris';
       t.textContent = 'Calcul des 3 meilleurs coups… profondeur ' + prof + ' / ' + but;
       liste.appendChild(t);
@@ -879,7 +790,7 @@
     if (!lignes.length) liste.innerHTML = '<div class="petit-gris">Aucun coup.</div>';
     else {
       const pr = document.createElement('div'); pr.className = 'petit-gris';
-      pr.textContent = 'Calcul terminé (profondeur ' + lignes[0].profondeur + ') · score vu des blancs';
+      pr.textContent = (a.source === 'lichess' ? 'Analyse de Lichess (profondeur ' : 'Calcul terminé (profondeur ') + lignes[0].profondeur + ') · score vu des blancs';
       liste.appendChild(pr);
     }
     plateau.flechesAfficher(fl.concat(flPlus).reverse());
@@ -907,10 +818,15 @@
       // EXACTEMENT les 3 meilleurs coups des conseils (même calcul : même profondeur, un cœur, mémoire vidée)
       lignes: async () => {
         if (jeu.cache && jeu.cache[cle] && jeu.cache[cle].lignes) return jeu.cache[cle].lignes;
-        const type = typeMoteur(v);
+        const nu = await lignesProfondes(cle, 3, n === p.coups.length ? p.legaux().length : 3);
+        if (nu && jeu && jeu.partie === p) {
+          jeu.cache = jeu.cache || {};
+          jeu.cache[cle] = { n, cle, trait: window.Regles.lireFen(cle).trait, lignes: copieLignes(nu.lignes), fini: true, source: 'lichess' };
+          return nu.lignes;
+        }
         const r = await window.Moteurs.pourVariante(v, 'coach').chercher({
           variante: v, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-          profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 3, deterministe: true
+          profondeur: PROF_CONSEILS, temps: MAX_CONSEILS, multipv: 3, deterministe: true
         });
         if (!r.annulee && r.lignes.length && jeu && jeu.partie === p) {
           jeu.cache = jeu.cache || {};
@@ -940,7 +856,7 @@
     jetonPlus++;
     plus = null;
     majSerre();
-    for (const m of window.Moteurs.tous()) if (m.role === 'plus' && m.pret) m.arreter();
+    for (const m of window.Moteurs.tous()) if (m.role === 'aide' && m.pret) m.arreter();
     $('#plus-coups').style.display = 'none';
     $('#btn-plus-coups').classList.remove('actif');
     $('#btn-plus-texte').textContent = '4e, 5e, 6e coups';
@@ -962,11 +878,10 @@
     $('#btn-plus-texte').textContent = 'Cacher 4e, 5e, 6e';
     $('#plus-coups').style.display = '';
     if (!plus.fini) {
-      const type = typeMoteur(jeu.variante);
-      // même profondeur fixe que les 3 meilleurs coups, 6 coups à la fois
+      // même profondeur que les 3 meilleurs coups, 6 coups à la fois
       window.Moteurs.pourVariante(jeu.variante, 'plus').chercher({
         variante: jeu.variante, fen0: p.fen0, coups: p.coups.slice(0, n), elo: null,
-        profondeur: PROF_CONSEILS[type], temps: type === 'maison' ? 60000 : MAX_CONSEILS, multipv: 6, deterministe: true,
+        profondeur: PROF_CONSEILS, temps: MAX_CONSEILS + 4000, multipv: 6, deterministe: true,
         surInfo: (l) => {
           if (jet !== jetonPlus || !plus || plus.fini) return;
           plus.lignes = copieLignes(l);
@@ -991,7 +906,7 @@
     const l6 = plus.lignes.filter((l) => l && l.pv && l.pv.length);
     if (!plus.fini) {
       const t = document.createElement('div'); t.className = 'petit-gris';
-      t.textContent = 'Recherche des 4e, 5e et 6e meilleurs coups… profondeur ' + (l6[0] ? l6[0].profondeur : 0) + ' / ' + PROF_CONSEILS[typeMoteur(jeu.variante)];
+      t.textContent = 'Recherche des 4e, 5e et 6e meilleurs coups… profondeur ' + (l6[0] ? l6[0].profondeur : 0) + ' / ' + PROF_CONSEILS;
       box.appendChild(t);
       return [];
     }
@@ -1148,25 +1063,16 @@
     tour();
   }
 
-  // Recommencer : repart du début avec la configuration actuelle (nouveau tirage s'il y a du hasard).
-  // La configuration de la partie, dans sa version enregistrée la plus récente.
-  function configDeLaPartie() {
-    const id = jeu && jeu.cfg && jeu.cfg.id;
-    return (id && window.Config.trouver(id)) || (jeu && jeu.cfg) || window.Config.classique();
-  }
+  // Recommencer : la partie repart du début, mêmes réglages.
   function relancer() {
-    const reglages = Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain });
-    const cfg = configDeLaPartie();
-    commencer(cfg, reglages);
+    commencer(Object.assign({}, jeu.reglages, { couleur: jeu.adversaire === 'ami' ? 'w' : jeu.humain }));
   }
   function recommencer() {
     if (!jeu) return;
-    const cfg = configDeLaPartie();
-    const hasard = window.Config.aleatoire(cfg);
-    modale('<h2>Recommencer ?</h2><p></p>', [
+    modale('<h2>Recommencer ?</h2><p>La partie repart du début.</p>', [
       { texte: '↻ Recommencer', classe: 'principal', action: relancer },
       { texte: 'Annuler' }
-    ]).querySelector('p').textContent = 'La partie repart du début avec la configuration « ' + cfg.nom + ' »' + (hasard ? ', avec un nouveau tirage au hasard.' : '.');
+    ]);
   }
 
   function abandonner() {
@@ -1303,7 +1209,7 @@
       resultat: '*', raison: 'partie en cours', aide: jeu.aide, pendule: jeu.pendule, reflexion: jeu.reflexion, analyse: null
     };
   }
-  function parties() { return lire(CLE_PARTIES, []).filter((r) => r.variante); }
+  function parties() { return lire(CLE_PARTIES, []).filter((r) => window.Config.estClassique(r.variante)); }
   function sauverPartie(rec) {
     // partie rangée dans « Mes parties » : c'est là qu'on garde son analyse
     if (rec.rep) { window.Repertoire.maj(rec); return; }
@@ -1375,10 +1281,7 @@
     let pl = null, zone = null, barre = null;
     if (nom === 'partie') { pl = plateau; zone = $('#zone-partie'); barre = $('#barre-partie'); }
     else if (nom === 'bilan') { pl = window.Bilan.plateau; zone = $('#zone-bilan'); barre = $('#barre-bilan'); }
-    else if (nom === 'config') { window.EditeurConfig.redimensionner(); return; }
     else if (nom === 'jouer') { redimensionnerApercu(); return; }
-    else if (nom === 'persos') { window.EditeurPersos.redimensionner(); return; }
-    else if (nom === 'cartes') { window.EditeurCartes.redimensionner(); return; }
     if (!pl || !zone) return;
     const r = zone.getBoundingClientRect();
     const etroit = window.innerWidth <= 900 || (window.innerWidth <= 1100 && window.innerHeight > window.innerWidth);
@@ -1393,8 +1296,7 @@
 
   // ---------- démarrage ----------
   async function demarrer() {
-    try { window.Curseurs.appliquer(options.curseur); } catch (e) { console.error(e); }
-    try { window.Pieces.choisirJeu(options.pieces); window.Themes.appliquerTheme(options.theme); window.Themes.appliquerDecor(options.decor); } catch (e) { console.error(e); }
+    window.Savoir.charger();
     plateau = new window.Plateau($('#plateau-partie'), { surCoup: surCoupHumain, reperes: true,
       // un clic ailleurs sur le plateau annule le pré-move
       surClicVide: () => { if (jeu && jeu.premove) { jeu.premove = null; plateau.marquerPremove(null); } } });
@@ -1410,20 +1312,11 @@
     }
     $('#chargement').remove();
     window.Bilan.init();
-    window.EditeurConfig.init();
-    window.EditeurPersos.init();
-    window.EditeurCartes.init();
     window.EditeurBots.init();
 
     $$('[data-aller]').forEach((b) => b.addEventListener('click', () => ecran(b.dataset.aller)));
     $('#btn-commencer').addEventListener('click', () => commencer());
     $('#btn-reprendre').addEventListener('click', reprendre);
-    $('#opt-sons').addEventListener('change', (e) => { options.sons = e.target.checked; window.Son.regler(options.sons); sauverOptions(); });
-    for (const id of ['#jo-av-min', '#jo-av-max']) { $(id).addEventListener('input', lireAvantageVoulu); $(id).addEventListener('change', (e) => { lireAvantageVoulu(e); majAvantageVoulu(); }); }
-    $('#opt-ambiance').addEventListener('change', (e) => { options.ambiance = e.target.checked; sauverOptions(); majAmbiance(); });
-    $('#opt-volume').addEventListener('input', (e) => { options.volume = +e.target.value; sauverOptions(); majAmbiance(); });
-    // le navigateur n'autorise le son qu'après un premier clic : l'ambiance démarre à ce moment
-    document.addEventListener('pointerdown', () => majAmbiance(), { once: true });
     $('#btn-retourner').addEventListener('click', () => { plateau.retourner(!plateau.retourne); afficherPartie(false); });
     $('#btn-annuler').addEventListener('click', annulerCoup);
     $('#btn-recommencer').addEventListener('click', recommencer);
@@ -1497,7 +1390,7 @@
     ecranActuel: 'accueil',
     ecran, modale, fermerModale, bulle, copier, pgn, montrerRegles, redimensionner,
     chances, texteScore, inverser, majBarre, remplirListeCoups, dernierCoupCases, caseRoiEnEchec,
-    sauverPartie, parties, options, commencer, jouerAvec, jouerContre,
+    sauverPartie, parties, options, commencer, jouerContre,
     arreterAnalyse,
     // Rejouer depuis une position du bilan
     rejouerDepuis(rec, n) {
@@ -1507,7 +1400,7 @@
       try { const p = new window.Regles.Partie(rec.variante, rec.fen0, rec.coups.slice(0, n)); trait = p.trait(); p.detruire(); } catch (e) { return; }
       reglages.couleur = rec.adversaire === 'ami' ? trait : rec.humain;
       reglages.pendule = '0';
-      lancerPartie(rec.variante, reglages, { fen0: rec.fen0, coups: rec.coups.slice(0, n) }, rec.cfg);
+      lancerPartie(rec.variante, reglages, { fen0: rec.fen0, coups: rec.coups.slice(0, n) });
     }
   };
   window.App = App;

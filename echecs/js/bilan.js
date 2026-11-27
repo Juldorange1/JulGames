@@ -132,7 +132,13 @@
             pos = { s: { cp: r === '1-0' ? 10000 : r === '0-1' ? -10000 : 0 }, fin: r };
           } else {
             const trait = marche.trait();
-            const r = await moteur.chercher({
+            // début de partie : souvent déjà analysé très profondément par Lichess (plus fort et plus rapide)
+            let r = null;
+            if (k < 24) {
+              const nu = await window.Savoir.nuage(marche.fen, 2);
+              if (nu && nu.profondeur >= reglage.profondeur && nu.lignes.length >= Math.min(2, marche.legaux().length)) r = { lignes: nu.lignes, coup: nu.lignes[0].pv[0] };
+            }
+            if (!r) r = await moteur.chercher({
               variante: v, fen0: rec.fen0, coups: rec.coups.slice(0, k), elo: null,
               profondeur: reglage.profondeur, temps: reglage.temps, multipv: 2
             });
@@ -215,7 +221,7 @@
       const el = $('#bilan-progression');
       el.querySelector('.progression-barre').style.width = (100 * faits / total) + '%';
       const niv = (NIVEAUX[a.niveau] || NIVEAUX.normal).nom;
-      const moteurNom = this.v.moteur === 'sf' ? 'Stockfish 19' : this.v.moteur === 'maison' ? 'moteur Custom Chess' : 'Fairy-Stockfish';
+      const moteurNom = 'Stockfish 19';
       el.querySelector('span').textContent = faits < total
         ? 'Analyse ' + niv + ' par ' + moteurNom + ' : ' + faits + ' / ' + total + ' positions…'
         : 'Analyse ' + niv + ' par ' + moteurNom + ' terminée.';

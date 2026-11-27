@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 55;
+  var ICI = 56;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=55">
-<link rel="stylesheet" href="css/mobile.css?v=55">
+<link rel="stylesheet" href="css/jeu.css?v=56">
+<link rel="stylesheet" href="css/mobile.css?v=56">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -39,32 +39,13 @@
     </nav>
   </header>
   <div class="menu-principal">
-    <div class="menu-cartes">
-      <button class="carte-menu" data-aller="creer"><span class="carte-icone">🛠</span><b>Créer</b><span>Tes personnages, tes cartes et tes configurations de parties.</span></button>
+    <div class="menu-cartes deux">
       <button class="carte-menu" data-aller="repertoire"><span class="carte-icone">📁</span><b>Mes parties</b><span>Tes parties rangées dans des dossiers, pour les revoir.</span></button>
-      <button class="carte-menu" data-aller="parametres"><span class="carte-icone">🎨</span><b>Paramètres</b><span>Plateau, pièces, décor, curseur et sons.</span></button>
-      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie normale ou une de tes configurations, contre tes bots ou à deux.</span></button>
+      <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie d’échecs contre tes bots ou à deux.</span></button>
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 55</div>
-  </div>
-</section>
-
-<!-- ============ CRÉER ============ -->
-<section id="ecran-creer" class="ecran">
-  <header class="entete">
-    <h1>Créer</h1>
-    <nav class="onglets-haut">
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
-    </nav>
-  </header>
-  <div class="menu-principal">
-    <div class="menu-cartes trois">
-      <button class="carte-menu" data-aller="persos"><span class="carte-icone">🧩</span><b>Personnages</b><span>Invente tes pièces : où elles vont, si elles sautent, leur dessin.</span></button>
-      <button class="carte-menu" data-aller="cartes"><span class="carte-icone">🗺</span><b>Cartes</b><span>La forme du plateau : sa taille et ses trous.</span></button>
-      <button class="carte-menu" data-aller="config"><span class="carte-icone">⚙</span><b>Configurations de parties</b><span>Choisis une carte, puis pose tes personnages à la main ou au hasard.</span></button>
-    </div>
+    <div class="note-moteur centre">Version 56</div>
   </div>
 </section>
 
@@ -85,40 +66,6 @@
       <div class="rep-entete"><h2 id="rep-titre"></h2><div class="rep-actions" id="rep-actions"></div></div>
       <div class="rep-liste" id="rep-liste"></div>
       <div class="rep-pages" id="rep-pages"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ CARTES ============ -->
-<section id="ecran-cartes" class="ecran">
-  <header class="entete">
-    <h1>Carte : <span class="et" id="ca-titre"></span></h1>
-    <nav class="onglets-haut">
-      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
-      <button class="bouton" data-aller="creer">⟵ Créer</button>
-    </nav>
-  </header>
-  <div class="persos cartes">
-    <div class="ps-gauche">
-      <button class="bouton principal" id="ca-nouvelle">➕ Nouvelle carte</button>
-      <div class="ca-liste" id="ca-liste"></div>
-    </div>
-    <div class="config-gauche"><div id="plateau-carte"></div></div>
-    <div class="ps-editeur">
-      <p class="aide" id="ca-note-fixe">Carte toute faite : elle ne se modifie pas. Tu peux en faire une copie à toi.</p>
-      <button class="bouton" id="ca-copier">⧉ Faire une copie modifiable</button>
-      <label class="champ">Nom<input type="text" id="ca-nom" maxlength="30"></label>
-      <div id="ca-reglages">
-        <div class="compteur"><span>Colonnes</span><button class="bouton" id="ca-cols-moins">−</button><b id="ca-cols-val"></b><button class="bouton" id="ca-cols-plus">+</button></div>
-        <div class="compteur"><span>Rangées</span><button class="bouton" id="ca-lignes-moins">−</button><b id="ca-lignes-val"></b><button class="bouton" id="ca-lignes-plus">+</button></div>
-        <p class="aide">Trous : clique ou glisse sur le plateau. Recliquer un trou (ou clic droit) le rebouche.</p>
-        <div class="ligne-boutons">
-          <button class="bouton" id="ca-boucher">Reboucher tous les trous</button>
-          <button class="bouton danger" id="ca-supprimer">🗑 Supprimer</button>
-        </div>
-      </div>
-      <p class="ca-resume" id="ca-resume"></p>
-      <p class="aide">Tout est enregistré tout seul. Choisis ensuite la carte dans « ⚙ Configurer des parties ».</p>
     </div>
   </div>
 </section>
@@ -159,57 +106,17 @@
   </div>
 </section>
 
-<!-- ============ PARAMÈTRES ============ -->
-<section id="ecran-parametres" class="ecran">
-  <header class="entete">
-    <h1>Paramètres</h1>
-    <nav class="onglets-haut">
-      <button class="bouton" data-aller="accueil">⟵ Menu</button>
-    </nav>
-  </header>
-  <div class="parametres">
-    <div class="onglets par-onglets" id="par-onglets">
-      <button data-par="plateau" class="actif">🎨 Plateau</button>
-      <button data-par="pieces">♞ Pièces</button>
-      <button data-par="decor">🖼 Décor de fond</button>
-      <button data-par="curseur">🖱 Curseur</button>
-      <button data-par="sons">🔊 Sons</button>
-    </div>
-    <div class="par-panneau" data-par="plateau"><div class="groupes-apparence" id="par-themes"></div></div>
-    <div class="par-panneau" data-par="pieces"><div class="groupes-apparence" id="par-pieces"></div></div>
-    <div class="par-panneau" data-par="decor"><div class="groupes-apparence decors" id="par-decors"></div></div>
-    <div class="par-panneau" data-par="curseur">
-      <div class="grille-apparence" id="par-curseurs"></div>
-      <p class="aide">Le curseur choisi s’affiche partout dans le jeu (menus, plateau, éditeurs).</p>
-    </div>
-    <div class="par-panneau" data-par="sons">
-      <div class="options-generales">
-        <label><input type="checkbox" id="opt-sons"> Bruits des pièces (coups, prises, échec, fin de partie)</label>
-        <label><input type="checkbox" id="opt-ambiance"> Sons d’ambiance du décor (vagues, vent, forêt, feu, grillons…)</label>
-        <label class="par-volume">Volume de l’ambiance <input type="range" id="opt-volume" min="0" max="100" step="5"></label>
-      </div>
-      <p class="aide">Les sons d’ambiance arrivent et partent en douceur. Les décors unis restent silencieux.</p>
-    </div>
-  </div>
-</section>
-
 <!-- ============ JOUER ============ -->
 <section id="ecran-jouer" class="ecran">
   <header class="entete">
     <h1>Jouer</h1>
     <nav class="onglets-haut">
-      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
       <button class="bouton" data-aller="accueil">⟵ Menu</button>
     </nav>
   </header>
   <div class="accueil">
     <div class="accueil-config">
-      <h2>Quelle partie ?</h2>
-      <div class="liste-configs" id="jouer-liste"></div>
-      <div class="hz-avantage jo-avantage" title="0 = égalité ; positif = les blancs (joueur 1) devant ; négatif = les noirs devant"><b>Avantage voulu du joueur 1 (blancs) :</b> de
-        <input type="text" inputmode="decimal" id="jo-av-min"> à
-        <input type="text" inputmode="decimal" id="jo-av-max"></div>
-      <div class="acc-avantage" id="acc-avantage"></div>
+      <h2>Partie d’échecs</h2>
       <div class="acc-plateau"><div id="plateau-apercu"></div></div>
     </div>
     <div class="accueil-reglages">
@@ -244,129 +151,6 @@
   </div>
 </section>
 
-<!-- ============ CONFIGURATION ============ -->
-<section id="ecran-config" class="ecran">
-  <header class="entete">
-    <h1>Configuration : <span class="et" id="cf-titre"></span></h1>
-    <nav class="onglets-haut">
-      <button class="bouton" data-aller="persos">🧩 Personnages</button>
-      <button class="bouton" data-aller="creer">⟵ Créer</button>
-      <button class="bouton principal" id="cf-jouer">▶ Jouer cette configuration</button>
-    </nav>
-  </header>
-  <div class="config">
-    <div class="config-gauche"><div id="plateau-config"></div></div>
-    <div class="config-droite">
-      <div class="cf-haut">
-        <div class="cf-carte-ligne"><b>Carte :</b><select id="cf-carte"></select><button class="bouton" data-aller="cartes">🗺 Mes cartes</button></div>
-        <div class="cf-av-ligne"><span>Actuel :</span><b id="cf-av-valeur"></b>
-          <div class="barre-eval horizontale" id="cf-barre"><div class="barre-noir"></div><div class="barre-blanc"></div><span class="barre-texte"></span></div></div>
-        <div class="cf-av-texte" id="cf-avantage"></div>
-      </div>
-      <div class="accordeon" id="acc-config">
-        <section class="pli" data-pli="pieces">
-          <button class="pli-titre">✋ Placer à la main</button>
-          <div class="pli-corps">
-            <p class="aide">Choisis un personnage, puis clique les cases du plateau : il commencera la partie là. Clic droit : effacer.</p>
-            <div class="etape-ligne"><b>Couleur :</b>
-              <span class="choix ligne mini" id="camp-config"><button data-camp="w">blanches</button><button data-camp="b">noires</button></span>
-            </div>
-            <div class="cats" id="cf-cats"></div>
-            <div id="cf-persos" class="cf-grille-persos"></div>
-            <div class="actions-cases">
-              <button class="bouton" id="outil-gomme" title="Enlève la pièce ou le trou">✖ Gomme</button>
-              <button class="bouton danger" id="cf-vider">Tout vider</button>
-            </div>
-            <div class="outil-actuel" id="outil-actuel"></div>
-          </div>
-        </section>
-        <section class="pli" data-pli="hasard">
-          <button class="pli-titre">🎲 Placer au hasard</button>
-          <div class="pli-corps">
-            <p class="aide">Choisis combien de chaque personnage. Les deux couleurs reçoivent les mêmes pièces, à des places tirées au hasard à chaque partie.</p>
-            <div class="cats" id="hz-cats"></div>
-            <div id="hz-persos" class="hz-grille"></div>
-            <div class="hz-resume" id="hz-resume"></div>
-            <div class="etape-ligne"><b>Où ?</b>
-              <span class="choix ligne mini" id="hz-ou"><button data-ou="miroir">dans sa moitié, en miroir</button><button data-ou="zones">dans des zones que je peins</button></span></div>
-            <div class="actions-zones" id="hz-zones">
-              <button class="bouton zone-b" id="hz-zone-w">▨ Zone des blancs</button>
-              <button class="bouton zone-n" id="hz-zone-b">▨ Zone des noirs</button>
-              <button class="bouton" id="hz-zone-gomme">✖ Gomme à zones</button>
-              <span class="aide" id="hz-zone-aide"></span>
-            </div>
-
-          </div>
-        </section>
-        <section class="pli" data-pli="mes">
-          <button class="pli-titre">📂 Mes configurations</button>
-          <div class="pli-corps">
-            <div class="ligne-boutons serree">
-              <button class="bouton principal" id="cf-nouvelle">➕ Nouvelle (plateau vide)</button>
-              <button class="bouton danger" id="cf-supprimer">🗑 Supprimer</button>
-            </div>
-            <div class="ligne-champ"><span>Nom</span><input type="text" id="cf-nom" maxlength="40"></div>
-            <p class="aide">Clique une configuration pour la modifier. Tout est enregistré tout seul.</p>
-            <div class="liste-configs" id="cf-liste"></div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ PERSONNAGES ============ -->
-<section id="ecran-persos" class="ecran">
-  <header class="entete">
-    <h1>Personnages</h1>
-    <nav class="onglets-haut">
-      <button class="bouton" data-aller="config">⚙ Configurer des parties</button>
-      <button class="bouton" data-aller="creer">⟵ Créer</button>
-    </nav>
-  </header>
-  <div class="persos">
-    <div class="ps-gauche">
-      <button class="bouton principal" id="ps-nouveau">✚ Nouveau personnage</button>
-      <div class="accordeon" id="ps-liste"></div>
-    </div>
-    <div class="ps-centre">
-      <div class="ps-centre-titre"><b>Où peut-il aller ?</b> <span class="aide">Le haut = vers l’adversaire. Grille de 15 × 15 cases.</span></div>
-      <div class="choix ligne mini ps-mode" id="ps-mode"><span>Un clic :</span><button data-mode="normal" title="Il y va normalement (bloqué ou non selon la question « saute-t-il »)">🟩 il y va</button><button data-mode="tele" title="Il y arrive même si des pièces sont sur le chemin">✦ il s’y téléporte</button></div>
-      <div id="ps-grille"></div>
-      <div id="ps-fleches" class="ps-fleches"></div>
-    </div>
-    <div class="ps-editeur">
-      <h2 id="ps-titre"></h2>
-      <p class="aide" id="ps-note-classique">Pièce classique : on voit ses déplacements, on ne peut pas les changer.</p>
-      <div id="ps-bloc-edition">
-        <label class="champ">Nom<input type="text" id="ps-nom" maxlength="24"></label>
-        <label class="champ">Catégorie<select id="ps-cat"></select>
-          <input type="text" id="ps-cat-nouvelle" maxlength="24" placeholder="Nom de la nouvelle catégorie"></label>
-        <div class="champ">Dessin<div class="palette-rangee" id="ps-bases"></div></div>
-        <div class="ps-ligne">
-          <label class="champ ps-marque">Petit signe (1 à 4)<input type="text" id="ps-marque" maxlength="8"></label>
-          <div class="ps-apercu" id="ps-apercu"></div>
-        </div>
-        <div class="champ">Saute-t-il par-dessus les pièces ?
-          <div class="choix ligne" id="ps-saute">
-            <button data-val="1">Oui (comme le cavalier)</button>
-            <button data-val="0">Non, bloqué (comme la tour)</button>
-          </div>
-        </div>
-        <p class="ps-desc" id="ps-desc"></p>
-        <div class="ligne-champ">
-          <select id="ps-copier"></select>
-          <button class="bouton" id="ps-effacer">Tout effacer</button>
-        </div>
-      </div>
-      <div class="ligne-boutons">
-        <button class="bouton principal" id="ps-enregistrer">💾 Enregistrer</button>
-        <button class="bouton danger" id="ps-supprimer">🗑 Supprimer</button>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ============ PARTIE ============ -->
 <section id="ecran-partie" class="ecran">
   <div class="zone-jeu" id="zone-partie">
@@ -374,7 +158,6 @@
     <div id="plateau-partie"></div>
   </div>
   <aside class="panneau">
-    <div class="nom-config" id="nom-config"></div>
     <div class="joueur" id="joueur-haut"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span><div class="prises"></div></div>
     <div class="etat" id="etat-partie"></div>
       <div class="pronostic" id="pronostic"></div>
@@ -460,23 +243,18 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=55"></script>
-<script src="js/curseurs.js?v=55"></script>
-<script src="js/cartes.js?v=55"></script>
-<script src="js/themes.js?v=55"></script>
-<script src="js/pieces-svg.js?v=55"></script>
-<script src="js/persos.js?v=55"></script>
-<script src="js/pieces.js?v=55"></script>
-<script src="js/maison.js?v=55"></script>
-<script src="js/regles.js?v=55"></script>
-<script src="js/config.js?v=55"></script>
-<script src="js/moteur.js?v=55"></script>
-<script src="js/son.js?v=55"></script>
-<script src="js/plateau.js?v=55"></script>
-<script src="js/coach.js?v=55"></script>
-<script src="js/repertoire.js?v=55"></script>
-<script src="js/bilan.js?v=55"></script>
-<script src="js/editeur.js?v=55"></script>
-<script src="js/app.js?v=55"></script>
+<script src="js/bots.js?v=56"></script>
+<script src="js/pieces-svg.js?v=56"></script>
+<script src="js/pieces.js?v=56"></script>
+<script src="js/config.js?v=56"></script>
+<script src="js/savoir.js?v=56"></script>
+<script src="js/regles.js?v=56"></script>
+<script src="js/moteur.js?v=56"></script>
+<script src="js/son.js?v=56"></script>
+<script src="js/plateau.js?v=56"></script>
+<script src="js/coach.js?v=56"></script>
+<script src="js/repertoire.js?v=56"></script>
+<script src="js/bilan.js?v=56"></script>
+<script src="js/app.js?v=56"></script>
 </body>
 </html>

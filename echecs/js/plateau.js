@@ -261,16 +261,7 @@
           if (!p) continue;
           const rang = this.lignes - 1 - r;
           const nom = FICH[col] + (rang + 1);
-          let el;
-          if (p.hasard != null) {
-            el = document.createElement('div');
-            el.className = 'piece de ' + (p.camp === 'b' ? 'noire' : 'blanche');
-            const choix = Array.isArray(p.hasard) ? p.hasard.map((id) => (window.Persos.trouver(id) || {}).nom).filter(Boolean) : null;
-            el.innerHTML = '<span>🎲</span><small></small>';
-            el.querySelector('small').textContent = choix ? choix.length + ' choix' : (p.hasard || 'tous');
-            el.title = 'Au hasard parmi : ' + (choix ? choix.join(', ') : (p.hasard || 'tous'));
-          } else if (p.perso) el = window.Pieces.creerPerso(p.perso, p.camp);
-          else el = window.Pieces.creerPiece(p.l, this.variante);
+          const el = window.Pieces.creerPiece(p.l);
           if (p.promu) el.classList.add('promue');
           const e = this._ecran(col, rang);
           el.style.width = t + 'px'; el.style.height = t + 'px';

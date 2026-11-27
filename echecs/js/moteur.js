@@ -1,7 +1,6 @@
-/* Les moteurs d'échecs (protocole UCI).
-   - « sf »    : Stockfish 19 (version navigateur « lite ») pour les échecs classiques et le 960.
-   - « fairy » : Fairy-Stockfish, le Stockfish des variantes (lit aussi les variantes créées).
-   Un seul moteur de chaque sorte ; les recherches passent l'une après l'autre. */
+/* Le moteur d'échecs (protocole UCI) : Stockfish 19 COMPLET (gros réseau de neurones, le plus fort),
+   sur plusieurs cœurs. Si la page n'est pas isolée (premier chargement), version « lite » sur un cœur.
+   Trois moteurs au plus : « jeu » (le bot), « analyse » (barre, conseils, bilan) et « aide » (4e-6e coups, coach). */
 (function () {
   'use strict';
 
@@ -20,11 +19,10 @@
     return scripts[src];
   }
 
-  // Cœurs : le bot n'en prend que la moitié (4 au plus) pour laisser le jeu fluide et l'ordinateur au calme ;
-  // l'analyse (barre, conseils) un seul, pour que la même position donne toujours les mêmes résultats.
-  function nbThreads(role) {
-    if (!window.crossOriginIsolated) return 1;
-    if (role === 'analyse' || role === 'plus' || role === 'coach') return 1;
+  // Cœurs : chaque moteur prend au plus la moitié des cœurs (4 au plus) pour laisser l'ordinateur fluide.
+  const complet = () => !!window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined';
+  function nbThreads() {
+    if (!complet()) return 1;
     return Math.max(1, Math.min(4, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
   }
 
@@ -49,30 +47,19 @@
     }
 
     async _demarrer() {
-      if (this.type === 'sf') {
-        const multi = !!window.crossOriginIsolated;
-        const src = 'moteurs/stockfish/stockfish-19-lite' + (multi ? '' : '-single') + '.js';
-        this.worker = new Worker(src);
-        this.worker.onmessage = (e) => this._ligne(String(e.data));
-        this.worker.onerror = (e) => console.error('Stockfish', e);
-        this.envoyer = (c) => this.worker.postMessage(c);
-      } else {
-        if (!window.crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
-          throw new Error('Le moteur des variantes a besoin d’une page isolée (recharge la page).');
-        }
-        await chargerScript('moteurs/fairy/stockfish.js');
-        this.sf = await window.Stockfish();
-        this.sf.addMessageListener((l) => this._ligne(String(l)));
-        this.envoyer = (c) => this.sf.postMessage(c);
-      }
+      const src = complet() ? 'moteurs/stockfish/stockfish-19.js' : 'moteurs/stockfish/stockfish-19-lite-single.js';
+      this.worker = new Worker(src);
+      this.worker.onmessage = (e) => this._ligne(String(e.data));
+      this.worker.onerror = (e) => console.error('Stockfish', e);
+      this.envoyer = (c) => this.worker.postMessage(c);
       this.envoyer('uci');
       await this._attendre((l) => l === 'uciok', (l) => {
         const m = l.match(/^id name (.*)$/);
         if (m) this.nom = m[1].replace(/\s*\[.*$/, '');
       });
-      const t = nbThreads(this.role);
+      const t = nbThreads();
       if (t > 1) this.envoyer('setoption name Threads value ' + t);
-      this.envoyer('setoption name Hash value 64');
+      this.envoyer('setoption name Hash value ' + (this.role === 'analyse' ? 128 : 64));
       await this.synchro();
     }
 
@@ -96,19 +83,6 @@
     async synchro() {
       this.envoyer('isready');
       await this._attendre((l) => l === 'readyok');
-    }
-
-    // Variante définie en .ini (seulement pour Fairy-Stockfish), chargée une fois.
-    async assurer(ini) {
-      if (this.type !== 'fairy' || !ini) return;
-      const m = ini.match(/^\[([^:\]]+)/);
-      const nom = m ? m[1] : ini;
-      if (this.charges.has(nom)) return;
-      const fichier = '/v' + (++this.nbFichiers) + '.ini';
-      this.sf.FS.writeFile(fichier, ini);
-      this.envoyer('setoption name VariantPath value ' + fichier);
-      this.charges.add(nom);
-      await this.synchro();
     }
 
     nouvellePartie() {
@@ -142,11 +116,7 @@
 
     async _chercher(o) {
       await this.demarrer();
-      const v = o.variante;
-      if (this.type === 'fairy') {
-        await this.assurer(v.ini);
-        this.envoyer('setoption name UCI_Variant value ' + v.uci);
-      }
+      const v = o.variante || {};
       this.envoyer('setoption name UCI_Chess960 value ' + (v.is960 ? 'true' : 'false'));
       if (o.elo) {
         this.envoyer('setoption name UCI_LimitStrength value true');
@@ -156,7 +126,7 @@
       }
       this.envoyer('setoption name MultiPV value ' + (o.multipv || 1));
       // analyse : mémoire vidée avant chaque calcul, pour ne dépendre ni du bot ni des positions vues avant
-      if (o.deterministe || this.role === 'analyse' || this.role === 'plus') this.envoyer('setoption name Clear Hash');
+      if (o.deterministe) this.envoyer('setoption name Clear Hash');
       await this.synchro();
 
       const rech = { annulee: false };
@@ -196,54 +166,6 @@
     }
   }
 
-  // Moteur maison (js/maison.js dans un Worker) : même façon de s'en servir que les autres.
-  class MoteurMaison {
-    constructor(role) {
-      this.type = 'maison'; this.role = role || 'jeu'; this.nom = 'Moteur Custom Chess';
-      this.pret = null; this.file = Promise.resolve(); this.gen = 0; this.courante = null; this.w = null; this.id = 0;
-    }
-    demarrer() { if (!this.pret) this.pret = Promise.resolve(); return this.pret; }
-    nouvellePartie() { this.demarrer(); return this.file; }
-    arreter() { this.gen++; if (this.courante) this.courante.stop(); }
-    chercher(o) {
-      const gen = this.gen;
-      const tache = this.file.then(() => (gen === this.gen ? this._chercher(o) : { coup: null, lignes: [], annulee: true }));
-      this.file = tache.catch(() => {});
-      return tache;
-    }
-    _chercher(o) {
-      this.demarrer();
-      if (!this.w) this.w = new Worker('js/maison.js?v=55');
-      const w = this.w, id = ++this.id;
-      let temps = o.temps || 0;
-      if (o.horloge) {
-        const t0 = (o.fen0.split(' ')[1] === 'b') ? 1 : 0;
-        const noir = ((o.coups ? o.coups.length : 0) + t0) % 2 === 1;
-        const reste = noir ? o.horloge.btime : o.horloge.wtime, inc = noir ? o.horloge.binc : o.horloge.winc;
-        temps = Math.max(100, Math.min(6000, reste / 45 + (inc || 0) * 0.6));
-      }
-      if (!temps) temps = o.profondeur ? 20000 : 3000;
-      return new Promise((ok) => {
-        let lignes = [], fait = false;
-        const fini = (annulee, coup) => {
-          if (fait) return;
-          fait = true; w.onmessage = null; this.courante = null;
-          if (o.surInfo && lignes[0]) o.surInfo(lignes);
-          ok({ coup: coup || (lignes[0] && lignes[0].pv[0]) || null, lignes, annulee });
-        };
-        this.courante = { stop: () => { w.terminate(); if (this.w === w) this.w = null; fini(true); } };
-        w.onmessage = (e) => {
-          const r = e.data;
-          if (r.id !== id) return;
-          if (r.type === 'info') { lignes = r.lignes; if (o.surInfo) o.surInfo(lignes); }
-          else { if (r.lignes && r.lignes.length) lignes = r.lignes; fini(false, r.coup); }
-        };
-        w.onerror = (e) => { console.error('Moteur maison', e); w.terminate(); if (this.w === w) this.w = null; fini(true); };
-        w.postMessage({ id, def: o.variante.def, fen0: o.fen0, coups: o.coups || [], temps, profondeur: o.profondeur, multipv: o.multipv || 1 });
-      });
-    }
-  }
-
   function lireInfo(l) {
     const t = l.split(/\s+/);
     const info = { multipv: 1, profondeur: 0, score: null, pv: [] };
@@ -261,15 +183,17 @@
   }
 
   const moteurs = {};
+  // rôles demandés -> moteur réel (les 4e-6e coups et le coach se partagent le moteur « aide »)
+  const ROLE = { jeu: 'jeu', analyse: 'analyse', plus: 'aide', coach: 'aide' };
   window.Moteurs = {
-    // role : « jeu » (le bot) ou « analyse » (barre d'avantage, conseils, bilan, configuration)
     obtenir(type, role) {
-      const cle = type + ':' + (role || 'jeu');
-      if (!moteurs[cle]) moteurs[cle] = type === 'maison' ? new MoteurMaison(role) : new Moteur(type, role);
-      return moteurs[cle];
+      const r = ROLE[role || 'jeu'] || 'jeu';
+      if (!moteurs[r]) moteurs[r] = new Moteur('sf', r);
+      return moteurs[r];
     },
-    pourVariante(v, role) { return this.obtenir(v.moteur === 'sf' || v.moteur === 'maison' ? v.moteur : 'fairy', role); },
+    pourVariante(v, role) { return this.obtenir('sf', role); },
     tous() { return Object.values(moteurs); },
-    disponible(type) { return type === 'sf' || (!!window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined'); }
+    complet,
+    disponible() { return true; }
   };
 })();
