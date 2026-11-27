@@ -195,7 +195,16 @@
 
       const rech = { annulee: false };
       this.recherche = rech;
-      const lignes = [];
+      // lignes de la dernière profondeur COMPLÈTE (si le temps coupe le calcul au milieu d'une profondeur,
+      // on ne mélange pas deux profondeurs : le même coup apparaîtrait deux fois)
+      let complet = [], enCours = [], dEnCours = -1;
+      const lignesSures = () => {
+        // (moins de coups possibles que demandé : une profondeur complète en a autant que la précédente)
+        const n = Math.max(1, Math.min(o.multipv || 1, complet.filter(Boolean).length || (o.multipv || 1)));
+        const base = enCours.filter(Boolean).length >= n || !complet.length ? enCours : complet;
+        const vus = new Set();
+        return base.filter((l) => l && l.pv.length && !vus.has(l.pv[0]) && vus.add(l.pv[0]));
+      };
       let go = 'go';
       if (o.horloge) {
         const h = o.horloge;
@@ -213,20 +222,25 @@
         if (!l.startsWith('info') || l.indexOf(' pv ') < 0) return;
         const info = lireInfo(l);
         if (!info) return;
-        lignes[info.multipv - 1] = info;
+        if (info.multipv === 1 && info.profondeur !== dEnCours) {
+          if (enCours.filter(Boolean).length) complet = enCours;
+          enCours = []; dEnCours = info.profondeur;
+        }
+        enCours[info.multipv - 1] = info;
         if (o.surInfo && info.multipv === 1) {
           const t = performance.now();
-          if (t - derniereInfo > 120) { derniereInfo = t; o.surInfo(lignes); }
+          if (t - derniereInfo > 120) { derniereInfo = t; o.surInfo(lignesSures()); }
         }
       });
       this.envoyer('position fen ' + o.fen0 + (o.coups && o.coups.length ? ' moves ' + o.coups.join(' ') : ''));
       this.envoyer(go);
       if (rech.annulee) this.envoyer('stop');
       const fin = await attente;
+      const lignes = lignesSures();
       if (o.surInfo && lignes[0]) o.surInfo(lignes);
       this.recherche = null;
       const coup = fin.split(/\s+/)[1];
-      return { coup: coup && coup !== '(none)' && coup !== '0000' ? coup : null, lignes: lignes.filter(Boolean), annulee: rech.annulee };
+      return { coup: coup && coup !== '(none)' && coup !== '0000' ? coup : null, lignes, annulee: rech.annulee };
     }
   }
 
