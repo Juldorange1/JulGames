@@ -505,7 +505,7 @@
   // =====================================================================
   //  TEXTES
   // =====================================================================
-  const nb = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',');
+  const nb = (x) => (Math.round(x * 100) / 100).toFixed(2).replace('.', ',');
   // score vu du camp au trait -> phrase
   function phraseScore(s, S) {
     if (!s) return '';
@@ -716,6 +716,180 @@
   }
 
   // =====================================================================
+  //  STRATÉGIE : le plan à long terme (sans parler des coups exacts)
+  // =====================================================================
+  const AILES = [{ nom: 'l’aile dame', cols: [0, 1, 2] }, { nom: 'le centre', cols: [3, 4] }, { nom: 'l’aile roi', cols: [5, 6, 7] }];
+  const aileDe = (x) => (x <= 2 ? 0 : x <= 4 ? 1 : 2);
+  const relRg = (s, c) => (c === 'w' ? rg(s) : 7 - rg(s)); // rangée vue du camp c (0 = sa première)
+  const pionDe = (c) => (c === 'w' ? 'P' : 'p');
+  // cases fortes pour c : dans le camp adverse, protégées par un pion de c, qu'aucun pion adverse ne pourra chasser
+  function casesFortes(b, c) {
+    const O = autre(c), d = c === 'w' ? 1 : -1, out = [];
+    for (let s = 0; s < 64; s++) {
+      const r = relRg(s, c);
+      if (r < 3 || r > 5 || col(s) < 1 || col(s) > 6) continue;
+      if (b[s] && (typ(b[s]) === 'p' || coul(b[s]) === O)) continue;
+      if (!attaquants(b, s, c).some((a) => b[a] === pionDe(c))) continue;
+      let chassable = false;
+      for (const dc of [-1, 1]) { const x = col(s) + dc; if (x < 0 || x > 7) continue; for (let y = rg(s) + d; y >= 0 && y < 8; y += d) if (b[y * 8 + x] === pionDe(O)) chassable = true; }
+      if (chassable) continue;
+      out.push({ s, poids: (r === 4 || r === 5 ? 2 : 1) + (col(s) >= 2 && col(s) <= 5 ? 2 : 0) + (b[s] && typ(b[s]) === 'n' ? 3 : 0) });
+    }
+    return out.sort((x, y) => y.poids - x.poids);
+  }
+  // les idées stratégiques pour le camp c, écrites pour « moi » (c = celui qui joue) ou pour « lui » (c = l'adversaire)
+  function strategie(P0, c) {
+    const b = P0.b, O = autre(c), out = [];
+    const ajout = (poids, moi, lui, dessin) => out.push({ poids, moi, lui, dessin: dessin || [] });
+    const fin = finale(b), m = materiel(b), dm = m[c] - m[O];
+    const ouverture = !fin && P0.coup <= 14 && nonDeveloppees(b, c).length >= 2;
+    const st = structure(b, c), stO = structure(b, O);
+    const kc = abriRoi(b, c), ko = abriRoi(b, O);
+    const peutRoquer = c === 'w' ? /[KQA-H]/.test(P0.roques) : /[kqa-h]/.test(P0.roques);
+    // phase de jeu et objectif général
+    if (ouverture) {
+      const nd = nonDeveloppees(b, c);
+      ajout(9, '<b>Phase d’ouverture</b> : le but n’est pas encore d’attaquer, mais de <b>finir de sortir les pièces</b> (' + nd.length + ' encore chez elles)' + (kc && kc.centre && peutRoquer ? ', de <b>mettre le roi à l’abri</b> en roquant' : '') + ' et de <b>relier les tours</b>. Chaque coup doit faire avancer ce travail.', null, carres(nd, C_JAUNE));
+    } else if (fin) {
+      ajout(8, '<b>Finale</b> : le roi devient une pièce d’attaque, il faut le <b>rapprocher du centre et des pions</b>. Les pions passés valent beaucoup : on pousse les siens, on bloque ceux d’en face.', null, carres([roiDe(b, c)].filter((x) => x >= 0), C_VERT));
+    }
+    if (fin) {
+      const kS = roiDe(b, c), kO = roiDe(b, O);
+      const dist = (k) => Math.max(Math.abs(col(k) - 3.5), Math.abs(rg(k) - 3.5));
+      if (kS >= 0 && kO >= 0 && dist(kS) > dist(kO) + 0.9) ajout(7, 'Ton <b>roi est plus loin du centre</b> que le roi adverse : le rapprocher est souvent le coup le plus utile d’une finale.', 'Le roi adverse est plus loin du centre : il va vouloir le rapprocher.', carres([kS], C_JAUNE));
+      const mobT = (cc) => { let n = 0; for (let s = 0; s < 64; s++) if (b[s] === (cc === 'w' ? 'R' : 'r')) n = Math.max(n, mobilite(b, s)); return n; };
+      const tS = mobT(c), tO = mobT(O);
+      if (tS && tO && tO >= tS + 4) ajout(6.5, 'Ta <b>tour est plus passive</b> que celle d’en face (' + tS + ' cases contre ' + tO + ') : en finale de tours, une <b>tour active</b> (qui attaque les pions, derrière les pions passés) vaut souvent un pion. Active-la.', null);
+      else if (tS && tO && tS >= tO + 4) ajout(6, 'Ta <b>tour est plus active</b> (' + tS + ' cases contre ' + tO + ') : garde-la active, elle attaque les pions adverses et coupe le roi. C’est un vrai avantage en finale.', 'La tour adverse est plus active que la tienne : il faut l’activer ou la chasser.');
+    }
+    // matériel : simplifier ou compliquer
+    if (dm >= 2) ajout(8, '<b>Tu as plus de matériel</b> : le plan le plus simple est d’<b>échanger des pièces</b> (pas des pions). Moins il reste de pièces, moins l’adversaire a de contre-jeu, et plus ton avance compte.', 'L’adversaire a plus de matériel : il va chercher à <b>échanger les pièces</b>. Toi, garde-les et cherche de l’activité.');
+    else if (dm <= -2) ajout(8, '<b>Tu as moins de matériel</b> : évite les échanges, <b>garde les pièces</b> et cherche l’activité et l’attaque. Une finale serait perdue d’avance.', 'L’adversaire a moins de matériel : il va <b>éviter les échanges</b> et chercher des complications.');
+    // roques opposés : course à l'attaque
+    if (!fin && kc && ko && ((col(kc.k) <= 2 && col(ko.k) >= 5) || (col(kc.k) >= 5 && col(ko.k) <= 2)) && relRg(kc.k, c) === 0 && relRg(ko.k, O) === 0) {
+      const a = aileDe(col(ko.k));
+      ajout(8.5, '<b>Roques opposés</b> : les rois sont sur des ailes différentes, c’est une <b>course à l’attaque</b>. Tu peux avancer les pions de ' + AILES[a].nom + ' contre le roi adverse sans affaiblir le tien. Le plus rapide gagne.', 'Roques opposés : l’adversaire va lancer ses pions contre ton roi, chaque temps compte.', carres(zoneRoi(b, O), C_ROUGE));
+    }
+    // le roi adverse resté au centre / mal protégé
+    if (!fin && ko && ko.centre && P0.coup >= 8 && !(O === 'w' ? /[KQA-H]/.test(P0.roques) : /[kqa-h]/.test(P0.roques))) ajout(8, 'Le <b>roi adverse est coincé au centre</b> sans pouvoir roquer : il faut <b>ouvrir le jeu</b> (colonnes, diagonales) pour l’attaquer avant qu’il ne se mette à l’abri.', 'Ton roi est coincé au centre : l’adversaire va chercher à <b>ouvrir le jeu</b> contre lui.', carres(zoneRoi(b, O), C_ROUGE));
+    else if (!fin && ko && ko.aile && ko.bouclier.length <= 1 && m.w + m.b > 30) ajout(7, 'Le <b>roi adverse n’a presque plus de pions devant lui</b> : amène dame et pièces vers lui, une attaque peut vite devenir décisive.', 'Ton roi n’a presque plus de pions devant lui : l’adversaire va y amener ses pièces.', carres(zoneRoi(b, O), C_ROUGE));
+    // majorité de pions sur une aile
+    for (let a = 0; a < 3; a += 2) {
+      const n1 = AILES[a].cols.reduce((n, x) => n + pionsColonne(b, x, c), 0), n2 = AILES[a].cols.reduce((n, x) => n + pionsColonne(b, x, O), 0);
+      if (n1 > n2 && n1 >= 2 && (fin || m.w + m.b <= 60 || !(kc && aileDe(col(kc.k)) === a))) {
+        const cases = []; for (const x of AILES[a].cols) for (let y = 0; y < 8; y++) if (b[y * 8 + x] === pionDe(c)) cases.push(y * 8 + x);
+        ajout(fin ? 7.5 : 5.5, '<b>Majorité de pions sur ' + AILES[a].nom + '</b> (' + n1 + ' contre ' + n2 + ') : à long terme, l’avancer ensemble pour <b>créer un pion passé</b>.', 'L’adversaire a la majorité sur ' + AILES[a].nom + ' : il voudra y <b>créer un pion passé</b>, il faut le freiner.', carres(cases, C_VERT));
+      }
+    }
+    // pions passés
+    if (st.passes.length) {
+      const p = st.passes.slice().sort((x, y) => relRg(y, c) - relRg(x, c))[0];
+      ajout(relRg(p, c) >= 4 ? 8 : 6.5, '<b>Ton pion passé</b> (' + nomCase(p) + ') est un atout durable : il faut le <b>soutenir et le pousser</b>, idéalement avec une tour placée derrière lui. L’adversaire devra bloquer une pièce devant.', 'L’adversaire a un <b>pion passé</b> (' + nomCase(p) + ') : il faut le <b>bloquer</b>, le mieux avec un cavalier juste devant lui.', carres([p], C_VERT));
+    }
+    // faiblesses adverses à attaquer
+    if (stO.isoles.length && !fin) {
+      const q = stO.isoles.sort((x, y) => Math.abs(col(x) - 3.5) - Math.abs(col(y) - 3.5))[0];
+      ajout(5.5, 'Le <b>pion isolé ' + nomCase(q) + '</b> adverse ne peut être défendu que par des pièces : c’est une <b>cible à long terme</b>. Mets-le sous pression et occupe la case juste devant lui.', 'Ton pion isolé ' + nomCase(q) + ' est une cible : l’adversaire va le viser.', carres([q], C_ROUGE));
+    }
+    if (stO.doubles.length && !fin) ajout(4, 'Les <b>pions doublés</b> adverses (colonne ' + listeEt(stO.doubles.map((x) => FI[x])) + ') bougent mal et se défendent mal : en finale, ce sera un vrai avantage.', null);
+    // case forte pour un cavalier
+    const cf = casesFortes(b, c)[0];
+    if (cf && !fin) {
+      const deja = b[cf.s] && typ(b[cf.s]) === 'n';
+      ajout(deja ? 5 : 6, deja ? 'Ton <b>cavalier en ' + nomCase(cf.s) + '</b> est sur une <b>case forte</b> : aucun pion ne peut le chasser. Garde-le là, il gêne tout le camp adverse.' : '<b>Case forte en ' + nomCase(cf.s) + '</b> : protégée par un de tes pions, aucun pion adverse ne pourra jamais la chasser. Un <b>cavalier</b> installé là serait excellent : c’est une bonne destination pour tes pièces.', 'L’adversaire a une case forte en ' + nomCase(cf.s) + ' : il voudra y installer un cavalier.', carres([cf.s], C_VERT));
+    }
+    // colonnes pour les tours
+    if (!fin) {
+      const tours = []; for (let s = 0; s < 64; s++) if (b[s] === (c === 'w' ? 'R' : 'r')) tours.push(s);
+      const ouv = [], semi = [];
+      for (let x = 0; x < 8; x++) { const a = pionsColonne(b, x, c), o = pionsColonne(b, x, O); if (!a && !o) ouv.push(x); else if (!a && o) semi.push(x); }
+      const occupe = (x) => tours.some((s) => col(s) === x);
+      const libres = ouv.filter((x) => !occupe(x)), semiL = semi.filter((x) => !occupe(x));
+      if (tours.length && libres.length) {
+        const cases = []; for (const x of libres) for (let y = 0; y < 8; y++) cases.push(y * 8 + x);
+        ajout(5, '<b>Colonne' + (libres.length > 1 ? 's' : '') + ' ouverte' + (libres.length > 1 ? 's' : '') + ' ' + listeEt(libres.map((x) => FI[x])) + '</b> : c’est là que les <b>tours</b> doivent aller. Celui qui prend la colonne en premier entre dans le camp adverse (souvent jusqu’à la 7e rangée).', 'L’adversaire voudra mettre ses tours sur la colonne ouverte ' + listeEt(libres.map((x) => FI[x])) + '.', carres(cases, C_JAUNE));
+      } else if (tours.length && semiL.length && !ouverture) {
+        const x = semiL.sort((p, q) => Math.abs(p - 3.5) - Math.abs(q - 3.5))[0];
+        ajout(4.5, '<b>Colonne ' + FI[x] + ' semi-ouverte</b> (plus de pion à toi dessus) : une tour placée là fait <b>pression sur le pion adverse</b> de cette colonne.', null);
+      }
+    }
+    // les fous
+    const cpt = comptes(b);
+    if ((cpt[c].b || 0) >= 2 && (cpt[O].b || 0) < 2) ajout(4.5, 'Tu as la <b>paire de fous</b> : ils sont plus forts quand la position est <b>ouverte</b>. Ouvrir des lignes (échanger des pions) les rend encore meilleurs.', 'L’adversaire a la paire de fous : il voudra ouvrir la position. Garde-la plutôt fermée.');
+    for (let s = 0; s < 64; s++) {
+      if (b[s] !== (c === 'w' ? 'B' : 'b')) continue;
+      const cl0 = (col(s) + rg(s)) & 1;
+      const pareil = pionsDe(b, c).filter((q) => ((col(q) + rg(q)) & 1) === cl0).length, autreC = pionsDe(b, c).length - pareil;
+      if (pareil >= 4 && pareil >= autreC + 2) { ajout(5, 'Ton <b>fou ' + nomCase(s) + ' est « mauvais »</b> : ' + pareil + ' de tes pions sont sur des cases de sa couleur et lui bouchent la route. Plan : <b>le sortir devant ses pions</b>, mettre les pions sur l’autre couleur, ou l’échanger.', null, carres([s], C_JAUNE)); break; }
+    }
+    // le centre : qui le tient, la tension, les ruptures de pions
+    if (!fin) {
+      const cC = controleCentre(b, c), cO = controleCentre(b, O);
+      if (cC >= cO + 3) ajout(4.5, 'Tu <b>contrôles mieux le centre</b> (' + cC + ' attaques sur d4, e4, d5, e5 contre ' + cO + ') : tes pièces y passent facilement d’une aile à l’autre. Garde ce contrôle.', 'L’adversaire tient mieux le centre : il faut le <b>contester</b> (pions et pièces vers d4, e4, d5, e5).', carres(CENTRE, C_VERT));
+      else if (cO >= cC + 3) ajout(5, 'L’adversaire <b>contrôle mieux le centre</b> (' + cO + ' attaques sur les cases centrales contre ' + cC + ') : il faut le <b>contester</b>, avec un pion ou en amenant des pièces qui visent d4, e4, d5, e5.', null, carres(CENTRE, C_ROUGE));
+      let tension = null;
+      for (const s of pionsDe(b, c)) for (const a of attaques(b, s)) if (b[a] === pionDe(O) && col(s) >= 2 && col(s) <= 5) tension = tension || [s, a];
+      if (tension) ajout(4, '<b>Tension au centre</b> : ton pion ' + nomCase(tension[0]) + ' et le pion ' + nomCase(tension[1]) + ' se touchent. Souvent, il ne faut <b>pas se presser de prendre</b> : celui qui échange libère le jeu de l’autre.', null, carres(tension, C_JAUNE));
+      else {
+        const d = c === 'w' ? 8 : -8;
+        let rupt = null;
+        for (const s of pionsDe(b, c)) {
+          if (rupt || col(s) < 1 || col(s) > 6) continue;
+          const pas = [s + d];
+          if (relRg(s, c) === 1 && !b[s + d]) pas.push(s + 2 * d);
+          for (const t of pas) {
+            if (rupt || b[t] || (t === s + 2 * d && b[s + d])) continue;
+            const b2 = b.slice(); b2[t] = b2[s]; b2[s] = null;
+            if (attaques(b2, t).some((q) => b2[q] === pionDe(O)) && attaquants(b2, t, O).filter((a) => b2[a] === pionDe(O)).length <= attaquants(b2, t, c).length) rupt = [s, t];
+          }
+        }
+        if (rupt) ajout(5, '<b>Rupture de pions</b> : le pion ' + FI[col(rupt[0])] + ' peut avancer jusqu’en ' + nomCase(rupt[1]) + ' pour attaquer les pions adverses et <b>ouvrir des lignes</b> pour tes pièces. C’est l’idée à préparer ; le bon moment, c’est quand tes pièces sont prêtes à profiter des lignes ouvertes.', 'L’adversaire prépare une rupture avec son pion ' + FI[col(rupt[0])] + ' (vers ' + nomCase(rupt[1]) + ') pour ouvrir le jeu.', [{ de: nomCase(rupt[0]), vers: nomCase(rupt[1]), couleur: C_COUP }]);
+      }
+    }
+    // espace
+    const espace =(cc) => pionsDe(b, cc).filter((q) => relRg(q, cc) >= 4 && col(q) >= 2 && col(q) <= 5).length;
+    if (!fin && !ouverture && espace(c) >= 2 && espace(c) > espace(O) + 1) ajout(4.5, 'Tu as <b>plus d’espace</b> (pions avancés au centre) : tes pièces circulent mieux. Évite les échanges qui libéreraient l’adversaire, il étouffe.', 'L’adversaire a plus d’espace : chercher à <b>échanger des pièces</b> et à casser ses pions avancés.');
+    // la pièce la moins active
+    if (!ouverture && !fin) {
+      let pire = -1, mob = 99;
+      for (let s = 0; s < 64; s++) if (b[s] && coul(b[s]) === c && ['n', 'b', 'r'].includes(typ(b[s]))) { const n = mobilite(b, s); if (n < mob) { mob = n; pire = s; } }
+      if (pire >= 0 && mob <= 3 && !out.some((x) => x.dessin.some((d) => d.carre && d.vers === nomCase(pire)))) ajout(5, 'Ta <b>pièce la moins active</b> est ' + pieceEn(b, pire) + ' (' + mob + ' case' + (mob > 1 ? 's' : '') + ' seulement) : un bon plan simple est de <b>lui trouver une meilleure place</b>. Une armée vaut ce que vaut sa pire pièce.', null, carres([pire], C_JAUNE));
+    }
+    return out.sort((x, y) => y.poids - x.poids);
+  }
+  // ce que font les coups de S dans une ligne du moteur, en mots stratégiques (sans nommer les coups)
+  function resumeLigne(P0, pv, S) {
+    let P = P0;
+    const O = autre(S), faits = [], ajout = (k, t) => { if (!faits.some((f) => f.k === k)) faits.push({ k, t }); };
+    const ailes = [0, 0, 0];
+    for (let i = 0; i < Math.min(pv.length, 8) && P; i++) {
+      const u = pv[i], de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4)), p = P.b[de];
+      const P1 = jouer(P, u);
+      if (!P1) break;
+      if (i % 2 === 0 && p) {
+        const t = typ(p);
+        if (P1.roque) ajout('roque', 'mettre le roi à l’abri (roque)');
+        else if (DEPART[S][t] && DEPART[S][t].includes(de)) ajout('dev', 'sortir les pièces restées chez elles');
+        if (P1.prise) ajout('prise', V[P1.prise] >= 3 && t !== 'p' ? 'échanger des pièces' : 'gagner ou échanger du matériel');
+        if (t === 'p' && !P1.prise) { if (P1.promo) ajout('promo', 'aller à dame'); else if (pionPasse(P.b, de)) ajout('passe', 'pousser le pion passé'); else if (col(de) >= 3 && col(de) <= 4 && relRg(de, S) <= 2) ajout('centre', 'prendre de la place au centre avec les pions'); else ailes[aileDe(col(de))]++; }
+        if (t !== 'p' && t !== 'k' && !P1.prise) {
+          const kO = roiDe(P1.b, O);
+          if (kO >= 0 && Math.max(Math.abs(col(vers) - col(kO)), Math.abs(rg(vers) - rg(kO))) <= 2 && !finale(P.b)) ajout('roi', 'rapprocher les pièces du roi adverse');
+          else if (t === 'r' && !pionsColonne(P1.b, col(vers), S)) ajout('col', 'placer une tour sur une colonne ouverte');
+          else if (mobilite(P1.b, vers) >= mobilite(P.b, de) + 2) ajout('act', 'rendre une pièce plus active');
+          else if (CENTRE.includes(vers) || casesFortes(P1.b, S).some((x) => x.s === vers)) ajout('case', 'installer une pièce sur une bonne case');
+        }
+        if (t === 'k' && !P1.roque && finale(P.b)) ajout('rk', 'activer le roi');
+        if (enEchec(P1.b, O) && !P1.prise) ajout('echec', 'gagner du temps par des échecs');
+      }
+      P = P1;
+    }
+    const a = ailes.indexOf(Math.max(...ailes));
+    if (ailes[a] >= 1) ajout('aile', 'avancer les pions de ' + AILES[a].nom);
+    return faits;
+  }
+
+  // =====================================================================
   //  INTERFACE
   // =====================================================================
   const cache = {};
@@ -814,9 +988,17 @@
         corps.querySelectorAll('.coach-so').forEach((x) => x.classList.toggle('actif', x === t));
         plis.forEach((p, i) => p.classList.toggle('ouvert', i === +t.dataset.pli));
         choisir(+t.dataset.v);
+        ajuster(corps);
       };
     });
     choisir(0);
+    ajuster(corps);
+  }
+  // jamais de défilement : si la page ne tient pas, on masque les phrases secondaires (de la dernière à la première)
+  function ajuster(corps) {
+    const opts = [...corps.querySelectorAll('.coach-opt')];
+    opts.forEach((x) => x.classList.remove('coach-cache'));
+    for (let i = opts.length - 1; i >= 0 && corps.scrollHeight > corps.clientHeight + 1; i--) if (opts[i].offsetParent) opts[i].classList.add('coach-cache');
   }
 
   // --------------------------------------------------------------------
@@ -1029,7 +1211,7 @@
     }
     if (!puces.length) puces.push('<li>' + (suite[2] ? 'Pas de gain tout de suite : ' + sanBest + ' sert surtout à préparer la suite ci-dessous.' : 'Pas de gain tout de suite : le moteur le préfère de peu aux autres coups.') + '</li>');
     h += '<p class="coach-sous">Pourquoi ' + sanBest + ' :</p><ul class="coach-liste">' + puces.join('') + '</ul>';
-    if (ensuite) h += '<p class="coach-sous">Et ensuite <span class="coach-ligne">(clique pour voir)</span> :</p><ul class="coach-liste">' + ensuite + '</ul>';
+    if (ensuite) h += '<div class="coach-opt"><p class="coach-sous">Et ensuite <span class="coach-ligne">(clique pour voir)</span> :</p><ul class="coach-liste">' + ensuite + '</ul></div>';
     h = h.replace('<h3 class="coach-titre">★ ' + sanBest + '</h3>', '<h3 class="coach-titre" data-vue="0">★ Pourquoi ' + sanBest + ' ?</h3>');
     pages.push({ nom: '★ Pourquoi ' + sanBest, html: h, vues: vues1 });
 
@@ -1037,47 +1219,77 @@
     const p2 = pageReflexion(ctx, D, { cl, P0, S, O, best, suite, sanBest, fBest, notions1, dire });
     if (p2) pages.push(p2);
 
-    // ---------- Page 3 : les autres coups (le coup joué d'abord) ----------
+    // ---------- Page 3 : les autres coups (le 2e meilleur, le coup joué, puis les moins bons) ----------
     const alts = [];
-    if (joue && ctx.joue !== best.pv[0]) alts.push(joue);
-    for (const l of D.lignes.slice(1)) if (!l.joue && ecart(best.score, l.score) > 0.15 && alts.length < 3) alts.push(l);
+    const second = D.lignes.slice(1).find((l) => l.pv[0] !== best.pv[0]);
+    if (second) alts.push(second);
+    if (joue && ctx.joue !== best.pv[0] && !alts.includes(joue)) alts.push(joue);
+    for (const l of D.lignes.slice(1)) if (!alts.includes(l) && l.pv[0] !== best.pv[0] && alts.length < 3) alts.push(l);
     if (alts.length) {
       const vues = [];
-      let h3 = '<h3 class="coach-titre">? Les autres coups</h3>';
-      alts.forEach((l, k) => {
-        const s2 = fensSuite(ctx, l.pv.slice(0, 6));
+      const planBest = cl ? resumeLigne(P0, best.pv, S) : [];
+      const onglets = [];
+      let h3 = '';
+      alts.forEach((l) => {
+        const s2 = fensSuite(ctx, l.pv.slice(0, 8));
         if (!s2.length) return;
         const g = ecart(best.score, l.score);
-        let t = '<b>' + s2[0].san + '</b>' + (l.joue ? ' (joué)' : '') + ' : ' + phraseScore(l.score, S) + (g >= 99 ? '' : ', soit <b>−' + nb(g) + '</b> par rapport à ' + sanBest) + '.';
+        const rang = D.lignes.indexOf(l);
+        const etiq = (rang === 1 ? '2e meilleur coup' : rang > 1 ? (rang + 1) + 'e coup du moteur' : '') + (l.joue ? (rang >= 1 ? ', ' : '') + 'joué' : '');
+        let tete = '<b>' + s2[0].san + '</b>' + (etiq ? ' (' + etiq + ')' : '') + ' : ' + phraseScore(l.score, S) + (g >= 99 ? '' : g > 0.004 ? ', soit <b>−' + nb(g) + '</b> par rapport à ' + sanBest : ', <b>exactement aussi bon</b> que ' + sanBest) + '.';
+        const det = [];
         const dessin = [];
-        if (s2[1]) {
-          let pourquoi = ' Réponse : <b>' + s2[1].san + '</b>';
-          if (cl) {
+        if (cl) {
+          const ra = repriseAvant(ctx);
+          // l'idée du coup lui-même
+          const id1 = nettoyer(idees(P0, l.pv[0], { mat1: l.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, 2);
+          if (id1.length) det.push('<span class="coach-opt"><b>Son idée</b> : ' + listeEt(id1.map((x) => court(x.texte))) + '.</span>');
+          // la réponse adverse
+          if (s2[1]) {
             const Pa = jouer(P0, l.pv[0]);
             const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null, repriseValeur: Pa.prise ? V[Pa.prise] : 0 }).idees, 1)[0] : null;
-            if (rep) { pourquoi += ' — ' + court(rep.texte) + '.'; dessin.push(...recolorer(rep.dessin, C_MENACE)); }
-            else { pourquoi += '.'; const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
-            const bb = bilanPieces(P0.b, lire((suite[Math.min(5, suite.length - 1)] || { fen: D.fen }).fen).b, S);
-            const bp = bilanPieces(P0.b, lire(s2[s2.length - 1].fen).b, S);
-            if (bp.net < bb.net) pourquoi += ' Au bout, <b>' + (bb.net - bp.net) + ' de matériel en moins</b> qu’avec ' + sanBest + '.';
-          } else {
-            pourquoi += (s2[1].prise ? ', qui prend une pièce' : '') + (s2[1].echec ? ', avec échec' : '') + '.';
-            const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f);
+            det.push('<b>Réponse ' + des(O) + '</b> : ' + s2[1].san + (rep ? ' — ' + court(rep.texte) : '') + '.');
+            if (rep) dessin.push(...recolorer(rep.dessin, C_MENACE)); else { const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
           }
-          if (g >= 0.4) t += pourquoi;
-          else t += ' Un peu moins précis, sans faute grave.';
+          // le plan : en quoi il diffère du meilleur coup
+          const planL = resumeLigne(P0, l.pv, S);
+          const commun = planL.filter((f) => planBest.some((x) => x.k === f.k)).map((f) => f.t);
+          const seulL = planL.filter((f) => !planBest.some((x) => x.k === f.k)).map((f) => f.t);
+          const seulB = planBest.filter((f) => !planL.some((x) => x.k === f.k)).map((f) => f.t);
+          if (seulL.length || seulB.length) det.push('<b>Le plan</b> : ' + (commun.length ? 'comme ' + sanBest + ', il cherche à ' + listeEt(commun.slice(0, 2)) + ', mais ' : '') +
+            (seulL.length ? 'il préfère ' + listeEt(seulL.slice(0, 2)) : 'il ne fait rien de plus') + (seulB.length ? ', là où ' + sanBest + ' cherche plutôt à ' + listeEt(seulB.slice(0, 2)) : '') + '.');
+          else if (commun.length) det.push('<b>Le plan</b> : le même que ' + sanBest + ' (' + listeEt(commun.slice(0, 2)) + '), dans un autre ordre.');
+          // au bout de la ligne : matériel et activité comparés au meilleur coup
+          const finB = lire((suite[Math.min(s2.length, suite.length) - 1] || { fen: D.fen }).fen).b, finL = lire(s2[s2.length - 1].fen).b;
+          const bb = bilanPieces(P0.b, finB, S), bp = bilanPieces(P0.b, finL, S);
+          const aB = activiteTotale(finB, S), aL = activiteTotale(finL, S);
+          const cmp = [];
+          if (bp.net < bb.net) cmp.push('<b>' + (bb.net - bp.net) + ' point' + (bb.net - bp.net > 1 ? 's' : '') + ' de matériel en moins</b>');
+          else if (bp.net > bb.net) cmp.push((bp.net - bb.net) + ' point' + (bp.net - bb.net > 1 ? 's' : '') + ' de matériel en plus, mais une position moins bonne ailleurs');
+          if (aL <= aB - 3) cmp.push('des pièces <b>moins actives</b> (' + aL + ' cases contrôlées au lieu de ' + aB + ')');
+          else if (aL >= aB + 3) cmp.push('des pièces plus actives (' + aL + ' cases au lieu de ' + aB + ')');
+          // le verdict
+          const verdict = (g <= 0.004 ? '<b>Verdict</b> : les deux se valent, c’est une question de goût.' : g <= 0.15 ? '<b>Verdict</b> : presque aussi bon, la différence (' + nb(g) + ') est minuscule. Tu peux le jouer sans crainte.' : g <= 0.5 ? '<b>Verdict</b> : un peu moins précis, sans faute grave.' : g <= 1.5 ? '<b>Verdict</b> : une <b>imprécision</b> qui donne quelque chose à l’adversaire.' : '<b>Verdict</b> : une <b>erreur</b> sérieuse.');
+          det.push(verdict + (cmp.length ? '<span class="coach-opt"> Au bout de la suite, par rapport à ' + sanBest + ' : ' + listeEt(cmp) + '.</span>' : ''));
+        } else if (s2[1]) {
+          det.push('Réponse : <b>' + s2[1].san + '</b>' + (s2[1].prise ? ', qui prend une pièce' : '') + (s2[1].echec ? ', avec échec' : '') + '.');
+          const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f);
         }
-        vues.push(g >= 0.4 && s2[1] ? { fen: s2[0].fen, dernier: window.App.dernierCoupCases(l.pv[0]), dessin } : { dessin: [flecheUci(l.pv[0], C_ADV, '?'), fBest].filter(Boolean) });
-        h3 += '<div class="coach-bloc" data-vue="' + (vues.length - 1) + '">' + t + '</div>';
+        vues.push(s2[1] ? { fen: s2[0].fen, dernier: window.App.dernierCoupCases(l.pv[0]), dessin } : { dessin: [flecheUci(l.pv[0], C_ADV, '?'), fBest].filter(Boolean) });
+        onglets.push({ court: s2[0].san + (rang === 1 ? ' (2e)' : rang > 1 ? ' (' + (rang + 1) + 'e)' : '') + (l.joue ? ' joué' : ''), html: '<p>' + tete + '</p>' + (det.length ? '<ul class="coach-liste">' + det.map((x) => /^<span class="coach-opt">.*<\/span>$/.test(x) ? '<li class="coach-opt">' + x.slice(24, -7) + '</li>' : '<li>' + x + '</li>').join('') + '</ul>' : '') });
       });
-      h3 += '<p class="coach-ligne">Clique un coup : le plateau montre la position après lui, et la réponse en rouge.</p>';
-      if (vues.length) pages.push({ nom: '? Les autres coups', html: h3, vues });
+      if (onglets.length) {
+        h3 += '<div class="coach-sous-onglets">' + onglets.map((o, i) => '<button class="coach-so' + (i === 0 ? ' actif' : '') + '" data-pli="' + i + '" data-v="' + i + '">' + o.court + '</button>').join('') + '</div>';
+        onglets.forEach((o, i) => { h3 += '<div class="coach-pli' + (i === 0 ? ' ouvert' : '') + '">' + o.html + '</div>'; });
+        h3 += '<p class="coach-ligne coach-opt">Le plateau montre la position après ce coup, et la réponse en rouge.</p>';
+        pages.push({ nom: '? Les autres coups', html: h3, vues });
+      }
     }
     return pages;
   }
   // Page 2 : comment un bon joueur réfléchit ici, en 3 parties dépliables (une seule ouverte à la fois)
   function pageReflexion(ctx, D, o) {
-    const { cl, P0, S, best, suite, sanBest, fBest, notions1, dire } = o;
+    const { cl, P0, S, O, best, suite, sanBest, fBest, notions1, dire } = o;
     const vues = [{ dessin: fBest ? [fBest] : [] }];
     const plis = [];
     const vueDe = (v) => { vues.push(v); return vues.length - 1; };
@@ -1129,7 +1341,24 @@
       plis.push({ titre: '2. Les coups à regarder d’abord', court: '2. Coups forçants', vue: 0, corps: intro + (items.length ? '<ul class="coach-liste">' + items.join('') + '</ul>' : '') });
     }
 
-    // 3. le plan : où mène la ligne du moteur, et ce qu'elle change
+    // 3. le plan stratégique : les objectifs à long terme, sans parler des coups exacts
+    if (cl) {
+      const items = [];
+      let budget = 0;
+      const moi = strategie(P0, S).filter((x) => x.moi).filter((x, i) => { budget += sansBalises(x.moi).length; return i === 0 || (i < 3 && budget <= 430); });
+      const rl = resumeLigne(P0, best.pv, S).map((f) => f.t).slice(0, 4);
+      if (moi.length || rl.length) {
+        const v1 = vues.length;
+        const corps = (moi.length ? '<ul class="coach-liste">' + moi.map((x) => li(x.moi, vueDe({ dessin: x.dessin }))).join('') + '</ul>' : '') +
+          (rl.length ? '<p>🧭 <b>' + sanBest + ' suit ce plan</b> : dans la suite calculée, tes coups servent à ' + listeEt(rl) + '.</p>' : '');
+        plis.push({ titre: (plis.length + 1) + '. Le plan : tes objectifs à long terme', court: (plis.length + 1) + '. Le plan', vue: moi.length ? v1 : 0, corps });
+      }
+      const lui = strategie(P0, O).filter((x) => x.lui).slice(0, 3);
+      if (lui.length) plis.push({ titre: (plis.length + 1) + '. Le plan de l’adversaire (à surveiller)', court: (plis.length + 1) + '. Adversaire', vue: vues.length,
+        corps: '<ul class="coach-liste">' + lui.map((x) => li('🛡 ' + x.lui, vueDe({ dessin: x.dessin.map((d) => Object.assign({}, d, { couleur: C_ROUGE })) }))).join('') + '</ul>' });
+    }
+
+    // 4. la ligne : où mène la suite du moteur, et ce qu'elle change
     if (suite.length >= 2) {
       const n0 = +(D.fen.split(/\s+/)[5] || 1);
       let num = n0, blanc = S === 'w', chips = '';
@@ -1152,7 +1381,7 @@
         const prises = suite.filter((x) => x.prise).length, echecs = suite.filter((x) => x.echec).length;
         corps += '<p>' + (prises ? prises + ' prise' + (prises > 1 ? 's' : '') : 'Aucune prise') + ' et ' + (echecs ? echecs + ' échec' + (echecs > 1 ? 's' : '') : 'aucun échec') + ' dans cette ligne.</p>';
       }
-      plis.push({ titre: '3. Le plan : où mène ' + sanBest, court: '3. Le plan', vue: vues.length > 1 ? vues.length - suite.length : 0, corps });
+      plis.push({ titre: (plis.length + 1) + '. La suite calculée après ' + sanBest, court: (plis.length + 1) + '. La suite', vue: vues.length > 1 ? vues.length - suite.length : 0, corps });
     }
     if (!plis.length) return null;
     let h = '<h3 class="coach-titre" data-vue="0">🧠 Réflexion détaillée</h3>';

@@ -683,6 +683,7 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .coach-chip.choisi { border-color: #4a7bd0; background: #24324a; }
 .coach-bloc { padding: 8px 10px; border: 2px solid var(--bord); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
 .coach-bloc.choisi { border-color: #4a7bd0; background: #1f2838; }
+.coach-cache { display: none !important; }
 .coach-attente { color: var(--gris); }
 .coach-sous-onglets { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
 .coach-so { flex: 1 1 auto; white-space: nowrap; background: var(--panneau); border: 2px solid var(--bord); color: #e8e8e8; border-radius: 10px; padding: 4px 5px; font-size: 16px; cursor: pointer; }

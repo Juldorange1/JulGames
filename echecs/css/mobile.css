@@ -29,7 +29,7 @@
   .coach-sous-onglets { margin-bottom: 4px; gap: 4px; }
   .coach-so { padding: 2px 4px; white-space: nowrap; }
   .coach-pli-titre { display: none; }
-  .barre-eval { width: 34px; }
+  .barre-eval { width: 44px; }
   .barre-eval .barre-texte { font-size: 16px; }
   .barre-repere { width: 24px; height: 24px; font-size: 16px; }
   .panneau, .panneau-bilan { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--bord); padding: 6px 8px; gap: 5px; overflow-y: auto; min-height: 0; }
@@ -79,7 +79,7 @@
   .menu-cartes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .carte-menu { padding: 18px 12px !important; }
   .carte-menu .carte-icone { font-size: 42px !important; }
-  .barre-eval { width: 30px; }
+  .barre-eval { width: 44px; }
   .liste-coups { height: 52px; }
 }
 

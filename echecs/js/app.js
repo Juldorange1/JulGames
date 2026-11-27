@@ -21,7 +21,7 @@
     return BOTS.expert;
   }
   const COULEURS_CONSEILS = ['rgba(90,200,90,0.9)', 'rgba(80,160,255,0.85)', 'rgba(240,170,60,0.85)'];
-  const COULEURS_PLUS = ['rgba(200,120,255,0.85)', 'rgba(255,120,170,0.85)', 'rgba(170,175,185,0.85)'];
+  const COULEURS_PLUS = ['rgba(200,120,255,0.85)', 'rgba(255,120,170,0.85)', 'rgba(0,215,195,0.9)'];
   // recherche des 4e, 5e et 6e meilleurs coups (bouton), pour la position regardée
   let plus = null;
   let jetonPlus = 0;
@@ -55,14 +55,14 @@
     return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
   }
   function texteScore(score) {
-    if (!score) return '0,0';
+    if (!score) return '0,00';
     if (score.mate != null) {
       if (score.mate === 0) return '#';
       return (score.mate > 0 ? '' : '−') + 'M' + Math.abs(score.mate);
     }
     const v = score.cp / 100;
-    const s = Math.abs(v).toFixed(1).replace('.', ',');
-    return (v > 0.04 ? '+' : v < -0.04 ? '−' : '') + s;
+    const s = Math.abs(v).toFixed(Math.abs(v) >= 9.995 ? 1 : 2).replace('.', ',');
+    return (v >= 0.005 ? '+' : v <= -0.005 ? '−' : '') + s;
   }
   // valeur comparable d'un score (vu du camp au trait) ; deux coups exactement aussi bons ont la même valeur
   function valeurScore(s) {
