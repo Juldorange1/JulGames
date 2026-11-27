@@ -40,7 +40,7 @@
         else { b[(7 - r) * 8 + c] = x; c++; }
       }
     }
-    return { b, t: ch[1] === 'b' ? 'b' : 'w', coup: +ch[5] || 1 };
+    return { b, t: ch[1] === 'b' ? 'b' : 'w', coup: +ch[5] || 1, roques: ch[2] || '-' };
   }
 
   const DIRS = { b: [[1, 1], [1, -1], [-1, 1], [-1, -1]], r: [[1, 0], [-1, 0], [0, 1], [0, -1]] };
@@ -237,6 +237,7 @@
     couloir: ['Mat du couloir', 'Le roi est enfermé sur sa dernière rangée par ses propres pions : une tour ou une dame qui arrive sur cette rangée fait mat.'],
     menace: ['Menace', 'Un coup qui prépare un gain (prendre une pièce, faire mat). Toujours se demander : « Que veut faire mon adversaire ? »'],
     defense: ['Défendre une pièce', 'Mettre à l’abri une pièce attaquée, la protéger par une autre, ou chasser l’attaquant.'],
+    defenseur: ['Attaquer le défenseur', 'Si une pièce adverse est protégée par une seule autre, on attaque ou on échange ce protecteur : la pièce protégée devient prenable.'],
     surcharge: ['Défenseur surchargé', 'Une même pièce doit protéger deux choses à la fois : elle ne peut pas tout faire, une des deux tombe.'],
     developpement: ['Développement', 'Sortir ses cavaliers et ses fous au début de la partie, pour qu’ils participent au jeu. Une pièce restée chez elle ne sert à rien.'],
     centre: ['Contrôle du centre', 'Les cases d4, e4, d5, e5 : une pièce au centre va partout vite, et l’adversaire manque de place.'],
@@ -293,7 +294,9 @@
       [fleche, { de: nomCase(d), vers: nomCase(roiDe(b1, O)), couleur: C_MENACE }]);
 
     // --- prise
-    if (P1.prise) {
+    if (P1.prise && o.repriseCase != null && P1.priseCase === o.repriseCase) {
+      ajouter(26, Maj(piece) + ' <b>reprend ' + UN[P1.prise] + '</b> : l’échange est fini, le matériel redevient égal.', 'echange', [fleche]);
+    } else if (P1.prise) {
       const pc = P1.priseCase;
       const defendue = attaquants(b0, pc, O).length > 0;
       const g = P1.priseCase === d ? see(b0, P1.de, d) : V.p;
@@ -375,6 +378,73 @@
       else if (P1.prise && P1.priseCase === x.par) ajouter(36 + x.gain, Maj(piece) + ' <b>élimine l’attaquant</b> qui menaçait ' + pieceEn(b0, x.s) + '.', 'defense', [fleche]);
       else if (b1[x.s]) ajouter(30 + x.gain, Maj(piece) + ' <b>protège</b> ' + pieceEn(b1, x.s) + ', qui était attaqué' + (['r', 'q'].includes(typ(b1[x.s])) ? 'e' : '') + ' par ' + pieceEn(b0, x.par) + '.', 'defense',
         [fleche, { de: nomCase(x.par), vers: nomCase(x.s), couleur: C_ADV }, { de: nomCase(d), vers: nomCase(x.s), couleur: C_DEF }]);
+    }
+
+    // --- idées précises pour les coups calmes
+    if (!P1.prise && !echec) {
+      // il ouvre une ligne à une autre pièce
+      let ouvre = null;
+      for (let s = 0; s < 64; s++) {
+        const p = b1[s];
+        if (!p || coul(p) !== S || s === d || !DIRS[typ(p)]) continue;
+        const g = mobilite(b1, s) - mobilite(b0, s);
+        if (g >= 2 && (!ouvre || g > ouvre.g)) ouvre = { s, g };
+      }
+      if (ouvre) {
+        const tp = typ(b1[ouvre.s]);
+        const nouv = attaques(b1, ouvre.s).filter((q) => !attaques(b0, ouvre.s).includes(q) && (!b1[q] || coul(b1[q]) !== S));
+        ajouter(16, Maj(piece) + ' en bougeant <b>ouvre la route ' + DU[tp] + ' ' + nomCase(ouvre.s) + '</b> : ' + (fem(tp) ? 'elle' : 'il') + ' gagne ' + ouvre.g + ' cases (' + nouv.slice(0, 4).map(nomCase).join(', ') + (nouv.length > 4 ? '…' : '') + ').', 'activite',
+          [fleche, ...nouv.map((q) => ({ de: null, vers: nomCase(q), couleur: 'rgba(90,200,90,0.28)', carre: true }))]);
+      }
+      // il vise un point faible : une pièce défendue seulement par son roi
+      if (t !== 'k' && t !== 'p') {
+        const faible = attaques(b1, d).find((q) => b1[q] && coul(b1[q]) === O && typ(b1[q]) !== 'k' && !attaques(b0, P1.de).includes(q) &&
+          attaquants(b1, q, O).length === 1 && typ(b1[attaquants(b1, q, O)[0]]) === 'k');
+        if (faible != null) ajouter(24, Maj(piece) + ' <b>vise ' + pieceEn(b1, faible) + '</b>, défendu' + (fem(typ(b1[faible])) ? 'e' : '') + ' seulement par le roi : c’est un <b>point faible</b>. Une 2e pièce sur ' + (fem(typ(b1[faible])) ? 'elle' : 'lui') + ' et ' + (fem(typ(b1[faible])) ? 'elle' : 'il') + ' tombe.', 'attaque-roi',
+          [fleche, { de: nomCase(d), vers: nomCase(faible), couleur: C_MENACE }]);
+      }
+      // il attaque le défenseur d'une pièce que l'on attaque déjà
+      if (t !== 'k') {
+        for (const q of attaques(b1, d)) {
+          if (!b1[q] || coul(b1[q]) !== O || typ(b1[q]) === 'k' || attaques(b0, P1.de).includes(q)) continue;
+          const proteges = attaques(b1, q).filter((y) => b1[y] && coul(b1[y]) === O && typ(b1[y]) !== 'k' && attaquants(b1, y, S).length);
+          if (proteges.length) {
+            const y = proteges[0], att = attaquants(b1, y, S)[0];
+            ajouter(26, Maj(piece) + ' <b>attaque le défenseur</b> : ' + pieceEn(b1, q) + ' protège ' + pieceEn(b1, y) + ', déjà visé' + (fem(typ(b1[y])) ? 'e' : '') + ' par ' + pieceEn(b1, att) + '. Si le défenseur disparaît, ' + pieceEn(b1, y) + ' tombe.', 'defenseur',
+              [fleche, { de: nomCase(d), vers: nomCase(q), couleur: C_MENACE }, { de: nomCase(q), vers: nomCase(y), couleur: C_CLOU }, { de: nomCase(att), vers: nomCase(y), couleur: C_MENACE }]);
+            break;
+          }
+        }
+      }
+      // il protège des pièces qui en avaient besoin
+      const prot = attaques(b1, d).filter((q) => b1[q] && coul(b1[q]) === S && typ(b1[q]) !== 'k' && !attaques(b0, P1.de).includes(q) &&
+        (attaquants(b1, q, O).length > 0 || attaquants(b0, q, S).length === 0));
+      if (prot.length) ajouter(15, Maj(piece) + ' <b>protège</b> ' + prot.slice(0, 2).map((q) => pieceEn(b1, q)).join(' et ') + (prot.some((q) => attaquants(b1, q, O).length) ? ', qui était attaqué' + (prot.length > 1 ? 's' : (fem(typ(b1[prot[0]])) ? 'e' : '')) : ', qui n’avai' + (prot.length > 1 ? 'en' : '') + 't aucun défenseur') + '.', 'defense',
+        [fleche, ...prot.slice(0, 2).map((q) => ({ de: nomCase(d), vers: nomCase(q), couleur: C_DEF }))]);
+      // il libère la place pour roquer
+      const k = roiDe(b0, S), r0 = S === 'w' ? 0 : 7;
+      if (t !== 'k' && k === r0 * 8 + 4 && P0.roques) {
+        for (const [cote, cases, lettre] of [['petit', [5, 6], 'k'], ['grand', [1, 2, 3], 'q']]) {
+          const droit = P0.roques.includes(S === 'w' ? lettre.toUpperCase() : lettre);
+          if (droit && cases.map((c) => r0 * 8 + c).includes(P1.de) && cases.every((c) => !b1[r0 * 8 + c])) {
+            ajouter(21, Maj(piece) + ' quitte sa case et <b>libère la place pour roquer</b> (' + cote + ' roque) : le roi pourra se mettre à l’abri au prochain coup.', 'roque',
+              [fleche, ...cases.map((c) => ({ de: null, vers: nomCase(r0 * 8 + c), couleur: C_ZONE, carre: true }))]);
+          }
+        }
+      }
+      // un pion qui empêche une pièce adverse de venir sur une case
+      if (t === 'p') {
+        const nouvelles = attaques(b1, d).filter((q) => !attaquants(b0, q, S).length && !b1[q]);
+        let vu = null;
+        for (const q of nouvelles) {
+          for (let e = 0; e < 64 && !vu; e++) {
+            const p = b1[e];
+            if (p && coul(p) === O && ['n', 'b', 'q'].includes(typ(p)) && attaques(b1, e).includes(q)) vu = { e, q };
+          }
+        }
+        if (vu) ajouter(17, 'Le pion <b>empêche ' + pieceEn(b1, vu.e) + ' de venir en ' + nomCase(vu.q) + '</b> : cette case est maintenant surveillée.', 'prophylaxie',
+          [fleche, { de: nomCase(vu.e), vers: nomCase(vu.q), couleur: C_CLOU }, { de: null, vers: nomCase(vu.q), couleur: C_MENACE }]);
+      }
     }
 
     // --- idées de position
@@ -477,6 +547,7 @@
     return out;
   }
   const sansBalises = (t) => t.replace(/<[^>]+>/g, '');
+  const court = (t) => sansBalises(t).replace(/^(Menace|Développement|Roque|Clouage|Enfilade|Fourchette|Promotion|Attaque à la découverte) ?[:!] /, '').replace(/^./, (c) => c.toLowerCase()).replace(/\.$/, '');
   const puce = (x) => '<li' + (NOTIONS[x.notion] ? ' title="' + NOTIONS[x.notion][0] + ' : ' + NOTIONS[x.notion][1].replace(/"/g, '') + '"' : '') + '>' + x.texte + '</li>';
 
   // =====================================================================
@@ -656,7 +727,11 @@
     else if (egaux.length) {
       const noms = egaux.map((l) => (fensSuite(ctx, [l.pv[0]])[0] || {}).san || l.pv[0]);
       h += ' ' + (noms.length === 1 ? noms[0] + ' est' : noms.join(' et ') + ' sont') + ' aussi bon' + (noms.length > 1 ? 's' : '') + '.';
-    } else if (autresVrais.length && ecart(best.score, autresVrais[0].score) >= 1.5) h += ' C’est <b>le seul bon coup</b>.';
+    } else if (autresVrais.length && ecart(best.score, autresVrais[0].score) >= 1.5) h += ' C’est <b>le seul bon coup</b> : tous les autres perdent beaucoup.';
+    else if (autresVrais.length) {
+      const z = autresVrais[0];
+      h += ' Le 2e meilleur, ' + ((fensSuite(ctx, [z.pv[0]])[0] || {}).san || z.pv[0]) + ', fait <b>' + nb(ecart(best.score, z.score)) + '</b> de moins.';
+    }
     else if (legauxUn(ctx)) h += ' C’est le seul coup possible.';
     h += '</p>';
     if (joue) {
@@ -668,7 +743,6 @@
     if (cl) {
       const r = idees(P0, best.pv[0], { mat1: best.score.mate === 1 });
       for (const x of nettoyer(r.idees, 3)) { if (!dire(x.texte)) continue; puces.push(puce(x)); dessin1 = dessin1.concat(x.dessin.filter((d) => d && !(fBest && d.de === fBest.de && d.vers === fBest.vers))); }
-      if (!puces.length) puces.push('<li title="' + NOTIONS.prophylaxie[1] + '">Un <b>coup d’amélioration</b> : il ne prend rien et ne menace rien tout de suite, mais il prépare la suite sans rien laisser à l’adversaire.</li>');
     } else if (suite[0] && (suite[0].prise || suite[0].echec)) {
       puces.push('<li>' + (suite[0].prise ? 'Il <b>prend une pièce</b>' : '') + (suite[0].prise && suite[0].echec ? ' et ' : '') + (suite[0].echec ? (suite[0].prise ? 'donne' : 'Il donne') + ' <b>échec</b>' : '') + '.</li>');
     }
@@ -710,40 +784,43 @@
         }
       }
     }
-    if (puces.length) h += '<p class="coach-sous">Pourquoi :</p><ul class="coach-liste">' + puces.join('') + '</ul>';
-    pages.push({ nom: '★ Le coup', html: h, vues: [{ dessin: dessin1.slice(0, 8) }] });
-
-    // ---------- Page 2 : la suite ----------
+    // et ensuite : la réponse adverse et ce que le coup prépare (seulement ce qui touche à ce coup)
+    const vues1 = [{ dessin: dessin1.slice(0, 8) }];
+    let ensuite = '';
     if (suite.length > 1) {
-      const N = Math.min(6, suite.length);
-      const vues = [{ dessin: suite.slice(0, Math.min(4, N)).map((s, i) => flecheUci(s.uci, i % 2 === 0 ? C_COUP : C_ADV, String(i + 1))).filter(Boolean) }];
-      let puces2 = '';
-      let Pc = P0;
-      let chips = '<p class="coach-ligne"><span class="coach-chip" data-vue="0">Départ</span>';
-      for (let i = 0; i < N; i++) {
-        const s = suite[i], qui = i % 2 === 0 ? S : O;
-        vues.push({ fen: s.fen, dernier: window.App.dernierCoupCases(s.uci) });
-        chips += '<span class="coach-chip" data-vue="' + (i + 1) + '">' + (qui === 'w' ? '○' : '●') + ' ' + s.san + '</span>';
-        if (cl && Pc) {
-          const r = idees(Pc, s.uci, { mat1: best.score.mate != null && best.score.mate > 0 && i === best.score.mate * 2 - 2 });
-          Pc = r.P1;
-          const x = nettoyer(r.idees, 1)[0];
-          // le 1er coup est déjà expliqué page 1 ; on ne garde que les moments qui comptent
-          if (i > 0 && x && x.poids >= 22 && dire(x.texte)) puces2 += '<li data-vue="' + (i + 1) + '"><b>' + s.san + '</b> : ' + x.texte + '</li>';
-        } else if (!cl && i > 0 && (s.prise || s.echec)) puces2 += '<li data-vue="' + (i + 1) + '"><b>' + s.san + '</b> : ' + (s.prise ? 'une prise' : '') + (s.prise && s.echec ? ' avec ' : '') + (s.echec ? 'échec' : '') + '.</li>';
+      const rep = suite[1];
+      let txtRep = '';
+      let P1c = cl ? jouer(P0, best.pv[0]) : null;
+      if (cl && P1c) {
+        if (enEchec(P1c.b, O)) {
+          // après un échec, la réponse est forcée : on dit simplement comment elle sort de l'échec
+          const Pr = jouer(P1c, rep.uci);
+          const de = lireCase(rep.uci.slice(0, 2));
+          txtRep = typ(P1c.b[de]) === 'k' ? ' — le roi est obligé de fuir l’échec' : Pr && Pr.prise ? ' — elle prend la pièce qui donnait échec' : ' — elle bouche la ligne de l’échec';
+        } else {
+          const x = nettoyer(idees(P1c, rep.uci, { mat1: best.score.mate === -1, repriseCase: P1c.prise ? P1c.priseCase : null }).idees, 1)[0];
+          if (x && dire(x.texte)) txtRep = ' — ' + court(x.texte);
+        }
+      } else if (rep.prise || rep.echec) txtRep = rep.prise ? ' (une prise)' : ' (échec)';
+      vues1.push({ fen: rep.fen, dernier: window.App.dernierCoupCases(rep.uci), dessin: [] });
+      ensuite += '<li><span class="coach-chip" data-vue="1">● ' + rep.san + '</span> meilleure réponse ' + des(O) + txtRep + '.</li>';
+      if (suite[2]) {
+        const plan = suite[2];
+        let txtPlan = '';
+        if (cl && P1c) {
+          const P2 = jouer(P1c, rep.uci);
+          const x = P2 ? nettoyer(idees(P2, plan.uci, { mat1: best.score.mate === 2, repriseCase: P2.prise ? P2.priseCase : null }).idees, 1)[0] : null;
+          if (x && dire(x.texte)) txtPlan = ' — ' + court(x.texte);
+        }
+        vues1.push({ fen: plan.fen, dernier: window.App.dernierCoupCases(plan.uci), dessin: [] });
+        ensuite += '<li><span class="coach-chip" data-vue="2">○ ' + plan.san + '</span> ce que ' + sanBest + ' prépare' + txtPlan + '.</li>';
       }
-      chips += '</p>';
-      let h2 = '<h3 class="coach-titre">▶ La suite prévue</h3>' + chips;
-      if (puces2) h2 += '<ul class="coach-liste">' + puces2 + '</ul>';
-      if (cl) {
-        const bp = bilanPieces(P0.b, lire(suite[N - 1].fen).b, S);
-        const sg = (x) => (x > 0 ? '+' : '−') + Math.abs(x);
-        if (bp.net > 0) h2 += '<p>Au bout : ' + campNom(S) + ' ont <b>gagné ' + sg(bp.net) + '</b> de matériel' + (bp.perdO.length ? ' (' + bp.perdO.join(', ') + ')' : '') + '.</p>';
-        else if (bp.net < 0) h2 += '<p>Au bout : ' + campNom(S) + ' ont <b>' + sg(bp.net) + '</b> de matériel' + (bp.perdS.length ? ' (' + bp.perdS.join(', ') + ')' : '') + ' ; ' + (best.score.mate != null && best.score.mate > 0 ? 'c’est pour faire mat.' : 'c’est quand même le mieux possible.') + '</p>';
-      }
-      h2 += '<p class="coach-ligne">Clique un coup pour le voir sur le plateau.</p>';
-      pages.push({ nom: '▶ La suite', html: h2, vues });
     }
+    if (!puces.length) puces.push('<li>' + (suite[2] ? 'Pas de gain tout de suite : ' + sanBest + ' sert surtout à préparer la suite ci-dessous.' : 'Pas de gain tout de suite : le moteur le préfère de peu aux autres coups.') + '</li>');
+    h += '<p class="coach-sous">Pourquoi ' + sanBest + ' :</p><ul class="coach-liste">' + puces.join('') + '</ul>';
+    if (ensuite) h += '<p class="coach-sous">Et ensuite <span class="coach-ligne">(clique pour voir)</span> :</p><ul class="coach-liste">' + ensuite + '</ul>';
+    h = h.replace('<h3 class="coach-titre">★ ' + sanBest + '</h3>', '<h3 class="coach-titre" data-vue="0">★ Pourquoi ' + sanBest + ' ?</h3>');
+    pages.push({ nom: '★ Pourquoi ' + sanBest, html: h, vues: vues1 });
 
     // ---------- Page 3 : les autres coups (le coup joué d'abord) ----------
     const alts = [];
@@ -762,8 +839,8 @@
           let pourquoi = ' Réponse : <b>' + s2[1].san + '</b>';
           if (cl) {
             const Pa = jouer(P0, l.pv[0]);
-            const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1 }).idees, 1)[0] : null;
-            if (rep) { pourquoi += ' — ' + sansBalises(rep.texte).replace(/^./, (c) => c.toLowerCase()); dessin.push(...recolorer(rep.dessin, C_MENACE)); }
+            const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null }).idees, 1)[0] : null;
+            if (rep) { pourquoi += ' — ' + court(rep.texte) + '.'; dessin.push(...recolorer(rep.dessin, C_MENACE)); }
             else { pourquoi += '.'; const f = flecheUci(l.pv[1], C_MENACE); if (f) dessin.push(f); }
             const bb = bilanPieces(P0.b, lire((suite[Math.min(5, suite.length - 1)] || { fen: D.fen }).fen).b, S);
             const bp = bilanPieces(P0.b, lire(s2[s2.length - 1].fen).b, S);
