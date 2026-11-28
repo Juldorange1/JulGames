@@ -992,6 +992,7 @@
       };
     });
     choisir(0);
+    if (pg.init) pg.init(corps, choisir);
     ajuster(corps);
   }
   // jamais de défilement : si la page ne tient pas, on masque les phrases secondaires (de la dernière à la première)
@@ -1285,7 +1286,197 @@
         pages.push({ nom: '? Les autres coups', html: h3, vues });
       }
     }
+    // ---------- Page 4 : « Ton coup » — on tape un coup, le coach dit pourquoi il est bon ou mauvais ----------
+    if (cl) pages.push(pageTonCoup(ctx, D, { P0, S, O, best, suite, sanBest, fBest }));
     return pages;
+  }
+  // =====================================================================
+  //  « TON COUP » : le joueur tape un coup, le coach l'explique en détail
+  // =====================================================================
+  const normCoup = (t) => t.replace(/[+#!?\s]/g, '').replace(/0/g, 'O').replace(/=/g, '').replace(/^o-o(-o)?$/i, (m) => m.toUpperCase());
+  // les coups légaux avec leur notation (française), pour reconnaître ce que le joueur tape
+  function coupsNommes(ctx) {
+    const p = new window.Regles.Partie(ctx.variante, ctx.fen0, ctx.coups);
+    const out = [];
+    try {
+      for (const u of p.legaux()) { if (p.jouer(u)) { out.push({ uci: u, san: p.sans[p.sans.length - 1] }); p.annuler(); } }
+    } catch (e) { /* rien */ }
+    p.detruire();
+    return out;
+  }
+  function trouverCoup(liste, texte) {
+    const t = normCoup(texte.trim());
+    if (!t) return null;
+    const uci = t.toLowerCase();
+    let c = liste.find((x) => x.uci === uci || (x.uci.length === 5 && x.uci.slice(0, 4) === uci && x.uci[4] === 'q'));
+    if (c) return c;
+    const sans = (s) => normCoup(s).replace(/x/g, '');
+    const essais = [t, t.replace(/^N/, 'C').replace(/^B/, 'F').replace(/^Q/, 'D').replace(/^K/, 'R'), t.replace(/^R/, 'T').replace(/^K/, 'R')];
+    for (const e of essais) {
+      const v = e.replace(/x/g, '');
+      c = liste.find((x) => sans(x.san) === v) || liste.find((x) => sans(x.san).toLowerCase() === v.toLowerCase());
+      if (c) return c;
+    }
+    return null;
+  }
+  const NIVEAUX = [
+    [0.004, '★ Meilleur coup', 'C’est exactement le coup du moteur.', 'top'],
+    [0.1, '✔ Excellent', 'Presque aussi bon que le meilleur : la différence ne se verra pas dans une vraie partie.', 'bon'],
+    [0.3, '✔ Bon coup', 'Un coup sain, un peu moins précis que le meilleur.', 'bon'],
+    [0.7, '≈ Imprécision', 'Jouable, mais il laisse passer une partie de l’avantage.', 'moyen'],
+    [1.5, '? Erreur', 'Il donne à l’adversaire un vrai avantage.', 'mauvais'],
+    [99, '?? Gaffe', 'Il perd beaucoup (matériel ou position) : à éviter.', 'mauvais']
+  ];
+  function pageTonCoup(ctx, D, o) {
+    const { P0, S, O, best, sanBest, fBest } = o;
+    const vues = [{ dessin: fBest ? [fBest] : [] }];
+    const html = '<div class="coach-ton-coup"><p>Tape un coup (<b>e4</b>, <b>Cf3</b>, <b>Fxc4</b>, <b>O-O</b>…) : le coach te dit s’il est bon ou mauvais, et pourquoi, dans chaque domaine.</p>' +
+      '<div class="coach-saisie"><input type="text" class="coach-input" maxlength="10" placeholder="ton coup" autocomplete="off" spellcheck="false"><button class="bouton principal coach-analyser">Analyser</button></div>' +
+      '<div class="coach-resultat"></div></div>';
+    let liste = null;
+    const init = (corps, choisir) => {
+      const inp = corps.querySelector('.coach-input'), res = corps.querySelector('.coach-resultat');
+      const lancer = async () => {
+        if (!liste) liste = coupsNommes(ctx);
+        const c = trouverCoup(liste, inp.value);
+        if (!c) { res.innerHTML = '<p class="coach-menace">Coup non reconnu ou impossible ici. Exemples de coups possibles : ' + liste.slice(0, 6).map((x) => '<b>' + x.san + '</b>').join(', ') + '.</p>'; ajuster(corps); return; }
+        inp.value = c.san;
+        const intro = corps.querySelector('.coach-ton-coup > p'); if (intro) intro.classList.add('coach-masque');
+        res.innerHTML = '<p class="coach-attente">Le coach calcule ' + c.san + '…</p>';
+        const id = etat && etat.id;
+        let ligne = D.lignes.find((l) => l.pv[0] === c.uci), bestL = best;
+        if (!ligne) {
+          // même calcul pour ce coup et pour le meilleur, pour une comparaison juste
+          try {
+            const r = await window.Moteurs.pourVariante(ctx.variante, 'coach').chercher({
+              variante: ctx.variante, fen0: ctx.fen0, coups: ctx.coups, elo: null, profondeur: 20, temps: 12000, multipv: 2, deterministe: true, coupsLimites: [c.uci, best.pv[0]]
+            });
+            if (!etat || etat.id !== id) return;
+            const ls = (r && !r.annulee ? r.lignes : []).filter((l) => l && l.pv && l.pv.length);
+            ligne = ls.find((l) => l.pv[0] === c.uci);
+            const b2 = ls.find((l) => l.pv[0] === best.pv[0]);
+            if (b2) bestL = b2;
+          } catch (e) { ligne = null; }
+        }
+        if (!etat || etat.id !== id) return;
+        if (!ligne) { res.innerHTML = '<p class="coach-menace">Le moteur n’a pas pu calculer ce coup.</p>'; return; }
+        vues.length = 1;
+        const secs = expliquerCoup(ctx, D, { P0, S, O, best: bestL, sanBest, fBest }, c, { score: ligne.score, pv: ligne.pv.slice(0, 8) }, vues);
+        res.innerHTML = '<div class="coach-sous-onglets">' + secs.map((x, i) => '<button class="coach-so coach-so2' + (i === 0 ? ' actif' : '') + '" data-i="' + i + '">' + x.nom + '</button>').join('') + '</div>' +
+          secs.map((x, i) => '<div class="coach-pli coach-pli2' + (i === 0 ? ' ouvert' : '') + '">' + x.html + '</div>').join('');
+        const plis = res.querySelectorAll('.coach-pli2');
+        res.querySelectorAll('[data-vue]').forEach((x) => { x.onclick = () => choisir(+x.dataset.vue); });
+        res.querySelectorAll('.coach-so2').forEach((t) => {
+          t.onclick = () => {
+            res.querySelectorAll('.coach-so2').forEach((x) => x.classList.toggle('actif', x === t));
+            plis.forEach((p, i) => p.classList.toggle('ouvert', i === +t.dataset.i));
+            choisir(secs[+t.dataset.i].vue);
+            ajuster(corps);
+          };
+        });
+        choisir(secs[0].vue);
+        ajuster(corps);
+      };
+      corps.querySelector('.coach-analyser').onclick = lancer;
+      inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); lancer(); } e.stopPropagation(); };
+      setTimeout(() => inp.focus(), 50);
+    };
+    return { nom: '✍ Ton coup', html, vues, init };
+  }
+  // l'explication détaillée d'un coup, en 4 parties : verdict, tactique, stratégie, comparaison
+  function expliquerCoup(ctx, D, o, c, l, vues) {
+    const { P0, S, O, best, sanBest, fBest } = o;
+    const vueDe = (v) => { vues.push(v); return vues.length - 1; };
+    const li = (t, v) => '<li' + (v != null ? ' data-vue="' + v + '"' : '') + '>' + t + '</li>';
+    const estBest = c.uci === best.pv[0];
+    const g = estBest ? 0 : Math.max(0, ecart(best.score, l.score));
+    const niv = NIVEAUX.find((n) => g <= n[0]) || NIVEAUX[NIVEAUX.length - 1];
+    const s2 = fensSuite(ctx, l.pv);
+    const sb = fensSuite(ctx, best.pv.slice(0, 8));
+    const fCoup = flecheUci(c.uci, niv[3] === 'mauvais' ? C_MENACE : niv[3] === 'moyen' ? C_ADV : C_COUP);
+    const P1 = jouer(P0, c.uci);
+    const ra = repriseAvant(ctx);
+    const secs = [];
+
+    // 1. le verdict
+    {
+      const v0 = vueDe({ dessin: [fCoup, estBest ? null : fBest].filter(Boolean) });
+      let h = '<p class="coach-verdict ' + niv[3] + '"><b>' + c.san + ' : ' + niv[1] + '</b></p><ul class="coach-liste">';
+      h += li('<b>Évaluation</b> : ' + phraseScore(l.score, S) + (estBest ? '.' : ', contre ' + phraseScore(best.score, S) + ' avec <b>' + sanBest + '</b> (meilleur coup).'), v0);
+      if (!estBest) h += li('<b>Écart</b> : ' + (g >= 99 ? 'énorme (un mat ou une perte décisive)' : '<b>−' + nb(g) + '</b> (1,00 ≈ un pion)') + '. ' + niv[2]);
+      else h += li(niv[2]);
+      const rang = D.lignes.findIndex((x) => x.pv[0] === c.uci);
+      if (rang > 0) h += li('C’est le <b>' + (rang + 1) + 'e choix</b> du moteur parmi les conseils.');
+      h += '</ul>';
+      secs.push({ nom: '1. Verdict', html: h, vue: v0 });
+    }
+    // 2. la tactique : ce que le coup fait tout de suite, ce qu'il laisse, la réponse adverse
+    {
+      const items = [];
+      let id1 = nettoyer(idees(P0, c.uci, { mat1: l.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, 3);
+      // une « idée » de sacrifice qui perd : ce n'est pas un sacrifice, c'est une perte de matériel
+      if (g >= 1 && id1.some((x) => x.notion === 'sacrifice')) { id1 = id1.filter((x) => x.notion !== 'sacrifice'); items.push(li('✘ Ce n’est <b>pas un vrai sacrifice</b> : la suite ne rapporte rien, le matériel est simplement perdu.', vueDe({ dessin: [fCoup].filter(Boolean) }))); }
+      if (id1.length) id1.forEach((x) => items.push(li('✔ ' + x.texte, vueDe({ dessin: [fCoup].concat(x.dessin).filter(Boolean) }))));
+      else items.push(li('Pas d’effet tactique immédiat : ni prise, ni menace, ni échec. C’est un <b>coup de placement</b>.', vueDe({ dessin: [fCoup].filter(Boolean) })));
+      if (P1) {
+        // ce que le coup laisse en prise
+        const mO = menaces(P1.b, O).sort((a, b) => b.gain - a.gain)[0];
+        if (mO && mO.gain >= 1) items.push(li('⚠ Après ce coup, <b>' + pieceEn(P1.b, mO.s) + '</b> peut être ' + accord(typ(P1.b[mO.s]), 'pris') + ' (environ <b>' + mO.gain + ' point' + (mO.gain > 1 ? 's' : '') + '</b> perdus).', vueDe({ fen: s2[0] && s2[0].fen, dernier: window.App.dernierCoupCases(c.uci), dessin: [{ de: nomCase(mO.par), vers: nomCase(mO.s), couleur: C_MENACE }] })));
+        // la menace adverse d'avant : parée ou non ?
+        if (D.menace && D.menace.pv[0]) {
+          const u = D.menace.pv[0], de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4));
+          const avant = P0.b[vers] && coul(P0.b[vers]) === S ? see(Object.assign([], P0.b), de, vers) : 0;
+          if (avant > 0) {
+            const pare = !P1.b[de] || coul(P1.b[de]) !== O || !P1.b[vers] || coul(P1.b[vers]) !== S || see(P1.b, de, vers) <= 0;
+            items.push(li(pare ? '🛡 Il <b>pare la menace</b> adverse (' + court2(P0.b, de) + ' sur ' + nomCase(vers) + ').' : '⚠ Il <b>ne pare pas la menace</b> adverse : ' + court2(P0.b, de) + ' peut toujours prendre en ' + nomCase(vers) + '.', vueDe({ dessin: [{ de: nomCase(de), vers: nomCase(vers), couleur: pare ? C_DEF : C_MENACE }] })));
+          }
+        }
+      }
+      if (s2[1]) {
+        const Pa = P1;
+        const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null, repriseValeur: Pa.prise ? V[Pa.prise] : 0 }).idees, 1)[0] : null;
+        items.push(li('↩ <b>Meilleure réponse ' + des(O) + '</b> : ' + s2[1].san + (rep ? ' — ' + court(rep.texte) : '') + '.', vueDe({ fen: s2[1].fen, dernier: window.App.dernierCoupCases(l.pv[1]), dessin: rep ? recolorer(rep.dessin, C_MENACE) : [] })));
+      }
+      const finL = lire(s2[s2.length - 1] ? s2[s2.length - 1].fen : D.fen).b, finB = lire((sb[Math.min(s2.length, sb.length) - 1] || { fen: D.fen }).fen).b;
+      const bl = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finL, S), bb = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finB, S);
+      if (bl.net !== bb.net && !estBest) items.push('<li class="coach-opt">' + ('⚖ <b>Matériel</b> au bout de la suite : ' + (bl.net < bb.net ? '<b>' + (bb.net - bl.net) + ' point' + (bb.net - bl.net > 1 ? 's' : '') + ' de moins</b>' : (bl.net - bb.net) + ' point' + (bl.net - bb.net > 1 ? 's' : '') + ' de plus') + ' qu’avec ' + sanBest + '.') + '</li>');
+      secs.push({ nom: '2. Tactique', html: '<ul class="coach-liste">' + items.slice(0, 5).join('') + '</ul>', vue: vues.length > 1 ? 1 : 0 });
+    }
+    // 3. la stratégie : ce que le coup change dans la position, et le plan qu'il suit
+    {
+      const items = [], v0 = vues.length;
+      if (P1) {
+        const ch = changements(P0.b, P1.b, S).filter((t) => !/^<b>(Matériel|Échanges)/.test(t));
+        ch.slice(0, 2).forEach((t) => items.push(li('• ' + t, vueDe({ fen: s2[0] && s2[0].fen, dernier: window.App.dernierCoupCases(c.uci), dessin: [] }))));
+        const k0 = abriRoi(P0.b, S), k1 = abriRoi(P1.b, S);
+        if (k0 && k1 && !finale(P0.b) && k1.bouclier.length < k0.bouclier.length && typ(P0.b[lireCase(c.uci.slice(0, 2))]) === 'p') items.push(li('⚠ <b>Sécurité du roi</b> : ce pion protégeait ton roi ; le bouger affaiblit son abri.', vueDe({ dessin: carres(zoneRoi(P1.b, S), C_ROUGE) })));
+        const avant = strategie(P0, S).filter((x) => x.moi), apres = strategie(Object.assign({}, P1, { coup: P0.coup }), S).filter((x) => x.moi);
+        const cleS = (x) => sansBalises(x.moi).slice(0, 40);
+        const perdus = avant.filter((x) => !apres.some((y) => cleS(y) === cleS(x))).slice(0, 1);
+        const gagnes = apres.filter((x) => !avant.some((y) => cleS(y) === cleS(x))).slice(0, 1);
+        const defaut = (x) => /mauvais|moins active|moins de matériel|L’adversaire <b>contrôle|plus loin du centre|plus passive/.test(x.moi);
+        gagnes.forEach((x) => items.push(li((defaut(x) ? '➖ Nouveau défaut : ' : '➕ Nouvel atout : ') + x.moi, vueDe({ dessin: x.dessin }))));
+        perdus.forEach((x) => items.push(li((defaut(x) ? '➕ Défaut corrigé : ' : '➖ Atout perdu : ') + sansBalises(x.moi).split(' : ')[0] + '.', vueDe({ dessin: x.dessin }))));
+      }
+      const planL = resumeLigne(P0, l.pv, S).map((f) => f.t);
+      if (planL.length) items.push(li('🧭 <b>Le plan</b> qu’il suit : ' + listeEt(planL.slice(0, 3)) + '.'));
+      if (!items.length) items.push(li('Il ne change presque rien à la structure de la position : ni les pions, ni la sécurité des rois, ni l’activité des pièces.'));
+      secs.push({ nom: '3. Stratégie', html: '<ul class="coach-liste">' + items.slice(0, 5).join('') + '</ul>', vue: vues.length > v0 ? v0 : 0 });
+    }
+    // 4. la comparaison avec le meilleur coup
+    if (!estBest) {
+      const planB = resumeLigne(P0, best.pv, S), planL = resumeLigne(P0, l.pv, S);
+      const seulB = planB.filter((f) => !planL.some((x) => x.k === f.k)).map((f) => f.t), seulL = planL.filter((f) => !planB.some((x) => x.k === f.k)).map((f) => f.t);
+      const items = [];
+      const v0 = vueDe({ dessin: [fCoup, fBest].filter(Boolean) });
+      items.push(li('<b>Le meilleur coup était ' + sanBest + '</b> (' + phraseScore(best.score, S) + ').', v0));
+      const idB = nettoyer(idees(P0, best.pv[0], { mat1: best.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, 2);
+      if (idB.length) items.push(li('Ce que ' + sanBest + ' fait de plus : ' + listeEt(idB.map((x) => court(x.texte))) + '.', vueDe({ dessin: [fBest].concat(idB[0].dessin).filter(Boolean) })));
+      if (seulB.length || seulL.length) items.push(li((seulB.length ? sanBest + ' cherche à ' + listeEt(seulB.slice(0, 2)) : sanBest + ' suit le même plan') + (seulL.length ? ', alors que ' + c.san + ' préfère ' + listeEt(seulL.slice(0, 2)) : '') + '.'));
+      items.push(li('💡 <b>À retenir</b> : ' + (g >= 1.5 ? 'avant de jouer, vérifie toujours ce que l’adversaire peut prendre ou menacer après ton coup.' : g >= 0.3 ? 'cherche le coup qui fait le plus de choses à la fois (développer, menacer, améliorer la pire pièce).' : 'les deux coups se valent presque : choisis celui dont tu comprends le mieux le plan.')));
+      secs.push({ nom: '4. Comparaison', html: '<ul class="coach-liste">' + items.join('') + '</ul>', vue: v0 });
+    }
+    return secs;
   }
   // Page 2 : comment un bon joueur réfléchit ici, en 3 parties dépliables (une seule ouverte à la fois)
   function pageReflexion(ctx, D, o) {
@@ -1407,6 +1598,7 @@
   // touches : ← → pour changer de page, Échap pour fermer
   window.addEventListener('keydown', (e) => {
     if (!etat) return;
+    if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Escape') { fermer(); e.preventDefault(); } return; }
     if (e.key === 'ArrowRight') { bouger(1); e.preventDefault(); e.stopImmediatePropagation(); }
     else if (e.key === 'ArrowLeft') { bouger(-1); e.preventDefault(); e.stopImmediatePropagation(); }
     else if (e.key === 'Escape') { fermer(); e.preventDefault(); e.stopImmediatePropagation(); }

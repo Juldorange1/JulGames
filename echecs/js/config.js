@@ -18,6 +18,15 @@
   st.textContent = 'html, html * { cursor: url("data:image/svg+xml,' + encodeURIComponent(FLECHE) + '") 3 2, auto !important; }';
   document.head.appendChild(st);
 
+  // ---------- touche maintenue (flèches, Début, Fin) : au plus 2 répétitions par seconde ----------
+  let derniereRepet = 0;
+  window.addEventListener('keydown', (e) => {
+    if (!e.repeat || !/^(Arrow(Left|Right|Up|Down)|Home|End)$/.test(e.key)) return;
+    const t = performance.now();
+    if (t - derniereRepet < 500) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    derniereRepet = t;
+  }, true);
+
   // ---------- jeu servi par le programme Windows (http://localhost:57613/) ----------
   // Le site et le programme Windows n'ont pas la même mémoire : le lien « jouer avec le moteur Windows »
   // emporte les bots, les pendules, les parties et les dossiers dans l'adresse (#import=…), fusionnés ici.

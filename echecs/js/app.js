@@ -307,8 +307,10 @@
     return 'Stockfish 19 + ouvertures';
   }
   function estAuBot() {
-    return jeu && !jeu.fin && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain;
+    return jeu && !jeu.fin && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain && !jeu.choixPremier;
   }
+  // c'est à toi de jouer le 1er coup de l'adversaire
+  const choixDuPremier = () => jeu && !jeu.fin && jeu.choixPremier && jeu.adversaire !== 'ami' && jeu.partie.trait() !== jeu.humain;
 
   function lancerPartie(v, reglages, depuis) {
     arreterTout();
@@ -331,7 +333,9 @@
       partie, adversaire: reglages.adversaire, humain, reflexion: +reglages.reflexion || 3000,
       pendule: pend ? { base: pend[0] * 60000, inc: (pend[1] || 0) * 1000 } : null,
       temps: pend ? { w: pend[0] * 60000, b: pend[0] * 60000 } : null,
-      fin: null, aide: false, vue: null, analyse: null
+      fin: null, aide: false, vue: null, analyse: null,
+      // le 1er coup de l'adversaire, c'est toi qui le choisis (avec les conseils), puis le bot prend la suite
+      choixPremier: !depuis && reglages.adversaire !== 'ami', debutLibre: !depuis
     };
     window.Moteurs.pourVariante(v, 'jeu').nouvellePartie();
     ecran('partie');
@@ -397,6 +401,7 @@
     const n = indexVue();
     const enDirect = n === p.coups.length;
     const pos = window.Regles.lireFen(p.fens[n]);
+    majOuverture(p, n);
     let echec = null;
     if (enDirect) echec = caseRoiEnEchec(pos, p);
     else {
@@ -476,6 +481,7 @@
     const p = jeu.partie;
     if (p.finie()) { terminer(p.resultat(), p.raison()); return; }
     const monJeton = ++jeton;
+    if (jeu.choixPremier && p.trait() === jeu.humain && p.coups.length) jeu.choixPremier = false;
     if (!jeu.premove && plateau.premove) plateau.marquerPremove(null);
     // bot créé : on tire tout de suite le rang qu'il va jouer (1er, 2e, 3e… meilleur coup)
     if (estAuBot()) { const b = botDe(jeu.adversaire); jeu.kTire = b.rangs ? window.Bots.tirer(b.rangs, b.rangs.length) : 0; }
@@ -494,7 +500,7 @@
       }
       const camp = p.trait();
       if (jeu.vue == null) plateau.autoriser(p.legaux(), camp);
-      etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : 'À toi de jouer.');
+      etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : choixDuPremier() ? 'Choisis le 1er coup ' + (/^[aeiouyhéèêàâîïôûAEIOUYHÉÈ]/.test(botDe(jeu.adversaire).nom) ? 'd’' : 'de ') + botDe(jeu.adversaire).nom + ' (les ' + (camp === 'w' ? 'blancs' : 'noirs') + ') : ensuite, il joue seul.' : 'À toi de jouer.');
     }
   }
 
@@ -719,6 +725,18 @@
     const nu = await window.Savoir.nuage(fen, multipv);
     if (!nu || nu.profondeur < profConseils() || nu.lignes.length < Math.min(multipv, nbLegaux)) return null;
     return nu;
+  }
+  // le nom de l'ouverture jouée (la plus précise connue jusqu'à la position regardée)
+  function nomOuverture(fens, n) {
+    for (let i = Math.min(n, fens.length - 1); i >= 1; i--) { const o = window.Savoir.ouverture(fens[i]); if (o) return o; }
+    return null;
+  }
+  function majOuverture(p, n) {
+    const el = $('#ouverture-partie');
+    if (!el) return;
+    const o = nomOuverture(p.fens, n);
+    el.textContent = o ? '📖 ' + o.nom + ' (' + o.eco + ')' : '';
+    el.title = o ? o.nomEn : '';
   }
   // Si les deux camps jouent parfaitement : qui gagne, et en combien de coups (ou égalité).
   function majPronostic(s, prof, fini) {
@@ -1060,6 +1078,8 @@
     else {
       p.annuler();
       while (p.coups.length && p.trait() !== jeu.humain) p.annuler();
+      // revenu avant le 1er coup de l'adversaire : c'est de nouveau toi qui le choisis
+      if (jeu.debutLibre && p.coups.length <= (jeu.humain === 'w' ? 1 : 0)) jeu.choixPremier = true;
       jeu.aide = true;
     }
     jeu.vue = null;

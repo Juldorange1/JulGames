@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 63;
+  var ICI = 64;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=63">
-<link rel="stylesheet" href="css/mobile.css?v=63">
+<link rel="stylesheet" href="css/jeu.css?v=64">
+<link rel="stylesheet" href="css/mobile.css?v=64">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -34,9 +34,6 @@
 <section id="ecran-accueil" class="ecran">
   <header class="entete">
     <h1>Custom <span class="et">Chess</span></h1>
-    <nav class="onglets-haut">
-      <a class="bouton discret" href="../">⟵ JulGame</a>
-    </nav>
   </header>
   <div class="menu-principal">
     <div class="menu-cartes deux">
@@ -45,7 +42,7 @@
     </div>
     <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 63</div>
+    <div class="note-moteur centre">Version 64</div>
   </div>
 </section>
 
@@ -161,6 +158,7 @@
     <div class="joueur" id="joueur-haut"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span><div class="prises"></div></div>
     <div class="etat" id="etat-partie"></div>
       <div class="pronostic" id="pronostic"></div>
+    <div class="ouverture-nom" id="ouverture-partie"></div>
     <div class="vue-passee" id="vue-passee">
       <span id="vue-passee-texte"></span>
       <div class="ligne-boutons">
@@ -243,18 +241,18 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=63"></script>
-<script src="js/pieces-svg.js?v=63"></script>
-<script src="js/pieces.js?v=63"></script>
-<script src="js/config.js?v=63"></script>
-<script src="js/savoir.js?v=63"></script>
-<script src="js/regles.js?v=63"></script>
-<script src="js/moteur.js?v=63"></script>
-<script src="js/son.js?v=63"></script>
-<script src="js/plateau.js?v=63"></script>
-<script src="js/coach.js?v=63"></script>
-<script src="js/repertoire.js?v=63"></script>
-<script src="js/bilan.js?v=63"></script>
-<script src="js/app.js?v=63"></script>
+<script src="js/bots.js?v=64"></script>
+<script src="js/pieces-svg.js?v=64"></script>
+<script src="js/pieces.js?v=64"></script>
+<script src="js/config.js?v=64"></script>
+<script src="js/savoir.js?v=64"></script>
+<script src="js/regles.js?v=64"></script>
+<script src="js/moteur.js?v=64"></script>
+<script src="js/son.js?v=64"></script>
+<script src="js/plateau.js?v=64"></script>
+<script src="js/coach.js?v=64"></script>
+<script src="js/repertoire.js?v=64"></script>
+<script src="js/bilan.js?v=64"></script>
+<script src="js/app.js?v=64"></script>
 </body>
 </html>

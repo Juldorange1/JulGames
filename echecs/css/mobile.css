@@ -134,3 +134,21 @@
   .rep-partie { flex-wrap: wrap; min-height: 0; }
   .rep-boutons { width: 100%; justify-content: flex-end; }
 }
+/* téléphone : le panneau de partie tient sans défiler (nom d'ouverture sur une ligne, boutons sur une ligne) */
+@media (max-width: 900px), (orientation: portrait) and (max-width: 1100px) {
+  .ouverture-nom { -webkit-line-clamp: 1; padding: 0 8px; }
+  .ligne-plus .bouton, .boutons-partie .bouton, .ligne-conseils .bouton { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .boutons-partie.trois .bouton { padding: 5px 2px; }
+  .ligne-plus .bouton { padding: 5px 4px; }
+  .pronostic { padding: 2px 8px; min-height: 0; }
+  .nav-bilan .bouton { padding: 4px 0; }
+  .panneau { gap: 4px; }
+  .panneau > * { flex-shrink: 0; }
+  .panneau > .liste-coups { height: 38px; }
+  .joueur { padding: 2px 8px; }
+  .ligne-conseils .bouton { padding: 5px 4px; }
+  .etat { line-height: 1.25; }
+  .ligne-plus .bouton, .boutons-partie .bouton { padding-left: 1px; padding-right: 1px; gap: 3px; letter-spacing: -0.02em; }
+  .ligne-plus, .boutons-partie { gap: 3px; }
+  .boutons-partie .bouton { letter-spacing: -0.04em; }
+}
