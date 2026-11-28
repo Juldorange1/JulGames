@@ -5,7 +5,7 @@
 // le moteur sont alors au même endroit, et aucun navigateur ne bloque la connexion.
 // Au premier lancement, Stockfish est téléchargé depuis github.com/official-stockfish (≈ 80 Mo).
 // Compilation : csc /target:winexe /out:MoteurCustomChess.exe /r:System.IO.Compression.dll
-//   /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll MoteurCustomChess.cs
+//   /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /win32icon:CustomChess.ico MoteurCustomChess.cs
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -29,19 +29,23 @@ static class MoteurCustomChess
     static int connexions = 0;
 
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         Application.EnableVisualStyles();
+        // lancé au démarrage de Windows : on prépare le moteur sans ouvrir de fenêtre
+        bool demarrage = Array.Exists(args, a => a.Equals("/demarrage", StringComparison.OrdinalIgnoreCase));
         TcpListener ecoute;
         try { ecoute = new TcpListener(IPAddress.Loopback, PORT); ecoute.Start(); }
-        catch { MessageBox.Show("Le moteur Custom Chess est déjà lancé (regarde les icônes près de l'horloge).", "Moteur Custom Chess"); return; }
+        catch { if (!demarrage) OuvrirJeu(); return; } // déjà lancé : on ouvre simplement le jeu
 
-        icone = new NotifyIcon { Icon = SystemIcons.Application, Visible = true, Text = "Moteur Custom Chess : préparation…" };
+        Icon ic = SystemIcons.Application;
+        try { ic = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? ic; } catch { }
+        icone = new NotifyIcon { Icon = ic, Visible = true, Text = "Moteur Custom Chess : préparation…" };
         var menu = new ContextMenuStrip();
         var auto = new ToolStripMenuItem("Lancer avec Windows") { Checked = LanceAvecWindows(), CheckOnClick = true };
         auto.CheckedChanged += (s, e) => ChangerLancement(auto.Checked);
-        menu.Items.Add(new ToolStripMenuItem("Ouvrir Custom Chess", null, (s, e) => Process.Start("http://localhost:" + PORT + "/")));
-        icone.DoubleClick += (s, e) => Process.Start("http://localhost:" + PORT + "/");
+        menu.Items.Add(new ToolStripMenuItem("Ouvrir Custom Chess", null, (s, e) => OuvrirJeu()));
+        icone.DoubleClick += (s, e) => OuvrirJeu();
         menu.Items.Add(auto);
         menu.Items.Add(new ToolStripMenuItem("Quitter", null, (s, e) => { icone.Visible = false; Environment.Exit(0); }));
         icone.ContextMenuStrip = menu;
@@ -51,7 +55,8 @@ static class MoteurCustomChess
             try { cheminSf = TrouverStockfish(); }
             catch (Exception ex) { Bulle("Impossible de préparer Stockfish : " + ex.Message, ToolTipIcon.Error); return; }
             MajTexte();
-            Bulle("Prêt : Stockfish sur " + Environment.ProcessorCount + " cœurs. Double-clique ici pour ouvrir le jeu.", ToolTipIcon.Info);
+            if (demarrage) Bulle("Prêt : Stockfish sur " + Environment.ProcessorCount + " cœurs. Double-clique ici pour ouvrir le jeu.", ToolTipIcon.Info);
+            else OuvrirJeu();
             while (true)
             {
                 TcpClient c = ecoute.AcceptTcpClient();
@@ -59,6 +64,24 @@ static class MoteurCustomChess
             }
         }) { IsBackground = true }.Start();
         Application.Run();
+    }
+
+    // le jeu dans sa propre fenêtre (mode application d'Edge ou de Chrome : ni barre d'adresse ni onglets)
+    static void OuvrirJeu()
+    {
+        string url = "http://localhost:" + PORT + "/";
+        string pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            loc = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string[] nav = {
+            Path.Combine(pf86, @"Microsoft\Edge\Application\msedge.exe"), Path.Combine(pf, @"Microsoft\Edge\Application\msedge.exe"),
+            Path.Combine(pf, @"Google\Chrome\Application\chrome.exe"), Path.Combine(pf86, @"Google\Chrome\Application\chrome.exe"), Path.Combine(loc, @"Google\Chrome\Application\chrome.exe")
+        };
+        foreach (string n in nav)
+        {
+            if (!File.Exists(n)) continue;
+            try { Process.Start(n, "--app=" + url + " --window-size=1400,880"); return; } catch { }
+        }
+        try { Process.Start(url); } catch { }
     }
 
     static void Bulle(string t, ToolTipIcon i) { try { icone.ShowBalloonTip(4000, "Moteur Custom Chess", t, i); } catch { } }
@@ -101,7 +124,7 @@ static class MoteurCustomChess
     {
         using (var k = Registry.CurrentUser.OpenSubKey(CLE_RUN, true))
         {
-            if (oui) k.SetValue("MoteurCustomChess", "\"" + Application.ExecutablePath + "\"");
+            if (oui) k.SetValue("MoteurCustomChess", "\"" + Application.ExecutablePath + "\" /demarrage");
             else k.DeleteValue("MoteurCustomChess", false);
         }
     }
