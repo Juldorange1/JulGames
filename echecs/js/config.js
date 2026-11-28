@@ -55,5 +55,5 @@
   }
   function lienPC() { return 'http://localhost:57613/#import=' + encodeURIComponent(JSON.stringify(exporter())); }
 
-  window.Config = { STD, variante, estClassique, surPC, lienPC };
+  window.Config = { STD, variante, estClassique, surPC, lienPC, importer };
 })();

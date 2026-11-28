@@ -70,6 +70,9 @@ static class MoteurCustomChess
     static void OuvrirJeu()
     {
         string url = "http://localhost:" + PORT + "/";
+        // le programme « Custom Chess » (sa propre fenêtre, sans navigateur) s'il est installé
+        string appli = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\Custom Chess\Custom Chess.exe");
+        if (File.Exists(appli)) { try { Process.Start(appli); return; } catch { } }
         string pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             loc = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string[] nav = {

@@ -1,0 +1,9 @@
+{
+  "name": "custom-chess",
+  "productName": "Custom Chess",
+  "version": "1.0.0",
+  "description": "Custom Chess - échecs avec le vrai Stockfish (programme pour Windows)",
+  "author": "Juldorange",
+  "private": true,
+  "main": "main.js"
+}
