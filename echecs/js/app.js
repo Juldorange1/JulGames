@@ -500,7 +500,7 @@
       }
       const camp = p.trait();
       if (jeu.vue == null) plateau.autoriser(p.legaux(), camp);
-      etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : choixDuPremier() ? 'Choisis le 1er coup ' + (/^[aeiouyhéèêàâîïôûAEIOUYHÉÈ]/.test(botDe(jeu.adversaire).nom) ? 'd’' : 'de ') + botDe(jeu.adversaire).nom + ' (les ' + (camp === 'w' ? 'blancs' : 'noirs') + ') : ensuite, il joue seul.' : 'À toi de jouer.');
+      etat(jeu.adversaire === 'ami' ? 'Au tour des ' + (camp === 'w' ? 'blancs' : 'noirs') + '.' : choixDuPremier() ? (p.coups.length <= 1 ? 'Choisis le 1er coup ' : 'Joue le coup ') + (/^[aeiouyhéèêàâîïôûAEIOUYHÉÈ]/.test(botDe(jeu.adversaire).nom) ? 'd’' : 'de ') + botDe(jeu.adversaire).nom + ' (les ' + (camp === 'w' ? 'blancs' : 'noirs') + ') : ensuite, il ' + (p.coups.length <= 1 ? 'joue' : 'reprend') + ' seul.' : 'À toi de jouer.');
     }
   }
 
@@ -1072,14 +1072,15 @@
   function annulerCoup() {
     if (!jeu || jeu.fin) return;
     const p = jeu.partie;
-    if (!p.coups.length) return;
+    const auBot = estAuBot();
+    if (!p.coups.length && !auBot) return;
     arreterTout();
     if (jeu.adversaire === 'ami') p.annuler();
     else {
-      p.annuler();
-      while (p.coups.length && p.trait() !== jeu.humain) p.annuler();
-      // revenu avant le 1er coup de l'adversaire : c'est de nouveau toi qui le choisis
-      if (jeu.debutLibre && p.coups.length <= (jeu.humain === 'w' ? 1 : 0)) jeu.choixPremier = true;
+      // un coup à la fois : le coup du bot annulé (ou son tour pendant qu'il réfléchit), c'est toi qui le joues à sa place
+      if (!auBot) p.annuler();
+      jeu.choixPremier = p.trait() !== jeu.humain;
+      jeu.premove = null; plateau.marquerPremove(null);
       jeu.aide = true;
     }
     jeu.vue = null;
@@ -1358,6 +1359,8 @@
     $$('[data-aller]').forEach((b) => b.addEventListener('click', () => ecran(b.dataset.aller)));
     $('#btn-commencer').addEventListener('click', () => commencer());
     $('#btn-reprendre').addEventListener('click', reprendre);
+    // Quitter : ferme le programme (sur le site, le navigateur n'autorise pas toujours une page à fermer son onglet)
+    $('#btn-quitter').addEventListener('click', () => { arreterTout(); window.close(); setTimeout(() => bulle('Ferme simplement l’onglet du navigateur pour quitter.'), 400); });
     $('#btn-retourner').addEventListener('click', () => { plateau.retourner(!plateau.retourne); afficherPartie(false); });
     $('#btn-annuler').addEventListener('click', annulerCoup);
     $('#btn-recommencer').addEventListener('click', recommencer);
@@ -1427,12 +1430,35 @@
     ecran('accueil');
   }
 
+  // Les 3 meilleurs coups d'une position quelconque (bilan, parties revues) : même calcul que les conseils de la partie.
+  const cacheTrois = {};
+  async function troisMeilleurs(variante, fen0, coups, surInfo) {
+    let p;
+    try { p = new window.Regles.Partie(variante, fen0, coups); } catch (e) { return null; }
+    const fen = p.fen, trait = p.trait(), nbLegaux = p.legaux().length;
+    p.detruire();
+    if (!nbLegaux) return { fen, trait, lignes: [] };
+    if (cacheTrois[fen]) return cacheTrois[fen];
+    if (jeu && jeu.cache && jeu.cache[fen] && jeu.cache[fen].lignes.length) return (cacheTrois[fen] = { fen, trait, lignes: jeu.cache[fen].lignes });
+    const nu = await lignesProfondes(fen, 3, nbLegaux);
+    let lignes;
+    if (nu) lignes = copieLignes(nu.lignes);
+    else {
+      const r = await window.Moteurs.pourVariante(variante, 'coach').chercher({
+        variante, fen0, coups, elo: null, profondeur: profConseils(), temps: MAX_CONSEILS, multipv: 3, deterministe: true, surInfo
+      });
+      if (!r || r.annulee || !r.lignes.length) return null;
+      lignes = copieLignes(r.lignes);
+    }
+    return (cacheTrois[fen] = { fen, trait, lignes });
+  }
+
   const App = {
     ecranActuel: 'accueil',
     ecran, modale, fermerModale, bulle, copier, pgn, montrerRegles, redimensionner,
     chances, texteScore, inverser, majBarre, remplirListeCoups, dernierCoupCases, caseRoiEnEchec,
     sauverPartie, parties, options, commencer, jouerContre,
-    arreterAnalyse,
+    arreterAnalyse, troisMeilleurs, rangsEgaux, couleursConseils: COULEURS_CONSEILS, profConseils,
     // Rejouer depuis une position du bilan
     rejouerDepuis(rec, n) {
       const reglages = Object.assign({ adversaire: 'expert', pendule: '0', reflexion: options.reflexion }, rec.reglages || {});

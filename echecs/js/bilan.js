@@ -52,6 +52,7 @@
       $('#btn-bilan-rejouer').addEventListener('click', () => { this.quitter(); window.App.rejouerDepuis(this.rec, this.n); });
       $('#btn-bilan-profond').addEventListener('click', () => this.lancer('profond'));
       $('#btn-bilan-coach').addEventListener('click', () => this.coach());
+      $('#btn-bilan-conseils').addEventListener('click', () => this.basculerConseils(!this.conseils));
       $('#btn-bilan-enregistrer').addEventListener('click', () => { if (this.rec) window.Repertoire.enregistrer(this.rec); });
       $('#btn-bilan-pgn').addEventListener('click', () => window.App.copier(window.App.pgn(this.rec), 'Partie copiée (PGN) : tu peux la coller sur un autre site d’échecs.'));
       $('#btn-bilan-menu').addEventListener('click', () => { this.quitter(); window.App.ecran('accueil'); });
@@ -91,6 +92,8 @@
     },
 
     choisirOnglet(o) {
+      $('#ecran-bilan .panneau-bilan').dataset.onglet = o;
+      if (this.conseils) { this.conseils = false; $('#btn-bilan-conseils').classList.remove('actif'); }
       this.onglet = o;
       document.querySelectorAll('#onglets-bilan button').forEach((b) => b.classList.toggle('actif', b.dataset.onglet === o));
       $('#bilan-resume').style.display = o === 'resume' ? '' : 'none';
@@ -282,7 +285,7 @@
         const d = window.Regles.decouper(av.m);
         if (d) fl.push({ de: d.de, vers: d.vers, couleur: 'rgba(110,200,90,0.85)' });
       }
-      this.plateau.flechesAfficher(fl);
+      if (!this.montrerConseils()) this.plateau.flechesAfficher(fl);
       // barre
       const ici = a.positions[n];
       const barre = $('#barre-bilan');
@@ -449,6 +452,61 @@
       g.beginPath(); g.moveTo(X(this.n), 0); g.lineTo(X(this.n), H); g.stroke();
     },
 
+    // ---------- les 3 meilleurs coups de la position regardée ----------
+    conseils: false,
+    basculerConseils(oui) {
+      this.conseils = oui;
+      $('#btn-bilan-conseils').classList.toggle('actif', oui);
+      this.afficher();
+    },
+    montrerConseils() {
+      const boite = $('#bilan-conseils'), liste = $('#bilan-conseils-liste');
+      boite.style.display = this.conseils ? '' : 'none';
+      $('#ecran-bilan .panneau-bilan').classList.toggle('avec-conseils', this.conseils);
+      if (!this.conseils || !this.partie) return false;
+      const n = this.n, fen = this.partie.fens[n];
+      const A = window.App;
+      const dessiner = (res) => {
+        if (!this.conseils || !this.partie || this.partie.fens[this.n] !== fen) return;
+        if (window.Coach && window.Coach.ouvert()) return;
+        liste.innerHTML = '';
+        if (!res) { liste.innerHTML = '<div class="petit-gris">Calcul impossible pour l’instant.</div>'; this.plateau.flechesAfficher([]); return; }
+        if (!res.lignes.length) { liste.innerHTML = '<div class="petit-gris">Partie terminée : plus aucun coup.</div>'; this.plateau.flechesAfficher([]); return; }
+        const rangs = A.rangsEgaux(res.lignes), fl = [];
+        res.lignes.forEach((l, i) => {
+          const d = window.Regles.decouper(l.pv[0]);
+          if (d) fl.push({ de: d.de, vers: d.vers, couleur: A.couleursConseils[i], etiquette: String(rangs[i]) });
+          const suite = this.partie.suiteSan(n, l.pv, 5);
+          const ligne = document.createElement('div');
+          ligne.className = 'conseil';
+          ligne.innerHTML = '<span class="conseil-num"></span><b></b><span class="conseil-score"></span><span class="conseil-suite"></span>';
+          ligne.querySelector('.conseil-num').textContent = rangs[i];
+          ligne.querySelector('.conseil-num').style.background = A.couleursConseils[i];
+          ligne.querySelector('b').textContent = suite[0] || l.pv[0];
+          ligne.querySelector('.conseil-score').textContent = A.texteScore(res.trait === 'w' ? l.score : A.inverser(l.score));
+          ligne.querySelector('.conseil-suite').textContent = suite.slice(1).join(' ');
+          liste.appendChild(ligne);
+        });
+        this.plateau.flechesAfficher(fl.reverse());
+      };
+      if (this.consFen === fen && this.consRes !== undefined) { dessiner(this.consRes); return true; }
+      if (this.consFen === fen) return true; // calcul déjà en cours
+      this.consFen = fen; this.consRes = undefined;
+      liste.innerHTML = '<div class="petit-gris">Calcul des 3 meilleurs coups…</div>';
+      this.plateau.flechesAfficher([]);
+      A.troisMeilleurs(this.v, this.rec.fen0, this.rec.coups.slice(0, n), (lignes) => {
+        if (this.consFen !== fen || this.consRes !== undefined) return;
+        const p = lignes && lignes[0] ? lignes[0].profondeur : 0;
+        liste.innerHTML = '<div class="petit-gris">Calcul des 3 meilleurs coups… profondeur ' + p + ' / ' + A.profConseils() + '</div>';
+      }).catch(() => null).then((res) => {
+        if (this.consFen !== fen) return;
+        this.consRes = res;
+        if (!res) this.consFen = null; // on réessaiera
+        dessiner(res);
+      });
+      return true;
+    },
+
     touche(e) {
       if (!this.partie) return;
       const N = this.partie.coups.length;
@@ -457,6 +515,7 @@
       else if (e.key === 'ArrowUp' || e.key === 'Home') { this.aller(0); e.preventDefault(); }
       else if (e.key === 'ArrowDown' || e.key === 'End') { this.aller(N); e.preventDefault(); }
       else if (e.key === 'f' || e.key === 'F') $('#btn-bilan-retourner').click();
+      else if (e.code === window.App.options.touche.code && !e.repeat) { e.preventDefault(); this.basculerConseils(!this.conseils); }
     }
   };
 

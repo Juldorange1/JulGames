@@ -9,7 +9,7 @@
 <script>window.coi = { quiet: true };</script>
 <script>/* mise à jour automatique : si le site a une version plus récente que cette page (gardée en cache), on recharge */
 (function () {
-  var ICI = 64;
+  var ICI = 65;
   if (location.protocol === 'file:') return;
   fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
     var enLigne = parseInt(t, 10);
@@ -21,8 +21,8 @@
   }).catch(function () {});
 })();</script>
 <script src="coi-serviceworker.js"></script>
-<link rel="stylesheet" href="css/jeu.css?v=64">
-<link rel="stylesheet" href="css/mobile.css?v=64">
+<link rel="stylesheet" href="css/jeu.css?v=65">
+<link rel="stylesheet" href="css/mobile.css?v=65">
 </head>
 <body>
 <div id="chargement" class="chargement">
@@ -40,9 +40,9 @@
       <button class="carte-menu" data-aller="repertoire"><span class="carte-icone">📁</span><b>Mes parties</b><span>Tes parties rangées dans des dossiers, pour les revoir.</span></button>
       <button class="carte-menu principale" data-aller="jouer"><span class="carte-icone">▶</span><b>Jouer</b><span>Une partie d’échecs contre tes bots ou à deux.</span></button>
     </div>
-    <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button></div>
+    <div class="ligne-boutons centre"><button class="bouton" id="btn-reprendre">Reprendre la partie en cours</button><button class="bouton" id="btn-quitter" title="Fermer Custom Chess">⏻ Quitter</button></div>
     <div class="note-moteur centre" id="note-moteur"></div>
-    <div class="note-moteur centre">Version 64</div>
+    <div class="note-moteur centre">Version 65</div>
   </div>
 </section>
 
@@ -189,7 +189,7 @@
     <div class="conseils" id="plus-coups" style="display:none"><div id="plus-liste"></div></div>
     <div class="joueur" id="joueur-bas"><span class="joueur-nom"></span><span class="joueur-extra"></span><span class="pendule"></span><div class="prises"></div></div>
     <div class="boutons-partie trois">
-      <button class="bouton" id="btn-annuler" title="Annuler ton dernier coup">↶ Annuler</button>
+      <button class="bouton" id="btn-annuler" title="Annule le dernier coup, un à la fois. Celui du bot (ou son tour pendant qu’il réfléchit) : c’est toi qui joues son coup à sa place.">↶ Annuler</button>
       <button class="bouton" id="btn-recommencer">↻ Recommencer</button>
       <button class="bouton" id="btn-abandonner">🏳 Abandonner</button>
       <button class="bouton" id="btn-retourner" title="Retourner le plateau (touche F)">⟲ Retourner</button>
@@ -227,12 +227,14 @@
       <button class="bouton" data-nav="suiv" title="Coup suivant (touche →)">▶</button>
       <button class="bouton" data-nav="fin" title="Fin (touche ↓)">⏭</button>
       <button class="bouton" id="btn-bilan-retourner" title="Retourner (F)">⟲</button>
+      <button class="bouton bouton-conseils" id="btn-bilan-conseils" title="Cherche et affiche les 3 meilleurs coups de la position regardée (ta touche des conseils marche aussi)">💡 3 meilleurs</button>
     </div>
+    <div class="conseils" id="bilan-conseils" style="display:none"><div id="bilan-conseils-liste"></div></div>
     <div class="boutons-partie">
-      <button class="bouton" id="btn-bilan-rejouer">♟ Rejouer d’ici contre le bot</button>
-      <button class="bouton" id="btn-bilan-profond">🔍 Analyse plus profonde</button>
-      <button class="bouton" id="btn-bilan-enregistrer">💾 Enregistrer dans Mes parties</button>
-      <button class="bouton" id="btn-bilan-pgn">📋 Copier la partie (PGN)</button>
+      <button class="bouton" id="btn-bilan-rejouer">♟ Rejouer d’ici<span class="tel-cache"> contre le bot</span></button>
+      <button class="bouton" id="btn-bilan-profond">🔍 Analyse<span class="tel-cache"> plus</span> profonde</button>
+      <button class="bouton" id="btn-bilan-enregistrer">💾 Enregistrer<span class="tel-cache"> dans Mes parties</span></button>
+      <button class="bouton" id="btn-bilan-pgn">📋 Copier<span class="tel-cache"> la partie</span> (PGN)</button>
       <button class="bouton" id="btn-bilan-menu">☰ Menu</button>
     </div>
   </aside>
@@ -241,18 +243,18 @@
 <div id="modale" class="modale cachee"><div class="modale-boite" id="modale-boite"></div></div>
 <div id="bulle" class="bulle cachee"></div>
 
-<script src="js/bots.js?v=64"></script>
-<script src="js/pieces-svg.js?v=64"></script>
-<script src="js/pieces.js?v=64"></script>
-<script src="js/config.js?v=64"></script>
-<script src="js/savoir.js?v=64"></script>
-<script src="js/regles.js?v=64"></script>
-<script src="js/moteur.js?v=64"></script>
-<script src="js/son.js?v=64"></script>
-<script src="js/plateau.js?v=64"></script>
-<script src="js/coach.js?v=64"></script>
-<script src="js/repertoire.js?v=64"></script>
-<script src="js/bilan.js?v=64"></script>
-<script src="js/app.js?v=64"></script>
+<script src="js/bots.js?v=65"></script>
+<script src="js/pieces-svg.js?v=65"></script>
+<script src="js/pieces.js?v=65"></script>
+<script src="js/config.js?v=65"></script>
+<script src="js/savoir.js?v=65"></script>
+<script src="js/regles.js?v=65"></script>
+<script src="js/moteur.js?v=65"></script>
+<script src="js/son.js?v=65"></script>
+<script src="js/plateau.js?v=65"></script>
+<script src="js/coach.js?v=65"></script>
+<script src="js/repertoire.js?v=65"></script>
+<script src="js/bilan.js?v=65"></script>
+<script src="js/app.js?v=65"></script>
 </body>
 </html>

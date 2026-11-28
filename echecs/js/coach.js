@@ -1330,7 +1330,7 @@
   function pageTonCoup(ctx, D, o) {
     const { P0, S, O, best, sanBest, fBest } = o;
     const vues = [{ dessin: fBest ? [fBest] : [] }];
-    const html = '<div class="coach-ton-coup"><p>Tape un coup (<b>e4</b>, <b>Cf3</b>, <b>Fxc4</b>, <b>O-O</b>…) : le coach te dit s’il est bon ou mauvais, et pourquoi, dans chaque domaine.</p>' +
+    const html = '<div class="coach-ton-coup"><p>Tape un coup (<b>e4</b>, <b>Cf3</b>, <b>Fxc4</b>, <b>O-O</b>…) : le coach te dit surtout <b>pourquoi il est moins bon que le meilleur coup</b>, puis sa tactique et sa stratégie.</p>' +
       '<div class="coach-saisie"><input type="text" class="coach-input" maxlength="10" placeholder="ton coup" autocomplete="off" spellcheck="false"><button class="bouton principal coach-analyser">Analyser</button></div>' +
       '<div class="coach-resultat"></div></div>';
     let liste = null;
@@ -1398,48 +1398,91 @@
     const ra = repriseAvant(ctx);
     const secs = [];
 
-    // 1. le verdict
-    {
-      const v0 = vueDe({ dessin: [fCoup, estBest ? null : fBest].filter(Boolean) });
+    // ce qui sert à plusieurs parties
+    const PB = estBest ? P1 : jouer(P0, best.pv[0]);
+    const ideesDe = (u, s, n) => nettoyer(idees(P0, u, { mat1: s.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, n);
+    let id1 = ideesDe(c.uci, l.score, 3);
+    const fauxSacrifice = g >= 1 && id1.some((x) => x.notion === 'sacrifice');
+    if (fauxSacrifice) id1 = id1.filter((x) => x.notion !== 'sacrifice');
+    const pire = (P) => (P ? menaces(P.b, O).sort((a, b) => b.gain - a.gain)[0] : null);
+    const mL = pire(P1), mB = pire(PB);
+    // la menace adverse d'avant : parée ou non par un coup ?
+    let menaceAv = null;
+    if (D.menace && D.menace.pv[0]) {
+      const u = D.menace.pv[0], de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4));
+      if (P0.b[vers] && coul(P0.b[vers]) === S && see(Object.assign([], P0.b), de, vers) > 0) menaceAv = { de, vers };
+    }
+    const pare = (P) => !menaceAv || !P || !P.b[menaceAv.de] || coul(P.b[menaceAv.de]) !== O || !P.b[menaceAv.vers] || coul(P.b[menaceAv.vers]) !== S || see(P.b, menaceAv.de, menaceAv.vers) <= 0;
+    const finL = lire(s2[s2.length - 1] ? s2[s2.length - 1].fen : D.fen).b, finB = lire((sb[Math.min(s2.length, sb.length) - 1] || { fen: D.fen }).fen).b;
+    const bl = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finL, S), bb = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finB, S);
+    const dernierL = window.App.dernierCoupCases(c.uci);
+    const vueMenace = (m, P, fen, dernier) => vueDe({ fen, dernier, dessin: [{ de: nomCase(m.par), vers: nomCase(m.s), couleur: C_MENACE }] });
+
+    // 1. le verdict (meilleur coup) — sinon : POURQUOI il est moins bien que le meilleur (le cœur de l'explication)
+    if (estBest) {
+      const v0 = vueDe({ dessin: [fCoup].filter(Boolean) });
       let h = '<p class="coach-verdict ' + niv[3] + '"><b>' + c.san + ' : ' + niv[1] + '</b></p><ul class="coach-liste">';
-      h += li('<b>Évaluation</b> : ' + phraseScore(l.score, S) + (estBest ? '.' : ', contre ' + phraseScore(best.score, S) + ' avec <b>' + sanBest + '</b> (meilleur coup).'), v0);
-      if (!estBest) h += li('<b>Écart</b> : ' + (g >= 99 ? 'énorme (un mat ou une perte décisive)' : '<b>−' + nb(g) + '</b> (1,00 ≈ un pion)') + '. ' + niv[2]);
-      else h += li(niv[2]);
-      const rang = D.lignes.findIndex((x) => x.pv[0] === c.uci);
-      if (rang > 0) h += li('C’est le <b>' + (rang + 1) + 'e choix</b> du moteur parmi les conseils.');
+      h += li('<b>Évaluation</b> : ' + phraseScore(l.score, S) + '.', v0);
+      h += li(niv[2]);
+      if (D.lignes[1] && D.lignes[1].pv[0]) {
+        const s2b = fensSuite(ctx, D.lignes[1].pv.slice(0, 1));
+        if (s2b[0]) h += li('Le 2e choix, <b>' + s2b[0].san + '</b>, est moins bon de <b>' + nb(Math.max(0, ecart(best.score, D.lignes[1].score))) + '</b>.', vueDe({ dessin: [fCoup, flecheUci(D.lignes[1].pv[0], C_ADV, '2')].filter(Boolean) }));
+      }
       h += '</ul>';
       secs.push({ nom: '1. Verdict', html: h, vue: v0 });
+    } else {
+      const raisons = [];
+      const ajout = (t, v) => raisons.push(li(t, v));
+      // a. il laisse une pièce en prise (le meilleur, non)
+      if (mL && mL.gain >= 1 && (!mB || mB.gain < mL.gain)) ajout('⚠ <b>Il laisse ' + pieceEn(P1.b, mL.s) + ' en prise</b> : ' + court2(P1.b, mL.par) + ' peut ' + (typ(P1.b[mL.s]) === 'r' || typ(P1.b[mL.s]) === 'q' ? 'la' : 'le') + ' prendre (environ <b>' + mL.gain + ' point' + (mL.gain > 1 ? 's' : '') + '</b>)' + (mB ? '.' : '. Avec ' + sanBest + ', rien n’est en prise.'), vueMenace(mL, P1, s2[0] && s2[0].fen, dernierL));
+      // b. il ne pare pas la menace (le meilleur, si)
+      if (menaceAv && !pare(P1) && pare(PB)) ajout('⚠ <b>Il ne pare pas la menace</b> : ' + court2(P0.b, menaceAv.de) + ' peut toujours prendre en ' + nomCase(menaceAv.vers) + '. ' + sanBest + ', lui, la pare.', vueDe({ dessin: [{ de: nomCase(menaceAv.de), vers: nomCase(menaceAv.vers), couleur: C_MENACE }] }));
+      // c. la réponse qu'il permet à l'adversaire
+      if (s2[1] && g >= 0.25) {
+        const rep = P1 ? nettoyer(idees(P1, l.pv[1], { mat1: l.score.mate === -1, repriseCase: P1.prise ? P1.priseCase : null, repriseValeur: P1.prise ? V[P1.prise] : 0 }).idees, 1)[0] : null;
+        ajout('↩ <b>Il permet ' + s2[1].san + '</b> ' + (O === 'w' ? 'aux blancs' : 'aux noirs') + (rep ? ' : ' + court(rep.texte) : '') + (sb[1] ? '. Après ' + sanBest + ', la meilleure réponse serait seulement ' + sb[1].san : '') + '.',
+          vueDe({ fen: s2[1].fen, dernier: window.App.dernierCoupCases(l.pv[1]), dessin: rep ? recolorer(rep.dessin, C_MENACE) : [] }));
+      }
+      // d. ce que le meilleur fait et que ton coup ne fait pas
+      const idB = ideesDe(best.pv[0], best.score, 3).filter((x) => !id1.some((y) => y.notion === x.notion));
+      if (idB.length) ajout('✘ <b>Ce que ton coup ne fait pas</b> : avec ' + sanBest + ', ' + listeEt(idB.slice(0, 2).map((x) => court(x.texte))) + '.', vueDe({ dessin: [fBest].concat(idB[0].dessin).filter(Boolean) }));
+      // e. le matériel au bout des deux suites
+      if (bl.net < bb.net) ajout('⚖ <b>Matériel</b> : au bout des suites calculées, tu as <b>' + (bb.net - bl.net) + ' point' + (bb.net - bl.net > 1 ? 's' : '') + ' de moins</b> qu’avec ' + sanBest + '.', vueDe({ fen: s2[s2.length - 1] && s2[s2.length - 1].fen, dessin: [] }));
+      // f. la position : atouts que le meilleur obtient, défauts que ton coup crée
+      if (P1 && PB) {
+        const defaut = (x) => /mauvais|moins active|moins de matériel|L’adversaire <b>contrôle|plus loin du centre|plus passive/.test(x.moi);
+        const cleS = (x) => sansBalises(x.moi).slice(0, 40);
+        const stL = strategie(Object.assign({}, P1, { coup: P0.coup }), S).filter((x) => x.moi), stB = strategie(Object.assign({}, PB, { coup: P0.coup }), S).filter((x) => x.moi);
+        const crees = stL.filter((x) => defaut(x) && !stB.some((y) => cleS(y) === cleS(x)))[0];
+        const manques = stB.filter((x) => !defaut(x) && !stL.some((y) => cleS(y) === cleS(x)))[0];
+        if (crees) ajout('➖ <b>Défaut créé</b> (que ' + sanBest + ' évite) : ' + crees.moi, vueDe({ fen: s2[0] && s2[0].fen, dernier: dernierL, dessin: crees.dessin }));
+        if (manques) ajout('➕ <b>Atout manqué</b> (que ' + sanBest + ' obtient) : ' + manques.moi, vueDe({ dessin: [fBest].concat(manques.dessin).filter(Boolean) }));
+        const k0 = abriRoi(P0.b, S), kL = abriRoi(P1.b, S), kB = abriRoi(PB.b, S);
+        if (k0 && kL && kB && !finale(P0.b) && kL.bouclier.length < Math.min(k0.bouclier.length, kB.bouclier.length)) ajout('⚠ <b>Sécurité du roi</b> : ton coup affaiblit l’abri de ton roi, ' + sanBest + ' non.', vueDe({ dessin: carres(zoneRoi(P1.b, S), C_ROUGE) }));
+      }
+      // g. le plan
+      const planB = resumeLigne(P0, best.pv, S), planL = resumeLigne(P0, l.pv, S);
+      const seulB = planB.filter((f) => !planL.some((x) => x.k === f.k)).map((f) => f.t), seulL = planL.filter((f) => !planB.some((x) => x.k === f.k)).map((f) => f.t);
+      if (seulB.length) ajout('🧭 <b>Le plan</b> : ' + sanBest + ' cherche à ' + listeEt(seulB.slice(0, 2)) + (seulL.length ? ', alors que ' + c.san + ' préfère ' + listeEt(seulL.slice(0, 2)) : '') + '.');
+      // rien de visible : la différence est dans le calcul
+      if (!raisons.length) ajout(g < 0.1 ? '≈ La différence est <b>minime</b> : aucune pièce en prise, aucune menace ratée. Les deux coups mènent au même genre de position.' : '🔭 Pas de raison immédiate (ni pièce en prise, ni menace ratée) : la différence vient de la <b>suite</b>. Au bout du calcul, la position est ' + phraseScore(l.score, S) + ' contre ' + phraseScore(best.score, S) + ' avec ' + sanBest + '.', vueDe({ dessin: [fCoup, fBest].filter(Boolean) }));
+      const v0 = vueDe({ dessin: [fCoup, fBest].filter(Boolean) });
+      const h = '<p class="coach-verdict ' + niv[3] + '"><b>' + c.san + ' : ' + niv[1] + '</b> — ' + (g >= 99 ? 'énormément' : '<b>−' + nb(g) + '</b>') + ' par rapport à <b>' + sanBest + '</b> (le meilleur)</p>' +
+        '<ul class="coach-liste">' + raisons.map((r, i) => (i >= 4 ? r.replace('<li', '<li class="coach-opt"') : r)).join('') + '</ul>';
+      secs.push({ nom: '1. Pourquoi moins bien', html: h, vue: v0 });
     }
     // 2. la tactique : ce que le coup fait tout de suite, ce qu'il laisse, la réponse adverse
     {
       const items = [];
-      let id1 = nettoyer(idees(P0, c.uci, { mat1: l.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, 3);
-      // une « idée » de sacrifice qui perd : ce n'est pas un sacrifice, c'est une perte de matériel
-      if (g >= 1 && id1.some((x) => x.notion === 'sacrifice')) { id1 = id1.filter((x) => x.notion !== 'sacrifice'); items.push(li('✘ Ce n’est <b>pas un vrai sacrifice</b> : la suite ne rapporte rien, le matériel est simplement perdu.', vueDe({ dessin: [fCoup].filter(Boolean) }))); }
+      if (fauxSacrifice) items.push(li('✘ Ce n’est <b>pas un vrai sacrifice</b> : la suite ne rapporte rien, le matériel est simplement perdu.', vueDe({ dessin: [fCoup].filter(Boolean) })));
       if (id1.length) id1.forEach((x) => items.push(li('✔ ' + x.texte, vueDe({ dessin: [fCoup].concat(x.dessin).filter(Boolean) }))));
       else items.push(li('Pas d’effet tactique immédiat : ni prise, ni menace, ni échec. C’est un <b>coup de placement</b>.', vueDe({ dessin: [fCoup].filter(Boolean) })));
-      if (P1) {
-        // ce que le coup laisse en prise
-        const mO = menaces(P1.b, O).sort((a, b) => b.gain - a.gain)[0];
-        if (mO && mO.gain >= 1) items.push(li('⚠ Après ce coup, <b>' + pieceEn(P1.b, mO.s) + '</b> peut être ' + accord(typ(P1.b[mO.s]), 'pris') + ' (environ <b>' + mO.gain + ' point' + (mO.gain > 1 ? 's' : '') + '</b> perdus).', vueDe({ fen: s2[0] && s2[0].fen, dernier: window.App.dernierCoupCases(c.uci), dessin: [{ de: nomCase(mO.par), vers: nomCase(mO.s), couleur: C_MENACE }] })));
-        // la menace adverse d'avant : parée ou non ?
-        if (D.menace && D.menace.pv[0]) {
-          const u = D.menace.pv[0], de = lireCase(u.slice(0, 2)), vers = lireCase(u.slice(2, 4));
-          const avant = P0.b[vers] && coul(P0.b[vers]) === S ? see(Object.assign([], P0.b), de, vers) : 0;
-          if (avant > 0) {
-            const pare = !P1.b[de] || coul(P1.b[de]) !== O || !P1.b[vers] || coul(P1.b[vers]) !== S || see(P1.b, de, vers) <= 0;
-            items.push(li(pare ? '🛡 Il <b>pare la menace</b> adverse (' + court2(P0.b, de) + ' sur ' + nomCase(vers) + ').' : '⚠ Il <b>ne pare pas la menace</b> adverse : ' + court2(P0.b, de) + ' peut toujours prendre en ' + nomCase(vers) + '.', vueDe({ dessin: [{ de: nomCase(de), vers: nomCase(vers), couleur: pare ? C_DEF : C_MENACE }] })));
-          }
-        }
-      }
+      if (P1 && mL && mL.gain >= 1) items.push(li('⚠ Après ce coup, <b>' + pieceEn(P1.b, mL.s) + '</b> peut être ' + accord(typ(P1.b[mL.s]), 'pris') + ' (environ <b>' + mL.gain + ' point' + (mL.gain > 1 ? 's' : '') + '</b>).', vueMenace(mL, P1, s2[0] && s2[0].fen, dernierL)));
+      if (P1 && menaceAv) items.push(li(pare(P1) ? '🛡 Il <b>pare la menace</b> adverse (' + court2(P0.b, menaceAv.de) + ' sur ' + nomCase(menaceAv.vers) + ').' : '⚠ Il <b>ne pare pas la menace</b> adverse : ' + court2(P0.b, menaceAv.de) + ' peut toujours prendre en ' + nomCase(menaceAv.vers) + '.', vueDe({ dessin: [{ de: nomCase(menaceAv.de), vers: nomCase(menaceAv.vers), couleur: pare(P1) ? C_DEF : C_MENACE }] })));
       if (s2[1]) {
-        const Pa = P1;
-        const rep = Pa ? nettoyer(idees(Pa, l.pv[1], { mat1: l.score.mate === -1, repriseCase: Pa.prise ? Pa.priseCase : null, repriseValeur: Pa.prise ? V[Pa.prise] : 0 }).idees, 1)[0] : null;
+        const rep = P1 ? nettoyer(idees(P1, l.pv[1], { mat1: l.score.mate === -1, repriseCase: P1.prise ? P1.priseCase : null, repriseValeur: P1.prise ? V[P1.prise] : 0 }).idees, 1)[0] : null;
         items.push(li('↩ <b>Meilleure réponse ' + des(O) + '</b> : ' + s2[1].san + (rep ? ' — ' + court(rep.texte) : '') + '.', vueDe({ fen: s2[1].fen, dernier: window.App.dernierCoupCases(l.pv[1]), dessin: rep ? recolorer(rep.dessin, C_MENACE) : [] })));
       }
-      const finL = lire(s2[s2.length - 1] ? s2[s2.length - 1].fen : D.fen).b, finB = lire((sb[Math.min(s2.length, sb.length) - 1] || { fen: D.fen }).fen).b;
-      const bl = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finL, S), bb = bilanPieces(ra.fenAvant ? lire(ra.fenAvant).b : P0.b, finB, S);
-      if (bl.net !== bb.net && !estBest) items.push('<li class="coach-opt">' + ('⚖ <b>Matériel</b> au bout de la suite : ' + (bl.net < bb.net ? '<b>' + (bb.net - bl.net) + ' point' + (bb.net - bl.net > 1 ? 's' : '') + ' de moins</b>' : (bl.net - bb.net) + ' point' + (bl.net - bb.net > 1 ? 's' : '') + ' de plus') + ' qu’avec ' + sanBest + '.') + '</li>');
       secs.push({ nom: '2. Tactique', html: '<ul class="coach-liste">' + items.slice(0, 5).join('') + '</ul>', vue: vues.length > 1 ? 1 : 0 });
     }
     // 3. la stratégie : ce que le coup change dans la position, et le plan qu'il suit
@@ -1447,7 +1490,7 @@
       const items = [], v0 = vues.length;
       if (P1) {
         const ch = changements(P0.b, P1.b, S).filter((t) => !/^<b>(Matériel|Échanges)/.test(t));
-        ch.slice(0, 2).forEach((t) => items.push(li('• ' + t, vueDe({ fen: s2[0] && s2[0].fen, dernier: window.App.dernierCoupCases(c.uci), dessin: [] }))));
+        ch.slice(0, 2).forEach((t) => items.push(li('• ' + t, vueDe({ fen: s2[0] && s2[0].fen, dernier: dernierL, dessin: [] }))));
         const k0 = abriRoi(P0.b, S), k1 = abriRoi(P1.b, S);
         if (k0 && k1 && !finale(P0.b) && k1.bouclier.length < k0.bouclier.length && typ(P0.b[lireCase(c.uci.slice(0, 2))]) === 'p') items.push(li('⚠ <b>Sécurité du roi</b> : ce pion protégeait ton roi ; le bouger affaiblit son abri.', vueDe({ dessin: carres(zoneRoi(P1.b, S), C_ROUGE) })));
         const avant = strategie(P0, S).filter((x) => x.moi), apres = strategie(Object.assign({}, P1, { coup: P0.coup }), S).filter((x) => x.moi);
@@ -1463,18 +1506,18 @@
       if (!items.length) items.push(li('Il ne change presque rien à la structure de la position : ni les pions, ni la sécurité des rois, ni l’activité des pièces.'));
       secs.push({ nom: '3. Stratégie', html: '<ul class="coach-liste">' + items.slice(0, 5).join('') + '</ul>', vue: vues.length > v0 ? v0 : 0 });
     }
-    // 4. la comparaison avec le meilleur coup
+    // 4. les deux suites côte à côte, et la leçon
     if (!estBest) {
-      const planB = resumeLigne(P0, best.pv, S), planL = resumeLigne(P0, l.pv, S);
-      const seulB = planB.filter((f) => !planL.some((x) => x.k === f.k)).map((f) => f.t), seulL = planL.filter((f) => !planB.some((x) => x.k === f.k)).map((f) => f.t);
       const items = [];
-      const v0 = vueDe({ dessin: [fCoup, fBest].filter(Boolean) });
-      items.push(li('<b>Le meilleur coup était ' + sanBest + '</b> (' + phraseScore(best.score, S) + ').', v0));
-      const idB = nettoyer(idees(P0, best.pv[0], { mat1: best.score.mate === 1, repriseCase: ra.repriseCase, repriseValeur: ra.repriseValeur }).idees, 2);
-      if (idB.length) items.push(li('Ce que ' + sanBest + ' fait de plus : ' + listeEt(idB.map((x) => court(x.texte))) + '.', vueDe({ dessin: [fBest].concat(idB[0].dessin).filter(Boolean) })));
-      if (seulB.length || seulL.length) items.push(li((seulB.length ? sanBest + ' cherche à ' + listeEt(seulB.slice(0, 2)) : sanBest + ' suit le même plan') + (seulL.length ? ', alors que ' + c.san + ' préfère ' + listeEt(seulL.slice(0, 2)) : '') + '.'));
+      const finS = (s) => s[s.length - 1];
+      const vL = vueDe({ fen: finS(s2) && finS(s2).fen, dernier: finS(s2) && window.App.dernierCoupCases(finS(s2).uci), dessin: [] });
+      const vB = vueDe({ fen: finS(sb) && finS(sb).fen, dernier: finS(sb) && window.App.dernierCoupCases(finS(sb).uci), dessin: [] });
+      items.push(li('✍ <b>Ta suite</b> : ' + s2.slice(0, 6).map((x) => x.san).join(' ') + ' → ' + phraseScore(l.score, S) + '.', vL));
+      items.push(li('★ <b>La meilleure</b> : ' + sb.slice(0, 6).map((x) => x.san).join(' ') + ' → ' + phraseScore(best.score, S) + '.', vB));
+      const rang = D.lignes.findIndex((x) => x.pv[0] === c.uci);
+      items.push(li(niv[2] + (rang > 0 ? ' C’est le <b>' + (rang + 1) + 'e choix</b> du moteur.' : '')));
       items.push(li('💡 <b>À retenir</b> : ' + (g >= 1.5 ? 'avant de jouer, vérifie toujours ce que l’adversaire peut prendre ou menacer après ton coup.' : g >= 0.3 ? 'cherche le coup qui fait le plus de choses à la fois (développer, menacer, améliorer la pire pièce).' : 'les deux coups se valent presque : choisis celui dont tu comprends le mieux le plan.')));
-      secs.push({ nom: '4. Comparaison', html: '<ul class="coach-liste">' + items.join('') + '</ul>', vue: v0 });
+      secs.push({ nom: '4. Les deux suites', html: '<ul class="coach-liste">' + items.join('') + '</ul>', vue: vB });
     }
     return secs;
   }

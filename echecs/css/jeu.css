@@ -15,6 +15,12 @@
   --case: 64px;
 }
 * { box-sizing: border-box; }
+/* barres de défilement foncées et discrètes */
+* { scrollbar-width: thin; scrollbar-color: #3a3f47 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #3a3f47; border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: #4a505a; }
 html, body { margin: 0; height: 100%; }
 body {
   background: radial-gradient(ellipse at 30% 0%, #262a31 0%, var(--fond) 60%);
@@ -731,3 +737,6 @@ body.lave-claire .case.claire:not(.echec), body.lave-foncee .case.foncee:not(.ec
 .coach-verdict.moyen { border-left-color: #f0a03c; }
 .coach-verdict.mauvais { border-left-color: #eb4646; }
 .coach-masque { display: none !important; }
+/* bilan : les 3 meilleurs coups remplacent l’onglet tant qu’ils sont affichés */
+#btn-bilan-conseils { flex: 2.4; font-size: 17px; white-space: nowrap; }
+.panneau-bilan.avec-conseils .bilan-onglet { display: none !important; }
