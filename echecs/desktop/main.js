@@ -123,5 +123,7 @@ async function creer() {
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
-app.whenReady().then(creer);
+// la copie temporaire de la mémoire du navigateur (verrouillée pendant la reprise) est effacée au lancement suivant
+function nettoyer() { for (const i of [0, 1]) { try { fs.rmSync(path.join(app.getPath('userData'), 'Partitions', 'reprise' + i), { recursive: true, force: true }); } catch (e) { } } }
+app.whenReady().then(() => { if (fs.existsSync(MARQUE())) nettoyer(); creer(); });
 app.on('window-all-closed', () => app.quit());
